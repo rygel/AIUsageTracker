@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIConsumptionTracker.Core.Services;
 
-public class ProviderManager
+public class ProviderManager : IDisposable
 {
     private readonly IEnumerable<IProviderService> _providers;
     private readonly IConfigLoader _configLoader;
@@ -21,25 +21,43 @@ public class ProviderManager
     }
 
     private Task<List<ProviderUsage>>? _refreshTask;
-    private readonly object _refreshLock = new();
+    private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
 
-    public Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
+    public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
     {
-        lock (_refreshLock)
+        await _refreshSemaphore.WaitAsync();
+        var semaphoreReleased = false;
+        try
         {
             if (_refreshTask != null && !_refreshTask.IsCompleted)
             {
                 _logger.LogDebug("Joining existing refresh task...");
-                return _refreshTask;
+                var existingTask = _refreshTask;
+                _refreshSemaphore.Release();
+                semaphoreReleased = true;
+                return await existingTask;
             }
 
             if (!forceRefresh && _lastUsages.Count > 0)
             {
-                return Task.FromResult(_lastUsages);
+                _refreshSemaphore.Release();
+                semaphoreReleased = true;
+                return _lastUsages;
             }
 
             _refreshTask = FetchAllUsageInternal();
-            return _refreshTask;
+            var currentTask = _refreshTask;
+            _refreshSemaphore.Release();
+            semaphoreReleased = true;
+            return await currentTask;
+        }
+        finally
+        {
+            // Release semaphore if it hasn't been released yet (handles exception cases)
+            if (!semaphoreReleased)
+            {
+                _refreshSemaphore.Release();
+            }
         }
     }
 
@@ -138,6 +156,20 @@ public class ProviderManager
         results.AddRange(nestedResults.SelectMany(x => x));
         _lastUsages = results;
         return results;
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _refreshSemaphore.Dispose();
+        }
     }
 }
 
