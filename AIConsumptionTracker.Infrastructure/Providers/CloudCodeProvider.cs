@@ -78,7 +78,9 @@ public class CloudCodeProvider : IProviderService
             IsAvailable = isConnected,
             UsagePercentage = 0,
             IsQuotaBased = false,
+            PaymentType = PaymentType.UsageBased,
             Description = message,
+
             UsageUnit = "Status"
         };
     }

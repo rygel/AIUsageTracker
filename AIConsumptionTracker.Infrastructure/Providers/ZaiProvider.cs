@@ -98,7 +98,9 @@ public class ZaiProvider : IProviderService
             CostLimit = 100,
             UsageUnit = "Quota %",
             IsQuotaBased = true, 
+            PaymentType = PaymentType.Quota,
             Description = (string.IsNullOrEmpty(detailInfo) ? $"{usedPercent:F1}% utilized" : detailInfo) + zReset,
+
             NextResetTime = resetDt.ToLocalTime()
         };
     }

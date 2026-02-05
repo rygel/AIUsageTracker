@@ -117,8 +117,10 @@ public class OpenRouterProvider : IProviderService
             UsagePercentage = Math.Min(utilization, 100),
             CostUsed = used,
             CostLimit = total,
+            PaymentType = PaymentType.Credits,
             UsageUnit = "Credits",
             IsQuotaBased = true,
+
             IsAvailable = true,
             Description = $"{remaining:F2} Credits Remaining{mainReset}",
             NextResetTime = spendingLimitDetail?.NextResetTime,

@@ -266,7 +266,9 @@ public class AntigravityProvider : IProviderService
             CostLimit = 100,
             UsageUnit = "Quota %",
             IsQuotaBased = true,
+            PaymentType = PaymentType.Quota,
             Description = $"{usedPctTotal:F1}% Used",
+
             Details = sortedDetails,
             AccountName = data.UserStatus?.Email ?? ""
         };

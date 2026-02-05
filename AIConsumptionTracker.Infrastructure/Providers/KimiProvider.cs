@@ -119,8 +119,10 @@ public class KimiProvider : IProviderService
                 CostLimit = limit,
                 UsageUnit = "Points", 
                 IsQuotaBased = true,
+                PaymentType = PaymentType.Quota,
                 IsAvailable = true,
                 Description = description,
+
                 Details = details,
                 NextResetTime = soonestResetDt
             };

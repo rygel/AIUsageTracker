@@ -8,6 +8,10 @@ on:
 jobs:
   publish:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        runtime: [win-x64, win-x86, linux-x64, osx-x64, osx-arm64]
+    
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,29 +23,32 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Install Inno Setup
+        if: startsWith(matrix.runtime, 'win-')
         run: choco install innosetup
         shell: pwsh
 
       - name: Build and Package
-        run: .\scripts\publish-app.ps1
+        run: .\scripts\publish-app.ps1 -Runtime ${{ matrix.runtime }}
         shell: pwsh
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/AIConsumptionTracker.zip
-            dist/AIConsumptionTracker_Setup_*.exe
+            dist/AIConsumptionTracker_v*_${{ matrix.runtime }}.zip
+            dist/AIConsumptionTracker_Setup_v*_${{ matrix.runtime }}.exe
           draft: false
           prerelease: false
           generate_release_notes: true
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Submit to Winget
+        if: matrix.runtime == 'win-x64'
         uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: AIConsumption.Tracker
-          installers-regex: '_Setup\.exe$'
+          installers-regex: '_win-x64\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
 

@@ -7,6 +7,8 @@ public class ProviderUsage
     public double UsagePercentage { get; set; }
     public double CostUsed { get; set; }
     public double CostLimit { get; set; }
+    public PaymentType PaymentType { get; set; } = PaymentType.UsageBased;
+
     public string UsageUnit { get; set; } = "USD"; // USD, Tokens, etc.
     public bool IsQuotaBased { get; set; }
     public bool IsAvailable { get; set; } = true;

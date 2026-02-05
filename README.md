@@ -1,4 +1,9 @@
-# AI Consumption Tracker
+# <img src="AIConsumptionTracker.UI/Assets/app_icon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
+
+![Version](https://img.shields.io/badge/version-v1.2.0-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20|%20macOS-lightgrey)
+![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
 

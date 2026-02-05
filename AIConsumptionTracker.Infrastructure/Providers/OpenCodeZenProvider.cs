@@ -123,7 +123,9 @@ public class OpenCodeZenProvider : IProviderService
             CostLimit = 0,
             UsageUnit = "USD",
             IsQuotaBased = false,
+            PaymentType = PaymentType.UsageBased,
             IsAvailable = true,
+
             Description = $"${totalCost:F2} (7 days)"
         };
     }

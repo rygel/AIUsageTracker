@@ -113,7 +113,9 @@ public class DeepSeekProvider : IProviderService
                 CostLimit = 0,
                 UsageUnit = "Currency",
                 IsQuotaBased = false,
+                PaymentType = PaymentType.Credits,
                 Description = $"Balance: {balanceText}"
+
             };
         }
         catch (Exception ex)
