@@ -13,6 +13,10 @@ jobs:
         with:
           fetch-depth: 0
 
+    permissions:
+      contents: write
+
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -31,7 +35,7 @@ jobs:
         with:
           files: |
             dist/AIConsumptionTracker.zip
-            dist/AIConsumptionTracker_Setup.exe
+            dist/AIConsumptionTracker_Setup_*.exe
           draft: false
           prerelease: false
           generate_release_notes: true
