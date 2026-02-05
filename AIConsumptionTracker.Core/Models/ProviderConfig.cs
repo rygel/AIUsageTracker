@@ -21,7 +21,7 @@ public class ProviderConfig
     public string Type { get; set; } = "pay-as-you-go"; // "quota-based" or "pay-as-you-go"
 
     [JsonPropertyName("payment_type")]
-    [JsonConverter(typeof(JsonStringEnumConverter))]
+    [JsonConverter(typeof(JsonStringEnumConverter<PaymentType>))]
     public PaymentType PaymentType { get; set; } = PaymentType.UsageBased;
 
     [JsonPropertyName("limit")]

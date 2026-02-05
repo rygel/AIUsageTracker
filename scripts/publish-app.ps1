@@ -24,15 +24,19 @@ Write-Host "Cleaning dist folder for $Runtime..." -ForegroundColor Cyan
 if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
-Write-Host "Publishing $projectName for $Runtime (SingleFile, FrameworkDependent)..." -ForegroundColor Cyan
+Write-Host "Publishing $projectName for $Runtime..." -ForegroundColor Cyan
+$aotParams = if (-not $isWinPlatform) { "-p:PublishAot=true" } else { "" }
+$selfContained = if (-not $isWinPlatform) { "true" } else { "false" }
+
 dotnet publish $projectPath `
     -c Release `
     -r $Runtime `
-    --self-contained false `
+    --self-contained $selfContained `
     -o $publishDir `
     -p:PublishSingleFile=true `
     -p:PublishReadyToRun=true `
-    -p:DebugType=None
+    -p:DebugType=None `
+    $aotParams
 
 Write-Host "Copying documentation..." -ForegroundColor Cyan
 Copy-Item ".\README.md" -Destination $publishDir

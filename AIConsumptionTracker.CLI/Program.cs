@@ -100,8 +100,7 @@ class Program
 
         if (json)
         {
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            Console.WriteLine(JsonSerializer.Serialize(usage, options));
+            Console.WriteLine(JsonSerializer.Serialize(usage, AppJsonContext.Default.ListProviderUsage));
         }
         else
         {
@@ -163,8 +162,7 @@ class Program
         var configs = await loader.LoadConfigAsync();
         if (json)
         {
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            Console.WriteLine(JsonSerializer.Serialize(configs, options));
+            Console.WriteLine(JsonSerializer.Serialize(configs, AppJsonContext.Default.ListProviderConfig));
         }
         else
         {
