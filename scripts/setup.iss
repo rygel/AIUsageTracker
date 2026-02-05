@@ -1,6 +1,9 @@
 ; AI Consumption Tracker - Inno Setup Script
 
 #define MyAppVersion "1.2.0"
+#ifndef SourcePath
+  #define SourcePath "..\dist\publish-win-x64"
+#endif
 
 [Setup]
 AppId={{D3B3E8A1-8E9D-4F6B-A2B3-7C8D9E0F1A2B}
@@ -30,7 +33,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startup"; Description: "Run at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\publish-single\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourcePath}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.UI.exe"

@@ -53,7 +53,7 @@ if ($isWinPlatform) {
         # Pass the architecture to the ISS script if needed, or rely on internal logic
         # For now, we assume the ISS handles x64/x86 via setup.iss modifications if needed
         # But we can pass architecture as a param to ISCC if we update setup.iss
-        & $iscc "scripts\setup.iss" /Q
+        & $iscc "scripts\setup.iss" /Q "/DSourcePath=..\dist\publish-$Runtime"
         if ($LASTEXITCODE -eq 0) {
             # Move and rename the created setup to include architecture
             $setupDir = ".\dist"
