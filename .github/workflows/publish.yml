@@ -35,8 +35,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/AIConsumptionTracker_${{ matrix.runtime }}.zip
-            dist/AIConsumptionTracker_Setup_*_${{ matrix.runtime }}.exe
+            dist/AIConsumptionTracker_v*_${{ matrix.runtime }}.zip
+            dist/AIConsumptionTracker_Setup_v*_${{ matrix.runtime }}.exe
           draft: false
           prerelease: false
           generate_release_notes: true

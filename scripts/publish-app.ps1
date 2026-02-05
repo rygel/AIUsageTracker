@@ -9,7 +9,16 @@ $isWinPlatform = $Runtime.StartsWith("win-")
 $projectName = if ($isWinPlatform) { "AIConsumptionTracker.UI" } else { "AIConsumptionTracker.CLI" }
 $projectPath = if ($isWinPlatform) { ".\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj" } else { ".\AIConsumptionTracker.CLI\AIConsumptionTracker.CLI.csproj" }
 $publishDir = ".\dist\publish-$Runtime"
-$zipPath = ".\dist\AIConsumptionTracker_$Runtime.zip"
+
+# Extract version from project file
+$projectContent = Get-Content $projectPath -Raw
+if ($projectContent -match "<Version>(.*?)</Version>") {
+    $version = $matches[1]
+} else {
+    $version = "unknown"
+}
+
+$zipPath = ".\dist\AIConsumptionTracker_v$version`_$Runtime.zip"
 
 Write-Host "Cleaning dist folder for $Runtime..." -ForegroundColor Cyan
 if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
@@ -57,9 +66,14 @@ if ($isWinPlatform) {
         if ($LASTEXITCODE -eq 0) {
             # Move and rename the created setup to include architecture
             $setupDir = ".\dist"
-            $setupFile = Get-ChildItem "$setupDir\AIConsumptionTracker_Setup_v*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            $setupFile = Get-ChildItem "$setupDir\AIConsumptionTracker_Setup_v$version.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            if (!$setupFile) {
+                # Fallback if v-prefix is missing in ISS but we expect it
+                $setupFile = Get-ChildItem "$setupDir\AIConsumptionTracker_Setup_*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+            }
+            
             if ($setupFile) {
-                $newName = $setupFile.Name.Replace(".exe", "_$Runtime.exe")
+                $newName = "AIConsumptionTracker_Setup_v$version`_$Runtime.exe"
                 Rename-Item $setupFile.FullName -NewName $newName
                 Write-Host "Installer created successfully: $newName" -ForegroundColor Green
             }
