@@ -1,6 +1,13 @@
 using System.Text.Json.Serialization;
 
 namespace AIConsumptionTracker.Core.Models;
+ 
+public enum PaymentType
+{
+    UsageBased, // Postpaid (Spent X / Limit Y)
+    Credits,    // Prepaid (Remaining X)
+    Quota       // Recurring (Used X / Limit Y)
+}
 
 public class ProviderConfig
 {
@@ -12,6 +19,10 @@ public class ProviderConfig
     
     [JsonPropertyName("type")]
     public string Type { get; set; } = "pay-as-you-go"; // "quota-based" or "pay-as-you-go"
+
+    [JsonPropertyName("payment_type")]
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public PaymentType PaymentType { get; set; } = PaymentType.UsageBased;
 
     [JsonPropertyName("limit")]
     public double? Limit { get; set; } // For cost tracking

@@ -30,6 +30,8 @@ public class GeminiProvider : IProviderService
                  ProviderId = ProviderId,
                  ProviderName = "Gemini CLI",
                  IsAvailable = false,
+                 IsQuotaBased = false, // Added based on instruction
+                 PaymentType = PaymentType.Credits, // Added based on instruction
                  Description = "No Gemini accounts found"
              };
         }
@@ -113,6 +115,7 @@ public class GeminiProvider : IProviderService
                     Used = $"{used:F1}%", 
                     Description = $"{bucket.RemainingFraction:P1} remaining{resetStr}",
                     NextResetTime = itemResetDt
+
                 });
             }
         }
@@ -145,7 +148,9 @@ public class GeminiProvider : IProviderService
             CostLimit = 100,
             UsageUnit = "Quota %",
             IsQuotaBased = true,
+            PaymentType = PaymentType.Quota,
             AccountName = string.Join(", ", accounts.Accounts.Select(a => a.Email)),
+
             Description = $"{usedPercentage:F1}% Used{mainResetStr}",
             NextResetTime = soonestResetDt,
             Details = details

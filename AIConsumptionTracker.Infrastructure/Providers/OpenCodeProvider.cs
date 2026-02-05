@@ -80,7 +80,9 @@ public class OpenCodeProvider : IProviderService
             CostLimit = total,
             UsageUnit = "Credits",
             IsQuotaBased = false, // Pay as you go nominally, but acts like credit consumption
+            PaymentType = PaymentType.Credits,
             Description = $"{used:F2} / {total:F2} credits"
+
         };
     }
 

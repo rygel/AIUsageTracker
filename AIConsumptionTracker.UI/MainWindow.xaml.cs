@@ -208,7 +208,28 @@ namespace AIConsumptionTracker.UI
                 return;
             }
 
-            foreach (var usage in filteredUsages)
+            var planItems = filteredUsages.Where(u => u.PaymentType == PaymentType.Quota).ToList();
+            var payGoItems = filteredUsages.Where(u => u.PaymentType != PaymentType.Quota).ToList();
+
+            if (planItems.Any())
+            {
+                ProvidersList.Children.Add(CreateGroupHeader("Plans & Quotas", Brushes.DeepSkyBlue));
+                RenderGroup(planItems);
+            }
+
+            if (payGoItems.Any())
+            {
+                // Add a bit of spacer before the next group if planItems existed
+                if (planItems.Any()) ProvidersList.Children.Add(new Border { Height = 12 });
+                
+                ProvidersList.Children.Add(CreateGroupHeader("Pay As You Go", Brushes.MediumSeaGreen));
+                RenderGroup(payGoItems);
+            }
+        }
+
+        private void RenderGroup(List<ProviderUsage> groupUsages)
+        {
+            foreach (var usage in groupUsages)
             {
                 // Render Parent
                 if (_preferences.CompactMode) ProvidersList.Children.Add(CreateCompactItem(usage));
@@ -232,7 +253,8 @@ namespace AIConsumptionTracker.UI
                             IsQuotaBased = true, // Treat as quota bar usually
                             IsAvailable = true,
                             AccountName = "", // Don't repeat account
-                            NextResetTime = detail.NextResetTime
+                            NextResetTime = detail.NextResetTime,
+                            PaymentType = usage.PaymentType // Inherit for rendering logic
                         };
 
                         if (_preferences.CompactMode) ProvidersList.Children.Add(CreateCompactItem(childUsage, isChild: true));
@@ -241,6 +263,39 @@ namespace AIConsumptionTracker.UI
                 }
             }
         }
+
+        private UIElement CreateGroupHeader(string title, Brush accent)
+        {
+            var grid = new Grid { Margin = new Thickness(0, 5, 0, 10) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var text = new TextBlock
+            {
+                Text = title.ToUpper(),
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Foreground = accent,
+                Margin = new Thickness(0, 0, 10, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Opacity = 0.8
+            };
+
+            var line = new Border
+            {
+                Height = 1,
+                Background = accent,
+                Opacity = 0.2,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            grid.Children.Add(text);
+            Grid.SetColumn(line, 1);
+            grid.Children.Add(line);
+
+            return grid;
+        }
+
 
         private UIElement CreateCompactItem(ProviderUsage usage, bool isChild = false)
         {
@@ -327,6 +382,18 @@ namespace AIConsumptionTracker.UI
             else 
             { 
                 statusText = usage.Description;
+                
+                // Tailor description based on PaymentType if needed
+                if (usage.PaymentType == PaymentType.Credits)
+                {
+                    var remaining = usage.CostLimit - usage.CostUsed;
+                    statusText = $"{remaining:F2} Rem";
+                }
+                else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+                {
+                    statusText = $"${usage.CostUsed:F2} / ${usage.CostLimit:F2}";
+                }
+
                 var rIdx = statusText.IndexOf("(Resets:");
                 if (rIdx >= 0)
                 {
@@ -529,6 +596,18 @@ namespace AIConsumptionTracker.UI
 
             // Details Text (The tokens/credits/cost)
             var detailText = usage.Description;
+
+            // Tailor description based on PaymentType
+            if (usage.PaymentType == PaymentType.Credits)
+            {
+                var remaining = usage.CostLimit - usage.CostUsed;
+                detailText = $"{remaining:F2} {usage.UsageUnit} Remaining";
+            }
+            else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+            {
+                detailText = $"Spent: ${usage.CostUsed:F2} / Limit: ${usage.CostLimit:F2}";
+            }
+
             string? resetTextFromDetail = null;
             DateTime? detailResetTime = usage.NextResetTime;
             if (!string.IsNullOrEmpty(detailText))

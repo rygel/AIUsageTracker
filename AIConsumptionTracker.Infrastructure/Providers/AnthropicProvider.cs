@@ -46,7 +46,9 @@ public class AnthropicProvider : IProviderService
             IsAvailable = true,
             UsagePercentage = 0,
             IsQuotaBased = false,
+            PaymentType = PaymentType.UsageBased,
             Description = "Connected (Check Dashboard)",
+
              UsageUnit = "Status"
         };
     }

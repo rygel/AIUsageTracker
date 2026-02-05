@@ -151,6 +151,8 @@ public class GenericPayAsYouGoProvider : IProviderService
 
         double total = 0;
         double used = 0;
+        PaymentType paymentType = PaymentType.UsageBased;
+
 
         try
         {
@@ -160,6 +162,7 @@ public class GenericPayAsYouGoProvider : IProviderService
             {
                 total = data.Data.TotalCredits;
                 used = data.Data.UsedCredits;
+                paymentType = PaymentType.Credits;
             }
             else
             {
@@ -169,6 +172,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                 {
                     total = synthetic.Subscription.Limit;
                     used = synthetic.Subscription.Requests;
+                    paymentType = PaymentType.Quota;
                 }
                 else
                 {
@@ -176,14 +180,9 @@ public class GenericPayAsYouGoProvider : IProviderService
                     var kimi = JsonSerializer.Deserialize<KimiResponse>(responseString);
                     if (kimi?.Data != null)
                     {
-                        // Kimi returns balance, not usage. 
-                        // Let's treat available_balance as Remaining (Limit), and Used as 0. 
-                        // Usage percentage will be 0% (since we haven't used any of the *current* balance).
-                        // Or we could invert it if we knew the top-up amount.
-                        // For generic display, "Remaining" is usually Total - Used.
-                        // Here Total = Balance, Used = 0.
                         total = kimi.Data.AvailableBalance;
                         used = 0; 
+                        paymentType = PaymentType.Credits;
                     }
                     else
                     {
@@ -191,10 +190,9 @@ public class GenericPayAsYouGoProvider : IProviderService
                         var minimax = JsonSerializer.Deserialize<MinimaxResponse>(responseString);
                         if (minimax?.Usage != null)
                         {
-                            // Minimax might return "tokens_used" or similar.
                             used = minimax.Usage.TokensUsed;
-                            // Check if they give a limit? If not, assume pay-as-you-go infinite or 0 limit
                             total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0; 
+                            paymentType = PaymentType.UsageBased;
                         }
                         else 
                         {
@@ -203,7 +201,8 @@ public class GenericPayAsYouGoProvider : IProviderService
                             if (xiaomi?.Data != null)
                             {
                                 total = xiaomi.Data.Balance;
-                                used = 0; // Balance model usually means we have X left.
+                                used = 0;
+                                paymentType = PaymentType.Credits;
                             }
                             else
                             {
@@ -213,6 +212,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                                 {
                                     total = kilo.Data.TotalCredits;
                                     used = kilo.Data.UsedCredits;
+                                    paymentType = PaymentType.Credits;
                                 }
                                 else
                                 {
@@ -227,13 +227,14 @@ public class GenericPayAsYouGoProvider : IProviderService
         catch (JsonException)
         {
              // Try Synthetic format as fallback in catch block if first failed hard
-             try 
+            try 
              {
                 var synthetic = JsonSerializer.Deserialize<SyntheticResponse>(responseString);
                 if (synthetic?.Subscription != null)
                 {
                     total = synthetic.Subscription.Limit;
                     used = synthetic.Subscription.Requests;
+                    paymentType = PaymentType.Quota;
                 }
                 else
                 {
@@ -243,6 +244,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                      {
                         total = kimi.Data.AvailableBalance;
                         used = 0;
+                        paymentType = PaymentType.Credits;
                      }
                      else
                      {
@@ -285,7 +287,9 @@ public class GenericPayAsYouGoProvider : IProviderService
             UsagePercentage = Math.Min(utilization, 100),
             CostUsed = used,
             CostLimit = total,
+            PaymentType = paymentType,
             UsageUnit = "Credits",
+
             IsQuotaBased = false,
             Description = $"{used:F2} / {total:F2} credits{resetStr}",
             NextResetTime = nextResetTime
