@@ -7,12 +7,25 @@ using AIConsumptionTracker.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace AIConsumptionTracker.CLI;
 
 class Program
 {
     static async Task Main(string[] args)
+    {
+        try 
+        {
+            await Run(args);
+        }
+        finally
+        {
+            Process.GetCurrentProcess().Kill();
+        }
+    }
+
+    static async Task Run(string[] args)
     {
         if (args.Length == 0)
         {

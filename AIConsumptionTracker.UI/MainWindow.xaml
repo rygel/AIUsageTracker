@@ -103,6 +103,21 @@
                                   Checked="Compact_Checked"
                                   Unchecked="Compact_Checked"/>
 
+                        <ToggleButton x:Name="PrivacyBtn" Click="PrivacyBtn_Click" Margin="0,0,10,0" ToolTip="Privacy Mode" Width="32" Height="30" Background="#444444" Foreground="White" BorderThickness="0">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="5">
+                                        <TextBlock x:Name="Icon" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="Icon" Property="Foreground" Value="#00CC6A"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+
                         <Button x:Name="RefreshBtn" Click="RefreshBtn_Click" Margin="0,0,10,0" ToolTip="Refresh Data" Width="32" Height="30">
                             <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                         </Button>

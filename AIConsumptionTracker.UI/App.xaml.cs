@@ -12,6 +12,7 @@ using AIConsumptionTracker.Infrastructure.Helpers;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Diagnostics;
 
 namespace AIConsumptionTracker.UI
 {
@@ -323,6 +324,9 @@ namespace AIConsumptionTracker.UI
                 _host.Dispose();
             }
             base.OnExit(e);
+            
+            // Force kill to prevent zombie processes (threads, locked files etc)
+            Process.GetCurrentProcess().Kill();
         }
     }
 }
