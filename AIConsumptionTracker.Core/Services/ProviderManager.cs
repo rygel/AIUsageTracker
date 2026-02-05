@@ -86,16 +86,17 @@ public class ProviderManager
                 try
                 {
                     _logger.LogDebug($"Fetching usage for provider: {config.ProviderId}");
-                    var usage = await provider.GetUsageAsync(config);
-                    usage.AuthSource = config.AuthSource; // Propagate source
-                    _logger.LogDebug($"Success for {config.ProviderId}: {usage.Description}");
-                    return usage;
+                    var usages = await provider.GetUsageAsync(config);
+                    foreach(var u in usages) u.AuthSource = config.AuthSource;
+                    
+                    _logger.LogDebug($"Success for {config.ProviderId}: {usages.Count()} items");
+                    return usages;
                 }
                 catch (ArgumentException ex)
                 {
                      // Missing API key or configuration issue -> Hide from default view
                      _logger.LogWarning($"Skipping {config.ProviderId}: {ex.Message}");
-                     return new ProviderUsage
+                     return new[] { new ProviderUsage
                     {
                         ProviderId = config.ProviderId,
                         ProviderName = config.ProviderId,
@@ -103,12 +104,12 @@ public class ProviderManager
                         CostUsed = 0,
                         UsagePercentage = 0,
                         IsAvailable = false 
-                    };
+                    }};
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"Failed to fetch usage for {config.ProviderId}");
-                     return new ProviderUsage
+                     return new[] { new ProviderUsage
                     {
                         ProviderId = config.ProviderId,
                         ProviderName = config.ProviderId,
@@ -116,12 +117,12 @@ public class ProviderManager
                         CostUsed = 0,
                         UsagePercentage = 0,
                         IsAvailable = true // Keep visible but show error for other failures
-                    };
+                    }};
                 }
             }
             
             // Generic fallback for any provider found in config
-            return new ProviderUsage 
+            return new[] { new ProviderUsage 
             { 
                 ProviderId = config.ProviderId, 
                 ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
@@ -130,10 +131,11 @@ public class ProviderManager
                 UsagePercentage = 0,
                 UsageUnit = "USD",
                 IsQuotaBased = false
-            };
+            }};
         });
 
-        results.AddRange(await Task.WhenAll(tasks));
+        var nestedResults = await Task.WhenAll(tasks);
+        results.AddRange(nestedResults.SelectMany(x => x));
         _lastUsages = results;
         return results;
     }

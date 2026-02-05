@@ -15,7 +15,7 @@ public class OpenCodeProvider : IProviderService
         _httpClient = httpClient;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -38,7 +38,7 @@ public class OpenCodeProvider : IProviderService
         {
              // API endpoint exists but returns "Not Found" text for some keys/situations
              // Return a safe "Not Available" state instead of crashing
-             return new ProviderUsage
+             return new[] { new ProviderUsage
              {
                  ProviderId = ProviderId,
                  ProviderName = "OpenCode",
@@ -49,7 +49,7 @@ public class OpenCodeProvider : IProviderService
                  IsQuotaBased = false,
                  IsAvailable = false,
                  Description = "Service Unavailable"
-             };
+             }};
         }
 
         OpenCodeCreditsResponse? data;
@@ -71,7 +71,7 @@ public class OpenCodeProvider : IProviderService
         var used = data.Data.UsedCredits;
         var utilization = total > 0 ? (used / total) * 100.0 : 0;
 
-        return new ProviderUsage
+        return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = "OpenCode",
@@ -83,7 +83,7 @@ public class OpenCodeProvider : IProviderService
             PaymentType = PaymentType.Credits,
             Description = $"{used:F2} / {total:F2} credits"
 
-        };
+        }};
     }
 
     private class OpenCodeCreditsResponse

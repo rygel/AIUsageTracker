@@ -19,17 +19,17 @@ public class AnthropicProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-             return new ProviderUsage
+             return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "Anthropic",
                 IsAvailable = false,
                 Description = "API Key missing"
-            };
+            }};
         }
 
         // Anthropic does not have a usage API.
@@ -39,7 +39,7 @@ public class AnthropicProvider : IProviderService
         // Actually they do: GET /v1/models (beta?). but standard is just POST /messages.
         // Let's assume connected to avoid spending money on checks.
         
-        return new ProviderUsage
+        return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = "Anthropic",
@@ -50,6 +50,6 @@ public class AnthropicProvider : IProviderService
             Description = "Connected (Check Dashboard)",
 
              UsageUnit = "Status"
-        };
+        }};
     }
 }

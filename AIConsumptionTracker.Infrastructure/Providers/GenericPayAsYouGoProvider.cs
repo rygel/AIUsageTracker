@@ -18,7 +18,7 @@ public class GenericPayAsYouGoProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -88,7 +88,7 @@ public class GenericPayAsYouGoProvider : IProviderService
 
         else
         {
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
@@ -99,7 +99,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                 IsQuotaBased = false,
                 IsAvailable = false, // Hide from default view if untracked
                 Description = "Configuration Required (Add 'base_url' to auth.json)"
-            };
+            }};
         }
 
         if (!url.StartsWith("http")) url = "https://" + url;
@@ -135,7 +135,7 @@ public class GenericPayAsYouGoProvider : IProviderService
         
         if (responseString.Trim().Equals("Not Found", StringComparison.OrdinalIgnoreCase))
         {
-             return new ProviderUsage
+             return new[] { new ProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = config.ProviderId,
@@ -146,7 +146,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                 IsQuotaBased = false,
                 IsAvailable = true,
                 Description = "Not Found (Invalid Key/URL)"
-            };
+            }};
         }
 
         double total = 0;
@@ -280,7 +280,7 @@ public class GenericPayAsYouGoProvider : IProviderService
             }
         } catch { /* Suppress if not synthetic or parse fails */ }
 
-        return new ProviderUsage
+        return new[] { new ProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace("-", " ").Replace(".", " ")),
@@ -293,7 +293,7 @@ public class GenericPayAsYouGoProvider : IProviderService
             IsQuotaBased = false,
             Description = $"{used:F2} / {total:F2} credits{resetStr}",
             NextResetTime = nextResetTime
-        };
+        }};
     }
 
     private class CreditsResponse

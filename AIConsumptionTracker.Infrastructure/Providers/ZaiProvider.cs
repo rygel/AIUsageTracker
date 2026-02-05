@@ -18,7 +18,7 @@ public class ZaiProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -89,7 +89,7 @@ public class ZaiProvider : IProviderService
         var rDiff = resetDt.ToLocalTime() - DateTime.Now;
         string zReset = $" (Resets: ({resetDt.ToLocalTime():MMM dd HH:mm}))";
 
-        return new ProviderUsage
+        return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = $"Z.AI {planDescription}",
@@ -102,7 +102,7 @@ public class ZaiProvider : IProviderService
             Description = (string.IsNullOrEmpty(detailInfo) ? $"{usedPercent:F1}% utilized" : detailInfo) + zReset,
 
             NextResetTime = resetDt.ToLocalTime()
-        };
+        }};
     }
 
     private class ZaiEnvelope<T>

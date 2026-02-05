@@ -19,17 +19,17 @@ public class KimiProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Kimi",
                 IsAvailable = false,
                 Description = "API Key missing"
-            };
+            }};
         }
 
         try
@@ -110,7 +110,7 @@ public class KimiProvider : IProviderService
             
             if (!string.IsNullOrEmpty(soonestResetStr)) description += soonestResetStr; // Used soonestResetStr
 
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Kimi",
@@ -125,18 +125,18 @@ public class KimiProvider : IProviderService
 
                 Details = details,
                 NextResetTime = soonestResetDt
-            };
+            }};
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to fetch Kimi usage");
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Kimi",
                 IsAvailable = false,
                 Description = $"Error: {ex.Message}"
-            };
+            }};
         }
     }
     
