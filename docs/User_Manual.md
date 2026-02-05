@@ -34,12 +34,12 @@ The footer of the dashboard contains several toggles and buttons to customize yo
 - **Toggle**: Adjusts the layout density.
 - **Behavior**: When enabled, the UI uses a more condensed layout with smaller fonts and tighter spacing, ideal for keeping the window small on your screen.
 
-### 5. Refresh
-- **Button**: Triggers an immediate update.
+### 5. Refresh (🔄 Icon)
+- **Action**: Triggers an immediate update.
 - **Behavior**: Fetches the latest usage data from all configured API providers. The dashboard also performs periodic background refreshes.
 
-### 6. Settings
-- **Button**: Opens the **Provider Settings** window.
+### 6. Settings (⚙️ Icon)
+- **Action**: Opens the **Provider Settings** window.
 - **Features**:
     - **API Keys**: Configure your keys for OpenAI, Anthropic, Gemini, etc.
     - **Scan for Keys**: Automatically searches your environment variables and files for existing AI API keys to speed up setup.
