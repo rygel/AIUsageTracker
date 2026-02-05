@@ -147,9 +147,25 @@ namespace AIConsumptionTracker.UI
         {
             if (_mainWindow == null)
             {
+                // Create Window
                 _mainWindow = _host?.Services.GetRequiredService<MainWindow>();
+                
                 if (_mainWindow != null)
                 {
+                    // Preload Preferences to prevent race condition on Deactivated event
+                    // We fire-and-forget this specifically to get the task but we want to await it if possible? 
+                    // Actually, we can just run it synchronously-ish or use the ConfigLoader directly since we are on UI thread.
+                    // But ConfigLoader is async.
+                    
+                    var loader = _host?.Services.GetRequiredService<IConfigLoader>();
+                    if (loader != null)
+                    {
+                        // We must wait for this or the window will show with default (StayOpen=false)
+                        // triggering the bug if user clicks away instantly.
+                        var prefs = loader.LoadPreferencesAsync().GetAwaiter().GetResult(); 
+                        _mainWindow.SetInitialPreferences(prefs);
+                    }
+
                     _mainWindow.Closed += (s, e) => _mainWindow = null;
                     _mainWindow.Show();
                     _mainWindow.Activate();

@@ -8,14 +8,92 @@
         WindowStartupLocation="CenterScreen"
         AllowsTransparency="True">
 
+    <Window.Resources>
+        <!-- Button Style -->
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#444444"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#555555"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#007ACC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#009DFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- TextBox Style -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#2D2D30"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#434346"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#007ACC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ScrollViewer Style -->
+        <Style TargetType="ScrollViewer">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollViewer">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ScrollContentPresenter />
+                            <ScrollBar Grid.Column="1" Name="PART_VerticalScrollBar" Value="{TemplateBinding VerticalOffset}" Maximum="{TemplateBinding ScrollableHeight}" ViewportSize="{TemplateBinding ViewportHeight}" Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="50" 
-                      ResizeBorderThickness="5" 
-                      GlassFrameThickness="0" 
-                      CornerRadius="8" />
+        <WindowChrome CaptionHeight="50" ResizeBorderThickness="5" GlassFrameThickness="0" CornerRadius="8" />
     </WindowChrome.WindowChrome>
     
-    <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="8">
+    <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="8" Background="#1E1E1E">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -24,44 +102,36 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Background="#252526" Padding="15" CornerRadius="8,8,0,0">
-                <TextBlock Text="Provider Settings" FontSize="18" FontWeight="Bold"/>
+            <Border Background="#252526" Padding="20,15" CornerRadius="8,8,0,0" BorderBrush="#333333" BorderThickness="0,0,0,1">
+                <DockPanel>
+                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"  Foreground="#007ACC" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <TextBlock Text="Settings" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
+                </DockPanel>
             </Border>
 
             <!-- Content -->
-            <ScrollViewer Grid.Row="1" Padding="20">
-                <StackPanel x:Name="SettingsStack">
-                    <!-- Dynamic fields will be added here -->
-                </StackPanel>
+            <ScrollViewer Grid.Row="1" Padding="0">
+                <StackPanel x:Name="SettingsStack" Margin="20"/>
             </ScrollViewer>
 
             <!-- Footer -->
-            <Border Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0,0,8,8">
-                <DockPanel>
-                    <Button Content="Scan for Keys" Width="100" Click="ScanBtn_Click" Height="30" Background="#333333" DockPanel.Dock="Left" HorizontalAlignment="Left"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="Save" Width="80" Margin="0,0,10,0" Click="SaveBtn_Click" Height="30" Background="#007ACC"/>
-                        <Button Content="Cancel" Width="80" Click="CancelBtn_Click" Height="30" Background="#444444"/>
+            <Border Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0,0,8,8" BorderBrush="#333333" BorderThickness="0,1,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <Button Content="Scan for Keys" Click="ScanBtn_Click" ToolTip="Search common locations for API keys" Grid.Column="0"/>
+                    
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="2">
+                        <Button Content="Save Changes" Style="{StaticResource PrimaryButton}" Click="SaveBtn_Click" Margin="0,0,10,0" Width="100"/>
+                        <Button Content="Cancel" Click="CancelBtn_Click" Width="80"/>
                     </StackPanel>
-                </DockPanel>
+                </Grid>
             </Border>
         </Grid>
     </Border>
-
-    <Window.Resources>
-        <Style TargetType="Button">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-    </Window.Resources>
 </Window>
 

@@ -37,81 +37,109 @@ namespace AIConsumptionTracker.UI
             // Get current usage to show dynamic bars
             var usages = _providerManager.LastUsages;
 
-            foreach (var config in _configs.OrderBy(c => c.ProviderId))
+            var groupedConfigs = _configs.OrderBy(c => c.ProviderId).ToList();
+
+            foreach (var config in groupedConfigs)
             {
                 var usage = usages.FirstOrDefault(u => u.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
 
-                var rowGrid = new Grid { Margin = new Thickness(0, 0, 0, 15) };
-                rowGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 0: Header & Key
-                rowGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 1: Tray Toggle
-                rowGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Row 2: Sub-Quotas
+                // Card Container
+                var card = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(40, 40, 40)),
+                    CornerRadius = new CornerRadius(6),
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(55, 55, 55)),
+                    BorderThickness = new Thickness(1),
+                    Margin = new Thickness(0, 0, 0, 10),
+                    Padding = new Thickness(12)
+                };
 
-                rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) }); // Icon
-                rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) }); // Label width
-                rowGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Field width
+                var grid = new Grid();
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Options
 
-                // Row 0: Icon and Name
+                // Header: Icon + Name
+                var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+                
                 var icon = new Image
                 {
-                    Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/usage_icon.png")),
-                    Width = 14,
-                    Height = 14,
-                    Margin = new Thickness(0, 0, 8, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Opacity = usage != null ? 1.0 : 0.4
+                    Source = GetIconForProvider(config.ProviderId),
+                    Width = 18,
+                    Height = 18,
+                    Margin = new Thickness(0, 0, 10, 0),
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-                Grid.SetColumn(icon, 0);
-                rowGrid.Children.Add(icon);
+                headerPanel.Children.Add(icon);
 
                 var displayName = config.ProviderId switch {
                     "antigravity" => "Google Antigravity",
                     "gemini-cli" => "Google Gemini",
+                    "github-copilot" => "GitHub Copilot",
                     _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("_", " ").Replace("-", " "))
                 };
 
                 var title = new TextBlock
                 {
                     Text = displayName,
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = usage != null ? Brushes.White : Brushes.Gray,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 11
+                    FontWeight = FontWeights.Bold,
+                    FontSize = 14,
+                    Foreground = Brushes.White,
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-                Grid.SetColumn(title, 1);
-                rowGrid.Children.Add(title);
+                headerPanel.Children.Add(title);
 
+                if (usage != null && !usage.IsAvailable)
+                {
+                    var status = new Border 
+                    { 
+                        Background = new SolidColorBrush(Color.FromArgb(50, 255, 100, 100)),
+                        CornerRadius = new CornerRadius(3),
+                        Margin = new Thickness(10,0,0,0),
+                        Padding = new Thickness(6, 2, 6, 2)
+                    };
+                    status.Child = new TextBlock { Text = "Inactive", FontSize=10, Foreground=Brushes.LightCoral };
+                    headerPanel.Children.Add(status);
+                }
+
+                grid.Children.Add(headerPanel);
+
+                // Inputs: API Key
+                var keyPanel = new Grid { Margin = new Thickness(0,0,0,8) };
+                keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+                keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var keyLabel = new TextBlock { Text = "API Key", Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
+                
                 var keyBox = new TextBox
                 {
                     Text = config.ApiKey,
                     Tag = config,
-                    Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
-                    Foreground = Brushes.White,
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                    Padding = new Thickness(8, 4, 8, 4),
-                    Height = 26,
-                    FontSize = 11,
-                    VerticalContentAlignment = VerticalAlignment.Center,
-                    BorderThickness = new Thickness(1),
-                    Margin = new Thickness(10, 0, 0, 0)
+                    VerticalContentAlignment = VerticalAlignment.Center
                 };
-                
                 keyBox.TextChanged += (s, e) => {
                     config.ApiKey = keyBox.Text;
                 };
 
-                Grid.SetRow(keyBox, 0);
-                Grid.SetColumn(keyBox, 2);
-                rowGrid.Children.Add(keyBox);
+                Grid.SetColumn(keyLabel, 0);
+                Grid.SetColumn(keyBox, 1);
+                keyPanel.Children.Add(keyLabel);
+                keyPanel.Children.Add(keyBox);
 
-                // Track in Tray Checkbox
+                Grid.SetRow(keyPanel, 1);
+                grid.Children.Add(keyPanel);
+
+                // Options
+                var optionsPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(80, 0, 0, 0) }; // Indent to match input
+                
                 var trayCheckBox = new CheckBox
                 {
-                    Content = "Track Summary in Tray",
+                    Content = "Show in System Tray",
                     IsChecked = config.ShowInTray,
-                    Foreground = Brushes.Gray,
-                    FontSize = 10,
+                    Foreground = Brushes.LightGray,
+                    FontSize = 11,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(0, 2, 0, 0)
+                    Cursor = System.Windows.Input.Cursors.Hand
                 };
                 trayCheckBox.Checked += (s, e) => {
                     config.ShowInTray = true;
@@ -121,16 +149,23 @@ namespace AIConsumptionTracker.UI
                     config.ShowInTray = false;
                     ((App)Application.Current).UpdateProviderTrayIcons(_providerManager.LastUsages, _configs, _prefs);
                 };
+                optionsPanel.Children.Add(trayCheckBox);
 
-                Grid.SetRow(trayCheckBox, 1);
-                Grid.SetColumn(trayCheckBox, 1);
-                rowGrid.Children.Add(trayCheckBox);
-
-                // Sub-Quotas for Antigravity
+                Grid.SetRow(optionsPanel, 2);
+                grid.Children.Add(optionsPanel);
+                
+                // Sub-Quotas for Antigravity (Special Case)
                 if (config.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase) && usage?.Details != null)
                 {
-                    var subPanel = new StackPanel { Margin = new Thickness(10, 5, 0, 5) };
-                    var subTitle = new TextBlock { Text = "Individual Quota Icons:", Foreground = Brushes.DimGray, FontSize = 9, Margin = new Thickness(0,0,0,3) };
+                    var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60,60,60)), Margin = new Thickness(0, 10, 0, 10) };
+                    grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                    
+                    Grid.SetRow(separator, 3);
+                    grid.Children.Add(separator);
+
+                    var subPanel = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
+                    var subTitle = new TextBlock { Text = "Individual Quota Icons:", Foreground = Brushes.Gray, FontSize = 11, FontWeight=FontWeights.SemiBold, Margin = new Thickness(0,0,0,5) };
                     subPanel.Children.Add(subTitle);
 
                     foreach (var detail in usage.Details)
@@ -140,8 +175,9 @@ namespace AIConsumptionTracker.UI
                             Content = detail.Name,
                             IsChecked = config.EnabledSubTrays.Contains(detail.Name),
                             Foreground = Brushes.LightGray,
-                            FontSize = 9,
-                            Margin = new Thickness(0, 1, 0, 1)
+                            FontSize = 11,
+                            Margin = new Thickness(0, 2, 0, 2),
+                            Cursor = System.Windows.Input.Cursors.Hand
                         };
                         subCheck.Checked += (s, e) => {
                             if (!config.EnabledSubTrays.Contains(detail.Name)) config.EnabledSubTrays.Add(detail.Name);
@@ -154,14 +190,51 @@ namespace AIConsumptionTracker.UI
                         subPanel.Children.Add(subCheck);
                     }
                     
-                    Grid.SetRow(subPanel, 2);
-                    Grid.SetColumn(subPanel, 1);
-                    Grid.SetColumnSpan(subPanel, 2);
-                    rowGrid.Children.Add(subPanel);
+                    Grid.SetRow(subPanel, 4);
+                    grid.Children.Add(subPanel);
                 }
-                
-                SettingsStack.Children.Add(rowGrid);
+
+                card.Child = grid;
+                SettingsStack.Children.Add(card);
             }
+        }
+
+        private ImageSource GetIconForProvider(string providerId)
+        {
+            try 
+            {
+                // Map provider IDs to icon filenames
+                string filename = providerId.ToLower() switch
+                {
+                    "github-copilot" => "github",
+                    "google-gemini" => "google",
+                    _ => providerId.ToLower()
+                };
+
+                var appDir = AppDomain.CurrentDomain.BaseDirectory;
+                var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");
+
+                if (System.IO.File.Exists(svgPath))
+                {
+                    var settings = new SharpVectors.Renderers.Wpf.WpfDrawingSettings
+                    {
+                        IncludeRuntime = true,
+                        TextAsGeometry = true
+                    };
+                    var reader = new SharpVectors.Converters.FileSvgReader(settings);
+                    var drawing = reader.Read(svgPath);
+                    if (drawing != null)
+                    {
+                        var image = new DrawingImage(drawing);
+                        image.Freeze(); // Make it thread-safe and immutable
+                        return image;
+                    }
+                }
+            } 
+            catch { }
+
+            // Fallback to default PNG
+            return new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/usage_icon.png"));
         }
 
         private void PopulateThresholds()
