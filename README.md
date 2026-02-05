@@ -2,8 +2,11 @@
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
 
-<img width="538" height="635" alt="image" src="https://github.com/user-attachments/assets/a221915a-4f89-4f61-a9a4-475677f2c425" />
+<img width="300"  alt="image" src="https://github.com/user-attachments/assets/a221915a-4f89-4f61-a9a4-475677f2c425" />
 
+
+## Download
+Download the latest installer or .zip file from the [Release](https://github.com/rygel/AIConsumptionTracker/releases) page.
 
 ## Key Features
 
