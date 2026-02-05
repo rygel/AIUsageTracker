@@ -19,17 +19,17 @@ public class DeepSeekProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "DeepSeek",
                 IsAvailable = false,
                 Description = "API Key missing"
-            };
+            }};
         }
 
         try
@@ -45,7 +45,7 @@ public class DeepSeekProvider : IProviderService
                 var errorContent = await response.Content.ReadAsStringAsync();
                 _logger.LogWarning($"DeepSeek API error: {response.StatusCode} - {errorContent}");
                 
-                return new ProviderUsage
+                return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "DeepSeek",
@@ -53,20 +53,20 @@ public class DeepSeekProvider : IProviderService
                     Description = $"API Error ({response.StatusCode})",
                     UsagePercentage = 0,
                     IsQuotaBased = false
-                };
+                }};
             }
 
             var result = await response.Content.ReadFromJsonAsync<DeepSeekBalanceResponse>();
             
             if (result == null || !result.IsAvailable)
             {
-                return new ProviderUsage
+                return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "DeepSeek",
                     IsAvailable = false,
                     Description = "Account unavailable or parsing failed"
-                };
+                }};
             }
 
             // DeepSeek can return multiple "balance_infos". Usually CNY or USD.
@@ -77,13 +77,13 @@ public class DeepSeekProvider : IProviderService
             var mainBalance = result.BalanceInfos?.FirstOrDefault();
             if (mainBalance == null)
             {
-                return new ProviderUsage
+                return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "DeepSeek",
                     IsAvailable = true,
                     Description = "No balance info found",
-                };
+                }};
             }
             
             // "topped_up_balance" + "granted_balance" = Total available?
@@ -103,7 +103,7 @@ public class DeepSeekProvider : IProviderService
             string currencySymbol = mainBalance.Currency == "CNY" ? "¥" : "$";
             string balanceText = $"{currencySymbol}{mainBalance.TotalBalance:F2}";
             
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "DeepSeek",
@@ -116,18 +116,18 @@ public class DeepSeekProvider : IProviderService
                 PaymentType = PaymentType.Credits,
                 Description = $"Balance: {balanceText}"
 
-            };
+            }};
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "DeepSeek check failed");
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "DeepSeek",
                 IsAvailable = false,
                 Description = "Check failed"
-            };
+            }};
         }
     }
 

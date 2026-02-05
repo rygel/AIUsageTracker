@@ -23,19 +23,19 @@ public class GitHubCopilotProvider : IProviderService
         _cookieService = cookieService;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         var cookieHeader = await _cookieService.GetCookieHeaderAsync("github.com");
 
         if (string.IsNullOrEmpty(cookieHeader))
         {
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "GitHub Copilot",
                 IsAvailable = false,
                 Description = "Not logged in to GitHub in any supported browser"
-            };
+            }};
         }
         
         _logger.LogDebug("Got cookie header for github.com. Fetching Customer ID...");
@@ -46,13 +46,13 @@ public class GitHubCopilotProvider : IProviderService
             var customerId = await GetCustomerIdAsync(cookieHeader);
             if (string.IsNullOrEmpty(customerId))
             {
-                return new ProviderUsage
+                return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "GitHub Copilot",
                     IsAvailable = false,
                     Description = "Found cookies but could not find Customer ID"
-                };
+                }};
             }
 
             // period=3 is usually the current month
@@ -67,18 +67,18 @@ public class GitHubCopilotProvider : IProviderService
             
             _logger.LogInformation("Successfully parsed GitHub Copilot usage. Used: {Used}, Limit: {Limit}", usage.CostUsed, usage.CostLimit);
 
-            return usage;
+            return new[] { usage };
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to fetch GitHub Copilot usage");
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "GitHub Copilot",
                 IsAvailable = false,
                 Description = "Connection Error"
-            };
+            }};
         }
     }
 

@@ -19,18 +19,23 @@ public class OpenAIProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
-        if (string.IsNullOrEmpty(config.ApiKey))
+        // Validation
+        if (string.IsNullOrEmpty(config.ApiKey)) throw new ArgumentException("API Key is missing via environment variable or auth.json");
+
+        if (config.ApiKey.StartsWith("sk-proj"))
         {
-             return new ProviderUsage
-            {
-                ProviderId = ProviderId,
-                ProviderName = "OpenAI",
-                IsAvailable = false,
-                Description = "API Key missing"
-            };
+             // Project keys not supported yet
+             return new[] { new ProviderUsage
+             {
+                 ProviderId = ProviderId,
+                 ProviderName = "OpenAI",
+                 IsAvailable = false,
+                 Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key."
+             }};
         }
+
 
         // OpenAI's "Usage" API is deprecated/removed for API keys directly in some contexts, but let's try standard known logical endpoints or just link to dashboard.
         // Actually, OpenAI does not expose a public API for "Current Credit Balance" easily via standard keys anymore (Project keys etc).
@@ -48,7 +53,7 @@ public class OpenAIProvider : IProviderService
              
              if (response.IsSuccessStatusCode)
              {
-                 return new ProviderUsage
+                 return new[] { new ProviderUsage
                  {
                     ProviderId = ProviderId,
                     ProviderName = "OpenAI",
@@ -59,29 +64,29 @@ public class OpenAIProvider : IProviderService
                     Description = "Connected (Check Dashboard)",
 
                     UsageUnit = "Status"
-                 };
+                 }};
              }
              else
              {
-                 return new ProviderUsage
+                 return new[] { new ProviderUsage
                  {
                     ProviderId = ProviderId,
                     ProviderName = "OpenAI",
                     IsAvailable = false,
                     Description = $"Invalid Key ({response.StatusCode})"
-                 };
+                 }};
              }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "OpenAI check failed");
-             return new ProviderUsage
+             return new[] { new ProviderUsage
              {
                 ProviderId = ProviderId,
                 ProviderName = "OpenAI",
                 IsAvailable = false,
                 Description = "Connection Failed"
-             };
+             }};
         }
     }
 }

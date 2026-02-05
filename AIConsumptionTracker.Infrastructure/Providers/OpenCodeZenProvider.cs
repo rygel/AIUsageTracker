@@ -20,21 +20,21 @@ public class OpenCodeZenProvider : IProviderService
         _cliPath = @"C:\Users\Alexander\AppData\Roaming\npm\opencode.cmd";
     }
 
-    public Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         // Execute CLI synchronously (it's fast enough or we accept the block on thread pool)
         // Better to use Task.Run for process execution
-        return Task.Run(() => 
+        return Task.Run<IEnumerable<ProviderUsage>>(() => 
         {
             if (!File.Exists(_cliPath))
             {
-                return new ProviderUsage
+                return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "OpenCode Zen",
                     IsAvailable = false,
                     Description = "CLI not found at expected path"
-                };
+                }};
             }
 
             try
@@ -62,27 +62,27 @@ public class OpenCodeZenProvider : IProviderService
                 if (process.ExitCode != 0)
                 {
                     _logger.LogWarning($"OpenCode CLI failed: {error}");
-                     return new ProviderUsage
+                     return new[] { new ProviderUsage
                     {
                         ProviderId = ProviderId,
                         ProviderName = "OpenCode Zen",
                         IsAvailable = false,
                         Description = $"CLI Error: {process.ExitCode} (Check log or clear storage if JSON error)"
-                    };
+                    }};
                 }
 
-                return ParseOutput(output);
+                return new[] { ParseOutput(output) };
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to run OpenCode CLI");
-                return new ProviderUsage
+                return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "OpenCode Zen",
                     IsAvailable = false,
                     Description = $"Execution Failed: {ex.Message}"
-                };
+                }};
             }
         });
     }

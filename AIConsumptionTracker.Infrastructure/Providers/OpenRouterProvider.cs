@@ -15,7 +15,7 @@ public class OpenRouterProvider : IProviderService
         _httpClient = httpClient;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -110,7 +110,7 @@ public class OpenRouterProvider : IProviderService
             if (idx >= 0) mainReset = " " + spendingLimitDetail.Description.Substring(idx);
         }
 
-        return new ProviderUsage
+        return new[] { new ProviderUsage
         {
             ProviderId = config.ProviderId, // Keep original ID (likely "openrouter")
             ProviderName = label, // Use label from key
@@ -125,7 +125,7 @@ public class OpenRouterProvider : IProviderService
             Description = $"{remaining:F2} Credits Remaining{mainReset}",
             NextResetTime = spendingLimitDetail?.NextResetTime,
             Details = details
-        };
+        }};
     }
 
     private class OpenRouterCreditsResponse
