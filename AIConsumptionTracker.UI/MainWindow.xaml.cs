@@ -213,7 +213,9 @@ namespace AIConsumptionTracker.UI
 
             bool showAll = ShowAllToggle?.IsChecked ?? true;
             var filteredUsages = usages
-                .Where(u => showAll || (u.IsAvailable && !u.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)))
+                .Where(u => showAll ||
+                           (u.IsAvailable && !u.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
+                           (u.IsQuotaBased || u.PaymentType == PaymentType.Quota || u.NextResetTime.HasValue || (u.Details != null && u.Details.Any(d => d.NextResetTime.HasValue))))
                 .OrderBy(u => u.ProviderName)
                 .ToList();
 
