@@ -2,6 +2,7 @@ using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Infrastructure.Configuration;
 using AIConsumptionTracker.Infrastructure.Providers;
+using AIConsumptionTracker.Infrastructure.Helpers;
 using AIConsumptionTracker.Core.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -45,8 +46,16 @@ class Program
         services.AddTransient<IProviderService, OpenRouterProvider>();
         services.AddTransient<IProviderService, AntigravityProvider>();
         services.AddTransient<IProviderService, GeminiProvider>();
+        services.AddTransient<IProviderService, KimiProvider>();
         services.AddTransient<IProviderService, OpenCodeZenProvider>();
+        services.AddTransient<IProviderService, DeepSeekProvider>();
+        services.AddTransient<IProviderService, OpenAIProvider>();
+        services.AddTransient<IProviderService, AnthropicProvider>();
+        services.AddTransient<IProviderService, CloudCodeProvider>();
         services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
+        services.AddTransient<IProviderService, GitHubCopilotProvider>();
+        
+        services.AddSingleton<WindowsBrowserCookieService>();
         services.AddSingleton<ProviderManager>();
 
         var serviceProvider = services.BuildServiceProvider();

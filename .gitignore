@@ -453,3 +453,7 @@ Assets/icon_*.png
 !Assets/app_icon.png
 !Assets/usage_icon.png
 /dist/
+
+# Temporary build artifacts
+bin_unlocked/
+run-cli.bat

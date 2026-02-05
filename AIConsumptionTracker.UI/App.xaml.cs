@@ -8,6 +8,7 @@ using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Infrastructure.Configuration;
 using AIConsumptionTracker.Infrastructure.Providers;
+using AIConsumptionTracker.Infrastructure.Helpers;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -56,7 +57,9 @@ namespace AIConsumptionTracker.UI
                     services.AddTransient<IProviderService, AnthropicProvider>();
                     services.AddTransient<IProviderService, CloudCodeProvider>();
                     services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
+                    services.AddTransient<IProviderService, GitHubCopilotProvider>();
                     
+                    services.AddSingleton<WindowsBrowserCookieService>();
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>(); // Dashboard
                     services.AddTransient<SettingsWindow>();
