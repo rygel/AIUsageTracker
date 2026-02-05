@@ -7,6 +7,7 @@ using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
 using System.Threading.Tasks; 
 using System.Reflection; 
+using AIConsumptionTracker.Infrastructure.Helpers; 
 
 namespace AIConsumptionTracker.UI
 {
@@ -17,6 +18,7 @@ namespace AIConsumptionTracker.UI
         private AppPreferences _preferences = new();
         private List<ProviderUsage> _cachedUsages = new();
         private int _resetDisplayMode = 0; // 0: Both, 1: Relative Only, 2: Absolute Only
+        private bool _isPrivacyMode = false;
         private readonly System.Windows.Threading.DispatcherTimer _resetTimer;
         private Dictionary<string, ImageSource> _iconCache = new();
 
@@ -402,7 +404,7 @@ namespace AIConsumptionTracker.UI
             else if (isConsoleCheck) { statusText = "Check Console"; statusBrush = Brushes.Orange; }
             else 
             { 
-                statusText = usage.Description;
+                statusText = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description) : usage.Description;
                 
                 // Tailor description based on PaymentType if needed
                 if (usage.PaymentType == PaymentType.Credits)
@@ -458,7 +460,9 @@ namespace AIConsumptionTracker.UI
             var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{usage.AccountName}]";
             var nameBlock = new TextBlock
             {
-                Text = $"{usage.ProviderName}{accountPart}",
+                Text = _isPrivacyMode 
+                    ? $"{PrivacyHelper.MaskContent(usage.ProviderName)}{accountPart}"
+                    : $"{usage.ProviderName}{accountPart}",
                 FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold,
                 FontSize = 11,
                 Foreground = isMissing ? Brushes.Gray : Brushes.White,
@@ -500,7 +504,7 @@ namespace AIConsumptionTracker.UI
 
                var nameTxt = new TextBlock
                {
-                   Text = usage.ProviderName, // Actually the "Name" of detail
+                   Text = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.ProviderName) : usage.ProviderName, // Actually the "Name" of detail
                    Foreground = Brushes.Silver,
                    FontSize = 12,
                    VerticalAlignment = VerticalAlignment.Center
@@ -513,7 +517,7 @@ namespace AIConsumptionTracker.UI
 
                var valueTxt = new TextBlock
                {
-                   Text = usage.Description,
+                   Text = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description) : usage.Description,
                    Foreground = Brushes.White,
                    FontSize = 12,
                    FontWeight = FontWeights.SemiBold,
@@ -564,7 +568,9 @@ namespace AIConsumptionTracker.UI
                 var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{usage.AccountName}]";
                 var nameBlock = new TextBlock 
                 { 
-                    Text = $"{usage.ProviderName}{accountPart}", 
+                    Text = _isPrivacyMode 
+                        ? $"{PrivacyHelper.MaskContent(usage.ProviderName)}{accountPart}"
+                        : $"{usage.ProviderName}{accountPart}", 
                     FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold, 
                     FontSize = 13,
                     Foreground = isMissing ? Brushes.Gray : Brushes.White,
@@ -616,7 +622,7 @@ namespace AIConsumptionTracker.UI
             }
 
             // Details Text (The tokens/credits/cost)
-            var detailText = usage.Description;
+            var detailText = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description) : usage.Description;
 
             // Tailor description based on PaymentType
             if (usage.PaymentType == PaymentType.Credits)
@@ -685,6 +691,20 @@ namespace AIConsumptionTracker.UI
         private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
         {
             await RefreshData(forceRefresh: true);
+        }
+
+        private void PrivacyBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _isPrivacyMode = !_isPrivacyMode;
+            
+            // Only toggle state, button appearance is handled by Trigger in XAML
+            // Or set checked state explicitly if not using IsChecked binding directly
+            if (sender is System.Windows.Controls.Primitives.ToggleButton toggle)
+            {
+                toggle.IsChecked = _isPrivacyMode;
+            }
+
+            RenderUsages(_cachedUsages);
         }
 
         private async void SettingsBtn_Click(object sender, RoutedEventArgs e)
