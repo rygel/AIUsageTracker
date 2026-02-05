@@ -11,5 +11,9 @@ public class AppPreferences
     public int ColorThresholdYellow { get; set; } = 60;
     public int ColorThresholdRed { get; set; } = 80;
     public bool InvertProgressBar { get; set; } = false;
+    public string FontFamily { get; set; } = "Segoe UI";
+    public int FontSize { get; set; } = 12;
+    public bool FontBold { get; set; } = false;
+    public bool FontItalic { get; set; } = false;
 }
 

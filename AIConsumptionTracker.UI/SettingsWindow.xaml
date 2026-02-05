@@ -110,9 +110,50 @@
             </Border>
 
             <!-- Content -->
-            <ScrollViewer Grid.Row="1" Padding="0">
-                <StackPanel x:Name="SettingsStack" Margin="20"/>
-            </ScrollViewer>
+            <TabControl Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="0,1,0,0">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Padding" Value="16,8"/>
+                        <Setter Property="FontSize" Value="12"/>
+                        <Setter Property="Foreground" Value="#AAAAAA"/>
+                        <Setter Property="Background" Value="#252526"/>
+                        <Setter Property="BorderBrush" Value="#333333"/>
+                        <Setter Property="BorderThickness" Value="1,1,1,0"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabItem">
+                                    <Border Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" Margin="0,0,0,0">
+                                        <ContentPresenter x:Name="ContentSite" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter Property="Background" Value="#1E1E1E"/>
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.Resources>
+
+                <!-- Provider Settings Tab -->
+                <TabItem Header="Providers">
+                    <ScrollViewer Padding="0">
+                        <StackPanel x:Name="ProvidersStack" Margin="20"/>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- Layout Settings Tab -->
+                <TabItem Header="Layout">
+                    <ScrollViewer Padding="0">
+                        <StackPanel x:Name="LayoutStack" Margin="20"/>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
 
             <!-- Footer -->
             <Border Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0,0,8,8" BorderBrush="#333333" BorderThickness="0,1,0,0">
