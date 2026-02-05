@@ -4,13 +4,14 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="AI Consumption Dashboard" Height="500" Width="420"
+        Title="AI Consumption Tracker" Height="500" Width="420"
         MinWidth="350" MinHeight="400"
         WindowStyle="None" ResizeMode="CanResize"
         Background="#1E1E1E"
         Foreground="White"
         ShowInTaskbar="False"
         Topmost="True"
+        AutomationProperties.Name="AI Consumption Tracker"
         Icon="Assets/app_icon.png">
 
     <WindowChrome.WindowChrome>
@@ -102,10 +103,10 @@
                                   Checked="Compact_Checked"
                                   Unchecked="Compact_Checked"/>
 
-                        <Button Click="RefreshBtn_Click" Margin="0,0,10,0" ToolTip="Refresh Data" Width="32" Height="30">
+                        <Button x:Name="RefreshBtn" Click="RefreshBtn_Click" Margin="0,0,10,0" ToolTip="Refresh Data" Width="32" Height="30">
                             <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                         </Button>
-                        <Button Background="#444444" Click="SettingsBtn_Click" ToolTip="Provider Settings" Width="32" Height="30">
+                        <Button x:Name="SettingsBtn" Background="#444444" Click="SettingsBtn_Click" ToolTip="Provider Settings" Width="32" Height="30">
                             <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                         </Button>
                     </StackPanel>
