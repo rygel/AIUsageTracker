@@ -2,6 +2,9 @@
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
 
+<img width="538" height="635" alt="image" src="https://github.com/user-attachments/assets/a221915a-4f89-4f61-a9a4-475677f2c425" />
+
+
 ## Key Features
 
 - **Multi-Provider Support**: Track usage for Anthropic, Gemini, OpenRouter, OpenCode, Kilo Code, DeepSeek, OpenAI, Google Cloud Code, and more.
