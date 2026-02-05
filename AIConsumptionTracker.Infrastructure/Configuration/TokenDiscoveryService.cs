@@ -25,23 +25,23 @@ public class TokenDiscoveryService
 
             if (key == "MINIMAX_API_KEY")
             {
-                AddOrUpdate(discoveredConfigs, "minimax", value, "Discovered via Environment Variable");
+                AddOrUpdate(discoveredConfigs, "minimax", value, "Discovered via Environment Variable", "Env: MINIMAX_API_KEY");
             }
             else if (key == "XIAOMI_API_KEY" || key == "MIMO_API_KEY")
             {
-                AddOrUpdate(discoveredConfigs, "xiaomi", value, "Discovered via Environment Variable");
+                AddOrUpdate(discoveredConfigs, "xiaomi", value, "Discovered via Environment Variable", "Env: XIAOMI_API_KEY");
             }
             else if (key == "KIMI_API_KEY" || key == "MOONSHOT_API_KEY")
             {
-                AddOrUpdate(discoveredConfigs, "kimi", value, "Discovered via Environment Variable");
+                AddOrUpdate(discoveredConfigs, "kimi", value, "Discovered via Environment Variable", "Env: KIMI_API_KEY");
             }
             else if (key == "ANTHROPIC_API_KEY" || key == "CLAUDE_API_KEY")
             {
-                AddOrUpdate(discoveredConfigs, "claude-code", value, "Discovered via Environment Variable");
+                AddOrUpdate(discoveredConfigs, "claude-code", value, "Discovered via Environment Variable", "Env: ANTHROPIC_API_KEY");
             }
             else if (key == "OPENAI_API_KEY")
             {
-                AddOrUpdate(discoveredConfigs, "openai", value, "Discovered via Environment Variable");
+                AddOrUpdate(discoveredConfigs, "openai", value, "Discovered via Environment Variable", "Env: OPENAI_API_KEY");
             }
         }
 
@@ -59,7 +59,7 @@ public class TokenDiscoveryService
         var wellKnown = new[] { "minimax", "xiaomi", "kimi", "kilocode", "claude-code", "gemini-cli", "antigravity" };
         foreach (var id in wellKnown)
         {
-            AddIfNotExists(configs, id, "", "Well-known provider");
+            AddIfNotExists(configs, id, "", "Well-known provider", "System Default");
         }
     }
 
@@ -76,7 +76,7 @@ public class TokenDiscoveryService
                 {
                     foreach (var id in known.Keys)
                     {
-                        AddIfNotExists(configs, id, "", "Discovered in providers.json");
+                        AddIfNotExists(configs, id, "", "Discovered in providers.json", "Config: providers.json");
                     }
                 }
             }
@@ -84,7 +84,7 @@ public class TokenDiscoveryService
         }
     }
 
-    private void AddOrUpdate(List<ProviderConfig> configs, string providerId, string key, string description)
+    private void AddOrUpdate(List<ProviderConfig> configs, string providerId, string key, string description, string source)
     {
         var existing = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
         if (existing != null)
@@ -93,6 +93,7 @@ public class TokenDiscoveryService
             {
                 existing.ApiKey = key;
                 existing.Description = description;
+                existing.AuthSource = source;
             }
         }
         else
@@ -102,7 +103,8 @@ public class TokenDiscoveryService
                 ProviderId = providerId,
                 ApiKey = key,
                 Type = "pay-as-you-go",
-                Description = description
+                Description = description,
+                AuthSource = source
             });
         }
     }
@@ -124,7 +126,7 @@ public class TokenDiscoveryService
                         var token = tokenProp.GetString();
                         if (!string.IsNullOrEmpty(token))
                         {
-                            AddIfNotExists(configs, "kilocode", token, "Discovered in Kilo Code secrets");
+                            AddIfNotExists(configs, "kilocode", token, "Discovered in Kilo Code secrets", "Kilo Code Secrets");
                         }
                     }
 
@@ -174,12 +176,12 @@ public class TokenDiscoveryService
             var key = keyProp.GetString();
             if (!string.IsNullOrEmpty(key))
             {
-                AddIfNotExists(configs, providerId, key, "Discovered in Kilo Code (Roo Config)");
+                AddIfNotExists(configs, providerId, key, "Discovered in Kilo Code (Roo Config)", "Kilo Code Roo Config");
             }
         }
     }
 
-    private void AddIfNotExists(List<ProviderConfig> configs, string providerId, string key, string description)
+    private void AddIfNotExists(List<ProviderConfig> configs, string providerId, string key, string description, string source)
     {
         if (!configs.Any(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase)))
         {
@@ -188,7 +190,8 @@ public class TokenDiscoveryService
                 ProviderId = providerId,
                 ApiKey = key,
                 Type = "pay-as-you-go",
-                Description = description
+                Description = description,
+                AuthSource = source
             });
         }
     }

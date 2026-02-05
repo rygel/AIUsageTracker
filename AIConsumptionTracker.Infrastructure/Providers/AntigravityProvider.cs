@@ -27,7 +27,7 @@ public class AntigravityProvider : IProviderService
         handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
         {
              // Only allow localhost self-signed
-             return message.RequestUri.Host == "127.0.0.1";
+             return message.RequestUri?.Host == "127.0.0.1";
         };
         _httpClient = new HttpClient(handler);
     }
@@ -135,6 +135,8 @@ public class AntigravityProvider : IProviderService
         };
 
         using var process = Process.Start(startInfo);
+        if (process == null) return 0;
+
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
 
@@ -181,35 +183,12 @@ public class AntigravityProvider : IProviderService
 
         // 1. Check Global Credits
         var planStatus = data.UserStatus.PlanStatus;
-        if (planStatus != null)
-        {
-            if (planStatus.PlanInfo?.MonthlyPromptCredits > 0)
-            {
-                var promptPct = (planStatus.AvailablePromptCredits / (double)planStatus.PlanInfo.MonthlyPromptCredits) * 100;
-                // Invert for "Used"
-                var usedPct = 100.0 - promptPct;
-                details.Add(new ProviderUsageDetail 
-                {
-                    Name = "[Credits] Prompt",
-                    Used = $"{usedPct:F1}%",
-                    Description = $"{planStatus.AvailablePromptCredits}/{planStatus.PlanInfo.MonthlyPromptCredits}"
-                });
-                minRemaining = Math.Min(minRemaining, promptPct);
-            }
-            if (planStatus.PlanInfo?.MonthlyFlowCredits > 0)
-            {
-                var flowPct = (planStatus.AvailableFlowCredits / (double)planStatus.PlanInfo.MonthlyFlowCredits) * 100;
-                // Invert for "Used"
-                var usedPct = 100.0 - flowPct;
-                details.Add(new ProviderUsageDetail 
-                {
-                    Name = "[Credits] Flow",
-                    Used = $"{usedPct:F1}%",
-                    Description = $"{planStatus.AvailableFlowCredits}/{planStatus.PlanInfo.MonthlyFlowCredits}"
-                });
-                minRemaining = Math.Min(minRemaining, flowPct);
-            }
-        }
+        // 1. Check Global Credits - REMOVED per user request
+
+        // Logic removed to hide Flow/Prompt credits
+        /* 
+        if (planStatus != null) ...
+        */
 
         // 2. Map existing configs for easy lookup
         var configMap = modelConfigs.Where(c => !string.IsNullOrEmpty(c.Label)).ToDictionary(c => c.Label!, c => c);
@@ -218,6 +197,7 @@ public class AntigravityProvider : IProviderService
         foreach (var label in masterModelLabels)
         {
             double remainingPct = 0; // Assume exhausted (0% remaining) if missing
+            DateTime? itemResetDt = null;
             
             if (configMap.TryGetValue(label, out var config))
             {
@@ -234,13 +214,28 @@ public class AntigravityProvider : IProviderService
             }
 
             // Invert for "Used" display
-            var usedPct = 100.0 - remainingPct;
+            var detailUsedPct = 100.0 - remainingPct;
             
+            string resetStr = "";
+            if (!string.IsNullOrEmpty(config?.QuotaInfo?.ResetTime))
+            {
+                        if (DateTime.TryParse(config.QuotaInfo.ResetTime, out var dt))
+                        {
+                            var diff = dt.ToLocalTime() - DateTime.Now;
+                    if (diff.TotalSeconds > 0)
+                    {
+                        resetStr = $" (Resets: ({dt.ToLocalTime():MMM dd HH:mm}))";
+                        itemResetDt = dt.ToLocalTime();
+                    }
+                        }
+            }
+
             details.Add(new ProviderUsageDetail
             {
                 Name = label,
-                Used = $"{usedPct:F0}%",
-                Description = "" 
+                Used = $"{detailUsedPct:F0}%",
+                Description = resetStr,
+                NextResetTime = itemResetDt
             });
             
             minRemaining = Math.Min(minRemaining, remainingPct);
@@ -257,16 +252,21 @@ public class AntigravityProvider : IProviderService
         // Let's just re-sort the whole list to be safe: Credits first, then Alphabetical Models
         var sortedDetails = details.OrderBy(d => d.Name.StartsWith("[Credits]") ? "0" + d.Name : "1" + d.Name).ToList();
 
+        // Show Max Usage (since minRemaining is smallest remaining fraction)
+        var usedPctTotal = 100 - minRemaining;
+        
+        // Remove globalReset based on user feedback. Group-specific resets would be in Details.
+
         return new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = "Antigravity",
-            UsagePercentage = 100 - minRemaining, // Show Max Usage (since minRemaining is smallest remaining fraction)
-            CostUsed = 100 - minRemaining,
+            UsagePercentage = usedPctTotal,
+            CostUsed = usedPctTotal,
             CostLimit = 100,
             UsageUnit = "Quota %",
             IsQuotaBased = true,
-            Description = "", // Main description empty to avoid clutter
+            Description = $"{usedPctTotal:F1}% Used",
             Details = sortedDetails,
             AccountName = data.UserStatus?.Email ?? ""
         };
@@ -300,6 +300,9 @@ public class AntigravityProvider : IProviderService
 
         [JsonPropertyName("planInfo")]
         public PlanInfo? PlanInfo { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     }
 
     private class PlanInfo
@@ -339,6 +342,9 @@ public class AntigravityProvider : IProviderService
         
         [JsonPropertyName("quotaInfo")]
         public QuotaInfo? QuotaInfo { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     }
 
     private class QuotaInfo
@@ -351,6 +357,12 @@ public class AntigravityProvider : IProviderService
         
         [JsonPropertyName("usedRequests")]
         public int? UsedRequests { get; set; }
+
+        [JsonPropertyName("resetTime")]
+        public string? ResetTime { get; set; }
+
+        [JsonExtensionData]
+        public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     }
 }
 

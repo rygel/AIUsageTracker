@@ -4,30 +4,62 @@ A streamlined Windows dashboard and tray utility to monitor AI API usage, costs,
 
 ## Key Features
 
-- **Multi-Provider Support**: Track usage for Anthropic, Gemini, OpenRouter, OpenCode, Kilo Code, and more.
-- **Smart Discovery**: Automatically scans environment variables and application config files for existing API keys.
+- **Multi-Provider Support**: Track usage for Anthropic, Gemini, OpenRouter, OpenCode, Kilo Code, DeepSeek, OpenAI, Google Cloud Code, and more.
+- **Smart Discovery**: Automatically scans environment variables and standard configuration files for existing API keys.
 - **Minimalist Dashboard**: A compact, topmost window providing a quick overview of your current spend and token usage.
 - **Dynamic Tray Integration**:
   - **Auto-Hide**: Dashboard hides automatically when focus is lost.
   - **Individual Tracking**: Option to spawn separate tray icons for specific providers.
   - **Live Progress Bars**: Tray icons feature "Core Temp" style bars that reflect usage levels in real-time.
+- **Inverted Progress Bars**: Option to show "Remaining" capacity (starting green/full) instead of "Used" capacity (starting empty).
 - **Secure Management**: Manage all keys and preferences through a refined, dark-themed settings menu.
+
+## Supported Providers
+
+| Provider | Reset Cycle | Key Discovery |
+| :--- | :--- | :--- |
+| **Anthropic (Claude)** | Balance/Credits | Env Vars, Manual |
+| **DeepSeek** | Balance | Env Vars, Manual |
+| **OpenAI** | Balance/Usage | Env Vars, Manual |
+| **Gemini** | Daily / Minutely | Env Vars (API Key) |
+| **Google Cloud Code** | OAuth Token | `gcloud` CLI status |
+| **OpenRouter** | Credit Balance | Env Vars |
+| **Antigravity** | Model-specific | Local App Detection |
+| **Kimi (Moonshot)** | Balance | Local App Detection |
+| **Z.AI** | Daily (24h) | Local App Detection |
+| **Synthetic** | 5-Hour Cycle | Local App Detection |
+| **OpenCode Zen** | 7-Day Cycle | Local App Detection |
 
 ## Installation
 
 ### Manual
-1. Download the latest `AIConsumptionTracker.zip` from releases.
-2. Extract to any folder and run `AIConsumptionTracker.UI.exe`.
+1. Download the latest `AIConsumptionTracker_Setup.exe` from releases.
+2. Run the installer.
+3. The app will launch and automatically scan for common API keys.
 
-### Winget (Coming Soon)
-`winget install Alexander.AIConsumptionTracker`
+## Configuration & Settings
 
-## Configuration
+Access the **Settings** menu by right-clicking the tray icon or using the gear icon on the dashboard.
 
-AI Consumption Tracker automatically discovers keys from:
-- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and other standard environment variables.
-- OpenCode, Kilo Code, and Zai local configuration files.
-- Manual entry via the **Settings** menu.
+### Application Settings
+- **Show All Providers**: Toggle to show all configured providers, even those with 0 usage or errors.
+- **Compact Mode**: Reduces the height of each item, removing the icon and condensing the layout.
+- **Pin Window**: Keeps the dashboard open even when focus is lost.
+- **Always On Top**: Ensures the dashboard floats above other windows.
+- **Invert Progress Bars**: 
+    - **Checked**: Bars represent **Remaining** capacity (Start Full/Green -> End Empty/Red).
+    - **Unchecked**: Bars represent **Used** capacity (Start Empty -> End Full/Red).
+- **Color Thresholds**: Customize the percentage at which bars turn Yellow (Warning) or Red (Critical).
+
+### Provider Management
+- **API Keys**: enter or update specific keys for each provider.
+- **Track in Tray**: Check the box next to any provider to add a dedicated icon for it in your system tray.
+- **Sub-Quotas**: For complex providers like Antigravity, you can pin specific model quotas to the tray.
+
+## Storage
+Configuration is stored in `auth.json` in the application data directory.
+- **Automatic Backup**: Your previous configuration is preserved during updates.
+- **Secure**: API keys are stored locally.
 
 ## License
 MIT

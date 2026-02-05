@@ -49,16 +49,25 @@ namespace AIConsumptionTracker.UI
                     services.AddTransient<IProviderService, OpenRouterProvider>();
                     services.AddTransient<IProviderService, AntigravityProvider>();
                     services.AddTransient<IProviderService, GeminiProvider>();
+                    services.AddTransient<IProviderService, KimiProvider>();
                     services.AddTransient<IProviderService, OpenCodeZenProvider>();
+                    services.AddTransient<IProviderService, DeepSeekProvider>();
+                    services.AddTransient<IProviderService, OpenAIProvider>();
+                    services.AddTransient<IProviderService, AnthropicProvider>();
+                    services.AddTransient<IProviderService, CloudCodeProvider>();
                     services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
                     
                     services.AddSingleton<ProviderManager>();
-                    services.AddSingleton<MainWindow>(); // Dashboard
+                    services.AddTransient<MainWindow>(); // Dashboard
                     services.AddTransient<SettingsWindow>();
                 })
                 .Build();
 
             await _host.StartAsync();
+            
+            // Preload data
+            var providerManager = _host.Services.GetRequiredService<ProviderManager>();
+            _ = Task.Run(() => providerManager.GetAllUsageAsync(forceRefresh: true)); // Fire and forget preload on thread pool
 
             InitializeTrayIcon();
             ShowDashboard();
@@ -96,18 +105,32 @@ namespace AIConsumptionTracker.UI
 
         private void ShowSettings()
         {
-            var mainWindow = _host?.Services.GetRequiredService<MainWindow>();
-            if (mainWindow == null) return;
-            
-            if (mainWindow.Visibility != Visibility.Visible)
+            // Ensure dashboard is created
+            if (_mainWindow == null)
             {
-                mainWindow.Show();
+                ShowDashboard();
             }
-            mainWindow.Activate();
+            
+            if (_mainWindow == null) return;
+
+            if (_mainWindow.Visibility != Visibility.Visible)
+            {
+                _mainWindow.Show();
+            }
+            _mainWindow.Activate();
 
             var settingsWindow = Services.GetRequiredService<SettingsWindow>();
-            settingsWindow.Owner = mainWindow;
-            settingsWindow.ShowDialog();
+            settingsWindow.Owner = _mainWindow;
+            settingsWindow.Closed += async (s, e) => 
+            {
+                 // Refresh when settings closes
+                 if (_mainWindow != null && _mainWindow.IsVisible && _mainWindow is MainWindow main)
+                 {
+                     await main.RefreshData(forceRefresh: true);
+                 }
+            };
+            
+            settingsWindow.Show();
         }
 
         private void ExitApp()
@@ -115,26 +138,42 @@ namespace AIConsumptionTracker.UI
             Application.Current.Shutdown();
         }
 
+        private MainWindow? _mainWindow;
+
         private void ShowDashboard()
         {
-            var mainWindow = _host?.Services.GetRequiredService<MainWindow>();
-            if (mainWindow != null)
+            if (_mainWindow == null)
             {
-                if (mainWindow.Visibility == Visibility.Visible && mainWindow.IsActive)
+                _mainWindow = _host?.Services.GetRequiredService<MainWindow>();
+                if (_mainWindow != null)
                 {
-                   mainWindow.Hide();
+                    _mainWindow.Closed += (s, e) => _mainWindow = null;
+                    _mainWindow.Show();
+                    _mainWindow.Activate();
+                }
+            }
+            else
+            {
+                if (_mainWindow.Visibility == Visibility.Visible && _mainWindow.IsActive)
+                {
+                    _mainWindow.Hide();
                 }
                 else
                 {
-                   mainWindow.Show();
-                   mainWindow.Activate();
+                    _mainWindow.Show();
+                    _mainWindow.Activate();
+                    // Ensure it's not minimized
+                    if (_mainWindow.WindowState == WindowState.Minimized)
+                        _mainWindow.WindowState = WindowState.Normal;
                 }
             }
         }
 
-        public void UpdateProviderTrayIcons(List<ProviderUsage> usages, List<ProviderConfig> configs)
+        public void UpdateProviderTrayIcons(List<ProviderUsage> usages, List<ProviderConfig> configs, AppPreferences? prefs = null)
         {
             var desiredIcons = new Dictionary<string, (string ToolTip, double Percentage)>();
+            int yellowThreshold = prefs?.ColorThresholdYellow ?? 60;
+            int redThreshold = prefs?.ColorThresholdRed ?? 80;
 
             foreach (var config in configs)
             {
@@ -197,7 +236,7 @@ namespace AIConsumptionTracker.UI
                 {
                     var tray = new TaskbarIcon();
                     tray.ToolTipText = info.ToolTip;
-                    tray.IconSource = GenerateUsageIcon(info.Percentage);
+                    tray.IconSource = GenerateUsageIcon(info.Percentage, yellowThreshold, redThreshold, prefs?.InvertProgressBar ?? false);
                     tray.TrayLeftMouseDown += (s, e) => ShowDashboard();
                     tray.TrayMouseDoubleClick += (s, e) => ShowDashboard();
                     _providerTrayIcons.Add(key, tray);
@@ -206,12 +245,12 @@ namespace AIConsumptionTracker.UI
                 {
                     var tray = _providerTrayIcons[key];
                     tray.ToolTipText = info.ToolTip;
-                    tray.IconSource = GenerateUsageIcon(info.Percentage);
+                    tray.IconSource = GenerateUsageIcon(info.Percentage, yellowThreshold, redThreshold, prefs?.InvertProgressBar ?? false);
                 }
             }
         }
 
-        private System.Windows.Media.ImageSource GenerateUsageIcon(double percentage)
+        private System.Windows.Media.ImageSource GenerateUsageIcon(double percentage, int yellowThreshold, int redThreshold, bool invert = false)
         {
             int size = 32; 
             var visual = new System.Windows.Media.DrawingVisual();
@@ -224,11 +263,25 @@ namespace AIConsumptionTracker.UI
                 dc.DrawRectangle(null, new System.Windows.Media.Pen(System.Windows.Media.Brushes.DimGray, 1), new Rect(0.5, 0.5, size - 1, size - 1));
 
                 // Fill logic
-                var fillBrush = percentage > 85 ? System.Windows.Media.Brushes.Crimson : (percentage > 60 ? System.Windows.Media.Brushes.Orange : System.Windows.Media.Brushes.MediumSeaGreen);
+                var fillBrush = percentage > redThreshold ? System.Windows.Media.Brushes.Crimson : (percentage > yellowThreshold ? System.Windows.Media.Brushes.Gold : System.Windows.Media.Brushes.MediumSeaGreen);
                 
                 double barWidth = size - 6;
                 double barHeight = size - 6;
-                double fillHeight = (percentage / 100.0) * barHeight;
+                double fillHeight;
+                if (invert)
+                {
+                    // Invert: Height represents REMAINING. 
+                    // 0 used = 100% height (Full). 
+                    // 100 used = 0% height (Empty).
+                    // We draw from bottom up.
+                    double remaining = Math.Max(0, 100.0 - percentage);
+                    fillHeight = (remaining / 100.0) * barHeight;
+                }
+                else
+                {
+                    // Standard: Height represents USED.
+                    fillHeight = (percentage / 100.0) * barHeight;
+                }
 
                 // Draw Bar
                 dc.DrawRectangle(fillBrush, null, new Rect(3, size - 3 - fillHeight, barWidth, fillHeight));

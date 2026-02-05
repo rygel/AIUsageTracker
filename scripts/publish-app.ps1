@@ -3,29 +3,26 @@
 
 $projectName = "AIConsumptionTracker.UI"
 $projectPath = ".\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj"
-$publishDir = ".\dist\publish"
+$publishDir = ".\dist\publish-single"
 $zipPath = ".\dist\AIConsumptionTracker.zip"
 
 Write-Host "Cleaning dist folder..." -ForegroundColor Cyan
 if (Test-Path ".\dist") { Remove-Item -Recurse -Force ".\dist" }
 New-Item -ItemType Directory -Path $publishDir
 
-Write-Host "Publishing $projectName..." -ForegroundColor Cyan
-# Options:
-# -c Release: Build in release mode
-# -r win-x64: Target Windows 64-bit
-# --self-contained true: Include .NET runtime
-# -p:PublishSingleFile=true: Bundle into one exe
-# -p:PublishReadyToRun=true: Optimize for startup speed
-# -p:DebugType=None: Remove debug info
+Write-Host "Publishing $projectName (SingleFile, FrameworkDependent)..." -ForegroundColor Cyan
 dotnet publish $projectPath `
     -c Release `
     -r win-x64 `
-    --self-contained true `
+    --self-contained false `
     -o $publishDir `
     -p:PublishSingleFile=true `
     -p:PublishReadyToRun=true `
     -p:DebugType=None
+
+Write-Host "Copying documentation..." -ForegroundColor Cyan
+Copy-Item ".\README.md" -Destination $publishDir
+if (Test-Path ".\LICENSE") { Copy-Item ".\LICENSE" -Destination $publishDir }
 
 Write-Host "Verifying output..." -ForegroundColor Cyan
 if (Test-Path "$publishDir\$projectName.exe") {
@@ -38,6 +35,26 @@ if (Test-Path "$publishDir\$projectName.exe") {
 Write-Host "Creating Distribution ZIP..." -ForegroundColor Cyan
 # We compress the whole publish directory
 Compress-Archive -Path "$publishDir\*" -DestinationPath $zipPath -Force
+
+# Inno Setup Installer
+$isccLocal = "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+$isccX86 = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+$iscc = if (Test-Path $isccLocal) { $isccLocal } else { $isccX86 }
+
+if ($iscc -and (Test-Path $iscc)) {
+    Write-Host "Compiling Inno Setup Installer using $iscc..." -ForegroundColor Cyan
+    & $iscc "scripts\setup.iss" /Q
+    if ($LASTEXITCODE -eq 0) {
+        # Find the created setup file (versioned)
+        $setupFile = Get-ChildItem ".\dist\AIConsumptionTracker_Setup_*.exe" | Select-Object -First 1
+        Write-Host "Installer created successfully: $($setupFile.FullName)" -ForegroundColor Green
+    } else {
+        Write-Host "Inno Setup compilation failed." -ForegroundColor Yellow
+        exit 1
+    }
+} else {
+    Write-Host "Inno Setup (ISCC.exe) not found. Skipping installer creation." -ForegroundColor Yellow
+}
 
 Write-Host "--------------------------------------------------" -ForegroundColor Yellow
 Write-Host "Distribution ready at: $zipPath" -ForegroundColor Green

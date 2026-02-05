@@ -102,13 +102,13 @@ public class OpenCodeZenProvider : IProviderService
         var costMatch = Regex.Match(output, @"Total Cost\s+\$([0-9.]+)");
         if (costMatch.Success)
         {
-            double.TryParse(costMatch.Groups[1].Value, out totalCost);
+            double.TryParse(costMatch.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out totalCost);
         }
 
         var avgMatch = Regex.Match(output, @"Avg Cost/Day\s+\$([0-9.]+)");
         if (avgMatch.Success)
         {
-            double.TryParse(avgMatch.Groups[1].Value, out avgCost);
+            double.TryParse(avgMatch.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out avgCost);
         }
 
         // Description

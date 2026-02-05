@@ -51,7 +51,8 @@
                 <DockPanel>
                     <Image Source="Assets/app_icon.png" Width="18" Height="18" Margin="0,0,8,0" DockPanel.Dock="Left"/>
                     <TextBlock Text="AI Consumption Tracker" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left"/>
-                    <Button Content="X" HorizontalAlignment="Right" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20"/>
+                    <TextBlock x:Name="VersionText" Text="v..." FontSize="11" Foreground="#888888" VerticalAlignment="Center" Margin="8,2,0,0" DockPanel.Dock="Left"/>
+                    <Button Content="X" HorizontalAlignment="Right" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
                 </DockPanel>
             </Border>
 
@@ -74,6 +75,33 @@
                               Unchecked="RefreshData_NoArgs"/>
                     
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <CheckBox x:Name="AlwaysOnTopCheck" 
+                                  Content="Top" 
+                                  IsChecked="True"
+                                  Foreground="#AAAAAA" 
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,12,0"
+                                  Checked="AlwaysOnTop_Checked"
+                                  Unchecked="AlwaysOnTop_Checked"/>
+
+                        <CheckBox x:Name="StayOpenCheck" 
+                                  Content="Pin" 
+                                  IsChecked="False"
+                                  Foreground="#AAAAAA" 
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,12,0"
+                                  Checked="StayOpen_Checked"
+                                  Unchecked="StayOpen_Checked"/>
+
+                        <CheckBox x:Name="CompactCheck" 
+                                  Content="Compact" 
+                                  IsChecked="True"
+                                  Foreground="#AAAAAA" 
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,12,0"
+                                  Checked="Compact_Checked"
+                                  Unchecked="Compact_Checked"/>
+
                         <Button Content="Refresh" Click="RefreshBtn_Click" Margin="0,0,10,0"/>
                         <Button Content="Settings" Background="#444444" Click="SettingsBtn_Click"/>
                     </StackPanel>

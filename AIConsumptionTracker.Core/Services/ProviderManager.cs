@@ -20,9 +20,32 @@ public class ProviderManager
         _logger = logger;
     }
 
-    public async Task<List<ProviderUsage>> GetAllUsageAsync()
+    private Task<List<ProviderUsage>>? _refreshTask;
+    private readonly object _refreshLock = new();
+
+    public Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
     {
-        _logger.LogDebug("Starting GetAllUsageAsync...");
+        lock (_refreshLock)
+        {
+            if (_refreshTask != null && !_refreshTask.IsCompleted)
+            {
+                _logger.LogDebug("Joining existing refresh task...");
+                return _refreshTask;
+            }
+
+            if (!forceRefresh && _lastUsages.Count > 0)
+            {
+                return Task.FromResult(_lastUsages);
+            }
+
+            _refreshTask = FetchAllUsageInternal();
+            return _refreshTask;
+        }
+    }
+
+    private async Task<List<ProviderUsage>> FetchAllUsageInternal()
+    {
+        _logger.LogDebug("Starting FetchAllUsageInternal...");
         var configs = (await _configLoader.LoadConfigAsync()).ToList();
         
         // Auto-add system providers that don't need auth.json
@@ -44,7 +67,10 @@ public class ProviderManager
 
         var tasks = configs.Select(async config =>
         {
-            var provider = _providers.FirstOrDefault(p => p.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
+            var provider = _providers.FirstOrDefault(p => 
+                p.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase) ||
+                (p.ProviderId == "anthropic" && config.ProviderId.Contains("claude", StringComparison.OrdinalIgnoreCase))
+            );
             
             if (provider == null && (config.Type == "pay-as-you-go" || config.Type == "api"))
             {
@@ -57,6 +83,7 @@ public class ProviderManager
                 {
                     _logger.LogDebug($"Fetching usage for provider: {config.ProviderId}");
                     var usage = await provider.GetUsageAsync(config);
+                    usage.AuthSource = config.AuthSource; // Propagate source
                     _logger.LogDebug($"Success for {config.ProviderId}: {usage.Description}");
                     return usage;
                 }

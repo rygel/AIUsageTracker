@@ -26,6 +26,9 @@ public class ProviderConfig
     public List<string> EnabledSubTrays { get; set; } = new();
 
     [JsonIgnore]
+    public string AuthSource { get; set; } = "Unknown";
+
+    [JsonIgnore]
     public string? Description { get; set; }
 }
 

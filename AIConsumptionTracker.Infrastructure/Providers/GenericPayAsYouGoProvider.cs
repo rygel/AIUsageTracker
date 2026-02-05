@@ -25,22 +25,7 @@ public class GenericPayAsYouGoProvider : IProviderService
             throw new ArgumentException("API Key not found.");
         }
 
-        if (config.ProviderId.Contains("claude", StringComparison.OrdinalIgnoreCase) || 
-            config.ProviderId.Contains("anthropic", StringComparison.OrdinalIgnoreCase))
-        {
-             return new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
-                UsagePercentage = 0,
-                CostUsed = 0,
-                CostLimit = 0,
-                UsageUnit = "Credits",
-                IsQuotaBased = false,
-                IsAvailable = true,
-                Description = "Check Console (Usage API unavailable)"
-            };
-        }
+
 
         // Use a default OpenCode-like URL if none provided? 
         // Or expect it in a specific field? ProviderConfig doesn't have a Url field yet.
@@ -276,6 +261,23 @@ public class GenericPayAsYouGoProvider : IProviderService
         var name = config.ProviderId;
         if (name == "generic-pay-as-you-go") name = new Uri(url).Host;
 
+        string resetStr = "";
+        DateTime? nextResetTime = null;
+        try 
+        {
+            // Specifically handling Synthetic renewsAt if provided
+            var synthetic = JsonSerializer.Deserialize<SyntheticResponse>(responseString);
+            if (synthetic?.Subscription?.RenewsAt != null && DateTime.TryParse(synthetic.Subscription.RenewsAt, out var dt))
+            {
+                 var diff = dt.ToLocalTime() - DateTime.Now;
+                 if (diff.TotalSeconds > 0)
+                 {
+                     resetStr = $" (Resets: ({dt.ToLocalTime():MMM dd HH:mm}))";
+                     nextResetTime = dt.ToLocalTime();
+                 }
+            }
+        } catch { /* Suppress if not synthetic or parse fails */ }
+
         return new ProviderUsage
         {
             ProviderId = config.ProviderId,
@@ -285,7 +287,8 @@ public class GenericPayAsYouGoProvider : IProviderService
             CostLimit = total,
             UsageUnit = "Credits",
             IsQuotaBased = false,
-            Description = $"{used:F2} / {total:F2} credits"
+            Description = $"{used:F2} / {total:F2} credits{resetStr}",
+            NextResetTime = nextResetTime
         };
     }
 
@@ -317,6 +320,9 @@ public class GenericPayAsYouGoProvider : IProviderService
 
         [JsonPropertyName("requests")]
         public double Requests { get; set; }
+
+        [JsonPropertyName("renewsAt")]
+        public string? RenewsAt { get; set; }
     }
 
     private class KimiResponse

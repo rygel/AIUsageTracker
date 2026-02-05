@@ -452,4 +452,4 @@ Desktop.ini
 Assets/icon_*.png
 !Assets/app_icon.png
 !Assets/usage_icon.png
-/dist/*.zip
+/dist/
