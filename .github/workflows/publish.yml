@@ -18,10 +18,9 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Setup Inno Setup
-        uses: thirdwavelabs/inno-setup-action@v1.0.1
-        with:
-           version: "6.2.2"
+      - name: Install Inno Setup
+        run: choco install innosetup
+        shell: pwsh
 
       - name: Build and Package
         run: .\scripts\publish-app.ps1
@@ -40,7 +39,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Submit to Winget
-        uses: vedantatray/winget-releaser@v2
+        uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: AIConsumption.Tracker
           installers-regex: '_Setup\.exe$'
