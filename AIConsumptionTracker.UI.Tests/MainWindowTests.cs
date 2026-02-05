@@ -1,6 +1,7 @@
 ﻿using FlaUI.Core;
 using FlaUI.UIA3;
 using FlaUI.Core.AutomationElements;
+using System.IO;
 using System.Diagnostics;
 
 namespace AIConsumptionTracker.UI.Tests;
