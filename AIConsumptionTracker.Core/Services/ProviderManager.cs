@@ -40,6 +40,8 @@ public class ProviderManager : IDisposable
 
             if (!forceRefresh && _lastUsages.Count > 0)
             {
+                _refreshSemaphore.Release();
+                semaphoreReleased = true;
                 return _lastUsages;
             }
 
@@ -51,7 +53,7 @@ public class ProviderManager : IDisposable
         }
         finally
         {
-            // Release semaphore if it hasn't been released yet (in case of exception before manual release)
+            // Release semaphore if it hasn't been released yet (handles exception cases)
             if (!semaphoreReleased)
             {
                 _refreshSemaphore.Release();
@@ -158,7 +160,16 @@ public class ProviderManager : IDisposable
 
     public void Dispose()
     {
-        _refreshSemaphore.Dispose();
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _refreshSemaphore.Dispose();
+        }
     }
 }
 
