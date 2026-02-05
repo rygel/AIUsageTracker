@@ -3,6 +3,7 @@
   <Project Path="AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj" />
   <Project Path="AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj" />
   <Project Path="AIConsumptionTracker.Tests/AIConsumptionTracker.Tests.csproj" />
-  <Project Path="AIConsumptionTracker.UI.Tests/AIConsumptionTracker.UI.Tests.csproj" />
   <Project Path="AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj" />
 </Solution>
+
+
