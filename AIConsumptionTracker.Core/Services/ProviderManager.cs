@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIConsumptionTracker.Core.Services;
 
-public class ProviderManager
+public class ProviderManager : IDisposable
 {
     private readonly IEnumerable<IProviderService> _providers;
     private readonly IConfigLoader _configLoader;
@@ -154,6 +154,11 @@ public class ProviderManager
         results.AddRange(nestedResults.SelectMany(x => x));
         _lastUsages = results;
         return results;
+    }
+
+    public void Dispose()
+    {
+        _refreshSemaphore.Dispose();
     }
 }
 
