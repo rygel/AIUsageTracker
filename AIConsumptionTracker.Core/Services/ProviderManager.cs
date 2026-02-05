@@ -26,6 +26,7 @@ public class ProviderManager
     public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
     {
         await _refreshSemaphore.WaitAsync();
+        var semaphoreReleased = false;
         try
         {
             if (_refreshTask != null && !_refreshTask.IsCompleted)
@@ -33,6 +34,7 @@ public class ProviderManager
                 _logger.LogDebug("Joining existing refresh task...");
                 var existingTask = _refreshTask;
                 _refreshSemaphore.Release();
+                semaphoreReleased = true;
                 return await existingTask;
             }
 
@@ -44,12 +46,13 @@ public class ProviderManager
             _refreshTask = FetchAllUsageInternal();
             var currentTask = _refreshTask;
             _refreshSemaphore.Release();
+            semaphoreReleased = true;
             return await currentTask;
         }
         finally
         {
             // Release semaphore if it hasn't been released yet (in case of exception before manual release)
-            if (_refreshSemaphore.CurrentCount == 0)
+            if (!semaphoreReleased)
             {
                 _refreshSemaphore.Release();
             }
