@@ -102,10 +102,10 @@
                                   Checked="Compact_Checked"
                                   Unchecked="Compact_Checked"/>
 
-                        <Button Click="RefreshBtn_Click" Margin="0,0,10,0" ToolTip="Refresh Data" Width="32" Height="30">
+                        <Button x:Name="RefreshBtn" Click="RefreshBtn_Click" Margin="0,0,10,0" ToolTip="Refresh Data" Width="32" Height="30">
                             <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                         </Button>
-                        <Button Background="#444444" Click="SettingsBtn_Click" ToolTip="Provider Settings" Width="32" Height="30">
+                        <Button x:Name="SettingsBtn" Background="#444444" Click="SettingsBtn_Click" ToolTip="Provider Settings" Width="32" Height="30">
                             <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                         </Button>
                     </StackPanel>
