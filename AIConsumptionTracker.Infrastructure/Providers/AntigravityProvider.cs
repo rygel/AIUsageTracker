@@ -32,49 +32,82 @@ public class AntigravityProvider : IProviderService
         _httpClient = new HttpClient(handler);
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
+        var results = new List<ProviderUsage>();
+        
         try
         {
-            // 1. Find Process and details
-            var processInfo = FindProcessInfo();
-            if (processInfo == null)
+            // 1. Find All Processes
+            var processInfos = FindProcessInfos();
+            if (!processInfos.Any())
             {
-                return new ProviderUsage
+                return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "Antigravity",
                     IsAvailable = false,
                     Description = "Antigravity process not running"
-                };
+                }};
             }
 
-            var (pid, csrfToken) = processInfo.Value;
-            _logger.LogDebug($"Found Antigravity process: PID={pid}, CSRF={csrfToken[..8]}...");
+            foreach (var info in processInfos)
+            {
+                try
+                {
+                    var (pid, csrfToken) = info;
+                    _logger.LogDebug($"Checking Antigravity process: PID={pid}, CSRF={csrfToken[..8]}...");
 
-            // 2. Find Port
-            var port = FindListeningPort(pid);
-            _logger.LogDebug($"Found listening port: {port}");
+                    // 2. Find Port
+                    var port = FindListeningPort(pid);
+                    
+                    // 3. Request
+                    var usage = await FetchUsage(port, csrfToken);
+                    
+                    // Check for duplicates based on AccountName (Email)
+                    if (results.Any(r => r.AccountName == usage.AccountName))
+                    {
+                        continue; // Skip same account running in different window
+                    }
+                    
+                    results.Add(usage);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, $"Failed to check Antigravity PID {info.Pid}");
+                }
+            }
+            
+            if (!results.Any())
+            {
+                 return new[] { new ProviderUsage
+                {
+                    ProviderId = ProviderId,
+                    ProviderName = "Antigravity",
+                    IsAvailable = false,
+                    Description = "Antigravity process not running or unreachable"
+                }};
+            }
 
-            // 3. Request
-            var usage = await FetchUsage(port, csrfToken);
-            return usage;
+            return results;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Antigravity check failed");
-            return new ProviderUsage
+            return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "Antigravity",
                 IsAvailable = false,
                 Description = "Antigravity process not running"
-            };
+            }};
         }
     }
 
-    private (int Pid, string CsrfToken)? FindProcessInfo()
+    private List<(int Pid, string Token)> FindProcessInfos()
     {
+        var candidates = new List<(int Pid, string Token)>();
+
         if (OperatingSystem.IsWindows())
         {
              try 
@@ -82,8 +115,6 @@ public class AntigravityProvider : IProviderService
                 // Find all language server processes
                 var searcher = new ManagementObjectSearcher("SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE '%language_server_windows%'");
                 var collection = searcher.Get();
-
-                var candidates = new List<(int Pid, string Token, long Memory)>();
 
                 foreach (var obj in collection)
                 {
@@ -96,30 +127,17 @@ public class AntigravityProvider : IProviderService
                         if (match.Success)
                         {
                             var pid = Convert.ToInt32(pidVal);
-                            long workingSet = 0;
-                            try {
-                                using var p = Process.GetProcessById(pid);
-                                workingSet = p.WorkingSet64;
-                            } catch { /* Ignore if process died */ }
-                            
-                            candidates.Add((pid, match.Groups[1].Value, workingSet));
+                            candidates.Add((pid, match.Groups[1].Value));
                         }
                     }
                 }
-                
-                // Return the one with highest memory (active workspace)
-                var best = candidates.OrderByDescending(c => c.Memory).FirstOrDefault();
-                if (best.Pid != 0) return (best.Pid, best.Token);
-                
-                return null;
              }
              catch (Exception ex)
              {
                  _logger.LogError(ex, "Process discovery failed");
-                 return null;
              }
         }
-        return null;
+        return candidates;
     }
 
     private int FindListeningPort(int pid)

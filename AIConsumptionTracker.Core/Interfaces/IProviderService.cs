@@ -5,6 +5,6 @@ namespace AIConsumptionTracker.Core.Interfaces;
 public interface IProviderService
 {
     string ProviderId { get; }
-    Task<ProviderUsage> GetUsageAsync(ProviderConfig config);
+    Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config);
 }
 

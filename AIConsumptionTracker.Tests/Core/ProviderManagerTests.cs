@@ -58,13 +58,13 @@ public class ProviderManagerTests
         var genericMock = new MockProviderService
         {
             ProviderId = "generic-pay-as-you-go",
-            UsageHandler = config => Task.FromResult(new ProviderUsage
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Fallback Provider",
                 IsAvailable = true,
                 Description = "Generic Fallback"
-            })
+            }})
         };
 
         var providers = new List<IProviderService> { genericMock };

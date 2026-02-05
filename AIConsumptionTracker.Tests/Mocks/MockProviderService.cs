@@ -8,23 +8,31 @@ namespace AIConsumptionTracker.Tests.Mocks;
 public class MockProviderService : IProviderService
 {
     public string ProviderId { get; set; } = "mock-provider";
-    public Func<ProviderConfig, Task<ProviderUsage>>? UsageHandler { get; set; }
+    public Func<ProviderConfig, Task<IEnumerable<ProviderUsage>>>? UsageHandler { get; set; }
 
-    public Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    // Added for the new GetUsageAsync implementation
+    private readonly Dictionary<string, ProviderUsage> _mockResponses = new();
+
+    public MockProviderService() { }
+
+    // Constructor to allow populating _mockResponses
+    public MockProviderService(Dictionary<string, ProviderUsage> mockResponses)
+    {
+        _mockResponses = mockResponses;
+    }
+
+    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (UsageHandler != null)
         {
             return UsageHandler(config);
         }
 
-        return Task.FromResult(new ProviderUsage
+        if (_mockResponses.TryGetValue(config.ProviderId, out var usage))
         {
-            ProviderId = ProviderId,
-            ProviderName = "Mock Provider",
-            UsagePercentage = 50,
-            Description = "Mock Usage",
-            IsAvailable = true
-        });
+            return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { usage });
+        }
+        return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage { ProviderId = config.ProviderId, IsAvailable = false, Description = "Mock not configured" } });
     }
 
     public static MockProviderService CreateOpenAIMock()
@@ -32,7 +40,7 @@ public class MockProviderService : IProviderService
         return new MockProviderService
         {
             ProviderId = "openai",
-            UsageHandler = config => Task.FromResult(new ProviderUsage
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
@@ -43,7 +51,7 @@ public class MockProviderService : IProviderService
                 UsageUnit = "USD",
                 Description = "$2.50 / $10.00 used",
                 IsAvailable = true
-            })
+            }})
         };
     }
 
@@ -52,7 +60,7 @@ public class MockProviderService : IProviderService
         return new MockProviderService
         {
             ProviderId = "anthropic",
-            UsageHandler = config => Task.FromResult(new ProviderUsage
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = "anthropic",
                 ProviderName = "Anthropic",
@@ -63,7 +71,7 @@ public class MockProviderService : IProviderService
                 UsageUnit = "USD",
                 Description = "$5.00 remaining",
                 IsAvailable = true
-            })
+            }})
         };
     }
 
@@ -72,7 +80,7 @@ public class MockProviderService : IProviderService
         return new MockProviderService
         {
             ProviderId = "gemini",
-            UsageHandler = config => Task.FromResult(new ProviderUsage
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = "gemini",
                 ProviderName = "Gemini",
@@ -83,7 +91,7 @@ public class MockProviderService : IProviderService
                 UsageUnit = "Requests",
                 Description = "150 / 1500 requests",
                 IsAvailable = true
-            })
+            }})
         };
     }
 
@@ -92,7 +100,7 @@ public class MockProviderService : IProviderService
         return new MockProviderService
         {
             ProviderId = "gemini-cli",
-            UsageHandler = config => Task.FromResult(new ProviderUsage
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = "gemini-cli",
                 ProviderName = "Gemini CLI",
@@ -103,7 +111,7 @@ public class MockProviderService : IProviderService
                 UsageUnit = "Tokens",
                 Description = "500 / 10,000 tokens",
                 IsAvailable = true
-            })
+            }})
         };
     }
 
@@ -112,7 +120,7 @@ public class MockProviderService : IProviderService
         return new MockProviderService
         {
             ProviderId = "antigravity",
-            UsageHandler = config => Task.FromResult(new ProviderUsage
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = "antigravity",
                 ProviderName = "Antigravity",
@@ -123,7 +131,7 @@ public class MockProviderService : IProviderService
                 UsageUnit = "USD",
                 Description = "$6.00 remaining",
                 IsAvailable = true
-            })
+            }})
         };
     }
 
@@ -132,7 +140,7 @@ public class MockProviderService : IProviderService
         return new MockProviderService
         {
             ProviderId = "opencode-zen",
-            UsageHandler = config => Task.FromResult(new ProviderUsage
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = "opencode-zen",
                 ProviderName = "OpenCode Zen",
@@ -143,7 +151,7 @@ public class MockProviderService : IProviderService
                 UsageUnit = "Requests",
                 Description = "1 / 5 requests",
                 IsAvailable = true
-            })
+            }})
         };
     }
 }

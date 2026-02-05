@@ -15,7 +15,7 @@ public class CloudCodeProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<ProviderUsage> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         // Strategy: 
         // 1. If API Key is provided (unlikely for Cloud Code, usually access token), verify it.
@@ -71,7 +71,7 @@ public class CloudCodeProvider : IProviderService
             }
         }
 
-        return new ProviderUsage
+        return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = "Cloud Code (Google)",
@@ -82,6 +82,6 @@ public class CloudCodeProvider : IProviderService
             Description = message,
 
             UsageUnit = "Status"
-        };
+        }};
     }
 }
