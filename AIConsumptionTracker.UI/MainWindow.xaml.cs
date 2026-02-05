@@ -18,6 +18,8 @@ namespace AIConsumptionTracker.UI
         private List<ProviderUsage> _cachedUsages = new();
         private int _resetDisplayMode = 0; // 0: Both, 1: Relative Only, 2: Absolute Only
         private readonly System.Windows.Threading.DispatcherTimer _resetTimer;
+        private Dictionary<string, ImageSource> _iconCache = new();
+
 
         private string GetRelativeTimeString(DateTime? nextReset)
         {
@@ -82,14 +84,14 @@ namespace AIConsumptionTracker.UI
                 this.Left = desktopWorkingArea.Right - this.Width - 10;
                 this.Top = desktopWorkingArea.Bottom - this.Height - 10;
 
-                _preferences = await _configLoader.LoadPreferencesAsync();
-                ShowAllToggle.IsChecked = _preferences.ShowAll;
-                StayOpenCheck.IsChecked = _preferences.StayOpen;
-                AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
-                CompactCheck.IsChecked = _preferences.CompactMode;
-                
-                this.Topmost = _preferences.AlwaysOnTop;
-                
+                // Only load if not already set (avoid overwriting what might have been passed)
+                if (!_preferencesLoaded)
+                {
+                    _preferences = await _configLoader.LoadPreferencesAsync();
+                    ApplyPreferences();
+                    _preferencesLoaded = true;
+                }
+
                 var version = Assembly.GetEntryAssembly()?.GetName().Version;
                 if (version != null)
                 {
@@ -102,7 +104,8 @@ namespace AIConsumptionTracker.UI
             this.Deactivated += (s, e) => {
                 // Only hide if the window is visible and enabled (not showing a modal dialog)
                 // AND StayOpen is false
-                if (this.IsVisible && this.IsEnabled && !_preferences.StayOpen)
+                // AND Preferences are actually loaded (prevent race condition where default false hides it)
+                if (this.IsVisible && this.IsEnabled && _preferencesLoaded && !_preferences.StayOpen)
                 {
                     // If we have an open child window (Settings), don't hide!
                     foreach (Window win in this.OwnedWindows)
@@ -113,6 +116,24 @@ namespace AIConsumptionTracker.UI
                     this.Hide();
                 }
             };
+        }
+
+        private bool _preferencesLoaded = false;
+
+        public void SetInitialPreferences(AppPreferences prefs)
+        {
+             _preferences = prefs;
+             _preferencesLoaded = true;
+             ApplyPreferences();
+        }
+
+        private void ApplyPreferences()
+        {
+             ShowAllToggle.IsChecked = _preferences.ShowAll;
+             StayOpenCheck.IsChecked = _preferences.StayOpen;
+             AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
+             CompactCheck.IsChecked = _preferences.CompactMode;
+             this.Topmost = _preferences.AlwaysOnTop;
         }
 
         private async void RefreshData_NoArgs(object sender, RoutedEventArgs e)
@@ -349,12 +370,12 @@ namespace AIConsumptionTracker.UI
             {
                 var icon = new Image
                 {
-                    Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/usage_icon.png")),
-                    Width = 12,
-                    Height = 12,
+                    Source = GetIconForProvider(usage.ProviderId),
+                    Width = 14,
+                    Height = 14,
                     Margin = new Thickness(0, 0, 6, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Opacity = 0.8
+                    Opacity = 1.0
                 };
                 contentPanel.Children.Add(icon);
                 DockPanel.SetDock(icon, Dock.Left);
@@ -522,12 +543,12 @@ namespace AIConsumptionTracker.UI
 
                 var icon = new Image
                 {
-                    Source = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/usage_icon.png")),
-                    Width = 14,
-                    Height = 14,
+                    Source = GetIconForProvider(usage.ProviderId),
+                    Width = 16,
+                    Height = 16,
                     Margin = new Thickness(0, 0, 8, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Opacity = 0.8
+                    Opacity = 1.0
                 };
                 if (!isChild)
                 {
@@ -675,6 +696,53 @@ namespace AIConsumptionTracker.UI
                  if (this.IsVisible) await RefreshData(forceRefresh: true);
             };
             settingsWindow.Show();
+        }
+
+        private ImageSource GetIconForProvider(string providerId)
+        {
+            if (_iconCache.TryGetValue(providerId, out var cached)) return cached;
+
+            // Map provider IDs to icon filenames
+            string filename = providerId.ToLower() switch
+            {
+                "github-copilot" => "github",
+                "google-gemini" => "google",
+                _ => providerId.ToLower()
+            };
+
+            var appDir = AppDomain.CurrentDomain.BaseDirectory;
+            var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");
+
+            if (System.IO.File.Exists(svgPath))
+            {
+                try
+                {
+                    var settings = new SharpVectors.Renderers.Wpf.WpfDrawingSettings
+                    {
+                        IncludeRuntime = true,
+                        TextAsGeometry = true
+                    };
+                    var reader = new SharpVectors.Converters.FileSvgReader(settings);
+                    var drawing = reader.Read(svgPath);
+                    if (drawing != null)
+                    {
+                        var image = new DrawingImage(drawing);
+                        image.Freeze(); // Make it thread-safe and immutable
+                        _iconCache[providerId] = image;
+                        return image;
+                    }
+                }
+                catch
+                {
+                    // Fallback on error
+                }
+            }
+
+            // Fallback to default PNG
+            var fallback = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/usage_icon.png"));
+            fallback.Freeze();
+            _iconCache[providerId] = fallback;
+            return fallback;
         }
 
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
