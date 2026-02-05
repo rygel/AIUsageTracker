@@ -457,3 +457,5 @@ Assets/icon_*.png
 # Temporary build artifacts
 bin_unlocked/
 run-cli.bat
+
+bin_unlocked_ui/
