@@ -24,6 +24,7 @@ Download the latest installer or .zip file from the [Release](https://github.com
 - **Multi-Provider Support**: Track usage for Anthropic, Gemini, OpenRouter, OpenCode, Kilo Code, DeepSeek, OpenAI, Google Cloud Code, GitHub Copilot, Codex, and more.
 - **Smart Discovery**: Automatically scans environment variables and standard configuration files for existing API keys.
 - **Minimalist Dashboard**: A compact, topmost window providing a quick overview of your current spend and token usage.
+- **Compact Settings UI**: Streamlined provider cards with 40-50% less vertical space, larger dialog for better visibility.
 - **Dynamic Tray Integration**:
   - **Auto-Hide**: Dashboard hides automatically when focus is lost.
   - **Individual Tracking**: Option to spawn separate tray icons for specific providers.
