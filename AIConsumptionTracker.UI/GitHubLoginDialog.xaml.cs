@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Input;
 using AIConsumptionTracker.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AIConsumptionTracker.UI
 {
@@ -135,6 +136,13 @@ namespace AIConsumptionTracker.UI
             _isPolling = false;
             DialogResult = false;
             Close();
+        }
+
+        private void AboutBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var infoDialog = ((App)Application.Current).Services.GetRequiredService<InfoDialog>();
+            infoDialog.Owner = this;
+            infoDialog.ShowDialog();
         }
 
         protected override void OnClosed(EventArgs e)
