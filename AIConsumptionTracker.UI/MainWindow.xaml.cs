@@ -8,7 +8,6 @@ using AIConsumptionTracker.Core.Models;
 using System.Threading.Tasks; 
 using System.Reflection; 
 using AIConsumptionTracker.Infrastructure.Helpers; 
-using AIConsumptionTracker.UI;
 
 namespace AIConsumptionTracker.UI
 {
@@ -733,44 +732,9 @@ namespace AIConsumptionTracker.UI
             RenderUsages(_cachedUsages);
         }
 
-private async void SettingsBtn_Click(object sender, RoutedEventArgs e)
+        private void SettingsBtn_Click(object sender, RoutedEventArgs e)
         {
             ((App)Application.Current).ShowSettings();
-        }
-
-        private async void ShowInfoDialog()
-        {
-            var infoDialog = ((App)Application.Current).Services.GetRequiredService<InfoDialog>();
-            infoDialog.Owner = this;
-            infoDialog.ShowDialog();
-        }
-
-        private void CloseBtn_Click(object sender, RoutedEventArgs e)
-        {
-            this.Close(); // Actually close the window (App will create new one next time)
-        }
-    }
-}
-
-        private async void ShowInfoDialog()
-        {
-            var infoDialog = ((App)Application.Current).Services.GetRequiredService<InfoDialog>();
-            infoDialog.Owner = this;
-            infoDialog.ShowDialog();
-        }
-
-        private void CloseBtn_Click(object sender, RoutedEventArgs e)
-        {
-            this.Close(); // Actually close the window (App will create new one next time)
-        }
-    }
-}
-
-        private async void ShowInfoDialog()
-        {
-            var infoDialog = ((App)Application.Current).Services.GetRequiredService<InfoDialog>();
-            infoDialog.Owner = this;
-            infoDialog.ShowDialog();
         }
 
         private ImageSource GetIconForProvider(string providerId)
@@ -820,7 +784,7 @@ private async void SettingsBtn_Click(object sender, RoutedEventArgs e)
             return fallback;
         }
 
-private async void ShowInfoDialog()
+        private void ShowInfoDialog(object sender, RoutedEventArgs e)
         {
             var infoDialog = ((App)Application.Current).Services.GetRequiredService<InfoDialog>();
             infoDialog.Owner = this;
