@@ -25,8 +25,12 @@ if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
 Write-Host "Publishing $projectName for $Runtime..." -ForegroundColor Cyan
-$aotParams = if (-not $isWinPlatform) { "-p:PublishAot=true" } else { "" }
-$singleFileParam = if ($isWinPlatform) { "-p:PublishSingleFile=true" } else { "" }
+# Do NOT force AOT for cross-platform builds on Windows agent
+$aotParams = "" 
+
+# For Linux/Mac (CLI), we want SingleFile but NOT AOT if building from Windows
+# For Windows (UI), we just use standard publish (installer handles the rest)
+$singleFileParam = if (-not $isWinPlatform) { "-p:PublishSingleFile=true" } else { "" }
 $selfContained = if (-not $isWinPlatform) { "true" } else { "false" }
 
 dotnet publish $projectPath `
