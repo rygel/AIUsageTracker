@@ -188,7 +188,7 @@ public class ExampleProvider : IProviderService
 - Update UI version for releases, other projects follow semantic versioning
 - CI/CD triggered on tag push: `v*`
 - **Release Notes**: Keep them concise. Do not repeat information already present in the change log. Focus on the high-level summary of changes.
-- **Changelog**: Maintain a `changelog.md` file with concise documentation of changes for each version.
+- **Changelog**: Maintain a `CHANGELOG.md` file with concise documentation of changes for each version. Include the date of the release.
 
 ## CI/CD
 - GitHub Actions for testing on push/PR to main
