@@ -51,11 +51,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Submit to Winget
-        if: matrix.runtime == 'win-x64'
-        uses: vedantmgoyal2009/winget-releaser@v2
-        with:
-          identifier: AIConsumption.Tracker
-          installers-regex: '_win-x64\.exe$'
-          token: ${{ secrets.WINGET_TOKEN }}
+#      - name: Submit to Winget
+#        if: matrix.runtime == 'win-x64'
+#        uses: vedantmgoyal2009/winget-releaser@v2
+#        with:
+#          identifier: AIConsumption.Tracker
+#          installers-regex: '_win-x64\.exe$'
+#          token: ${{ secrets.WINGET_TOKEN }}
 
