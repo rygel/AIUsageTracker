@@ -124,6 +124,9 @@
                         <Button x:Name="SettingsBtn" Background="#444444" Click="SettingsBtn_Click" ToolTip="Provider Settings" Width="32" Height="30">
                             <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                         </Button>
+                        <Button x:Name="InfoBtn" Click="ShowInfoDialog" Margin="0,0,10,0" ToolTip="About" Width="32" Height="30">
+                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+                        </Button>
                     </StackPanel>
                 </DockPanel>
             </Border>
