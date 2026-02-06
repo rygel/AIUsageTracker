@@ -4,6 +4,7 @@ using System.Windows.Media;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.Services;
+using AIConsumptionTracker.Infrastructure.Helpers;
 
 namespace AIConsumptionTracker.UI
 {
@@ -11,16 +12,18 @@ namespace AIConsumptionTracker.UI
     {
         private readonly IConfigLoader _configLoader;
         private readonly ProviderManager _providerManager;
+        private readonly IFontProvider _fontProvider;
         private List<ProviderConfig> _configs = new();
         private AppPreferences _prefs = new();
 
         public bool SettingsChanged { get; private set; }
 
-        public SettingsWindow(IConfigLoader configLoader, ProviderManager providerManager)
+        public SettingsWindow(IConfigLoader configLoader, ProviderManager providerManager, IFontProvider fontProvider)
         {
             InitializeComponent();
             _configLoader = configLoader;
             _providerManager = providerManager;
+            _fontProvider = fontProvider;
             Loaded += SettingsWindow_Loaded;
         }
 
@@ -241,6 +244,36 @@ namespace AIConsumptionTracker.UI
 
         private void PopulateLayout()
         {
+             // PRE-CREATE PREVIEW ELEMENT
+             var previewText = new TextBlock
+             {
+                  Text = "OpenAI: $15.00 / $100.00 (15%)",
+                  FontSize = _prefs.FontSize > 0 ? _prefs.FontSize : 12,
+                  Foreground = Brushes.White,
+                  VerticalAlignment = VerticalAlignment.Center
+             };
+             // Initial state
+             try {
+                if (!string.IsNullOrEmpty(_prefs.FontFamily))
+                    previewText.FontFamily = new System.Windows.Media.FontFamily(_prefs.FontFamily);
+                previewText.FontWeight = _prefs.FontBold ? FontWeights.Bold : FontWeights.Normal;
+                previewText.FontStyle = _prefs.FontItalic ? FontStyles.Italic : FontStyles.Normal;
+             } catch {}
+
+             // Helper to update preview
+             void UpdatePreview()
+             {
+                 try
+                 {
+                     if (!string.IsNullOrEmpty(_prefs.FontFamily))
+                         previewText.FontFamily = new System.Windows.Media.FontFamily(_prefs.FontFamily);
+                     previewText.FontSize = _prefs.FontSize > 0 ? _prefs.FontSize : 12;
+                     previewText.FontWeight = _prefs.FontBold ? FontWeights.Bold : FontWeights.Normal;
+                     previewText.FontStyle = _prefs.FontItalic ? FontStyles.Italic : FontStyles.Normal;
+                 }
+                 catch { }
+             }
+
              // Add UI Colors Section
              var header = new TextBlock { Text = "UI Colors", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, Margin = new Thickness(0, 20, 0, 10) };
              LayoutStack.Children.Add(header);
@@ -321,8 +354,17 @@ namespace AIConsumptionTracker.UI
               LayoutStack.Children.Add(separator);
 
               // Font Settings Section
-              var fontHeader = new TextBlock { Text = "Font Settings", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 10) };
-              LayoutStack.Children.Add(fontHeader);
+              var fontHeaderPanel = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
+              var fontHeader = new TextBlock { Text = "Font Settings", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
+              var resetBtn = new Button { Content = "Reset to Default", FontSize = 10, Padding = new Thickness(6,2,6,2), HorizontalAlignment = HorizontalAlignment.Right, Background = Brushes.Transparent, BorderThickness = new Thickness(1), BorderBrush = new SolidColorBrush(Color.FromRgb(60,60,60)) };
+              resetBtn.Click += ResetFontBtn_Click;
+              
+              fontHeaderPanel.Children.Add(fontHeader);
+              DockPanel.SetDock(fontHeader, Dock.Left);
+              fontHeaderPanel.Children.Add(resetBtn);
+              DockPanel.SetDock(resetBtn, Dock.Right);
+              
+              LayoutStack.Children.Add(fontHeaderPanel);
 
               // Font Family
               var fontFamilyGrid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
@@ -332,24 +374,27 @@ namespace AIConsumptionTracker.UI
               var fontFamilyLabel = new TextBlock { Text = "Font Family", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
               var fontFamilyBox = new ComboBox
               {
-                  Text = _prefs.FontFamily,
                   Height = 24,
                   Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
                   Foreground = Brushes.White,
-                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60))
+                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
+                  IsEditable = false
               };
-              fontFamilyBox.Items.Add("Segoe UI");
-              fontFamilyBox.Items.Add("Arial");
-              fontFamilyBox.Items.Add("Calibri");
-              fontFamilyBox.Items.Add("Consolas");
-              fontFamilyBox.Items.Add("Microsoft Sans Serif");
-              fontFamilyBox.Items.Add("Tahoma");
-              fontFamilyBox.Items.Add("Trebuchet MS");
-              fontFamilyBox.Items.Add("Verdana");
-              fontFamilyBox.Items.Add("Lucida Console");
-              fontFamilyBox.IsEditable = true;
+              
+              // Populate fonts
+              var fonts = _fontProvider.GetInstalledFonts().ToList();
+              fontFamilyBox.ItemsSource = fonts;
+              
+              // Select current preference
+              var selectedFont = FontSelectionHelper.GetSelectedFont(_prefs.FontFamily, fonts);
+              fontFamilyBox.SelectedItem = selectedFont;
+
               fontFamilyBox.SelectionChanged += (s, e) => {
-                  _prefs.FontFamily = fontFamilyBox.Text ?? "Segoe UI";
+                  if (fontFamilyBox.SelectedItem is string font)
+                  {
+                      _prefs.FontFamily = font;
+                      UpdatePreview();
+                  }
               };
 
               Grid.SetColumn(fontFamilyLabel, 0);
@@ -376,7 +421,11 @@ namespace AIConsumptionTracker.UI
                   VerticalContentAlignment = VerticalAlignment.Center
               };
               fontSizeBox.TextChanged += (s, e) => {
-                  if (int.TryParse(fontSizeBox.Text, out var val)) _prefs.FontSize = val;
+                  if (int.TryParse(fontSizeBox.Text, out var val)) 
+                  {
+                      _prefs.FontSize = val;
+                      UpdatePreview();
+                  }
               };
 
               Grid.SetColumn(fontSizeLabel, 0);
@@ -397,8 +446,8 @@ namespace AIConsumptionTracker.UI
                   VerticalAlignment = VerticalAlignment.Center,
                   Margin = new Thickness(0, 0, 15, 0)
               };
-              boldCheck.Checked += (s, e) => _prefs.FontBold = true;
-              boldCheck.Unchecked += (s, e) => _prefs.FontBold = false;
+              boldCheck.Checked += (s, e) => { _prefs.FontBold = true; UpdatePreview(); };
+              boldCheck.Unchecked += (s, e) => { _prefs.FontBold = false; UpdatePreview(); };
               fontStylePanel.Children.Add(boldCheck);
 
               var italicCheck = new CheckBox
@@ -409,8 +458,8 @@ namespace AIConsumptionTracker.UI
                   FontSize = 11,
                   VerticalAlignment = VerticalAlignment.Center
               };
-              italicCheck.Checked += (s, e) => _prefs.FontItalic = true;
-              italicCheck.Unchecked += (s, e) => _prefs.FontItalic = false;
+              italicCheck.Checked += (s, e) => { _prefs.FontItalic = true; UpdatePreview(); };
+              italicCheck.Unchecked += (s, e) => { _prefs.FontItalic = false; UpdatePreview(); };
               fontStylePanel.Children.Add(italicCheck);
 
               LayoutStack.Children.Add(fontStylePanel);
@@ -429,20 +478,22 @@ namespace AIConsumptionTracker.UI
                   Margin = new Thickness(0, 0, 0, 20)
               };
 
-              var previewText = new TextBlock
-              {
-                  Text = "OpenAI: $15.00 / $100.00 (15%)",
-                  FontSize = _prefs.FontSize,
-                  Foreground = Brushes.White,
-                  VerticalAlignment = VerticalAlignment.Center
-              };
-              previewText.SetResourceReference(TextBlock.FontFamilyProperty, SystemFonts.MessageFontFamilyKey);
-              previewText.FontFamily = new System.Windows.Media.FontFamily(_prefs.FontFamily);
-              previewText.FontWeight = _prefs.FontBold ? FontWeights.Bold : FontWeights.Normal;
-              previewText.FontStyle = _prefs.FontItalic ? FontStyles.Italic : FontStyles.Normal;
-
               previewBox.Child = previewText;
               LayoutStack.Children.Add(previewBox);
+        }
+
+        private void ResetFontBtn_Click(object sender, RoutedEventArgs e)
+        {
+             // Reset Preferences
+             _prefs.FontFamily = "Segoe UI";
+             _prefs.FontSize = 12;
+             _prefs.FontBold = false;
+             _prefs.FontItalic = false;
+
+             // Update UI - Re-populate layout to reflect changes is hardest, easier to just update controls if we had references.
+             // Since controls are created in code-behind without field references, we can clear and rebuild LayoutStack.
+             LayoutStack.Children.Clear();
+             PopulateLayout();
         }
 
         private async void ScanBtn_Click(object sender, RoutedEventArgs e)
