@@ -4,93 +4,6 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-<<<<<<< HEAD
-        Title="Application Information" Height="300" Width="400"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        Background="#1E1E1E"
-        Foreground="White"
-        ShowInTaskbar="False"
-        WindowStyle="SingleBorderWindow"
-        Icon="Assets/app_icon.png">
-    
-    <Window.Resources>
-        <Style TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
-        
-        <Style TargetType="Label">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#AAAAAA"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
-    </Window.Resources>
-    
-    <Grid Margin="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
-        
-        <!-- Header -->
-        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
-                   Text="Application Information" 
-                   FontSize="16" 
-                   FontWeight="Bold" 
-                   HorizontalAlignment="Center" 
-                   Margin="0,0,0,20"/>
-        
-        <!-- App Name -->
-        <Label Grid.Row="1" Grid.Column="0" Content="Application:" />
-        <TextBlock Grid.Row="1" Grid.Column="1" Text="AI Consumption Tracker"/>
-        
-        <!-- .NET Version -->
-        <Label Grid.Row="2" Grid.Column="0" Content=".NET Version:" />
-        <TextBlock x:Name="NetVersionText" Grid.Row="2" Grid.Column="1" Text="Loading..." />
-        
-        <!-- App Version -->
-        <Label Grid.Row="3" Grid.Column="0" Content="App Version:" />
-        <TextBlock x:Name="AppVersionText" Grid.Row="3" Grid.Column="1" Text="Loading..." />
-        
-        <!-- Build Date -->
-        <Label Grid.Row="4" Grid.Column="0" Content="Build Date:" />
-        <TextBlock x:Name="BuildDateText" Grid.Row="4" Grid.Column="1" Text="Loading..." />
-        
-        <!-- Description -->
-        <Label Grid.Row="5" Grid.Column="0" Content="Description:" />
-        <TextBlock Grid.Row="5" Grid.Column="1" Text="A desktop application for tracking AI usage across multiple providers including OpenAI, Anthropic, Google, and others."/>
-        
-        <!-- Spacer -->
-        <Border Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Height="10"/>
-        
-        <!-- OK Button -->
-        <Button x:Name="OkBtn" Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" 
-                Content="OK" 
-                Width="80" 
-                HorizontalAlignment="Center" 
-                Click="OkBtn_Click" >
-            <Button.Template>
-                <ControlTemplate TargetType="Button">
-                    <Border Background="{TemplateBinding Background}" CornerRadius="5">
-                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                </ControlTemplate>
-            </Button.Template>
-        </Button>
-    </Grid>
-=======
         Title="About AI Consumption Tracker" Height="300" Width="400"
         MinWidth="350" MinHeight="250"
         WindowStyle="None" ResizeMode="NoResize"
@@ -101,7 +14,7 @@
         AutomationProperties.Name="About AI Consumption Tracker"
         Icon="Assets/app_icon.png"
         FontFamily="Segoe UI">
-    
+
     <Window.Resources>
         <Style TargetType="Button">
             <Setter Property="Background" Value="#333333"/>
@@ -119,7 +32,7 @@
             </Setter>
         </Style>
     </Window.Resources>
-    
+
     <Border BorderBrush="#333333" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
@@ -127,7 +40,7 @@
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
-            
+
             <!-- Header -->
             <Border Background="#252526" Padding="12">
                 <DockPanel>
@@ -137,13 +50,13 @@
                     <Button Content="X" HorizontalAlignment="Right" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
                 </DockPanel>
             </Border>
-            
+
             <!-- Content -->
             <ScrollViewer Grid.Row="1" Padding="20" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
                     <TextBlock Text="AI Consumption Tracker" FontSize="18" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,0,0,20"/>
                     <TextBlock Text="A desktop application for tracking AI service usage and costs." FontSize="12" Foreground="#AAAAAA" TextWrapping="Wrap" Margin="0,0,0,30" HorizontalAlignment="Center" Width="300"/>
-                    
+
                     <TextBlock Text="Application Info" FontSize="14" FontWeight="SemiBold" Foreground="#CCCCCC" Margin="0,0,0,10"/>
                     <StackPanel Margin="0,0,0,20">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
@@ -163,7 +76,7 @@
                             <TextBlock x:Name="ArchitectureText" Text="..." Foreground="White"/>
                         </StackPanel>
                     </StackPanel>
-                    
+
                     <TextBlock Text="System Info" FontSize="14" FontWeight="SemiBold" Foreground="#CCCCCC" Margin="0,0,0,10"/>
                     <StackPanel Margin="0,0,0,20">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
@@ -179,13 +92,13 @@
                             <TextBlock x:Name="CurrentDirText" Text="..." Foreground="White" TextWrapping="Wrap" MaxWidth="200"/>
                         </StackPanel>
                     </StackPanel>
-                    
+
                     <TextBlock Text="Credits" FontSize="14" FontWeight="SemiBold" Foreground="#CCCCCC" Margin="0,0,0,10"/>
                     <TextBlock Text="© 2024 AI Consumption Tracker" FontSize="11" Foreground="#888888" HorizontalAlignment="Center" Margin="0,0,0,5"/>
                     <TextBlock Text="Built with .NET 8.0 WPF" FontSize="11" Foreground="#888888" HorizontalAlignment="Center"/>
                 </StackPanel>
             </ScrollViewer>
-            
+
             <!-- Footer -->
             <Border Grid.Row="2" Background="#252526" Padding="12,8">
                 <DockPanel>
@@ -194,5 +107,4 @@
             </Border>
         </Grid>
     </Border>
->>>>>>> 4a3ff3e (Add InfoDialog with right-click menu integration)
 </Window>
