@@ -187,6 +187,8 @@ public class ExampleProvider : IProviderService
 - Version numbers in `.csproj` files: `<Version>X.Y.Z</Version>`
 - Update UI version for releases, other projects follow semantic versioning
 - CI/CD triggered on tag push: `v*`
+- **Release Notes**: Keep them concise. Do not repeat information already present in the change log. Focus on the high-level summary of changes.
+- **Changelog**: Maintain a `changelog.md` file with concise documentation of changes for each version.
 
 ## CI/CD
 - GitHub Actions for testing on push/PR to main
