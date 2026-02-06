@@ -60,7 +60,6 @@ namespace AIConsumptionTracker.UI
                     services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
                     services.AddTransient<IProviderService, GitHubCopilotProvider>();
                     
-                    services.AddSingleton<WindowsBrowserCookieService>();
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>(); // Dashboard
                     services.AddTransient<SettingsWindow>();
@@ -74,7 +73,7 @@ namespace AIConsumptionTracker.UI
             _ = Task.Run(() => providerManager.GetAllUsageAsync(forceRefresh: true)); // Fire and forget preload on thread pool
 
             InitializeTrayIcon();
-            ShowDashboard();
+            await ShowDashboard();
         }
 
         private void InitializeTrayIcon()
@@ -87,7 +86,7 @@ namespace AIConsumptionTracker.UI
             var contextMenu = new ContextMenu();
             
             var openItem = new MenuItem { Header = "Open" };
-            openItem.Click += (s, e) => ShowDashboard();
+            openItem.Click += async (s, e) => await ShowDashboard();
             
             var settingsItem = new MenuItem { Header = "Settings" };
             settingsItem.Click += (s, e) => ShowSettings();
@@ -103,8 +102,8 @@ namespace AIConsumptionTracker.UI
             _taskbarIcon.ContextMenu = contextMenu;
 
             // Wire up single click and double click to show dashboard
-            _taskbarIcon.TrayLeftMouseDown += (s, e) => ShowDashboard();
-            _taskbarIcon.TrayMouseDoubleClick += (s, e) => ShowDashboard();
+            _taskbarIcon.TrayLeftMouseDown += async (s, e) => await ShowDashboard();
+            _taskbarIcon.TrayMouseDoubleClick += async (s, e) => await ShowDashboard();
         }
 
         private void ShowSettings()
@@ -112,7 +111,7 @@ namespace AIConsumptionTracker.UI
             // Ensure dashboard is created
             if (_mainWindow == null)
             {
-                ShowDashboard();
+                _ = ShowDashboard();
             }
             
             if (_mainWindow == null) return;
@@ -144,7 +143,7 @@ namespace AIConsumptionTracker.UI
 
         private MainWindow? _mainWindow;
 
-        private void ShowDashboard()
+        private async Task ShowDashboard()
         {
             if (_mainWindow == null)
             {
@@ -154,16 +153,10 @@ namespace AIConsumptionTracker.UI
                 if (_mainWindow != null)
                 {
                     // Preload Preferences to prevent race condition on Deactivated event
-                    // We fire-and-forget this specifically to get the task but we want to await it if possible? 
-                    // Actually, we can just run it synchronously-ish or use the ConfigLoader directly since we are on UI thread.
-                    // But ConfigLoader is async.
-                    
                     var loader = _host?.Services.GetRequiredService<IConfigLoader>();
                     if (loader != null)
                     {
-                        // We must wait for this or the window will show with default (StayOpen=false)
-                        // triggering the bug if user clicks away instantly.
-                        var prefs = loader.LoadPreferencesAsync().GetAwaiter().GetResult(); 
+                        var prefs = await loader.LoadPreferencesAsync(); 
                         _mainWindow.SetInitialPreferences(prefs);
                     }
 
