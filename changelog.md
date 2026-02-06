@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Font Settings Improvements**:
+  - Implemented System Font Selection: Users can now choose from all installed fonts.
+  - Live Font Preview: Font settings changes now update a preview box in real-time.
+  - Reset to Default: Added a button to restore default font settings (Segoe UI, 12pt).
+  - Improved Propagation: Font settings now apply immediately to the main window upon closing Settings.
+  - Centralized Settings Logic: Standardized how settings are shown and refreshed.
+
 ## v1.3.3 (2026-02-06)
 - Fixed "white on white" font visibility issue using a custom ControlTemplate for ComboBox.
 

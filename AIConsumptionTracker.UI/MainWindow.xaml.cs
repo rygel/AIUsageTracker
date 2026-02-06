@@ -136,7 +136,24 @@ namespace AIConsumptionTracker.UI
              AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
              CompactCheck.IsChecked = _preferences.CompactMode;
              this.Topmost = _preferences.AlwaysOnTop;
+
+             // Apply Font Settings
+             try 
+             {
+                 if (!string.IsNullOrEmpty(_preferences.FontFamily))
+                 {
+                     this.FontFamily = new FontFamily(_preferences.FontFamily);
+                 }
+                 if (_preferences.FontSize > 0) this.FontSize = _preferences.FontSize;
+                 this.FontWeight = _preferences.FontBold ? FontWeights.Bold : FontWeights.Normal;
+                 this.FontStyle = _preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
+             }
+             catch { /* Ignore font errors */ }
+             
+             // Force redraw to ensure font changes are picked up by existing elements
+             this.InvalidateVisual();
         }
+
 
         private async void RefreshData_NoArgs(object sender, RoutedEventArgs e)
         {
@@ -197,6 +214,10 @@ namespace AIConsumptionTracker.UI
                 System.Windows.Automation.AutomationProperties.SetAutomationId(refreshingBlock, "RefreshingIndicator");
                 ProvidersList.Children.Add(refreshingBlock);
             }
+
+            // Reload preferences to ensure we have the latest settings (e.g. from SettingsWindow)
+            _preferences = await _configLoader.LoadPreferencesAsync();
+            ApplyPreferences();
 
             var usages = await _providerManager.GetAllUsageAsync(forceRefresh);
             _cachedUsages = usages; // Cache the data
@@ -713,9 +734,7 @@ namespace AIConsumptionTracker.UI
 
         private void SettingsBtn_Click(object sender, RoutedEventArgs e)
         {
-            var settingsWindow = ((App)Application.Current).Services.GetRequiredService<SettingsWindow>();
-            settingsWindow.Owner = this;
-            settingsWindow.Show();
+            ((App)Application.Current).ShowSettings();
         }
 
         private ImageSource GetIconForProvider(string providerId)

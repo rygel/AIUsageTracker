@@ -9,6 +9,7 @@ using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Infrastructure.Configuration;
 using AIConsumptionTracker.Infrastructure.Providers;
 using AIConsumptionTracker.Infrastructure.Helpers;
+using AIConsumptionTracker.UI.Services;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -40,6 +41,7 @@ namespace AIConsumptionTracker.UI
                 {
                     services.AddHttpClient(); // Required for providers
                     services.AddSingleton<IConfigLoader, JsonConfigLoader>();
+                    services.AddSingleton<IFontProvider, WpfFontProvider>();
                     
                     // Register Providers
                     services.AddTransient<IProviderService, SimulatedProvider>(); 
@@ -108,7 +110,7 @@ namespace AIConsumptionTracker.UI
             _taskbarIcon.TrayMouseDoubleClick += async (s, e) => await ShowDashboard();
         }
 
-        private void ShowSettings()
+        public void ShowSettings()
         {
             // Ensure dashboard is created
             if (_mainWindow == null)
