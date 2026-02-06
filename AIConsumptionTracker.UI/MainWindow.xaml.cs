@@ -187,13 +187,15 @@ namespace AIConsumptionTracker.UI
             if (forceRefresh)
             {
                 ProvidersList.Children.Clear();
-                ProvidersList.Children.Add(new TextBlock 
+                var refreshingBlock = new TextBlock 
                 { 
                     Text = "Refreshing...", 
                     Foreground = Brushes.Gray, 
                     HorizontalAlignment = HorizontalAlignment.Center,
                     Margin = new Thickness(0, 20, 0, 0)
-                });
+                };
+                System.Windows.Automation.AutomationProperties.SetAutomationId(refreshingBlock, "RefreshingIndicator");
+                ProvidersList.Children.Add(refreshingBlock);
             }
 
             var usages = await _providerManager.GetAllUsageAsync(forceRefresh);
