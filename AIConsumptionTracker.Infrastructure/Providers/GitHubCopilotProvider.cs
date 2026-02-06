@@ -25,5 +25,4 @@ public class GitHubCopilotProvider : IProviderService
             Description = "Browser session tracking (cookies) has been disabled for privacy."
         }});
     }
-
 }

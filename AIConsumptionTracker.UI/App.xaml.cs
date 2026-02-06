@@ -153,10 +153,6 @@ namespace AIConsumptionTracker.UI
                 if (_mainWindow != null)
                 {
                     // Preload Preferences to prevent race condition on Deactivated event
-                    // We fire-and-forget this specifically to get the task but we want to await it if possible? 
-                    // Actually, we can just run it synchronously-ish or use the ConfigLoader directly since we are on UI thread.
-                    // But ConfigLoader is async.
-                    
                     var loader = _host?.Services.GetRequiredService<IConfigLoader>();
                     if (loader != null)
                     {
