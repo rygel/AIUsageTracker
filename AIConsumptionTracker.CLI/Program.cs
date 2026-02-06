@@ -68,7 +68,6 @@ class Program
         services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
         services.AddTransient<IProviderService, GitHubCopilotProvider>();
         
-        services.AddSingleton<WindowsBrowserCookieService>();
         services.AddSingleton<ProviderManager>();
 
         var serviceProvider = services.BuildServiceProvider();

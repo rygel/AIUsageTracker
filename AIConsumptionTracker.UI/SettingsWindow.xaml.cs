@@ -14,6 +14,8 @@ namespace AIConsumptionTracker.UI
         private List<ProviderConfig> _configs = new();
         private AppPreferences _prefs = new();
 
+        public bool SettingsChanged { get; private set; }
+
         public SettingsWindow(IConfigLoader configLoader, ProviderManager providerManager)
         {
             InitializeComponent();
@@ -482,6 +484,7 @@ namespace AIConsumptionTracker.UI
         {
             await _configLoader.SaveConfigAsync(_configs);
             await _configLoader.SavePreferencesAsync(_prefs);
+            SettingsChanged = true;
             Close();
         }
 
