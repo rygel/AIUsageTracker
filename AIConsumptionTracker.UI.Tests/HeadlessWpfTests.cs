@@ -9,6 +9,7 @@ using Xunit;
 
 namespace AIConsumptionTracker.UI.Tests;
 
+[Collection("UI Tests")]
 public class HeadlessWpfTests
 {
     private readonly IServiceProvider _serviceProvider;

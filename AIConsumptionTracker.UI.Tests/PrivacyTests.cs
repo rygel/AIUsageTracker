@@ -11,6 +11,7 @@ using Xunit;
 
 namespace AIConsumptionTracker.UI.Tests;
 
+[Collection("UI Tests")]
 public class PrivacyTests
 {
     private readonly IServiceProvider _serviceProvider;
