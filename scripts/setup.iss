@@ -24,7 +24,7 @@ SolidCompression=yes
 CloseApplications=yes
 DisableDirPage=auto
 DirExistsWarning=no
-; SetupIconFile=..\AIConsumptionTracker.UI\Assets\app_icon.ico
+SetupIconFile=..\AIConsumptionTracker.UI\Assets\app_icon.ico
 UninstallDisplayIcon={app}\AIConsumptionTracker.UI.exe
 PrivilegesRequired=lowest
 #if MyAppArch == "x64"

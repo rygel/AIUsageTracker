@@ -20,7 +20,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="0">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -57,7 +57,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="0">
                             <ScrollViewer x:Name="PART_ContentHost"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -197,10 +197,10 @@
     </Window.Resources>
 
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="50" ResizeBorderThickness="5" GlassFrameThickness="0" CornerRadius="8" />
+        <WindowChrome CaptionHeight="50" ResizeBorderThickness="5" GlassFrameThickness="0" CornerRadius="0" />
     </WindowChrome.WindowChrome>
     
-    <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="8" Background="#1E1E1E">
+    <Border BorderBrush="#333333" BorderThickness="1" CornerRadius="0" Background="#1E1E1E">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -209,7 +209,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Background="#252526" Padding="20,15" CornerRadius="8,8,0,0" BorderBrush="#333333" BorderThickness="0,0,0,1">
+            <Border Background="#252526" Padding="20,15" CornerRadius="0" BorderBrush="#333333" BorderThickness="0,0,0,1">
                 <DockPanel>
                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"  Foreground="#007ACC" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock Text="Settings" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
@@ -249,21 +249,21 @@
 
                 <!-- Provider Settings Tab -->
                 <TabItem Header="Providers">
-                    <ScrollViewer Padding="0">
+                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
                         <StackPanel x:Name="ProvidersStack" Margin="20"/>
                     </ScrollViewer>
                 </TabItem>
 
                 <!-- Layout Settings Tab -->
                 <TabItem Header="Layout">
-                    <ScrollViewer Padding="0">
+                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
                         <StackPanel x:Name="LayoutStack" Margin="20"/>
                     </ScrollViewer>
                 </TabItem>
             </TabControl>
 
             <!-- Footer -->
-            <Border Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0,0,8,8" BorderBrush="#333333" BorderThickness="0,1,0,0">
+            <Border Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0" BorderBrush="#333333" BorderThickness="0,1,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>

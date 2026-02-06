@@ -375,7 +375,7 @@ namespace AIConsumptionTracker.UI
                 {
                     Background = usage.UsagePercentage > _preferences.ColorThresholdRed ? Brushes.Crimson : (usage.UsagePercentage > _preferences.ColorThresholdYellow ? Brushes.Gold : Brushes.MediumSeaGreen),
                     Opacity = 0.25,
-                    CornerRadius = new CornerRadius(2)
+                    CornerRadius = new CornerRadius(0)
                 };
                 pGrid.Children.Add(fill);
                 grid.Children.Add(pGrid);
@@ -386,7 +386,7 @@ namespace AIConsumptionTracker.UI
                  var bg = new Border 
                  { 
                      Background = new SolidColorBrush(Color.FromRgb(30,30,30)), 
-                     CornerRadius = new CornerRadius(2) 
+                     CornerRadius = new CornerRadius(0) 
                  };
                  grid.Children.Add(bg);
             }
@@ -516,7 +516,7 @@ namespace AIConsumptionTracker.UI
             var container = new Border
             {
                 Background = isChild ? new SolidColorBrush(Color.FromRgb(40, 40, 40)) : new SolidColorBrush(Color.FromRgb(35, 35, 35)),
-                CornerRadius = new CornerRadius(6),
+                CornerRadius = new CornerRadius(0),
                 Padding = new Thickness(12),
                 Margin = new Thickness(isChild ? 20 : 0, 0, 0, 8),
                 BorderBrush = isMissing || isError ? Brushes.Maroon : (isConsoleCheck ? Brushes.DarkOrange : new SolidColorBrush(Color.FromRgb(50, 50, 50))),
@@ -630,7 +630,7 @@ namespace AIConsumptionTracker.UI
             if ((usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError)
             {
                 var pGrid = new Grid { Height = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
-                pGrid.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(50, 50, 50)), CornerRadius = new CornerRadius(2) });
+                pGrid.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(50, 50, 50)), CornerRadius = new CornerRadius(0) });
 
                 var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
                 if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
@@ -642,7 +642,7 @@ namespace AIConsumptionTracker.UI
                 var fill = new Border
                 {
                     Background = usage.UsagePercentage > _preferences.ColorThresholdRed ? Brushes.Crimson : (usage.UsagePercentage > _preferences.ColorThresholdYellow ? Brushes.Gold : Brushes.MediumSeaGreen),
-                    CornerRadius = new CornerRadius(2)
+                    CornerRadius = new CornerRadius(0)
                 };
                 fillGrid.Children.Add(fill);
                 pGrid.Children.Add(fillGrid);
@@ -795,12 +795,7 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private void ShowInfoDialog(object sender, RoutedEventArgs e)
-        {
-            var infoDialog = ((App)Application.Current).Services.GetRequiredService<InfoDialog>();
-            infoDialog.Owner = this;
-            infoDialog.ShowDialog();
-        }
+
 
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
         {
