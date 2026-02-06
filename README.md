@@ -36,19 +36,19 @@ Download the latest installer or .zip file from the [Release](https://github.com
 
 | Provider | Reset Cycle | Key Discovery |
 | :--- | :--- | :--- |
-| **Anthropic (Claude)** | Balance/Credits | Env Vars, Manual |
-| **DeepSeek** | Balance | Env Vars, Manual |
-| **OpenAI** | Balance/Usage | Env Vars, Manual |
-| **Gemini** | Daily / Minutely | Env Vars (API Key) |
-| **Google Cloud Code** | OAuth Token | `gcloud` CLI status |
-| **OpenRouter** | Credit Balance | Env Vars |
-| **Antigravity** | Model-specific | Local App Detection |
-| **Kimi (Moonshot)** | Balance | Local App Detection |
-| **Z.AI** | Daily (24h) | Local App Detection |
-| **Synthetic** | 5-Hour Cycle | Local App Detection |
-| **OpenCode Zen** | 7-Day Cycle | Local App Detection |
+| **Anthropic (Claude)** | Balance/Credits | Env Vars, Settings UI |
+| **DeepSeek** | Balance | Env Vars, Settings UI |
+| **OpenAI** | Balance/Usage | Env Vars, Settings UI |
+| **Gemini** | Daily / Minutely | Env Vars, Settings UI |
+| **Google Cloud Code** | OAuth Token | `gcloud` CLI, Settings UI |
+| **OpenRouter** | Credit Balance | Env Vars, Settings UI |
+| **Antigravity** | Model-specific | Local App, Settings UI |
+| **Kimi (Moonshot)** | Balance | Env Vars, Settings UI |
+| **Z.AI** | Daily (24h) | Local App, Settings UI |
+| **Synthetic** | 5-Hour Cycle | Local App, Settings UI |
+| **OpenCode Zen** | 7-Day Cycle | Local App, Settings UI |
 | **GitHub Copilot** | Hourly Rate Limit | OAuth Device Flow |
-| **Codex** | Model-specific | OAuth Device Flow |
+| **Codex** | Model-specific | Settings UI |
 
 ## Installation
 
