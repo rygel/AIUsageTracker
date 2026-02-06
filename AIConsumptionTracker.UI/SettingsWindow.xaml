@@ -90,6 +90,14 @@
 
         <!-- ComboBox Style -->
         <Style TargetType="ComboBox">
+            <Style.Resources>
+                <Style TargetType="TextBox">
+                    <Setter Property="Background" Value="#2D2D30"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="CaretBrush" Value="White"/>
+                </Style>
+            </Style.Resources>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="#2D2D30"/>
             <Setter Property="BorderBrush" Value="#434346"/>
