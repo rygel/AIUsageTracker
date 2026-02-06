@@ -2,6 +2,12 @@
 
 This document provides essential information for agentic coding assistants working on this .NET 8.0 WPF application.
 
+## Development Workflow
+
+- **Never push directly to `main`**: All changes, including release preparations, MUST be done on a feature branch (e.g., `feature/branch-name`) and integrated via a Pull Request.
+- **Atomic Commits**: Keep commits focused and logically grouped.
+- **CI/CD Compliance**: Ensure that any UI changes or tests are compatible with the headless CI environment.
+
 ## Project Structure
 
 - **AIConsumptionTracker.Core**: Domain models, interfaces, and business logic (PCL)
