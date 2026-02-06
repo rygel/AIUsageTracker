@@ -52,7 +52,7 @@ Download the latest installer or .zip file from the [Release](https://github.com
 ## Installation
 
 ### Manual
-1. Download the latest `AIConsumptionTracker_Setup.exe` from releases.
+1. Download the latest `AIConsumptionTracker_Setup_v1.5.2.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 
