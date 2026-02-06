@@ -1,0 +1,92 @@
+<Window x:Class="AIConsumptionTracker.UI.InfoDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Application Information" Height="300" Width="400"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="#1E1E1E"
+        Foreground="White"
+        ShowInTaskbar="False"
+        WindowStyle="SingleBorderWindow"
+        Icon="Assets/app_icon.png">
+    
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        
+        <Style TargetType="Label">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Resources>
+    
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        
+        <!-- Header -->
+        <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
+                   Text="Application Information" 
+                   FontSize="16" 
+                   FontWeight="Bold" 
+                   HorizontalAlignment="Center" 
+                   Margin="0,0,0,20"/>
+        
+        <!-- App Name -->
+        <Label Grid.Row="1" Grid.Column="0" Content="Application:" />
+        <TextBlock Grid.Row="1" Grid.Column="1" Text="AI Consumption Tracker"/>
+        
+        <!-- .NET Version -->
+        <Label Grid.Row="2" Grid.Column="0" Content=".NET Version:" />
+        <TextBlock x:Name="NetVersionText" Grid.Row="2" Grid.Column="1" Text="Loading..." />
+        
+        <!-- App Version -->
+        <Label Grid.Row="3" Grid.Column="0" Content="App Version:" />
+        <TextBlock x:Name="AppVersionText" Grid.Row="3" Grid.Column="1" Text="Loading..." />
+        
+        <!-- Build Date -->
+        <Label Grid.Row="4" Grid.Column="0" Content="Build Date:" />
+        <TextBlock x:Name="BuildDateText" Grid.Row="4" Grid.Column="1" Text="Loading..." />
+        
+        <!-- Description -->
+        <Label Grid.Row="5" Grid.Column="0" Content="Description:" />
+        <TextBlock Grid.Row="5" Grid.Column="1" Text="A desktop application for tracking AI usage across multiple providers including OpenAI, Anthropic, Google, and others."/>
+        
+        <!-- Spacer -->
+        <Border Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Height="10"/>
+        
+        <!-- OK Button -->
+        <Button x:Name="OkBtn" Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" 
+                Content="OK" 
+                Width="80" 
+                HorizontalAlignment="Center" 
+                Click="OkBtn_Click" >
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="5">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Grid>
+</Window>
