@@ -40,7 +40,6 @@ Download the latest installer or .zip file from the [Release](https://github.com
 | **DeepSeek** | Balance | Env Vars, Settings UI |
 | **OpenAI** | Balance/Usage | Env Vars, Settings UI |
 | **Gemini** | Daily / Minutely | Env Vars, Settings UI |
-| **Google Cloud Code** | OAuth Token | `gcloud` CLI, Settings UI |
 | **OpenRouter** | Credit Balance | Env Vars, Settings UI |
 | **Antigravity** | Model-specific | Local App, Settings UI |
 | **Kimi (Moonshot)** | Balance | Env Vars, Settings UI |
