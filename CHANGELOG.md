@@ -2,11 +2,20 @@
 
 ## Unreleased
 
+- **GitHub Copilot Integration**:
+  - Implemented OAuth Device Flow authentication for GitHub
+  - Integrated Copilot usage tracking with API rate limit visualization
+  - Display quota as progress bar in "Plans & Quotas" section with color-coded thresholds
+  - Show plan type (Individual/Business/Enterprise) and account name
+  - GitHub Copilot card now always visible in provider list
+  - Added `CodexProvider` for Codex model tracking
+
+- **UI/UX Improvements**:
+  - Integrated login/logout functionality directly in GitHub Copilot provider card
+  - Improved authentication status display with color-coded indicators
+
 - **Font Settings Improvements**:
   - Implemented System Font Selection: Users can now choose from all installed fonts.
-  - Live Font Preview: Font settings changes now update a preview box in real-time.
-  - Reset to Default: Added a button to restore default font settings (Segoe UI, 12pt).
-  - Improved Propagation: Font settings now apply immediately to the main window upon closing Settings.
   - Centralized Settings Logic: Standardized how settings are shown and refreshed.
 
 ## v1.3.3 (2026-02-06)
