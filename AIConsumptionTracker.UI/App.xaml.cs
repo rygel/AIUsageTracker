@@ -13,6 +13,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace AIConsumptionTracker.UI
 {
@@ -27,10 +28,6 @@ namespace AIConsumptionTracker.UI
         {
             base.OnStartup(e);
 
-            // Create Icon (Lazy way: we might want a simple icon resource)
-            // Ideally we need an .ico file. For now, we might crash if we don't have one? 
-            // Hardcodet requires an IconSource.
-            
             _host = Host.CreateDefaultBuilder()
                 .ConfigureLogging(logging => 
                 {
@@ -63,6 +60,7 @@ namespace AIConsumptionTracker.UI
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>(); // Dashboard
                     services.AddTransient<SettingsWindow>();
+                    services.AddTransient<InfoDialog>();
                 })
                 .Build();
 
@@ -91,11 +89,15 @@ namespace AIConsumptionTracker.UI
             var settingsItem = new MenuItem { Header = "Settings" };
             settingsItem.Click += (s, e) => ShowSettings();
             
+            var infoItem = new MenuItem { Header = "Info" };
+            infoItem.Click += (s, e) => ShowInfo();
+            
             var exitItem = new MenuItem { Header = "Exit" };
             exitItem.Click += (s, e) => ExitApp();
 
             contextMenu.Items.Add(openItem);
             contextMenu.Items.Add(settingsItem);
+            contextMenu.Items.Add(infoItem);
             contextMenu.Items.Add(new Separator());
             contextMenu.Items.Add(exitItem);
 
@@ -180,6 +182,13 @@ namespace AIConsumptionTracker.UI
                         _mainWindow.WindowState = WindowState.Normal;
                 }
             }
+        }
+
+        private void ShowInfo()
+        {
+            var infoDialog = Services.GetRequiredService<InfoDialog>();
+            infoDialog.Owner = _mainWindow;
+            infoDialog.ShowDialog();
         }
 
         public void UpdateProviderTrayIcons(List<ProviderUsage> usages, List<ProviderConfig> configs, AppPreferences? prefs = null)
@@ -323,4 +332,3 @@ namespace AIConsumptionTracker.UI
         }
     }
 }
-
