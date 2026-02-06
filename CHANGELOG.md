@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.5.2] - 2026-02-06
+### Added
+- Compact Providers tab layout in Settings dialog, reducing vertical space per provider by ~40-50%.
+### Fixed
+- Corrected provider icon mappings for Google services (Gemini CLI, Antigravity, Cloud Code) and Anthropic.
+### Changed
+- Increased Settings dialog default height from 450px to 550px for better visibility.
+- Moved "Tray" checkbox to provider header row for more compact layout.
+- Removed "API Key" label to maximize input field width.
+- Reduced card padding, margins, icon size, and font sizes throughout Providers tab.
+
 ## [1.5.1] - 2026-02-06
 ### Added
 - Boxy UI aesthetics: Windows-style sharp corners for buttons, input fields, and windows.

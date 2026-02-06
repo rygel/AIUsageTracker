@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version>1.5.1</Version>
+    <Version>1.5.2</Version>
     <AssemblyVersion>1.5.1</AssemblyVersion>
     <FileVersion>1.5.1</FileVersion>
     <OutputType>WinExe</OutputType>
