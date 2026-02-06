@@ -192,7 +192,7 @@ public class ExampleProvider : IProviderService
 
 ## Release Process
 
-When preparing a new release (e.g., v1.4.0), ensure the following files are updated with the new version number:
+When preparing a new release (e.g., v1.5.0), ensure the following files are updated with the new version number:
 
 ### 1. Project Files (.csproj)
 Update the `<Version>` tag in all project files:
@@ -202,21 +202,21 @@ Update the `<Version>` tag in all project files:
 - `AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj`
 
 ### 2. Changelog
-- Update `CHANGELOG.md`: Move the `## Unreleased` section to a new version header with the current date (e.g., `## v1.4.0 (2026-02-06)`).
+- Update `CHANGELOG.md`: Move the `## Unreleased` section to a new version header with the current date (e.g., `## [1.5.0] - 2026-02-06`).
 - Ensure a new empty `## Unreleased` section is created at the top if needed for future tracking.
 
 ### 3. Documentation
-- `README.md`: Update the version badge at the top: `![Version](https://img.shields.io/badge/version-v1.4.0-blue)`
-- `scripts/publish-app.ps1`: Update the example usage comment: `# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 1.4.0`
+- `README.md`: Update the version badge at the top: `![Version](https://img.shields.io/badge/version-1.5.0-blue)`
+- `scripts/publish-app.ps1`: Update the example usage comment: `# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 1.5.0`
 
 ### 4. Installer Setup
-- `scripts/setup.iss`: Update the `MyAppVersion` definition: `#define MyAppVersion "1.4.0"`
+- `scripts/setup.iss`: Update the `MyAppVersion` definition: `#define MyAppVersion "1.5.0"`
 
 ### 5. Git Tagging
 Once all files are committed and pushed to `main`, create a git tag to trigger the CI/CD release workflow:
 ```bash
-git tag v1.4.0
-git push origin v1.4.0
+git tag v1.5.0
+git push origin v1.5.0
 ```
 
 ## CI/CD

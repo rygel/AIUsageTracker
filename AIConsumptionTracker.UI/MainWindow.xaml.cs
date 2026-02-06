@@ -224,8 +224,10 @@ namespace AIConsumptionTracker.UI
             
             // Update Individual Tray Icons
             var configs = await _configLoader.LoadConfigAsync();
-            var app = (App)Application.Current;
-            app.UpdateProviderTrayIcons(usages, configs, _preferences);
+            if (Application.Current is App app)
+            {
+                app.UpdateProviderTrayIcons(usages, configs, _preferences);
+            }
             
             RenderUsages(usages);
         }
@@ -429,7 +431,7 @@ namespace AIConsumptionTracker.UI
             else if (isConsoleCheck) { statusText = "Check Console"; statusBrush = Brushes.Orange; }
             else 
             { 
-                statusText = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description) : usage.Description;
+                statusText = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;
                 
                 // Tailor description based on PaymentType if needed
                 if (usage.PaymentType == PaymentType.Credits)
@@ -482,7 +484,7 @@ namespace AIConsumptionTracker.UI
             DockPanel.SetDock(rightBlock, Dock.Right);
 
             // Name (Added last, gets remaining space)
-            var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{usage.AccountName}]";
+            var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{(_isPrivacyMode ? PrivacyHelper.MaskContent(usage.AccountName, usage.AccountName) : usage.AccountName)}]";
             var nameBlock = new TextBlock
             {
                 Text = _isPrivacyMode 
@@ -493,7 +495,9 @@ namespace AIConsumptionTracker.UI
                 Foreground = isMissing ? Brushes.Gray : Brushes.White,
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                ToolTip = string.IsNullOrEmpty(usage.AuthSource) ? usage.AuthSource : $"{usage.ProviderName}{accountPart}" 
+                ToolTip = _isPrivacyMode 
+                    ? $"{PrivacyHelper.MaskContent(usage.ProviderName, usage.AccountName)}{accountPart}"
+                    : (string.IsNullOrEmpty(usage.AuthSource) ? $"{usage.ProviderName}{accountPart}" : usage.AuthSource)
             };
             contentPanel.Children.Add(nameBlock);
             DockPanel.SetDock(nameBlock, Dock.Left);
@@ -529,7 +533,7 @@ namespace AIConsumptionTracker.UI
 
                var nameTxt = new TextBlock
                {
-                   Text = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.ProviderName) : usage.ProviderName, // Actually the "Name" of detail
+                   Text = _isPrivacyMode ? PrivacyHelper.MaskString(usage.ProviderName) : usage.ProviderName, // Actually the "Name" of detail
                    Foreground = Brushes.Silver,
                    FontSize = 12,
                    VerticalAlignment = VerticalAlignment.Center
@@ -542,7 +546,7 @@ namespace AIConsumptionTracker.UI
 
                var valueTxt = new TextBlock
                {
-                   Text = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description) : usage.Description,
+                   Text = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description,
                    Foreground = Brushes.White,
                    FontSize = 12,
                    FontWeight = FontWeights.SemiBold,
@@ -590,18 +594,18 @@ namespace AIConsumptionTracker.UI
                      headerGrid.Children.Add(indent);
                 }
 
-                var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{usage.AccountName}]";
+                var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{(_isPrivacyMode ? PrivacyHelper.MaskContent(usage.AccountName, usage.AccountName) : usage.AccountName)}]";
                 var nameBlock = new TextBlock 
                 { 
                     Text = _isPrivacyMode 
-                        ? $"{PrivacyHelper.MaskContent(usage.ProviderName)}{accountPart}"
+                        ? $"{PrivacyHelper.MaskContent(usage.ProviderName, usage.AccountName)}{accountPart}"
                         : $"{usage.ProviderName}{accountPart}", 
                     FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold, 
                     FontSize = 13,
                     Foreground = isMissing ? Brushes.Gray : Brushes.White,
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
-                    ToolTip = string.IsNullOrEmpty(usage.AuthSource) ? null : usage.AuthSource
+                    ToolTip = _isPrivacyMode ? null : (string.IsNullOrEmpty(usage.AuthSource) ? null : usage.AuthSource)
                 };
             Grid.SetColumn(nameBlock, 1);
             headerGrid.Children.Add(nameBlock);
@@ -647,7 +651,7 @@ namespace AIConsumptionTracker.UI
             }
 
             // Details Text (The tokens/credits/cost)
-            var detailText = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description) : usage.Description;
+            var detailText = _isPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;
 
             // Tailor description based on PaymentType
             if (usage.PaymentType == PaymentType.Credits)
@@ -679,7 +683,7 @@ namespace AIConsumptionTracker.UI
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     MaxWidth = 200, // Ensure some bar space remains
-                    ToolTip = detailText
+                    ToolTip = _isPrivacyMode ? PrivacyHelper.MaskContent(detailText, usage.AccountName) : detailText
                 };
                 Grid.SetColumn(detailBlock, 1);
                 usageDetailGrid.Children.Add(detailBlock);
@@ -778,10 +782,17 @@ namespace AIConsumptionTracker.UI
             }
 
             // Fallback to default PNG
-            var fallback = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/usage_icon.png"));
-            fallback.Freeze();
-            _iconCache[providerId] = fallback;
-            return fallback;
+            try
+            {
+                var fallback = new System.Windows.Media.Imaging.BitmapImage(new Uri("pack://application:,,,/Assets/usage_icon.png"));
+                fallback.Freeze();
+                _iconCache[providerId] = fallback;
+                return fallback;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private void ShowInfoDialog(object sender, RoutedEventArgs e)

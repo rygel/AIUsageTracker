@@ -25,8 +25,13 @@ public class HeadlessWpfTests
         // Use real ProviderManager but with mocked dependencies
         var providerManager = new ProviderManager(providers, mockConfigLoader.Object, mockLogger.Object);
         
+        var mockFontProvider = new Mock<IFontProvider>();
+        var mockGithubAuth = new Mock<IGitHubAuthService>();
+        
         services.AddSingleton(mockConfigLoader.Object);
         services.AddSingleton(providerManager);
+        services.AddSingleton(mockFontProvider.Object);
+        services.AddSingleton(mockGithubAuth.Object);
         services.AddTransient<SettingsWindow>();
         services.AddTransient<MainWindow>();
         

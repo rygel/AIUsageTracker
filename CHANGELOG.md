@@ -1,6 +1,15 @@
 # Changelog
 
-## v1.4.0 (2026-02-06)
+## [1.5.0] - 2026-02-06
+### Added
+- Headless UI testing infrastructure for WPF using `WpfFact` and `ServiceCollection`.
+- Dedicated unit tests for `PrivacyHelper` masking logic.
+
+### Changed
+- Refined Privacy Mode: Implemented surgical masking that only affects sensitive parts (emails, usernames) within descriptions while preserving surrounding context.
+- Hardened UI rendering to be more robust in headless/test environments.
+
+## [1.4.0] - 2026-02-06)
 
 - **GitHub Copilot Integration**:
   - Implemented OAuth Device Flow authentication for GitHub
