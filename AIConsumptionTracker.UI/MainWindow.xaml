@@ -18,7 +18,7 @@
         <WindowChrome CaptionHeight="50" 
                       ResizeBorderThickness="5" 
                       GlassFrameThickness="0" 
-                      CornerRadius="8" />
+                      CornerRadius="0" />
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
@@ -30,7 +30,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="5">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="0">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                     </ControlTemplate>
@@ -58,7 +58,7 @@
             </Border>
 
             <!-- List -->
-            <ScrollViewer Grid.Row="1" Padding="10">
+            <ScrollViewer Grid.Row="1" Padding="10" VerticalScrollBarVisibility="Auto">
                 <StackPanel x:Name="ProvidersList">
                     <TextBlock Text="Loading..." Foreground="#888888" HorizontalAlignment="Center"/>
                 </StackPanel>
@@ -106,7 +106,7 @@
                         <ToggleButton x:Name="PrivacyBtn" Click="PrivacyBtn_Click" Margin="0,0,10,0" ToolTip="Privacy Mode" Width="32" Height="30" Background="#444444" Foreground="White" BorderThickness="0">
                             <ToggleButton.Template>
                                 <ControlTemplate TargetType="ToggleButton">
-                                    <Border Background="{TemplateBinding Background}" CornerRadius="5">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="0">
                                         <TextBlock x:Name="Icon" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
@@ -123,9 +123,6 @@
                         </Button>
                         <Button x:Name="SettingsBtn" Background="#444444" Click="SettingsBtn_Click" ToolTip="Provider Settings" Width="32" Height="30">
                             <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
-                        </Button>
-                        <Button x:Name="InfoBtn" Click="ShowInfoDialog" Margin="0,0,10,0" ToolTip="About" Width="32" Height="30">
-                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                         </Button>
                     </StackPanel>
                 </DockPanel>

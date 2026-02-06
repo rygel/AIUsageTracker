@@ -27,6 +27,8 @@ OutputBaseFilename=AIConsumptionTracker_Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=AIConsumptionTracker.UI\Assets\app_icon.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
