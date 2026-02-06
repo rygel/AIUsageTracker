@@ -709,14 +709,10 @@ namespace AIConsumptionTracker.UI
             RenderUsages(_cachedUsages);
         }
 
-        private async void SettingsBtn_Click(object sender, RoutedEventArgs e)
+        private void SettingsBtn_Click(object sender, RoutedEventArgs e)
         {
             var settingsWindow = ((App)Application.Current).Services.GetRequiredService<SettingsWindow>();
             settingsWindow.Owner = this;
-            settingsWindow.Closed += async (s, args) => 
-            {
-                 if (this.IsVisible) await RefreshData(forceRefresh: true);
-            };
             settingsWindow.Show();
         }
 
