@@ -1,8 +1,16 @@
 using System;
+<<<<<<< HEAD
 using System.Reflection;
 using System.Windows;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+=======
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Windows;
+>>>>>>> 4a3ff3e (Add InfoDialog with right-click menu integration)
 
 namespace AIConsumptionTracker.UI
 {
@@ -16,6 +24,7 @@ namespace AIConsumptionTracker.UI
 
         private void LoadInfo()
         {
+<<<<<<< HEAD
             try
             {
                 // Get .NET version
@@ -64,6 +73,36 @@ namespace AIConsumptionTracker.UI
         }
 
         private void OkBtn_Click(object sender, RoutedEventArgs e)
+=======
+            // Application version
+            var appVersion = Assembly.GetEntryAssembly()?.GetName().Version;
+            if (appVersion != null)
+            {
+                AppVersionText.Text = $"v{appVersion.Major}.{appVersion.Minor}.{appVersion.Build}";
+                VersionText.Text = AppVersionText.Text;
+            }
+
+            // .NET Runtime version
+            DotNetVersionText.Text = RuntimeInformation.FrameworkDescription;
+
+            // Operating System
+            OsVersionText.Text = $"{RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})";
+
+            // Architecture
+            ArchitectureText.Text = RuntimeInformation.ProcessArchitecture.ToString();
+
+            // Machine name
+            MachineNameText.Text = Environment.MachineName;
+
+            // Current user
+            UserNameText.Text = Environment.UserName;
+
+            // Current directory
+            CurrentDirText.Text = AppDomain.CurrentDomain.BaseDirectory;
+        }
+
+        private void CloseBtn_Click(object sender, RoutedEventArgs e)
+>>>>>>> 4a3ff3e (Add InfoDialog with right-click menu integration)
         {
             this.Close();
         }

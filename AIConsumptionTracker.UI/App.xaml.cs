@@ -60,9 +60,15 @@ namespace AIConsumptionTracker.UI
                     services.AddTransient<IProviderService, GitHubCopilotProvider>();
                     
                     services.AddSingleton<ProviderManager>();
+<<<<<<< HEAD
                     services.AddTransient<MainWindow>(); // Dashboard
                     services.AddTransient<SettingsWindow>();
                     services.AddTransient<InfoDialog>();
+=======
+services.AddTransient<MainWindow>(); // Dashboard
+services.AddTransient<SettingsWindow>();
+services.AddTransient<InfoDialog>();
+>>>>>>> 4a3ff3e (Add InfoDialog with right-click menu integration)
                 })
                 .Build();
 
