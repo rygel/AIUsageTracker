@@ -784,6 +784,13 @@ namespace AIConsumptionTracker.UI
             return fallback;
         }
 
+        private void ShowInfoDialog(object sender, RoutedEventArgs e)
+        {
+            var infoDialog = ((App)Application.Current).Services.GetRequiredService<InfoDialog>();
+            infoDialog.Owner = this;
+            infoDialog.ShowDialog();
+        }
+
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
         {
             this.Close(); // Actually close the window (App will create new one next time)
