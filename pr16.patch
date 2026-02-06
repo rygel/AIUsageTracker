@@ -1,0 +1,209 @@
+From 6a990eab928f055da605d3a278eaa6d5a8c73c4a Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 16:55:01 +0000
+Subject: [PATCH 1/5] Initial plan
+
+
+From 0bcded81057a90833737afc8b783db9e402b9164 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 17:02:01 +0000
+Subject: [PATCH 2/5] Fix potential deadlock in
+ ProviderManager.GetAllUsageAsync
+
+Replace synchronous lock with SemaphoreSlim to prevent async/sync blocking deadlock that could cause tests to hang indefinitely under concurrent access patterns.
+
+Co-authored-by: rygel <519061+rygel@users.noreply.github.com>
+---
+ .../Services/ProviderManager.cs               | 25 ++++++++++++++-----
+ 1 file changed, 19 insertions(+), 6 deletions(-)
+
+diff --git a/AIConsumptionTracker.Core/Services/ProviderManager.cs b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+index 20436eb..05043ef 100644
+--- a/AIConsumptionTracker.Core/Services/ProviderManager.cs
++++ b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+@@ -21,25 +21,38 @@ public ProviderManager(IEnumerable<IProviderService> providers, IConfigLoader co
+     }
+ 
+     private Task<List<ProviderUsage>>? _refreshTask;
+-    private readonly object _refreshLock = new();
++    private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
+ 
+-    public Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
++    public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
+     {
+-        lock (_refreshLock)
++        await _refreshSemaphore.WaitAsync();
++        try
+         {
+             if (_refreshTask != null && !_refreshTask.IsCompleted)
+             {
+                 _logger.LogDebug("Joining existing refresh task...");
+-                return _refreshTask;
++                var existingTask = _refreshTask;
++                _refreshSemaphore.Release();
++                return await existingTask;
+             }
+ 
+             if (!forceRefresh && _lastUsages.Count > 0)
+             {
+-                return Task.FromResult(_lastUsages);
++                return _lastUsages;
+             }
+ 
+             _refreshTask = FetchAllUsageInternal();
+-            return _refreshTask;
++            var currentTask = _refreshTask;
++            _refreshSemaphore.Release();
++            return await currentTask;
++        }
++        finally
++        {
++            // Release semaphore if it hasn't been released yet (in case of exception before manual release)
++            if (_refreshSemaphore.CurrentCount == 0)
++            {
++                _refreshSemaphore.Release();
++            }
+         }
+     }
+ 
+
+From 57c926b05be3c8e546830c83b2180fb9daeef26c Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 17:03:04 +0000
+Subject: [PATCH 3/5] Address code review: use boolean flag instead of checking
+ CurrentCount
+
+Fix race condition in semaphore release by tracking release state with a local variable instead of checking CurrentCount, preventing potential SemaphoreFullException.
+
+Co-authored-by: rygel <519061+rygel@users.noreply.github.com>
+---
+ AIConsumptionTracker.Core/Services/ProviderManager.cs | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/AIConsumptionTracker.Core/Services/ProviderManager.cs b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+index 05043ef..a4020b9 100644
+--- a/AIConsumptionTracker.Core/Services/ProviderManager.cs
++++ b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+@@ -26,6 +26,7 @@ public ProviderManager(IEnumerable<IProviderService> providers, IConfigLoader co
+     public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
+     {
+         await _refreshSemaphore.WaitAsync();
++        var semaphoreReleased = false;
+         try
+         {
+             if (_refreshTask != null && !_refreshTask.IsCompleted)
+@@ -33,6 +34,7 @@ public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true
+                 _logger.LogDebug("Joining existing refresh task...");
+                 var existingTask = _refreshTask;
+                 _refreshSemaphore.Release();
++                semaphoreReleased = true;
+                 return await existingTask;
+             }
+ 
+@@ -44,12 +46,13 @@ public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true
+             _refreshTask = FetchAllUsageInternal();
+             var currentTask = _refreshTask;
+             _refreshSemaphore.Release();
++            semaphoreReleased = true;
+             return await currentTask;
+         }
+         finally
+         {
+             // Release semaphore if it hasn't been released yet (in case of exception before manual release)
+-            if (_refreshSemaphore.CurrentCount == 0)
++            if (!semaphoreReleased)
+             {
+                 _refreshSemaphore.Release();
+             }
+
+From 5f43ac905d78dffca9437735ed3755d9f1220216 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 17:04:14 +0000
+Subject: [PATCH 4/5] Add IDisposable to properly dispose SemaphoreSlim
+
+Implement IDisposable pattern to ensure SemaphoreSlim resources are properly released when ProviderManager is disposed, preventing resource leaks.
+
+Co-authored-by: rygel <519061+rygel@users.noreply.github.com>
+---
+ AIConsumptionTracker.Core/Services/ProviderManager.cs | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/AIConsumptionTracker.Core/Services/ProviderManager.cs b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+index a4020b9..b321cfa 100644
+--- a/AIConsumptionTracker.Core/Services/ProviderManager.cs
++++ b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+@@ -4,7 +4,7 @@
+ 
+ namespace AIConsumptionTracker.Core.Services;
+ 
+-public class ProviderManager
++public class ProviderManager : IDisposable
+ {
+     private readonly IEnumerable<IProviderService> _providers;
+     private readonly IConfigLoader _configLoader;
+@@ -155,5 +155,10 @@ private async Task<List<ProviderUsage>> FetchAllUsageInternal()
+         _lastUsages = results;
+         return results;
+     }
++
++    public void Dispose()
++    {
++        _refreshSemaphore.Dispose();
++    }
+ }
+ 
+
+From 1773e99c228ca7787a1e34ccfb26559d5f2e26c1 Mon Sep 17 00:00:00 2001
+From: "copilot-swe-agent[bot]" <198982749+Copilot@users.noreply.github.com>
+Date: Thu, 5 Feb 2026 17:05:24 +0000
+Subject: [PATCH 5/5] Improve Dispose pattern and fix semaphore release
+
+- Implement full IDisposable pattern with protected Dispose(bool) method
+- Fix missing semaphore release in cached result path
+- Update comment for clarity
+
+Co-authored-by: rygel <519061+rygel@users.noreply.github.com>
+---
+ .../Services/ProviderManager.cs                   | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/AIConsumptionTracker.Core/Services/ProviderManager.cs b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+index b321cfa..fc6ccb6 100644
+--- a/AIConsumptionTracker.Core/Services/ProviderManager.cs
++++ b/AIConsumptionTracker.Core/Services/ProviderManager.cs
+@@ -40,6 +40,8 @@ public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true
+ 
+             if (!forceRefresh && _lastUsages.Count > 0)
+             {
++                _refreshSemaphore.Release();
++                semaphoreReleased = true;
+                 return _lastUsages;
+             }
+ 
+@@ -51,7 +53,7 @@ public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true
+         }
+         finally
+         {
+-            // Release semaphore if it hasn't been released yet (in case of exception before manual release)
++            // Release semaphore if it hasn't been released yet (handles exception cases)
+             if (!semaphoreReleased)
+             {
+                 _refreshSemaphore.Release();
+@@ -158,7 +160,16 @@ private async Task<List<ProviderUsage>> FetchAllUsageInternal()
+ 
+     public void Dispose()
+     {
+-        _refreshSemaphore.Dispose();
++        Dispose(true);
++        GC.SuppressFinalize(this);
++    }
++
++    protected virtual void Dispose(bool disposing)
++    {
++        if (disposing)
++        {
++            _refreshSemaphore.Dispose();
++        }
+     }
+ }
+ 
