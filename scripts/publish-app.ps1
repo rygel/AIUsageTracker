@@ -1,30 +1,33 @@
 param(
-    [string]$Runtime = "win-x64"
+    [string]$Runtime = "win-x64",
+    [string]$Version = ""
 )
 
 # AI Consumption Tracker - Distribution Packaging Script
-# Usage: .\scripts\publish-app.ps1 -Runtime win-x64
+# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 1.3.0
 
 $isWinPlatform = $Runtime.StartsWith("win-")
 $projectName = if ($isWinPlatform) { "AIConsumptionTracker.UI" } else { "AIConsumptionTracker.CLI" }
 $projectPath = if ($isWinPlatform) { ".\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj" } else { ".\AIConsumptionTracker.CLI\AIConsumptionTracker.CLI.csproj" }
 $publishDir = ".\dist\publish-$Runtime"
 
-# Extract version from project file
-$projectContent = Get-Content $projectPath -Raw
-if ($projectContent -match "<Version>(.*?)</Version>") {
-    $version = $matches[1]
-} else {
-    $version = "unknown"
+# If Version not passed, extract from project file
+if ([string]::IsNullOrEmpty($Version)) {
+    $projectContent = Get-Content $projectPath -Raw
+    if ($projectContent -match "<Version>(.*?)</Version>") {
+        $Version = $matches[1]
+    } else {
+        $Version = "1.0.0"
+    }
 }
 
-$zipPath = ".\dist\AIConsumptionTracker_v$version`_$Runtime.zip"
+$zipPath = ".\dist\AIConsumptionTracker_v$Version`_$Runtime.zip"
 
 Write-Host "Cleaning dist folder for $Runtime..." -ForegroundColor Cyan
 if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
-Write-Host "Publishing $projectName for $Runtime..." -ForegroundColor Cyan
+Write-Host "Publishing $projectName for $Runtime (Version: $Version)..." -ForegroundColor Cyan
 # Do NOT force AOT for cross-platform builds on Windows agent
 $aotParams = "" 
 
@@ -41,6 +44,9 @@ dotnet publish $projectPath `
     $singleFileParam `
     -p:PublishReadyToRun=true `
     -p:DebugType=None `
+    -p:Version=$Version `
+    -p:AssemblyVersion=$Version `
+    -p:FileVersion=$Version `
     $aotParams
 
 Write-Host "Copying documentation..." -ForegroundColor Cyan
@@ -68,21 +74,24 @@ if ($isWinPlatform) {
 
     if ($iscc -and (Test-Path $iscc)) {
         Write-Host "Compiling Inno Setup Installer using $iscc..." -ForegroundColor Cyan
-        # Pass the architecture to the ISS script if needed, or rely on internal logic
-        # For now, we assume the ISS handles x64/x86 via setup.iss modifications if needed
-        # But we can pass architecture as a param to ISCC if we update setup.iss
-        & $iscc "scripts\setup.iss" /Q "/DSourcePath=..\dist\publish-$Runtime"
+        
+        $archDef = if ($Runtime -like "*x64") { "x64" } else { "x86" }
+        
+        & $iscc "scripts\setup.iss" /Q "/DSourcePath=..\dist\publish-$Runtime" "/DMyAppVersion=$Version" "/DMyAppArch=$archDef"
         if ($LASTEXITCODE -eq 0) {
             # Move and rename the created setup to include architecture
             $setupDir = ".\dist"
-            $setupFile = Get-ChildItem "$setupDir\AIConsumptionTracker_Setup_v$version.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-            if (!$setupFile) {
-                # Fallback if v-prefix is missing in ISS but we expect it
-                $setupFile = Get-ChildItem "$setupDir\AIConsumptionTracker_Setup_*.exe" | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-            }
+            # The name in setup.iss typically defaults to 'AIConsumptionTracker_Setup.exe' or similar
+            # Use wildcard to find it
+            $setupFile = Get-ChildItem "$setupDir\AIConsumptionTracker_Setup_*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*_win-*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
             
+            # If specifically named in ISS
+            if (!$setupFile) {
+                 $setupFile = Get-ChildItem "$setupDir\AIConsumptionTracker_Setup.exe" -ErrorAction SilentlyContinue 
+            }
+
             if ($setupFile) {
-                $newName = "AIConsumptionTracker_Setup_v$version`_$Runtime.exe"
+                $newName = "AIConsumptionTracker_Setup_v$Version`_$Runtime.exe"
                 Rename-Item $setupFile.FullName -NewName $newName
                 Write-Host "Installer created successfully: $newName" -ForegroundColor Green
             }

@@ -1,8 +1,13 @@
 ; AI Consumption Tracker - Inno Setup Script
 
-#define MyAppVersion "1.2.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "1.3.0"
+#endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
+#endif
+#ifndef MyAppArch
+  #define MyAppArch "x64"
 #endif
 
 [Setup]
@@ -22,8 +27,10 @@ DirExistsWarning=no
 ; SetupIconFile=..\AIConsumptionTracker.UI\Assets\app_icon.ico
 UninstallDisplayIcon={app}\AIConsumptionTracker.UI.exe
 PrivilegesRequired=lowest
+#if MyAppArch == "x64"
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

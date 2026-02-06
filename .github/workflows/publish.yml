@@ -28,8 +28,14 @@ jobs:
         run: choco install innosetup
         shell: pwsh
 
+      - name: Extract Version
+        run: |
+          $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Build and Package
-        run: .\scripts\publish-app.ps1 -Runtime ${{ matrix.runtime }}
+        run: .\scripts\publish-app.ps1 -Runtime ${{ matrix.runtime }} -Version ${{ env.VERSION }}
         shell: pwsh
 
       - name: Create Release
