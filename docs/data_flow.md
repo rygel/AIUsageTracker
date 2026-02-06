@@ -23,8 +23,7 @@ If a provider's API key is not found in the configuration files above, the appli
     - `ANTHROPIC_API_KEY` / `CLAUDE_API_KEY`
     - `OPENAI_API_KEY`
 2.  **Kilo Code Secrets**: `%USERPROFILE%\.kilocode\secrets.json`
-3.  **Kilo Code Roo Config**: Nested configuration within Kilo Code secrets.
-4.  **Providers Definition**: `%USERPROFILE%\.local\share\opencode\providers.json`
+3.  **Providers Definition**: `%USERPROFILE%\.local\share\opencode\providers.json`
 
 ## Application Preferences (Read)
 
