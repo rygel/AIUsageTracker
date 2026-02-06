@@ -69,27 +69,26 @@ namespace AIConsumptionTracker.UI
                 var card = new Border
                 {
                     Background = new SolidColorBrush(Color.FromRgb(40, 40, 40)),
-                    CornerRadius = new CornerRadius(6),
+                    CornerRadius = new CornerRadius(4),
                     BorderBrush = new SolidColorBrush(Color.FromRgb(55, 55, 55)),
                     BorderThickness = new Thickness(1),
-                    Margin = new Thickness(0, 0, 0, 10),
-                    Padding = new Thickness(12)
+                    Margin = new Thickness(0, 0, 0, 8),
+                    Padding = new Thickness(10, 8, 10, 8)
                 };
 
                 var grid = new Grid();
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
-                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Options
 
                 // Header: Icon + Name
-                var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+                var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
                 
                 var icon = new Image
                 {
                     Source = GetIconForProvider(config.ProviderId),
-                    Width = 18,
-                    Height = 18,
-                    Margin = new Thickness(0, 0, 10, 0),
+                    Width = 16,
+                    Height = 16,
+                    Margin = new Thickness(0, 0, 8, 0),
                     VerticalAlignment = VerticalAlignment.Center
                 };
                 headerPanel.Children.Add(icon);
@@ -104,12 +103,34 @@ namespace AIConsumptionTracker.UI
                 var title = new TextBlock
                 {
                     Text = displayName,
-                    FontWeight = FontWeights.Bold,
-                    FontSize = 14,
+                    FontWeight = FontWeights.SemiBold,
+                    FontSize = 12,
                     Foreground = Brushes.White,
-                    VerticalAlignment = VerticalAlignment.Center
+                    VerticalAlignment = VerticalAlignment.Center,
+                    MinWidth = 120
                 };
                 headerPanel.Children.Add(title);
+
+                // Add tray checkbox to header
+                var trayCheckBox = new CheckBox
+                {
+                    Content = "Tray",
+                    IsChecked = config.ShowInTray,
+                    Foreground = Brushes.LightGray,
+                    FontSize = 10,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Margin = new Thickness(12, 0, 0, 0)
+                };
+                trayCheckBox.Checked += (s, e) => {
+                    config.ShowInTray = true;
+                    ((App)Application.Current).UpdateProviderTrayIcons(_providerManager.LastUsages, _configs, _prefs);
+                };
+                trayCheckBox.Unchecked += (s, e) => {
+                    config.ShowInTray = false;
+                    ((App)Application.Current).UpdateProviderTrayIcons(_providerManager.LastUsages, _configs, _prefs);
+                };
+                headerPanel.Children.Add(trayCheckBox);
 
                 if (usage != null && !usage.IsAvailable)
                 {
@@ -126,24 +147,21 @@ namespace AIConsumptionTracker.UI
 
                 grid.Children.Add(headerPanel);
 
-                // Inputs: API Key or Auth Button
-                var keyPanel = new Grid { Margin = new Thickness(0,0,0,8) };
-                keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+                // Inputs: API Key or Auth Button (no label)
+                var keyPanel = new Grid { Margin = new Thickness(0,0,0,0) };
                 keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
                 if (config.ProviderId == "github-copilot")
                 {
-                    // Special GitHub Login UI
-                    var authLabel = new TextBlock { Text = "Status", Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
-                    
+                    // Special GitHub Login UI (no label)
                     var authBox = new StackPanel { Orientation = Orientation.Horizontal };
                     var authStatus = new TextBlock 
                     { 
                         Text = _githubAuthService.IsAuthenticated ? "Authenticated" : "Not Authenticated", 
                         Foreground = _githubAuthService.IsAuthenticated ? Brushes.LightGreen : Brushes.Gray,
                         VerticalAlignment = VerticalAlignment.Center,
-                        Margin = new Thickness(0, 0, 15, 0),
-                        FontWeight = FontWeights.SemiBold
+                        Margin = new Thickness(0, 0, 10, 0),
+                        FontSize = 11
                     };
 
                     var authBtn = new Button 
@@ -184,59 +202,29 @@ namespace AIConsumptionTracker.UI
                     authBox.Children.Add(authStatus);
                     authBox.Children.Add(authBtn);
 
-                    Grid.SetColumn(authLabel, 0);
-                    Grid.SetColumn(authBox, 1);
-                    keyPanel.Children.Add(authLabel);
+                    Grid.SetColumn(authBox, 0);
                     keyPanel.Children.Add(authBox);
                 }
                 else
                 {
-                    // Standard API Key Input
-                    var keyLabel = new TextBlock { Text = "API Key", Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
-                    
+                    // Standard API Key Input (no label)
                     var keyBox = new TextBox
                     {
                         Text = config.ApiKey,
                         Tag = config,
-                        VerticalContentAlignment = VerticalAlignment.Center
+                        VerticalContentAlignment = VerticalAlignment.Center,
+                        FontSize = 11
                     };
                     keyBox.TextChanged += (s, e) => {
                         config.ApiKey = keyBox.Text;
                     };
 
-                    Grid.SetColumn(keyLabel, 0);
-                    Grid.SetColumn(keyBox, 1);
-                    keyPanel.Children.Add(keyLabel);
+                    Grid.SetColumn(keyBox, 0);
                     keyPanel.Children.Add(keyBox);
                 }
 
                 Grid.SetRow(keyPanel, 1);
                 grid.Children.Add(keyPanel);
-
-                // Options
-                var optionsPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(80, 0, 0, 0) }; // Indent to match input
-                
-                var trayCheckBox = new CheckBox
-                {
-                    Content = "Show in System Tray",
-                    IsChecked = config.ShowInTray,
-                    Foreground = Brushes.LightGray,
-                    FontSize = 11,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Cursor = System.Windows.Input.Cursors.Hand
-                };
-                trayCheckBox.Checked += (s, e) => {
-                    config.ShowInTray = true;
-                    ((App)Application.Current).UpdateProviderTrayIcons(_providerManager.LastUsages, _configs, _prefs);
-                };
-                trayCheckBox.Unchecked += (s, e) => {
-                    config.ShowInTray = false;
-                    ((App)Application.Current).UpdateProviderTrayIcons(_providerManager.LastUsages, _configs, _prefs);
-                };
-                optionsPanel.Children.Add(trayCheckBox);
-
-                Grid.SetRow(optionsPanel, 2);
-                grid.Children.Add(optionsPanel);
                 
                 // Sub-Quotas for Antigravity (Special Case)
                 if (config.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase) && usage?.Details != null)
