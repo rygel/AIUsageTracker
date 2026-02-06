@@ -18,12 +18,15 @@ namespace AIConsumptionTracker.UI
 
         public bool SettingsChanged { get; private set; }
 
-        public SettingsWindow(IConfigLoader configLoader, ProviderManager providerManager, IFontProvider fontProvider)
+        private readonly IGitHubAuthService _githubAuthService;
+
+        public SettingsWindow(IConfigLoader configLoader, ProviderManager providerManager, IFontProvider fontProvider, IGitHubAuthService githubAuthService)
         {
             InitializeComponent();
             _configLoader = configLoader;
             _providerManager = providerManager;
             _fontProvider = fontProvider;
+            _githubAuthService = githubAuthService;
             Loaded += SettingsWindow_Loaded;
         }
 
@@ -31,6 +34,20 @@ namespace AIConsumptionTracker.UI
         {
             _configs = await _configLoader.LoadConfigAsync();
             _prefs = await _configLoader.LoadPreferencesAsync();
+
+            // Initialize GitHub Auth Token if present
+            var copilotConfig = _configs.FirstOrDefault(c => c.ProviderId == "github-copilot");
+            if (copilotConfig != null && !string.IsNullOrEmpty(copilotConfig.ApiKey))
+            {
+                _githubAuthService.InitializeToken(copilotConfig.ApiKey);
+            }
+
+            // Ensure GitHub Copilot config exists so it appears in the list
+            if (!_configs.Any(c => c.ProviderId == "github-copilot"))
+            {
+                _configs.Add(new ProviderConfig { ProviderId = "github-copilot", ShowInTray = true });
+            }
+
             PopulateList();
             PopulateLayout();
         }
@@ -109,27 +126,89 @@ namespace AIConsumptionTracker.UI
 
                 grid.Children.Add(headerPanel);
 
-                // Inputs: API Key
+                // Inputs: API Key or Auth Button
                 var keyPanel = new Grid { Margin = new Thickness(0,0,0,8) };
                 keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
                 keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-                var keyLabel = new TextBlock { Text = "API Key", Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
-                
-                var keyBox = new TextBox
+                if (config.ProviderId == "github-copilot")
                 {
-                    Text = config.ApiKey,
-                    Tag = config,
-                    VerticalContentAlignment = VerticalAlignment.Center
-                };
-                keyBox.TextChanged += (s, e) => {
-                    config.ApiKey = keyBox.Text;
-                };
+                    // Special GitHub Login UI
+                    var authLabel = new TextBlock { Text = "Status", Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
+                    
+                    var authBox = new StackPanel { Orientation = Orientation.Horizontal };
+                    var authStatus = new TextBlock 
+                    { 
+                        Text = _githubAuthService.IsAuthenticated ? "Authenticated" : "Not Authenticated", 
+                        Foreground = _githubAuthService.IsAuthenticated ? Brushes.LightGreen : Brushes.Gray,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 15, 0),
+                        FontWeight = FontWeights.SemiBold
+                    };
 
-                Grid.SetColumn(keyLabel, 0);
-                Grid.SetColumn(keyBox, 1);
-                keyPanel.Children.Add(keyLabel);
-                keyPanel.Children.Add(keyBox);
+                    var authBtn = new Button 
+                    { 
+                        Content = _githubAuthService.IsAuthenticated ? "Log out" : "Log in",
+                        Padding = new Thickness(10, 2, 10, 2),
+                        FontSize = 11,
+                        Background = new SolidColorBrush(Color.FromRgb(50, 50, 50))
+                    };
+
+                    authBtn.Click += (s, e) => 
+                    {
+                        if (_githubAuthService.IsAuthenticated)
+                        {
+                            _githubAuthService.Logout();
+                            config.ApiKey = ""; // Clear key
+                            authStatus.Text = "Not Authenticated";
+                            authStatus.Foreground = Brushes.Gray;
+                            authBtn.Content = "Log in";
+                            PopulateList(); // Re-render to update UI consistency if needed
+                        }
+                        else
+                        {
+                            var dialog = new GitHubLoginDialog(_githubAuthService);
+                            dialog.Owner = this;
+                            if (dialog.ShowDialog() == true)
+                            {
+                                authStatus.Text = "Authenticated";
+                                authStatus.Foreground = Brushes.LightGreen;
+                                authBtn.Content = "Log out";
+                                
+                                var token = _githubAuthService.GetCurrentToken();
+                                if (!string.IsNullOrEmpty(token)) config.ApiKey = token;
+                            }
+                        }
+                    };
+
+                    authBox.Children.Add(authStatus);
+                    authBox.Children.Add(authBtn);
+
+                    Grid.SetColumn(authLabel, 0);
+                    Grid.SetColumn(authBox, 1);
+                    keyPanel.Children.Add(authLabel);
+                    keyPanel.Children.Add(authBox);
+                }
+                else
+                {
+                    // Standard API Key Input
+                    var keyLabel = new TextBlock { Text = "API Key", Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
+                    
+                    var keyBox = new TextBox
+                    {
+                        Text = config.ApiKey,
+                        Tag = config,
+                        VerticalContentAlignment = VerticalAlignment.Center
+                    };
+                    keyBox.TextChanged += (s, e) => {
+                        config.ApiKey = keyBox.Text;
+                    };
+
+                    Grid.SetColumn(keyLabel, 0);
+                    Grid.SetColumn(keyBox, 1);
+                    keyPanel.Children.Add(keyLabel);
+                    keyPanel.Children.Add(keyBox);
+                }
 
                 Grid.SetRow(keyPanel, 1);
                 grid.Children.Add(keyPanel);
@@ -480,6 +559,7 @@ namespace AIConsumptionTracker.UI
 
               previewBox.Child = previewText;
               LayoutStack.Children.Add(previewBox);
+
         }
 
         private void ResetFontBtn_Click(object sender, RoutedEventArgs e)
@@ -521,6 +601,9 @@ namespace AIConsumptionTracker.UI
                         if (string.IsNullOrEmpty(existing.BaseUrl)) existing.BaseUrl = dc.BaseUrl;
                     }
                 }
+
+                // Force a fresh fetch of usage data from all providers
+                await _providerManager.GetAllUsageAsync(true);
 
                 PopulateList();
             }
