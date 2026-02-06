@@ -60,7 +60,6 @@ namespace AIConsumptionTracker.UI
                     services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
                     services.AddTransient<IProviderService, GitHubCopilotProvider>();
                     
-                    services.AddSingleton<WindowsBrowserCookieService>();
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>(); // Dashboard
                     services.AddTransient<SettingsWindow>();
@@ -74,7 +73,7 @@ namespace AIConsumptionTracker.UI
             _ = Task.Run(() => providerManager.GetAllUsageAsync(forceRefresh: true)); // Fire and forget preload on thread pool
 
             InitializeTrayIcon();
-            ShowDashboard();
+            await ShowDashboard();
         }
 
         private void InitializeTrayIcon()
@@ -87,7 +86,7 @@ namespace AIConsumptionTracker.UI
             var contextMenu = new ContextMenu();
             
             var openItem = new MenuItem { Header = "Open" };
-            openItem.Click += (s, e) => ShowDashboard();
+            openItem.Click += async (s, e) => await ShowDashboard();
             
             var settingsItem = new MenuItem { Header = "Settings" };
             settingsItem.Click += (s, e) => ShowSettings();
@@ -103,8 +102,8 @@ namespace AIConsumptionTracker.UI
             _taskbarIcon.ContextMenu = contextMenu;
 
             // Wire up single click and double click to show dashboard
-            _taskbarIcon.TrayLeftMouseDown += (s, e) => ShowDashboard();
-            _taskbarIcon.TrayMouseDoubleClick += (s, e) => ShowDashboard();
+            _taskbarIcon.TrayLeftMouseDown += async (s, e) => await ShowDashboard();
+            _taskbarIcon.TrayMouseDoubleClick += async (s, e) => await ShowDashboard();
         }
 
         private void ShowSettings()
@@ -112,7 +111,7 @@ namespace AIConsumptionTracker.UI
             // Ensure dashboard is created
             if (_mainWindow == null)
             {
-                ShowDashboard();
+                _ = ShowDashboard();
             }
             
             if (_mainWindow == null) return;
@@ -127,8 +126,8 @@ namespace AIConsumptionTracker.UI
             settingsWindow.Owner = _mainWindow;
             settingsWindow.Closed += async (s, e) => 
             {
-                 // Refresh when settings closes
-                 if (_mainWindow != null && _mainWindow.IsVisible && _mainWindow is MainWindow main)
+                 // Refresh only if settings actually changed
+                 if (settingsWindow.SettingsChanged && _mainWindow != null && _mainWindow.IsVisible && _mainWindow is MainWindow main)
                  {
                      await main.RefreshData(forceRefresh: true);
                  }
@@ -144,7 +143,7 @@ namespace AIConsumptionTracker.UI
 
         private MainWindow? _mainWindow;
 
-        private void ShowDashboard()
+        private async Task ShowDashboard()
         {
             if (_mainWindow == null)
             {
@@ -161,9 +160,7 @@ namespace AIConsumptionTracker.UI
                     var loader = _host?.Services.GetRequiredService<IConfigLoader>();
                     if (loader != null)
                     {
-                        // We must wait for this or the window will show with default (StayOpen=false)
-                        // triggering the bug if user clicks away instantly.
-                        var prefs = loader.LoadPreferencesAsync().GetAwaiter().GetResult(); 
+                        var prefs = await loader.LoadPreferencesAsync(); 
                         _mainWindow.SetInitialPreferences(prefs);
                     }
 
@@ -257,8 +254,8 @@ namespace AIConsumptionTracker.UI
                     var tray = new TaskbarIcon();
                     tray.ToolTipText = info.ToolTip;
                     tray.IconSource = GenerateUsageIcon(info.Percentage, yellowThreshold, redThreshold, prefs?.InvertProgressBar ?? false);
-                    tray.TrayLeftMouseDown += (s, e) => ShowDashboard();
-                    tray.TrayMouseDoubleClick += (s, e) => ShowDashboard();
+                    tray.TrayLeftMouseDown += async (s, e) => await ShowDashboard();
+                    tray.TrayMouseDoubleClick += async (s, e) => await ShowDashboard();
                     _providerTrayIcons.Add(key, tray);
                 }
                 else
