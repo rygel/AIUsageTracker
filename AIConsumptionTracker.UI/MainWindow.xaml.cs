@@ -749,7 +749,10 @@ namespace AIConsumptionTracker.UI
             string filename = providerId.ToLower() switch
             {
                 "github-copilot" => "github",
-                "google-gemini" => "google",
+                "gemini-cli" => "google",
+                "antigravity" => "google",
+                "cloud-code" => "google",
+                "anthropic" => "anthropic",
                 _ => providerId.ToLower()
             };
 
