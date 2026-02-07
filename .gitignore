@@ -461,3 +461,5 @@ run-cli.bat
 bin_unlocked_ui/
 *log*.txt
 TempBin/
+target/
+**/target/
