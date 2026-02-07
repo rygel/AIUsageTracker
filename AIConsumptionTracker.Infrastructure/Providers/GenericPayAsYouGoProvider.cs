@@ -71,9 +71,17 @@ public class GenericPayAsYouGoProvider : IProviderService
         {
             url = "https://api.opencode.ai/v1/credits";
         }
-        else if (config.ProviderId.Equals("minimax", StringComparison.OrdinalIgnoreCase))
+        }
+        else if (config.ProviderId.StartsWith("minimax", StringComparison.OrdinalIgnoreCase))
         {
-            url = "https://api.minimax.chat/v1/user/usage";
+            if (config.ProviderId.EndsWith("-io", StringComparison.OrdinalIgnoreCase) || config.ProviderId.EndsWith("-global", StringComparison.OrdinalIgnoreCase))
+            {
+               url = "https://api.minimax.io/v1/user/usage";
+            }
+            else
+            {
+               url = "https://api.minimax.chat/v1/user/usage";
+            }
         }
         else if (config.ProviderId.Equals("xiaomi", StringComparison.OrdinalIgnoreCase))
         {

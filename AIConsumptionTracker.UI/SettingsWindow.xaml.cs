@@ -290,6 +290,9 @@ namespace AIConsumptionTracker.UI
                     "anthropic" => "anthropic",
                     "zai" => "zai",
                     "zai-coding-plan" => "zai",
+                    "minimax-io" => "minimax",
+                    "minimax-global" => "minimax",
+                    "minimax" => "minimax",
                     _ => providerId.ToLower()
                 };
 
