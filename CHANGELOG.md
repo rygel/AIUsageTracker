@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1] - 2026-02-08
+### Added
+- **Capacity Bars by Default**: Set "Invert Progress Bars" to `true` by default, providing a "Health Bar" experience (Full = Unused) out of the box.
+- **Provider Standardization**: Standardized all providers (Z.AI, Gemini, etc.) to return "Used %" internally to ensure consistent behavior with the UI "Invert" setting.
+- **Official Z.AI Icon**: Replaced the placeholder Z.AI icon with the official branded vector logo.
+- **Unit Tests**: Added `ZaiProviderTests` to verify calculation logic and consistency.
+
 ## [1.6.0] - 2026-02-07
 ### Added
 - **New Provider Support**:
