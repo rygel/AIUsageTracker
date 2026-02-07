@@ -14,10 +14,10 @@ public class PrivacyHelperTests
     [InlineData("a", "a", "*")]
     [InlineData("", null, "")]
     [InlineData(null, null, null)]
-    public void MaskContent_ShouldMaskCorrectly(string input, string? accountName, string expected)
+    public void MaskContent_ShouldMaskCorrectly(string? input, string? accountName, string? expected)
     {
-        var result = PrivacyHelper.MaskContent(input, accountName);
-        Assert.Equal(expected, result);
+        var result = PrivacyHelper.MaskContent(input ?? "", accountName);
+        Assert.Equal(expected ?? "", result);
     }
 
     [Fact]

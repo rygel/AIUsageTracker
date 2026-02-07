@@ -78,7 +78,8 @@ public class GitHubCopilotProvider : IProviderService
                                  {
                                      string sku = "";
                                      if (internalDoc.RootElement.TryGetProperty("sku", out var skuProp))
-                                         sku = skuProp.GetString();
+                                         sku = skuProp.GetString() ?? "";
+                                         
                                          
                                      // "copilot_individual", "copilot_business", etc.
                                      planName = sku switch 

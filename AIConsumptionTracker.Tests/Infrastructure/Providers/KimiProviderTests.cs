@@ -46,7 +46,7 @@ public class KimiProviderTests
                 "SendAsync",
                 ItExpr.Is<HttpRequestMessage>(req => 
                     req.Method == HttpMethod.Get && 
-                    req.RequestUri.AbsoluteUri == "https://api.kimi.com/coding/v1/usages"),
+                    req.RequestUri != null && req.RequestUri.AbsoluteUri == "https://api.kimi.com/coding/v1/usages"),
                 ItExpr.IsAny<CancellationToken>()
             )
             .ReturnsAsync(new HttpResponseMessage

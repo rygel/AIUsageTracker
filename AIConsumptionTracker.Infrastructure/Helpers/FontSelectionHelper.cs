@@ -2,7 +2,7 @@ namespace AIConsumptionTracker.Infrastructure.Helpers
 {
     public static class FontSelectionHelper
     {
-        public static string GetSelectedFont(string currentPreference, IEnumerable<string> availableFonts)
+        public static string GetSelectedFont(string? currentPreference, IEnumerable<string> availableFonts)
         {
             if (string.IsNullOrWhiteSpace(currentPreference))
             {

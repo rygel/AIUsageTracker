@@ -45,7 +45,7 @@ public class MinimaxProviderTests
                 "SendAsync",
                 ItExpr.Is<HttpRequestMessage>(req => 
                     req.Method == HttpMethod.Get && 
-                    req.RequestUri.AbsoluteUri == "https://api.minimax.chat/v1/user/usage"),
+                    req.RequestUri != null && req.RequestUri.AbsoluteUri == "https://api.minimax.chat/v1/user/usage"),
                 ItExpr.IsAny<CancellationToken>()
             )
             .ReturnsAsync(new HttpResponseMessage
@@ -85,7 +85,7 @@ public class MinimaxProviderTests
                 "SendAsync",
                 ItExpr.Is<HttpRequestMessage>(req => 
                     req.Method == HttpMethod.Get && 
-                    req.RequestUri.AbsoluteUri == "https://api.minimax.io/v1/user/usage"),
+                    req.RequestUri != null && req.RequestUri.AbsoluteUri == "https://api.minimax.io/v1/user/usage"),
                 ItExpr.IsAny<CancellationToken>()
             )
             .ReturnsAsync(new HttpResponseMessage
