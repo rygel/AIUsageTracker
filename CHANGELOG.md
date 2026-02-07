@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.3] - 2026-02-07
+### Added
+- OpenAI JWT token support and improved authentication discovery.
+- Environment variable discovery for all providers.
+
 ## [1.5.2] - 2026-02-06
 ### Added
 - Compact Providers tab layout in Settings dialog, reducing vertical space per provider by ~40-50%.
