@@ -48,6 +48,12 @@ namespace AIConsumptionTracker.UI
                 _configs.Add(new ProviderConfig { ProviderId = "github-copilot", ShowInTray = true });
             }
 
+            // Ensure OpenAI config exists so it appears in the list
+            if (!_configs.Any(c => c.ProviderId == "openai"))
+            {
+                _configs.Add(new ProviderConfig { ProviderId = "openai", ShowInTray = true });
+            }
+
             PopulateList();
             PopulateLayout();
         }
