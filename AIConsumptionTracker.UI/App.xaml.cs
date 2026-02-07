@@ -60,6 +60,7 @@ namespace AIConsumptionTracker.UI
                     services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
                     services.AddTransient<IProviderService, GitHubCopilotProvider>();
                     services.AddTransient<IProviderService, CodexProvider>();
+                    services.AddTransient<IProviderService, MinimaxProvider>();
 
                     // Auth Services
                     services.AddSingleton<IGitHubAuthService, GitHubAuthService>();

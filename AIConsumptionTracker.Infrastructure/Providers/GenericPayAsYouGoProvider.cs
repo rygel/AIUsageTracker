@@ -8,9 +8,9 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
 
 public class GenericPayAsYouGoProvider : IProviderService
 {
-    public string ProviderId => "generic-pay-as-you-go";
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<GenericPayAsYouGoProvider> _logger;
+    public virtual string ProviderId => "generic-pay-as-you-go";
+    protected readonly HttpClient _httpClient;
+    protected readonly ILogger _logger;
 
     public GenericPayAsYouGoProvider(HttpClient httpClient, ILogger<GenericPayAsYouGoProvider> logger)
     {
@@ -18,7 +18,13 @@ public class GenericPayAsYouGoProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    protected GenericPayAsYouGoProvider(HttpClient httpClient, ILogger logger)
+    {
+        _httpClient = httpClient;
+        _logger = logger;
+    }
+
+    public virtual async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -71,18 +77,9 @@ public class GenericPayAsYouGoProvider : IProviderService
         {
             url = "https://api.opencode.ai/v1/credits";
         }
-        }
-        else if (config.ProviderId.StartsWith("minimax", StringComparison.OrdinalIgnoreCase))
-        {
-            if (config.ProviderId.EndsWith("-io", StringComparison.OrdinalIgnoreCase) || config.ProviderId.EndsWith("-global", StringComparison.OrdinalIgnoreCase))
-            {
-               url = "https://api.minimax.io/v1/user/usage";
-            }
-            else
-            {
-               url = "https://api.minimax.chat/v1/user/usage";
-            }
-        }
+
+
+
         else if (config.ProviderId.Equals("xiaomi", StringComparison.OrdinalIgnoreCase))
         {
             // Hypothetical endpoint based on best effort
@@ -304,13 +301,13 @@ public class GenericPayAsYouGoProvider : IProviderService
         }};
     }
 
-    private class CreditsResponse
+    protected class CreditsResponse
     {
         [JsonPropertyName("data")]
         public CreditsData? Data { get; set; }
     }
 
-    private class CreditsData
+    protected class CreditsData
     {
         [JsonPropertyName("total_credits")]
         public double TotalCredits { get; set; }
@@ -319,13 +316,13 @@ public class GenericPayAsYouGoProvider : IProviderService
         public double UsedCredits { get; set; }
     }
 
-    private class SyntheticResponse
+    protected class SyntheticResponse
     {
         [JsonPropertyName("subscription")]
         public SyntheticSubscription? Subscription { get; set; }
     }
 
-    private class SyntheticSubscription
+    protected class SyntheticSubscription
     {
         [JsonPropertyName("limit")]
         public double Limit { get; set; }
@@ -337,13 +334,13 @@ public class GenericPayAsYouGoProvider : IProviderService
         public string? RenewsAt { get; set; }
     }
 
-    private class KimiResponse
+    protected class KimiResponse
     {
         [JsonPropertyName("data")]
         public KimiData? Data { get; set; }
     }
 
-    private class KimiData
+    protected class KimiData
     {
         [JsonPropertyName("available_balance")]
         public double AvailableBalance { get; set; }
@@ -355,7 +352,7 @@ public class GenericPayAsYouGoProvider : IProviderService
         public double CashBalance { get; set; }
     }
 
-    private class MinimaxResponse
+    protected class MinimaxResponse
     {
         [JsonPropertyName("usage")]
         public MinimaxUsage? Usage { get; set; }
@@ -364,7 +361,7 @@ public class GenericPayAsYouGoProvider : IProviderService
         public MinimaxBaseResp? BaseResp { get; set; }
     }
     
-    private class MinimaxUsage
+    protected class MinimaxUsage
     {
         [JsonPropertyName("tokens_used")]
         public double TokensUsed { get; set; }
@@ -373,7 +370,7 @@ public class GenericPayAsYouGoProvider : IProviderService
         public double TokensLimit { get; set; } // Speculative
     }
     
-    private class MinimaxBaseResp
+    protected class MinimaxBaseResp
     {
         [JsonPropertyName("status_code")]
         public int StatusCode { get; set; }
