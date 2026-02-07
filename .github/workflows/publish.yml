@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runtime: [win-x64, win-x86, linux-x64, osx-x64, osx-arm64]
+        runtime: [win-x64, win-x86]
     
     steps:
       - uses: actions/checkout@v4
