@@ -45,6 +45,10 @@ The footer of the dashboard contains several toggles and buttons to customize yo
     - **Scan for Keys**: Automatically searches your environment variables and files for existing AI API keys to speed up setup.
     - **Save/Cancel**: Apply your changes or discard them without saving.
 
+> **Note**: For detailed information on setting up environment variables for automatic discovery, see [Environment Variables Guide](environment_variables.md).
+
+**OpenAI Users**: You can also authenticate via JWT tokens by running `opencode-tracker auth openai` in the OpenCode CLI. This provides actual usage data and credit balance from the ChatGPT backend API.
+
 ---
 
 ## System Tray Integration

@@ -14,15 +14,25 @@ The application attempts to load provider configurations (API keys, base URLs, e
 
 ### Token Discovery (Read)
 
-If a provider's API key is not found in the configuration files above, the application performs an automatic discovery in this order:
+If a provider's API key is not found in configuration files above, application performs an automatic discovery in this order:
 
 1.  **Environment Variables**:
-    - `MINIMAX_API_KEY`
-    - `XIAOMI_API_KEY` / `MIMO_API_KEY`
-    - `KIMI_API_KEY` / `MOONSHOT_API_KEY`
-    - `ANTHROPIC_API_KEY` / `CLAUDE_API_KEY`
-    - `OPENAI_API_KEY`
+    - `OPENAI_API_KEY` - OpenAI API key
+    - `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` - Anthropic/Claude API key
+    - `GEMINI_API_KEY` or `GOOGLE_API_KEY` - Google Gemini API key
+    - `DEEPSEEK_API_KEY` - DeepSeek API key
+    - `OPENROUTER_API_KEY` - OpenRouter API key
+    - `KIMI_API_KEY` or `MOONSHOT_API_KEY` - Kimi API key
+    - `XIAOMI_API_KEY` or `MIMO_API_KEY` - Xiaomi API key
+    - `MINIMAX_API_KEY` - Minimax API key
+    - `ZAI_API_KEY` or `Z_AI_API_KEY` - Z.AI API key
+    - `ANTIGRAVITY_API_KEY` or `GOOGLE_ANTIGRAVITY_API_KEY` - Google Antigravity API key
+    - `OPENCODE_API_KEY` - OpenCode API key
+    - `OPENCODE_ZEN_API_KEY` - OpenCode Zen API key
+    - `CLOUDCODE_API_KEY` - CloudCode API key
+    - `CODEX_API_KEY` - Codex API key
 2.  **Kilo Code Secrets**: `%USERPROFILE%\.kilocode\secrets.json`
+    - Automatically discovers OpenAI keys configured in Roo Cline
 3.  **Providers Definition**: `%USERPROFILE%\.local\share\opencode\providers.json`
 
 ## Application Preferences (Read)
