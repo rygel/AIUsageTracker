@@ -76,7 +76,7 @@ if ($isWinPlatform) {
     if ($iscc -and (Test-Path $iscc)) {
         Write-Host "Compiling Inno Setup Installer using $iscc..." -ForegroundColor Cyan
         
-        $archDef = if ($Runtime -like "*x64") { "x64" } elseif ($Runtime -like "*arm64") { "arm64" } elseif ($Runtime -like "*arm") { "arm" } else { "x86" }
+        $archDef = if ($Runtime -like "*x64") { "x64" } elseif ($Runtime -like "*arm64") { "arm64" } else { "x86" }
         
         & $iscc "scripts\setup.iss" /Q "/DSourcePath=..\dist\publish-$Runtime" "/DMyAppVersion=$Version" "/DMyAppArch=$archDef"
         if ($LASTEXITCODE -eq 0) {

@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "AIConsumptionTracker"
-#define MyAppVersion "1.7.2"
+#define MyAppVersion "1.7.3"
 #define MyAppPublisher "Alexander Brandt"
 #define MyAppURL "https://github.com/Starttoaster/opencode-tracker"
 #define MyAppExeName "AIConsumptionTracker.UI.exe"
@@ -19,7 +19,7 @@ AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 ArchitecturesInstallIn64BitMode=x64 arm64
-ArchitecturesAllowed=x86 x64 arm arm64
+ArchitecturesAllowed=x86 x64 arm64
 DefaultDirName={autopf}\{#MyAppName}
 DisableProgramGroupPage=yes
 ; Remove the following line to run in administrative install mode (install for all users.)

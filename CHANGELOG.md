@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.7.3] - 2026-02-08
+### Fixed
+- **Release Matrix Fix**: Removed unsupported `win-arm` (32-bit) which is not compatible with WPF in .NET 8.0.
+- **Version Calibration**: Ensured all components are consistently at v1.7.3.
+
 ## [1.7.1] - 2026-02-08
 ### Added
 - **Windows ARM Support**: Restored support for Windows ARM64 and ARM (32-bit).
