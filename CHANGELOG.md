@@ -1,5 +1,7 @@
 # Changelog
 
+## [Unreleased]
+
 ## [1.7.1] - 2026-02-08
 ### Added
 - **Windows ARM Support**: Restored support for Windows ARM64 and ARM (32-bit).
