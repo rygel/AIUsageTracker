@@ -288,6 +288,8 @@ namespace AIConsumptionTracker.UI
                     "antigravity" => "google",
                     "cloud-code" => "google",
                     "anthropic" => "anthropic",
+                    "zai" => "zai",
+                    "zai-coding-plan" => "zai",
                     _ => providerId.ToLower()
                 };
 
