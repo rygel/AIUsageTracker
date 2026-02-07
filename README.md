@@ -1,10 +1,7 @@
 # <img src="AIConsumptionTracker.UI/Assets/app_icon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
-<<<<<<< HEAD
-![Version](https://img.shields.io/badge/version-1.6.0-blue)
-=======
+
 ![Version](https://img.shields.io/badge/version-1.7.0-blue)
->>>>>>> d724851 (release: v1.7.0 - DeepSeek improvements, color inversion fixes, and documentation updates)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
@@ -58,11 +55,7 @@ Download the latest installer or .zip file from the [Release](https://github.com
 ## Installation
 
 ### Manual
-<<<<<<< HEAD
-1. Download the latest `AIConsumptionTracker_Setup_v1.6.0.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
-=======
 1. Download the latest `AIConsumptionTracker_Setup_v1.7.0.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
->>>>>>> d724851 (release: v1.7.0 - DeepSeek improvements, color inversion fixes, and documentation updates)
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 
