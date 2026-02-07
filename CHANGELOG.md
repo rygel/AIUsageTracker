@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.6.0] - 2026-02-07
+### Added
+- **New Provider Support**:
+  - **Xiaomi**: Added dedicated support for Xiaomi Cloud / MiMo API monitoring (Balance & Quota).
+  - **Minimax**: Added robust support for both International (`minimax-io`) and China (`minimax`) endpoints.
+  - **Kimi (Moonshot AI)**: Added support for checking usage and limits.
+- **UI Enhancements**:
+  - Added official/branded icons for Xiaomi, Kimi, and Minimax.
+  - Providers in Settings are now propertly mapped with distinct icons.
+  - Updated tray icon support for new providers.
+
 ## [1.5.3] - 2026-02-07
 ### Added
 - OpenAI JWT token support and improved authentication discovery.
