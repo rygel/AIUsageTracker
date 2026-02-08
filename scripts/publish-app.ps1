@@ -78,7 +78,7 @@ if ($isWinPlatform) {
         
         $archDef = if ($Runtime -like "*x64") { "x64" } elseif ($Runtime -like "*arm64") { "arm64" } else { "x86" }
         
-        & $iscc "scripts\setup.iss" /Q "/DSourcePath=..\dist\publish-$Runtime" "/DMyAppVersion=$Version" "/DMyAppArch=$archDef"
+        & $iscc "scripts\setup.iss" "/DSourcePath=..\dist\publish-$Runtime" "/DMyAppVersion=$Version" "/DMyAppArch=$archDef"
         if ($LASTEXITCODE -eq 0) {
             # Move and rename the created setup to include architecture
             $setupDir = ".\dist"
