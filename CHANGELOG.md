@@ -1,12 +1,29 @@
 # Changelog
 
 ## Unreleased
+
+## [1.7.5] - 2026-02-08
+
+### Added
+- **Automated Release Workflow**: GitHub Actions workflow that automatically updates version files, validates changes, creates git tags, and generates GitHub releases
+- **Code Quality Tooling**: Added `.editorconfig` with Roslyn analyzer rules for consistent code style across the project
+- **CI Formatting Verification**: Added `dotnet format --verify` step to CI workflow to ensure code formatting compliance
+- **Developer Documentation**: Comprehensive "Developer Resources" section in user_manual.md covering code quality, local development, CI/CD workflows, and best practices
+
+### Changed
+- **Performance Optimizations**:
+  - Config caching: 5-second in-memory cache reduces file I/O from 3x to 1x per refresh
+  - HTTP request throttling: Limits to 6 concurrent connections to prevent network congestion
+  - Incremental UI updates: Provider bars appear as data arrives instead of waiting for all providers
+
 ### Fixed
 - **UI Fixes**:
-  - Removed privacy checkbox from Settings dialog (Privacy button only in title bar)
   - Fixed bug where PrivacyChanged event didn't call RenderUsages to update UI display
+  - Removed duplicate privacy checkbox from Settings dialog (Privacy button only in title bar)
   - Privacy mode now only accessible via title bar button
-  - Settings dialog no longer has duplicate privacy toggle
+- **Code Quality**:
+  - Refined analyzer rules in `.editorconfig` to avoid false positives for WPF-specific patterns
+  - Changed CA1307 severity from error to suggestion for missing StringComparison in .Equals() calls
 
 ## [1.7.4] - 2026-02-08
 ### Added

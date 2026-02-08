@@ -7,66 +7,128 @@ on:
         description: 'Version to release (e.g., 1.7.5)'
         required: true
         type: string
-        force_create:
-          description: 'Force tag creation even if validation fails (use with caution)'
-          type: boolean
-          default: false
+      skip_file_updates:
+        description: 'Skip automatic file updates (use if files already updated)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
 
 jobs:
-  validate:
+  update-files:
     runs-on: ubuntu-latest
-    outputs:
-      version_valid: ${{ steps.validate-version.outputs.version_valid }}
-      versions_match: ${{ steps.validate-version.outputs.versions_match }}
-      changelog_updated: ${{ steps.validate-changelog.outputs.changelog_updated }}
-      all_valid: ${{ steps.validate-version.outputs.all_valid }}
+    if: ${{ !inputs.skip_file_updates }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update .csproj Files
+        run: |
+          version="${{ inputs.version }}"
+          echo "Updating all .csproj files to $version"
+          
+          # Update AIConsumptionTracker.Core.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
+          
+          # Update AIConsumptionTracker.Infrastructure.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
+          
+          # Update AIConsumptionTracker.UI.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
+          
+          # Update AIConsumptionTracker.CLI.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
+          
+          echo "✓ Updated all .csproj files to $version"
+
+      - name: Update README.md Badge
+        run: |
+          version="${{ inputs.version }}"
+          echo "Updating README.md version badge"
+          sed -i "s|version-[0-9]\+\.[0-9]\+\.[0-9]\+-blue|version-$version-blue|g" README.md
+          echo "✓ Updated README.md badge to $version"
+
+      - name: Update setup.iss
+        run: |
+          version="${{ inputs.version }}"
+          echo "Updating setup.iss"
+          sed -i "s|#define MyAppVersion \".*\"|#define MyAppVersion \"$version\"|g" scripts/setup.iss
+          echo "✓ Updated setup.iss to $version"
+
+      - name: Update publish-app.ps1
+        run: |
+          version="${{ inputs.version }}"
+          echo "Updating publish-app.ps1"
+          sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+|Version $version|g" scripts/publish-app.ps1
+          sed -i "s|# Usage: .* -Runtime|# Usage: .\\scripts\\publish-app.ps1 -Runtime|g" scripts/publish-app.ps1
+          sed -i "s|-Version [0-9]\+\.[0-9]\+\.[0-9]\+|-Version $version|g" scripts/publish-app.ps1
+          echo "✓ Updated publish-app.ps1 to $version"
+
+      - name: Commit and Push Changes
+        run: |
+          version="${{ inputs.version }}"
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          
+          git add AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
+          git add AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
+          git add AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
+          git add AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
+          git add README.md
+          git add scripts/setup.iss
+          git add scripts/publish-app.ps1
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore(release): update version files to v$version"
+            git push origin main
+            echo "✓ Committed and pushed version updates"
+          fi
+
+  validate-and-release:
+    runs-on: ubuntu-latest
+    needs: update-files
+    outputs:
+      all_valid: ${{ steps.set-all-valid.outputs.all_valid }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      - name: Validate Version
+      - name: Validate Version Format
         id: validate-version
         run: |
           version="${{ inputs.version }}"
           echo "Validating version: $version"
 
-          # Extract version parts (major.minor.patch)
           if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            major=${BASH_REMATCH[1]}
-            minor=${BASH_REMATCH[2]}
-            patch=${BASH_REMATCH[3]}
+            echo "✓ Version format is valid: $version"
+            echo "version_valid=true" >> $GITHUB_OUTPUT
           else
             echo "ERROR: Invalid version format. Use semantic versioning (e.g., 1.7.5)"
+            echo "version_valid=false" >> $GITHUB_OUTPUT
             exit 1
           fi
-
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "major=$major" >> $GITHUB_OUTPUT
-          echo "minor=$minor" >> $GITHUB_OUTPUT
-          echo "patch=$patch" >> $GITHUB_OUTPUT
 
       - name: Check .csproj Files
         id: check-csproj
         run: |
           version="${{ inputs.version }}"
-          # Extract version parts
-          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            major=${BASH_REMATCH[1]}
-            minor=${BASH_REMATCH[2]}
-            patch=${BASH_REMATCH[3]}
-          fi
-
           version_valid=true
           versions_match=true
-          errors=""
 
-          # Check all .csproj files
           for file in AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj \
                      AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj \
                      AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj \
@@ -77,96 +139,65 @@ jobs:
               continue
             fi
 
-            # Check version in file
             if grep -q "<Version>$version</Version>" "$file"; then
               echo "✓ $file: $version"
             else
               version_valid=false
               versions_match=false
-              errors="$errors$file: Expected $version but found different or no version"$versions_match=false"
               echo "ERROR: $file has wrong version"
             fi
           done
 
-          echo "version_valid=$version_valid" >> $GITHUB_OUTPUT
           echo "versions_match=$versions_match" >> $GITHUB_OUTPUT
 
       - name: Check CHANGELOG.md
         id: check-changelog
         run: |
           version="${{ inputs.version }}"
-          # Extract version parts
-          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            major=${BASH_REMATCH[1]}
-            minor=${BASH_REMATCH[2]}
-            patch=${BASH_REMATCH[3]}
-          fi
-
           changelog_valid=true
-          errors=""
 
-          # Check if CHANGELOG has version section
           if grep -q "## \[$version\]" CHANGELOG.md; then
             echo "✓ CHANGELOG.md has version section for $version"
+            echo "changelog_valid=true" >> $GITHUB_OUTPUT
           else
-            changelog_valid=false
-            errors="$errorsCHANGELOG.md: Missing version section for $version. Expected '## [$version] - YYYY-MM-DD'"changelog_valid=false
+            echo "ERROR: CHANGELOG.md missing version section for $version"
+            echo "Expected: '## [$version] - YYYY-MM-DD'"
+            echo "changelog_valid=false" >> $GITHUB_OUTPUT
           fi
-
-          echo "changelog_updated=$changelog_valid" >> $GITHUB_OUTPUT
 
       - name: Check README.md
         id: check-readme
         run: |
           version="${{ inputs.version }}"
-          # Extract version parts
-          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            major=${BASH_REMATCH[1]}
-            minor=${BASH_REMATCH[2]}
-            patch=${BASH_REMATCH[3]}
-          fi
-
           readme_valid=true
-          errors=""
 
-          # Check version badge in README
           if grep -q "version-$version-blue" README.md; then
             echo "✓ README.md has version badge for $version"
+            echo "readme_valid=true" >> $GITHUB_OUTPUT
           else
-            readme_valid=false
-            errors="$errorsREADME.md: Version badge does not match $version. Expected 'version-$version-blue'"readme_valid=false
+            echo "ERROR: README.md version badge does not match $version"
+            echo "Expected: 'version-$version-blue'"
+            echo "readme_valid=false" >> $GITHUB_OUTPUT
           fi
-
-          echo "readme_valid=$readme_valid" >> $GITHUB_OUTPUT
 
       - name: Check scripts
         id: check-scripts
         run: |
           version="${{ inputs.version }}"
-          # Extract version parts
-          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            major=${BASH_REMATCH[1]}
-            minor=${BASH_REMATCH[2]}
-            patch=${BASH_REMATCH[3]}
-          fi
-
           scripts_valid=true
-          errors=""
 
-          # Check setup.iss
           if grep -q "MyAppVersion \"$version\"" scripts/setup.iss; then
             echo "✓ setup.iss has version $version"
           else
+            echo "ERROR: setup.iss version does not match $version"
             scripts_valid=false
-            errors="$errorssetup.iss: Version does not match $version. Expected 'MyAppVersion \"$version\"'"scripts_valid=false
           fi
 
-          # Check publish-app.ps1
           if grep -q "Version $version" scripts/publish-app.ps1; then
             echo "✓ publish-app.ps1 has version $version"
           else
+            echo "ERROR: publish-app.ps1 version does not match $version"
             scripts_valid=false
-            errors="$errorspublish-app.ps1: Version does not match $version. Expected 'Version $version'"scripts_valid=false
           fi
 
           echo "scripts_valid=$scripts_valid" >> $GITHUB_OUTPUT
@@ -174,11 +205,10 @@ jobs:
       - name: Set All Valid Status
         id: set-all-valid
         run: |
-          if [ "${{ needs.validate-version.outputs.version_valid }}" == "true" ] && \
-             [ "${{ needs.validate-version.outputs.versions_match }}" == "true" ] && \
-             [ "${{ needs.validate-version.outputs.changelog_updated }}" == "true" ] && \
-             [ "${{ needs.validate-version.outputs.readme_valid }}" == "true" ] && \
-             [ "${{ needs.validate-version.outputs.scripts_valid }}" == "true" ]; then
+          if [ "${{ steps.check-csproj.outputs.versions_match }}" == "true" ] && \
+             [ "${{ steps.check-changelog.outputs.changelog_valid }}" == "true" ] && \
+             [ "${{ steps.check-readme.outputs.readme_valid }}" == "true" ] && \
+             [ "${{ steps.check-scripts.outputs.scripts_valid }}" == "true" ]; then
             all_valid=true
           else
             all_valid=false
@@ -186,34 +216,49 @@ jobs:
 
           echo "all_valid=$all_valid" >> $GITHUB_OUTPUT
 
+      - name: Validation Summary
+        run: |
+          echo "=== Validation Summary ==="
+          echo "Version Format: ${{ steps.validate-version.outputs.version_valid }}"
+          echo ".csproj Files: ${{ steps.check-csproj.outputs.versions_match }}"
+          echo "CHANGELOG.md: ${{ steps.check-changelog.outputs.changelog_valid }}"
+          echo "README.md: ${{ steps.check-readme.outputs.readme_valid }}"
+          echo "Scripts: ${{ steps.check-scripts.outputs.scripts_valid }}"
+          echo "All Valid: ${{ steps.set-all-valid.outputs.all_valid }}"
+
       - name: Create Git Tag
+        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
         run: |
           version="${{ inputs.version }}"
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
           git tag "v$version"
           git push origin "v$version"
+          echo "✓ Created and pushed git tag: v$version"
 
       - name: Create GitHub Release
+        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="${{ inputs.version }}"
-          # Get commit for version (find the last commit mentioning this version)
-          commit_sha=$(git log --grep "## \\[$version\\]" --max-count=1 --format="%H")
-
-          # Create release with manual body (GitHub auto-generates notes from commits)
           gh release create "v$version" \
             --title "Release v$version" \
             --target "main" \
             --notes "See CHANGELOG.md for details"
+          echo "✓ Created GitHub release: v$version"
 
       - name: Success
+        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
         run: |
           echo "✅ Successfully created release v${{ inputs.version }}"
           echo "Git tag pushed: v${{ inputs.version }}"
           echo "GitHub release created"
 
-    fail-on-error:
-      if: ${{ needs.validate.outputs.all_valid != 'true' && !inputs.force_create }}
+      - name: Failure
+        if: ${{ steps.set-all-valid.outputs.all_valid != 'true' }}
         run: |
-          echo "⚠️ Validation failed but force_create=true"
-          echo "Proceeding anyway - this may create an incomplete release"
+          echo "❌ Validation failed"
+          echo "Please check the error messages above and ensure all version files match ${{ inputs.version }}"
+          echo "If you want to proceed anyway, re-run with skip_file_updates=true"
+          exit 1
