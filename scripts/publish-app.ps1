@@ -11,8 +11,44 @@ $projectName = if ($isWinPlatform) { "AIConsumptionTracker.UI" } else { "AIConsu
 $projectPath = if ($isWinPlatform) { ".\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj" } else { ".\AIConsumptionTracker.CLI\AIConsumptionTracker.CLI.csproj" }
 $publishDir = ".\dist\publish-$Runtime"
 
-# If Version not passed, extract from project file
-if ([string]::IsNullOrEmpty($Version)) {
+# If Version passed, synchronize it across all files
+if (-not [string]::IsNullOrEmpty($Version)) {
+    Write-Host "Synchronizing version $Version across all files..." -ForegroundColor Cyan
+    
+    # 1. Update all .csproj files
+    # We find all .csproj files except for test projects (or just update all of them)
+    $csprojFiles = Get-ChildItem -Path "." -Filter "*.csproj" -Recurse | Where-Object { $_.FullName -notlike "*Tests*" }
+    foreach ($file in $csprojFiles) {
+        $content = Get-Content $file.FullName -Raw
+        if ($content -match "<Version>(.*?)</Version>") {
+            $newContent = $content -replace "<Version>.*?</Version>", "<Version>$Version</Version>"
+            # Also update AssemblyVersion and FileVersion if they exist
+            $newContent = $newContent -replace "<AssemblyVersion>.*?</AssemblyVersion>", "<AssemblyVersion>$Version</AssemblyVersion>"
+            $newContent = $newContent -replace "<FileVersion>.*?</FileVersion>", "<FileVersion>$Version</FileVersion>"
+            Set-Content $file.FullName $newContent -NoNewline
+            Write-Host "  Updated $($file.Name)" -ForegroundColor Gray
+        }
+    }
+
+    # 2. Update README.md badge
+    if (Test-Path "README.md") {
+        $readmeContent = Get-Content "README.md" -Raw
+        $newReadme = $readmeContent -replace "version-[0-9]+\.[0-9]+\.[0-9]+-blue", "version-$Version-blue"
+        # Update installation instructions version as well
+        $newReadme = $newReadme -replace "AIConsumptionTracker_Setup_v[0-9]+\.[0-9]+\.[0-9]+\.exe", "AIConsumptionTracker_Setup_v$($Version).exe"
+        Set-Content "README.md" $newReadme -NoNewline
+        Write-Host "  Updated README.md" -ForegroundColor Gray
+    }
+
+    # 3. Update scripts/setup.iss
+    if (Test-Path "scripts\setup.iss") {
+        $issContent = Get-Content "scripts\setup.iss" -Raw
+        $newIss = $issContent -replace '#define MyAppVersion ".*"', "#define MyAppVersion `"$Version`""
+        Set-Content "scripts\setup.iss" $newIss -NoNewline
+        Write-Host "  Updated scripts/setup.iss" -ForegroundColor Gray
+    }
+} else {
+    # If Version not passed, extract from project file
     $projectContent = Get-Content $projectPath -Raw
     if ($projectContent -match "<Version>(.*?)</Version>") {
         $Version = $matches[1]
