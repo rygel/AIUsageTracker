@@ -755,6 +755,22 @@ namespace AIConsumptionTracker.UI
             Close();
         }
 
+        private async void CheckUpdatesBtn_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (Application.Current is App app)
+                {
+                    // Trigger update check
+                    await (App as App).CheckForUpdatesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Failed to check for updates: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
     }
 }
 

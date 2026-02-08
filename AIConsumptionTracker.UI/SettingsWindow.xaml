@@ -213,69 +213,8 @@
                 <DockPanel>
                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"  Foreground="#007ACC" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock Text="Settings" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    </StackPanel>
-                </DockPanel>
-            </Border>
-
-            <!-- Content -->
-            <TabControl x:Name="MainTabControl" Grid.Row="1" Background="#1E1E1E" BorderBrush="#333333" BorderThickness="0,1,0,0">
-                <TabControl.Resources>
-                    <Style TargetType="TabItem">
-                        <Setter Property="Padding" Value="16,8"/>
-                        <Setter Property="FontSize" Value="12"/>
-                        <Setter Property="Foreground" Value="#AAAAAA"/>
-                        <Setter Property="Background" Value="#252526"/>
-                        <Setter Property="BorderBrush" Value="#333333"/>
-                        <Setter Property="BorderThickness" Value="1,1,1,0"/>
-                        <Setter Property="Template">
-                            <Setter.Value>
-                                <ControlTemplate TargetType="TabItem">
-                                    <Border Name="Border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" Margin="0,0,0,0">
-                                        <ContentPresenter x:Name="ContentSite" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="#1E1E1E"/>
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </Trigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter Property="Foreground" Value="White"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Setter.Value>
-                        </Setter>
-                    </Style>
-                </TabControl.Resources>
-
-                <!-- Provider Settings Tab -->
-                <TabItem Header="Providers">
-                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="ProvidersStack" Margin="20"/>
-                    </ScrollViewer>
-                </TabItem>
-
-                <!-- Layout Settings Tab -->
-                <TabItem Header="Layout">
-                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="LayoutStack" Margin="20"/>
-                    </ScrollViewer>
-                </TabItem>
-            </TabControl>
-
-            <!-- Footer -->
-            <Border Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0" BorderBrush="#333333" BorderThickness="0,1,0,0">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    
-                    <Button Content="Scan for Keys" Click="ScanBtn_Click" ToolTip="Search common locations for API keys" Grid.Column="0"/>
-                    
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Grid.Column="2">
+                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="CheckUpdatesBtn" Content="Check for Updates" Style="{StaticResource PrimaryButton}" Click="CheckUpdatesBtn_Click" ToolTip="Check for new application version" Margin="0,0,10,0" Width="110"/>
                         <Button x:Name="SaveBtn" Content="Save Changes" Style="{StaticResource PrimaryButton}" Click="SaveBtn_Click" Margin="0,0,10,0" Width="100"/>
                         <Button x:Name="CancelBtn" Content="Cancel" Click="CancelBtn_Click" Width="80"/>
                     </StackPanel>
