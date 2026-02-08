@@ -314,20 +314,47 @@ namespace AIConsumptionTracker.UI
                            (usage.IsAvailable && !usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
                            (usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota || usage.NextResetTime.HasValue || (usage.Details != null && usage.Details.Any(d => d.NextResetTime.HasValue)));
 
-            // Remove existing bar if it exists
-            var existingBarIndex = ProvidersList.Children
-                .OfType<UIElement>()
-                .Select((item, index) => new { Item = item, Index = index })
-                .FirstOrDefault(x =>
-                {
-                    if (x.Item is FrameworkElement fe)
-                        return fe.Tag?.ToString() == usage.ProviderId;
-                    return false;
-                })?.Index;
+            // Find existing bars for this provider group
+            var existingBars = ProvidersList.Children
+                .OfType<FrameworkElement>()
+                .Where(fe => fe.Tag?.ToString() == usage.ProviderId)
+                .ToList();
 
-            if (existingBarIndex.HasValue)
+            if (existingBars.Count > 0)
             {
-                ProvidersList.Children.RemoveAt(existingBarIndex.Value);
+                // Count mismatch or not showing? Remove all
+                int expectedCount = shouldShow ? (1 + (usage.Details?.Count ?? 0)) : 0;
+                
+                if (existingBars.Count == expectedCount && shouldShow)
+                {
+                    // Try in-place update for the whole group
+                    bool allUpdated = true;
+                    
+                    // Update parent
+                    if (!TryUpdateInPlace(existingBars[0], usage)) allUpdated = false;
+                    
+                    // Update children
+                    if (allUpdated && usage.Details != null)
+                    {
+                        for (int i = 0; i < usage.Details.Count; i++)
+                        {
+                            var childUsage = CreateChildUsage(usage, usage.Details[i]);
+                            if (!TryUpdateInPlace(existingBars[i + 1], childUsage))
+                            {
+                                allUpdated = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (allUpdated) return; 
+                }
+
+                // If not showing anymore, or in-place update failed/not possible, remove all existing pieces
+                foreach (var bar in existingBars)
+                {
+                    ProvidersList.Children.Remove(bar);
+                }
             }
 
             // Only add if it should be shown
@@ -336,39 +363,141 @@ namespace AIConsumptionTracker.UI
                 return;
             }
 
-            // Create new bar and insert at the appropriate position based on provider name
-            var newBar = CreateProviderBar(usage);
-            if (newBar is FrameworkElement frameworkElement)
-            {
-                frameworkElement.Tag = usage.ProviderId;
-            }
-
+            // Create new group (Parent + Children)
+            var newElements = GetGroupElements(usage);
+            
             // Find insertion point to maintain alphabetical order
-            int insertIndex = 0;
-            var existingBars = ProvidersList.Children.OfType<FrameworkElement>()
-                .Where(fe => fe is TextBlock == false && fe.Tag != null)
-                .ToList();
-
-            for (int i = 0; i < existingBars.Count; i++)
+            // We search for the first element of another provider that comes alphabetically after this one
+            int insertIndex = ProvidersList.Children.Count;
+            for (int i = 0; i < ProvidersList.Children.Count; i++)
             {
-                var child = existingBars[i];
-                var childTag = child.Tag.ToString();
-                if (string.Compare(childTag, usage.ProviderId, StringComparison.OrdinalIgnoreCase) > 0)
+                if (ProvidersList.Children[i] is FrameworkElement fe && fe.Tag != null && fe.Tag.ToString() != usage.ProviderId)
                 {
-                    insertIndex = ProvidersList.Children.IndexOf(child);
-                    break;
+                    // If we found a different provider, check its ID
+                    if (string.Compare(fe.Tag.ToString(), usage.ProviderId, StringComparison.OrdinalIgnoreCase) > 0)
+                    {
+                        insertIndex = i;
+                        break;
+                    }
                 }
-                insertIndex = ProvidersList.Children.IndexOf(child) + 1;
             }
 
-            if (ProvidersList.Children.Count == 0 || insertIndex >= ProvidersList.Children.Count)
+            // Insert as a group
+            for (int i = 0; i < newElements.Count; i++)
             {
-                ProvidersList.Children.Add(newBar);
+                ProvidersList.Children.Insert(insertIndex + i, newElements[i]);
             }
-            else
+        }
+
+        private bool TryUpdateInPlace(FrameworkElement element, ProviderUsage usage)
+        {
+            // If display mode changed (Compact vs Standard), we must replace
+            bool isCompactElement = element is Grid; // Compact is Grid, Standard is Border
+            if (isCompactElement != _preferences.CompactMode) return false;
+
+            // Update Progress Bar
+            var progressFill = FindChildByTag<Border>(element, "Part_ProgressFill");
+            var progressHost = FindChildByTag<Grid>(element, "Part_ProgressBarHost");
+            bool shouldHaveProgress = (usage.UsagePercentage > 0 || usage.IsQuotaBased) && 
+                                    !usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase) && 
+                                    !usage.Description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
+
+            if (shouldHaveProgress)
             {
-                ProvidersList.Children.Insert(insertIndex, newBar);
+                if (progressFill == null || progressHost == null) return false; // Structure mismatch, need recreate
+
+                var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
+                if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
+
+                if (progressHost.ColumnDefinitions.Count == 2)
+                {
+                    progressHost.ColumnDefinitions[0].Width = new GridLength(indicatorWidth, GridUnitType.Star);
+                    progressHost.ColumnDefinitions[1].Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star);
+                }
+
+                progressFill.Background = usage.UsagePercentage > _preferences.ColorThresholdRed ? Brushes.Crimson : (usage.UsagePercentage > _preferences.ColorThresholdYellow ? Brushes.Gold : Brushes.MediumSeaGreen);
             }
+            else if (progressFill != null)
+            {
+                return false; // Had progress, now shouldn't. Recreate to show error/missing state.
+            }
+
+            // Update Status Text
+            var statusText = FindChildByTag<TextBlock>(element, "Part_StatusText");
+            if (statusText != null)
+            {
+                var newStatus = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;
+                
+                if (usage.PaymentType == PaymentType.Credits)
+                {
+                    var remaining = usage.CostLimit - usage.CostUsed;
+                    newStatus = isCompactElement ? $"{remaining:F2} Rem" : $"{remaining:F2} {usage.UsageUnit} Remaining";
+                }
+                else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+                {
+                    newStatus = isCompactElement ? $"${usage.CostUsed:F2} / ${usage.CostLimit:F2}" : $"Spent: ${usage.CostUsed:F2} / Limit: ${usage.CostLimit:F2}";
+                }
+
+                // Handle embedded reset info
+                var rIdx = newStatus.IndexOf("(Resets:");
+                if (rIdx >= 0) newStatus = newStatus.Substring(0, rIdx).Trim();
+
+                statusText.Text = newStatus;
+                
+                // Update color in compact mode if switch from error/missing
+                if (isCompactElement)
+                {
+                    bool isMissing = usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase);
+                    bool isError = usage.Description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
+                    bool isConsoleCheck = usage.Description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
+                    
+                    if (isMissing) statusText.Foreground = Brushes.IndianRed;
+                    else if (isError) statusText.Foreground = Brushes.Red;
+                    else if (isConsoleCheck) statusText.Foreground = Brushes.Orange;
+                    else statusText.Foreground = Brushes.Gray;
+                }
+            }
+
+            // Update Reset Text
+            var resetText = FindChildByTag<TextBlock>(element, "Part_ResetText");
+            if (resetText != null)
+            {
+                var fullDesc = usage.Description;
+                var rIdx = fullDesc.IndexOf("(Resets:");
+                if (rIdx >= 0)
+                {
+                    var resetContent = fullDesc.Substring(rIdx);
+                    resetText.Text = FormatResetDisplay(resetContent, usage.NextResetTime);
+                }
+            }
+
+            // Update Name/Account
+            var nameText = FindChildByTag<TextBlock>(element, "Part_NameText");
+            if (nameText != null)
+            {
+                var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{(_preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.AccountName, usage.AccountName) : usage.AccountName)}]";
+                nameText.Text = _preferences.IsPrivacyMode 
+                    ? $"{PrivacyHelper.MaskContent(usage.ProviderName, usage.AccountName)}{accountPart}"
+                    : $"{usage.ProviderName}{accountPart}";
+            }
+
+            return true;
+        }
+
+        private T? FindChildByTag<T>(DependencyObject parent, string tag) where T : FrameworkElement
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T element && element.Tag?.ToString() == tag)
+                {
+                    return element;
+                }
+                
+                var result = FindChildByTag<T>(child, tag);
+                if (result != null) return result;
+            }
+            return null;
         }
 
         private void RenderUsages(List<ProviderUsage> usages)
@@ -420,35 +549,55 @@ namespace AIConsumptionTracker.UI
         {
             foreach (var usage in groupUsages)
             {
-                // Render Parent
-                ProvidersList.Children.Add(CreateProviderBar(usage));
-
-                // Render Children (Details)
-                if (usage.Details != null && usage.Details.Count > 0)
+                var elements = GetGroupElements(usage);
+                foreach (var el in elements)
                 {
-                    foreach (var detail in usage.Details)
-                    {
-                        double pct = 0;
-                        if (double.TryParse(detail.Used.TrimEnd('%'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p)) 
-                            pct = p;
-
-                        var childUsage = new ProviderUsage 
-                        {
-                            ProviderId = usage.ProviderId,
-                            ProviderName = detail.Name,
-                            Description = detail.Description,
-                            UsagePercentage = pct,
-                            IsQuotaBased = true, // Treat as quota bar usually
-                            IsAvailable = true,
-                            AccountName = "", // Don't repeat account
-                            NextResetTime = detail.NextResetTime,
-                            PaymentType = usage.PaymentType // Inherit for rendering logic
-                        };
-
-                        ProvidersList.Children.Add(CreateProviderBar(childUsage, isChild: true));
-                    }
+                    ProvidersList.Children.Add(el);
                 }
             }
+        }
+
+        private List<UIElement> GetGroupElements(ProviderUsage usage)
+        {
+            var elements = new List<UIElement>();
+            
+            // Parent
+            var parentBar = CreateProviderBar(usage);
+            if (parentBar is FrameworkElement fe) fe.Tag = usage.ProviderId;
+            elements.Add(parentBar);
+
+            // Children (Details)
+            if (usage.Details != null && usage.Details.Count > 0)
+            {
+                foreach (var detail in usage.Details)
+                {
+                    var childUsage = CreateChildUsage(usage, detail);
+                    var childBar = CreateProviderBar(childUsage, isChild: true);
+                    if (childBar is FrameworkElement cfe) cfe.Tag = usage.ProviderId;
+                    elements.Add(childBar);
+                }
+            }
+            return elements;
+        }
+
+        private ProviderUsage CreateChildUsage(ProviderUsage parent, ProviderUsageDetail detail)
+        {
+            double pct = 0;
+            if (double.TryParse(detail.Used.TrimEnd('%'), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p)) 
+                pct = p;
+
+            return new ProviderUsage 
+            {
+                ProviderId = parent.ProviderId,
+                ProviderName = detail.Name,
+                Description = detail.Description,
+                UsagePercentage = pct,
+                IsQuotaBased = true, // Treat as quota bar usually
+                IsAvailable = true,
+                AccountName = "", // Don't repeat account
+                NextResetTime = detail.NextResetTime,
+                PaymentType = parent.PaymentType // Inherit for rendering logic
+            };
         }
 
         private UIElement CreateGroupHeader(string title, Brush accent)
@@ -495,13 +644,14 @@ namespace AIConsumptionTracker.UI
             {
                 Margin = new Thickness(isChild ? 20 : 0, 0, 0, 2),
                 Height = 24,
-                Background = Brushes.Transparent // Ensure hit-testing works
+                Background = Brushes.Transparent, // Ensure hit-testing works
+                Tag = usage.ProviderId
             };
 
             // Layer 1: Background Progress Bar
             if ((usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError)
             {
-                var pGrid = new Grid();
+                var pGrid = new Grid { Tag = "Part_ProgressBarHost" };
                 var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
                 if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
 
@@ -515,7 +665,8 @@ namespace AIConsumptionTracker.UI
                     // Low Usage -> MediumSeaGreen (Good)
                     Background = usage.UsagePercentage > _preferences.ColorThresholdRed ? Brushes.Crimson : (usage.UsagePercentage > _preferences.ColorThresholdYellow ? Brushes.Gold : Brushes.MediumSeaGreen),
                     Opacity = 0.45, // Increased from 0.25 for better visibility
-                    CornerRadius = new CornerRadius(0)
+                    CornerRadius = new CornerRadius(0),
+                    Tag = "Part_ProgressFill"
                 };
                 pGrid.Children.Add(fill);
                 grid.Children.Add(pGrid);
@@ -544,7 +695,8 @@ namespace AIConsumptionTracker.UI
                     Height = 14,
                     Margin = new Thickness(0, 0, 6, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Opacity = 1.0
+                    Opacity = 1.0,
+                    Tag = "Part_Icon"
                 };
                 contentPanel.Children.Add(icon);
                 DockPanel.SetDock(icon, Dock.Left);
@@ -601,7 +753,8 @@ namespace AIConsumptionTracker.UI
                     Foreground = Brushes.Gold,
                     FontWeight = FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(10, 0, 0, 0)
+                    Margin = new Thickness(10, 0, 0, 0),
+                    Tag = "Part_ResetText"
                 };
                 contentPanel.Children.Add(resetBlock);
                 DockPanel.SetDock(resetBlock, Dock.Right);
@@ -618,7 +771,8 @@ namespace AIConsumptionTracker.UI
                 FontSize = 10,
                 Foreground = statusBrush,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(10, 0, 0, 0)
+                Margin = new Thickness(10, 0, 0, 0),
+                Tag = "Part_StatusText"
             };
             contentPanel.Children.Add(rightBlock);
             DockPanel.SetDock(rightBlock, Dock.Right);
@@ -637,7 +791,8 @@ namespace AIConsumptionTracker.UI
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 ToolTip = _preferences.IsPrivacyMode 
                     ? $"{PrivacyHelper.MaskContent(usage.ProviderName, usage.AccountName)}{accountPart}"
-                    : (string.IsNullOrEmpty(usage.AuthSource) ? $"{usage.ProviderName}{accountPart}" : usage.AuthSource)
+                    : (string.IsNullOrEmpty(usage.AuthSource) ? $"{usage.ProviderName}{accountPart}" : usage.AuthSource),
+                Tag = "Part_NameText"
             };
             contentPanel.Children.Add(nameBlock);
             DockPanel.SetDock(nameBlock, Dock.Left);
@@ -721,7 +876,8 @@ namespace AIConsumptionTracker.UI
                     Height = 16,
                     Margin = new Thickness(0, 0, 8, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Opacity = 1.0
+                    Opacity = 1.0,
+                    Tag = "Part_Icon"
                 };
                 if (!isChild)
                 {
@@ -745,7 +901,8 @@ namespace AIConsumptionTracker.UI
                     Foreground = isMissing ? Brushes.Gray : Brushes.White,
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
-                    ToolTip = _preferences.IsPrivacyMode ? null : (string.IsNullOrEmpty(usage.AuthSource) ? null : usage.AuthSource)
+                    ToolTip = _preferences.IsPrivacyMode ? null : (string.IsNullOrEmpty(usage.AuthSource) ? null : usage.AuthSource),
+                    Tag = "Part_NameText"
                 };
             Grid.SetColumn(nameBlock, 1);
             headerGrid.Children.Add(nameBlock);
@@ -754,7 +911,7 @@ namespace AIConsumptionTracker.UI
             {
                 var statusText = isMissing ? "API Key not found" : (isConsoleCheck ? "Check Console" : "[Error]");
                 var statusBrush = isMissing ? Brushes.IndianRed : (isConsoleCheck ? Brushes.Orange : Brushes.Red);
-                var statusBlock = new TextBlock { Text = statusText, Foreground = statusBrush, FontSize = 10, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+                var statusBlock = new TextBlock { Text = statusText, Foreground = statusBrush, FontSize = 10, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0), Tag = "Part_MainStatusLabel" };
                 Grid.SetColumn(statusBlock, 2);
                 headerGrid.Children.Add(statusBlock);
             }
@@ -769,7 +926,7 @@ namespace AIConsumptionTracker.UI
             // Progress Bar
             if ((usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError)
             {
-                var pGrid = new Grid { Height = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) };
+                var pGrid = new Grid { Height = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Tag = "Part_ProgressBarHost" };
                 pGrid.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(50, 50, 50)), CornerRadius = new CornerRadius(0) });
 
                 var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
@@ -785,7 +942,8 @@ namespace AIConsumptionTracker.UI
                     // Mid Usage (> YellowThreshold) -> Gold (Warning)
                     // Low Usage -> MediumSeaGreen (Good)
                     Background = usage.UsagePercentage > _preferences.ColorThresholdRed ? Brushes.Crimson : (usage.UsagePercentage > _preferences.ColorThresholdYellow ? Brushes.Gold : Brushes.MediumSeaGreen),
-                    CornerRadius = new CornerRadius(0)
+                    CornerRadius = new CornerRadius(0),
+                    Tag = "Part_ProgressFill"
                 };
                 fillGrid.Children.Add(fill);
                 pGrid.Children.Add(fillGrid);
@@ -826,7 +984,8 @@ namespace AIConsumptionTracker.UI
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     MaxWidth = 200, // Ensure some bar space remains
-                    ToolTip = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(detailText, usage.AccountName) : detailText
+                    ToolTip = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(detailText, usage.AccountName) : detailText,
+                    Tag = "Part_StatusText"
                 };
                 Grid.SetColumn(detailBlock, 1);
                 usageDetailGrid.Children.Add(detailBlock);
@@ -842,7 +1001,8 @@ namespace AIConsumptionTracker.UI
                      FontSize = 10, 
                      Foreground = Brushes.Gold, 
                      Margin = new Thickness(22, 2, 0, 0),
-                     FontWeight = FontWeights.SemiBold
+                     FontWeight = FontWeights.SemiBold,
+                     Tag = "Part_ResetText"
                  };
                  Grid.SetRow(resetBlock, grid.RowDefinitions.Count - 1);
                  grid.Children.Add(resetBlock);
