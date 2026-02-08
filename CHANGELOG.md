@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+### Added
+- **Performance Optimizations**:
+  - Config caching reduces redundant file reads from 3x to 1x per refresh
+  - HTTP request throttling (6 concurrent connections) prevents network congestion
+  - Incremental UI updates update provider bars individually as data arrives
+  - No more "Refreshing..." indicator - bars update in real-time
+- **Business Logic Rules**: Added comprehensive rules documentation in AGENTS.md for AI agents
+  - 16 core principles for provider neutrality, security, and error handling
+  - Rule enforcement checklist and anti-patterns to avoid
+- **Agent Guidelines**: Enhanced AGENTS.md with:
+  - Provider implementation patterns
+  - Cross-platform compatibility rules
+  - Privacy and security requirements
+
 ## [1.7.4] - 2026-02-08
 ### Added
 - **Update Checks**: automatically notifies of new GitHub releases on startup and every 2 hours.
