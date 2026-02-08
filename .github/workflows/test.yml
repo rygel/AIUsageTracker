@@ -29,8 +29,7 @@ jobs:
       # dotnet format --verify checks formatting but only works if analyzers are enabled
       # Unlike Java/Maven, .NET analyzers don't run automatically during build
       # Developers can run locally: dotnet format . or dotnet format --verify
-      run: dotnet format --verify --verbosity diagnostic
-      shell: bash
+      run: dotnet format AIConsumptionTracker.slnx --verify --verbosity diagnostic
 
     - name: Run Unit Tests
       run: dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --no-build --verbosity normal
