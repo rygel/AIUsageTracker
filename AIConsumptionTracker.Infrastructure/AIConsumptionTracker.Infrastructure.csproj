@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version>1.7.9</Version>
+    <Version>1.7.10</Version>
     <AssemblyVersion>1.7.3</AssemblyVersion>
     <FileVersion>1.7.3</FileVersion>
     <TargetFramework>net8.0</TargetFramework>
@@ -19,3 +19,4 @@
   </PropertyGroup>
 
 </Project>
+

@@ -1,7 +1,7 @@
 ; AI Consumption Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "1.7.9"
+  #define MyAppVersion "1.7.10"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
@@ -82,3 +82,4 @@ Name: "{userstartup}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTrac
 
 [Run]
 Filename: "{app}\AIConsumptionTracker.UI.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker}"; Flags: nowait postinstall skipifsilent
+

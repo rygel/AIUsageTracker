@@ -1,6 +1,6 @@
 # <img src="AIConsumptionTracker.UI/Assets/app_icon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
-![Version](https://img.shields.io/badge/version-1.7.9-blue)
+![Version](https://img.shields.io/badge/version-1.7.10-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
@@ -118,4 +118,5 @@ Configuration is stored in `auth.json` in the application data directory.
 
 ## License
 MIT
+
 
