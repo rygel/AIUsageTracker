@@ -8,6 +8,7 @@ This document provides essential information for agentic coding assistants worki
 - **Atomic Commits**: Keep commits focused and logically grouped.
 - **CI/CD Compliance**: Ensure that any UI changes or tests are compatible with the headless CI environment.
 - **No Icons in PRs**: When creating pull requests, do not use emojis or icons in the title or body.
+- **PR Management**: ALWAYS modify existing PRs instead of closing and creating new ones. Keep work in the same PR to maintain conversation context and avoid PR number inflation.
 
 ## Project Structure
 
