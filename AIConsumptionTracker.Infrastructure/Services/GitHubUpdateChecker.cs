@@ -25,12 +25,9 @@ public class GitHubUpdateChecker : IUpdateCheckerService
 
             var currentVersion = Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
             
-            // Tag usually "v1.7.3" -> "1.7.3"
-            var tagVersionStr = release.TagName.StartsWith("v") ? release.TagName[1..] : release.TagName;
-            
-            if (Version.TryParse(tagVersionStr, out var latestVersion))
+            if (IsUpdateAvailable(currentVersion, release.TagName, out var latestVersion))
             {
-                if (latestVersion > currentVersion)
+                if (latestVersion! > currentVersion)
                 {
                     _logger.LogInformation($"New version found: {latestVersion} (Current: {currentVersion})");
                     
@@ -54,5 +51,23 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         }
         
         return null;
+    }
+
+    public static bool IsUpdateAvailable(Version current, string tagName, out Version? parsedLatest)
+    {
+        parsedLatest = null;
+        if (string.IsNullOrWhiteSpace(tagName)) return false;
+
+        // Tag usually "v1.7.3" -> "1.7.3"
+        var tagVersionStr = tagName.StartsWith("v") ? tagName[1..] : tagName;
+
+        if (Version.TryParse(tagVersionStr, out var latestVersion))
+        {
+            parsedLatest = latestVersion;
+            // Strict check: latest > current
+            return latestVersion > current;
+        }
+        
+        return false;
     }
 }
