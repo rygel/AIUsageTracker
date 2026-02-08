@@ -2,6 +2,7 @@
 
 ## [1.7.4] - 2026-02-08
 ### Added
+- **Update Checks**: automatically notifies of new GitHub releases on startup and every 2 hours.
 - **Auto Refresh Interval**: Introduced a configurable background refresh timer for API consumption data (default: 5 minutes).
 - **Settings UI**: Added "Auto Refresh (Minutes)" input to the Layout tab.
 

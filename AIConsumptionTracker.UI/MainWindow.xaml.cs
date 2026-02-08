@@ -20,6 +20,7 @@ namespace AIConsumptionTracker.UI
         private int _resetDisplayMode = 0; // 0: Both, 1: Relative Only, 2: Absolute Only
         private readonly System.Windows.Threading.DispatcherTimer _resetTimer;
         private readonly System.Windows.Threading.DispatcherTimer _autoRefreshTimer;
+        private readonly System.Windows.Threading.DispatcherTimer _updateCheckTimer;
         private Dictionary<string, ImageSource> _iconCache = new();
 
 
@@ -88,6 +89,13 @@ namespace AIConsumptionTracker.UI
             _autoRefreshTimer.Tick += async (s, e) => {
                 await RefreshData(forceRefresh: true);
             };
+
+            _updateCheckTimer = new System.Windows.Threading.DispatcherTimer();
+            _updateCheckTimer.Interval = TimeSpan.FromHours(2);
+            _updateCheckTimer.Tick += async (s, e) => {
+                await CheckForUpdates();
+            };
+            _updateCheckTimer.Start();
             
             Loaded += async (s, e) => {
                 // Position window bottom right (moved from MainWindow_Loaded)
