@@ -1,22 +1,40 @@
 # <img src="AIConsumptionTracker.UI/Assets/app_icon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
-
-![Version](https://img.shields.io/badge/version-1.7.3-blue)
+![Version](https://img.shields.io/badge/version-1.7.4-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
+[![](https://dcbadge.limes.pink/api/server/UGsNVez9?style=flat)](https://discord.gg/UGsNVez9)
 ![Downloads](https://img.shields.io/github/downloads/rygel/AIConsumptionTracker/total)
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
 
-<img width="300" height="631" alt="image" src="https://github.com/user-attachments/assets/e568c03c-ce0b-41b4-99a1-5948cb4d2625" />
+### Screenshots
 
+**Dashboard**
+![Dashboard](docs/screenshot_dashboard_privacy.png)
 
+**Settings**
+![Settings](docs/screenshot_settings_privacy.png)
 
+**Info Dialog**
+![Info](docs/screenshot_info_privacy.png)
+
+**Tray Icons**
+Provider usage reflected in real-time with dynamic progress bars:
+
+- ![Good Status](docs/tray_icon_good.png) (Healthy/Good)
+- ![Warning Status](docs/tray_icon_warning.png) (Warning)
+- ![Danger Status](docs/tray_icon_danger.png) (Critical/Over Limit)
+
+**Context Menu**
+Right-click system tray icon for quick access:
+![Context Menu](docs/screenshot_context_menu_privacy.png)
 
 ### Documentation
 - [User Manual](docs/user_manual.md)
 - [CLI Reference](docs/cli_documentation.md)
+- [Agent Guidelines](AGENTS.md)
 
 ### Community
 Join the discussion on our [Discord Server](https://discord.gg/UGsNVez9).
@@ -59,7 +77,7 @@ Download the latest installer or .zip file from the [Release](https://github.com
 ## Installation
 
 ### Manual
-1. Download the latest `AIConsumptionTracker_Setup_v1.7.3.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
+1. Download the latest `AIConsumptionTracker_Setup_v1.7.4.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 
