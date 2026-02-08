@@ -8,6 +8,13 @@ This document provides essential information for agentic coding assistants worki
 - **Atomic Commits**: Keep commits focused and logically grouped.
 - **CI/CD Compliance**: Ensure that any UI changes or tests are compatible with the headless CI environment.
 - **No Icons in PRs**: When creating pull requests, do not use emojis or icons in the title or body.
+- **Release Branch Requirements**:
+  - Release PRs MUST be created from `main` branch after all feature PRs are merged
+  - Release branches MUST contain ONLY: version bumps, documentation updates, CHANGELOG changes
+  - Release branches MUST NOT contain any code changes
+  - Release branches MUST NOT depend on unmerged feature branches
+  - All feature PRs must be merged to main before release PR is created
+  - Violation: Creating release branch from feature branch or including code changes
 
 ## Project Structure
 
@@ -213,6 +220,13 @@ public class ExampleProvider : IProviderService
 - **Changelog**: Maintain a `CHANGELOG.md` file with concise documentation of changes for each version. Include the date of the release. Also keep an `## Unreleased` section at the top for tracking upcoming changes.
 
 ## Release Process
+
+**IMPORTANT**: Release PRs MUST follow these rules:
+- Create release branch ONLY after all feature PRs are merged to main
+- Release branch MUST be created from `main`, not from feature branches
+- Release PR MUST contain ONLY: version bumps, documentation, CHANGELOG
+- Release PR MUST NOT contain any code changes
+- Release PR MUST NOT depend on unmerged feature branches
 
 When preparing a new release (e.g., v1.5.0), ensure the following files are updated with the new version number:
 
