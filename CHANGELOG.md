@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.7.4] - 2026-02-08
+### Added
+- **Auto Refresh Interval**: Introduced a configurable background refresh timer for API consumption data (default: 5 minutes).
+- **Settings UI**: Added "Auto Refresh (Minutes)" input to the Layout tab.
+
 ## [1.7.3] - 2026-02-08
 ### Fixed
 - **Release Matrix Fix**: Removed unsupported `win-arm` (32-bit) which is not compatible with WPF in .NET 8.0.

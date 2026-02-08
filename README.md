@@ -72,6 +72,9 @@ Access the **Settings** menu by right-clicking the tray icon or using the gear i
     - **Checked**: Bars represent **Remaining** capacity (Start Full/Green -> End Empty/Red).
     - **Unchecked**: Bars represent **Used** capacity (Start Empty -> End Full/Red).
 - **Color Thresholds**: Customize the percentage at which bars turn Yellow (Warning) or Red (Critical).
+- **Auto Refresh Interval**: 
+    - **Minutes**: Set how often (in minutes) the app should automatically check provider APIs for new consumption data.
+    - **Disable**: Set to **0** to disable automatic background refreshing.
 
 ### Provider Management
 - **API Keys**: enter or update specific keys for each provider.

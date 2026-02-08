@@ -47,7 +47,10 @@
             <Border Background="#252526" Padding="12" MouseDown="Header_MouseDown">
                 <DockPanel>
                     <TextBlock Text="Info" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left"/>
-                    <Button Content="X" HorizontalAlignment="Right" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="PrivacyBtn" Content="🔒" Click="PrivacyBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="30" Margin="0,0,10,0" ToolTip="Toggle Privacy Mode" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button Content="X" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    </StackPanel>
                 </DockPanel>
             </Border>
 

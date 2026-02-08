@@ -51,12 +51,49 @@ public class TokenDiscoveryService
         // 4. Discover from providers.json (to get IDs user might have added)
         DiscoverFromProvidersFile(discoveredConfigs);
 
+        // 5. Discover from GitHub CLI
+        DiscoverGitHubCliToken(discoveredConfigs);
+
         return discoveredConfigs;
+    }
+
+    private void DiscoverGitHubCliToken(List<ProviderConfig> configs)
+    {
+        try
+        {
+            var process = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "gh",
+                    Arguments = "auth token",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            process.Start();
+            string token = process.StandardOutput.ReadToEnd().Trim();
+            process.WaitForExit();
+
+            if (!string.IsNullOrEmpty(token) && process.ExitCode == 0)
+            {
+                AddOrUpdate(configs, "github-copilot", token, "Discovered via GitHub CLI", "GitHub CLI Safe Storage");
+            }
+        }
+        catch 
+        { 
+            // GitHub CLI might not be installed or authenticated
+        }
     }
 
     private void AddWellKnownProviders(List<ProviderConfig> configs)
     {
-        var wellKnown = new[] { "minimax", "xiaomi", "kimi", "kilocode", "claude-code", "gemini-cli", "antigravity" };
+        var wellKnown = new[] { 
+            "openai", "anthropic", "gemini-cli", "github-copilot", 
+            "minimax", "minimax-io", "xiaomi", "kimi", 
+            "deepseek", "openrouter", "kilocode", "antigravity", "opencode-zen"
+        };
         foreach (var id in wellKnown)
         {
             AddIfNotExists(configs, id, "", "Well-known provider", "System Default");

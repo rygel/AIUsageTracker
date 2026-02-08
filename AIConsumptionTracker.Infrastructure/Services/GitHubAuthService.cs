@@ -119,9 +119,43 @@ public class GitHubAuthService : IGitHubAuthService
         _currentToken = null;
     }
 
+    private string? _cachedUsername;
+
+    public async Task<string?> GetUsernameAsync()
+    {
+        if (_cachedUsername != null) return _cachedUsername;
+        if (!IsAuthenticated) return null;
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _currentToken);
+            request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIConsumptionTracker", "1.0"));
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode) return null;
+
+            using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+            if (doc.RootElement.TryGetProperty("login", out var loginProp))
+            {
+                _cachedUsername = loginProp.GetString();
+                return _cachedUsername;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching GitHub username");
+        }
+        return null;
+    }
+
     public void InitializeToken(string token)
     {
-        _currentToken = token;
+        if (_currentToken != token)
+        {
+            _currentToken = token;
+            _cachedUsername = null; // Reset cache if token changes
+        }
     }
 
     // Helper class for JSON deserialization

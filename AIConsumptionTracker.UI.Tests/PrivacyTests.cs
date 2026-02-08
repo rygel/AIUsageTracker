@@ -83,9 +83,10 @@ public class PrivacyTests
         await mainWindow.RefreshData(forceRefresh: true);
         
         // Act: Toggle Privacy Mode ON
-        var privacyBtn = (System.Windows.Controls.Primitives.ToggleButton)mainWindow.FindName("PrivacyBtn");
-        var method = typeof(MainWindow).GetMethod("PrivacyBtn_Click", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method?.Invoke(mainWindow, new object[] { privacyBtn, new RoutedEventArgs() });
+        var privacyBtn = (Button)mainWindow.FindName("PrivacyBtn");
+        var method = typeof(MainWindow).GetMethod("PrivacyBtn_ClickAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var task = (Task)method?.Invoke(mainWindow, new object[] { privacyBtn, new RoutedEventArgs() })!;
+        await task;
 
         // Assert
         var providersList = (StackPanel)mainWindow.FindName("ProvidersList");
@@ -159,9 +160,10 @@ public class PrivacyTests
         await mainWindow.RefreshData(forceRefresh: true);
         
         // Act: Toggle Privacy Mode ON
-        var privacyBtn = (System.Windows.Controls.Primitives.ToggleButton)mainWindow.FindName("PrivacyBtn");
-        var method = typeof(MainWindow).GetMethod("PrivacyBtn_Click", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        method?.Invoke(mainWindow, new object[] { privacyBtn, new RoutedEventArgs() });
+        var privacyBtn = (Button)mainWindow.FindName("PrivacyBtn");
+        var method = typeof(MainWindow).GetMethod("PrivacyBtn_ClickAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var task = (Task)method?.Invoke(mainWindow, new object[] { privacyBtn, new RoutedEventArgs() })!;
+        if (task != null) await task;
 
         // Assert
         var providersList = (StackPanel)mainWindow.FindName("ProvidersList");

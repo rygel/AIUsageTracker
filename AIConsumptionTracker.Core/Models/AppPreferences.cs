@@ -15,5 +15,7 @@ public class AppPreferences
     public int FontSize { get; set; } = 12;
     public bool FontBold { get; set; } = false;
     public bool FontItalic { get; set; } = false;
+    public int AutoRefreshInterval { get; set; } = 300; // In seconds, 0 = Disabled
+    public bool IsPrivacyMode { get; set; } = false;
 }
 

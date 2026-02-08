@@ -36,16 +36,42 @@ The footer of the dashboard contains several toggles and buttons to customize yo
 
 ### 5. Refresh (🔄 Icon)
 - **Action**: Triggers an immediate update.
-- **Behavior**: Fetches the latest usage data from all configured API providers. The dashboard also performs periodic background refreshes.
+- **Behavior**: Fetches the latest usage data from all configured API providers.
+- **Auto Refresh**: The app also performs periodic background refreshes. You can configure the interval (in minutes) in the **Layout** tab of the Settings window. Setting this to **0** disables automatic background refreshing.
 
 ### 6. Settings (⚙️ Icon)
 - **Action**: Opens the **Provider Settings** window.
 - **Features**:
     - **API Keys**: Configure your keys for OpenAI, Anthropic, Gemini, etc.
+    - **Layout Tab**:
+        - **Auto Refresh (Minutes)**: Configure how often the app refreshes in the background (Default: 5).
+        - **Privacy Mode**: Toggle to mask sensitive information like account names and specific token counts.
     - **Scan for Keys**: Automatically searches your environment variables and files for existing AI API keys to speed up setup.
     - **Save/Cancel**: Apply your changes or discard them without saving.
 
-### 7. Invert Progress Bars (Health Bar Mode)
+![Settings UI](../docs/screenshot_settings_privacy.png)
+
+### 7. Info Dialog
+- **Action**: Accessible via the Settings menu or right-click.
+- **Content**: Displays version information, credits, and links to the project repository.
+
+![Info Dialog](../docs/screenshot_info_privacy.png)
+
+### 8. Tray Context Menu
+- **Access**: Right-click the application icon in the system tray.
+- **Features**: Quick access to the Dashboard, Settings, Info, and Exit.
+
+![Tray Menu](../docs/screenshot_context_menu_privacy.png)
+
+### 9. Tray Status Icons
+The application uses dynamic tray icons to show usage levels at a glance:
+- **Green**: Low usage
+- **Yellow**: Medium usage (approaching threshold)
+- **Red**: High usage (exceeding threshold)
+
+![Green](../docs/tray_icon_good.png) ![Yellow](../docs/tray_icon_warning.png) ![Red](../docs/tray_icon_danger.png)
+
+### 10. Invert Progress Bars (Health Bar Mode)
 - **Setting**: Found in the main dashboard or settings.
 - **Behavior**: 
     - **Enabled (Default)**: Bars represent **Remaining** capacity (Start Full/Green -> End Empty/Red).
