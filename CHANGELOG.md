@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.13] - 2026-02-09
+
+### Added
+- **Privacy Mode in Settings**: Added privacy toggle button to Settings window, synchronized with main window
+- **Quick Close**: Added X button to Settings window header for quick closing
+
+### Fixed
+- **Progress State Updates**: Progress bars now update in-place when toggling between error/missing and progress display, eliminating UI flicker
+- **Version Synchronization**: Updated AssemblyVersion and FileVersion to match Version tag in all project files and release workflow
+
 ## [1.7.12] - 2026-02-08
 
 ### Added

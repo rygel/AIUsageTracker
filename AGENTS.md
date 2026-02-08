@@ -215,6 +215,12 @@ public class ExampleProvider : IProviderService
 
 ## Release Process
 
+IMPORTANT: **All release-related changes MUST be made via pull request**. Never trigger the release workflow directly on main. Always:
+1. Create a feature branch (e.g., `feature/v1.7.13-release`)
+2. Update version files on that branch
+3. Create a pull request to main
+4. After PR is merged, trigger the release workflow with `skip_file_updates=true`
+
 When preparing a new release (e.g., v1.5.0), ensure the following files are updated with the new version number:
 
 ### 1. Project Files (.csproj)
