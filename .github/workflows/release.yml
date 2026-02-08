@@ -93,6 +93,7 @@ jobs:
   validate-and-release:
     runs-on: ubuntu-latest
     needs: update-files
+    if: always()  # Always run this job, even if update-files is skipped
     outputs:
       all_valid: ${{ steps.set-all-valid.outputs.all_valid }}
 
