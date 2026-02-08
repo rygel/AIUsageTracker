@@ -12,16 +12,18 @@ using AIConsumptionTracker.Core.Models;
 
 namespace AIConsumptionTracker.Infrastructure.Providers;
 
-public class AntigravityProvider : IProviderService
+    public class AntigravityProvider : IProviderService
 {
     public string ProviderId => "antigravity";
     private readonly HttpClient _httpClient;
     private readonly ILogger<AntigravityProvider> _logger;
+    private ProviderUsage? _cachedUsage;
+    private DateTime _cacheTimestamp;
 
     public AntigravityProvider(ILogger<AntigravityProvider> logger)
     {
         _logger = logger;
-        
+
         // Setup HttpClient with loose SSL validation for localhost
         var handler = new HttpClientHandler();
         handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
@@ -42,16 +44,36 @@ public class AntigravityProvider : IProviderService
             var processInfos = FindProcessInfos();
             if (!processInfos.Any())
             {
-                return new[] { new ProviderUsage
+                if (_cachedUsage != null)
                 {
-                    ProviderId = ProviderId,
-                    ProviderName = "Antigravity",
-                    IsAvailable = true,
-                    UsagePercentage = 0,
-                    CostUsed = 0,
-                    CostLimit = 0,
-                    Description = "Application not running"
-                }};
+                    var timeSinceRefresh = DateTime.Now - _cacheTimestamp;
+                    var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
+                    return new[] { new ProviderUsage
+                    {
+                        ProviderId = ProviderId,
+                        ProviderName = "Antigravity",
+                        IsAvailable = true,
+                        UsagePercentage = _cachedUsage.UsagePercentage,
+                        CostUsed = _cachedUsage.CostUsed,
+                        CostLimit = _cachedUsage.CostLimit,
+                        Details = _cachedUsage.Details,
+                        AccountName = _cachedUsage.AccountName,
+                        Description = $"Last refreshed: {minutesAgo}m ago"
+                    }};
+                }
+                else
+                {
+                    return new[] { new ProviderUsage
+                    {
+                        ProviderId = ProviderId,
+                        ProviderName = "Antigravity",
+                        IsAvailable = true,
+                        UsagePercentage = 0,
+                        CostUsed = 0,
+                        CostLimit = 0,
+                        Description = "Application not running"
+                    }};
+                }
             }
 
             foreach (var info in processInfos)
@@ -70,7 +92,7 @@ public class AntigravityProvider : IProviderService
                     // Check for duplicates based on AccountName (Email)
                     if (results.Any(r => r.AccountName == usage.AccountName))
                     {
-                        continue; // Skip same account running in different window
+                        continue;
                     }
 
                     results.Add(usage);
@@ -83,7 +105,7 @@ public class AntigravityProvider : IProviderService
 
             if (!results.Any())
             {
-                 return new[] { new ProviderUsage
+                return new[] { new ProviderUsage
                  {
                      ProviderId = ProviderId,
                      ProviderName = "Antigravity",
@@ -93,6 +115,13 @@ public class AntigravityProvider : IProviderService
                      CostLimit = 0,
                      Description = "Not running"
                  }};
+            }
+
+            // Cache the results for next refresh
+            if (results.Any())
+            {
+                _cachedUsage = results.FirstOrDefault();
+                _cacheTimestamp = DateTime.Now;
             }
 
             return results;
