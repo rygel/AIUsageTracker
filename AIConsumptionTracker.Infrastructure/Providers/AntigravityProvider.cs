@@ -12,16 +12,18 @@ using AIConsumptionTracker.Core.Models;
 
 namespace AIConsumptionTracker.Infrastructure.Providers;
 
-public class AntigravityProvider : IProviderService
+    public class AntigravityProvider : IProviderService
 {
     public string ProviderId => "antigravity";
     private readonly HttpClient _httpClient;
     private readonly ILogger<AntigravityProvider> _logger;
+    private ProviderUsage? _cachedUsage;
+    private DateTime _cacheTimestamp;
 
     public AntigravityProvider(ILogger<AntigravityProvider> logger)
     {
         _logger = logger;
-        
+
         // Setup HttpClient with loose SSL validation for localhost
         var handler = new HttpClientHandler();
         handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
@@ -35,20 +37,61 @@ public class AntigravityProvider : IProviderService
     public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         var results = new List<ProviderUsage>();
-        
+
         try
         {
             // 1. Find All Processes
             var processInfos = FindProcessInfos();
             if (!processInfos.Any())
             {
-                return new[] { new ProviderUsage
+                if (_cachedUsage != null)
                 {
-                    ProviderId = ProviderId,
-                    ProviderName = "Antigravity",
-                    IsAvailable = false,
-                    Description = "Antigravity process not running"
-                }};
+                    var timeSinceRefresh = DateTime.Now - _cacheTimestamp;
+                    var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
+                    var description = $"Last refreshed: {minutesAgo}m ago";
+
+                    // Check if any details have reset times and add reset information
+                    if (_cachedUsage.Details != null && _cachedUsage.Details.Any(d => d.NextResetTime.HasValue))
+                    {
+                        var nextReset = _cachedUsage.Details.FirstOrDefault(d => d.NextResetTime.HasValue)?.NextResetTime;
+                        if (nextReset.HasValue)
+                        {
+                            var timeUntilReset = nextReset.Value - DateTime.Now;
+                            if (timeUntilReset.TotalHours > 0)
+                            {
+                                var hoursUntil = (int)timeUntilReset.TotalHours;
+                                var minutesUntil = (int)timeUntilReset.TotalMinutes % 60;
+                                description += $" (Resets in {hoursUntil}h {minutesUntil}m)";
+                            }
+                        }
+                    }
+
+                    return new[] { new ProviderUsage
+                    {
+                        ProviderId = ProviderId,
+                        ProviderName = "Antigravity",
+                        IsAvailable = true,
+                        UsagePercentage = _cachedUsage.UsagePercentage,
+                        CostUsed = _cachedUsage.CostUsed,
+                        CostLimit = _cachedUsage.CostLimit,
+                        Details = _cachedUsage.Details,
+                        AccountName = _cachedUsage.AccountName,
+                        Description = description
+                    }};
+                }
+                else
+                {
+                    return new[] { new ProviderUsage
+                    {
+                        ProviderId = ProviderId,
+                        ProviderName = "Antigravity",
+                        IsAvailable = true,
+                        UsagePercentage = 0,
+                        CostUsed = 0,
+                        CostLimit = 0,
+                        Description = "Application not running"
+                    }};
+                }
             }
 
             foreach (var info in processInfos)
@@ -60,16 +103,16 @@ public class AntigravityProvider : IProviderService
 
                     // 2. Find Port
                     var port = FindListeningPort(pid);
-                    
+
                     // 3. Request
                     var usage = await FetchUsage(port, csrfToken);
-                    
+
                     // Check for duplicates based on AccountName (Email)
                     if (results.Any(r => r.AccountName == usage.AccountName))
                     {
-                        continue; // Skip same account running in different window
+                        continue;
                     }
-                    
+
                     results.Add(usage);
                 }
                 catch (Exception ex)
@@ -77,16 +120,26 @@ public class AntigravityProvider : IProviderService
                     _logger.LogWarning(ex, $"Failed to check Antigravity PID {info.Pid}");
                 }
             }
-            
+
             if (!results.Any())
             {
-                 return new[] { new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "Antigravity",
-                    IsAvailable = false,
-                    Description = "Antigravity process not running or unreachable"
-                }};
+                return new[] { new ProviderUsage
+                 {
+                     ProviderId = ProviderId,
+                     ProviderName = "Antigravity",
+                     IsAvailable = true,
+                     UsagePercentage = 0,
+                     CostUsed = 0,
+                     CostLimit = 0,
+                     Description = "Not running"
+                 }};
+            }
+
+            // Cache the results for next refresh
+            if (results.Any())
+            {
+                _cachedUsage = results.FirstOrDefault();
+                _cacheTimestamp = DateTime.Now;
             }
 
             return results;
@@ -98,8 +151,11 @@ public class AntigravityProvider : IProviderService
             {
                 ProviderId = ProviderId,
                 ProviderName = "Antigravity",
-                IsAvailable = false,
-                Description = "Antigravity process not running"
+                IsAvailable = true,
+                UsagePercentage = 0,
+                CostUsed = 0,
+                CostLimit = 0,
+                Description = "Application not running"
             }};
         }
     }
