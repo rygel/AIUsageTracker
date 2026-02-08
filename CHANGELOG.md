@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [1.7.9] - 2026-02-08
+
+### Fixed
+- **CI Build**: Resolved compiler warnings blocking GitHub Actions publish workflow
+- Fixed unused variable warning in MainWindow.xaml.cs
+- Fixed nullable value type warning in AntigravityProvider.cs
+
+## [1.7.8] - 2026-02-08
+
 ## [1.7.8] - 2026-02-08
 
 ### Added
