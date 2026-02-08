@@ -95,14 +95,16 @@ if ($isWinPlatform) {
                     Write-Host "Installer created: $newName" -ForegroundColor Green
                 }
             } else {
-                Write-Host "Warning: Could not find generated setup file to rename." -ForegroundColor Yellow
+                Write-Host "Error: Could not find generated setup file to rename." -ForegroundColor Red
+                exit 1
             }
         } else {
             Write-Host "Inno Setup compilation failed." -ForegroundColor Yellow
             exit 1
         }
     } else {
-        Write-Host "Inno Setup (ISCC.exe) not found. Skipping installer creation." -ForegroundColor Yellow
+        Write-Host "Error: Inno Setup (ISCC.exe) not found. This is required for Windows builds." -ForegroundColor Red
+        exit 1
     }
 }
 
