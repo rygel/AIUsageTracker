@@ -404,8 +404,35 @@ public class ExampleProvider : IProviderService
 - Release PR MUST contain ONLY: version bumps, documentation, CHANGELOG
 - Release PR MUST NOT contain any code changes
 - Release PR MUST NOT depend on unmerged feature branches
+- All feature PRs must be merged to main before release PR is created
+- **Use Automated Release Workflow**: Consider using `.github/workflows/release.yml` for automated releases instead of manual steps
 
 When preparing a new release (e.g., v1.5.0), ensure the following files are updated with the new version number:
+
+### Release Preparation Checklist
+Before creating a release PR from main, verify:
+- [ ] All feature PRs merged to main?
+- [ ] All version files (.csproj) updated to target version?
+- [ ] CHANGELOG.md updated with version section (e.g., `## [1.5.0] - YYYY-MM-DD`)?
+- [ ] README.md version badge updated?
+- [ ] Documentation files (README.md, user_manual.md, AGENTS.md) updated?
+- [ ] Scripts updated (setup.iss, publish-app.ps1)?
+- [ ] Consider using automated release workflow (`.github/workflows/release.yml`)?
+- [ ] If using manual release process: git tag created and pushed?
+- [ ] If using manual release: GitHub release created?
+
+After checklist complete, create release branch with ONLY:
+- Version bumps in .csproj files
+- Documentation updates
+- CHANGELOG additions
+- No code changes
+
+Then:
+1. Create git tag: `git tag v1.5.0`
+2. Push tag: `git push origin v1.5.0`
+3. Create GitHub release (happens automatically on tag push) OR run workflow manually
+
+Note: The automated release workflow (`.github/workflows/release.yml`) validates version files, creates tag, pushes to origin, and creates GitHub release automatically.
 
 ### 1. Project Files (.csproj)
 Update the `<Version>` tag in all project files:
