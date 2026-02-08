@@ -257,6 +257,32 @@ namespace AIConsumptionTracker.UI
                     Grid.SetColumn(authBox, 0);
                     keyPanel.Children.Add(authBox);
                 }
+                else if (config.ProviderId == "antigravity")
+                {
+                    // Antigravity: Local Process Auto-Detection (No Key Input)
+                    var statusPanel = new StackPanel { Orientation = Orientation.Horizontal };
+                    
+                    bool isConnected = usage != null && usage.IsAvailable;
+                    string accountInfo = usage?.AccountName ?? "Unknown";
+
+                    if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(accountInfo) && accountInfo != "Unknown")
+                    {
+                        accountInfo = PrivacyHelper.MaskString(accountInfo);
+                    }
+
+                    var statusText = new TextBlock
+                    {
+                        Text = isConnected ? $"Auto-Detected ({accountInfo})" : "Searching for local process...",
+                        Foreground = isConnected ? Brushes.LightGreen : Brushes.Gray,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        FontSize = 11,
+                        FontStyle = isConnected ? FontStyles.Normal : FontStyles.Italic
+                    };
+
+                    statusPanel.Children.Add(statusText);
+                    Grid.SetColumn(statusPanel, 0);
+                    keyPanel.Children.Add(statusPanel);
+                }
                 else
                 {
                     // Standard API Key Input (no label)
