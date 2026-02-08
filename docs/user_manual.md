@@ -72,29 +72,18 @@ The application uses dynamic tray icons to show usage levels at a glance:
 - **Green**: Low usage
 - **Yellow**: Medium usage (approaching threshold)
 - **Red**: High usage (exceeding threshold)
- 
+
 ![Green](../docs/tray_icon_good.png) ![Yellow](../docs/tray_icon_warning.png) ![Red](../docs/tray_icon_danger.png)
 
-### 6. Antigravity Offline Support
-- **Caching**: The application now caches Antigravity usage data when the application is running successfully.
+### 10. Antigravity Offline Support
+- **Caching**: The application caches Antigravity usage data when the application is running successfully.
 - **Offline Display**: When Antigravity is not running, the tracker shows cached usage data with a "Last refreshed: Xm ago" countdown timer.
 - **Reset Information**: If reset times are available in cached data, the tracker displays "Resets in Xh Ym" to show when quota will be refilled.
+- **Quota Refill**: When the reset time passes, the tracker automatically detects the quota refill and shows a full bar (100% remaining) with "Quota refilled" message.
+- **Auto-Refresh**: Uses the auto-refresh timer from Settings to periodically check for quota refills (configure in Settings > Layout).
 - **Behavior**: This ensures you can monitor Antigravity usage even when the application is closed, with clear indication of data staleness and upcoming quota resets.
 
-### 10. Invert Progress Bars (Health Bar Mode)
-- **Setting**: Found in the main dashboard or settings.
-- **Behavior**: 
-    - **Enabled (Default)**: Bars represent **Remaining** capacity (Start Full/Green -> End Empty/Red).
-    - **Disabled**: Bars represent **Used** capacity (Start Empty -> End Full/Red).
-- **Logic**: Colors are standardized based on usage level (Red for >80% usage) regardless of the display mode.
-
-### 6. Antigravity Offline Support
-- **Caching**: The application now caches Antigravity usage data when the application is running successfully.
-- **Offline Display**: When Antigravity is not running, the tracker shows cached usage data with a "Last refreshed: Xm ago" countdown timer.
-- **Reset Information**: If reset times are available in cached data, the tracker displays "Resets in Xh Ym" to show when quota will be refilled.
-- **Behavior**: This ensures you can monitor Antigravity usage even when the application is closed, with clear indication of data staleness and upcoming quota resets.
-
-### 10. Invert Progress Bars (Health Bar Mode)
+### 11. Invert Progress Bars (Health Bar Mode)
 - **Setting**: Found in the main dashboard or settings.
 
 > **Note**: For detailed information on setting up environment variables for automatic discovery, see [Environment Variables Guide](environment_variables.md).
