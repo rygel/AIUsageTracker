@@ -10,6 +10,38 @@
   #define MyAppArch "x64"
 #endif
 
+[Code]
+function InitializeSetup(): Boolean;
+begin
+  // Validate architecture match
+  if MyAppArch = "x64" then
+    if not IsWin64 or ProcessorArchitecture <> "x64" then
+      MsgBox('Error: Attempting to install x64 installer on ' + ProcessorArchitecture + ' system.' + #13 + 'Please download the correct installer.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  end else if MyAppArch = "x86" then
+    if not (ProcessorArchitecture = "x86" or ProcessorArchitecture = "arm") then
+      MsgBox('Error: Attempting to install x86 installer on ' + ProcessorArchitecture + ' system.' + #13 + 'Please download the correct installer.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  end else if MyAppArch = "arm64" then
+    if ProcessorArchitecture <> "arm64" then
+      MsgBox('Error: Attempting to install arm64 installer on ' + ProcessorArchitecture + ' system.' + #13 + 'Please download the correct installer.', mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  end;
+
+  Result := True;
+end;
+
+function NextButtonClick(CurPage: Integer): Boolean;
+begin
+  Result := InitializeSetup();
+end;
+
 [Setup]
 AppId={{D3B3E8A1-8E9D-4F6B-A2B3-7C8D9E0F1A2B}
 AppName=AI Consumption Tracker
