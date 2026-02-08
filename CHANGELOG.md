@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [1.7.8] - 2026-02-08
+
+### Added
+- **Antigravity Caching**: Caches usage data when Antigravity is running successfully
+- **Offline Display**: Shows cached data with "Last refreshed: Xm ago" when Antigravity is not running
+- **Reset Information**: Displays "Resets in Xh Ym" when reset times are available in cached data
+- **Provider Visibility**: Antigravity provider bar now always shows (even when not running)
+
+### Changed
+- **Documentation**: Removed deprecated "Business Logic Rules" section from AGENTS.md
+
 ## [1.7.7] - 2026-02-08
 
 ### Fixed
