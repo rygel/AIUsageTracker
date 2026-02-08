@@ -280,35 +280,82 @@ namespace AIConsumptionTracker.UI
 
         public async Task RefreshData(bool forceRefresh = false)
         {
-            if (forceRefresh)
-            {
-                ProvidersList.Children.Clear();
-                var refreshingBlock = new TextBlock 
-                { 
-                    Text = "Refreshing...", 
-                    Foreground = Brushes.Gray, 
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 20, 0, 0)
-                };
-                System.Windows.Automation.AutomationProperties.SetAutomationId(refreshingBlock, "RefreshingIndicator");
-                ProvidersList.Children.Add(refreshingBlock);
-            }
-
             // Reload preferences to ensure we have the latest settings (e.g. from SettingsWindow)
             _preferences = await _configLoader.LoadPreferencesAsync();
             ApplyPreferences();
 
-            var usages = await _providerManager.GetAllUsageAsync(forceRefresh);
+            var usages = await _providerManager.GetAllUsageAsync(forceRefresh, OnProviderUsageUpdated);
             _cachedUsages = usages; // Cache the data
             
-            // Update Individual Tray Icons
-            var configs = await _configLoader.LoadConfigAsync();
+            // Update Individual Tray Icons - use cached configs to avoid loading again
+            var configs = _providerManager.LastConfigs ?? await _configLoader.LoadConfigAsync();
             if (Application.Current is App app)
             {
                 app.UpdateProviderTrayIcons(usages, configs, _preferences);
             }
             
             RenderUsages(usages);
+        }
+
+        private void OnProviderUsageUpdated(ProviderUsage usage)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                UpdateProviderBar(usage);
+            });
+        }
+
+        private void UpdateProviderBar(ProviderUsage usage)
+        {
+            // Remove existing bar if it exists
+            var existingBarIndex = ProvidersList.Children
+                .OfType<UIElement>()
+                .Select((item, index) => new { Item = item, Index = index })
+                .FirstOrDefault(x =>
+                {
+                    if (x.Item is FrameworkElement fe)
+                        return fe.Tag?.ToString() == usage.ProviderId;
+                    return false;
+                })?.Index;
+
+            if (existingBarIndex.HasValue)
+            {
+                ProvidersList.Children.RemoveAt(existingBarIndex.Value);
+            }
+
+            // Create new bar and insert at the appropriate position based on provider name
+            var newBar = CreateProviderBar(usage);
+            if (newBar is FrameworkElement frameworkElement)
+            {
+                frameworkElement.Tag = usage.ProviderId;
+            }
+
+            // Find insertion point to maintain alphabetical order
+            int insertIndex = 0;
+            var existingBars = ProvidersList.Children.OfType<FrameworkElement>()
+                .Where(fe => fe is TextBlock == false && fe.Tag != null)
+                .ToList();
+
+            for (int i = 0; i < existingBars.Count; i++)
+            {
+                var child = existingBars[i];
+                var childTag = child.Tag.ToString();
+                if (string.Compare(childTag, usage.ProviderId, StringComparison.OrdinalIgnoreCase) > 0)
+                {
+                    insertIndex = ProvidersList.Children.IndexOf(child);
+                    break;
+                }
+                insertIndex = ProvidersList.Children.IndexOf(child) + 1;
+            }
+
+            if (ProvidersList.Children.Count == 0 || insertIndex >= ProvidersList.Children.Count)
+            {
+                ProvidersList.Children.Add(newBar);
+            }
+            else
+            {
+                ProvidersList.Children.Insert(insertIndex, newBar);
+            }
         }
 
         private void RenderUsages(List<ProviderUsage> usages)
@@ -920,6 +967,42 @@ namespace AIConsumptionTracker.UI
                     MessageBox.Show($"Could not open update link: {ex.Message}", "Error");
                 }
             }
+        }
+
+        private Brush GetProgressBarColor(double percentage)
+        {
+            if (percentage > _preferences.ColorThresholdRed)
+                return Brushes.Crimson;
+            else if (percentage > _preferences.ColorThresholdYellow)
+                return Brushes.Gold;
+            else
+                return Brushes.MediumSeaGreen;
+        }
+
+        private string GetUsageText(ProviderUsage usage)
+        {
+            bool isMissing = usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase);
+            bool isError = usage.Description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
+
+            if (isMissing) return "Key Missing";
+            if (isError) return "Error";
+
+            if (usage.PaymentType == PaymentType.Credits)
+            {
+                var remaining = usage.CostLimit - usage.CostUsed;
+                return $"{remaining:F2} Rem";
+            }
+            else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+            {
+                return $"${usage.CostUsed:F2} / ${usage.CostLimit:F2}";
+            }
+
+            return _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;
+        }
+
+        private UIElement CreateProviderBar(ProviderUsage usage)
+        {
+            return _preferences.CompactMode ? CreateCompactItem(usage) : CreateStandardItem(usage);
         }
     }
 }

@@ -36,11 +36,11 @@ public class AllProvidersWorkingTests
         // We need a real MinimaxProvider or a mock that respects the ID
         var mockMinimax = new Mock<IProviderService>();
         mockMinimax.Setup(p => p.ProviderId).Returns("minimax");
-        mockMinimax.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>()))
-            .ReturnsAsync((ProviderConfig c) => new[] { new ProviderUsage { 
-                ProviderId = c.ProviderId, 
+        mockMinimax.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
+            .ReturnsAsync((ProviderConfig c, Action<ProviderUsage>? callback) => new[] { new ProviderUsage {
+                ProviderId = c.ProviderId,
                 ProviderName = "Minimax",
-                IsAvailable = true 
+                IsAvailable = true
             }});
 
         var providers = new List<IProviderService> { mockMinimax.Object };

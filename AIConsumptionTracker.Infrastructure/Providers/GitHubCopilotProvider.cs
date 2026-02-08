@@ -18,7 +18,7 @@ public class GitHubCopilotProvider : IProviderService
         _authService = authService;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         var token = _authService.GetCurrentToken();
         

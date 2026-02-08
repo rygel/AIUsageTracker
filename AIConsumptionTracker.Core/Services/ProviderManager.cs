@@ -10,8 +10,12 @@ public class ProviderManager : IDisposable
     private readonly IConfigLoader _configLoader;
     private readonly Microsoft.Extensions.Logging.ILogger<ProviderManager> _logger;
     private List<ProviderUsage> _lastUsages = new();
+    private List<ProviderConfig>? _lastConfigs;
+    private DateTime _lastConfigLoadTime = DateTime.MinValue;
+    private readonly TimeSpan _configCacheValidity = TimeSpan.FromSeconds(5);
 
     public List<ProviderUsage> LastUsages => _lastUsages;
+    public List<ProviderConfig>? LastConfigs => _lastConfigs;
 
     public ProviderManager(IEnumerable<IProviderService> providers, IConfigLoader configLoader, Microsoft.Extensions.Logging.ILogger<ProviderManager> logger)
     {
@@ -22,8 +26,38 @@ public class ProviderManager : IDisposable
 
     private Task<List<ProviderUsage>>? _refreshTask;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _configSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _httpSemaphore = new(6); // Limit parallel HTTP requests to avoid congestion
 
-    public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true)
+    public async Task<List<ProviderConfig>> GetConfigsAsync(bool forceRefresh = false)
+    {
+        if (!forceRefresh && _lastConfigs != null && DateTime.UtcNow - _lastConfigLoadTime < _configCacheValidity)
+        {
+            _logger.LogDebug("Using cached configs");
+            return _lastConfigs;
+        }
+
+        await _configSemaphore.WaitAsync();
+        try
+        {
+            if (!forceRefresh && _lastConfigs != null && DateTime.UtcNow - _lastConfigLoadTime < _configCacheValidity)
+            {
+                return _lastConfigs;
+            }
+
+            _logger.LogDebug("Loading configs from file");
+            var configs = (await _configLoader.LoadConfigAsync()).ToList();
+            _lastConfigs = configs;
+            _lastConfigLoadTime = DateTime.UtcNow;
+            return configs;
+        }
+        finally
+        {
+            _configSemaphore.Release();
+        }
+    }
+
+    public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true, Action<ProviderUsage>? progressCallback = null)
     {
         await _refreshSemaphore.WaitAsync();
         var semaphoreReleased = false;
@@ -45,7 +79,7 @@ public class ProviderManager : IDisposable
                 return _lastUsages;
             }
 
-            _refreshTask = FetchAllUsageInternal();
+            _refreshTask = FetchAllUsageInternal(progressCallback);
             var currentTask = _refreshTask;
             _refreshSemaphore.Release();
             semaphoreReleased = true;
@@ -61,10 +95,10 @@ public class ProviderManager : IDisposable
         }
     }
 
-    private async Task<List<ProviderUsage>> FetchAllUsageInternal()
+    private async Task<List<ProviderUsage>> FetchAllUsageInternal(Action<ProviderUsage>? progressCallback = null)
     {
         _logger.LogDebug("Starting FetchAllUsageInternal...");
-        var configs = (await _configLoader.LoadConfigAsync()).ToList();
+        var configs = (await GetConfigsAsync(forceRefresh: true)).ToList();
         
         // Auto-add system providers that don't need auth.json
         // Check if they are already in config to avoid duplicates (though unlikely for these IDs)
@@ -99,46 +133,58 @@ public class ProviderManager : IDisposable
 
             if (provider != null)
             {
+                await _httpSemaphore.WaitAsync();
                 try
                 {
                     _logger.LogDebug($"Fetching usage for provider: {config.ProviderId}");
-                    var usages = await provider.GetUsageAsync(config);
-                    foreach(var u in usages) u.AuthSource = config.AuthSource;
-                    
+                    var usages = await provider.GetUsageAsync(config, progressCallback);
+                    foreach(var u in usages) 
+                    {
+                        u.AuthSource = config.AuthSource;
+                        progressCallback?.Invoke(u);
+                    }
+
                     _logger.LogDebug($"Success for {config.ProviderId}: {usages.Count()} items");
                     return usages;
                 }
                 catch (ArgumentException ex)
                 {
-                     // Missing API key or configuration issue -> Hide from default view
-                     _logger.LogWarning($"Skipping {config.ProviderId}: {ex.Message}");
-                     return new[] { new ProviderUsage
+                    _logger.LogWarning($"Skipping {config.ProviderId}: {ex.Message}");
+                    var errorUsage = new ProviderUsage
                     {
                         ProviderId = config.ProviderId,
                         ProviderName = config.ProviderId,
                         Description = ex.Message,
                         CostUsed = 0,
                         UsagePercentage = 0,
-                        IsAvailable = false 
-                    }};
+                        IsAvailable = false
+                    };
+                    progressCallback?.Invoke(errorUsage);
+                    return new[] { errorUsage };
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"Failed to fetch usage for {config.ProviderId}");
-                     return new[] { new ProviderUsage
+                    var errorUsage = new ProviderUsage
                     {
                         ProviderId = config.ProviderId,
                         ProviderName = config.ProviderId,
                         Description = $"[Error] {ex.Message}",
                         CostUsed = 0,
                         UsagePercentage = 0,
-                        IsAvailable = true // Keep visible but show error for other failures
-                    }};
+                        IsAvailable = true
+                    };
+                    progressCallback?.Invoke(errorUsage);
+                    return new[] { errorUsage };
+                }
+                finally
+                {
+                    _httpSemaphore.Release();
                 }
             }
             
             // Generic fallback for any provider found in config
-            return new[] { new ProviderUsage 
+            var genericUsage = new ProviderUsage 
             { 
                 ProviderId = config.ProviderId, 
                 ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
@@ -147,7 +193,9 @@ public class ProviderManager : IDisposable
                 UsagePercentage = 0,
                 UsageUnit = "USD",
                 IsQuotaBased = false
-            }};
+            };
+            progressCallback?.Invoke(genericUsage);
+            return new[] { genericUsage };
         });
 
         var nestedResults = await Task.WhenAll(tasks);
@@ -167,6 +215,8 @@ public class ProviderManager : IDisposable
         if (disposing)
         {
             _refreshSemaphore.Dispose();
+            _configSemaphore.Dispose();
+            _httpSemaphore.Dispose();
         }
     }
 }

@@ -21,7 +21,7 @@ public class MockProviderService : IProviderService
         _mockResponses = mockResponses;
     }
 
-    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (UsageHandler != null)
         {

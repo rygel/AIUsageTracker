@@ -19,7 +19,7 @@ public class OpenAIProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Validation
         if (string.IsNullOrEmpty(config.ApiKey)) throw new ArgumentException("API Key is missing via environment variable or auth.json");
