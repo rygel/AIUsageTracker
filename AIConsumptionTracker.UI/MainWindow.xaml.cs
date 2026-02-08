@@ -993,7 +993,7 @@ namespace AIConsumptionTracker.UI
                         await fileStream.WriteAsync(buffer, 0, (int)bytesRead);
                         var progress = (int)Math.Min((fileStream.Length * 100L) / totalBytesLong, 100);
                         progressDialog.Progress = progress;
-                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { var _ = 0; });
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { });
                     }
                     
                     progressDialog.Close();

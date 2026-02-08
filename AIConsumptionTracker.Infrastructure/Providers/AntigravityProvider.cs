@@ -55,7 +55,10 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                     {
                         var anyResetPassed = _cachedUsage.Details
                             .Where(d => d.NextResetTime.HasValue)
-                            .Any(d => d.NextResetTime.Value <= DateTime.Now);
+                            .Any(d => {
+                                var dt = d.NextResetTime!.Value;
+                                return dt <= DateTime.Now;
+                            });
 
                         if (anyResetPassed)
                         {
