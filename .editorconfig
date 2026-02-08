@@ -56,23 +56,9 @@ dot_diagnostic.CA2208.severity = suggestion
 # CA2300: Check for null before assigning
 dot_diagnostic.CA2300.severity = warning
 
-# SA1200: Using "This" in generic type
-dot_diagnostic.SA1200.severity = warning
-
-# SA1101: Do not call Dispose more than once
-dot_diagnostic.SA1101.severity = warning
-
-# SA1129: Dispose of IDisposable fields
-dot_diagnostic.SA1129.severity = warning
-
-# SA1133: Do not mix instance and static access
-dot_diagnostic.SA1133.severity = warning
-
-# SA1141: Use tuple syntax
-dot_diagnostic.SA1141.severity = suggestion
-
-# SA1200: Use generic type constraints
-dot_diagnostic.SA1200.severity = suggestion
+# CA1307: Specify StringComparison for string comparisons
+# Only warn when StringComparison is omitted (not when generic .Equals is used)
+dot_diagnostic.CA1307.severity = suggestion
 
 # RS0016: Empty block should not be used
 dot_diagnostic.RS0016.severity = warning
