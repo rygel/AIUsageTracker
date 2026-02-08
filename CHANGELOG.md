@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [1.7.11] - 2026-02-08
+
+### Fixed
+- **Release Workflow**: Synchronized all version strings and improved automated distribution scripts.
+- **Inno Setup**: Corrected Pascal script syntax for reliable installer generation.
+
 ## [1.7.10] - 2026-02-08
 
 ### Fixed
