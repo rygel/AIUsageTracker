@@ -17,7 +17,7 @@ public class CodexProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Codex often uses the same backend/structure as OpenAI or is accessed via specific endpoints.
         // Assuming standard OpenAI-like usage structure for now or placeholder behavior until specific API details are confirmed.

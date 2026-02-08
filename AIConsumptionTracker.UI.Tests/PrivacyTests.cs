@@ -28,9 +28,9 @@ public class PrivacyTests
 
         _mockProvider = new Mock<IProviderService>();
         _mockProvider.Setup(p => p.ProviderId).Returns("test-provider");
-        _mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>()))
-            .ReturnsAsync(new[] { new ProviderUsage 
-            { 
+        _mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
+            .ReturnsAsync(new[] { new ProviderUsage
+            {
                 ProviderId = "test-provider",
                 ProviderName = "Test Provider",
                 AccountName = "test@example.com",
@@ -72,9 +72,9 @@ public class PrivacyTests
         });
 
         _mockProvider.Setup(p => p.ProviderId).Returns(providerId);
-        _mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>()))
-            .ReturnsAsync(new[] { new ProviderUsage 
-            { 
+        _mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
+            .ReturnsAsync(new[] { new ProviderUsage
+            {
                 ProviderId = providerId,
                 ProviderName = "GitHub Copilot",
                 AccountName = "test@example.com",
@@ -149,9 +149,9 @@ public class PrivacyTests
         });
 
         _mockProvider.Setup(p => p.ProviderId).Returns(providerId);
-        _mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>()))
-            .ReturnsAsync(new[] { new ProviderUsage 
-            { 
+        _mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
+            .ReturnsAsync(new[] { new ProviderUsage
+            {
                 ProviderId = providerId,
                 ProviderName = "GitHub Copilot",
                 AccountName = "johndoe",

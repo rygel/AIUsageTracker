@@ -141,6 +141,183 @@ AIConsumptionTracker.UI.exe --test --screenshot
 - **Listing**: The UI pre-populates a list of supported providers to allow users to easily add keys, but their underlying presence is merely structural until configured.
 - **Equality**: All supported providers are treated equally in terms of system integration and display logic.
 
+## Business Logic Rules
+
+### Core Principles
+These rules define the fundamental business logic that all AI agents MUST adhere to when working on this application.
+
+#### 1. Provider Neutrality & Equality
+- **RULE**: No provider is ever treated as "essential" or "required"
+- **RULE**: All providers must be handled identically in business logic
+- **RULE**: Never hardcode special treatment for specific providers
+- **RULE**: The application must function correctly with zero configured providers
+- **VIOLATION**: Any code that assumes certain providers exist or treats them differently
+
+#### 2. Key-Driven Provider Activation
+- **RULE**: A provider is only "active" when it has a valid API key in configuration or environment
+- **RULE**: Never attempt API calls to providers without valid keys
+- **RULE**: Missing keys should result in `IsAvailable = false` with descriptive message
+- **RULE**: Providers listed in UI without keys are purely structural placeholders
+- **IMPLEMENTATION**: Check `config.ApiKey` first in all `IProviderService.GetUsageAsync()` methods
+
+#### 3. Graceful Degradation (Never Crash)
+- **RULE**: Provider failures must NEVER crash the application
+- **RULE**: Always return a valid `ProviderUsage` object, even on error
+- **RULE**: Use `IsAvailable = false` for unavailable providers
+- **RULE**: Continue processing other providers if one fails
+- **RULE**: Distinguish between "missing config" (hide from UI) vs "errors" (show in UI)
+- **IMPLEMENTATION**: Use try-catch in `ProviderManager.FetchAllUsageInternal()` (lines 102-137)
+
+#### 4. Privacy & Security
+- **RULE**: NEVER log API keys or any sensitive configuration data
+- **RULE**: NEVER expose API keys in error messages shown to users
+- **RULE**: All sensitive data must be encrypted before storage
+- **RULE**: Use `System.Security.Cryptography.ProtectedData` for encryption
+- **RULE**: Never include sensitive data in logs or telemetry
+- **IMPLEMENTATION**: Use `ArgumentException` for validation, not exposing secrets
+
+#### 5. Configuration Hierarchy & Discovery
+- **RULE**: Support multiple configuration sources with defined precedence
+- **RULE**: Environment variables take precedence over file-based config
+- **RULE**: Check paths in order: `~/.ai-consumption-tracker/auth.json`, `~/.local/share/opencode/auth.json`, etc.
+- **RULE**: Provider ID aliases must be resolved (e.g., "kimi-for-coding" → "kimi")
+- **RULE**: `app_settings` key is reserved and must be excluded from provider list
+- **IMPLEMENTATION**: `JsonConfigLoader.LoadConfigAsync()` (lines 12-110)
+
+#### 6. Error Handling & Visibility
+- **RULE**: `ArgumentException` → Hide provider from default UI (missing config)
+- **RULE**: Other exceptions → Show provider with error state (network/API failure)
+- **RULE**: Provide user-friendly descriptions, not technical stack traces
+- **RULE**: Log all errors with context using `ILogger.LogError(ex, "message")`
+- **IMPLEMENTATION**: `ProviderManager.FetchAllUsageInternal()` (lines 111-137)
+
+#### 7. Validation & Pre-checks
+- **RULE**: Validate all parameters before making API calls
+- **RULE**: Throw `ArgumentException` for missing/invalid configuration
+- **RULE**: Check for special key types (e.g., `sk-proj-` for OpenAI project keys)
+- **RULE**: Validate required fields early in execution flow
+- **IMPLEMENTATION**: Check `config.ApiKey` at start of `GetUsageAsync()` methods
+
+#### 8. Cross-Platform Compatibility
+- **RULE**: Core and Infrastructure projects MUST work on all platforms (Windows, Linux, macOS)
+- **RULE**: Only UI project may be Windows-specific (WPF)
+- **RULE**: CLI project MUST be cross-platform
+- **RULE**: Never use Windows-specific APIs in Core/Infrastructure
+- **VIOLATION**: Platform-specific code outside UI/CLI projects
+
+#### 9. Data Integrity & Persistence
+- **RULE**: Never lose user configuration on updates or errors
+- **RULE**: Preserve `app_settings` when saving provider configurations
+- **RULE**: Create backups before modifying critical configuration files
+- **RULE**: Only save providers that have actual keys or base URLs
+- **RULE**: Handle file I/O errors gracefully without corrupting data
+- **IMPLEMENTATION**: `JsonConfigLoader.SaveConfigAsync()` (lines 112-156)
+
+#### 10. Provider Manager Orchestration
+- **RULE**: `ProviderManager` must coordinate all provider fetching
+- **RULE**: Use `SemaphoreSlim` to prevent concurrent refreshes
+- **RULE**: Support task deduplication (join existing refresh if in progress)
+- **RULE**: Cache last results and support `forceRefresh` parameter
+- **RULE**: Auto-add system providers that don't require auth (antigravity, gemini-cli, opencode-zen)
+- **IMPLEMENTATION**: `ProviderManager.GetAllUsageAsync()` (lines 26-62)
+
+#### 11. Generic Provider Fallback
+- **RULE**: Unknown providers with `type: "pay-as-you-go"` or `type: "api"` must use `GenericPayAsYouGoProvider`
+- **RULE**: Provider ID matching must be case-insensitive
+- **RULE**: Support provider aliases (e.g., "claude" → "anthropic")
+- **RULE**: Fallback to generic "Connected" status if no specific provider found
+- **IMPLEMENTATION**: `ProviderManager.FetchAllUsageInternal()` (lines 86-150)
+
+#### 12. Payment Type Handling
+- **RULE**: Support all payment types: `UsageBased`, `Credits`, `Quota`
+- **RULE**: Display usage based on payment type:
+  - `UsageBased`: Show "Spent X / Limit Y"
+  - `Credits`: Show "Remaining X"
+  - `Quota`: Show "Used X / Limit Y"
+- **RULE**: Set `IsQuotaBased = true` only for quota-based providers
+- **IMPLEMENTATION**: Models defined in `ProviderConfig.cs` and `ProviderUsage.cs`
+
+#### 13. User Preferences
+- **RULE**: All user preferences must have sensible defaults
+- **RULE**: Preferences stored in `auth.json` under `app_settings` key
+- **RULE**: Support legacy `preferences.json` as fallback
+- **RULE**: Never lose preferences on migration to new storage format
+- **RULE**: Privacy mode must hide sensitive data from screenshots
+- **IMPLEMENTATION**: `AppPreferences.cs` and `JsonConfigLoader.LoadPreferencesAsync()` (lines 161-191)
+
+#### 14. Token Discovery
+- **RULE**: Automatically discover tokens from common locations
+- **RULE**: Discovered tokens supplement, don't replace, file-based config
+- **RULE**: Don't overwrite existing config with discovered tokens unless key is empty
+- **RULE**: Support environment variables for sensitive configuration
+- **IMPLEMENTATION**: `TokenDiscoveryService` in `JsonConfigLoader.LoadConfigAsync()` (lines 91-107)
+
+#### 15. Auto-Refresh Behavior
+- **RULE**: Auto-refresh must be configurable (0 = disabled)
+- **RULE**: Interval specified in seconds (`AutoRefreshInterval`)
+- **RULE**: Only refresh when application is visible/active
+- **RULE**: Respect privacy mode during refresh operations
+- **IMPLEMENTATION**: UI timer logic using `AppPreferences.AutoRefreshInterval`
+
+#### 16. Sub-Trays & Detailed Information
+- **RULE**: Support provider-specific sub-trays for detailed breakdown
+- **RULE**: Sub-trays controlled by `enabled_sub_trays` array in config
+- **RULE**: Use `ProviderUsageDetail` for multi-level usage information
+- **RULE**: Only show enabled sub-trays in UI
+- **IMPLEMENTATION**: `ProviderUsageDetail` class and `ProviderConfig.EnabledSubTrays`
+
+### Rule Enforcement Checklist
+Before committing any changes to business logic, verify:
+
+- [ ] Does this treat all providers equally?
+- [ ] Does this crash if a provider fails?
+- [ ] Does this expose sensitive data in logs or UI?
+- [ ] Does this work on all supported platforms?
+- [ ] Does this preserve user configuration?
+- [ ] Does this handle missing/invalid keys gracefully?
+- [ ] Does this follow the payment type display rules?
+- [ ] Does this maintain the configuration hierarchy?
+
+### Common Anti-Patterns to Avoid
+
+❌ **Hardcoding provider lists**
+```csharp
+// BAD - Hardcoded provider list
+var providers = new[] { "openai", "anthropic", "gemini" };
+```
+
+✅ **Dynamic provider discovery**
+```csharp
+// GOOD - Load from config
+var configs = await _configLoader.LoadConfigAsync();
+```
+
+❌ **Throwing exceptions for provider failures**
+```csharp
+// BAD - Crashes on provider error
+if (!response.IsSuccessStatusCode) 
+    throw new HttpRequestException("Provider failed");
+```
+
+✅ **Returning error state**
+```csharp
+// GOOD - Graceful degradation
+if (!response.IsSuccessStatusCode) 
+    return new[] { new ProviderUsage { IsAvailable = false, Description = "Failed" } };
+```
+
+❌ **Logging sensitive data**
+```csharp
+// BAD - Exposes API key
+_logger.LogInformation($"Checking provider with key: {config.ApiKey}");
+```
+
+✅ **Logging without secrets**
+```csharp
+// GOOD - Safe logging
+_logger.LogDebug($"Checking provider: {config.ProviderId}");
+```
+
 ### Provider Implementation Pattern
 ```csharp
 public class ExampleProvider : IProviderService

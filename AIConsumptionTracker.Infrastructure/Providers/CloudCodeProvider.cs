@@ -15,7 +15,7 @@ public class CloudCodeProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Strategy: 
         // 1. If API Key is provided (unlikely for Cloud Code, usually access token), verify it.

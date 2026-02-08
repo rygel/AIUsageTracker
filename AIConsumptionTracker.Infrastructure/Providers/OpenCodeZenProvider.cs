@@ -20,7 +20,7 @@ public class OpenCodeZenProvider : IProviderService
         _cliPath = @"C:\Users\Alexander\AppData\Roaming\npm\opencode.cmd";
     }
 
-    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Execute CLI synchronously (it's fast enough or we accept the block on thread pool)
         // Better to use Task.Run for process execution

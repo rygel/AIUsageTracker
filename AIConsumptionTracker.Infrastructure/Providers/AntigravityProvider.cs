@@ -32,7 +32,7 @@ public class AntigravityProvider : IProviderService
         _httpClient = new HttpClient(handler);
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         var results = new List<ProviderUsage>();
         

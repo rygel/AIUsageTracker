@@ -16,7 +16,7 @@ public class MinimaxProvider : GenericPayAsYouGoProvider
     {
     }
 
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {

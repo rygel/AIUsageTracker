@@ -24,7 +24,7 @@ public class GenericPayAsYouGoProvider : IProviderService
         _logger = logger;
     }
 
-    public virtual async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config)
+    public virtual async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
