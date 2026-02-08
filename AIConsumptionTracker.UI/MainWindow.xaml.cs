@@ -308,6 +308,12 @@ namespace AIConsumptionTracker.UI
 
         private void UpdateProviderBar(ProviderUsage usage)
         {
+            // Apply same filtering logic as RenderUsages
+            bool showAll = ShowAllToggle?.IsChecked ?? true;
+            bool shouldShow = showAll ||
+                           (usage.IsAvailable && !usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
+                           (usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota || usage.NextResetTime.HasValue || (usage.Details != null && usage.Details.Any(d => d.NextResetTime.HasValue)));
+
             // Remove existing bar if it exists
             var existingBarIndex = ProvidersList.Children
                 .OfType<UIElement>()
@@ -322,6 +328,12 @@ namespace AIConsumptionTracker.UI
             if (existingBarIndex.HasValue)
             {
                 ProvidersList.Children.RemoveAt(existingBarIndex.Value);
+            }
+
+            // Only add if it should be shown
+            if (!shouldShow)
+            {
+                return;
             }
 
             // Create new bar and insert at the appropriate position based on provider name
@@ -361,8 +373,8 @@ namespace AIConsumptionTracker.UI
 
         private void RenderUsages(List<ProviderUsage> usages)
         {
-            ProvidersList.Children.Clear();
-
+            // Don't clear - incremental updates handle individual bars via UpdateProviderBar
+            
             bool showAll = ShowAllToggle?.IsChecked ?? true;
             var filteredUsages = usages
                 .Where(u => showAll ||
