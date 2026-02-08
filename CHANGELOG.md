@@ -1,16 +1,19 @@
 # Changelog
 
+## Unreleased
+### Fixed
+- **UI Fixes**:
+  - Removed privacy checkbox from Settings dialog (Privacy button only in title bar)
+  - Fixed bug where PrivacyChanged event didn't call RenderUsages to update UI display
+  - Privacy mode now only accessible via title bar button
+  - Settings dialog no longer has duplicate privacy toggle
+
 ## [1.7.4] - 2026-02-08
 ### Added
 - **Update Checks**: automatically notifies of new GitHub releases on startup and every 2 hours.
 - **Auto Refresh Interval**: Introduced a configurable background refresh timer for API consumption data (default: 5 minutes).
 - **Settings UI**: Added "Auto Refresh (Minutes)" input to the Layout tab.
 - **Documentation Enhancements**: Comprehensive screenshots section with Dashboard, Settings, Info Dialog views
-
-## [1.7.3] - 2026-02-08
-### Fixed
-- **Release Matrix Fix**: Removed unsupported `win-arm` (32-bit) which is not compatible with WPF in .NET 8.0.
-- **Version Calibration**: Ensured all components are consistently at v1.7.3.
 
 ## [1.7.1] - 2026-02-08
 ### Added

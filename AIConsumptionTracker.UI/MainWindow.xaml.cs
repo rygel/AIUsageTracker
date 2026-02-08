@@ -127,6 +127,7 @@ namespace AIConsumptionTracker.UI
                         _preferences.IsPrivacyMode = isPrivate;
                         ApplyPreferences();
                         UpdatePrivacyButton();
+                        RenderUsages(_cachedUsages);
                     };
                 }
                 UpdatePrivacyButton();

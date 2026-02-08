@@ -214,7 +214,6 @@
                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"  Foreground="#007ACC" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock Text="Settings" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button x:Name="PrivacyBtn" Content="🔒" Click="PrivacyBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="30" Margin="0,0,10,0" ToolTip="Toggle Privacy Mode" WindowChrome.IsHitTestVisibleInChrome="True"/>
                     </StackPanel>
                 </DockPanel>
             </Border>

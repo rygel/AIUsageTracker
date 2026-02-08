@@ -49,7 +49,6 @@ namespace AIConsumptionTracker.UI
             PopulateList();
             PopulateLayout();
             UpdateLayout();
-            UpdatePrivacyButton();
             await Task.Yield();
         }
 
@@ -76,10 +75,8 @@ namespace AIConsumptionTracker.UI
                 app.PrivacyChanged += (s, isPrivate) => {
                     _prefs.IsPrivacyMode = isPrivate;
                     PopulateList(); // Re-render to update masking
-                    UpdatePrivacyButton();
                 };
             }
-            UpdatePrivacyButton();
 
             await InitializeGitHubAuthAsync();
 
@@ -555,27 +552,12 @@ namespace AIConsumptionTracker.UI
               Grid.SetColumn(lblRefresh, 0);
               Grid.SetColumn(txtRefresh, 1);
               gridRefresh.Children.Add(lblRefresh);
-              gridRefresh.Children.Add(txtRefresh);
+               gridRefresh.Children.Add(txtRefresh);
 
-              LayoutStack.Children.Add(gridRefresh);
+               LayoutStack.Children.Add(gridRefresh);
 
-              // Privacy Mode
-              var privacyCheck = new CheckBox
-              {
-                  Content = "Privacy Mode (Mask sensitive data)",
-                  IsChecked = _prefs.IsPrivacyMode,
-                  Foreground = Brushes.LightGray,
-                  FontSize = 11,
-                  Margin = new Thickness(0, 15, 0, 0),
-                  VerticalAlignment = VerticalAlignment.Center
-              };
-              privacyCheck.Checked += (s, e) => _prefs.IsPrivacyMode = true;
-              privacyCheck.Unchecked += (s, e) => _prefs.IsPrivacyMode = false;
-
-              LayoutStack.Children.Add(privacyCheck);
-
-              // Separator
-              var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)), Margin = new Thickness(0, 30, 0, 10) };
+               // Separator
+               var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)), Margin = new Thickness(0, 30, 0, 10) };
               LayoutStack.Children.Add(separator);
 
               // Font Settings Section
@@ -773,34 +755,6 @@ namespace AIConsumptionTracker.UI
             Close();
         }
 
-        private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await PrivacyBtn_ClickAsync(sender, e);
-
-        internal async Task PrivacyBtn_ClickAsync(object sender, RoutedEventArgs e)
-        {
-            if (Application.Current is App app)
-            {
-                await app.TogglePrivacyMode();
-            }
-            else
-            {
-                _prefs.IsPrivacyMode = !_prefs.IsPrivacyMode;
-                await _configLoader.SavePreferencesAsync(_prefs);
-                PopulateList();
-                UpdatePrivacyButton();
-            }
-        }
-
-        private void UpdatePrivacyButton()
-        {
-            if (_prefs.IsPrivacyMode)
-            {
-                PrivacyBtn.Foreground = Brushes.Gold;
-            }
-            else
-            {
-                PrivacyBtn.Foreground = Brushes.Gray;
-            }
-        }
     }
 }
 
