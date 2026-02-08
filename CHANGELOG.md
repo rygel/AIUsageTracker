@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## [1.7.10] - 2026-02-08
+
+### Fixed
+- **CI Build**: Fixed Inno Setup /Q flag causing build failures in GitHub Actions
+- **Publish Script**: Removed incorrect /Q flag that suppressed important error messages
+- **Compiler Warnings**: Resolved all compiler warnings for clean builds
+
+## [1.7.9] - 2026-02-08
+
 ## [1.7.9] - 2026-02-08
 
 ### Fixed
