@@ -9,7 +9,7 @@ on:
       - 'v*'
 
 jobs:
-  publish:
+  build:
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -41,12 +41,29 @@ jobs:
         run: .\scripts\publish-app.ps1 -Runtime ${{ matrix.runtime }} -Version ${{ env.VERSION }}
         shell: pwsh
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: AIConsumptionTracker-v${{ env.VERSION }}-${{ matrix.runtime }}
+          path: |
             dist/AIConsumptionTracker_v*_${{ matrix.runtime }}.zip
             dist/AIConsumptionTracker_Setup_v*_${{ matrix.runtime }}.exe
+          retention-days: 7
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: AIConsumptionTracker-*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -55,10 +72,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 #      - name: Submit to Winget
-#        if: matrix.runtime == 'win-x64'
-#        uses: vedantmgoyal2009/winget-releaser@v2
-#        with:
-#          identifier: AIConsumption.Tracker
-#          installers-regex: '_win-x64\.exe$'
-#          token: ${{ secrets.WINGET_TOKEN }}
+#        run: echo "Winget submission disabled - can be re-enabled if needed"
 
