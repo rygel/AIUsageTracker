@@ -80,10 +80,6 @@ public class ProviderManager : IDisposable
         {
             configs.Add(new ProviderConfig { ProviderId = "opencode-zen", ApiKey = "" });
         }
-        if (!configs.Any(c => c.ProviderId == "github-copilot"))
-        {
-            configs.Add(new ProviderConfig { ProviderId = "github-copilot", ApiKey = "" });
-        }
 
         var results = new List<ProviderUsage>();
 

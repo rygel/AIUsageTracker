@@ -17,6 +17,8 @@ namespace AIConsumptionTracker.UI
         private AppPreferences _prefs = new();
 
         public bool SettingsChanged { get; private set; }
+        private bool _isScreenshotMode = false;
+        private string? _githubUsername;
 
         private readonly IGitHubAuthService _githubAuthService;
 
@@ -30,46 +32,61 @@ namespace AIConsumptionTracker.UI
             Loaded += SettingsWindow_Loaded;
         }
 
-        private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
+        public async Task PrepareForScreenshot(AppPreferences prefs)
         {
+            _isScreenshotMode = true;
+            _prefs = prefs;
             _configs = await _configLoader.LoadConfigAsync();
-            _prefs = await _configLoader.LoadPreferencesAsync();
+            
+            // Explicitly select the first tab (Providers)
+            if (this.Content is FrameworkElement root)
+            {
+                var tabControl = root.FindName("MainTabControl") as TabControl;
+                if (tabControl != null) tabControl.SelectedIndex = 0;
+            }
 
-            // Initialize GitHub Auth Token if present
+            await InitializeGitHubAuthAsync();
+            PopulateList();
+            PopulateLayout();
+            UpdateLayout();
+            UpdatePrivacyButton();
+            await Task.Yield();
+        }
+
+        private async Task InitializeGitHubAuthAsync()
+        {
             var copilotConfig = _configs.FirstOrDefault(c => c.ProviderId == "github-copilot");
             if (copilotConfig != null && !string.IsNullOrEmpty(copilotConfig.ApiKey))
             {
                 _githubAuthService.InitializeToken(copilotConfig.ApiKey);
+                _githubUsername = await _githubAuthService.GetUsernameAsync();
             }
+        }
 
-            // Ensure GitHub Copilot config exists so it appears in the list
-            if (!_configs.Any(c => c.ProviderId == "github-copilot"))
-            {
-                _configs.Add(new ProviderConfig { ProviderId = "github-copilot", ShowInTray = true });
-            }
+        private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (_isScreenshotMode) return; // Skip if we already prepared for screenshot
 
-            // Ensure OpenAI config exists so it appears in the list
-            if (!_configs.Any(c => c.ProviderId == "openai"))
+            _configs = await _configLoader.LoadConfigAsync();
+            _prefs = await _configLoader.LoadPreferencesAsync();
+            
+            // Listen for global privacy changes
+            if (Application.Current is App app)
             {
-                _configs.Add(new ProviderConfig { ProviderId = "openai", ShowInTray = true });
+                app.PrivacyChanged += (s, isPrivate) => {
+                    _prefs.IsPrivacyMode = isPrivate;
+                    PopulateList(); // Re-render to update masking
+                    UpdatePrivacyButton();
+                };
             }
+            UpdatePrivacyButton();
 
-            // Ensure Minimax configs exist
-            if (!_configs.Any(c => c.ProviderId == "minimax"))
-            {
-                _configs.Add(new ProviderConfig { ProviderId = "minimax", ShowInTray = true });
-            }
-             if (!_configs.Any(c => c.ProviderId == "minimax-io"))
-            {
-                _configs.Add(new ProviderConfig { ProviderId = "minimax-io", ShowInTray = true });
-            }
-            if (!_configs.Any(c => c.ProviderId == "xiaomi"))
-            {
-                _configs.Add(new ProviderConfig { ProviderId = "xiaomi", ShowInTray = true });
-            }
+            await InitializeGitHubAuthAsync();
+
             PopulateList();
             PopulateLayout();
         }
+
 
         private void PopulateList()
         {
@@ -79,6 +96,7 @@ namespace AIConsumptionTracker.UI
             var usages = _providerManager.LastUsages;
 
             var groupedConfigs = _configs.OrderBy(c => c.ProviderId).ToList();
+            try { System.IO.File.WriteAllText(@"c:\Develop\Claude\opencode-tracker\screenshot_debug.txt", $"Configs: {groupedConfigs.Count}"); } catch {}
 
             foreach (var config in groupedConfigs)
             {
@@ -116,6 +134,7 @@ namespace AIConsumptionTracker.UI
                     "antigravity" => "Google Antigravity",
                     "gemini-cli" => "Google Gemini",
                     "github-copilot" => "GitHub Copilot",
+                    "openai" => "OpenAI (Codex)",
                     "minimax" => "Minimax (China)",
                     "minimax-io" => "Minimax (International)",
                     _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("_", " ").Replace("-", " "))
@@ -176,9 +195,19 @@ namespace AIConsumptionTracker.UI
                 {
                     // Special GitHub Login UI (no label)
                     var authBox = new StackPanel { Orientation = Orientation.Horizontal };
+                    var displayUsername = _githubUsername;
+                    if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(displayUsername))
+                    {
+                        displayUsername = PrivacyHelper.MaskString(displayUsername);
+                    }
+
+                    var authStatusText = _githubAuthService.IsAuthenticated 
+                        ? (string.IsNullOrEmpty(displayUsername) ? "Authenticated" : $"Authenticated ({displayUsername})")
+                        : "Not Authenticated";
+
                     var authStatus = new TextBlock 
                     { 
-                        Text = _githubAuthService.IsAuthenticated ? "Authenticated" : "Not Authenticated", 
+                        Text = authStatusText, 
                         Foreground = _githubAuthService.IsAuthenticated ? Brushes.LightGreen : Brushes.Gray,
                         VerticalAlignment = VerticalAlignment.Center,
                         Margin = new Thickness(0, 0, 10, 0),
@@ -210,12 +239,14 @@ namespace AIConsumptionTracker.UI
                             dialog.Owner = this;
                             if (dialog.ShowDialog() == true)
                             {
-                                authStatus.Text = "Authenticated";
-                                authStatus.Foreground = Brushes.LightGreen;
-                                authBtn.Content = "Log out";
-                                
                                 var token = _githubAuthService.GetCurrentToken();
                                 if (!string.IsNullOrEmpty(token)) config.ApiKey = token;
+                                
+                                // Fetch username after login
+                                _ = Task.Run(async () => {
+                                    _githubUsername = await _githubAuthService.GetUsernameAsync();
+                                    Dispatcher.Invoke(() => PopulateList());
+                                });
                             }
                         }
                     };
@@ -226,19 +257,61 @@ namespace AIConsumptionTracker.UI
                     Grid.SetColumn(authBox, 0);
                     keyPanel.Children.Add(authBox);
                 }
+                else if (config.ProviderId == "antigravity")
+                {
+                    // Antigravity: Local Process Auto-Detection (No Key Input)
+                    var statusPanel = new StackPanel { Orientation = Orientation.Horizontal };
+                    
+                    bool isConnected = usage != null && usage.IsAvailable;
+                    string accountInfo = usage?.AccountName ?? "Unknown";
+
+                    if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(accountInfo) && accountInfo != "Unknown")
+                    {
+                        accountInfo = PrivacyHelper.MaskString(accountInfo);
+                    }
+
+                    var statusText = new TextBlock
+                    {
+                        Text = isConnected ? $"Auto-Detected ({accountInfo})" : "Searching for local process...",
+                        Foreground = isConnected ? Brushes.LightGreen : Brushes.Gray,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        FontSize = 11,
+                        FontStyle = isConnected ? FontStyles.Normal : FontStyles.Italic
+                    };
+
+                    statusPanel.Children.Add(statusText);
+                    Grid.SetColumn(statusPanel, 0);
+                    keyPanel.Children.Add(statusPanel);
+                }
                 else
                 {
                     // Standard API Key Input (no label)
+                    var displayKey = config.ApiKey;
+                    bool shouldMask = _isScreenshotMode || _prefs.IsPrivacyMode;
+                    if (shouldMask && !string.IsNullOrEmpty(displayKey))
+                    {
+                        // Mask the key significantly
+                        if (displayKey.Length > 8)
+                            displayKey = displayKey.Substring(0, 4) + "****************" + displayKey.Substring(displayKey.Length - 4);
+                        else
+                            displayKey = "********";
+                    }
+
                     var keyBox = new TextBox
                     {
-                        Text = config.ApiKey,
+                        Text = displayKey,
                         Tag = config,
                         VerticalContentAlignment = VerticalAlignment.Center,
-                        FontSize = 11
+                        FontSize = 11,
+                        IsReadOnly = _isScreenshotMode || _prefs.IsPrivacyMode
                     };
-                    keyBox.TextChanged += (s, e) => {
-                        config.ApiKey = keyBox.Text;
-                    };
+                    if (!_isScreenshotMode && !_prefs.IsPrivacyMode)
+                    {
+                        keyBox.TextChanged += (s, e) => {
+                            config.ApiKey = keyBox.Text;
+                            SettingsChanged = true;
+                        };
+                    }
 
                     Grid.SetColumn(keyBox, 0);
                     keyPanel.Children.Add(keyBox);
@@ -456,6 +529,50 @@ namespace AIConsumptionTracker.UI
               invertCheck.Unchecked += (s, e) => _prefs.InvertProgressBar = false;
 
               LayoutStack.Children.Add(invertCheck);
+              
+              // Auto Refresh Interval
+              var gridRefresh = new Grid { Margin = new Thickness(0, 15, 0, 0) };
+              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+              var lblRefresh = new TextBlock { Text = "Auto Refresh (Minutes)", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var txtRefresh = new TextBox
+              {
+                  Text = (_prefs.AutoRefreshInterval / 60).ToString(),
+                  Width = 50,
+                  Height = 24,
+                  Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
+                  Foreground = Brushes.White,
+                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
+                  VerticalContentAlignment = VerticalAlignment.Center,
+                  ToolTip = "Set to 0 to disable automatic refresh"
+              };
+              txtRefresh.TextChanged += (s, e) => {
+                  if (int.TryParse(txtRefresh.Text, out var val)) _prefs.AutoRefreshInterval = val * 60;
+              };
+
+              Grid.SetColumn(lblRefresh, 0);
+              Grid.SetColumn(txtRefresh, 1);
+              gridRefresh.Children.Add(lblRefresh);
+              gridRefresh.Children.Add(txtRefresh);
+
+              LayoutStack.Children.Add(gridRefresh);
+
+              // Privacy Mode
+              var privacyCheck = new CheckBox
+              {
+                  Content = "Privacy Mode (Mask sensitive data)",
+                  IsChecked = _prefs.IsPrivacyMode,
+                  Foreground = Brushes.LightGray,
+                  FontSize = 11,
+                  Margin = new Thickness(0, 15, 0, 0),
+                  VerticalAlignment = VerticalAlignment.Center
+              };
+              privacyCheck.Checked += (s, e) => _prefs.IsPrivacyMode = true;
+              privacyCheck.Unchecked += (s, e) => _prefs.IsPrivacyMode = false;
+
+              LayoutStack.Children.Add(privacyCheck);
 
               // Separator
               var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)), Margin = new Thickness(0, 30, 0, 10) };
@@ -654,6 +771,35 @@ namespace AIConsumptionTracker.UI
         private void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
             Close();
+        }
+
+        private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await PrivacyBtn_ClickAsync(sender, e);
+
+        internal async Task PrivacyBtn_ClickAsync(object sender, RoutedEventArgs e)
+        {
+            if (Application.Current is App app)
+            {
+                await app.TogglePrivacyMode();
+            }
+            else
+            {
+                _prefs.IsPrivacyMode = !_prefs.IsPrivacyMode;
+                await _configLoader.SavePreferencesAsync(_prefs);
+                PopulateList();
+                UpdatePrivacyButton();
+            }
+        }
+
+        private void UpdatePrivacyButton()
+        {
+            if (_prefs.IsPrivacyMode)
+            {
+                PrivacyBtn.Foreground = Brushes.Gold;
+            }
+            else
+            {
+                PrivacyBtn.Foreground = Brushes.Gray;
+            }
         }
     }
 }

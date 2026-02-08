@@ -53,7 +53,10 @@
                     <Image Source="Assets/app_icon.png" Width="18" Height="18" Margin="0,0,8,0" DockPanel.Dock="Left"/>
                     <TextBlock Text="AI Consumption Tracker" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left"/>
                     <TextBlock x:Name="VersionText" Text="v..." FontSize="11" Foreground="#888888" VerticalAlignment="Center" Margin="8,2,0,0" DockPanel.Dock="Left"/>
-                    <Button Content="X" HorizontalAlignment="Right" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="PrivacyBtn" Content="🔒" Click="PrivacyBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="30" Margin="0,0,10,0" ToolTip="Toggle Privacy Mode" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button Content="X" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    </StackPanel>
                 </DockPanel>
             </Border>
 
@@ -103,20 +106,6 @@
                                   Checked="Compact_Checked"
                                   Unchecked="Compact_Checked"/>
 
-                        <ToggleButton x:Name="PrivacyBtn" Click="PrivacyBtn_Click" Margin="0,0,10,0" ToolTip="Privacy Mode" Width="32" Height="30" Background="#444444" Foreground="White" BorderThickness="0">
-                            <ToggleButton.Template>
-                                <ControlTemplate TargetType="ToggleButton">
-                                    <Border Background="{TemplateBinding Background}" CornerRadius="0">
-                                        <TextBlock x:Name="Icon" Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="Icon" Property="Foreground" Value="#00CC6A"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </ToggleButton.Template>
-                        </ToggleButton>
 
                         <Button x:Name="RefreshBtn" Click="RefreshBtn_Click" Margin="0,0,10,0" ToolTip="Refresh Data" Width="32" Height="30">
                             <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>

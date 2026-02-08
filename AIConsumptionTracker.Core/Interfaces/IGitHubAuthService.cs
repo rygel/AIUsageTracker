@@ -38,4 +38,9 @@ public interface IGitHubAuthService
     /// Checks if the user is currently authenticated.
     /// </summary>
     bool IsAuthenticated { get; }
+
+    /// <summary>
+    /// Gets the username of the authenticated user.
+    /// </summary>
+    Task<string?> GetUsernameAsync();
 }

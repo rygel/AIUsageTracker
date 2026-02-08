@@ -50,6 +50,15 @@ dotnet test --filter "FullyQualifiedName~GetAllUsageAsync_LoadsConfigAndFetchesU
 dotnet test --filter "FullyQualifiedName~ProviderManagerTests"
 ```
 
+### Automated Screenshots
+To generate updated screenshots for documentation (headless and in Privacy Mode):
+```bash
+# Run from the UI bin directory or project root
+AIConsumptionTracker.UI.exe --test --screenshot
+```
+> [!NOTE]
+> The `--test` flag enables explicit UI initialization required for headless rendering. This logic is gated to avoid performance overhead for normal users.
+
 ### Publishing
 ```bash
 # Publish Windows UI
@@ -125,6 +134,12 @@ dotnet test --filter "FullyQualifiedName~ProviderManagerTests"
 - **Styles**: Define in Window.Resources, use `x:Key` for named styles
 - **Colors**: Use hex codes for dark theme (e.g., `#1E1E1E` background)
 - **Resource inclusion**: Images as `<Resource>`, SVG files as `<Content>` with `PreserveNewest`
+
+### Provider Philosophy
+- **No Essential Providers**: There are no hardcoded "essential" providers that the application depends on.
+- **Key-Driven Activation**: A provider is considered active and essential only if the user has provided a valid API key (either via configuration or environment variables).
+- **Listing**: The UI pre-populates a list of supported providers to allow users to easily add keys, but their underlying presence is merely structural until configured.
+- **Equality**: All supported providers are treated equally in terms of system integration and display logic.
 
 ### Provider Implementation Pattern
 ```csharp

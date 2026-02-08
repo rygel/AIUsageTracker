@@ -49,4 +49,28 @@ public static class PrivacyHelper
         
         return input.Substring(0, 1) + new string('*', Math.Min(input.Length - 2, 5)) + input.Substring(input.Length - 1);
     }
+
+    public static string MaskPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return path;
+
+        // Try to identify the user directory to mask it specifically
+        var userProfile = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
+        if (path.StartsWith(userProfile, System.StringComparison.OrdinalIgnoreCase))
+        {
+            var userName = System.IO.Path.GetFileName(userProfile);
+            var maskedUser = MaskString(userName);
+            return path.Replace(userProfile, userProfile.Replace(userName, maskedUser));
+        }
+
+        // Fallback: generic mask but keep filename
+        var fileName = System.IO.Path.GetFileName(path);
+        var dirName = System.IO.Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(dirName))
+        {
+            return MaskString(dirName) + System.IO.Path.DirectorySeparatorChar + fileName;
+        }
+
+        return MaskString(path);
+    }
 }

@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,19 @@ namespace AIConsumptionTracker.UI
         private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new();
         private IHost? _host;
         public IServiceProvider Services => _host!.Services;
+
+        public event EventHandler<bool>? PrivacyChanged;
+
+        public async Task TogglePrivacyMode(bool? forcedState = null)
+        {
+            var configLoader = Services.GetRequiredService<IConfigLoader>();
+            var prefs = await configLoader.LoadPreferencesAsync();
+            
+            prefs.IsPrivacyMode = forcedState ?? !prefs.IsPrivacyMode;
+            await configLoader.SavePreferencesAsync(prefs);
+
+            PrivacyChanged?.Invoke(this, prefs.IsPrivacyMode);
+        }
 
         protected override async void OnStartup(StartupEventArgs e)
         {
@@ -73,6 +87,16 @@ namespace AIConsumptionTracker.UI
                 .Build();
 
             await _host.StartAsync();
+
+            // Handle Screenshots
+            bool isTestMode = e.Args.Any(arg => arg == "--test");
+            bool isScreenshotMode = e.Args.Any(arg => arg == "--screenshot");
+
+            if (isScreenshotMode && isTestMode)
+            {
+                await HandleScreenshotMode();
+                return;
+            }
             
             // Preload data
             var providerManager = _host.Services.GetRequiredService<ProviderManager>();
@@ -80,6 +104,75 @@ namespace AIConsumptionTracker.UI
 
             InitializeTrayIcon();
             await ShowDashboard();
+        }
+
+        private async Task HandleScreenshotMode()
+        {
+            var loader = Services.GetRequiredService<IConfigLoader>();
+            var providerManager = Services.GetRequiredService<ProviderManager>();
+            
+            // Force Privacy Mode
+            var prefs = await loader.LoadPreferencesAsync();
+            prefs.IsPrivacyMode = true;
+
+            // Wait for data
+            var usages = await providerManager.GetAllUsageAsync(forceRefresh: true);
+
+            var docsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../../../../docs");
+            if (!Directory.Exists(docsPath)) docsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "docs");
+            Directory.CreateDirectory(docsPath);
+
+            // 1. Dashboard (Headless)
+            var mainWindow = Services.GetRequiredService<MainWindow>();
+            mainWindow.Width = 350;
+            mainWindow.Height = 650;
+            await mainWindow.PrepareForScreenshot(prefs, usages);
+            AIConsumptionTracker.UI.Services.ScreenshotService.SaveScreenshot(mainWindow, Path.Combine(docsPath, "screenshot_dashboard_privacy.png"));
+
+            // 2. Settings (Headless)
+            var settingsWindow = Services.GetRequiredService<SettingsWindow>();
+            settingsWindow.Width = 650;
+            settingsWindow.Height = 600;
+            await settingsWindow.PrepareForScreenshot(prefs);
+            await Task.Delay(200); // Give layout extra time
+            AIConsumptionTracker.UI.Services.ScreenshotService.SaveScreenshot(settingsWindow, Path.Combine(docsPath, "screenshot_settings_privacy.png"));
+
+            // 3. Info Dialog (Headless)
+            var infoDialog = Services.GetRequiredService<InfoDialog>();
+            infoDialog.Width = 400;
+            infoDialog.Height = 350; // Increased height slightly
+            await infoDialog.PrepareForScreenshot(prefs);
+            AIConsumptionTracker.UI.Services.ScreenshotService.SaveScreenshot(infoDialog, Path.Combine(docsPath, "screenshot_info_privacy.png"));
+
+            // 4. Context Menu (Headless)
+            InitializeTrayIcon(); 
+            if (_taskbarIcon?.ContextMenu != null)
+            {
+                var menu = _taskbarIcon.ContextMenu;
+                AIConsumptionTracker.UI.Services.ScreenshotService.SaveScreenshot(menu, Path.Combine(docsPath, "screenshot_context_menu_privacy.png"));
+            }
+
+            // 5. Tray Icons
+            SaveTrayIcon(0, 60, 80, Path.Combine(docsPath, "tray_icon_good.png"));
+            SaveTrayIcon(75, 60, 80, Path.Combine(docsPath, "tray_icon_warning.png"));
+            SaveTrayIcon(95, 60, 80, Path.Combine(docsPath, "tray_icon_danger.png"));
+
+            Shutdown();
+        }
+    
+
+        private void SaveTrayIcon(double percentage, int yellow, int red, string path)
+        {
+            var iconSource = GenerateUsageIcon(percentage, yellow, red, false);
+            if (iconSource is RenderTargetBitmap rtb)
+            {
+                PngBitmapEncoder encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(rtb));
+                using (var fs = File.OpenWrite(path))
+                {
+                    encoder.Save(fs);
+                }
+            }
         }
 
         private void InitializeTrayIcon()
