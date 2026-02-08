@@ -5,11 +5,7 @@
 - **Update Checks**: automatically notifies of new GitHub releases on startup and every 2 hours.
 - **Auto Refresh Interval**: Introduced a configurable background refresh timer for API consumption data (default: 5 minutes).
 - **Settings UI**: Added "Auto Refresh (Minutes)" input to the Layout tab.
-- **Documentation Enhancements**:
-  - Comprehensive screenshots section with Dashboard, Settings, Info Dialog views
-  - Tray icon examples (Good, Warning, Danger status)
-  - Context menu screenshot
-  - Added AGENTS.md link to documentation section
+- **Documentation Enhancements**: Comprehensive screenshots section with Dashboard, Settings, Info Dialog views
 
 ## [1.7.3] - 2026-02-08
 ### Fixed
