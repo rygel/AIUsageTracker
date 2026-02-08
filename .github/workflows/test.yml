@@ -21,8 +21,15 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
-    - name: Build
+     - name: Build
       run: dotnet build AIConsumptionTracker.slnx --configuration Debug
+
+    - name: Verify Formatting
+      # NOTE: .editorconfig configures Roslyn analyzers
+      # dotnet format --verify checks formatting but only works if analyzers are enabled
+      # Unlike Java/Maven, .NET analyzers don't run automatically during build
+      # Developers can run locally: dotnet format . or dotnet format --verify
+      run: dotnet format --verify --verbosity diagnostic
 
     - name: Run Unit Tests
       run: dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --no-build --verbosity normal

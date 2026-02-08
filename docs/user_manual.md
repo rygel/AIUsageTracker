@@ -46,8 +46,12 @@ The footer of the dashboard contains several toggles and buttons to customize yo
     - **Layout Tab**:
         - **Auto Refresh (Minutes)**: Configure how often the app refreshes in the background (Default: 5).
         - **Privacy Mode**: Toggle to mask sensitive information like account names and specific token counts.
-    - **Scan for Keys**: Automatically searches your environment variables and files for existing AI API keys to speed up setup.
-    - **Save/Cancel**: Apply your changes or discard them without saving.
+        - **Scan for Keys**: Automatically searches your environment variables and files for existing AI API keys to speed up setup.
+        - **Save/Cancel**: Apply your changes or discard them without saving.
+        - **Recent Changes (v1.7.4)**:
+            - Privacy mode is now only accessible via the dashboard footer button (Settings dialog duplicate removed)
+            - Fixed bug where privacy toggle didn't update the UI display
+            - Enhanced code quality with `.editorconfig` and Roslyn analyzer rules
 
 ![Settings UI](../docs/screenshot_settings_privacy.png)
 
