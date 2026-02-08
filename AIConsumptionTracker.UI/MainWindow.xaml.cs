@@ -950,22 +950,62 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private void UpdateBtn_Click(object sender, RoutedEventArgs e)
+        private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
         {
-            if (_latestUpdate != null && !string.IsNullOrEmpty(_latestUpdate.ReleaseUrl))
+            if (_latestUpdate != null && !string.IsNullOrEmpty(_latestUpdate.DownloadUrl))
             {
-                var destination = !string.IsNullOrEmpty(_latestUpdate.DownloadUrl) ? _latestUpdate.DownloadUrl : _latestUpdate.ReleaseUrl;
                 try
                 {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    var downloadUrl = _latestUpdate.DownloadUrl;
+                    var fileName = System.IO.Path.GetFileName(new Uri(downloadUrl).LocalPath);
+                    var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
+                    
+                    // Show progress dialog
+                    var progressDialog = new ProgressWindow($"Downloading {_latestUpdate.Version}");
+                    progressDialog.Owner = this;
+                    progressDialog.Show();
+                    
+                    // Download file
+                    using var httpClient = new System.Net.Http.HttpClient();
+                    var response = await httpClient.GetAsync(downloadUrl);
+                    var totalBytes = response.Content.Headers.ContentLength ?? 0;
+                    var totalBytesLong = totalBytes > 0 ? (long)totalBytes : 1L;
+                    
+                    await using var fileStream = System.IO.File.Create(tempPath);
+                    var contentStream = await response.Content.ReadAsStreamAsync();
+                    var buffer = new byte[81920];
+                    var bytesRead = 0L;
+                    
+                    while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                     {
-                        FileName = destination,
-                        UseShellExecute = true
-                    });
+                        await fileStream.WriteAsync(buffer, 0, (int)bytesRead);
+                        var progress = (int)Math.Min((fileStream.Length * 100L) / totalBytesLong, 100);
+                        progressDialog.Progress = progress;
+                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { var _ = 0; });
+                    }
+                    
+                    progressDialog.Close();
+                    
+                    // Prompt to install
+                    var result = MessageBox.Show(
+                        "Download complete. Would you like to install the update now?",
+                        "Update Ready",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+                    
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = tempPath,
+                            UseShellExecute = true
+                        });
+                        Application.Current.Shutdown();
+                    }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Could not open update link: {ex.Message}", "Error");
+                    MessageBox.Show($"Failed to download update: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
