@@ -168,6 +168,14 @@ namespace AIConsumptionTracker.UI
         {
             SetInitialPreferences(prefs);
             _cachedUsages = usages;
+            
+            // Ensure version is set
+            var version = Assembly.GetEntryAssembly()?.GetName().Version;
+            if (version != null)
+            {
+                VersionText.Text = $"v{version.Major}.{version.Minor}.{version.Build}";
+            }
+            
             RenderUsages(usages);
             UpdateLayout();
             UpdatePrivacyButton();

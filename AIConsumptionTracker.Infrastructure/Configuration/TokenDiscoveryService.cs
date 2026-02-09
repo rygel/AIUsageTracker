@@ -131,7 +131,7 @@ public class TokenDiscoveryService
         var wellKnown = new[] { 
             "openai", "anthropic", "gemini-cli", "github-copilot", 
             "minimax", "minimax-io", "xiaomi", "kimi", 
-            "deepseek", "openrouter", "kilocode", "antigravity", "opencode-zen"
+            "deepseek", "openrouter", "antigravity", "opencode-zen"
         };
         foreach (var id in wellKnown)
         {
@@ -197,17 +197,7 @@ public class TokenDiscoveryService
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("kilo code.kilo-code", out var kiloEntry))
                 {
-                    // 1. Direct kilocodeToken
-                    if (kiloEntry.TryGetProperty("kilocodeToken", out var tokenProp))
-                    {
-                        var token = tokenProp.GetString();
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            AddIfNotExists(configs, "kilocode", token, "Discovered in Kilo Code secrets", "Kilo Code Secrets");
-                        }
-                    }
-
-                    // 2. Nested Roo Cline config
+                    // Extract Roo Cline config for other providers (not Kilo Code itself)
                     if (kiloEntry.TryGetProperty("roo_cline_config_api_config", out var rooProp))
                     {
                         var rooJson = rooProp.GetString();
@@ -220,39 +210,6 @@ public class TokenDiscoveryService
             }
             catch { /* Ignore parse errors */ }
         }
-
-        // 2. Try CLI config.json
-        DiscoverKiloCodeCliConfig(configs);
-    }
-
-    private void DiscoverKiloCodeCliConfig(List<ProviderConfig> configs)
-    {
-        try
-        {
-            var cliConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kilocode", "cli", "config.json");
-            if (File.Exists(cliConfigPath))
-            {
-                var json = File.ReadAllText(cliConfigPath);
-                using var doc = JsonDocument.Parse(json);
-                
-                // Check providers array for kilocode tokens
-                if (doc.RootElement.TryGetProperty("providers", out var providersProp) && providersProp.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var provider in providersProp.EnumerateArray())
-                    {
-                        if (provider.TryGetProperty("kilocodeToken", out var tokenProp))
-                        {
-                            var token = tokenProp.GetString();
-                            if (!string.IsNullOrEmpty(token))
-                            {
-                                AddOrUpdate(configs, "kilocode", token, "Discovered in Kilo Code CLI config", "Kilo Code CLI Config");
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        catch { /* Ignore parse errors */ }
     }
 
     private void DiscoverRooCodeTokens(List<ProviderConfig> configs)
@@ -286,7 +243,6 @@ public class TokenDiscoveryService
                                     TryAddRooKey(configs, config, "geminiApiKey", "gemini");
                                     TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
                                     TryAddRooKey(configs, config, "mistralApiKey", "mistral");
-                                    TryAddRooKey(configs, config, "kilocodeToken", "kilocode");
                                 }
                             }
                         }
@@ -378,8 +334,7 @@ public class TokenDiscoveryService
                     TryAddRooKey(configs, config, "openAiApiKey", "openai");
                     TryAddRooKey(configs, config, "geminiApiKey", "gemini");
                     TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
-                    TryAddRooKey(configs, config, "mistralApiKey", "mistral");
-                    TryAddRooKey(configs, config, "kilocodeToken", "kilocode");
+                    TryAddRooKey(configs, config, "mistralApiKey", "mistoral");
                 }
             }
         }
