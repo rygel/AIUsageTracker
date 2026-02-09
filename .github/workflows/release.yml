@@ -259,6 +259,43 @@ jobs:
             --notes "See CHANGELOG.md for details"
           echo "✓ Created GitHub release: v$version"
 
+      - name: Generate Appcast File
+        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
+        run: |
+          version="${{ inputs.version }}"
+          version_number="${version#v}"
+          pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z')
+          
+          echo '<?xml version="1.0" encoding="UTF-8"?>' > appcast.xml
+          echo '<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">' >> appcast.xml
+          echo '    <channel>' >> appcast.xml
+          echo '        <title>AI Consumption Tracker</title>' >> appcast.xml
+          echo '        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>' >> appcast.xml
+          echo '        <description>Most recent changes with links to updates.</description>' >> appcast.xml
+          echo '        <language>en</language>' >> appcast.xml
+          echo '        <item>' >> appcast.xml
+          echo "            <title>Version $version</title>" >> appcast.xml
+          echo "            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v$version_number</sparkle:releaseNotesLink>" >> appcast.xml
+          echo "            <pubDate>$pub_date</pubDate>" >> appcast.xml
+          echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker-$version_number-win-x64.exe\"" >> appcast.xml
+          echo "                       sparkle:version=\"$version_number\"" >> appcast.xml
+          echo '                       sparkle:os="windows"' >> appcast.xml
+          echo '                       length="0"' >> appcast.xml
+          echo '                       type="application/octet-stream" />' >> appcast.xml
+          echo '        </item>' >> appcast.xml
+          echo '    </channel>' >> appcast.xml
+          echo '</rss>' >> appcast.xml
+          echo "✓ Generated appcast.xml"
+
+      - name: Upload Appcast to Release
+        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${{ inputs.version }}"
+          gh release upload "v$version" appcast.xml --clobber
+          echo "✓ Uploaded appcast.xml to release v$version"
+
       - name: Success
         if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
         run: |

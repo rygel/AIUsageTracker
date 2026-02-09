@@ -8,10 +8,6 @@ using AIConsumptionTracker.Core.Models;
 using System.Threading.Tasks; 
 using System.Reflection; 
 using AIConsumptionTracker.Infrastructure.Helpers; 
-using AIConsumptionTracker.Infrastructure.Mappers;
-using NetSparkleUpdater;
-using NetSparkleUpdater.Enums;
-using NetSparkleUpdater.SignatureVerifiers;
 
 namespace AIConsumptionTracker.UI
 {
@@ -71,7 +67,6 @@ namespace AIConsumptionTracker.UI
 
         private readonly IUpdateCheckerService _updateChecker;
         private AIConsumptionTracker.Core.Interfaces.UpdateInfo? _latestUpdate;
-        private SparkleUpdater? _sparkle;
 
         public MainWindow(ProviderManager providerManager, IConfigLoader configLoader, IUpdateCheckerService updateChecker)
         {
@@ -79,8 +74,6 @@ namespace AIConsumptionTracker.UI
             _providerManager = providerManager;
             _configLoader = configLoader;
             _updateChecker = updateChecker;
-            
-            InitializeSparkle();
 
             _resetTimer = new System.Windows.Threading.DispatcherTimer();
             _resetTimer.Interval = TimeSpan.FromSeconds(15);
@@ -1141,14 +1134,6 @@ namespace AIConsumptionTracker.UI
             this.Close();
         }
 
-        private void InitializeSparkle()
-        {
-            // Initializing NetSparkle with a dummy URL since we use Octokit to find updates
-            // but we want NetSparkle to handle the UI and installation.
-            _sparkle = new SparkleUpdater(null, new Ed25519Checker(SecurityMode.Unsafe));
-            _sparkle.UIFactory = new NetSparkleUpdater.UI.WPF.UIFactory();
-        }
-
         private async Task CheckForUpdates()
         {
             _latestUpdate = await _updateChecker.CheckForUpdatesAsync();
@@ -1162,19 +1147,22 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
-            if (_latestUpdate != null && _sparkle != null)
+        private void UpdateBtn_Click(object sender, RoutedEventArgs e)
+        {
+            if (_latestUpdate != null)
             {
                 try
                 {
-                    // Use the Mapper for testability
-                    var item = UpdateMapper.ToAppCastItem(_latestUpdate);
-
-                    // Show the NetSparkle update UI
-                    _sparkle.ShowUpdateNeededUI(new List<NetSparkleUpdater.AppCastItem> { item });
+                    // Open the release page in the default browser
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = _latestUpdate.ReleaseUrl,
+                        UseShellExecute = true
+                    });
                 }
                 catch (Exception ex)
-                    MessageBox.Show($"Failed to launch update UI: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                {
+                    MessageBox.Show($"Failed to open release page: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }

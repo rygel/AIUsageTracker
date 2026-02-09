@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using NetSparkleUpdater;
-using NetSparkleUpdater.AppCastHandlers;
+using NetSparkleUpdater.Enums;
+using NetSparkleUpdater.SignatureVerifiers;
 using AIConsumptionTracker.Core.Interfaces;
 
 namespace AIConsumptionTracker.Infrastructure.Services;
@@ -8,8 +9,7 @@ namespace AIConsumptionTracker.Infrastructure.Services;
 public class GitHubUpdateChecker : IUpdateCheckerService
 {
     private readonly ILogger<GitHubUpdateChecker> _logger;
-    private const string REPO_OWNER = "rygel";
-    private const string REPO_NAME = "AIConsumptionTracker";
+    private const string APPCAST_URL = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast.xml";
 
     public GitHubUpdateChecker(ILogger<GitHubUpdateChecker> logger)
     {
@@ -20,43 +20,48 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     {
         try
         {
-            var appCastHandler = new GitHubReleaseAppCast(
-                $"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases",
-                false); // false = use releases, not body
-
-            var items = await appCastHandler.GetAppCastItems();
-            if (items == null || items.Count == 0) return null;
-
-            // Get the latest item (first one usually)
-            var latest = items[0];
+            // Initialize SparkleUpdater with the appcast URL
+            using var sparkle = new SparkleUpdater(APPCAST_URL, new Ed25519Checker(SecurityMode.Unsafe));
             
-            var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
+            _logger.LogDebug("Checking for updates via NetSparkle appcast: {Url}", APPCAST_URL);
             
-            var latestVersionStr = latest.Version.StartsWith("v") ? latest.Version[1..] : latest.Version;
+            // Check for updates quietly (no UI)
+            var updateInfo = await sparkle.CheckForUpdatesQuietly();
             
-            if (Version.TryParse(latestVersionStr, out var latestVersion))
+            if (updateInfo?.Updates?.Any() == true)
             {
-                if (latestVersion > currentVersion)
+                var latest = updateInfo.Updates.First();
+                var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
+                
+                // Parse version (handle 'v' prefix)
+                var latestVersionStr = latest.Version?.TrimStart('v') ?? "0.0.0";
+                
+                if (Version.TryParse(latestVersionStr, out var latestVersion))
                 {
-                    _logger.LogInformation($"New version found: {latestVersion} (Current: {currentVersion})");
-
-                    return new AIConsumptionTracker.Core.Interfaces.UpdateInfo
+                    if (latestVersion > currentVersion)
                     {
-                        Version = latest.Version,
-                        ReleaseUrl = latest.ReleaseNotesLink,
-                        DownloadUrl = latest.DownloadLink,
-                        ReleaseNotes = string.Empty, // AppCast items don't have full body easily
-                        PublishedAt = latest.PublicationDate
-                    };
+                        _logger.LogInformation("New version available: {LatestVersion} (Current: {CurrentVersion})", 
+                            latestVersion, currentVersion);
+
+                        return new AIConsumptionTracker.Core.Interfaces.UpdateInfo
+                        {
+                            Version = latest.Version ?? latestVersion.ToString(),
+                            ReleaseUrl = latest.ReleaseNotesLink ?? $"https://github.com/rygel/AIConsumptionTracker/releases/tag/v{latestVersion}",
+                            DownloadUrl = latest.DownloadLink ?? string.Empty,
+                            ReleaseNotes = string.Empty,
+                            PublishedAt = latest.PublicationDate
+                        };
+                    }
                 }
             }
+            
+            _logger.LogDebug("No updates available or already on latest version");
+            return null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to check for updates via NetSparkle GitHub handler");
+            _logger.LogWarning(ex, "Failed to check for updates via NetSparkle appcast");
+            return null;
         }
-        
-        return null;
     }
-
 }
