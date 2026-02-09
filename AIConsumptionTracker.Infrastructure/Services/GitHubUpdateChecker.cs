@@ -1,7 +1,6 @@
-using System.Reflection;
-using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;
-using Octokit;
+using NetSparkleUpdater;
+using NetSparkleUpdater.AppCastHandlers;
 using AIConsumptionTracker.Core.Interfaces;
 
 namespace AIConsumptionTracker.Infrastructure.Services;
@@ -17,84 +16,47 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         _logger = logger;
     }
 
-    public async Task<UpdateInfo?> CheckForUpdatesAsync()
+    public async Task<AIConsumptionTracker.Core.Interfaces.UpdateInfo?> CheckForUpdatesAsync()
     {
         try
         {
-            var client = new GitHubClient(new ProductHeaderValue("AIConsumptionTracker"));
-            var release = await client.Repository.Release.GetLatest(REPO_OWNER, REPO_NAME);
+            var appCastHandler = new GitHubReleaseAppCast(
+                $"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases",
+                false); // false = use releases, not body
 
-            var currentVersion = Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
+            var items = await appCastHandler.GetAppCastItems();
+            if (items == null || items.Count == 0) return null;
+
+            // Get the latest item (first one usually)
+            var latest = items[0];
             
-            if (IsUpdateAvailable(currentVersion, release.TagName, out var latestVersion))
+            var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
+            
+            var latestVersionStr = latest.Version.StartsWith("v") ? latest.Version[1..] : latest.Version;
+            
+            if (Version.TryParse(latestVersionStr, out var latestVersion))
             {
-                if (latestVersion! > currentVersion)
+                if (latestVersion > currentVersion)
                 {
                     _logger.LogInformation($"New version found: {latestVersion} (Current: {currentVersion})");
-                    
-                    var exeAsset = GetCorrectArchitectureAsset(release.Assets);
-                    var downloadUrl = exeAsset?.BrowserDownloadUrl ?? release.HtmlUrl;
 
-                    return new UpdateInfo
+                    return new AIConsumptionTracker.Core.Interfaces.UpdateInfo
                     {
-                        Version = release.TagName,
-                        ReleaseUrl = release.HtmlUrl,
-                        DownloadUrl = downloadUrl,
-                        ReleaseNotes = release.Body,
-                        PublishedAt = release.PublishedAt?.DateTime ?? DateTime.Now
+                        Version = latest.Version,
+                        ReleaseUrl = latest.ReleaseNotesLink,
+                        DownloadUrl = latest.DownloadLink,
+                        ReleaseNotes = string.Empty, // AppCast items don't have full body easily
+                        PublishedAt = latest.PublicationDate
                     };
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to check for updates");
+            _logger.LogWarning(ex, "Failed to check for updates via NetSparkle GitHub handler");
         }
         
         return null;
     }
 
-    public static bool IsUpdateAvailable(Version current, string tagName, out Version? parsedLatest)
-    {
-        parsedLatest = null;
-        if (string.IsNullOrWhiteSpace(tagName)) return false;
-
-        // Tag usually "v1.7.3" -> "1.7.3"
-        var tagVersionStr = tagName.StartsWith("v") ? tagName[1..] : tagName;
-
-        if (Version.TryParse(tagVersionStr, out var latestVersion))
-        {
-            parsedLatest = latestVersion;
-            // Strict check: latest > current
-            return latestVersion > current;
-        }
-        
-        return false;
-    }
-
-    private static ReleaseAsset? GetCorrectArchitectureAsset(IReadOnlyList<ReleaseAsset> assets)
-    {
-        var architecture = GetWindowsArchitecture();
-        var archSuffix = architecture.ToString().ToLowerInvariant();
-        
-        return assets.FirstOrDefault(a => a.Name.EndsWith(".exe") && a.Name.Contains(archSuffix));
-    }
-
-    private static string GetWindowsArchitecture()
-    {
-        // Check if we're running as a 32-bit process on a 64-bit OS
-        if (System.Environment.Is64BitOperatingSystem && !System.IntPtr.Size.Equals(8))
-        {
-            return "x86";
-        }
-        
-        // Check process architecture directly
-        var arch = RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
-        return arch switch
-        {
-            "x86" or "arm" => "x86",
-            "x64" or "arm64" => "x64",
-            _ => "x64"
-        };
-    }
 }
