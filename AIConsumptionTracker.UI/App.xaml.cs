@@ -81,6 +81,9 @@ namespace AIConsumptionTracker.UI
                     // Auth Services
                     services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
                     
+                    // Notification Service
+                    services.AddSingleton<INotificationService, WindowsNotificationService>();
+                    
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>(); // Dashboard
                     services.AddTransient<SettingsWindow>();
@@ -89,6 +92,11 @@ namespace AIConsumptionTracker.UI
                 .Build();
 
             await _host.StartAsync();
+
+            // Initialize Windows Notification Service
+            var notificationService = _host.Services.GetRequiredService<INotificationService>();
+            notificationService.Initialize();
+            notificationService.OnNotificationClicked += OnNotificationClicked;
 
             // Handle Screenshots
             bool isTestMode = e.Args.Any(arg => arg == "--test");
@@ -243,7 +251,31 @@ namespace AIConsumptionTracker.UI
 
         private void ExitApp()
         {
+            // Unregister notification service
+            try
+            {
+                var notificationService = _host?.Services.GetService<INotificationService>();
+                notificationService?.Unregister();
+            }
+            catch { }
+            
             Application.Current.Shutdown();
+        }
+
+        private void OnNotificationClicked(object? sender, NotificationClickedEventArgs e)
+        {
+            var logger = _host?.Services.GetService<ILogger<App>>();
+            logger?.LogInformation("Notification clicked - Action: {Action}, Data: {Data}", e.Action, e.Data);
+            
+            if (e.Action == "showProvider" && !string.IsNullOrEmpty(e.Data))
+            {
+                // Show dashboard and bring to front
+                Dispatcher.Invoke(async () =>
+                {
+                    await ShowDashboard();
+                    // TODO: Highlight or scroll to specific provider in dashboard
+                });
+            }
         }
 
         private MainWindow? _mainWindow;
