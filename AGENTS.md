@@ -5,6 +5,7 @@ This document provides essential information for agentic coding assistants worki
 ## Development Workflow
 
 - **Never push directly to `main`**: All changes, including release preparations, MUST be done on a feature branch (e.g., `feature/branch-name`) and integrated via a Pull Request.
+- **Never force push to `main` without explicit user permission**: If you need to force push to main, ALWAYS ask for confirmation first.
 - **Atomic Commits**: Keep commits focused and logically grouped.
 - **CI/CD Compliance**: Ensure that any UI changes or tests are compatible with the headless CI environment.
 - **No Icons in PRs**: When creating pull requests, do not use emojis or icons in the title or body.

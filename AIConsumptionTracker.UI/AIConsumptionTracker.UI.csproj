@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.4" />
+    <PackageReference Include="NetSparkleUpdater.UI.WPF" Version="3.0.4" />
     <PackageReference Include="SharpVectors.Wpf" Version="1.8.5" />
     <ProjectReference Include="..\AIConsumptionTracker.Infrastructure\AIConsumptionTracker.Infrastructure.csproj" />
     <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />

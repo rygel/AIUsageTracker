@@ -8,6 +8,10 @@ using AIConsumptionTracker.Core.Models;
 using System.Threading.Tasks; 
 using System.Reflection; 
 using AIConsumptionTracker.Infrastructure.Helpers; 
+using AIConsumptionTracker.Infrastructure.Mappers;
+using NetSparkleUpdater;
+using NetSparkleUpdater.Enums;
+using NetSparkleUpdater.SignatureVerifiers;
 
 namespace AIConsumptionTracker.UI
 {
@@ -66,7 +70,8 @@ namespace AIConsumptionTracker.UI
         }
 
         private readonly IUpdateCheckerService _updateChecker;
-        private UpdateInfo? _latestUpdate;
+        private AIConsumptionTracker.Core.Interfaces.UpdateInfo? _latestUpdate;
+        private SparkleUpdater? _sparkle;
 
         public MainWindow(ProviderManager providerManager, IConfigLoader configLoader, IUpdateCheckerService updateChecker)
         {
@@ -74,6 +79,8 @@ namespace AIConsumptionTracker.UI
             _providerManager = providerManager;
             _configLoader = configLoader;
             _updateChecker = updateChecker;
+            
+            InitializeSparkle();
 
             _resetTimer = new System.Windows.Threading.DispatcherTimer();
             _resetTimer.Interval = TimeSpan.FromSeconds(15);
@@ -1134,12 +1141,19 @@ namespace AIConsumptionTracker.UI
             this.Close();
         }
 
+        private void InitializeSparkle()
+        {
+            // Initializing NetSparkle with a dummy URL since we use Octokit to find updates
+            // but we want NetSparkle to handle the UI and installation.
+            _sparkle = new SparkleUpdater(null, new Ed25519Checker(SecurityMode.Unsafe));
+            _sparkle.UIFactory = new NetSparkleUpdater.UI.WPF.UIFactory();
+        }
+
         private async Task CheckForUpdates()
         {
             _latestUpdate = await _updateChecker.CheckForUpdatesAsync();
             if (_latestUpdate != null)
             {
-                // Verify UpdateNotificationBanner exists before accessing to prevent errors
                 if (UpdateNotificationBanner != null)
                 {
                     UpdateText.Text = $"New version available: {_latestUpdate.Version}";
@@ -1149,61 +1163,18 @@ namespace AIConsumptionTracker.UI
         }
 
         private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
-        {
-            if (_latestUpdate != null && !string.IsNullOrEmpty(_latestUpdate.DownloadUrl))
+            if (_latestUpdate != null && _sparkle != null)
             {
                 try
                 {
-                    var downloadUrl = _latestUpdate.DownloadUrl;
-                    var fileName = System.IO.Path.GetFileName(new Uri(downloadUrl).LocalPath);
-                    var tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), fileName);
-                    
-                    // Show progress dialog
-                    var progressDialog = new ProgressWindow($"Downloading {_latestUpdate.Version}");
-                    progressDialog.Owner = this;
-                    progressDialog.Show();
-                    
-                    // Download file
-                    using var httpClient = new System.Net.Http.HttpClient();
-                    var response = await httpClient.GetAsync(downloadUrl);
-                    var totalBytes = response.Content.Headers.ContentLength ?? 0;
-                    var totalBytesLong = totalBytes > 0 ? (long)totalBytes : 1L;
-                    
-                    await using var fileStream = System.IO.File.Create(tempPath);
-                    var contentStream = await response.Content.ReadAsStreamAsync();
-                    var buffer = new byte[81920];
-                    var bytesRead = 0L;
-                    
-                    while ((bytesRead = await contentStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                    {
-                        await fileStream.WriteAsync(buffer, 0, (int)bytesRead);
-                        var progress = (int)Math.Min((fileStream.Length * 100L) / totalBytesLong, 100);
-                        progressDialog.Progress = progress;
-                        await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => { });
-                    }
-                    
-                    progressDialog.Close();
-                    
-                    // Prompt to install
-                    var result = MessageBox.Show(
-                        "Download complete. Would you like to install the update now?",
-                        "Update Ready",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Question);
-                    
-                    if (result == MessageBoxResult.Yes)
-                    {
-                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                        {
-                            FileName = tempPath,
-                            UseShellExecute = true
-                        });
-                        Application.Current.Shutdown();
-                    }
+                    // Use the Mapper for testability
+                    var item = UpdateMapper.ToAppCastItem(_latestUpdate);
+
+                    // Show the NetSparkle update UI
+                    _sparkle.ShowUpdateNeededUI(new List<NetSparkleUpdater.AppCastItem> { item });
                 }
                 catch (Exception ex)
-                {
-                    MessageBox.Show($"Failed to download update: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Failed to launch update UI: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
