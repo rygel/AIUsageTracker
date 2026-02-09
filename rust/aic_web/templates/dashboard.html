@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Consumption Tracker Dashboard</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>🤖 AI Consumption Tracker</h1>
+            <div id="last-updated"></div>
+        </header>
+
+        <section id="summary" class="dashboard-section">
+            <h2>Overview</h2>
+            <div class="summary-cards">
+                <div class="card">
+                    <div class="card-value" id="total-providers">-</div>
+                    <div class="card-label">Total Providers</div>
+                </div>
+                <div class="card">
+                    <div class="card-value" id="active-providers">-</div>
+                    <div class="card-label">Active Providers</div>
+                </div>
+                <div class="card">
+                    <div class="card-value" id="total-records">-</div>
+                    <div class="card-label">Total Records</div>
+                </div>
+                <div class="card">
+                    <div class="card-value" id="total-usage">-</div>
+                    <div class="card-label">Total Usage</div>
+                </div>
+                <div class="card">
+                    <div class="card-value" id="avg-daily-usage">-</div>
+                    <div class="card-label">Avg Daily Usage</div>
+                </div>
+            </div>
+        </section>
+
+        <section id="providers" class="dashboard-section">
+            <div class="section-header">
+                <h2>Providers</h2>
+                <div class="controls">
+                    <select id="sort-by">
+                        <option value="name">Sort by Name</option>
+                        <option value="usage">Sort by Usage</option>
+                        <option value="records">Sort by Records</option>
+                    </select>
+                    <input type="text" id="search-provider" placeholder="Search provider...">
+                </div>
+            </div>
+            <div id="providers-grid" class="providers-grid">
+                <div class="loading">Loading providers...</div>
+            </div>
+        </section>
+
+        <section id="charts" class="dashboard-section">
+            <h2>Usage Trends</h2>
+            <div class="chart-container">
+                <canvas id="usage-chart"></canvas>
+            </div>
+        </section>
+
+        <section id="history" class="dashboard-section">
+            <div class="section-header">
+                <h2>Usage History</h2>
+                <div class="controls">
+                    <select id="provider-filter">
+                        <option value="">All Providers</option>
+                    </select>
+                    <select id="period-filter">
+                        <option value="7">Last 7 days</option>
+                        <option value="14">Last 14 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
+            </div>
+            <div id="history-table-container">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Provider</th>
+                            <th>Usage</th>
+                            <th>Limit</th>
+                            <th>Unit</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="6" class="loading">Loading history...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="daily-usage" class="dashboard-section">
+            <h2>Daily Usage Summary</h2>
+            <div class="chart-container">
+                <canvas id="daily-chart"></canvas>
+            </div>
+        </section>
+    </div>
+
+    <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
