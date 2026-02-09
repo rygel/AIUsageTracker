@@ -131,26 +131,15 @@ git push origin v1.7.14
 Pushing the tag automatically triggers the `Publish & Distribute` workflow which will:
 1. Build the application for all architectures (x64, x86, ARM64)
 2. Create Inno Setup installers
-3. Create GitHub release with artifacts
-4. Upload installers to the release
+3. Generate `appcast.xml` for NetSparkle auto-updater
+4. Create GitHub release with all artifacts including `appcast.xml`
+5. Upload release notes from CHANGELOG.md
 
-The workflow will also:
-- Generate release notes from CHANGELOG.md
-- Upload `appcast.xml` (download from Step 2 artifacts)
+**No manual steps required** - the workflow handles everything including the appcast file!
 
 Monitor progress at: `https://github.com/rygel/AIConsumptionTracker/actions`
 
-### Step 5: Upload Appcast (Manual)
-
-After the release is created by the Publish workflow:
-
-1. Go to the GitHub release page
-2. Download `appcast.xml` from the Step 2 workflow artifacts
-3. Upload `appcast.xml` to the release
-
-This file is required for NetSparkle auto-updater to work.
-
-### Step 6: Post-Release
+### Step 5: Post-Release
 
 After the release is complete:
 
