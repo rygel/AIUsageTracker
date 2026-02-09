@@ -54,6 +54,9 @@ public class TokenDiscoveryService
         // 5. Discover from GitHub CLI
         DiscoverGitHubCliToken(discoveredConfigs);
 
+        // 6. Discover from Claude Code
+        DiscoverClaudeCodeToken(discoveredConfigs);
+
         return discoveredConfigs;
     }
 
@@ -84,6 +87,35 @@ public class TokenDiscoveryService
         catch 
         { 
             // GitHub CLI might not be installed or authenticated
+        }
+    }
+
+    private void DiscoverClaudeCodeToken(List<ProviderConfig> configs)
+    {
+        try
+        {
+            var claudeCredentialsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", ".credentials.json");
+            if (File.Exists(claudeCredentialsPath))
+            {
+                var json = File.ReadAllText(claudeCredentialsPath);
+                using var doc = JsonDocument.Parse(json);
+                
+                if (doc.RootElement.TryGetProperty("claudeAiOauth", out var oauthElement))
+                {
+                    if (oauthElement.TryGetProperty("accessToken", out var tokenElement))
+                    {
+                        var token = tokenElement.GetString();
+                        if (!string.IsNullOrEmpty(token))
+                        {
+                            AddOrUpdate(configs, "claude-code", token, "Discovered in Claude Code credentials", "Claude Code: ~/.claude/.credentials.json");
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Claude Code might not be installed or credentials file might be corrupted
         }
     }
 

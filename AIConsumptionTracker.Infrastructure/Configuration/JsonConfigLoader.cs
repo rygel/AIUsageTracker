@@ -43,6 +43,9 @@ public class JsonConfigLoader : IConfigLoader
                             // EXCLUDE special app_settings key from provider list
                             if (providerId.Equals("app_settings", StringComparison.OrdinalIgnoreCase)) continue;
 
+                            // EXCLUDE test provider
+                            if (providerId.Equals("test-provider", StringComparison.OrdinalIgnoreCase)) continue;
+
                             if (processedProviders.Contains(providerId)) continue;
 
                             var element = kvp.Value;
