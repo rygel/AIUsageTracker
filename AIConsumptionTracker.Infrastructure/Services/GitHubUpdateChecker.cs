@@ -64,4 +64,87 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             return null;
         }
     }
+
+    public async Task<bool> DownloadAndInstallUpdateAsync(AIConsumptionTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)
+    {
+        try
+        {
+            _logger.LogInformation("Starting download and install for version {Version}", updateInfo.Version);
+
+            if (string.IsNullOrEmpty(updateInfo.DownloadUrl))
+            {
+                _logger.LogWarning("No download URL available for update");
+                return false;
+            }
+
+            // Create temp directory for download
+            var tempDir = Path.Combine(Path.GetTempPath(), "AIConsumptionTracker_Updates");
+            Directory.CreateDirectory(tempDir);
+            var downloadPath = Path.Combine(tempDir, $"AIConsumptionTracker_Setup_{updateInfo.Version}.exe");
+
+            // Download the file
+            _logger.LogInformation("Downloading from {Url} to {Path}", updateInfo.DownloadUrl, downloadPath);
+            using (var client = new System.Net.Http.HttpClient())
+            {
+                var response = await client.GetAsync(updateInfo.DownloadUrl, System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                var downloadedBytes = 0L;
+                var buffer = new byte[8192];
+                using (var stream = await response.Content.ReadAsStreamAsync())
+                using (var fileStream = new FileStream(downloadPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                {
+                    int read;
+                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, read);
+                        downloadedBytes += read;
+                        if (totalBytes > 0 && progress != null)
+                        {
+                            var percentage = (double)downloadedBytes / totalBytes * 100;
+                            progress.Report(percentage);
+                        }
+                    }
+                }
+            }
+
+            _logger.LogInformation("Download completed successfully to {Path}", downloadPath);
+
+            // Verify file exists
+            if (!File.Exists(downloadPath))
+            {
+                _logger.LogError("Downloaded file not found at {Path}", downloadPath);
+                return false;
+            }
+
+            // Run the installer silently
+            _logger.LogInformation("Starting installer...");
+            var process = new System.Diagnostics.Process
+            {
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = downloadPath,
+                    Arguments = "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+                    UseShellExecute = true,
+                    Verb = "runas" // Run as administrator
+                }
+            };
+
+            if (process.Start())
+            {
+                _logger.LogInformation("Installer started successfully. Application will restart.");
+                return true;
+            }
+            else
+            {
+                _logger.LogError("Failed to start installer");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during download and install");
+            return false;
+        }
+    }
 }

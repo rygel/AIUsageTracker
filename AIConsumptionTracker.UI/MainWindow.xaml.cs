@@ -1225,22 +1225,64 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private void UpdateBtn_Click(object sender, RoutedEventArgs e)
+        private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
         {
             if (_latestUpdate != null)
             {
                 try
                 {
-                    // Open the release page in the default browser
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    // Show confirmation dialog
+                    var result = MessageBox.Show(
+                        $"Download and install version {_latestUpdate.Version}?\n\nThe application will restart after installation.",
+                        "Confirm Update",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (result == MessageBoxResult.Yes)
                     {
-                        FileName = _latestUpdate.ReleaseUrl,
-                        UseShellExecute = true
-                    });
+                        // Show progress dialog
+                        var progressWindow = new Window
+                        {
+                            Title = "Downloading Update",
+                            Width = 400,
+                            Height = 150,
+                            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                            ResizeMode = ResizeMode.NoResize,
+                            Content = new StackPanel
+                            {
+                                Margin = new Thickness(20),
+                                Children =
+                                {
+                                    new TextBlock { Text = $"Downloading version {_latestUpdate.Version}...", Margin = new Thickness(0, 0, 0, 10) },
+                                    new ProgressBar { Name = "ProgressBar", Height = 20, Minimum = 0, Maximum = 100 }
+                                }
+                            }
+                        };
+
+                        var progressBar = (ProgressBar)((StackPanel)progressWindow.Content).Children[1];
+                        var progress = new Progress<double>(p => progressBar.Value = p);
+
+                        progressWindow.Show();
+
+                        // Download and install
+                        var success = await _updateChecker.DownloadAndInstallUpdateAsync(_latestUpdate, progress);
+
+                        progressWindow.Close();
+
+                        if (success)
+                        {
+                            // Close the application - installer will restart it
+                            Application.Current.Shutdown();
+                        }
+                        else
+                        {
+                            MessageBox.Show("Failed to download or install the update. Please try again or download manually from the releases page.", "Update Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Failed to open release page: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Update error: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
