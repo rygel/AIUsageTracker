@@ -49,17 +49,17 @@ Download the latest installer or .zip file from the [Release](https://github.com
 |:---------|:------------|:-------|:------|
 | **Anthropic (Claude)** | OAuth / API Key | ✅ Tested | Usage dashboard only |
 | **Antigravity** | GUI Auth | ✅ Tested | Multi-model quotas |
-| **DeepSeek** | API Key<sup>*</sup> | ⚠️ Beta | **testers needed** |
+| **DeepSeek** | API Key¹ | ⚠️ Beta | **testers needed** |
 | **Gemini** | API Key | 🚧 Planned | Not yet integrated |
 | **GitHub Copilot** | OAuth Device | ✅ Tested | Auto-discovery via CLI |
-| **Kimi (Moonshot)** | API Key<sup>*</sup> | ⚠️ Beta | **testers needed** |
-| **Minimax** | API Key<sup>*</sup> | ⚠️ Beta | China & International |
+| **Kimi (Moonshot)** | API Key¹ | ⚠️ Beta | **testers needed** |
+| **Minimax** | API Key¹ | ⚠️ Beta | China & International |
 | **Mistral** | API Key | ✅ Tested | API usage not available |
 | **OpenAI (Codex)** | OAuth | ⚠️ Beta | Via OpenCLI |
 | **OpenRouter** | API Key | 🚧 Planned | Not yet integrated |
-| **Opencode Zen** | API Key<sup>*</sup> | ✅ Tested | Pay-as-you-go & Plans |
-| **Synthetic** | API Key<sup>*</sup> | ✅ Tested | Multi-model support |
-| **Z.AI** | API Key<sup>*</sup> | ✅ Tested | Coding plans |
+| **Opencode Zen** | API Key¹ | ✅ Tested | Pay-as-you-go & Plans |
+| **Synthetic** | API Key¹ | ✅ Tested | Multi-model support |
+| **Z.AI** | API Key¹ | ✅ Tested | Coding plans |
 
 **Legend:** ✅ Tested | ⚠️ Beta | 🚧 Planned
 
