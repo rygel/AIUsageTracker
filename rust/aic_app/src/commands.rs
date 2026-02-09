@@ -1,5 +1,5 @@
 use aic_core::{
-    AuthenticationManager, ConfigLoader, GitHubAuthService, ProviderManager, ProviderUsage,
+    AuthenticationManager, ConfigLoader, ProviderManager, ProviderUsage, TokenPollResult,
 };
 use std::process::Command;
 use std::sync::Arc;
@@ -281,7 +281,7 @@ pub async fn close_settings_window(window: tauri::Window) -> Result<(), String> 
 #[tauri::command]
 pub async fn check_github_login_status(state: State<'_, AppState>) -> Result<String, String> {
     let flow_state = state.device_flow_state.read().await;
-    if let Some(flow) = &flow_state {
+    if let Some(flow) = flow_state.as_ref() {
         match state.auth_manager.poll_for_token(&flow.device_code).await {
             TokenPollResult::Token(_) => {
                 Ok("success".to_string())
@@ -338,7 +338,7 @@ pub async fn discover_github_token() -> Result<TokenDiscoveryResult, String> {
     Ok(TokenDiscoveryResult { found, token })
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct TokenDiscoveryResult {
     pub found: bool,
     pub token: String,
@@ -368,7 +368,7 @@ pub async fn check_for_updates() -> Result<UpdateCheckResult, String> {
     })
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct UpdateCheckResult {
     pub current_version: String,
     pub latest_version: String,

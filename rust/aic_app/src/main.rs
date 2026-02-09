@@ -276,7 +276,7 @@ async fn check_github_login_status(state: State<'_, AppState>) -> Result<String,
     use aic_core::TokenPollResult;
     
     let flow_state = state.device_flow_state.read().await;
-    if let Some(flow) = &flow_state {
+    if let Some(flow) = flow_state.as_ref() {
         match state.auth_manager.poll_for_token(&flow.device_code).await {
             TokenPollResult::Token(_) => Ok("success".to_string()),
             TokenPollResult::Pending => Ok("pending".to_string()),
