@@ -7,7 +7,7 @@ This guide provides comprehensive instructions for building and running all Rust
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Applications](#applications)
-  - [CLI (opencode-tracker)](#cli-opencode-tracker)
+  - [CLI (aic-cli)](#cli-aic-cli)
   - [Agent Service (aic_agent)](#agent-service-aic_agent)
   - [Web Dashboard (aic_web)](#web-dashboard-aic_web)
   - [Tauri Desktop App (aic_app)](#tauri-desktop-app-aic_app)
@@ -79,7 +79,7 @@ cargo build --release -p aic_app     # Tauri app (requires Tauri CLI)
 
 ## Applications
 
-### CLI (opencode-tracker)
+### CLI (aic-cli)
 
 Command-line interface for checking AI provider usage and managing configurations.
 
@@ -89,7 +89,7 @@ Command-line interface for checking AI provider usage and managing configuration
 cargo build --release -p aic_cli
 ```
 
-Binary location: `target/release/opencode-tracker` (Linux/macOS) or `target/release/opencode-tracker.exe` (Windows)
+Binary location: `target/release/aic-cli` (Linux/macOS) or `target/release/aic-cli.exe` (Windows)
 
 #### Run Commands
 

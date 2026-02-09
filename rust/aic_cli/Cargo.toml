@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/yourusername/ai-consumption-tracker"
 
 [[bin]]
-name = "opencode-tracker"
+name = "aic-cli"
 path = "src/main.rs"
 
 [dependencies]
@@ -17,6 +17,7 @@ clap = { version = "4.4", features = ["derive"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = "1.0"
 serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
 env_logger = "0.10"
 log = "0.4"

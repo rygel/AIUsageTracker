@@ -390,7 +390,7 @@
             filtered.sort((a, b) => a.provider_name.localeCompare(b.provider_name));
 
             if (filtered.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div style="font-size: 24px; margin-bottom: 10px;">📊</div><div>No providers configured</div><div style="font-size: 11px; color: #666; margin-top: 8px;">Use CLI: opencode-tracker auth &lt;provider&gt;</div></div>';
+                container.innerHTML = '<div class="empty-state"><div style="font-size: 24px; margin-bottom: 10px;">📊</div><div>No providers configured</div><div style="font-size: 11px; color: #666; margin-top: 8px;">Use CLI: aic-cli auth &lt;provider&gt;</div></div>';
                 return;
             }
 

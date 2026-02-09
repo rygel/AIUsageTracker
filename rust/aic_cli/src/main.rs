@@ -1,14 +1,20 @@
-use aic_core::{AuthenticationManager, ConfigLoader, GitHubAuthService, ProviderManager};
+use aic_core::{AuthenticationManager, ConfigLoader, GitHubAuthService, ProviderUsage};
 use clap::{Parser, Subcommand};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::io::{self, Write};
 use std::process::Command;
-use std::sync::Arc;
 
 #[derive(Parser)]
-#[command(name = "opencode-tracker")]
+    #[command(name = "aic-cli")]
 #[command(about = "AI Consumption Tracker CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Commands>,
+
+    /// Agent service URL
+    #[arg(long, global = true, default_value = "http://localhost:8080")]
+    agent_url: String,
 
     /// Show all providers even if not configured
     #[arg(long, global = true)]
@@ -39,19 +45,84 @@ enum Commands {
         /// Provider to logout from
         provider: String,
     },
+    /// Refresh provider usage
+    Refresh,
+    /// Show historical usage
+    History {
+        /// Provider ID filter
+        #[arg(long)]
+        provider_id: Option<String>,
+        /// Number of records to show
+        #[arg(long, default_value = "10")]
+        limit: usize,
+    },
+    /// Show agent health
+    Health,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AgentUsageResponse {
+    provider_id: String,
+    provider_name: String,
+    usage: Option<f64>,
+    limit: Option<f64>,
+    usage_unit: String,
+    is_available: bool,
+    is_quota_based: bool,
+    last_updated: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct HistoricalUsageResponse {
+    records: Vec<HistoricalUsageRecord>,
+    total_records: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct HistoricalUsageRecord {
+    id: String,
+    provider_id: String,
+    provider_name: String,
+    usage: f64,
+    limit: Option<f64>,
+    usage_unit: String,
+    is_quota_based: bool,
+    timestamp: String,
+}
+
+impl From<AgentUsageResponse> for ProviderUsage {
+    fn from(u: AgentUsageResponse) -> Self {
+        let usage_percentage = match (u.usage, u.limit) {
+            (Some(used), Some(limit)) if limit > 0.0 => (used / limit) * 100.0,
+            _ => 0.0,
+        };
+
+        let cost_used = u.usage.unwrap_or(0.0);
+        let cost_limit = u.limit.unwrap_or(0.0);
+
+        Self {
+            provider_id: u.provider_id,
+            provider_name: u.provider_name,
+            usage_percentage,
+            cost_used,
+            cost_limit,
+            payment_type: aic_core::PaymentType::UsageBased,
+            usage_unit: u.usage_unit,
+            is_quota_based: u.is_quota_based,
+            is_available: u.is_available,
+            account_name: String::new(),
+            description: String::new(),
+            auth_source: String::new(),
+            next_reset_time: None,
+            details: None,
+        }
+    }
 }
 
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-
-    // Initialize logging
-    if cli.verbose {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
-    } else {
-        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
-    }
-
+    let agent_url = cli.agent_url.trim_end_matches('/');
     let command = cli.command.unwrap_or_else(|| {
         print_usage();
         std::process::exit(0);
@@ -59,10 +130,10 @@ async fn main() {
 
     match command {
         Commands::Status => {
-            show_status(cli.all, cli.json, cli.verbose).await;
+            show_status(agent_url, cli.all, cli.json, cli.verbose).await;
         }
         Commands::List => {
-            show_list(cli.json).await;
+            show_list(agent_url, cli.json).await;
         }
         Commands::Auth { provider } => {
             handle_auth(&provider).await;
@@ -70,34 +141,63 @@ async fn main() {
         Commands::Logout { provider } => {
             handle_logout(&provider).await;
         }
+        Commands::Refresh => {
+            refresh_usage(agent_url, cli.json).await;
+        }
+        Commands::History { provider_id, limit } => {
+            show_history(agent_url, provider_id, limit, cli.json).await;
+        }
+        Commands::Health => {
+            show_health(agent_url).await;
+        }
     }
 }
 
 fn print_usage() {
-    println!("Usage: opencode-tracker <command> [options]");
+    println!("Usage: aic-cli <command> [options]");
     println!();
     println!("Commands:");
     println!("  status    Show usage status");
-    println!("    --all   Show all providers even if not configured");
-    println!("    --json  Output as JSON");
-    println!("    -v      Verbose output");
     println!("  list      List configured providers");
     println!("  auth      Authenticate with a provider");
-    println!("    github  Authenticate with GitHub Copilot");
     println!("  logout    Logout from a provider");
-    println!("    github  Logout from GitHub Copilot");
+    println!("  refresh   Refresh provider usage");
+    println!("  history   Show historical usage");
+    println!("  health    Show agent health status");
 }
 
-async fn show_status(show_all: bool, json: bool, verbose: bool) {
+async fn show_status(
+    agent_url: &str,
+    show_all: bool,
+    json: bool,
+    verbose: bool,
+) {
     let client = reqwest::Client::new();
-    let manager = ProviderManager::new(client);
+    let url = format!("{}/api/providers/usage", agent_url);
 
-    let usage = manager.get_all_usage(true).await;
+    let response = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to connect to agent at {}: {}", agent_url, e);
+            eprintln!("Make sure agent service is running.");
+            std::process::exit(1);
+        }
+    };
+
+    let usages: Vec<AgentUsageResponse> = match response.json().await {
+        Ok(u) => u,
+        Err(e) => {
+            eprintln!("Failed to parse response: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let provider_usages: Vec<ProviderUsage> = usages.into_iter().map(ProviderUsage::from).collect();
 
     let filtered_usage: Vec<_> = if show_all {
-        usage
+        provider_usages
     } else {
-        usage.into_iter().filter(|u| u.is_available).collect()
+        provider_usages.into_iter().filter(|u| u.is_available).collect()
     };
 
     if json {
@@ -106,7 +206,6 @@ async fn show_status(show_all: bool, json: bool, verbose: bool) {
             Err(e) => eprintln!("Error serializing to JSON: {}", e),
         }
     } else {
-        // Sort alphabetically
         let mut sorted: Vec<_> = filtered_usage.into_iter().collect();
         sorted.sort_by(|a, b| {
             a.provider_name
@@ -201,7 +300,10 @@ async fn show_status(show_all: bool, json: bool, verbose: bool) {
     }
 }
 
-async fn show_list(json: bool) {
+async fn show_list(
+    agent_url: &str,
+    json: bool,
+) {
     let client = reqwest::Client::new();
     let config_loader = ConfigLoader::new(client);
     let configs = config_loader.load_config().await;
@@ -218,6 +320,126 @@ async fn show_list(json: bool) {
     }
 }
 
+async fn refresh_usage(
+    agent_url: &str,
+    json: bool,
+) {
+    println!("Triggering usage refresh...");
+
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/providers/usage/refresh", agent_url);
+
+    let response = match client.post(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to connect to agent: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let usages: Vec<AgentUsageResponse> = match response.json().await {
+        Ok(u) => u,
+        Err(e) => {
+            eprintln!("Failed to parse response: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    println!("✓ Usage refreshed successfully. Updated {} providers.", usages.len());
+
+    if json {
+        match serde_json::to_string_pretty(&usages) {
+            Ok(json_str) => println!("{}", json_str),
+            Err(e) => eprintln!("Error serializing to JSON: {}", e),
+        }
+    }
+}
+
+async fn show_history(
+    agent_url: &str,
+    provider_id: Option<String>,
+    limit: usize,
+    json: bool,
+) {
+    let mut url = format!("{}/api/history?limit={}", agent_url, limit);
+
+    if let Some(provider) = provider_id {
+        url.push_str(&format!("&provider_id={}", provider));
+    }
+
+    let client = reqwest::Client::new();
+    let response = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to connect to agent: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let history: HistoricalUsageResponse = match response.json().await {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("Failed to parse response: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    if json {
+        match serde_json::to_string_pretty(&history) {
+            Ok(json_str) => println!("{}", json_str),
+            Err(e) => eprintln!("Error serializing to JSON: {}", e),
+        }
+    } else {
+        println!("Historical Usage ({} records):", history.total_records);
+        println!();
+
+        for record in &history.records {
+            println!(
+                "{} | {} | {:.2} / {} {} | {}",
+                record.timestamp,
+                record.provider_name,
+                record.usage,
+                record.limit.map(|l| l.to_string()).unwrap_or_else(|| "-".to_string()),
+                record.usage_unit,
+                if record.is_quota_based { "Quota" } else { "Pay-As-You-Go" }
+            );
+        }
+    }
+}
+
+async fn show_health(agent_url: &str) {
+    let url = format!("{}/health", agent_url);
+
+    let client = reqwest::Client::new();
+    let response = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("Failed to connect to agent: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    #[derive(Deserialize)]
+    struct HealthResponse {
+        status: String,
+        version: String,
+        uptime_seconds: u64,
+    }
+
+    let health: HealthResponse = match response.json().await {
+        Ok(h) => h,
+        Err(e) => {
+            eprintln!("Failed to parse response: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    println!("Agent Status:");
+    println!("  Status: {}", health.status);
+    println!("  Version: {}", health.version);
+    println!("  Uptime: {}s", health.uptime_seconds);
+}
+
 async fn handle_auth(provider: &str) {
     if provider.to_lowercase() != "github" {
         println!("Unknown provider for auth: {}", provider);
@@ -226,17 +448,15 @@ async fn handle_auth(provider: &str) {
     }
 
     let client = reqwest::Client::new();
-    let auth_service = Arc::new(GitHubAuthService::new(client.clone()));
-    let config_loader = Arc::new(ConfigLoader::new(client));
+    let auth_service = std::sync::Arc::new(GitHubAuthService::new(client.clone()));
+    let config_loader = std::sync::Arc::new(ConfigLoader::new(client));
     let auth_manager = AuthenticationManager::new(auth_service.clone(), config_loader.clone());
 
-    // Initialize from existing config if available
     auth_manager.initialize_from_config().await;
 
     if auth_manager.is_authenticated() {
         println!("Already authenticated with GitHub.");
         print!("Would you like to re-authenticate? [y/N]: ");
-        use std::io::{self, Write};
         let _ = io::stdout().flush();
         let mut input = String::new();
         if io::stdin().read_line(&mut input).is_ok() {
@@ -254,12 +474,10 @@ async fn handle_auth(provider: &str) {
             println!("Please visit: {}", device_flow.verification_uri);
             println!("Enter the following code: {}\n", device_flow.user_code);
 
-            // Try to open browser
             open_browser(&device_flow.verification_uri);
 
             println!("Waiting for authentication...");
 
-            // Wait for login with automatic polling
             match auth_manager
                 .wait_for_login(&device_flow.device_code, device_flow.interval as u64)
                 .await
@@ -293,11 +511,10 @@ async fn handle_logout(provider: &str) {
     }
 
     let client = reqwest::Client::new();
-    let auth_service = Arc::new(GitHubAuthService::new(client.clone()));
-    let config_loader = Arc::new(ConfigLoader::new(client));
+    let auth_service = std::sync::Arc::new(GitHubAuthService::new(client.clone()));
+    let config_loader = std::sync::Arc::new(ConfigLoader::new(client));
     let auth_manager = AuthenticationManager::new(auth_service.clone(), config_loader.clone());
 
-    // Initialize from existing config
     auth_manager.initialize_from_config().await;
 
     if !auth_manager.is_authenticated() {
