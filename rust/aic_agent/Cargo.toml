@@ -1,0 +1,36 @@
+[package]
+name = "aic_agent"
+version = "1.0.0"
+edition = "2021"
+description = "Background agent service for AI Consumption Tracker"
+authors = ["AI Consumption Tracker Contributors"]
+license = "MIT"
+repository = "https://github.com/yourusername/ai-consumption-tracker"
+
+[dependencies]
+aic_core = { path = "../aic_core" }
+tokio = { version = "1.0", features = ["full"] }
+axum = "0.7"
+tower = "0.5"
+tower-http = { version = "0.5", features = ["fs", "trace", "cors"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+libsql = "0.9.29"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+clap = { version = "4.0", features = ["derive"] }
+dirs = "5.0"
+reqwest = { version = "0.11", features = ["json"] }
+uuid = { version = "1.0", features = ["v4"] }
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio-test = "0.4"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
