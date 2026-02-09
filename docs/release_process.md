@@ -1,0 +1,154 @@
+# Release Process Guide
+
+This document describes the complete release process for AI Consumption Tracker.
+
+## Overview
+
+The release process uses GitHub Actions to automate version updates, validation, and release creation. The workflow is designed to work with branch protection rules.
+
+## Prerequisites
+
+- All changes for the release must be merged to `main`
+- CHANGELOG.md must be updated with the new version
+- Version files must be updated (see step 1 below)
+
+## Release Steps
+
+### Step 1: Update Version Files (via Pull Request)
+
+**IMPORTANT**: Due to branch protection rules, version files cannot be updated directly by the workflow. You must create a PR manually first.
+
+Create a feature branch and update these files:
+
+#### 1.1 Project Files (.csproj)
+Update `Version`, `AssemblyVersion`, and `FileVersion` in all project files:
+- `AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj`
+- `AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj`
+- `AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj`
+- `AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj`
+
+Example changes:
+```xml
+<Version>1.7.14</Version>
+<AssemblyVersion>1.7.14</AssemblyVersion>
+<FileVersion>1.7.14</FileVersion>
+```
+
+#### 1.2 README.md
+Update the version badge:
+```markdown
+![Version](https://img.shields.io/badge/version-1.7.14-blue)
+```
+
+#### 1.3 Installer Script
+Update `scripts/setup.iss`:
+```pascal
+#define MyAppVersion "1.7.14"
+```
+
+#### 1.4 Publish Script
+Update `scripts/publish-app.ps1`:
+```powershell
+# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 1.7.14
+```
+
+#### 1.5 Create and Merge PR
+```bash
+# Create branch
+git checkout -b feature/v1.7.14-version-update
+
+# Stage and commit changes
+git add .
+git commit -m "chore(release): update version files to v1.7.14"
+git push -u origin feature/v1.7.14-version-update
+
+# Create PR (or use GitHub UI)
+gh pr create --base main --head feature/v1.7.14-version-update \
+  --title "chore(release): update version files to v1.7.14"
+
+# Merge the PR
+```
+
+### Step 2: Trigger Release Workflow
+
+After the version update PR is merged to `main`, trigger the release workflow:
+
+**Via GitHub UI:**
+1. Go to Actions > Create Release
+2. Click "Run workflow"
+3. Enter version: `1.7.14`
+4. Check "Skip automatic file updates" (since files are already updated)
+5. Click "Run workflow"
+
+**Via CLI:**
+```bash
+gh workflow run "Create Release" --repo rygel/AIConsumptionTracker \
+  -f version="1.7.14" \
+  -f skip_file_updates="true"
+```
+
+### Step 3: Monitor Release
+
+The workflow will:
+1. Validate all version files match the input version
+2. Validate CHANGELOG.md has an entry for the version
+3. Generate `appcast.xml` for NetSparkle auto-updates
+4. Create git tag `v1.7.14`
+5. Create GitHub release with release notes
+6. Upload the appcast.xml to the release
+
+Monitor progress at: `https://github.com/rygel/AIConsumptionTracker/actions`
+
+### Step 4: Post-Release
+
+After the release is created:
+
+1. **Download and test** the installer from the GitHub release
+2. **Update winget** package (if applicable)
+3. **Announce** the release to users
+
+## Troubleshooting
+
+### Workflow fails with "Protected branch update failed"
+This means you didn't use `skip_file_updates=true`. The workflow tried to push version updates directly to main, which is blocked by branch protection.
+
+**Fix**: Ensure the version files are already updated in main via PR, then re-run with `skip_file_updates=true`.
+
+### Workflow fails with "version does not match"
+One or more version files doesn't match the input version.
+
+**Fix**: Check which file failed validation and update it manually via PR.
+
+### Workflow fails with "CHANGELOG.md missing version section"
+The changelog doesn't have an entry for this version.
+
+**Fix**: Add a changelog entry via PR before triggering the release.
+
+## Files Managed by Release Workflow
+
+The release workflow automatically generates:
+- Git tag (e.g., `v1.7.14`)
+- GitHub Release with release notes
+- `appcast.xml` for NetSparkle auto-updater
+
+The following must be updated manually before triggering:
+- All `.csproj` files (Version, AssemblyVersion, FileVersion)
+- `README.md` (version badge)
+- `scripts/setup.iss` (MyAppVersion)
+- `scripts/publish-app.ps1` (example version)
+- `CHANGELOG.md` (version entry)
+
+## Version Numbering
+
+We follow [Semantic Versioning](https://semver.org/):
+- **MAJOR** (X.0.0): Breaking changes
+- **MINOR** (0.X.0): New features, backwards compatible
+- **PATCH** (0.0.X): Bug fixes, backwards compatible
+
+Example: `1.7.14` = Major 1, Minor 7, Patch 14
+
+## Related Documentation
+
+- [CHANGELOG.md](../CHANGELOG.md) - Release notes and version history
+- [AGENTS.md](../AGENTS.md) - Development guidelines including release notes guidelines
+- `.github/workflows/release.yml` - Release workflow definition
