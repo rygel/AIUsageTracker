@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.15] - 2026-02-09
+
+### Added
+- Windows 11 native notifications with per-provider and global controls
+- Support for Kilo Code, Roo Code, and Claude Code as API key discovery sources
+
+### Changed
+- Notifications disabled by default
+- Kilo Code removed as standalone provider (discovery source only)
+- Test providers removed from settings
+
+### Fixed
+- Version number display in screenshots
+
 ## [1.7.14] - 2026-02-09
 
 ### Fixed

@@ -1,6 +1,6 @@
 # <img src="AIConsumptionTracker.UI/Assets/app_icon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
-![Version](https://img.shields.io/badge/version-1.7.14-blue)
+![Version](https://img.shields.io/badge/version-1.7.15-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
@@ -41,25 +41,23 @@ Download the latest installer or .zip file from the [Release](https://github.com
   - **Live Progress Bars**: Tray icons feature "Core Temp" style bars that reflect usage levels in real-time.
 - **Inverted Progress Bars**: Default "Health Bar" mode showing **Remaining** capacity (starting green/full) instead of "Used" capacity.
 - **Improved DeepSeek Support**: Detailed multi-currency (CNY/USD) balance tracking with official branding.
-- **Secure Management**: Manage all keys and preferences through a refined, dark-themed settings menu. Do not combine coding plans and pay as you go plans. They have to be separated.
+- **Secure Management**: Manage all keys and preferences through a refined, dark-themed settings menu.
 
 ## Supported Providers
 
 | Provider | Integration | Status | Notes |
 |:---------|:------------|:-------|:------|
-| **Anthropic (Claude Code)** | OAuth / API Key | ✅ Tested | Usage dashboard only |
-| **Antigravity** | via Antigravity GUI | ✅ Tested | Multi-model quotas |
+| **Anthropic (Claude)** | OAuth / API Key | ✅ Tested | Usage dashboard only |
+| **Antigravity** | GUI Auth | ✅ Tested | Multi-model quotas |
 | **DeepSeek** | API Key¹ | ⚠️ Beta | **testers needed** |
 | **Gemini** | API Key | 🚧 Planned | Not yet integrated |
-| **GitHub Copilot** | OAuth Device Flow | ✅ Tested |  |
-| **Kimi** | API Key¹ | ⚠️ Beta | **testers needed** |
-| **Minimax** (China) | API Key¹ | ⚠️ Beta | **testers needed** |
-| **Minimax** (International) | API Key¹ | ⚠️ Beta | **testers needed** |
-| **Mistral** | API Key¹ | ✅ Tested | model usage not available via API |
-| **OpenAI (Codex)** | via opencode OAuth | ⚠️ Beta | **testers needed** |
-| **OpenRouter** | API Key¹ | 🚧 Planned | Not yet integrated |
-| **Opencode Zen** (pay-as-you-go) | API Key¹ | ✅ Tested |  & Plans |
-| **Opencode Zen** (coding plan) | API Key¹ | ⚠️ Beta |  **testers needed**  |
+| **GitHub Copilot** | OAuth Device | ✅ Tested | Auto-discovery via CLI |
+| **Kimi (Moonshot)** | API Key¹ | ⚠️ Beta | **testers needed** |
+| **Minimax** | API Key¹ | ⚠️ Beta | China & International |
+| **Mistral** | API Key | ✅ Tested | API usage not available |
+| **OpenAI (Codex)** | OAuth | ⚠️ Beta | Via OpenCLI |
+| **OpenRouter** | API Key¹ | 🚧 Planned | Testers needed |
+| **Opencode Zen** | API Key¹ | ✅ Tested | Pay-as-you-go & Plans |
 | **Synthetic** | API Key¹ | ✅ Tested | Multi-model support |
 | **Z.AI** | API Key¹ | ✅ Tested | Coding plans |
 
