@@ -103,59 +103,132 @@ The application uses dynamic tray icons to show usage levels at a glance:
 
 ---
 
+## API Key Discovery
+
+AI Consumption Tracker automatically discovers API keys from multiple sources, eliminating the need to manually copy and paste keys into the application. When you click **"Scan for Keys"** in the Settings dialog, the application searches all of the following sources.
+
+### Discovery Sources Overview
+
+| Source | Providers | Method |
+|:-------|:----------|:-------|
+| **OpenCode** | All configured providers | Config files in standard locations |
+| **Kilo Code** | Kilo Code + Roo Cline providers | VS Code extension and CLI config |
+| **Environment Variables** | Anthropic, OpenAI, Minimax, Kimi, Xiaomi | System environment |
+| **GitHub CLI** | GitHub Copilot | `gh auth token` command |
+| **Claude Code** | Anthropic (Claude) | `~/.claude/.credentials.json` |
+
+### OpenCode Integration
+
+OpenCode is a CLI tool that stores API keys in configuration files. The application searches for these files in multiple standard locations:
+
+**Config File Locations:**
+- Windows: `%APPDATA%\opencode\auth.json`
+- Windows: `%LOCALAPPDATA%\opencode\auth.json`
+- Linux/macOS: `~/.local/share/opencode/auth.json`
+- Linux/macOS: `~/.config/opencode/auth.json`
+- Cross-platform: `~/.opencode/auth.json`
+
+**What Gets Discovered:**
+- All providers configured in your OpenCode auth.json
+- API keys for any provider you've added via `opencode auth <provider>`
+
+### Kilo Code Integration
+
+Kilo Code is an AI coding assistant that stores configuration in your home directory. The application discovers keys from:
+
+**Sources:**
+1. **VS Code Extension** (`~/.kilocode/secrets.json`):
+   - Direct Kilo Code authentication token
+   - Roo Cline configuration with API keys for multiple providers
+
+2. **CLI Config** (`~/.kilocode/cli/config.json`):
+   - Kilo Code tokens from the providers array
+   - CLI-specific authentication
+
+**Roo Cline Integration:**
+If you use Roo Cline within Kilo Code, the application extracts API keys from the nested configuration, including:
+- Anthropic (Claude)
+- OpenAI
+- Gemini
+- OpenRouter
+- Mistral
+
+### Environment Variables
+
+The application searches for provider-specific API keys in your environment:
+
+| Variable | Provider |
+|:---------|:---------|
+| **ANTHROPIC_API_KEY** / **CLAUDE_API_KEY** | Anthropic (Claude) |
+| **OPENAI_API_KEY** | OpenAI / Codex |
+| **MINIMAX_API_KEY** | Minimax |
+| **KIMI_API_KEY** / **MOONSHOT_API_KEY** | Kimi (Moonshot) |
+| **XIAOMI_API_KEY** / **MIMO_API_KEY** | Xiaomi |
+
+**Setting Environment Variables:**
+
+Windows (PowerShell):
+```powershell
+[Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "your-key-here", "User")
+```
+
+Windows (Command Prompt):
+```cmd
+setx ANTHROPIC_API_KEY "your-key-here"
+```
+
+Linux/macOS:
+```bash
+export ANTHROPIC_API_KEY="your-key-here"
+```
+
+### GitHub CLI Integration
+
+If you have the GitHub CLI (`gh`) installed and authenticated, the application can automatically retrieve your GitHub Copilot token:
+
+**How it works:**
+- Runs `gh auth token` command
+- No manual configuration required
+- Token is stored securely by GitHub CLI
+
+**Requirements:**
+- GitHub CLI must be installed
+- You must be logged in (`gh auth login`)
+
+### Claude Code Integration
+
+For Claude Code users, the application reads OAuth tokens from:
+
+**Location:** `~/.claude/.credentials.json`
+
+**What Gets Discovered:**
+- Access token from `claudeAiOauth.accessToken`
+- Automatic authentication for Anthropic/Claude provider
+
+### Security Considerations
+
+- **Read-Only**: The application reads configuration files but never writes to them
+- **Local Storage**: Discovered keys are cached locally in the application's secure storage
+- **Source Tracking**: Each key shows its discovery source (e.g., "Env: ANTHROPIC_API_KEY", "Kilo Code Secrets", "Claude Code Credentials")
+- **No Cloud**: Your API keys never leave your local machine
+
+### Troubleshooting Discovery
+
+**Keys Not Found?**
+1. Ensure the source application (OpenCode, Kilo Code, etc.) is configured
+2. Check that files are in the expected locations
+3. Verify environment variables are set at the user level (not just session)
+4. Restart AI Consumption Tracker after making changes
+5. Click **"Scan for Keys"** in Settings to trigger a fresh search
+
+**Duplicate Keys?**
+If the same key is discovered from multiple sources, the application uses the first one found and displays the source. You can manually edit keys in Settings if needed.
+
+---
+
 ## System Tray Integration
 The application runs primarily in the system tray (near the clock). You can right-click the icon to:
 - Open the Dashboard.
 - Open Settings directly.
 - Exit the application completely.
 
----
-
-## Environment Variables
-
-AI Consumption Tracker can automatically discover API keys from environment variables. This allows for seamless integration with your existing development environment without manually entering keys in the UI.
-
-### Supported Environment Variables
-
-| Environment Variable | Provider | Notes |
-|:---------------------|:---------|:------|
-| **ANTHROPIC_API_KEY** | Anthropic (Claude) | Primary key for Claude Code integration |
-| **CLAUDE_API_KEY** | Anthropic (Claude) | Alternative name for Claude authentication |
-| **OPENAI_API_KEY** | OpenAI | Used for OpenAI/Codex integration |
-| **MINIMAX_API_KEY** | Minimax | For both China and International variants |
-| **KIMI_API_KEY** | Kimi (Moonshot) | Primary key for Moonshot AI |
-| **MOONSHOT_API_KEY** | Kimi (Moonshot) | Alternative name for Moonshot |
-| **XIAOMI_API_KEY** | Xiaomi | Primary key for Xiaomi integration |
-| **MIMO_API_KEY** | Xiaomi | Alternative name for Xiaomi |
-
-### How It Works
-
-1. **Automatic Discovery**: When you click "Scan for Keys" in the Settings dialog, the application searches for these environment variables
-2. **Auto-Population**: Found keys are automatically added to the appropriate provider configuration
-3. **Source Tracking**: The application tracks where each key was discovered (shown as "Env: VARIABLE_NAME" in the Auth Source column)
-
-### Setting Environment Variables
-
-#### Windows (PowerShell)
-```powershell
-[Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "your-key-here", "User")
-```
-
-#### Windows (Command Prompt)
-```cmd
-setx ANTHROPIC_API_KEY "your-key-here"
-```
-
-#### Linux/macOS (Bash)
-```bash
-export ANTHROPIC_API_KEY="your-key-here"
-```
-
-**Note**: After setting environment variables, you may need to restart the application or your terminal for changes to take effect.
-
-### Security Considerations
-
-- Environment variables are stored in your system's user profile
-- The application reads but never writes to environment variables
-- Keys discovered via environment variables are cached in the application's secure storage for offline use
-- Consider using a secrets manager or `.env` file loader for team environments

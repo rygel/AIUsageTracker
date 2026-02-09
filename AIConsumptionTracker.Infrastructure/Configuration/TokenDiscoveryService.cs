@@ -180,12 +180,13 @@ public class TokenDiscoveryService
 
     private void DiscoverKiloCodeTokens(List<ProviderConfig> configs)
     {
-        var kiloPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kilocode", "secrets.json");
-        if (File.Exists(kiloPath))
+        // 1. Try VS Code extension secrets.json
+        var kiloSecretsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kilocode", "secrets.json");
+        if (File.Exists(kiloSecretsPath))
         {
             try
             {
-                var json = File.ReadAllText(kiloPath);
+                var json = File.ReadAllText(kiloSecretsPath);
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("kilo code.kilo-code", out var kiloEntry))
                 {
@@ -212,6 +213,39 @@ public class TokenDiscoveryService
             }
             catch { /* Ignore parse errors */ }
         }
+
+        // 2. Try CLI config.json
+        DiscoverKiloCodeCliConfig(configs);
+    }
+
+    private void DiscoverKiloCodeCliConfig(List<ProviderConfig> configs)
+    {
+        try
+        {
+            var cliConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kilocode", "cli", "config.json");
+            if (File.Exists(cliConfigPath))
+            {
+                var json = File.ReadAllText(cliConfigPath);
+                using var doc = JsonDocument.Parse(json);
+                
+                // Check providers array for kilocode tokens
+                if (doc.RootElement.TryGetProperty("providers", out var providersProp) && providersProp.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var provider in providersProp.EnumerateArray())
+                    {
+                        if (provider.TryGetProperty("kilocodeToken", out var tokenProp))
+                        {
+                            var token = tokenProp.GetString();
+                            if (!string.IsNullOrEmpty(token))
+                            {
+                                AddOrUpdate(configs, "kilocode", token, "Discovered in Kilo Code CLI config", "Kilo Code CLI Config");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch { /* Ignore parse errors */ }
     }
 
     private void ParseRooConfig(List<ProviderConfig> configs, string rooJson)
