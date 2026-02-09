@@ -9,9 +9,6 @@
   - Fixed type conflicts and simplified MainWindow update handling
   - Removed dependency on non-existent GitHubReleaseAppCast class
 
-### Changed
-- **Test Data**: Updated PrivacyHelper tests to use generic email (john.doe@example.com) instead of personal email
-
 ## [1.7.13] - 2026-02-09
 
 ### Added
