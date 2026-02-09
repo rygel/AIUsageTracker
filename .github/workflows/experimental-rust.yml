@@ -1,0 +1,522 @@
+name: Experimental Rust
+
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: 'Build targets to test (comma-separated)'
+        required: false
+        default: 'all'
+      features:
+        description: 'Features to test (space-separated)'
+        required: false
+        default: ''
+      run_benches:
+        description: 'Run benchmarks'
+        required: false
+        type: boolean
+        default: false
+      run_miri:
+        description: 'Run Miri memory checker'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-pc-windows-msvc
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build for Windows x64
+      run: cargo build --release --target x86_64-pc-windows-msvc --all-features
+      working-directory: ./rust
+
+    - name: Run tests on Windows
+      run: cargo test --target x86_64-pc-windows-msvc --all-features
+      working-directory: ./rust
+      continue-on-error: true
+
+  build-windows-i686:
+    name: Build Windows x86 (32-bit)
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: i686-pc-windows-msvc
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: windows-i686-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build for Windows x86
+      run: cargo build --release --target i686-pc-windows-msvc --all-features
+      working-directory: ./rust
+
+  build-windows-arm64:
+    name: Build Windows ARM64
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: aarch64-pc-windows-msvc
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: windows-arm64-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build for Windows ARM64
+      run: cargo build --release --target aarch64-pc-windows-msvc --all-features
+      working-directory: ./rust
+
+  build-linux:
+    name: Build Linux x64
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-unknown-linux-gnu
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: linux-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev dmidecode
+
+    - name: Build for Linux x64
+      run: cargo build --release --target x86_64-unknown-linux-gnu --all-features
+      working-directory: ./rust
+
+    - name: Run tests on Linux
+      run: cargo test --target x86_64-unknown-linux-gnu --all-features
+      working-directory: ./rust
+      continue-on-error: true
+
+  build-linux-i686:
+    name: Build Linux x86 (32-bit)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: i686-unknown-linux-gnu
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: linux-i686-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install 32-bit dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib g++-multilib
+
+    - name: Build for Linux x86
+      run: cargo build --release --target i686-unknown-linux-gnu --all-features
+      working-directory: ./rust
+
+  build-linux-arm64:
+    name: Build Linux ARM64
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: aarch64-unknown-linux-gnu
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: linux-arm64-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install ARM64 cross-compile tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+    - name: Build for Linux ARM64
+      run: cargo build --release --target aarch64-unknown-linux-gnu --all-features
+      working-directory: ./rust
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-apple-darwin
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: macos-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build for macOS
+      run: cargo build --release --target x86_64-apple-darwin --all-features
+      working-directory: ./rust
+
+    - name: Run tests on macOS
+      run: cargo test --target x86_64-apple-darwin --all-features
+      working-directory: ./rust
+      continue-on-error: true
+
+  nightly-build:
+    name: Nightly Build
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust Nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: nightly-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev dmidecode
+
+    - name: Nightly checks
+      run: |
+        cargo +nightly check --all-features --all-targets
+        cargo +nightly clippy --all-features --all-targets -- -D warnings -A warnings
+        cargo +nightly build --all-features
+      working-directory: ./rust
+
+  miri:
+    name: Miri Memory Checker
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Miri
+      run: |
+        rustup +nightly component add miri
+        rustup +nightly toolchain add nightly
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: miri-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev dmidecode
+
+    - name: Run Miri
+      run: cargo +nightly miri test
+      working-directory: ./rust
+
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: bench-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Install Linux dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtk-3-dev libsoup2.4-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev dmidecode
+
+    - name: Build benchmarks
+      run: cargo bench --no-run
+      working-directory: ./rust
+
+    - name: Run benchmarks
+      if: inputs.run_benches == true
+      run: cargo bench
+      working-directory: ./rust
+
+  fuzzing:
+    name: Fuzzing
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Install libFuzzer
+      run: sudo apt-get install -y libfuzzer-dev
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: fuzz-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build fuzzing targets
+      run: cargo fuzz build
+      working-directory: ./rust
+
+  cross-compile:
+    name: Cross-compile All Targets
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Install cross-compile targets
+      run: |
+        rustup target add aarch64-apple-darwin
+        rustup target add aarch64-pc-windows-msvc
+        rustup target add x86_64-apple-darwin
+        rustup target add x86_64-pc-windows-msvc
+
+    - name: Install macOS cross tools
+      run: brew install mingw-w64
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: cross-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Cross-compile to Windows
+      run: cargo build --release --target x86_64-pc-windows-msvc --all-features
+      working-directory: ./rust
+
+    - name: Cross-compile to ARM64 Windows
+      run: cargo build --release --target aarch64-pc-windows-msvc --all-features
+      working-directory: ./rust
+
+    - name: Cross-compile to macOS x86_64
+      run: cargo build --release --target x86_64-apple-darwin --all-features
+      working-directory: ./rust
+
+    - name: Cross-compile to macOS ARM64
+      run: cargo build --release --target aarch64-apple-darwin --all-features
+      working-directory: ./rust
+
+  doc-tests:
+    name: Doc Tests
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-pc-windows-msvc
+        override: true
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: doc-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Run doc tests
+      run: cargo test --doc --all-features
+      working-directory: ./rust
+
+  sanitizer:
+    name: Sanitizers
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          rust/target
+        key: sanitizer-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Build with Address Sanitizer
+      run: RUSTFLAGS="-Z sanitizer=address -C target-cpu=native" cargo build --all-features --target x86_64-unknown-linux-gnu
+      working-directory: ./rust
+
+    - name: Build with Thread Sanitizer
+      run: RUSTFLAGS="-Z sanitizer=thread -C target-cpu=native" cargo build --all-features --target x86_64-unknown-linux-gnu
+      working-directory: ./rust
+
+  dependency-analysis:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+        key: dep-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+    - name: Audit dependencies
+      run: cargo audit
+      working-directory: ./rust
+
+    - name: Check licenses
+      run: cargo deny check
+      working-directory: ./rust
+
+    - name: Outdated dependencies
+      run: cargo outdated --workspace
+      working-directory: ./rust
