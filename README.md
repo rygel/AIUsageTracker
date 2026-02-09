@@ -63,7 +63,7 @@ Download the latest installer or .zip file from the [Release](https://github.com
 
 **Legend:** ✅ Tested | ⚠️ Beta | 🚧 Planned
 
-*API Keys can be entered manually or discovered from opencode config files*  
+¹API Keys can be entered manually or discovered from opencode config files*  
 *Providers with OAuth support automatic token discovery*
 
 ### Screenshots
