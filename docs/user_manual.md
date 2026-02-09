@@ -113,6 +113,7 @@ AI Consumption Tracker automatically discovers API keys from multiple sources, e
 |:-------|:----------|:-------|
 | **OpenCode** | All configured providers | Config files in standard locations |
 | **Kilo Code** | Kilo Code + Roo Cline providers | VS Code extension and CLI config |
+| **Roo Code** | Multiple providers via Roo Cline | VS Code extension storage |
 | **Environment Variables** | Anthropic, OpenAI, Minimax, Kimi, Xiaomi | System environment |
 | **GitHub CLI** | GitHub Copilot | `gh auth token` command |
 | **Claude Code** | Anthropic (Claude) | `~/.claude/.credentials.json` |
@@ -152,6 +153,29 @@ If you use Roo Cline within Kilo Code, the application extracts API keys from th
 - Gemini
 - OpenRouter
 - Mistral
+
+### Roo Code Integration
+
+Roo Code is an AI coding extension for VS Code that uses the Roo Cline configuration system. The application discovers API keys from:
+
+**Sources:**
+1. **VS Code Extension Storage** (VS Code globalStorage):
+   - Windows: `%APPDATA%/Code/User/globalStorage/roovetgit.roo-code/`
+   - macOS: `~/Library/Application Support/Code/User/globalStorage/roovetgit.roo-code/`
+   - Linux: `~/.config/Code/User/globalStorage/roovetgit.roo-code/`
+
+2. **Standalone Config** (`~/.roo/secrets.json`):
+   - Direct Roo Code configuration file
+   - API configurations for multiple providers
+
+**What Gets Discovered:**
+- Anthropic (Claude) API keys
+- OpenAI API keys
+- Gemini API keys
+- OpenRouter API keys
+- Mistral API keys
+
+**Note:** Roo Code and Roo Cline use the same configuration format, so API keys discovered from Roo Code are available for the respective providers in AI Consumption Tracker.
 
 ### Environment Variables
 

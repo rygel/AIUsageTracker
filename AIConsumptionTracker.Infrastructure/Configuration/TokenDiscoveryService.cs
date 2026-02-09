@@ -48,13 +48,16 @@ public class TokenDiscoveryService
         // 3. Discover from Kilo Code
         DiscoverKiloCodeTokens(discoveredConfigs);
 
-        // 4. Discover from providers.json (to get IDs user might have added)
+        // 4. Discover from Roo Code
+        DiscoverRooCodeTokens(discoveredConfigs);
+
+        // 5. Discover from providers.json (to get IDs user might have added)
         DiscoverFromProvidersFile(discoveredConfigs);
 
-        // 5. Discover from GitHub CLI
+        // 6. Discover from GitHub CLI
         DiscoverGitHubCliToken(discoveredConfigs);
 
-        // 6. Discover from Claude Code
+        // 7. Discover from Claude Code
         DiscoverClaudeCodeToken(discoveredConfigs);
 
         return discoveredConfigs;
@@ -247,6 +250,113 @@ public class TokenDiscoveryService
         }
         catch { /* Ignore parse errors */ }
     }
+
+    private void DiscoverRooCodeTokens(List<ProviderConfig> configs)
+    {
+        try
+        {
+            // Roo Code stores its config in VS Code globalStorage
+            var vscodePath = GetVSCodeGlobalStoragePath();
+            if (!string.IsNullOrEmpty(vscodePath))
+            {
+                var rooStoragePath = Path.Combine(vscodePath, "roovetgit.roo-code");
+                if (Directory.Exists(rooStoragePath))
+                {
+                    // Look for state.vscdb or similar files
+                    var stateFiles = Directory.GetFiles(rooStoragePath, "*.json");
+                    foreach (var stateFile in stateFiles)
+                    {
+                        try
+                        {
+                            var json = File.ReadAllText(stateFile);
+                            using var doc = JsonDocument.Parse(json);
+                            
+                            // Extract API configurations from Roo Code state
+                            if (doc.RootElement.TryGetProperty("apiConfigs", out var configsProp))
+                            {
+                                foreach (var configPair in configsProp.EnumerateObject())
+                                {
+                                    var config = configPair.Value;
+                                    TryAddRooKey(configs, config, "anthropicApiKey", "anthropic");
+                                    TryAddRooKey(configs, config, "openAiApiKey", "openai");
+                                    TryAddRooKey(configs, config, "geminiApiKey", "gemini");
+                                    TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
+                                    TryAddRooKey(configs, config, "mistralApiKey", "mistral");
+                                    TryAddRooKey(configs, config, "kilocodeToken", "kilocode");
+                                }
+                            }
+                        }
+                        catch { /* Ignore individual file errors */ }
+                    }
+                }
+            }
+            
+            // Also check for standalone Roo Code config directory (similar to Kilo Code)
+            var rooConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roo");
+            if (Directory.Exists(rooConfigPath))
+            {
+                var secretsPath = Path.Combine(rooConfigPath, "secrets.json");
+                if (File.Exists(secretsPath))
+                {
+                    try
+                    {
+                        var json = File.ReadAllText(secretsPath);
+                        using var doc = JsonDocument.Parse(json);
+                        
+                        // Parse similar structure to Kilo Code
+                        if (doc.RootElement.TryGetProperty("roo", out var rooEntry))
+                        {
+                            if (rooEntry.TryGetProperty("apiConfigs", out var configsProp))
+                            {
+                                foreach (var configPair in configsProp.EnumerateObject())
+                                {
+                                    var config = configPair.Value;
+                                    TryAddRooKey(configs, config, "anthropicApiKey", "anthropic");
+                                    TryAddRooKey(configs, config, "openAiApiKey", "openai");
+                                    TryAddRooKey(configs, config, "geminiApiKey", "gemini");
+                                    TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
+                                    TryAddRooKey(configs, config, "mistralApiKey", "mistral");
+                                }
+                            }
+                        }
+                    }
+                    catch { /* Ignore parse errors */ }
+                }
+            }
+        }
+        catch { /* Ignore all errors */ }
+    }
+    
+    private string? GetVSCodeGlobalStoragePath()
+    {
+        try
+        {
+            // Windows
+            if (OperatingSystem.IsWindows())
+            {
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                return Path.Combine(appData, "Code", "User", "globalStorage");
+            }
+            // macOS
+            else if (OperatingSystem.IsMacOS())
+            {
+                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                return Path.Combine(home, "Library", "Application Support", "Code", "User", "globalStorage");
+            }
+            // Linux
+            else
+            {
+                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ?? Path.Combine(home, ".config");
+                return Path.Combine(configHome, "Code", "User", "globalStorage");
+            }
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
 
     private void ParseRooConfig(List<ProviderConfig> configs, string rooJson)
     {
