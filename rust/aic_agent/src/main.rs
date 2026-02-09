@@ -113,8 +113,8 @@ async fn main() -> Result<()> {
         .route("/api/config", post(update_config))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", args.port)).await?;
-    info!("HTTP server listening on http://0.0.0.0:{}", args.port);
+    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", args.port)).await?;
+    info!("HTTP server listening on http://127.0.0.1:{}", args.port);
 
     axum::serve(listener, app).await?;
 
