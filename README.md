@@ -45,20 +45,24 @@ Download the latest installer or .zip file from the [Release](https://github.com
 
 ## Supported Providers
 
-| Provider | Reset Cycle | Key Discovery |
-| :--- | :--- | :--- |
-| **Anthropic (Claude)** | Balance/Credits | Env Vars, Settings UI |
-| **DeepSeek** | Balance (Multi-currency) | Env Vars, Settings UI |
-| **OpenAI** | Balance/Usage | Env Vars, Settings UI |
-| **Gemini** | Daily / Minutely | Env Vars, Settings UI |
-| **OpenRouter** | Credit Balance | Env Vars, Settings UI |
-| **Antigravity** | Model-specific | Local App, Settings UI |
-| **Kimi (Moonshot)** | Balance | Env Vars, Settings UI |
-| **Z.AI** | Daily (24h) | Local App, Settings UI |
-| **Synthetic** | 5-Hour Cycle | Local App, Settings UI |
-| **OpenCode Zen** | 7-Day Cycle | Local App, Settings UI |
-| **GitHub Copilot** | Hourly Rate Limit | OAuth Device Flow |
-| **Codex** | Model-specific | Settings UI |
+| Provider                         | Integration         | Tested                    |
+|:---------------------------------|:--------------------|:--------------------------|
+| **Anthropic (Claude Code)**      |                     | partially, testers needed |
+| **DeepSeek**                     | API Key*            | Testers needed            |
+| **OpenAI (Codex)**               | via Opencli OAuth   | Testers needed            |
+| **Gemini**                       | not integrated yet  | Testers needed            |
+| **OpenRouter**                   | not integrated yet  | Testers needed            |
+| **Antigravity**                  | via Antigravity GUI | tested                    |
+| **Kimi (Moonshot)**              | API Key*            | Testers needed            |
+| **Z.AI** (Coding Plan)           | API Key*            | Tested                    |
+| **Synthetic**                    | API Key*            | Tested                    |
+| **GitHub Copilot**               | OAuth Device Flow   | Tested                    |
+| **Opencode Zen** (pay-as-you-go) | API Key*            | Tested                    |
+| **Opencode Zen** (coding plan)   | API Key*            | Testers needed            |
+| **Minimax** (China)              | API Key*            | Testers needed            |
+| **Minimax** (International)      | API Key*            | Testers needed            |
+
+(*) API Key can be either entered directly or discovered automatically via opencode configuration  
 
 ### Screenshots
 
