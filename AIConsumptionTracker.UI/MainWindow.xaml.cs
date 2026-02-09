@@ -15,8 +15,10 @@ namespace AIConsumptionTracker.UI
     {
         private readonly ProviderManager _providerManager;
         private readonly IConfigLoader _configLoader;
+        private readonly INotificationService _notificationService;
         private AppPreferences _preferences = new();
         private List<ProviderUsage> _cachedUsages = new();
+        private Dictionary<string, bool> _providerQuotaDepletedState = new(); // Track which providers have depleted quotas
         private int _resetDisplayMode = 0; // 0: Both, 1: Relative Only, 2: Absolute Only
         private readonly System.Windows.Threading.DispatcherTimer _resetTimer;
         private readonly System.Windows.Threading.DispatcherTimer _autoRefreshTimer;
@@ -68,12 +70,13 @@ namespace AIConsumptionTracker.UI
         private readonly IUpdateCheckerService _updateChecker;
         private AIConsumptionTracker.Core.Interfaces.UpdateInfo? _latestUpdate;
 
-        public MainWindow(ProviderManager providerManager, IConfigLoader configLoader, IUpdateCheckerService updateChecker)
+        public MainWindow(ProviderManager providerManager, IConfigLoader configLoader, IUpdateCheckerService updateChecker, INotificationService notificationService)
         {
             InitializeComponent();
             _providerManager = providerManager;
             _configLoader = configLoader;
             _updateChecker = updateChecker;
+            _notificationService = notificationService;
 
             _resetTimer = new System.Windows.Threading.DispatcherTimer();
             _resetTimer.Interval = TimeSpan.FromSeconds(15);
@@ -296,6 +299,59 @@ namespace AIConsumptionTracker.UI
             }
             
             RenderUsages(usages);
+            
+            // Check for quota depletion and refresh notifications
+            CheckQuotaNotifications(usages);
+        }
+
+        private void CheckQuotaNotifications(List<ProviderUsage> usages)
+        {
+            foreach (var usage in usages)
+            {
+                if (!usage.IsQuotaBased && usage.PaymentType != PaymentType.Quota)
+                    continue;
+
+                var providerId = usage.ProviderId;
+                var costRemaining = usage.CostLimit - usage.CostUsed;
+                var isCurrentlyDepleted = usage.UsagePercentage >= 100 || costRemaining <= 0;
+                
+                // Check previous state
+                bool wasPreviouslyDepleted = _providerQuotaDepletedState.TryGetValue(providerId, out var prevState) && prevState;
+                
+                if (isCurrentlyDepleted && !wasPreviouslyDepleted)
+                {
+                    // Quota just got depleted - show notification
+                    _notificationService.ShowQuotaExceeded(
+                        usage.ProviderName,
+                        $"Quota depleted at {usage.UsagePercentage:F1}% usage"
+                    );
+                    _providerQuotaDepletedState[providerId] = true;
+                }
+                else if (!isCurrentlyDepleted && wasPreviouslyDepleted)
+                {
+                    // Quota was refreshed - show notification
+                    _notificationService.ShowNotification(
+                        $"✅ {usage.ProviderName} Quota Refreshed",
+                        $"Your quota has been reset. You now have {costRemaining:F2} {usage.UsageUnit} available.",
+                        "showProvider",
+                        providerId
+                    );
+                    _providerQuotaDepletedState[providerId] = false;
+                }
+                else if (!_providerQuotaDepletedState.ContainsKey(providerId))
+                {
+                    // First time seeing this provider, record state
+                    _providerQuotaDepletedState[providerId] = isCurrentlyDepleted;
+                }
+            }
+            
+            // Clean up providers that no longer exist
+            var currentProviderIds = usages.Select(u => u.ProviderId).ToHashSet();
+            var providersToRemove = _providerQuotaDepletedState.Keys.Where(id => !currentProviderIds.Contains(id)).ToList();
+            foreach (var providerId in providersToRemove)
+            {
+                _providerQuotaDepletedState.Remove(providerId);
+            }
         }
 
         private void OnProviderUsageUpdated(ProviderUsage usage)
