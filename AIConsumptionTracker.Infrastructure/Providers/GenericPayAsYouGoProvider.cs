@@ -267,7 +267,11 @@ public class GenericPayAsYouGoProvider : IProviderService
              }
         }
 
-        var utilization = total > 0 ? (used / total) * 100.0 : 0;
+        // For quota-based providers, show remaining percentage (full bar = lots remaining)
+        // For other providers, show used percentage (full bar = high usage)
+        var utilization = paymentType == PaymentType.Quota
+            ? (total > 0 ? ((total - used) / total) * 100.0 : 0)  // Remaining % for quota
+            : (total > 0 ? (used / total) * 100.0 : 0);            // Used % for others
 
         var name = config.ProviderId;
         if (name == "generic-pay-as-you-go") name = new Uri(url).Host;

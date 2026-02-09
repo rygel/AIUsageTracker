@@ -185,9 +185,49 @@ public class ExampleProvider : IProviderService
                 IsAvailable = false,
                 Description = "Connection Failed"
             }};
-        }
     }
 }
+
+### Progress Bar Calculation for Payment Types
+
+The application uses different progress bar calculations depending on the payment type to provide intuitive visual feedback:
+
+#### Quota-Based Providers (e.g., Synthetic)
+
+**Calculation:** Show **remaining percentage** (full bar = lots of credits remaining)
+```csharp
+var utilization = (total - used) / total * 100.0;
+```
+
+**Visual Behavior:**
+- 0 used / 135 total = **100% full bar** (all credits available)
+- 67 used / 135 total = **50% bar** (half credits remaining)
+- 135 used / 135 total = **0% empty bar** (no credits remaining)
+
+**Rationale:** Users expect to see a full bar when they have all their quota available. The bar depletes as they use credits, similar to a fuel gauge.
+
+#### Credits-Based Providers (e.g., OpenCode)
+
+**Calculation:** Show **used percentage** (full bar = high usage/spending)
+```csharp
+var utilization = used / total * 100.0;
+```
+
+**Visual Behavior:**
+- 0 used / 100 total = **0% empty bar** (no spending yet)
+- 50 used / 100 total = **50% bar** (moderate spending)
+- 100 used / 100 total = **100% full bar** (budget exhausted)
+
+**Rationale:** For pay-as-you-go providers, users want to see spending accumulate. The bar fills up as they spend money, acting as a spending indicator.
+
+#### Implementation in GenericPayAsYouGoProvider
+
+```csharp
+// For quota-based providers, show remaining percentage (full bar = lots remaining)
+// For other providers, show used percentage (full bar = high usage)
+var utilization = paymentType == PaymentType.Quota
+    ? (total > 0 ? ((total - used) / total) * 100.0 : 0)  // Remaining % for quota
+    : (total > 0 ? (used / total) * 100.0 : 0);            // Used % for others
 ```
 
 ### JSON Handling
