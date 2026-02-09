@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.16] - 2026-02-09
+
+### Fixed
+- **Quota Bar Calculation**: Fixed progress bar to show remaining percentage for quota-based providers
+  - Shows 100% (full bar) when all credits are available
+  - Shows 0% (empty bar) when quota is exhausted
+  - Different calculation for quota vs credits-based providers
+- **Synthetic Provider**: Fixed reset time display to always show regardless of date
+
+### Added
+- **Automatic Updates**: Implemented automatic download and installation of updates
+  - Shows progress dialog during download
+  - Automatically runs installer and restarts application
+  - Falls back to browser if download fails
+- **Developer Documentation**: Added progress bar calculation guidelines to AGENTS.md
+
 ## [1.7.15] - 2026-02-09
 
 ### Added
