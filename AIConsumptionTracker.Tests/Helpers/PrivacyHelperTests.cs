@@ -7,7 +7,7 @@ public class PrivacyHelperTests
 {
     [Theory]
     [InlineData("test@example.com", null, "t**t@example.com")]
-    [InlineData("alexander.brandt@gmail.com", null, "a*****t@gmail.com")]
+    [InlineData("john.doe@example.com", null, "j*****e@example.com")]
     [InlineData("johndoe", "johndoe", "j*****e")]
     [InlineData("abc", "abc", "a*c")]
     [InlineData("ab", "ab", "**")]
