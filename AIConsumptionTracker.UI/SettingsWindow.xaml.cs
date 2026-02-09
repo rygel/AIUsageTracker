@@ -573,15 +573,40 @@ namespace AIConsumptionTracker.UI
               };
 
               Grid.SetColumn(lblRefresh, 0);
-              Grid.SetColumn(txtRefresh, 1);
-              gridRefresh.Children.Add(lblRefresh);
-               gridRefresh.Children.Add(txtRefresh);
+               Grid.SetColumn(txtRefresh, 1);
+               gridRefresh.Children.Add(lblRefresh);
+                gridRefresh.Children.Add(txtRefresh);
 
-               LayoutStack.Children.Add(gridRefresh);
+                LayoutStack.Children.Add(gridRefresh);
 
-               // Separator
-               var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)), Margin = new Thickness(0, 30, 0, 10) };
-              LayoutStack.Children.Add(separator);
+                // Notifications Section
+                var notifHeader = new TextBlock { Text = "Notifications", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, Margin = new Thickness(0, 20, 0, 10) };
+                LayoutStack.Children.Add(notifHeader);
+
+                var notifCheck = new CheckBox 
+                { 
+                    Content = "Enable Windows notifications for quota events",
+                    IsChecked = _prefs.EnableNotifications,
+                    Foreground = Brushes.White,
+                    Margin = new Thickness(0, 5, 0, 5)
+                };
+                notifCheck.Checked += (s, e) => _prefs.EnableNotifications = true;
+                notifCheck.Unchecked += (s, e) => _prefs.EnableNotifications = false;
+                LayoutStack.Children.Add(notifCheck);
+
+                var notifDesc = new TextBlock 
+                { 
+                    Text = "Show notifications when quotas are depleted or refreshed",
+                    Foreground = Brushes.Gray,
+                    FontSize = 11,
+                    Margin = new Thickness(20, 0, 0, 10),
+                    TextWrapping = TextWrapping.Wrap
+                };
+                LayoutStack.Children.Add(notifDesc);
+
+                // Separator
+                var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)), Margin = new Thickness(0, 30, 0, 10) };
+               LayoutStack.Children.Add(separator);
 
               // Font Settings Section
               var fontHeaderPanel = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };

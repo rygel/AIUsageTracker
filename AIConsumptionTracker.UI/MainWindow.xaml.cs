@@ -308,6 +308,10 @@ namespace AIConsumptionTracker.UI
 
         private void CheckQuotaNotifications(List<ProviderUsage> usages, List<ProviderConfig> configs)
         {
+            // Check global notification setting
+            if (!_preferences.EnableNotifications)
+                return;
+
             // Create a lookup for quick config access
             var configLookup = configs.ToDictionary(c => c.ProviderId, c => c);
             

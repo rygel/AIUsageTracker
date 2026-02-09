@@ -285,17 +285,23 @@ To disable notifications for a provider:
 3. Uncheck the **"Notify"** checkbox
 4. Click **Save**
 
+### Global Notification Switch
+
+To disable **all** notifications at once:
+1. Open **Settings**
+2. Go to the **Layout** tab
+3. Uncheck **"Enable Windows notifications for quota events"**
+4. Click **Save**
+
+This global switch overrides all per-provider settings. When disabled, no notifications will be shown regardless of individual provider settings.
+
 ### Notification Behavior
 
 - **Smart Detection**: Notifications are only sent once per state change (no spam)
 - **Click Action**: Clicking a notification opens the dashboard
 - **Action Center**: Notifications appear in Windows Action Center until dismissed
-- **Per-Provider Control**: Each provider can have notifications enabled/disabled independently
-
-### Requirements
-
-- Windows 10 (version 1809+) or Windows 11
-- Notifications are enabled by default for new providers
+- **Per-Provider Control**: Each provider can have notifications enabled/disabled independently (when global switch is on)
+- **Global Override**: The global switch in Layout settings disables all notifications when turned off
 
 ---
 
