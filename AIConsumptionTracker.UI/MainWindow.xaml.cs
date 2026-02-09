@@ -18,6 +18,7 @@ namespace AIConsumptionTracker.UI
         private readonly INotificationService _notificationService;
         private AppPreferences _preferences = new();
         private List<ProviderUsage> _cachedUsages = new();
+        private List<ProviderConfig> _cachedConfigs = new(); // Cache configs for notification checks
         private Dictionary<string, bool> _providerQuotaDepletedState = new(); // Track which providers have depleted quotas
         private int _resetDisplayMode = 0; // 0: Both, 1: Relative Only, 2: Absolute Only
         private readonly System.Windows.Threading.DispatcherTimer _resetTimer;
@@ -293,6 +294,7 @@ namespace AIConsumptionTracker.UI
             
             // Update Individual Tray Icons - use cached configs to avoid loading again
             var configs = _providerManager.LastConfigs ?? await _configLoader.LoadConfigAsync();
+            _cachedConfigs = configs; // Cache configs for notification checks
             if (Application.Current is App app)
             {
                 app.UpdateProviderTrayIcons(usages, configs, _preferences);
@@ -301,17 +303,25 @@ namespace AIConsumptionTracker.UI
             RenderUsages(usages);
             
             // Check for quota depletion and refresh notifications
-            CheckQuotaNotifications(usages);
+            CheckQuotaNotifications(usages, configs);
         }
 
-        private void CheckQuotaNotifications(List<ProviderUsage> usages)
+        private void CheckQuotaNotifications(List<ProviderUsage> usages, List<ProviderConfig> configs)
         {
+            // Create a lookup for quick config access
+            var configLookup = configs.ToDictionary(c => c.ProviderId, c => c);
+            
             foreach (var usage in usages)
             {
                 if (!usage.IsQuotaBased && usage.PaymentType != PaymentType.Quota)
                     continue;
 
                 var providerId = usage.ProviderId;
+                
+                // Check if notifications are enabled for this provider
+                if (configLookup.TryGetValue(providerId, out var config) && !config.EnableNotifications)
+                    continue; // Skip if notifications disabled
+                
                 var costRemaining = usage.CostLimit - usage.CostUsed;
                 var isCurrentlyDepleted = usage.UsagePercentage >= 100 || costRemaining <= 0;
                 

@@ -33,6 +33,9 @@ public class ProviderConfig
     [JsonPropertyName("show_in_tray")]
     public bool ShowInTray { get; set; }
 
+    [JsonPropertyName("enable_notifications")]
+    public bool EnableNotifications { get; set; } = true; // Default to enabled
+
     [JsonPropertyName("enabled_sub_trays")]
     public List<string> EnabledSubTrays { get; set; } = new();
 

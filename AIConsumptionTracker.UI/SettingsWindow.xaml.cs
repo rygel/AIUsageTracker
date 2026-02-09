@@ -173,6 +173,25 @@ namespace AIConsumptionTracker.UI
                 };
                 headerPanel.Children.Add(trayCheckBox);
 
+                // Add notification checkbox to header
+                var notifyCheckBox = new CheckBox
+                {
+                    Content = "Notify",
+                    IsChecked = config.EnableNotifications,
+                    Foreground = Brushes.LightGray,
+                    FontSize = 10,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Cursor = System.Windows.Input.Cursors.Hand,
+                    Margin = new Thickness(8, 0, 0, 0)
+                };
+                notifyCheckBox.Checked += (s, e) => {
+                    config.EnableNotifications = true;
+                };
+                notifyCheckBox.Unchecked += (s, e) => {
+                    config.EnableNotifications = false;
+                };
+                headerPanel.Children.Add(notifyCheckBox);
+
                 if (usage != null && !usage.IsAvailable)
                 {
                     var status = new Border 
