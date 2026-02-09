@@ -108,3 +108,54 @@ The application runs primarily in the system tray (near the clock). You can righ
 - Open the Dashboard.
 - Open Settings directly.
 - Exit the application completely.
+
+---
+
+## Environment Variables
+
+AI Consumption Tracker can automatically discover API keys from environment variables. This allows for seamless integration with your existing development environment without manually entering keys in the UI.
+
+### Supported Environment Variables
+
+| Environment Variable | Provider | Notes |
+|:---------------------|:---------|:------|
+| **ANTHROPIC_API_KEY** | Anthropic (Claude) | Primary key for Claude Code integration |
+| **CLAUDE_API_KEY** | Anthropic (Claude) | Alternative name for Claude authentication |
+| **OPENAI_API_KEY** | OpenAI | Used for OpenAI/Codex integration |
+| **MINIMAX_API_KEY** | Minimax | For both China and International variants |
+| **KIMI_API_KEY** | Kimi (Moonshot) | Primary key for Moonshot AI |
+| **MOONSHOT_API_KEY** | Kimi (Moonshot) | Alternative name for Moonshot |
+| **XIAOMI_API_KEY** | Xiaomi | Primary key for Xiaomi integration |
+| **MIMO_API_KEY** | Xiaomi | Alternative name for Xiaomi |
+
+### How It Works
+
+1. **Automatic Discovery**: When you click "Scan for Keys" in the Settings dialog, the application searches for these environment variables
+2. **Auto-Population**: Found keys are automatically added to the appropriate provider configuration
+3. **Source Tracking**: The application tracks where each key was discovered (shown as "Env: VARIABLE_NAME" in the Auth Source column)
+
+### Setting Environment Variables
+
+#### Windows (PowerShell)
+```powershell
+[Environment]::SetEnvironmentVariable("ANTHROPIC_API_KEY", "your-key-here", "User")
+```
+
+#### Windows (Command Prompt)
+```cmd
+setx ANTHROPIC_API_KEY "your-key-here"
+```
+
+#### Linux/macOS (Bash)
+```bash
+export ANTHROPIC_API_KEY="your-key-here"
+```
+
+**Note**: After setting environment variables, you may need to restart the application or your terminal for changes to take effect.
+
+### Security Considerations
+
+- Environment variables are stored in your system's user profile
+- The application reads but never writes to environment variables
+- Keys discovered via environment variables are cached in the application's secure storage for offline use
+- Consider using a secrets manager or `.env` file loader for team environments
