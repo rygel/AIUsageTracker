@@ -114,7 +114,7 @@ AI Consumption Tracker automatically discovers API keys from multiple sources, e
 | **OpenCode** | All configured providers | Config files in standard locations |
 | **Kilo Code** | Kilo Code + Roo Cline providers | VS Code extension and CLI config |
 | **Roo Code** | Multiple providers via Roo Cline | VS Code extension storage |
-| **Environment Variables** | Anthropic, OpenAI, Minimax, Kimi, Xiaomi | System environment |
+| **Environment Variables** | Anthropic, OpenAI, Minimax, Kimi, Xiaomi, OpenRouter | System environment |
 | **GitHub CLI** | GitHub Copilot | `gh auth token` command |
 | **Claude Code** | Anthropic (Claude) | `~/.claude/.credentials.json` |
 
@@ -188,6 +188,7 @@ The application searches for provider-specific API keys in your environment:
 | **MINIMAX_API_KEY** | Minimax |
 | **KIMI_API_KEY** / **MOONSHOT_API_KEY** | Kimi (Moonshot) |
 | **XIAOMI_API_KEY** / **MIMO_API_KEY** | Xiaomi |
+| **OPENROUTER_API_KEY** | OpenRouter |
 
 **Setting Environment Variables:**
 

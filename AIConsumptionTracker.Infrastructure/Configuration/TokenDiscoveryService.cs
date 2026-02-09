@@ -43,6 +43,10 @@ public class TokenDiscoveryService
             {
                 AddOrUpdate(discoveredConfigs, "openai", value, "Discovered via Environment Variable", "Env: OPENAI_API_KEY");
             }
+            else if (key == "OPENROUTER_API_KEY")
+            {
+                AddOrUpdate(discoveredConfigs, "openrouter", value, "Discovered via Environment Variable", "Env: OPENROUTER_API_KEY");
+            }
         }
 
         // 3. Discover from Kilo Code
