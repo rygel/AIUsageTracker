@@ -17,6 +17,6 @@ public class AppPreferences
     public bool FontItalic { get; set; } = false;
     public int AutoRefreshInterval { get; set; } = 300; // In seconds, 0 = Disabled
     public bool IsPrivacyMode { get; set; } = false;
-    public bool EnableNotifications { get; set; } = true; // Global notification switch
+    public bool EnableNotifications { get; set; } = false; // Global notification switch - disabled by default
 }
 
