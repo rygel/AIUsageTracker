@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.14] - 2026-02-09
+
+### Fixed
+- **NetSparkle Integration**: Properly integrated NetSparkleUpdater for automatic update checking
+  - Added automatic appcast.xml generation to release workflow
+  - Rewrote GitHubUpdateChecker to use NetSparkle's SparkleUpdater class
+  - Fixed type conflicts and simplified MainWindow update handling
+  - Removed dependency on non-existent GitHubReleaseAppCast class
+
+### Changed
+- **Test Data**: Updated PrivacyHelper tests to use generic email (john.doe@example.com) instead of personal email
+
 ## [1.7.13] - 2026-02-09
 
 ### Added
