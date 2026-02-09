@@ -56,7 +56,7 @@ Download the latest installer or .zip file from the [Release](https://github.com
 | **Minimax** (China) | API Key¹ | ⚠️ Beta ||
 | **Minimax** (International) | API Key¹ | ⚠️ Beta |  |
 | **Mistral** | API Key¹ | ✅ Tested | API usage not available |
-| **OpenAI (Codex)** | via opencode OAuth | ⚠️ Beta | |
+| **OpenAI (Codex)** | via opencode OAuth | ⚠️ Beta | testers needed |
 | **OpenRouter** | API Key¹ | 🚧 Planned | Not yet integrated |
 | **Opencode Zen** (pay-as-you-go) | API Key¹ | ✅ Tested |  & Plans |
 | **Opencode Zen** (coding plan) | API Key¹ | ⚠️ Beta |  **testers needed**  |
