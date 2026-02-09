@@ -70,6 +70,7 @@ namespace AIConsumptionTracker.UI
                     services.AddTransient<IProviderService, OpenAIProvider>();
                     services.AddTransient<IProviderService, AnthropicProvider>();
                     services.AddTransient<IProviderService, CloudCodeProvider>();
+                    services.AddTransient<IProviderService, MistralProvider>();
                     services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
                     services.AddTransient<IProviderService, GitHubCopilotProvider>();
                     services.AddTransient<IProviderService, CodexProvider>();
