@@ -9,7 +9,39 @@ namespace AIConsumptionTracker.Infrastructure.Services;
 public class GitHubUpdateChecker : IUpdateCheckerService
 {
     private readonly ILogger<GitHubUpdateChecker> _logger;
-    private const string APPCAST_URL = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast.xml";
+    // Architecture-specific appcast URLs
+    private static readonly Dictionary<string, string> APPCAST_URLS = new()
+    {
+        ["x64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_x64.xml",
+        ["x86"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_x86.xml",
+        ["arm64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_arm64.xml"
+    };
+
+    private string GetAppcastUrlForCurrentArchitecture()
+    {
+        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower();
+        
+        // Map architecture names
+        var archMapping = new Dictionary<string, string>
+        {
+            ["x64"] = "x64",
+            ["x86"] = "x86",
+            ["arm64"] = "arm64",
+            ["arm"] = "arm64"
+        };
+        
+        var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
+        
+        if (APPCAST_URLS.TryGetValue(targetArch, out var url))
+        {
+            _logger.LogDebug("Using appcast for architecture {Architecture}: {Url}", targetArch, url);
+            return url;
+        }
+        
+        // Fallback to x64 if unknown
+        _logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
+        return APPCAST_URLS["x64"];
+    }
 
     public GitHubUpdateChecker(ILogger<GitHubUpdateChecker> logger)
     {
@@ -20,10 +52,13 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     {
         try
         {
-            // Initialize SparkleUpdater with the appcast URL
-            using var sparkle = new SparkleUpdater(APPCAST_URL, new Ed25519Checker(SecurityMode.Unsafe));
+            // Get the appcast URL for current architecture
+            var appcastUrl = GetAppcastUrlForCurrentArchitecture();
             
-            _logger.LogDebug("Checking for updates via NetSparkle appcast: {Url}", APPCAST_URL);
+            // Initialize SparkleUpdater with the architecture-specific appcast URL
+            using var sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe));
+            
+            _logger.LogDebug("Checking for updates via NetSparkle appcast: {Url}", appcastUrl);
             
             // Check for updates quietly (no UI)
             var updateInfo = await sparkle.CheckForUpdatesQuietly();
@@ -43,14 +78,11 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                         _logger.LogInformation("New version available: {LatestVersion} (Current: {CurrentVersion})", 
                             latestVersion, currentVersion);
 
-                        // Get the correct download URL for current architecture
-                        var downloadUrl = GetDownloadUrlForArchitecture(updateInfo);
-
                         return new AIConsumptionTracker.Core.Interfaces.UpdateInfo
                         {
                             Version = latest.Version ?? latestVersion.ToString(),
                             ReleaseUrl = latest.ReleaseNotesLink ?? $"https://github.com/rygel/AIConsumptionTracker/releases/tag/v{latestVersion}",
-                            DownloadUrl = downloadUrl,
+                            DownloadUrl = latest.DownloadLink ?? string.Empty,
                             ReleaseNotes = string.Empty,
                             PublishedAt = latest.PublicationDate
                         };
@@ -66,39 +98,6 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             _logger.LogWarning(ex, "Failed to check for updates via NetSparkle appcast");
             return null;
         }
-    }
-
-    private string GetDownloadUrlForArchitecture(NetSparkleUpdater.AppCastItem[] updates)
-    {
-        // Detect current architecture
-        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower();
-        
-        // Map architecture names
-        var archMapping = new Dictionary<string, string>
-        {
-            ["x64"] = "x64",
-            ["x86"] = "x86",
-            ["arm64"] = "arm64",
-            ["arm"] = "arm64"
-        };
-        
-        var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
-        
-        _logger.LogDebug("Current architecture: {CurrentArch}, mapped to: {TargetArch}", currentArch, targetArch);
-        
-        // Find the update for the current architecture
-        var archUpdate = updates.FirstOrDefault(u => 
-            u.DownloadLink?.Contains($"_{targetArch}.exe", StringComparison.OrdinalIgnoreCase) == true);
-        
-        if (archUpdate != null)
-        {
-            _logger.LogInformation("Found update for {Architecture}: {Url}", targetArch, archUpdate.DownloadLink);
-            return archUpdate.DownloadLink ?? string.Empty;
-        }
-        
-        // Fallback to first available update if architecture-specific not found
-        _logger.LogWarning("Architecture-specific update not found for {Architecture}, using first available", targetArch);
-        return updates.FirstOrDefault()?.DownloadLink ?? string.Empty;
     }
 
     public async Task<bool> DownloadAndInstallUpdateAsync(AIConsumptionTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)

@@ -67,48 +67,41 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_number=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Generate Appcast File
+      - name: Generate Appcast Files
         run: |
           version="${{ steps.get_version.outputs.version }}"
           version_number="${{ steps.get_version.outputs.version_number }}"
-          pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z')
+          pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z'
           
-          echo '<?xml version="1.0" encoding="UTF-8"?>' > appcast.xml
-          echo '<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">' >> appcast.xml
-          echo '    <channel>' >> appcast.xml
-          echo '        <title>AI Consumption Tracker</title>' >> appcast.xml
-          echo '        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>' >> appcast.xml
-          echo '        <description>Most recent changes with links to updates.</description>' >> appcast.xml
-          echo '        <language>en</language>' >> appcast.xml
-          echo '        <item>' >> appcast.xml
-          echo "            <title>Version $version</title>" >> appcast.xml
-          echo "            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v$version_number</sparkle:releaseNotesLink>" >> appcast.xml
-          echo "            <pubDate>$pub_date</pubDate>" >> appcast.xml
-          # x64 enclosure
-          echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}_x64.exe\"" >> appcast.xml
-          echo "                       sparkle:version=\"$version_number\"" >> appcast.xml
-          echo '                       sparkle:os="windows"' >> appcast.xml
-          echo '                       sparkle:arch="x64"' >> appcast.xml
-          echo '                       length="0"' >> appcast.xml
-          echo '                       type="application/octet-stream" />' >> appcast.xml
-          # x86 enclosure
-          echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}_x86.exe\"" >> appcast.xml
-          echo "                       sparkle:version=\"$version_number\"" >> appcast.xml
-          echo '                       sparkle:os="windows"' >> appcast.xml
-          echo '                       sparkle:arch="x86"' >> appcast.xml
-          echo '                       length="0"' >> appcast.xml
-          echo '                       type="application/octet-stream" />' >> appcast.xml
-          # arm64 enclosure
-          echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}_arm64.exe\"" >> appcast.xml
-          echo "                       sparkle:version=\"$version_number\"" >> appcast.xml
-          echo '                       sparkle:os="windows"' >> appcast.xml
-          echo '                       sparkle:arch="arm64"' >> appcast.xml
-          echo '                       length="0"' >> appcast.xml
-          echo '                       type="application/octet-stream" />' >> appcast.xml
-          echo '        </item>' >> appcast.xml
-          echo '    </channel>' >> appcast.xml
-          echo '</rss>' >> appcast.xml
-          echo "✓ Generated appcast.xml"
+          # Generate appcast for each architecture
+          for arch in x64 x86 arm64; do
+            echo "Generating appcast_${arch}.xml..."
+            
+            echo '<?xml version="1.0" encoding="UTF-8"?>' > appcast_${arch}.xml
+            echo '<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">' >> appcast_${arch}.xml
+            echo '    <channel>' >> appcast_${arch}.xml
+            echo '        <title>AI Consumption Tracker</title>' >> appcast_${arch}.xml
+            echo '        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>' >> appcast_${arch}.xml
+            echo '        <description>Most recent changes with links to updates.</description>' >> appcast_${arch}.xml
+            echo '        <language>en</language>' >> appcast_${arch}.xml
+            echo '        <item>' >> appcast_${arch}.xml
+            echo "            <title>Version $version</title>" >> appcast_${arch}.xml
+            echo "            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v$version_number</sparkle:releaseNotesLink>" >> appcast_${arch}.xml
+            echo "            <pubDate>$pub_date</pubDate>" >> appcast_${arch}.xml
+            echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}_${arch}.exe\"" >> appcast_${arch}.xml
+            echo "                       sparkle:version=\"$version_number\"" >> appcast_${arch}.xml
+            echo '                       sparkle:os="windows"' >> appcast_${arch}.xml
+            echo '                       length="0"' >> appcast_${arch}.xml
+            echo '                       type="application/octet-stream" />' >> appcast_${arch}.xml
+            echo '        </item>' >> appcast_${arch}.xml
+            echo '    </channel>' >> appcast_${arch}.xml
+            echo '</rss>' >> appcast_${arch}.xml
+            echo "✓ Generated appcast_${arch}.xml"
+          done
+          
+          # Also generate a generic appcast.xml for backward compatibility (x64 only)
+          cp appcast_x64.xml appcast.xml
+          echo "✓ Generated appcast.xml (x64)"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -116,6 +109,9 @@ jobs:
           files: |
             artifacts/**/*
             appcast.xml
+            appcast_x64.xml
+            appcast_x86.xml
+            appcast_arm64.xml
           draft: false
           prerelease: false
           generate_release_notes: true
