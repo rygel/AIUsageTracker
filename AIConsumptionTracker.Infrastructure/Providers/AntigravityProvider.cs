@@ -86,7 +86,9 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                                 CostLimit = _cachedUsage.CostLimit,
                                 Details = refilledDetails,
                                 AccountName = _cachedUsage.AccountName,
-                                Description = description
+                                Description = description,
+                                IsQuotaBased = true,
+                                PaymentType = PaymentType.Quota
                             }};
                         }
 
@@ -114,7 +116,9 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                         CostLimit = _cachedUsage.CostLimit,
                         Details = _cachedUsage.Details,
                         AccountName = _cachedUsage.AccountName,
-                        Description = description
+                        Description = description,
+                        IsQuotaBased = true,
+                        PaymentType = PaymentType.Quota
                     }};
                 }
                 else
