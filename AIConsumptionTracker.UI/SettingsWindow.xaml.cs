@@ -139,6 +139,8 @@ namespace AIConsumptionTracker.UI
                     "minimax" => "Minimax (China)",
                     "minimax-io" => "Minimax (International)",
                     "opencode" => "OpenCode",
+                    "anthropic" => "Anthropic (Claude)",
+                    "claude-code" => "Claude Code",
                     _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("_", " ").Replace("-", " "))
                 };
 

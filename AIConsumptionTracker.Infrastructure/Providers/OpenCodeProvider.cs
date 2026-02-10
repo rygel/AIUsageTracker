@@ -22,6 +22,20 @@ public class OpenCodeProvider : IProviderService
 
     public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
+        // Check if API key is configured
+        if (string.IsNullOrEmpty(config.ApiKey))
+        {
+            return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
+            {
+                ProviderId = ProviderId,
+                ProviderName = "OpenCode",
+                IsAvailable = false,
+                Description = "No API key configured",
+                IsQuotaBased = false,
+                PaymentType = PaymentType.UsageBased
+            }});
+        }
+
         // Execute CLI synchronously (it's fast enough or we accept the block on thread pool)
         // Better to use Task.Run for process execution
         return Task.Run<IEnumerable<ProviderUsage>>(() => 
@@ -33,7 +47,9 @@ public class OpenCodeProvider : IProviderService
                     ProviderId = ProviderId,
                     ProviderName = "OpenCode",
                     IsAvailable = false,
-                    Description = "CLI not found at expected path"
+                    Description = "CLI not found at expected path",
+                    IsQuotaBased = false,
+                    PaymentType = PaymentType.UsageBased
                 }};
             }
 
@@ -67,7 +83,9 @@ public class OpenCodeProvider : IProviderService
                         ProviderId = ProviderId,
                         ProviderName = "OpenCode",
                         IsAvailable = false,
-                        Description = $"CLI Error: {process.ExitCode} (Check log or clear storage if JSON error)"
+                        Description = $"CLI Error: {process.ExitCode} (Check log or clear storage if JSON error)",
+                        IsQuotaBased = false,
+                        PaymentType = PaymentType.UsageBased
                     }};
                 }
 
@@ -81,7 +99,9 @@ public class OpenCodeProvider : IProviderService
                     ProviderId = ProviderId,
                     ProviderName = "OpenCode",
                     IsAvailable = false,
-                    Description = $"Execution Failed: {ex.Message}"
+                    Description = $"Execution Failed: {ex.Message}",
+                    IsQuotaBased = false,
+                    PaymentType = PaymentType.UsageBased
                 }};
             }
         });
