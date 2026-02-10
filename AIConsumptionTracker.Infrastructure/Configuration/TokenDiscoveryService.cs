@@ -1,11 +1,19 @@
 using AIConsumptionTracker.Core.Models;
 using System.Collections;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace AIConsumptionTracker.Infrastructure.Configuration;
 
 public class TokenDiscoveryService
 {
+    private readonly ILogger<TokenDiscoveryService> _logger;
+
+    public TokenDiscoveryService(ILogger<TokenDiscoveryService> logger)
+    {
+        _logger = logger;
+    }
+
     public List<ProviderConfig> DiscoverTokens()
     {
         var discoveredConfigs = new List<ProviderConfig>();
@@ -142,21 +150,44 @@ public class TokenDiscoveryService
     private void DiscoverFromProvidersFile(List<ProviderConfig> configs)
     {
         var providersPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "providers.json");
+        
+        _logger.LogDebug("[OpenCode Discovery] Checking for providers.json at: {Path}", providersPath);
+        
         if (File.Exists(providersPath))
         {
+            _logger.LogInformation("[OpenCode Discovery] Found providers.json at: {Path}", providersPath);
+            
             try
             {
                 var json = File.ReadAllText(providersPath);
+                _logger.LogDebug("[OpenCode Discovery] Read {Length} bytes from providers.json", json.Length);
+                
                 var known = JsonSerializer.Deserialize<Dictionary<string, string>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                
                 if (known != null)
                 {
+                    _logger.LogInformation("[OpenCode Discovery] Parsed {Count} providers from providers.json", known.Count);
+                    
                     foreach (var id in known.Keys)
                     {
+                        _logger.LogDebug("[OpenCode Discovery] Found provider: {ProviderId}, Key present: {HasKey}", 
+                            id, !string.IsNullOrEmpty(known[id]));
                         AddIfNotExists(configs, id, known[id], "Discovered in providers.json", "Config: providers.json");
                     }
                 }
+                else
+                {
+                    _logger.LogWarning("[OpenCode Discovery] Failed to parse providers.json - result was null");
+                }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[OpenCode Discovery] Error reading providers.json: {Message}", ex.Message);
+            }
+        }
+        else
+        {
+            _logger.LogDebug("[OpenCode Discovery] providers.json not found at: {Path}", providersPath);
         }
     }
 

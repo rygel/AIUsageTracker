@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-02-10
+
+### Added
+- **Changelog Window**: Added ability to view release notes before updating
+  - Fetches changelog from GitHub API
+  - Shows in scrollable window with dark theme
+  - Accessible from update notification banner
+- **Architecture-Specific Updates**: Fixed update system to support x64, x86, and arm64 architectures
+  - Each architecture now has its own appcast file
+  - Application automatically downloads correct installer for current architecture
+
+### Fixed
+- **Update System**: Fixed architecture detection and installer naming
+  - Installers now include architecture suffix (e.g., `_x64.exe`)
+  - Prevents x64/x86/arm64 installer conflicts
+- **Appcast Generation**: Now generates separate appcast files per architecture
+  - appcast_x64.xml, appcast_x86.xml, appcast_arm64.xml
+
 ## [1.8.0] - 2026-02-10
 
 ### Added

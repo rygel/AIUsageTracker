@@ -22,9 +22,12 @@ public class OpenCodeProvider : IProviderService
 
     public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
+        _logger.LogDebug("OpenCode GetUsageAsync called for provider {ProviderId}", ProviderId);
+        
         // Check if API key is configured
         if (string.IsNullOrEmpty(config.ApiKey))
         {
+            _logger.LogInformation("OpenCode API key not configured - returning unavailable state");
             return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
@@ -36,12 +39,17 @@ public class OpenCodeProvider : IProviderService
             }});
         }
 
+        _logger.LogDebug("OpenCode API key configured, proceeding with CLI execution");
+
         // Execute CLI synchronously (it's fast enough or we accept the block on thread pool)
         // Better to use Task.Run for process execution
         return Task.Run<IEnumerable<ProviderUsage>>(() => 
         {
+            _logger.LogDebug("Checking if OpenCode CLI exists at path: {CliPath}", _cliPath);
+            
             if (!File.Exists(_cliPath))
             {
+                _logger.LogWarning("OpenCode CLI not found at expected path: {CliPath}", _cliPath);
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
@@ -52,6 +60,8 @@ public class OpenCodeProvider : IProviderService
                     PaymentType = PaymentType.UsageBased
                 }};
             }
+
+            _logger.LogDebug("OpenCode CLI found, executing command: opencode stats --days 7 --models 10");
 
             try
             {
@@ -65,19 +75,29 @@ public class OpenCodeProvider : IProviderService
                     CreateNoWindow = true
                 };
 
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                 using var process = Process.Start(startInfo);
+                
                 if (process == null)
                 {
-                     throw new Exception("Failed to start opencode process");
+                    _logger.LogError("Failed to start OpenCode process - Process.Start returned null");
+                    throw new Exception("Failed to start opencode process");
                 }
+
+                _logger.LogDebug("OpenCode process started with PID: {ProcessId}", process.Id);
 
                 var output = process.StandardOutput.ReadToEnd();
                 var error = process.StandardError.ReadToEnd();
                 process.WaitForExit(5000); // 5 sec timeout
+                stopwatch.Stop();
+
+                _logger.LogDebug("OpenCode CLI execution completed in {ElapsedMs}ms with exit code: {ExitCode}", 
+                    stopwatch.ElapsedMilliseconds, process.ExitCode);
 
                 if (process.ExitCode != 0)
                 {
-                    _logger.LogWarning($"OpenCode CLI failed: {error}");
+                    _logger.LogWarning("OpenCode CLI failed with exit code {ExitCode}. Error output: {Error}", 
+                        process.ExitCode, error);
                      return new[] { new ProviderUsage
                     {
                         ProviderId = ProviderId,
@@ -89,11 +109,17 @@ public class OpenCodeProvider : IProviderService
                     }};
                 }
 
-                return new[] { ParseOutput(output) };
+                _logger.LogDebug("OpenCode CLI succeeded. Output length: {OutputLength} chars", output?.Length ?? 0);
+                
+                var result = ParseOutput(output);
+                _logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.CostUsed);
+                
+                return new[] { result };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to run OpenCode CLI");
+                _logger.LogError(ex, "Failed to run OpenCode CLI. Exception type: {ExceptionType}, Message: {Message}", 
+                    ex.GetType().Name, ex.Message);
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
