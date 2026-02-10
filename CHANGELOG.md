@@ -13,9 +13,6 @@
 - **File Logging**: Added file logging to UI for debugging
 - **Unit Tests**: Added AntigravityProviderTests to verify PaymentType consistency
 
-### Documentation
-- Updated DESIGN.md with Z.AI API response format and PaymentType requirements
-
 ## [1.7.18] - 2026-02-10
 
 ### Fixed
