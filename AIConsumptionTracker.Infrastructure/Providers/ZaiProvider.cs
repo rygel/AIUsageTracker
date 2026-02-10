@@ -93,10 +93,15 @@ public class ZaiProvider : IProviderService
             remainingPercent = Math.Min(remainingPercent, mcpRemainingPercent);
         }
 
-        // Z.AI usually resets at UTC midnight
-        var resetDt = DateTime.UtcNow.Date.AddDays(1);
-        var rDiff = resetDt.ToLocalTime() - DateTime.Now;
-        string zReset = $" (Resets: ({resetDt.ToLocalTime():MMM dd HH:mm}))";
+        // Get next reset time from the first limit that has it (Unix timestamp in milliseconds)
+        DateTime? nextResetTime = null;
+        string resetStr = "";
+        var limitWithReset = limits.FirstOrDefault(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0);
+        if (limitWithReset != null)
+        {
+            nextResetTime = DateTimeOffset.FromUnixTimeMilliseconds(limitWithReset.NextResetTime!.Value).LocalDateTime;
+            resetStr = $" (Resets: {nextResetTime:MMM dd HH:mm})";
+        }
 
         return new[] { new ProviderUsage
         {
@@ -108,9 +113,8 @@ public class ZaiProvider : IProviderService
             UsageUnit = "Quota %",
             IsQuotaBased = true, 
             PaymentType = PaymentType.Quota,
-            Description = (string.IsNullOrEmpty(detailInfo) ? $"{100 - remainingPercent:F1}% utilized" : detailInfo) + zReset,
-
-            NextResetTime = resetDt.ToLocalTime()
+            Description = (string.IsNullOrEmpty(detailInfo) ? $"{100 - remainingPercent:F1}% utilized" : detailInfo) + resetStr,
+            NextResetTime = nextResetTime
         }};
     }
 
@@ -142,6 +146,9 @@ public class ZaiProvider : IProviderService
         
         [JsonPropertyName("remaining")]
         public long? Remaining { get; set; }
+        
+        [JsonPropertyName("nextResetTime")]
+        public long? NextResetTime { get; set; }
     }
 }
 

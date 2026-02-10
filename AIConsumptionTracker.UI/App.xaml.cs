@@ -59,6 +59,15 @@ namespace AIConsumptionTracker.UI
                     logging.AddConsole();
                     logging.AddDebug();
                     logging.SetMinimumLevel(LogLevel.Debug);
+                    
+                    // Add file logging for debugging
+                    var logPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "AIConsumptionTracker",
+                        "logs",
+                        $"app_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+                    Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+                    logging.AddProvider(new FileLoggerProvider(logPath));
                 })
                 .ConfigureServices((context, services) =>
                 {

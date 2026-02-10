@@ -18,5 +18,10 @@ public class AppPreferences
     public int AutoRefreshInterval { get; set; } = 300; // In seconds, 0 = Disabled
     public bool IsPrivacyMode { get; set; } = false;
     public bool EnableNotifications { get; set; } = false; // Global notification switch - disabled by default
+    
+    // Collapsible section states
+    public bool IsPlansAndQuotasCollapsed { get; set; } = false;
+    public bool IsPayAsYouGoCollapsed { get; set; } = false;
+    public bool IsAntigravityCollapsed { get; set; } = false;
 }
 

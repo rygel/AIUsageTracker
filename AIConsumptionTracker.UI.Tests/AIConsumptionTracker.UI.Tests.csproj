@@ -25,6 +25,7 @@
     <ProjectReference Include="..\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj" />
     <ProjectReference Include="..\AIConsumptionTracker.Core\AIConsumptionTracker.Core.csproj" />
     <ProjectReference Include="..\AIConsumptionTracker.Infrastructure\AIConsumptionTracker.Infrastructure.csproj" />
+    <ProjectReference Include="..\AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj" />
   </ItemGroup>
 
 </Project>

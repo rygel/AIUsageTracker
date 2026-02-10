@@ -406,6 +406,16 @@ Users can customize the visual thresholds via settings:
 
 5. **Inverted Flag**: Only affects visual bar direction, NEVER color determination
 
+6. **Use Real API Data**: 
+   - **NEVER** hardcode assumptions about provider behavior (e.g., reset times, billing cycles)
+   - **ALWAYS** use actual data returned by the provider's API
+   - If the API does not provide certain information (e.g., reset time), set `NextResetTime = null` and do not display it
+   - Examples of what NOT to do:
+     - Do NOT assume all providers reset at UTC midnight
+     - Do NOT assume fixed billing cycles (e.g., monthly from signup)
+     - Do NOT make up data that the API doesn't provide
+   - When in doubt, ask the developer what the real API behavior is
+
 ---
 
 ## Change Control Policy
@@ -433,6 +443,121 @@ Before modifying any logic in this document:
 3. Verify all provider types still work correctly
 4. Update this documentation to reflect changes
 5. Ensure tests pass for all scenarios
+
+---
+
+## Provider API Response Formats
+
+**AI NOTICE: These are the actual API response structures. Use real data from these fields.**
+
+### Z.AI (api.z.ai)
+
+**Endpoint:** `GET https://api.z.ai/api/monitor/usage/quota/limit`
+
+**Response Structure:**
+```json
+{
+  "data": {
+    "limits": [
+      {
+        "type": "TOKENS_LIMIT",
+        "percentage": null,
+        "currentValue": 0,
+        "usage": 135000000,
+        "remaining": 135000000,
+        "nextResetTime": 1739232000
+      }
+    ]
+  }
+}
+```
+
+**Key Fields:**
+- `type`: "TOKENS_LIMIT" for coding plan, "TIME_LIMIT" for MCP usage
+- `usage`: Total quota limit (mapped to `Total` property)
+- `currentValue`: Amount used
+- `remaining`: Amount remaining
+- `nextResetTime`: **Unix timestamp in milliseconds** (NOT seconds, NOT ISO 8601 string)
+
+**Accessing Reset Time:**
+```csharp
+[JsonPropertyName("nextResetTime")]
+public long? NextResetTime { get; set; }  // Unix timestamp in milliseconds
+
+var limitWithReset = limits.FirstOrDefault(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0);
+if (limitWithReset != null)
+{
+    nextResetTime = DateTimeOffset.FromUnixTimeMilliseconds(limitWithReset.NextResetTime!.Value).LocalDateTime;
+}
+```
+
+**Display Format:**
+The reset time is displayed in two ways:
+1. **Description field**: Shows inline text like `"10.5% Used of 135M tokens limit (Resets: Feb 11 00:00)"`
+2. **NextResetTime property**: Set for UI components to use (e.g., tray icon tooltips, detailed views)
+
+---
+
+### Provider Payment Type Requirements
+
+**CRITICAL RULE: All provider return paths MUST set PaymentType and IsQuotaBased**
+
+Every provider that implements `IProviderService` must ensure that **ALL** return paths set the `PaymentType` and `IsQuotaBased` properties on `ProviderUsage`. This is required for the UI to correctly categorize providers into "Plans & Quotas" vs "Pay As You Go" sections.
+
+**Required Properties:**
+- **Quota-based providers** (e.g., Antigravity, Z.AI, GitHub Copilot): 
+  - `PaymentType = PaymentType.Quota`
+  - `IsQuotaBased = true`
+- **Usage-based providers** (e.g., OpenCode):
+  - `PaymentType = PaymentType.UsageBased` (or leave as default)
+  - `IsQuotaBased = false` (or leave as default)
+
+**Common Mistake:**
+```csharp
+// WRONG - Missing PaymentType in error case
+return new[] { new ProviderUsage
+{
+    ProviderId = ProviderId,
+    ProviderName = "Antigravity",
+    Description = "Application not running"
+    // Missing: IsQuotaBased and PaymentType!
+}};
+
+// CORRECT - All properties set
+return new[] { new ProviderUsage
+{
+    ProviderId = ProviderId,
+    ProviderName = "Antigravity",
+    Description = "Application not running",
+    IsQuotaBased = true,
+    PaymentType = PaymentType.Quota
+}};
+```
+
+**Implementation Checklist for Providers:**
+- [ ] Success path sets correct PaymentType
+- [ ] Error/exception catch blocks set correct PaymentType
+- [ ] "Not running" / unavailable states set correct PaymentType
+- [ ] All return statements in the method set PaymentType
+- [ ] Unit test verifies PaymentType in all scenarios
+
+**Example Implementation:**
+```csharp
+string resetStr = "";
+DateTime? nextResetTime = null;
+if (limitWithReset != null)
+{
+    nextResetTime = DateTimeOffset.FromUnixTimeMilliseconds(limitWithReset.NextResetTime!.Value).LocalDateTime;
+    resetStr = $" (Resets: {nextResetTime:MMM dd HH:mm})";
+}
+
+return new ProviderUsage
+{
+    // ... other properties ...
+    Description = detailInfo + resetStr,  // Shows in main UI
+    NextResetTime = nextResetTime         // Used by UI components
+};
+```
 
 ---
 

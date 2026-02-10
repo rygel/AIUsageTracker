@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.19] - 2026-02-10
+
+### Fixed
+- **Z.AI Provider**: Fixed reset time parsing from Unix timestamp (milliseconds)
+- **Antigravity Provider**: Fixed PaymentType classification in all error cases
+  - All return paths now correctly set `PaymentType = Quota`
+  - Provider now appears in correct "Plans & Quotas" section when not running
+
+### Added
+- **Collapsible Sections**: Added collapsible groups for "Plans & Quotas" and "Pay As You Go"
+- **File Logging**: Added file logging to UI for debugging
+- **Unit Tests**: Added AntigravityProviderTests to verify PaymentType consistency
+
 ## [1.7.18] - 2026-02-10
 
 ### Fixed

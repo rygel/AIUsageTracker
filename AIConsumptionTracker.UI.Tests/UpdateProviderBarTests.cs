@@ -104,7 +104,7 @@ public class UpdateProviderBarTests
 
         // Assert: The unavailable provider should NOT be added to the UI
         var providersList = (StackPanel)mainWindow.FindName("ProvidersList");
-        var providerCount = providersList.Children.OfType<Grid>().Count(g => g.Tag?.ToString() == "openai");
+        var providerCount = FindElementsByTagRecursive<Grid>(providersList, "openai").Count();
         
         Assert.Equal(0, providerCount);
     }
@@ -150,7 +150,7 @@ public class UpdateProviderBarTests
 
         // Assert: The unavailable provider SHOULD be added to the UI when ShowAll is true
         var providersList = (StackPanel)mainWindow.FindName("ProvidersList");
-        var providerCount = providersList.Children.OfType<Grid>().Count(g => g.Tag?.ToString() == "openai");
+        var providerCount = FindElementsByTagRecursive<Grid>(providersList, "openai").Count();
         
         Assert.Equal(1, providerCount);
     }
@@ -197,7 +197,7 @@ public class UpdateProviderBarTests
 
         // Assert: The quota-based provider SHOULD be added even when ShowAll is false
         var providersList = (StackPanel)mainWindow.FindName("ProvidersList");
-        var providerCount = providersList.Children.OfType<Grid>().Count(g => g.Tag?.ToString() == "anthropic");
+        var providerCount = FindElementsByTagRecursive<Grid>(providersList, "anthropic").Count();
         
         Assert.Equal(1, providerCount);
     }
@@ -244,7 +244,7 @@ public class UpdateProviderBarTests
 
         // Assert: The provider with reset time SHOULD be added even when ShowAll is false
         var providersList = (StackPanel)mainWindow.FindName("ProvidersList");
-        var providerCount = providersList.Children.OfType<Grid>().Count(g => g.Tag?.ToString() == "openai");
+        var providerCount = FindElementsByTagRecursive<Grid>(providersList, "openai").Count();
         
         Assert.Equal(1, providerCount);
     }
@@ -277,7 +277,7 @@ public class UpdateProviderBarTests
 
         // Verify initial state
         var providersList = (StackPanel)mainWindow.FindName("ProvidersList");
-        var initialCount = providersList.Children.OfType<Grid>().Count(g => g.Tag?.ToString() == providerId);
+        var initialCount = FindElementsByTagRecursive<Grid>(providersList, providerId).Count();
         Assert.Equal(1, initialCount);
 
         // Act: Call UpdateProviderBar with updated data
@@ -296,7 +296,34 @@ public class UpdateProviderBarTests
         method?.Invoke(mainWindow, new object[] { updatedUsage });
 
         // Assert: The old bar should be replaced, not added as a duplicate
-        var finalCount = providersList.Children.OfType<Grid>().Count(g => g.Tag?.ToString() == providerId);
+        var finalCount = FindElementsByTagRecursive<Grid>(providersList, providerId).Count();
         Assert.Equal(1, finalCount);
+    }
+
+    // Helper method to recursively find elements by tag
+    private static IEnumerable<T> FindElementsByTagRecursive<T>(Panel parent, string tag) where T : FrameworkElement
+    {
+        foreach (var child in parent.Children)
+        {
+            if (child is T element && element.Tag?.ToString() == tag)
+            {
+                yield return element;
+            }
+            
+            if (child is Panel childPanel)
+            {
+                foreach (var result in FindElementsByTagRecursive<T>(childPanel, tag))
+                {
+                    yield return result;
+                }
+            }
+            else if (child is Border border && border.Child is Panel borderPanel)
+            {
+                foreach (var result in FindElementsByTagRecursive<T>(borderPanel, tag))
+                {
+                    yield return result;
+                }
+            }
+        }
     }
 }
