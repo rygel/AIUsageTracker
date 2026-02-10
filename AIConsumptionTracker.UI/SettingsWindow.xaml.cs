@@ -140,6 +140,7 @@ namespace AIConsumptionTracker.UI
                     "minimax-io" => "Minimax (International)",
                     "opencode" => "OpenCode",
                     "claude-code" => "Claude Code",
+                    "zai-coding-plan" => "Z.ai Coding Plan",
                     _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("_", " ").Replace("-", " "))
                 };
 
