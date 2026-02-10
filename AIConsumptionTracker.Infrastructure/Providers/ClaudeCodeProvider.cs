@@ -58,36 +58,60 @@ public class ClaudeCodeProvider : IProviderService
     {
         try
         {
-            // Anthropic API for usage - using the admin/usage endpoint
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/v1/usage");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Headers.Add("anthropic-version", "2023-06-01");
+            // First, make a test request to get rate limit headers
+            var testRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+            testRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            testRequest.Headers.Add("anthropic-version", "2023-06-01");
+            testRequest.Content = new StringContent("{\"model\":\"claude-sonnet-4-20250514\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}", System.Text.Encoding.UTF8, "application/json");
 
-            var response = await _httpClient.SendAsync(request);
+            var testResponse = await _httpClient.SendAsync(testRequest);
             
-            if (!response.IsSuccessStatusCode)
+            // Extract rate limit information from headers
+            var rateLimitHeaders = ExtractRateLimitInfo(testResponse.Headers);
+            
+            // Now get usage data
+            var usageRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/v1/usage");
+            usageRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            usageRequest.Headers.Add("anthropic-version", "2023-06-01");
+
+            var usageResponse = await _httpClient.SendAsync(usageRequest);
+            
+            if (!usageResponse.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning($"Anthropic API returned {response.StatusCode}: {errorContent}");
+                var errorContent = await usageResponse.Content.ReadAsStringAsync();
+                _logger.LogWarning($"Anthropic API returned {usageResponse.StatusCode}: {errorContent}");
+                
+                // Return basic info with rate limits even if usage call fails
+                if (rateLimitHeaders.RequestsLimit > 0)
+                {
+                    return new ProviderUsage
+                    {
+                        ProviderId = ProviderId,
+                        ProviderName = "Claude Code",
+                        UsagePercentage = 0,
+                        CostUsed = 0,
+                        CostLimit = 0,
+                        UsageUnit = "USD",
+                        IsQuotaBased = false,
+                        PaymentType = PaymentType.UsageBased,
+                        IsAvailable = true,
+                        Description = $"Tier: {rateLimitHeaders.GetTierName()} | RPM: {rateLimitHeaders.RequestsRemaining}/{rateLimitHeaders.RequestsLimit}"
+                    };
+                }
                 return null;
             }
 
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await usageResponse.Content.ReadAsStringAsync();
             var usageData = JsonSerializer.Deserialize<AnthropicUsageResponse>(content, new JsonSerializerOptions 
             { 
                 PropertyNameCaseInsensitive = true 
             });
 
-            if (usageData == null)
-            {
-                return null;
-            }
-
             // Calculate totals from the usage data
             double totalCost = 0;
             double totalTokens = 0;
             
-            if (usageData.Usage != null)
+            if (usageData?.Usage != null)
             {
                 foreach (var item in usageData.Usage)
                 {
@@ -96,18 +120,29 @@ public class ClaudeCodeProvider : IProviderService
                 }
             }
 
+            // Build description with rate limit info
+            string description;
+            if (rateLimitHeaders.RequestsLimit > 0)
+            {
+                description = $"${totalCost:F2} cost | {totalTokens:N0} tokens | Tier: {rateLimitHeaders.GetTierName()}";
+            }
+            else
+            {
+                description = $"${totalCost:F2} total cost | {totalTokens:N0} tokens";
+            }
+
             return new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "Claude Code",
-                UsagePercentage = 0, // No limit info from API
+                UsagePercentage = 0,
                 CostUsed = totalCost,
                 CostLimit = 0,
                 UsageUnit = "USD",
                 IsQuotaBased = false,
                 PaymentType = PaymentType.UsageBased,
                 IsAvailable = true,
-                Description = $"${totalCost:F2} total cost | {totalTokens:N0} tokens"
+                Description = description
             };
         }
         catch (Exception ex)
@@ -115,6 +150,37 @@ public class ClaudeCodeProvider : IProviderService
             _logger.LogError(ex, "Error calling Anthropic API");
             return null;
         }
+    }
+
+    private RateLimitInfo ExtractRateLimitInfo(System.Net.Http.Headers.HttpResponseHeaders headers)
+    {
+        var info = new RateLimitInfo();
+        
+        if (headers.TryGetValues("anthropic-ratelimit-requests-limit", out var requestLimitValues))
+        {
+            if (int.TryParse(requestLimitValues.FirstOrDefault(), out var limit))
+                info.RequestsLimit = limit;
+        }
+        
+        if (headers.TryGetValues("anthropic-ratelimit-requests-remaining", out var requestRemainingValues))
+        {
+            if (int.TryParse(requestRemainingValues.FirstOrDefault(), out var remaining))
+                info.RequestsRemaining = remaining;
+        }
+        
+        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-limit", out var inputLimitValues))
+        {
+            if (int.TryParse(inputLimitValues.FirstOrDefault(), out var inputLimit))
+                info.InputTokensLimit = inputLimit;
+        }
+        
+        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-remaining", out var inputRemainingValues))
+        {
+            if (int.TryParse(inputRemainingValues.FirstOrDefault(), out var inputRemaining))
+                info.InputTokensRemaining = inputRemaining;
+        }
+        
+        return info;
     }
 
     private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync(ProviderConfig config)
@@ -245,5 +311,30 @@ public class ClaudeCodeProvider : IProviderService
         public long OutputTokens { get; set; }
         public double CostUsd { get; set; }
         public string? Timestamp { get; set; }
+    }
+
+    private class RateLimitInfo
+    {
+        public int RequestsLimit { get; set; }
+        public int RequestsRemaining { get; set; }
+        public int InputTokensLimit { get; set; }
+        public int InputTokensRemaining { get; set; }
+
+        public string GetTierName()
+        {
+            // Determine tier based on request limits
+            // Tier 1: 50 RPM
+            // Tier 2: 1,000 RPM  
+            // Tier 3: 2,000 RPM
+            // Tier 4: 4,000 RPM
+            return RequestsLimit switch
+            {
+                <= 50 => "Tier 1",
+                <= 1000 => "Tier 2",
+                <= 2000 => "Tier 3",
+                <= 4000 => "Tier 4",
+                _ => "Custom"
+            };
+        }
     }
 }
