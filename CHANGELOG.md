@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.17] - 2026-02-10
+
+### Fixed
+- **Progress Bar Color Calculation**: Hotfix for inverted threshold logic in quota-based providers
+  - Fixed color thresholds to properly use inverted values (100 - threshold) for quota providers
+  - Quota providers (Synthetic, Z.AI, Antigravity) now correctly show:
+    - Green when > 40% remaining (above YellowThreshold)
+    - Yellow when 20-40% remaining (between RedThreshold and YellowThreshold)
+    - Red when < 20% remaining (below RedThreshold)
+  - GitHub Copilot now uses quota-based display for rate limits
+  - Centralized color logic in GetProgressBarColor() with documentation warnings
+
 ## [1.7.16] - 2026-02-09
 
 ### Fixed
