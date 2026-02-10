@@ -43,11 +43,14 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                         _logger.LogInformation("New version available: {LatestVersion} (Current: {CurrentVersion})", 
                             latestVersion, currentVersion);
 
+                        // Get the correct download URL for current architecture
+                        var downloadUrl = GetDownloadUrlForArchitecture(updateInfo);
+
                         return new AIConsumptionTracker.Core.Interfaces.UpdateInfo
                         {
                             Version = latest.Version ?? latestVersion.ToString(),
                             ReleaseUrl = latest.ReleaseNotesLink ?? $"https://github.com/rygel/AIConsumptionTracker/releases/tag/v{latestVersion}",
-                            DownloadUrl = latest.DownloadLink ?? string.Empty,
+                            DownloadUrl = downloadUrl,
                             ReleaseNotes = string.Empty,
                             PublishedAt = latest.PublicationDate
                         };
@@ -63,6 +66,39 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             _logger.LogWarning(ex, "Failed to check for updates via NetSparkle appcast");
             return null;
         }
+    }
+
+    private string GetDownloadUrlForArchitecture(NetSparkleUpdater.AppCastItem[] updates)
+    {
+        // Detect current architecture
+        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower();
+        
+        // Map architecture names
+        var archMapping = new Dictionary<string, string>
+        {
+            ["x64"] = "x64",
+            ["x86"] = "x86",
+            ["arm64"] = "arm64",
+            ["arm"] = "arm64"
+        };
+        
+        var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
+        
+        _logger.LogDebug("Current architecture: {CurrentArch}, mapped to: {TargetArch}", currentArch, targetArch);
+        
+        // Find the update for the current architecture
+        var archUpdate = updates.FirstOrDefault(u => 
+            u.DownloadLink?.Contains($"_{targetArch}.exe", StringComparison.OrdinalIgnoreCase) == true);
+        
+        if (archUpdate != null)
+        {
+            _logger.LogInformation("Found update for {Architecture}: {Url}", targetArch, archUpdate.DownloadLink);
+            return archUpdate.DownloadLink ?? string.Empty;
+        }
+        
+        // Fallback to first available update if architecture-specific not found
+        _logger.LogWarning("Architecture-specific update not found for {Architecture}, using first available", targetArch);
+        return updates.FirstOrDefault()?.DownloadLink ?? string.Empty;
     }
 
     public async Task<bool> DownloadAndInstallUpdateAsync(AIConsumptionTracker.Core.Interfaces.UpdateInfo updateInfo, IProgress<double>? progress = null)
