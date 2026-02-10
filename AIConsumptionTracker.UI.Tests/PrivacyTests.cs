@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using AIConsumptionTracker.UI;
 using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Core.Interfaces;
@@ -105,38 +106,12 @@ public class PrivacyTests
         bool foundMaskedDescription = false;
         var sb = new System.Text.StringBuilder();
 
-        foreach (var child in providersList.Children)
+        // Search recursively through all UI elements
+        foreach (var textBlock in FindAllTextBlocksRecursive(providersList))
         {
-            if (child is Border border && border.Child is Grid grid)
-            {
-                foreach (var gridChild in grid.Children)
-                {
-                    if (gridChild is Grid headerGrid && Grid.GetRow(headerGrid) == 0)
-                    {
-                        foreach (var headerChild in headerGrid.Children)
-                        {
-                            if (headerChild is TextBlock tb)
-                            {
-                                sb.AppendLine($"Standard Header: '{tb.Text}'");
-                                if (tb.Text.Contains("[t**t@example.com]")) foundMaskedAccount = true;
-                            }
-                        }
-                    }
-                    
-                    if (gridChild is Grid detailGrid && Grid.GetRow(detailGrid) == 1)
-                    {
-                        foreach (var detailChild in detailGrid.Children)
-                        {
-                            if (detailChild is TextBlock tb)
-                            {
-                                sb.AppendLine($"Standard Detail: '{tb.Text}'");
-                                // "Usage for test@example.com is 50" -> masks email part
-                                if (tb.Text.Contains("Usage for t**t@example.com")) foundMaskedDescription = true;
-                            }
-                        }
-                    }
-                }
-            }
+            sb.AppendLine($"Text: '{textBlock.Text}'");
+            if (textBlock.Text.Contains("[t**t@example.com]")) foundMaskedAccount = true;
+            if (textBlock.Text.Contains("Usage for t**t@example.com")) foundMaskedDescription = true;
         }
 
         Assert.True(foundMaskedAccount, $"Account name was not masked correctly in Standard Mode. Found items:\n{sb.ToString()}");
@@ -182,29 +157,34 @@ public class PrivacyTests
         bool foundMaskedDescription = false;
         var sb = new System.Text.StringBuilder();
 
-        foreach (var child in providersList.Children)
+        // Search recursively through all UI elements
+        foreach (var textBlock in FindAllTextBlocksRecursive(providersList))
         {
-            if (child is Grid grid) 
-            {
-                foreach (var gridChild in grid.Children)
-                {
-                    if (gridChild is DockPanel dp)
-                    {
-                        foreach (var dpChild in dp.Children)
-                        {
-                            if (dpChild is TextBlock tb)
-                            {
-                                sb.AppendLine($"Compact Text: '{tb.Text}'");
-                                if (tb.Text.Contains("[j*****e]")) foundMaskedUsername = true;
-                                if (tb.Text.Contains("Logged in as j*****e")) foundMaskedDescription = true;
-                            }
-                        }
-                    }
-                }
-            }
+            sb.AppendLine($"Compact Text: '{textBlock.Text}'");
+            if (textBlock.Text.Contains("[j*****e]")) foundMaskedUsername = true;
+            if (textBlock.Text.Contains("Logged in as j*****e")) foundMaskedDescription = true;
         }
 
         Assert.True(foundMaskedUsername, $"Username was not masked correctly in Compact Mode. Found items:\n{sb.ToString()}");
         Assert.True(foundMaskedDescription, $"Description was not masked correctly in Compact Mode. Found items:\n{sb.ToString()}");
+    }
+
+    // Helper method to recursively find all TextBlock elements
+    private static IEnumerable<TextBlock> FindAllTextBlocksRecursive(DependencyObject parent)
+    {
+        int childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is TextBlock textBlock)
+            {
+                yield return textBlock;
+            }
+            
+            foreach (var result in FindAllTextBlocksRecursive(child))
+            {
+                yield return result;
+            }
+        }
     }
 }
