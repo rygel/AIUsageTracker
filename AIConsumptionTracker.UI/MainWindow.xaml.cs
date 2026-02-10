@@ -1141,6 +1141,44 @@ namespace AIConsumptionTracker.UI
             DockPanel.SetDock(nameBlock, Dock.Left);
 
             grid.Children.Add(contentPanel);
+            
+            // Add detailed tooltip with rate limit information if available
+            if (usage.Details != null && usage.Details.Any())
+            {
+                var tooltipBuilder = new System.Text.StringBuilder();
+                tooltipBuilder.AppendLine($"{usage.ProviderName}");
+                tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
+                if (!string.IsNullOrEmpty(usage.Description))
+                {
+                    tooltipBuilder.AppendLine($"Description: {usage.Description}");
+                }
+                tooltipBuilder.AppendLine();
+                tooltipBuilder.AppendLine("Rate Limits:");
+                foreach (var detail in usage.Details)
+                {
+                    tooltipBuilder.AppendLine($"  {detail.Name}: {detail.Used}");
+                }
+                
+                // Add warning indicator
+                if (usage.UsagePercentage >= 90)
+                {
+                    tooltipBuilder.AppendLine();
+                    tooltipBuilder.AppendLine("⚠️ CRITICAL: Approaching rate limit!");
+                }
+                else if (usage.UsagePercentage >= 70)
+                {
+                    tooltipBuilder.AppendLine();
+                    tooltipBuilder.AppendLine("⚠️ WARNING: High usage");
+                }
+                
+                grid.ToolTip = tooltipBuilder.ToString().Trim();
+            }
+            else if (!string.IsNullOrEmpty(usage.AccountName) && usage.AccountName.StartsWith("⚠️"))
+            {
+                // Handle warning message in AccountName
+                grid.ToolTip = usage.AccountName;
+            }
+            
             return grid;
         }
 
@@ -1366,6 +1404,43 @@ namespace AIConsumptionTracker.UI
                 _resetDisplayMode = (_resetDisplayMode + 1) % 3;
                 Dispatcher.BeginInvoke(new Action(() => RenderUsages(_cachedUsages)));
             };
+
+            // Add detailed tooltip with rate limit information if available
+            if (usage.Details != null && usage.Details.Any())
+            {
+                var tooltipBuilder = new System.Text.StringBuilder();
+                tooltipBuilder.AppendLine($"{usage.ProviderName}");
+                tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
+                if (!string.IsNullOrEmpty(usage.Description))
+                {
+                    tooltipBuilder.AppendLine($"Description: {usage.Description}");
+                }
+                tooltipBuilder.AppendLine();
+                tooltipBuilder.AppendLine("Rate Limits:");
+                foreach (var detail in usage.Details)
+                {
+                    tooltipBuilder.AppendLine($"  {detail.Name}: {detail.Used}");
+                }
+                
+                // Add warning indicator
+                if (usage.UsagePercentage >= 90)
+                {
+                    tooltipBuilder.AppendLine();
+                    tooltipBuilder.AppendLine("⚠️ CRITICAL: Approaching rate limit!");
+                }
+                else if (usage.UsagePercentage >= 70)
+                {
+                    tooltipBuilder.AppendLine();
+                    tooltipBuilder.AppendLine("⚠️ WARNING: High usage");
+                }
+                
+                container.ToolTip = tooltipBuilder.ToString().Trim();
+            }
+            else if (!string.IsNullOrEmpty(usage.AccountName) && usage.AccountName.StartsWith("⚠️"))
+            {
+                // Handle warning message in AccountName
+                container.ToolTip = usage.AccountName;
+            }
 
             container.Child = grid;
             return container;
