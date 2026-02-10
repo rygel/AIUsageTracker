@@ -496,6 +496,51 @@ The reset time is displayed in two ways:
 1. **Description field**: Shows inline text like `"10.5% Used of 135M tokens limit (Resets: Feb 11 00:00)"`
 2. **NextResetTime property**: Set for UI components to use (e.g., tray icon tooltips, detailed views)
 
+---
+
+### Provider Payment Type Requirements
+
+**CRITICAL RULE: All provider return paths MUST set PaymentType and IsQuotaBased**
+
+Every provider that implements `IProviderService` must ensure that **ALL** return paths set the `PaymentType` and `IsQuotaBased` properties on `ProviderUsage`. This is required for the UI to correctly categorize providers into "Plans & Quotas" vs "Pay As You Go" sections.
+
+**Required Properties:**
+- **Quota-based providers** (e.g., Antigravity, Z.AI, GitHub Copilot): 
+  - `PaymentType = PaymentType.Quota`
+  - `IsQuotaBased = true`
+- **Usage-based providers** (e.g., OpenCode):
+  - `PaymentType = PaymentType.UsageBased` (or leave as default)
+  - `IsQuotaBased = false` (or leave as default)
+
+**Common Mistake:**
+```csharp
+// WRONG - Missing PaymentType in error case
+return new[] { new ProviderUsage
+{
+    ProviderId = ProviderId,
+    ProviderName = "Antigravity",
+    Description = "Application not running"
+    // Missing: IsQuotaBased and PaymentType!
+}};
+
+// CORRECT - All properties set
+return new[] { new ProviderUsage
+{
+    ProviderId = ProviderId,
+    ProviderName = "Antigravity",
+    Description = "Application not running",
+    IsQuotaBased = true,
+    PaymentType = PaymentType.Quota
+}};
+```
+
+**Implementation Checklist for Providers:**
+- [ ] Success path sets correct PaymentType
+- [ ] Error/exception catch blocks set correct PaymentType
+- [ ] "Not running" / unavailable states set correct PaymentType
+- [ ] All return statements in the method set PaymentType
+- [ ] Unit test verifies PaymentType in all scenarios
+
 **Example Implementation:**
 ```csharp
 string resetStr = "";
