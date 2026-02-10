@@ -152,7 +152,7 @@ public class TokenDiscoveryService
                 {
                     foreach (var id in known.Keys)
                     {
-                        AddIfNotExists(configs, id, "", "Discovered in providers.json", "Config: providers.json");
+                        AddIfNotExists(configs, id, known[id], "Discovered in providers.json", "Config: providers.json");
                     }
                 }
             }

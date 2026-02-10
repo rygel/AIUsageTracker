@@ -541,6 +541,37 @@ return new[] { new ProviderUsage
 - [ ] All return statements in the method set PaymentType
 - [ ] Unit test verifies PaymentType in all scenarios
 
+---
+
+### API Key Discovery Requirements
+
+**CRITICAL RULE: API keys discovered from configuration files MUST be properly extracted and passed to providers**
+
+When implementing token discovery from configuration files (e.g., `providers.json`, `auth.json`), the actual API key value must be extracted and passed to the provider, not an empty string or placeholder.
+
+**Common Mistake:**
+```csharp
+// WRONG - Passing empty string instead of actual API key
+foreach (var id in known.Keys)
+{
+    AddIfNotExists(configs, id, "", "Discovered in providers.json", "Config: providers.json");
+}
+
+// CORRECT - Passing the actual API key value
+foreach (var id in known.Keys)
+{
+    AddIfNotExists(configs, id, known[id], "Discovered in providers.json", "Config: providers.json");
+}
+```
+
+**Discovery Implementation Checklist:**
+- [ ] Read the configuration file correctly
+- [ ] Parse the JSON/file format properly
+- [ ] Extract the actual API key value (not just provider ID)
+- [ ] Pass the API key to `AddOrUpdate` or `AddIfNotExists`
+- [ ] Test that discovered providers work without manual key entry
+- [ ] Verify the key is actually sent in API requests (check logs)
+
 **Example Implementation:**
 ```csharp
 string resetStr = "";
