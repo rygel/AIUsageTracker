@@ -491,6 +491,29 @@ if (limitWithReset != null)
 }
 ```
 
+**Display Format:**
+The reset time is displayed in two ways:
+1. **Description field**: Shows inline text like `"10.5% Used of 135M tokens limit (Resets: Feb 11 00:00)"`
+2. **NextResetTime property**: Set for UI components to use (e.g., tray icon tooltips, detailed views)
+
+**Example Implementation:**
+```csharp
+string resetStr = "";
+DateTime? nextResetTime = null;
+if (limitWithReset != null)
+{
+    nextResetTime = DateTimeOffset.FromUnixTimeMilliseconds(limitWithReset.NextResetTime!.Value).LocalDateTime;
+    resetStr = $" (Resets: {nextResetTime:MMM dd HH:mm})";
+}
+
+return new ProviderUsage
+{
+    // ... other properties ...
+    Description = detailInfo + resetStr,  // Shows in main UI
+    NextResetTime = nextResetTime         // Used by UI components
+};
+```
+
 ---
 
 ## Validation Checklist
