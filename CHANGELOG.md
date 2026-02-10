@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.18] - 2026-02-10
+
+### Fixed
+- **Automatic Updates**: Fixed appcast.xml filename mismatch
+  - Corrected installer filename in update manifest
+  - Updates now download and install correctly
+- **Update Check Interval**: Reduced from 2 hours to 15 minutes
+
 ## [1.7.17] - 2026-02-10
 
 ### Fixed
