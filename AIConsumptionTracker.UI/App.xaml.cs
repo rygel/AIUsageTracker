@@ -332,6 +332,13 @@ namespace AIConsumptionTracker.UI
                     // Ensure it's not minimized
                     if (_mainWindow.WindowState == WindowState.Minimized)
                         _mainWindow.WindowState = WindowState.Normal;
+                    // Re-apply Topmost setting to ensure window stays on top
+                    var loader = _host?.Services.GetRequiredService<IConfigLoader>();
+                    if (loader != null)
+                    {
+                        var prefs = await loader.LoadPreferencesAsync();
+                        _mainWindow.Topmost = prefs.AlwaysOnTop;
+                    }
                 }
             }
         }
