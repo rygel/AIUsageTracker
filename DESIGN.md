@@ -477,17 +477,17 @@ Before modifying any logic in this document:
 - `usage`: Total quota limit (mapped to `Total` property)
 - `currentValue`: Amount used
 - `remaining`: Amount remaining
-- `nextResetTime`: **Unix timestamp** (seconds since epoch, NOT ISO 8601 string)
+- `nextResetTime`: **Unix timestamp in milliseconds** (NOT seconds, NOT ISO 8601 string)
 
 **Accessing Reset Time:**
 ```csharp
 [JsonPropertyName("nextResetTime")]
-public long? NextResetTime { get; set; }  // Unix timestamp as long
+public long? NextResetTime { get; set; }  // Unix timestamp in milliseconds
 
 var limitWithReset = limits.FirstOrDefault(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0);
 if (limitWithReset != null)
 {
-    nextResetTime = DateTimeOffset.FromUnixTimeSeconds(limitWithReset.NextResetTime!.Value).LocalDateTime;
+    nextResetTime = DateTimeOffset.FromUnixTimeMilliseconds(limitWithReset.NextResetTime!.Value).LocalDateTime;
 }
 ```
 
