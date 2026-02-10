@@ -71,7 +71,7 @@ jobs:
         run: |
           version="${{ steps.get_version.outputs.version }}"
           version_number="${{ steps.get_version.outputs.version_number }}"
-          pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z'
+          pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z')
           
           # Generate appcast for each architecture
           for arch in x64 x86 arm64; do
