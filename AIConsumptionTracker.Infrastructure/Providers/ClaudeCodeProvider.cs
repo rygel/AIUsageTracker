@@ -34,9 +34,10 @@ public class ClaudeCodeProvider : IProviderService
                 }};
             }
 
+            // Key is configured, so mark as available
+            // Try to get usage from CLI, but don't fail if CLI is not available
             try
             {
-                // Try to get usage from Claude Code CLI
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "claude",
@@ -50,13 +51,13 @@ public class ClaudeCodeProvider : IProviderService
                 using var process = Process.Start(startInfo);
                 if (process == null)
                 {
-                    _logger.LogWarning("Failed to start Claude Code process");
+                    // CLI not found, but key is configured - show as available
                     return new[] { new ProviderUsage
                     {
                         ProviderId = ProviderId,
                         ProviderName = "Claude Code",
-                        IsAvailable = false,
-                        Description = "Claude Code CLI not found",
+                        IsAvailable = true,
+                        Description = "Connected (API key configured)",
                         IsQuotaBased = false,
                         PaymentType = PaymentType.UsageBased
                     }};
@@ -69,12 +70,13 @@ public class ClaudeCodeProvider : IProviderService
                 if (process.ExitCode != 0)
                 {
                     _logger.LogWarning($"Claude Code CLI failed: {error}");
+                    // CLI failed, but key is configured - show as available
                     return new[] { new ProviderUsage
                     {
                         ProviderId = ProviderId,
                         ProviderName = "Claude Code",
-                        IsAvailable = false,
-                        Description = $"CLI Error: {process.ExitCode}",
+                        IsAvailable = true,
+                        Description = "Connected (API key configured)",
                         IsQuotaBased = false,
                         PaymentType = PaymentType.UsageBased
                     }};
@@ -85,12 +87,13 @@ public class ClaudeCodeProvider : IProviderService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to run Claude Code CLI");
+                // Exception occurred, but key is configured - show as available
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "Claude Code",
-                    IsAvailable = false,
-                    Description = $"Execution Failed: {ex.Message}",
+                    IsAvailable = true,
+                    Description = "Connected (API key configured)",
                     IsQuotaBased = false,
                     PaymentType = PaymentType.UsageBased
                 }};

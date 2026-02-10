@@ -36,7 +36,7 @@ public class ClaudeCodeProviderTests
     }
 
     [Fact]
-    public async Task GetUsageAsync_Result_ShouldAlwaysHaveUsageBasedPaymentType()
+    public async Task GetUsageAsync_WithApiKey_ShouldBeAvailableEvenIfCliFails()
     {
         // Arrange
         var config = new ProviderConfig { ProviderId = "claude-code", ApiKey = "test-key" };
@@ -44,11 +44,11 @@ public class ClaudeCodeProviderTests
         // Act
         var result = await _provider.GetUsageAsync(config);
 
-        // Assert - All returned usages should have UsageBased payment type
-        Assert.All(result, usage =>
-        {
-            Assert.False(usage.IsQuotaBased, $"Provider {usage.ProviderId} should have IsQuotaBased=false");
-            Assert.Equal(PaymentType.UsageBased, usage.PaymentType);
-        });
+        // Assert - Should be available even if CLI is not installed
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable, "Provider should be available when API key is configured");
+        Assert.Equal("Connected (API key configured)", usage.Description);
+        Assert.False(usage.IsQuotaBased);
+        Assert.Equal(PaymentType.UsageBased, usage.PaymentType);
     }
 }
