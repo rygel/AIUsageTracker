@@ -1,11 +1,22 @@
 using System.Text.Json;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIConsumptionTracker.Infrastructure.Configuration;
 
 public class JsonConfigLoader : IConfigLoader
 {
+    private readonly ILogger<JsonConfigLoader> _logger;
+    private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
+
+    public JsonConfigLoader(ILogger<JsonConfigLoader>? logger = null, ILogger<TokenDiscoveryService>? tokenDiscoveryLogger = null)
+    {
+        _logger = logger ?? NullLogger<JsonConfigLoader>.Instance;
+        _tokenDiscoveryLogger = tokenDiscoveryLogger ?? NullLogger<TokenDiscoveryService>.Instance;
+    }
+
     private string GetTrackerConfigPath() => 
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "auth.json");
 
@@ -88,7 +99,7 @@ public class JsonConfigLoader : IConfigLoader
             }
         }
 
-        var discoveryService = new TokenDiscoveryService();
+        var discoveryService = new TokenDiscoveryService(_tokenDiscoveryLogger);
         var discovered = discoveryService.DiscoverTokens();
         
         foreach (var d in discovered)
