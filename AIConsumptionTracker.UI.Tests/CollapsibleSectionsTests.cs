@@ -5,6 +5,7 @@ using AIConsumptionTracker.UI;
 using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Tests.Mocks;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
@@ -14,25 +15,34 @@ namespace AIConsumptionTracker.UI.Tests;
 [Collection("UI Tests")]
 public class CollapsibleSectionsTests
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly Mock<IConfigLoader> _mockConfigLoader;
+    private Mock<IConfigLoader> CreateMockConfigLoader(AppPreferences? preferences = null)
+    {
+        var mockConfigLoader = new Mock<IConfigLoader>();
+        mockConfigLoader.Setup(c => c.LoadPreferencesAsync()).ReturnsAsync(preferences ?? new AppPreferences { ShowAll = true });
+        mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig>());
+        return mockConfigLoader;
+    }
 
-    public CollapsibleSectionsTests()
+    private IServiceProvider CreateServiceProvider(
+        Mock<IConfigLoader> mockConfigLoader, 
+        IProviderService providerService,
+        AppPreferences? preferences = null)
     {
         var services = new ServiceCollection();
         
-        _mockConfigLoader = new Mock<IConfigLoader>();
-        _mockConfigLoader.Setup(c => c.LoadPreferencesAsync()).ReturnsAsync(new AppPreferences { ShowAll = true });
-        _mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig>());
+        if (preferences != null)
+        {
+            mockConfigLoader.Setup(c => c.LoadPreferencesAsync()).ReturnsAsync(preferences);
+        }
 
-        var providers = new List<IProviderService>();
+        var providers = new List<IProviderService> { providerService };
         var mockLogger = new Mock<Microsoft.Extensions.Logging.ILogger<ProviderManager>>();
-        var providerManager = new ProviderManager(providers, _mockConfigLoader.Object, mockLogger.Object);
+        var providerManager = new ProviderManager(providers, mockConfigLoader.Object, mockLogger.Object);
         
         var mockFontProvider = new Mock<IFontProvider>();
         var mockGithubAuth = new Mock<IGitHubAuthService>();
         
-        services.AddSingleton(_mockConfigLoader.Object);
+        services.AddSingleton(mockConfigLoader.Object);
         services.AddSingleton(providerManager);
         services.AddSingleton(mockFontProvider.Object);
         services.AddSingleton(mockGithubAuth.Object);
@@ -41,13 +51,12 @@ public class CollapsibleSectionsTests
         mockUpdateChecker.Setup(u => u.CheckForUpdatesAsync()).ReturnsAsync((UpdateInfo?)null);
         services.AddSingleton(mockUpdateChecker.Object);
         
-        // Add mock notification service
         var mockNotificationService = new Mock<INotificationService>();
         services.AddSingleton(mockNotificationService.Object);
         
-        services.AddSingleton<MainWindow>();
+        services.AddTransient<MainWindow>();
         
-        _serviceProvider = services.BuildServiceProvider();
+        return services.BuildServiceProvider();
     }
 
     [WpfFact]
@@ -55,23 +64,26 @@ public class CollapsibleSectionsTests
     {
         // Arrange
         var providerId = "synthetic";
-        _mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
+        var mockConfigLoader = CreateMockConfigLoader();
+        mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
             new ProviderConfig { ProviderId = providerId, ApiKey = "fake-key" }
         });
 
-        var mockProvider = new Mock<IProviderService>();
-        mockProvider.Setup(p => p.ProviderId).Returns(providerId);
-        mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
-            .ReturnsAsync(new[] { new ProviderUsage
+        var provider = new MockProviderService
+        {
+            ProviderId = providerId,
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = providerId,
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
                 PaymentType = PaymentType.Quota
-            }});
+            }})
+        };
 
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        var serviceProvider = CreateServiceProvider(mockConfigLoader, provider);
+        var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
         await mainWindow.RefreshData(forceRefresh: false);
 
         // Assert
@@ -94,27 +106,28 @@ public class CollapsibleSectionsTests
             ShowAll = true,
             IsPlansAndQuotasCollapsed = true  // Start collapsed
         };
-        _mockConfigLoader.Setup(c => c.LoadPreferencesAsync()).ReturnsAsync(preferences);
+        var mockConfigLoader = CreateMockConfigLoader(preferences);
 
         var providerId = "synthetic";
-        _mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
+        mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
             new ProviderConfig { ProviderId = providerId, ApiKey = "fake-key" }
         });
 
-        var mockProvider = new Mock<IProviderService>();
-        mockProvider.Setup(p => p.ProviderId).Returns(providerId);
-        mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
-            .ReturnsAsync(new[] { new ProviderUsage
+        var provider = new MockProviderService
+        {
+            ProviderId = providerId,
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = providerId,
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
                 PaymentType = PaymentType.Quota
-            }});
+            }})
+        };
 
-        // Act
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        var serviceProvider = CreateServiceProvider(mockConfigLoader, provider, preferences);
+        var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
         await mainWindow.RefreshData(forceRefresh: false);
 
         // Assert - when IsPlansAndQuotasCollapsed is true, the toggle should show ▶
@@ -130,14 +143,15 @@ public class CollapsibleSectionsTests
     {
         // Arrange
         var providerId = "antigravity";
-        _mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
+        var mockConfigLoader = CreateMockConfigLoader();
+        mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
             new ProviderConfig { ProviderId = providerId, ApiKey = "fake-key" }
         });
 
-        var mockProvider = new Mock<IProviderService>();
-        mockProvider.Setup(p => p.ProviderId).Returns(providerId);
-        mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
-            .ReturnsAsync(new[] { new ProviderUsage
+        var provider = new MockProviderService
+        {
+            ProviderId = providerId,
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = providerId,
                 ProviderName = "Antigravity",
@@ -149,10 +163,11 @@ public class CollapsibleSectionsTests
                     new ProviderUsageDetail { Name = "Sub-provider 1", Used = "50%" },
                     new ProviderUsageDetail { Name = "Sub-provider 2", Used = "75%" }
                 }
-            }});
+            }})
+        };
 
-        // Act
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        var serviceProvider = CreateServiceProvider(mockConfigLoader, provider);
+        var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
         await mainWindow.RefreshData(forceRefresh: false);
 
         // Assert
@@ -170,23 +185,26 @@ public class CollapsibleSectionsTests
     {
         // Arrange
         var providerId = "synthetic";
-        _mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
+        var mockConfigLoader = CreateMockConfigLoader();
+        mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(new List<ProviderConfig> { 
             new ProviderConfig { ProviderId = providerId, ApiKey = "fake-key" }
         });
 
-        var mockProvider = new Mock<IProviderService>();
-        mockProvider.Setup(p => p.ProviderId).Returns(providerId);
-        mockProvider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
-            .ReturnsAsync(new[] { new ProviderUsage
+        var provider = new MockProviderService
+        {
+            ProviderId = providerId,
+            UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = providerId,
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
                 PaymentType = PaymentType.Quota
-            }});
+            }})
+        };
 
-        var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
+        var serviceProvider = CreateServiceProvider(mockConfigLoader, provider);
+        var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
         await mainWindow.RefreshData(forceRefresh: false);
 
         // Act - Find and click the header
