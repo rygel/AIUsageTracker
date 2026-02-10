@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.8.4] - 2026-02-10
+
+### Fixed
+- **Release Workflow**: Fixed bash syntax error with escaped_version variable
+  - Removed problematic command substitution that was causing "unexpected EOF"
+  - Version numbers don't need escaping in sed replacement strings
+  - This should finally allow releases to complete successfully
+
 ## [1.8.3] - 2026-02-10
 
 ### Fixed
