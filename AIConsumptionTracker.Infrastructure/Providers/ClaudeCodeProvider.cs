@@ -120,29 +120,69 @@ public class ClaudeCodeProvider : IProviderService
                 }
             }
 
+            // Calculate usage percentage based on rate limits
+            double usagePercentage = 0;
+            string? warningMessage = null;
+            bool isWarning = false;
+            bool isCritical = false;
+            
+            if (rateLimitHeaders.RequestsLimit > 0)
+            {
+                // Calculate percentage: (limit - remaining) / limit * 100
+                var used = rateLimitHeaders.RequestsLimit - rateLimitHeaders.RequestsRemaining;
+                usagePercentage = (used / (double)rateLimitHeaders.RequestsLimit) * 100.0;
+                
+                // Determine warning level
+                if (usagePercentage >= 90)
+                {
+                    isCritical = true;
+                    warningMessage = "CRITICAL: Approaching rate limit!";
+                }
+                else if (usagePercentage >= 70)
+                {
+                    isWarning = true;
+                    warningMessage = "WARNING: High usage";
+                }
+            }
+
             // Build description with rate limit info
             string description;
             if (rateLimitHeaders.RequestsLimit > 0)
             {
-                description = $"${totalCost:F2} cost | {totalTokens:N0} tokens | Tier: {rateLimitHeaders.GetTierName()}";
+                var used = rateLimitHeaders.RequestsLimit - rateLimitHeaders.RequestsRemaining;
+                description = $"${totalCost:F2} cost | {totalTokens:N0} tokens | Tier: {rateLimitHeaders.GetTierName()} | Used: {used}/{rateLimitHeaders.RequestsLimit} RPM ({usagePercentage:F0}%)";
             }
             else
             {
                 description = $"${totalCost:F2} total cost | {totalTokens:N0} tokens";
             }
 
+            // Build detailed tooltip info
+            var tooltipDetails = new List<ProviderUsageDetail>();
+            if (rateLimitHeaders.RequestsLimit > 0)
+            {
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Rate Limit Tier", Used = rateLimitHeaders.GetTierName() });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Limit", Used = rateLimitHeaders.RequestsLimit.ToString("N0") });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Remaining", Used = rateLimitHeaders.RequestsRemaining.ToString("N0") });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Limit", Used = rateLimitHeaders.InputTokensLimit.ToString("N0") });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Remaining", Used = rateLimitHeaders.InputTokensRemaining.ToString("N0") });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Current RPM Usage", Used = $"{usagePercentage:F1}%" });
+            }
+
             return new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "Claude Code",
-                UsagePercentage = 0,
+                UsagePercentage = usagePercentage,
                 CostUsed = totalCost,
                 CostLimit = 0,
                 UsageUnit = "USD",
                 IsQuotaBased = false,
                 PaymentType = PaymentType.UsageBased,
                 IsAvailable = true,
-                Description = description
+                Description = description,
+                Details = tooltipDetails,
+                AccountName = warningMessage // Using AccountName to carry warning state (UI can check this)
             };
         }
         catch (Exception ex)
