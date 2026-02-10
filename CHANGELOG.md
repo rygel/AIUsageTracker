@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.8.3] - 2026-02-10
+
+### Fixed
+- **Release Workflow**: Fixed bash syntax errors in CI/CD workflows
+  - Escaped dots in version numbers for sed commands (release.yml)
+  - Added missing closing parenthesis in date command (publish.yml)
+  - These fixes allow automated releases to complete successfully
+
 ## [1.8.2] - 2026-02-10
 
 ### Fixed
