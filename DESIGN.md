@@ -406,6 +406,16 @@ Users can customize the visual thresholds via settings:
 
 5. **Inverted Flag**: Only affects visual bar direction, NEVER color determination
 
+6. **Use Real API Data**: 
+   - **NEVER** hardcode assumptions about provider behavior (e.g., reset times, billing cycles)
+   - **ALWAYS** use actual data returned by the provider's API
+   - If the API does not provide certain information (e.g., reset time), set `NextResetTime = null` and do not display it
+   - Examples of what NOT to do:
+     - Do NOT assume all providers reset at UTC midnight
+     - Do NOT assume fixed billing cycles (e.g., monthly from signup)
+     - Do NOT make up data that the API doesn't provide
+   - When in doubt, ask the developer what the real API behavior is
+
 ---
 
 ## Change Control Policy

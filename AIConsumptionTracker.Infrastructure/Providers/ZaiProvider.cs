@@ -93,11 +93,6 @@ public class ZaiProvider : IProviderService
             remainingPercent = Math.Min(remainingPercent, mcpRemainingPercent);
         }
 
-        // Z.AI usually resets at UTC midnight
-        var resetDt = DateTime.UtcNow.Date.AddDays(1);
-        var rDiff = resetDt.ToLocalTime() - DateTime.Now;
-        string zReset = $" (Resets: ({resetDt.ToLocalTime():MMM dd HH:mm}))";
-
         return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
@@ -108,9 +103,8 @@ public class ZaiProvider : IProviderService
             UsageUnit = "Quota %",
             IsQuotaBased = true, 
             PaymentType = PaymentType.Quota,
-            Description = (string.IsNullOrEmpty(detailInfo) ? $"{100 - remainingPercent:F1}% utilized" : detailInfo) + zReset,
-
-            NextResetTime = resetDt.ToLocalTime()
+            Description = string.IsNullOrEmpty(detailInfo) ? $"{100 - remainingPercent:F1}% utilized" : detailInfo,
+            NextResetTime = null  // API does not provide reset time
         }};
     }
 
