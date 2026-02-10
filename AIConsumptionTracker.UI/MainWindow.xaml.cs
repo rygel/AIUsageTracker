@@ -400,11 +400,8 @@ namespace AIConsumptionTracker.UI
                            (usage.IsAvailable && !usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
                            (usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota || usage.NextResetTime.HasValue || (usage.Details != null && usage.Details.Any(d => d.NextResetTime.HasValue)));
 
-            // Find existing bars for this provider group
-            var existingBars = ProvidersList.Children
-                .OfType<FrameworkElement>()
-                .Where(fe => fe.Tag?.ToString() == usage.ProviderId)
-                .ToList();
+            // Find existing bars for this provider group (search recursively in containers)
+            var existingBars = FindElementsByTagRecursive(ProvidersList, usage.ProviderId).ToList();
 
             if (existingBars.Count > 0)
             {
@@ -439,7 +436,7 @@ namespace AIConsumptionTracker.UI
                 // If not showing anymore, or in-place update failed/not possible, remove all existing pieces
                 foreach (var bar in existingBars)
                 {
-                    ProvidersList.Children.Remove(bar);
+                    RemoveElementFromParent(bar);
                 }
             }
 
@@ -452,12 +449,19 @@ namespace AIConsumptionTracker.UI
             // Create new group (Parent + Children)
             var newElements = GetGroupElements(usage);
             
-            // Find insertion point to maintain alphabetical order
-            // We search for the first element of another provider that comes alphabetically after this one
-            int insertIndex = ProvidersList.Children.Count;
-            for (int i = 0; i < ProvidersList.Children.Count; i++)
+            // Find the appropriate container based on PaymentType
+            var targetContainer = GetTargetContainerForProvider(usage);
+            if (targetContainer == null)
             {
-                if (ProvidersList.Children[i] is FrameworkElement fe && fe.Tag != null && fe.Tag.ToString() != usage.ProviderId)
+                // Fall back to ProvidersList if no container found
+                targetContainer = ProvidersList;
+            }
+            
+            // Find insertion point to maintain alphabetical order within the container
+            int insertIndex = targetContainer.Children.Count;
+            for (int i = 0; i < targetContainer.Children.Count; i++)
+            {
+                if (targetContainer.Children[i] is FrameworkElement fe && fe.Tag != null && fe.Tag.ToString() != usage.ProviderId)
                 {
                     // If we found a different provider, check its ID
                     if (string.Compare(fe.Tag.ToString(), usage.ProviderId, StringComparison.OrdinalIgnoreCase) > 0)
@@ -471,8 +475,70 @@ namespace AIConsumptionTracker.UI
             // Insert as a group
             for (int i = 0; i < newElements.Count; i++)
             {
-                ProvidersList.Children.Insert(insertIndex + i, newElements[i]);
+                targetContainer.Children.Insert(insertIndex + i, newElements[i]);
             }
+        }
+
+        private IEnumerable<FrameworkElement> FindElementsByTagRecursive(Panel parent, string tag)
+        {
+            foreach (var child in parent.Children)
+            {
+                if (child is FrameworkElement fe && fe.Tag?.ToString() == tag)
+                {
+                    yield return fe;
+                }
+                
+                // Recursively search in child panels
+                if (child is Panel childPanel)
+                {
+                    foreach (var result in FindElementsByTagRecursive(childPanel, tag))
+                    {
+                        yield return result;
+                    }
+                }
+                else if (child is Border border && border.Child is Panel borderPanel)
+                {
+                    foreach (var result in FindElementsByTagRecursive(borderPanel, tag))
+                    {
+                        yield return result;
+                    }
+                }
+                else if (child is ContentControl cc && cc.Content is Panel contentPanel)
+                {
+                    foreach (var result in FindElementsByTagRecursive(contentPanel, tag))
+                    {
+                        yield return result;
+                    }
+                }
+            }
+        }
+
+        private void RemoveElementFromParent(FrameworkElement element)
+        {
+            if (element.Parent is Panel parent)
+            {
+                parent.Children.Remove(element);
+            }
+        }
+
+        private Panel? GetTargetContainerForProvider(ProviderUsage usage)
+        {
+            // Determine which section container this provider belongs to
+            bool isQuota = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
+            
+            // Find the appropriate container by looking through ProvidersList
+            foreach (var child in ProvidersList.Children)
+            {
+                if (child is StackPanel container && container.Tag is string tag)
+                {
+                    if (isQuota && tag == "PlansAndQuotasContainer")
+                        return container;
+                    if (!isQuota && tag == "PayAsYouGoContainer")
+                        return container;
+                }
+            }
+            
+            return null;
         }
 
         private bool TryUpdateInPlace(FrameworkElement element, ProviderUsage usage)
@@ -821,6 +887,7 @@ namespace AIConsumptionTracker.UI
 
             // Create container for group items
             var container = new StackPanel();
+            container.Tag = $"{groupKey}Container";
             container.Visibility = getCollapsed() ? Visibility.Collapsed : Visibility.Visible;
 
             // Make the whole header clickable
