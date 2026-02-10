@@ -93,6 +93,14 @@ public class ZaiProvider : IProviderService
             remainingPercent = Math.Min(remainingPercent, mcpRemainingPercent);
         }
 
+        // Get next reset time from the first limit that has it
+        DateTime? nextResetTime = null;
+        var limitWithReset = limits.FirstOrDefault(l => !string.IsNullOrEmpty(l.NextResetTime));
+        if (limitWithReset != null && DateTime.TryParse(limitWithReset.NextResetTime, out var resetDt))
+        {
+            nextResetTime = resetDt.ToLocalTime();
+        }
+
         return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
@@ -104,7 +112,7 @@ public class ZaiProvider : IProviderService
             IsQuotaBased = true, 
             PaymentType = PaymentType.Quota,
             Description = string.IsNullOrEmpty(detailInfo) ? $"{100 - remainingPercent:F1}% utilized" : detailInfo,
-            NextResetTime = null  // API does not provide reset time
+            NextResetTime = nextResetTime
         }};
     }
 
@@ -136,6 +144,9 @@ public class ZaiProvider : IProviderService
         
         [JsonPropertyName("remaining")]
         public long? Remaining { get; set; }
+        
+        [JsonPropertyName("nextResetTime")]
+        public string? NextResetTime { get; set; }
     }
 }
 

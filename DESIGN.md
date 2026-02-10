@@ -446,6 +446,50 @@ Before modifying any logic in this document:
 
 ---
 
+## Provider API Response Formats
+
+**AI NOTICE: These are the actual API response structures. Use real data from these fields.**
+
+### Z.AI (api.z.ai)
+
+**Endpoint:** `GET https://api.z.ai/api/monitor/usage/quota/limit`
+
+**Response Structure:**
+```json
+{
+  "data": {
+    "limits": [
+      {
+        "type": "TOKENS_LIMIT",
+        "percentage": null,
+        "currentValue": 0,
+        "usage": 135000000,
+        "remaining": 135000000,
+        "nextResetTime": "2026-02-11T00:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+**Key Fields:**
+- `type`: "TOKENS_LIMIT" for coding plan, "TIME_LIMIT" for MCP usage
+- `usage`: Total quota limit (mapped to `Total` property)
+- `currentValue`: Amount used
+- `remaining`: Amount remaining
+- `nextResetTime`: ISO 8601 timestamp of when quota resets (UTC)
+
+**Accessing Reset Time:**
+```csharp
+var limitWithReset = limits.FirstOrDefault(l => !string.IsNullOrEmpty(l.NextResetTime));
+if (limitWithReset != null && DateTime.TryParse(limitWithReset.NextResetTime, out var resetDt))
+{
+    nextResetTime = resetDt.ToLocalTime();
+}
+```
+
+---
+
 ## Validation Checklist
 
 When making changes to progress bar logic, verify:
