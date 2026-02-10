@@ -103,7 +103,7 @@ namespace AIConsumptionTracker.UI
             };
 
             _updateCheckTimer = new System.Windows.Threading.DispatcherTimer();
-            _updateCheckTimer.Interval = TimeSpan.FromHours(2);
+            _updateCheckTimer.Interval = TimeSpan.FromMinutes(15);
             _updateCheckTimer.Tick += async (s, e) => {
                 await CheckForUpdates();
             };
