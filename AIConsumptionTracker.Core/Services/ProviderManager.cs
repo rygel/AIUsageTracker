@@ -150,6 +150,7 @@ public class ProviderManager : IDisposable
                 catch (ArgumentException ex)
                 {
                     _logger.LogWarning($"Skipping {config.ProviderId}: {ex.Message}");
+                    var (isQuota, paymentType) = GetProviderPaymentType(config.ProviderId);
                     var errorUsage = new ProviderUsage
                     {
                         ProviderId = config.ProviderId,
@@ -157,7 +158,9 @@ public class ProviderManager : IDisposable
                         Description = ex.Message,
                         CostUsed = 0,
                         UsagePercentage = 0,
-                        IsAvailable = false
+                        IsAvailable = false,
+                        IsQuotaBased = isQuota,
+                        PaymentType = paymentType
                     };
                     progressCallback?.Invoke(errorUsage);
                     return new[] { errorUsage };
@@ -165,6 +168,7 @@ public class ProviderManager : IDisposable
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, $"Failed to fetch usage for {config.ProviderId}");
+                    var (isQuota, paymentType) = GetProviderPaymentType(config.ProviderId);
                     var errorUsage = new ProviderUsage
                     {
                         ProviderId = config.ProviderId,
@@ -172,7 +176,9 @@ public class ProviderManager : IDisposable
                         Description = $"[Error] {ex.Message}",
                         CostUsed = 0,
                         UsagePercentage = 0,
-                        IsAvailable = true
+                        IsAvailable = true,
+                        IsQuotaBased = isQuota,
+                        PaymentType = paymentType
                     };
                     progressCallback?.Invoke(errorUsage);
                     return new[] { errorUsage };
@@ -202,6 +208,19 @@ public class ProviderManager : IDisposable
         results.AddRange(nestedResults.SelectMany(x => x));
         _lastUsages = results;
         return results;
+    }
+
+    private static (bool IsQuota, PaymentType PaymentType) GetProviderPaymentType(string providerId)
+    {
+        // Known quota-based providers
+        var quotaProviders = new[] { "zai-coding-plan", "antigravity", "github-copilot", "gemini-cli" };
+        
+        if (quotaProviders.Any(id => providerId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+        {
+            return (true, PaymentType.Quota);
+        }
+        
+        return (false, PaymentType.UsageBased);
     }
 
     public void Dispose()
