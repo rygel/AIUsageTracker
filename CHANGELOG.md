@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.8.2] - 2026-02-10
+
+### Fixed
+- **Release Workflow**: Fixed bash syntax error when updating version files
+  - Version numbers containing dots were not properly escaped in sed commands
+  - This prevented the release workflow from updating version files correctly
+
 ## [1.8.1] - 2026-02-10
 
 ### Added
