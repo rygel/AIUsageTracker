@@ -30,55 +30,51 @@ jobs:
       - name: Update .csproj Files
         run: |
           version="${{ inputs.version }}"
-          escaped_version=$(echo "$version" | sed 's/\./\\./g')
           echo "Updating all .csproj files to $version"
 
           # Update AIConsumptionTracker.Core.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$escaped_version</Version>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$escaped_version</AssemblyVersion>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$escaped_version</FileVersion>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
+          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
+          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
 
           # Update AIConsumptionTracker.Infrastructure.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$escaped_version</Version>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$escaped_version</AssemblyVersion>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$escaped_version</FileVersion>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
+          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
+          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
 
           # Update AIConsumptionTracker.UI.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$escaped_version</Version>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$escaped_version</AssemblyVersion>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$escaped_version</FileVersion>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
+          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
+          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
 
           # Update AIConsumptionTracker.CLI.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$escaped_version</Version>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$escaped_version</AssemblyVersion>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$escaped_version</FileVersion>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
+          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
+          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
 
           echo "✓ Updated all .csproj files to $version"
 
       - name: Update README.md Badge
         run: |
           version="${{ inputs.version }}"
-          escaped_version=$(echo "$version" | sed 's/\./\\./g')
           echo "Updating README.md version badge"
-          sed -i "s|version-[0-9]\+\.[0-9]\+\.[0-9]\+-blue|version-$escaped_version-blue|g" README.md
+          sed -i "s|version-[0-9]\+\.[0-9]\+\.[0-9]\+-blue|version-$version-blue|g" README.md
           echo "✓ Updated README.md badge to $version"
 
       - name: Update setup.iss
         run: |
           version="${{ inputs.version }}"
-          escaped_version=$(echo "$version" | sed 's/\./\\./g')
           echo "Updating setup.iss"
-          sed -i "s|#define MyAppVersion \".*\"|#define MyAppVersion \"$escaped_version\"|g" scripts/setup.iss
+          sed -i "s|#define MyAppVersion \".*\"|#define MyAppVersion \"$version\"|g" scripts/setup.iss
           echo "✓ Updated setup.iss to $version"
 
       - name: Update publish-app.ps1
         run: |
           version="${{ inputs.version }}"
-          escaped_version=$(echo "$version" | sed 's/\./\\./g')
           echo "Updating publish-app.ps1"
-          sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+|Version $escaped_version|g" scripts/publish-app.ps1
+          sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+|Version $version|g" scripts/publish-app.ps1
           sed -i "s|# Usage: .* -Runtime|# Usage: .\\scripts\\publish-app.ps1 -Runtime|g" scripts/publish-app.ps1
-          sed -i "s|-Version [0-9]\+\.[0-9]\+\.[0-9]\+|-Version $escaped_version|g" scripts/publish-app.ps1
+          sed -i "s|-Version [0-9]\+\.[0-9]\+\.[0-9]\+|-Version $version|g" scripts/publish-app.ps1
           echo "✓ Updated publish-app.ps1 to $version"
 
       - name: Create Branch and Commit Changes
