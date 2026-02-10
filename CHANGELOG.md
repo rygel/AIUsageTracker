@@ -2,10 +2,27 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-02-10
+
+### Added
+- **Claude Code Provider**: Complete implementation with Anthropic API integration
+  - Detects API key from environment variables and credentials file
+  - Fetches real-time rate limit information from API headers
+  - Shows usage percentage and tier information
+  - Displays warnings when approaching rate limits (70% and 90% thresholds)
+  - Detailed tooltips with rate limit breakdown
+  - Falls back to CLI if API is unavailable
+- **Cloud Code Removal**: Removed redundant Cloud Code provider
+  - Consolidated to single Claude Code provider
+- **Z.ai Coding Plan Display Name**: Updated settings dialog to show "Z.ai Coding Plan"
+
 ### Fixed
 - **Window Focus**: Fixed "Top" setting not being reapplied when window is re-shown
   - Window now correctly stays on top of other windows after being hidden and reshown
   - Ensures Topmost property is reapplied when clicking tray icon or notification
+- **Claude Code API Integration**: Fixed non-existent usage API endpoint
+  - Now uses rate limit headers from API responses
+  - Provides accurate tier and usage information
 
 ## [1.7.19] - 2026-02-10
 

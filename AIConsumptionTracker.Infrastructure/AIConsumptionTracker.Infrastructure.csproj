@@ -11,9 +11,9 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version>1.7.19</Version>
-    <AssemblyVersion>1.7.19</AssemblyVersion>
-    <FileVersion>1.7.19</FileVersion>
+    <Version>1.8.0</Version>
+    <AssemblyVersion>1.8.0</AssemblyVersion>
+    <FileVersion>1.8.0</FileVersion>
     <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
