@@ -89,7 +89,7 @@ public class ZaiProvider : IProviderService
                 double usedPercent = tokenLimit.Percentage.Value;
                 double remainingPercentVal = 100 - usedPercent;
                 remainingPercent = Math.Min(remainingPercent, remainingPercentVal);
-                detailInfo = $"{usedPercent.ToString("F1", CultureInfo.InvariantCulture)}% Used";
+                detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
             }
             else
             {
@@ -115,8 +115,7 @@ public class ZaiProvider : IProviderService
                      planDescription = "Coding Plan (Pro)";
                 }
                 
-                double usedPercentDisplay = totalVal > 0 ? (usedVal / totalVal) * 100.0 : 0;
-                detailInfo = $"{usedPercentDisplay.ToString("F1", CultureInfo.InvariantCulture)}% Used of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit";
+                detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit";
             }
         }
         
@@ -142,7 +141,7 @@ public class ZaiProvider : IProviderService
 
         var finalUsagePercentage = Math.Min(remainingPercent, 100);
         var finalCostUsed = 100 - remainingPercent;
-        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{(100 - remainingPercent).ToString("F1", CultureInfo.InvariantCulture)}% utilized" : detailInfo) + resetStr;
+        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{remainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : detailInfo) + resetStr;
         
         _logger.LogInformation("Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, UsagePercentage: {UsagePercentage}%, CostUsed: {CostUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
             ProviderId, $"Z.AI {planDescription}", finalUsagePercentage, finalCostUsed, finalDescription, true);

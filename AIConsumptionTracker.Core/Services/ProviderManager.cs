@@ -216,6 +216,7 @@ public class ProviderManager : IDisposable
         return results;
     }
 
+
     private static (bool IsQuota, PaymentType PaymentType) GetProviderPaymentType(string providerId)
     {
         // Known quota-based providers that might fall through to generic fallback

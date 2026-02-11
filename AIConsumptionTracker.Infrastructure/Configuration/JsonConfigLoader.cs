@@ -70,6 +70,9 @@ public class JsonConfigLoader : IConfigLoader
                             bool showInTray = false;
                             if (element.TryGetProperty("show_in_tray", out var showProp)) showInTray = showProp.ValueKind == JsonValueKind.True;
 
+                            bool enableNotifications = false;
+                            if (element.TryGetProperty("enable_notifications", out var notifyProp)) enableNotifications = notifyProp.ValueKind == JsonValueKind.True;
+
                             var enabledSubTrays = new List<string>();
                             if (element.TryGetProperty("enabled_sub_trays", out var subProp) && subProp.ValueKind == JsonValueKind.Array)
                             {
@@ -88,6 +91,7 @@ public class JsonConfigLoader : IConfigLoader
                                 Limit = 100,
                                 BaseUrl = baseUrl,
                                 ShowInTray = showInTray,
+                                EnableNotifications = enableNotifications,
                                 EnabledSubTrays = enabledSubTrays,
                                 AuthSource = $"Config: {Path.GetFileName(path)}"
                             });
@@ -140,6 +144,7 @@ public class JsonConfigLoader : IConfigLoader
                 { "key", config.ApiKey },
                 { "type", config.Type },
                 { "show_in_tray", config.ShowInTray },
+                { "enable_notifications", config.EnableNotifications },
                 { "enabled_sub_trays", config.EnabledSubTrays }
             };
             if (!string.IsNullOrEmpty(config.BaseUrl)) entry["base_url"] = config.BaseUrl;

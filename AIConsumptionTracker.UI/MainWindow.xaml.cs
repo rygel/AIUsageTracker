@@ -10,6 +10,7 @@ using AIConsumptionTracker.Core.Models;
 using System.Threading.Tasks;
 using System.Reflection;
 using AIConsumptionTracker.Infrastructure.Helpers;
+using AIConsumptionTracker.UI.Services;
 
 // =============================================================================
 // ⚠️  AI ASSISTANTS: COLOR LOGIC WARNING - SEE GetProgressBarColor() METHOD
@@ -265,10 +266,8 @@ namespace AIConsumptionTracker.UI
 
         private void ApplyTheme()
         {
-            var isDark = _preferences.Theme == AppTheme.Dark;
-
-            // Switch the merged dictionary
-            SwitchTheme(isDark);
+            // Switch the theme using the centralized helper
+            ThemeHelper.ApplyTheme(_preferences);
 
             // Refresh all UI elements to pick up new colors
             RenderUsages(_cachedUsages);
@@ -276,44 +275,7 @@ namespace AIConsumptionTracker.UI
 
         private void SwitchTheme(bool isDark)
         {
-            try
-            {
-                var appResources = Application.Current.Resources;
-                
-                // Map resource keys - the theme files define Dark/Light prefixed keys
-                // We need to swap the non-prefixed keys to point to the right theme
-                var prefix = isDark ? "Dark" : "Light";
-                
-                // List of all resource keys to swap
-                var resourceKeys = new[]
-                {
-                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
-                    "ControlBackground", "ControlBorder", "InputBackground",
-                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
-                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
-                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
-                    "CheckBoxForeground", "CardBackground", "CardBorder",
-                    "GroupHeaderBackground", "GroupHeaderBorder",
-                    "ScrollBarBackground", "ScrollBarForeground",
-                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
-                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
-                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextWarning", "StatusTextConsole",
-                    "PrivacyModeActive", "PrivacyModeInactive", "AccentForeground"
-                };
-                
-                foreach (var key in resourceKeys)
-                {
-                    var themeKey = $"{prefix}{key}";
-                    if (appResources.Contains(themeKey))
-                    {
-                        appResources[key] = appResources[themeKey];
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[WARNING] Failed to switch theme: {ex.Message}");
-            }
+            ThemeHelper.SwitchTheme(isDark);
         }
 
         private void ApplyPreferences()
@@ -784,7 +746,7 @@ namespace AIConsumptionTracker.UI
                 .Where(u => showAll ||
                            (u.IsAvailable && !u.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
                            (u.IsQuotaBased || u.PaymentType == PaymentType.Quota || u.NextResetTime.HasValue || (u.Details != null && u.Details.Any(d => d.NextResetTime.HasValue))) ||
-                           (!u.IsAvailable && !string.IsNullOrEmpty(u.Description) && !u.Description.Contains("not configured", StringComparison.OrdinalIgnoreCase)))
+                           (!string.IsNullOrEmpty(u.ConfigKey))) // Show if it has a key configured
                 .OrderBy(u => u.ProviderName)
                 .ToList();
 
@@ -1373,7 +1335,7 @@ namespace AIConsumptionTracker.UI
                 { 
                     Text = _preferences.IsPrivacyMode 
                         ? $"{PrivacyHelper.MaskContent(usage.ProviderName, usage.AccountName)}{accountPart}"
-                        : $"{usage.ProviderName}{accountPart}", 
+                        : $"{usage.ProviderName}{accountPart}",
                     FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold, 
                     FontSize = 13,
                     Foreground = isMissing ? (SolidColorBrush)Application.Current.Resources["TertiaryText"] : (SolidColorBrush)Application.Current.Resources["PrimaryText"],

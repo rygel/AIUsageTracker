@@ -6,6 +6,7 @@ using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Infrastructure.Helpers;
+using AIConsumptionTracker.UI.Services;
 
 namespace AIConsumptionTracker.UI
 {
@@ -163,13 +164,13 @@ namespace AIConsumptionTracker.UI
                 // Card Container
                 var card = new Border
                 {
-                    Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
                     CornerRadius = new CornerRadius(4),
-                    BorderBrush = (SolidColorBrush)Application.Current.Resources["CardBorder"],
                     BorderThickness = new Thickness(1),
                     Margin = new Thickness(0, 0, 0, 8),
                     Padding = new Thickness(10, 8, 10, 8)
                 };
+                card.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+                card.SetResourceReference(Border.BorderBrushProperty, "CardBorder");
 
                 var grid = new Grid();
                 grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
@@ -206,10 +207,10 @@ namespace AIConsumptionTracker.UI
                     Text = displayName,
                     FontWeight = FontWeights.SemiBold,
                     FontSize = 12,
-                    Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                     VerticalAlignment = VerticalAlignment.Center,
                     MinWidth = 120
                 };
+                title.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
                 headerPanel.Children.Add(title);
 
                 // Add tray checkbox to header
@@ -217,12 +218,12 @@ namespace AIConsumptionTracker.UI
                 {
                     Content = "Tray",
                     IsChecked = config.ShowInTray,
-                    Foreground = Brushes.LightGray,
                     FontSize = 10,
                     VerticalAlignment = VerticalAlignment.Center,
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Margin = new Thickness(12, 0, 0, 0)
                 };
+                trayCheckBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
                 trayCheckBox.Checked += (s, e) => {
                     config.ShowInTray = true;
                     ((App)Application.Current).UpdateProviderTrayIcons(_providerManager.LastUsages, _configs, _prefs);
@@ -238,12 +239,12 @@ namespace AIConsumptionTracker.UI
                 {
                     Content = "Notify",
                     IsChecked = config.EnableNotifications,
-                    Foreground = Brushes.LightGray,
                     FontSize = 10,
                     VerticalAlignment = VerticalAlignment.Center,
                     Cursor = System.Windows.Input.Cursors.Hand,
                     Margin = new Thickness(8, 0, 0, 0)
                 };
+                notifyCheckBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
                 notifyCheckBox.Checked += (s, e) => {
                     config.EnableNotifications = true;
                 };
@@ -253,16 +254,31 @@ namespace AIConsumptionTracker.UI
                 headerPanel.Children.Add(notifyCheckBox);
 
                 // Show "Inactive" badge if no API key is configured
-                if (string.IsNullOrEmpty(config.ApiKey))
+                bool isInactive = string.IsNullOrEmpty(config.ApiKey);
+                
+                // Special cases for auto-auth or auto-detected providers
+                if (config.ProviderId == "antigravity")
+                {
+                    isInactive = usage == null || !usage.IsAvailable;
+                }
+                else if (config.ProviderId == "github-copilot")
+                {
+                    isInactive = !_githubAuthService.IsAuthenticated;
+                }
+
+                if (isInactive)
                 {
                     var status = new Border
                     {
-                        Background = (SolidColorBrush)Application.Current.Resources["InactiveBadge"],
                         CornerRadius = new CornerRadius(3),
-                        Margin = new Thickness(10,0,0,0),
+                        Margin = new Thickness(10, 0, 0, 0),
                         Padding = new Thickness(6, 2, 6, 2)
                     };
-                    status.Child = new TextBlock { Text = "Inactive", FontSize=10, Foreground=(SolidColorBrush)Application.Current.Resources["InactiveBadgeText"] };
+                    status.SetResourceReference(Border.BackgroundProperty, "InactiveBadge");
+
+                    var badgeText = new TextBlock { Text = "Inactive", FontSize = 10 };
+                    badgeText.SetResourceReference(TextBlock.ForegroundProperty, "InactiveBadgeText");
+                    status.Child = badgeText;
                     headerPanel.Children.Add(status);
                 }
 
@@ -746,105 +762,14 @@ namespace AIConsumptionTracker.UI
             if (ThemeBtn != null)
                 ThemeBtn.Content = isDark ? "🌙" : "☀️";
 
-            // Switch the theme by updating resource values
-            SwitchTheme(isDark);
-
-            // Apply to MainWindow
-            if (Application.Current is App app && app.MainWindow is MainWindow mainWindow)
-            {
-                mainWindow.ApplyThemeFromPreferences(_prefs);
-            }
-
-            // Apply to all other open windows
-            if (Application.Current != null)
-            {
-                foreach (Window window in Application.Current.Windows)
-                {
-                    if (window != this && window != Application.Current.MainWindow)
-                    {
-                        ApplyThemeToWindow(window, isDark);
-                    }
-                }
-            }
-        }
-
-        private void SwitchTheme(bool isDark)
-        {
-            try
-            {
-                var appResources = Application.Current.Resources;
-                
-                // Map resource keys - the theme files define Dark/Light prefixed keys
-                // We need to swap the non-prefixed keys to point to the right theme
-                var prefix = isDark ? "Dark" : "Light";
-                
-                // List of all resource keys to swap
-                var resourceKeys = new[]
-                {
-                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
-                    "ControlBackground", "ControlBorder", "InputBackground",
-                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
-                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
-                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
-                    "CheckBoxForeground", "CardBackground", "CardBorder",
-                    "GroupHeaderBackground", "GroupHeaderBorder",
-                    "ScrollBarBackground", "ScrollBarForeground",
-                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
-                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
-                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextConsole"
-                };
-                
-                foreach (var key in resourceKeys)
-                {
-                    var themeKey = $"{prefix}{key}";
-                    if (appResources.Contains(themeKey))
-                    {
-                        appResources[key] = appResources[themeKey];
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"[WARNING] Failed to switch theme: {ex.Message}");
-            }
+            // Switch the theme using the centralized helper
+            ThemeHelper.ApplyTheme(_prefs);
         }
 
         private void ApplyThemeToWindow(Window window, bool isDark)
         {
-            try
-            {
-                var appResources = Application.Current.Resources;
-                var prefix = isDark ? "Dark" : "Light";
-                
-                var resourceKeys = new[]
-                {
-                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
-                    "ControlBackground", "ControlBorder", "InputBackground",
-                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
-                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
-                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
-                    "CheckBoxForeground", "CardBackground", "CardBorder",
-                    "GroupHeaderBackground", "GroupHeaderBorder",
-                    "ScrollBarBackground", "ScrollBarForeground",
-                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
-                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
-                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextConsole"
-                };
-                
-                foreach (var key in resourceKeys)
-                {
-                    var themeKey = $"{prefix}{key}";
-                    if (appResources.Contains(themeKey))
-                    {
-                        appResources[key] = appResources[themeKey];
-                    }
-                }
-             }
-             catch (Exception ex)
-             {
-                 Debug.WriteLine($"[WARNING] Failed to apply theme to {window.GetType().Name}: {ex.Message}");
-             }
-         }
-     }
- }
+            ThemeHelper.ApplyThemeToWindow(window, isDark);
+        }
+    }
+}
 
