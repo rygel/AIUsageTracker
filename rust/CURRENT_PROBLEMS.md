@@ -2,6 +2,31 @@
 
 ## Recent Work (February 11, 2026)
 
+### Improvement: Smart Build Script
+
+**Change:** Updated `debug-build.ps1` to intelligently decide whether to build or run.
+
+**Previous Behavior:**
+- Always ran `cargo tauri build` before running the app
+- Slow development cycle even for minor changes
+
+**New Behavior:**
+- Checks if executable exists at `target/debug/aic_app(.exe)`
+- Compares modification times of all source files (`.rs`, `.toml`, `.html`, `.css`, `.js`) against the executable
+- Only rebuilds when source files are newer than the executable
+- Runs the existing executable directly if no changes detected
+- Added `-ForceBuild` flag to override and force rebuild
+
+**Usage:**
+```powershell
+cd rust
+.\debug-build.ps1          # Smart build - only builds if needed
+.\debug-build.ps1 -ForceBuild  # Force rebuild
+.\debug-build.ps1 -Help     # Show help
+```
+
+---
+
 ### Issue: Compilation Errors in `aic_app`
 
 **Problem:** The `aic_app` binary failed to compile due to missing Tauri command implementations that were referenced in `main.rs` but not defined.
