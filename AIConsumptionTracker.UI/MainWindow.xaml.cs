@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -216,11 +217,11 @@ namespace AIConsumptionTracker.UI
         {
             if (_preferences.IsPrivacyMode)
             {
-                PrivacyBtn.Foreground = Brushes.Gold;
+                PrivacyBtn.SetResourceReference(Button.ForegroundProperty, "PrivacyModeActive");
             }
             else
             {
-                PrivacyBtn.Foreground = Brushes.Gray;
+                PrivacyBtn.SetResourceReference(Button.ForegroundProperty, "PrivacyModeInactive");
             }
         }
 
@@ -264,37 +265,55 @@ namespace AIConsumptionTracker.UI
 
         private void ApplyTheme()
         {
-            var headerBg = _preferences.Theme == AppTheme.Dark 
-                ? Color.FromRgb(37, 37, 38) 
-                : Color.FromRgb(230, 230, 230);
-            var footerBg = _preferences.Theme == AppTheme.Dark 
-                ? Color.FromRgb(37, 37, 38) 
-                : Color.FromRgb(230, 230, 230);
-            var windowBg = _preferences.Theme == AppTheme.Dark 
-                ? Color.FromRgb(30, 30, 30) 
-                : Color.FromRgb(243, 243, 243);
-            var windowFg = _preferences.Theme == AppTheme.Dark 
-                ? Brushes.White 
-                : Brushes.Black;
-            var buttonText = _preferences.Theme == AppTheme.Dark 
-                ? Brushes.White 
-                : Brushes.Black;
+            var isDark = _preferences.Theme == AppTheme.Dark;
 
-            this.Background = new SolidColorBrush(windowBg);
-            this.Foreground = windowFg;
+            // Switch the merged dictionary
+            SwitchTheme(isDark);
 
-            if (HeaderBorder != null)
-                HeaderBorder.Background = new SolidColorBrush(headerBg);
-            if (FooterBorder != null)
-                FooterBorder.Background = new SolidColorBrush(footerBg);
-            if (RefreshBtn != null)
-                RefreshBtn.Foreground = buttonText;
-            if (SettingsBtn != null)
-                SettingsBtn.Background = new SolidColorBrush(
-                    _preferences.Theme == AppTheme.Dark ? Color.FromRgb(68, 68, 68) : Color.FromRgb(187, 187, 187));
-
-            // Refresh all UI elements
+            // Refresh all UI elements to pick up new colors
             RenderUsages(_cachedUsages);
+        }
+
+        private void SwitchTheme(bool isDark)
+        {
+            try
+            {
+                var appResources = Application.Current.Resources;
+                
+                // Map resource keys - the theme files define Dark/Light prefixed keys
+                // We need to swap the non-prefixed keys to point to the right theme
+                var prefix = isDark ? "Dark" : "Light";
+                
+                // List of all resource keys to swap
+                var resourceKeys = new[]
+                {
+                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
+                    "ControlBackground", "ControlBorder", "InputBackground",
+                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
+                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
+                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
+                    "CheckBoxForeground", "CardBackground", "CardBorder",
+                    "GroupHeaderBackground", "GroupHeaderBorder",
+                    "ScrollBarBackground", "ScrollBarForeground",
+                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
+                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
+                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextWarning", "StatusTextConsole",
+                    "PrivacyModeActive", "PrivacyModeInactive", "AccentForeground"
+                };
+                
+                foreach (var key in resourceKeys)
+                {
+                    var themeKey = $"{prefix}{key}";
+                    if (appResources.Contains(themeKey))
+                    {
+                        appResources[key] = appResources[themeKey];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WARNING] Failed to switch theme: {ex.Message}");
+            }
         }
 
         private void ApplyPreferences()
@@ -668,7 +687,7 @@ namespace AIConsumptionTracker.UI
                     {
                         background = new Border
                         {
-                            Background = new SolidColorBrush(Color.FromRgb(30, 30, 30)),
+                            Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
                             CornerRadius = new CornerRadius(0),
                             Tag = "Part_Background"
                         };
@@ -707,10 +726,10 @@ namespace AIConsumptionTracker.UI
                     bool isError = usage.Description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
                     bool isConsoleCheck = usage.Description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
                     
-                    if (isMissing) statusText.Foreground = Brushes.IndianRed;
-                    else if (isError) statusText.Foreground = Brushes.Red;
-                    else if (isConsoleCheck) statusText.Foreground = Brushes.Orange;
-                    else statusText.Foreground = Brushes.Gray;
+                    if (isMissing) statusText.SetResourceReference(TextBlock.ForegroundProperty, "StatusTextMissing");
+                    else if (isError) statusText.SetResourceReference(TextBlock.ForegroundProperty, "StatusTextError");
+                    else if (isConsoleCheck) statusText.SetResourceReference(TextBlock.ForegroundProperty, "StatusTextConsole");
+                    else statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
                 }
             }
 
@@ -764,7 +783,8 @@ namespace AIConsumptionTracker.UI
             var filteredUsages = usages
                 .Where(u => showAll ||
                            (u.IsAvailable && !u.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
-                           (u.IsQuotaBased || u.PaymentType == PaymentType.Quota || u.NextResetTime.HasValue || (u.Details != null && u.Details.Any(d => d.NextResetTime.HasValue))))
+                           (u.IsQuotaBased || u.PaymentType == PaymentType.Quota || u.NextResetTime.HasValue || (u.Details != null && u.Details.Any(d => d.NextResetTime.HasValue))) ||
+                           (!u.IsAvailable && !string.IsNullOrEmpty(u.Description) && !u.Description.Contains("not configured", StringComparison.OrdinalIgnoreCase)))
                 .OrderBy(u => u.ProviderName)
                 .ToList();
 
@@ -900,14 +920,14 @@ namespace AIConsumptionTracker.UI
                 Foreground = accent,
                 Margin = new Thickness(0, 0, 10, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                Opacity = 0.8
+                Opacity = 1.0
             };
 
             var line = new Border
             {
                 Height = 1,
                 Background = accent,
-                Opacity = 0.2,
+                Opacity = 0.5,
                 VerticalAlignment = VerticalAlignment.Center
             };
 
@@ -937,7 +957,7 @@ namespace AIConsumptionTracker.UI
                 Foreground = accent,
                 Margin = new Thickness(0, 0, 5, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                Opacity = 0.8,
+                Opacity = 1.0,
                 Tag = "ToggleIcon"
             };
 
@@ -950,7 +970,7 @@ namespace AIConsumptionTracker.UI
                 Foreground = accent,
                 Margin = new Thickness(0, 0, 10, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                Opacity = 0.8
+                Opacity = 1.0
             };
 
             // Separator line
@@ -958,7 +978,7 @@ namespace AIConsumptionTracker.UI
             {
                 Height = 1,
                 Background = accent,
-                Opacity = 0.2,
+                Opacity = 0.5,
                 VerticalAlignment = VerticalAlignment.Center
             };
 
@@ -1007,7 +1027,7 @@ namespace AIConsumptionTracker.UI
                 Foreground = accent,
                 Margin = new Thickness(0, 0, 5, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                Opacity = 0.7
+                Opacity = 1.0
             };
 
             // Title text
@@ -1018,7 +1038,7 @@ namespace AIConsumptionTracker.UI
                 Foreground = accent,
                 Margin = new Thickness(0, 0, 10, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                Opacity = 0.7
+                Opacity = 1.0
             };
 
             // Separator line
@@ -1026,7 +1046,7 @@ namespace AIConsumptionTracker.UI
             {
                 Height = 1,
                 Background = accent,
-                Opacity = 0.15,
+                Opacity = 0.4,
                 VerticalAlignment = VerticalAlignment.Center
             };
 
@@ -1095,7 +1115,7 @@ namespace AIConsumptionTracker.UI
 
             var bg = new Border
             {
-                Background = new SolidColorBrush(Color.FromRgb(30, 30, 30)),
+                Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
                 CornerRadius = new CornerRadius(0),
                 Tag = "Part_Background",
                 Visibility = shouldHaveProgress ? Visibility.Collapsed : Visibility.Visible
@@ -1126,7 +1146,7 @@ namespace AIConsumptionTracker.UI
                 // Indentation spacer/icon for child
                 var icon = new Border
                 {
-                    Width = 4, Height = 4, Background = Brushes.Gray, CornerRadius = new CornerRadius(2),
+                    Width = 4, Height = 4, Background = (SolidColorBrush)Application.Current.Resources["SecondaryText"], CornerRadius = new CornerRadius(2),
                     Margin = new Thickness(2, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center
                 };
                 contentPanel.Children.Add(icon);
@@ -1136,7 +1156,7 @@ namespace AIConsumptionTracker.UI
             // Right Side: Usage/Status (Added first so it's prioritized in limited space)
             var statusText = "";
             string resetText = "";
-            Brush statusBrush = Brushes.Gray;
+            Brush statusBrush = (SolidColorBrush)Application.Current.Resources["SecondaryText"];
 
             if (isMissing) { statusText = "Key Missing"; statusBrush = Brushes.IndianRed; }
             else if (isError) { statusText = "Error"; statusBrush = Brushes.Red; }
@@ -1170,7 +1190,7 @@ namespace AIConsumptionTracker.UI
                 {
                     Text = FormatResetDisplay(resetText, usage.NextResetTime),
                     FontSize = 10,
-                    Foreground = Brushes.Gold,
+                    Foreground = (SolidColorBrush)Application.Current.Resources["StatusTextWarning"],
                     FontWeight = FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(10, 0, 0, 0),
@@ -1206,7 +1226,7 @@ namespace AIConsumptionTracker.UI
                     : $"{usage.ProviderName}{accountPart}",
                 FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold,
                 FontSize = 11,
-                Foreground = isMissing ? Brushes.Gray : Brushes.White,
+                Foreground = isMissing ? (SolidColorBrush)Application.Current.Resources["TertiaryText"] : (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 ToolTip = _preferences.IsPrivacyMode 
@@ -1268,11 +1288,11 @@ namespace AIConsumptionTracker.UI
             // Main Container
             var container = new Border
             {
-                Background = isChild ? new SolidColorBrush(Color.FromRgb(40, 40, 40)) : new SolidColorBrush(Color.FromRgb(35, 35, 35)),
+                Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
                 CornerRadius = new CornerRadius(0),
                 Padding = new Thickness(12),
                 Margin = new Thickness(isChild ? 20 : 0, 0, 0, 8),
-                BorderBrush = isMissing || isError ? Brushes.Maroon : (isConsoleCheck ? Brushes.DarkOrange : new SolidColorBrush(Color.FromRgb(50, 50, 50))),
+                BorderBrush = isMissing || isError ? Brushes.Maroon : (isConsoleCheck ? Brushes.DarkOrange : (SolidColorBrush)Application.Current.Resources["CardBorder"]),
                 BorderThickness = new Thickness(1),
                 Opacity = (isMissing || !usage.IsAvailable) ? 0.6 : 1.0, Tag = usage.ProviderId
             };
@@ -1287,20 +1307,20 @@ namespace AIConsumptionTracker.UI
                var nameTxt = new TextBlock
                {
                    Text = _preferences.IsPrivacyMode ? PrivacyHelper.MaskString(usage.ProviderName) : usage.ProviderName, // Actually the "Name" of detail
-                   Foreground = Brushes.Silver,
+                   Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"],
                    FontSize = 12,
                    VerticalAlignment = VerticalAlignment.Center
                };
                
                // Indent
                var panel = new StackPanel { Orientation = Orientation.Horizontal };
-               panel.Children.Add(new Border { Width=6, Height=6, Background=Brushes.Gray, CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center });
+               panel.Children.Add(new Border { Width=6, Height=6, Background=(SolidColorBrush)Application.Current.Resources["SecondaryText"], CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center });
                panel.Children.Add(nameTxt);
 
                var valueTxt = new TextBlock
                {
                    Text = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description,
-                   Foreground = Brushes.White,
+                   Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                    FontSize = 12,
                    FontWeight = FontWeights.SemiBold,
                    VerticalAlignment = VerticalAlignment.Center,
@@ -1344,7 +1364,7 @@ namespace AIConsumptionTracker.UI
                 else
                 {
                     // Child Indent
-                     var indent = new Border { Width=6, Height=6, Background=Brushes.Gray, CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center };
+                     var indent = new Border { Width=6, Height=6, Background=(SolidColorBrush)Application.Current.Resources["SecondaryText"], CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center };
                      headerGrid.Children.Add(indent);
                 }
 
@@ -1356,7 +1376,7 @@ namespace AIConsumptionTracker.UI
                         : $"{usage.ProviderName}{accountPart}", 
                     FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold, 
                     FontSize = 13,
-                    Foreground = isMissing ? Brushes.Gray : Brushes.White,
+                    Foreground = isMissing ? (SolidColorBrush)Application.Current.Resources["TertiaryText"] : (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     ToolTip = _preferences.IsPrivacyMode ? null : (string.IsNullOrEmpty(usage.AuthSource) ? null : usage.AuthSource),
@@ -1384,7 +1404,7 @@ namespace AIConsumptionTracker.UI
             bool shouldHaveProgress = (usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
 
             var pGrid = new Grid { Height = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Tag = "Part_ProgressBarHost" };
-            pGrid.Children.Add(new Border { Background = new SolidColorBrush(Color.FromRgb(50, 50, 50)), CornerRadius = new CornerRadius(0) });
+            pGrid.Children.Add(new Border { Background = (SolidColorBrush)Application.Current.Resources["ProgressBarBackground"], CornerRadius = new CornerRadius(0) });
 
             var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
             if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
@@ -1410,7 +1430,7 @@ namespace AIConsumptionTracker.UI
                 Height = 4,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 10, 0),
-                Background = new SolidColorBrush(Color.FromRgb(50, 50, 50)),
+                Background = (SolidColorBrush)Application.Current.Resources["ProgressBarBackground"],
                 CornerRadius = new CornerRadius(0),
                 Tag = "Part_Background",
                 Visibility = shouldHaveProgress ? Visibility.Collapsed : Visibility.Visible
@@ -1446,7 +1466,7 @@ namespace AIConsumptionTracker.UI
                 {
                     Text = detailText,
                     FontSize = 10.5,
-                    Foreground = Brushes.Gray,
+                    Foreground = (SolidColorBrush)Application.Current.Resources["SecondaryText"],
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     MaxWidth = 200, // Ensure some bar space remains
@@ -1465,7 +1485,7 @@ namespace AIConsumptionTracker.UI
                  { 
                      Text = FormatResetDisplay(resetTextFromDetail, detailResetTime), 
                      FontSize = 10, 
-                     Foreground = Brushes.Gold, 
+                     Foreground = (SolidColorBrush)Application.Current.Resources["StatusTextWarning"], 
                      Margin = new Thickness(22, 2, 0, 0),
                      FontWeight = FontWeights.SemiBold,
                      Tag = "Part_ResetText"
@@ -1694,8 +1714,8 @@ namespace AIConsumptionTracker.UI
                     Width = 600,
                     Height = 500,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                    Background = new SolidColorBrush(Color.FromRgb(30, 30, 30)),
-                    Foreground = Brushes.White,
+                    Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
+                    Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                     ResizeMode = ResizeMode.CanResize,
                     MinWidth = 400,
                     MinHeight = 300

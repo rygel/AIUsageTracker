@@ -163,9 +163,9 @@ namespace AIConsumptionTracker.UI
                 // Card Container
                 var card = new Border
                 {
-                    Background = new SolidColorBrush(Color.FromRgb(40, 40, 40)),
+                    Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
                     CornerRadius = new CornerRadius(4),
-                    BorderBrush = new SolidColorBrush(Color.FromRgb(55, 55, 55)),
+                    BorderBrush = (SolidColorBrush)Application.Current.Resources["CardBorder"],
                     BorderThickness = new Thickness(1),
                     Margin = new Thickness(0, 0, 0, 8),
                     Padding = new Thickness(10, 8, 10, 8)
@@ -206,7 +206,7 @@ namespace AIConsumptionTracker.UI
                     Text = displayName,
                     FontWeight = FontWeights.SemiBold,
                     FontSize = 12,
-                    Foreground = Brushes.White,
+                    Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                     VerticalAlignment = VerticalAlignment.Center,
                     MinWidth = 120
                 };
@@ -255,14 +255,14 @@ namespace AIConsumptionTracker.UI
                 // Show "Inactive" badge if no API key is configured
                 if (string.IsNullOrEmpty(config.ApiKey))
                 {
-                    var status = new Border 
-                    { 
-                        Background = new SolidColorBrush(Color.FromArgb(50, 255, 100, 100)),
+                    var status = new Border
+                    {
+                        Background = (SolidColorBrush)Application.Current.Resources["InactiveBadge"],
                         CornerRadius = new CornerRadius(3),
                         Margin = new Thickness(10,0,0,0),
                         Padding = new Thickness(6, 2, 6, 2)
                     };
-                    status.Child = new TextBlock { Text = "Inactive", FontSize=10, Foreground=Brushes.LightCoral };
+                    status.Child = new TextBlock { Text = "Inactive", FontSize=10, Foreground=(SolidColorBrush)Application.Current.Resources["InactiveBadgeText"] };
                     headerPanel.Children.Add(status);
                 }
 
@@ -289,7 +289,7 @@ namespace AIConsumptionTracker.UI
                     var authStatus = new TextBlock 
                     { 
                         Text = authStatusText, 
-                        Foreground = _githubAuthService.IsAuthenticated ? Brushes.LightGreen : Brushes.Gray,
+                        Foreground = _githubAuthService.IsAuthenticated ? (SolidColorBrush)Application.Current.Resources["ProgressBarGreen"] : (SolidColorBrush)Application.Current.Resources["TertiaryText"],
                         VerticalAlignment = VerticalAlignment.Center,
                         Margin = new Thickness(0, 0, 10, 0),
                         FontSize = 11
@@ -300,7 +300,7 @@ namespace AIConsumptionTracker.UI
                         Content = _githubAuthService.IsAuthenticated ? "Log out" : "Log in",
                         Padding = new Thickness(10, 2, 10, 2),
                         FontSize = 11,
-                        Background = new SolidColorBrush(Color.FromRgb(50, 50, 50))
+                        Background = (SolidColorBrush)Application.Current.Resources["ControlBackground"]
                     };
 
                     authBtn.Click += (s, e) => 
@@ -310,7 +310,7 @@ namespace AIConsumptionTracker.UI
                             _githubAuthService.Logout();
                             config.ApiKey = ""; // Clear key
                             authStatus.Text = "Not Authenticated";
-                            authStatus.Foreground = Brushes.Gray;
+                            authStatus.Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"];
                             authBtn.Content = "Log in";
                             PopulateList(); // Re-render to update UI consistency if needed
                         }
@@ -354,7 +354,7 @@ namespace AIConsumptionTracker.UI
                     var statusText = new TextBlock
                     {
                         Text = isConnected ? $"Auto-Detected ({accountInfo})" : "Searching for local process...",
-                        Foreground = isConnected ? Brushes.LightGreen : Brushes.Gray,
+                        Foreground = isConnected ? (SolidColorBrush)Application.Current.Resources["ProgressBarGreen"] : (SolidColorBrush)Application.Current.Resources["TertiaryText"],
                         VerticalAlignment = VerticalAlignment.Center,
                         FontSize = 11,
                         FontStyle = isConnected ? FontStyles.Normal : FontStyles.Italic
@@ -404,7 +404,7 @@ namespace AIConsumptionTracker.UI
                 // Sub-Quotas for Antigravity (Special Case)
                 if (config.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase) && usage?.Details != null)
                 {
-                    var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60,60,60)), Margin = new Thickness(0, 10, 0, 10) };
+                    var separator = new Border { Height = 1, Background = (SolidColorBrush)Application.Current.Resources["Separator"], Margin = new Thickness(0, 10, 0, 10) };
                     grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
                     
@@ -412,16 +412,16 @@ namespace AIConsumptionTracker.UI
                     grid.Children.Add(separator);
 
                     var subPanel = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
-                    var subTitle = new TextBlock { Text = "Individual Quota Icons:", Foreground = Brushes.Gray, FontSize = 11, FontWeight=FontWeights.SemiBold, Margin = new Thickness(0,0,0,5) };
+                    var subTitle = new TextBlock { Text = "Individual Quota Icons:", Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], FontSize = 11, FontWeight=FontWeights.SemiBold, Margin = new Thickness(0,0,0,5) };
                     subPanel.Children.Add(subTitle);
 
                     foreach (var detail in usage.Details)
                     {
-                        var subCheck = new CheckBox 
+                        var subCheck = new CheckBox
                         {
                             Content = detail.Name,
                             IsChecked = config.EnabledSubTrays.Contains(detail.Name),
-                            Foreground = Brushes.LightGray,
+                            Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                             FontSize = 11,
                             Margin = new Thickness(0, 2, 0, 2),
                             Cursor = System.Windows.Input.Cursors.Hand
@@ -511,15 +511,15 @@ namespace AIConsumptionTracker.UI
             {
                    Text = "OpenAI: $15.00 / $100.00 (15%)",
                    FontSize = _prefs.FontSize > 0 ? _prefs.FontSize : 12,
-                   Foreground = Brushes.White,
+                   Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                    VerticalAlignment = VerticalAlignment.Center
-              };
+               };
 
             var startWithWindowsCheck = new CheckBox
             {
                    Content = "Start with Windows",
                    IsChecked = _prefs.StartWithWindows,
-                   Foreground = Brushes.White,
+                   Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                    FontSize = 11,
                    Margin = new Thickness(0, 0, 0, 5)
             };
@@ -551,118 +551,18 @@ namespace AIConsumptionTracker.UI
              }
 
              // Add UI Colors Section
-             var header = new TextBlock { Text = "UI Colors", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, Margin = new Thickness(0, 20, 0, 10) };
-             LayoutStack.Children.Add(header);
-
-             var grid = new Grid();
-             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
-             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
-             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-             
-             // Yellow Threshold
-             var lblYellow = new TextBlock { Text = "Yellow Threshold (%)", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
-             var txtYellow = new TextBox 
-             { 
-                 Text = _prefs.ColorThresholdYellow.ToString(), 
-                 Width = 50, 
-                 Height = 24,
-                 Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
-                 Foreground = Brushes.White,
-                 BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                 VerticalContentAlignment = VerticalAlignment.Center
-             };
-             txtYellow.TextChanged += (s, e) => {
-                 if (int.TryParse(txtYellow.Text, out var val)) _prefs.ColorThresholdYellow = val;
-             };
-             
-              Grid.SetColumn(lblYellow, 0);
-              Grid.SetColumn(txtYellow, 1);
-              grid.Children.Add(lblYellow);
-              grid.Children.Add(txtYellow);
-
-              LayoutStack.Children.Add(grid);
-
-              // Red Threshold
-              var grid2 = new Grid { Margin = new Thickness(0, 10, 0, 0) };
-              grid2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
-              grid2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
-              grid2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-              var lblRed = new TextBlock { Text = "Red Threshold (%)", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
-              var txtRed = new TextBox
-              {
-                  Text = _prefs.ColorThresholdRed.ToString(),
-                  Width = 50,
-                  Height = 24,
-                  Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
-                  Foreground = Brushes.White,
-                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                  VerticalContentAlignment = VerticalAlignment.Center
-              };
-              txtRed.TextChanged += (s, e) => {
-                  if (int.TryParse(txtRed.Text, out var val)) _prefs.ColorThresholdRed = val;
-              };
-
-              Grid.SetColumn(lblRed, 0);
-              Grid.SetColumn(txtRed, 1);
-              grid2.Children.Add(lblRed);
-              grid2.Children.Add(txtRed);
-
-              LayoutStack.Children.Add(grid2);
-
-              // Invert Progress Bar Checkbox
-              var invertCheck = new CheckBox
-              {
-                  Content = "Invert Progress Bars (Show 'Remaining' instead of 'Used')",
-                  IsChecked = _prefs.InvertProgressBar,
-                  Foreground = Brushes.LightGray,
-                  FontSize = 11,
-                  Margin = new Thickness(0, 15, 0, 0),
-                  VerticalAlignment = VerticalAlignment.Center
-              };
-              invertCheck.Checked += (s, e) => _prefs.InvertProgressBar = true;
-              invertCheck.Unchecked += (s, e) => _prefs.InvertProgressBar = false;
-
-              LayoutStack.Children.Add(invertCheck);
-              
-              // Auto Refresh Interval
-              var gridRefresh = new Grid { Margin = new Thickness(0, 15, 0, 0) };
-              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
-              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
-              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-              var lblRefresh = new TextBlock { Text = "Auto Refresh (Minutes)", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
-              var txtRefresh = new TextBox
-              {
-                  Text = (_prefs.AutoRefreshInterval / 60).ToString(),
-                  Width = 50,
-                  Height = 24,
-                  Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
-                  Foreground = Brushes.White,
-                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                  VerticalContentAlignment = VerticalAlignment.Center,
-                  ToolTip = "Set to 0 to disable automatic refresh"
-              };
-              txtRefresh.TextChanged += (s, e) => {
-                  if (int.TryParse(txtRefresh.Text, out var val)) _prefs.AutoRefreshInterval = val * 60;
-              };
-
-              Grid.SetColumn(lblRefresh, 0);
-               Grid.SetColumn(txtRefresh, 1);
-               gridRefresh.Children.Add(lblRefresh);
-                gridRefresh.Children.Add(txtRefresh);
-
-                LayoutStack.Children.Add(gridRefresh);
-
-                // Notifications Section
-                var notifHeader = new TextBlock { Text = "Notifications", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, Margin = new Thickness(0, 20, 0, 10) };
+              var header = new TextBlock { Text = "UI Colors", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], Margin = new Thickness(0, 20, 0, 10) };
+              var lblYellow = new TextBlock { Text = "Yellow Threshold (%)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var lblRed = new TextBlock { Text = "Red Threshold (%)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var lblRefresh = new TextBlock { Text = "Auto Refresh (Minutes)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var notifHeader = new TextBlock { Text = "Notifications", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], Margin = new Thickness(0, 20, 0, 10) };
                 LayoutStack.Children.Add(notifHeader);
 
                 var notifCheck = new CheckBox 
                 { 
                     Content = "Enable Windows notifications for quota events",
                     IsChecked = _prefs.EnableNotifications,
-                    Foreground = Brushes.White,
+                    Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
                     Margin = new Thickness(0, 5, 0, 5)
                 };
                 notifCheck.Checked += (s, e) => _prefs.EnableNotifications = true;
@@ -672,7 +572,7 @@ namespace AIConsumptionTracker.UI
                 var notifDesc = new TextBlock 
                 { 
                     Text = "Show notifications when quotas are depleted or refreshed",
-                    Foreground = Brushes.Gray,
+                    Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"],
                     FontSize = 11,
                     Margin = new Thickness(20, 0, 0, 10),
                     TextWrapping = TextWrapping.Wrap
@@ -680,13 +580,13 @@ namespace AIConsumptionTracker.UI
                 LayoutStack.Children.Add(notifDesc);
 
                 // Separator
-                var separator = new Border { Height = 1, Background = new SolidColorBrush(Color.FromRgb(60, 60, 60)), Margin = new Thickness(0, 30, 0, 10) };
+                var separator = new Border { Height = 1, Background = (SolidColorBrush)Application.Current.Resources["Separator"], Margin = new Thickness(0, 30, 0, 10) };
                LayoutStack.Children.Add(separator);
 
               // Font Settings Section
               var fontHeaderPanel = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
-              var fontHeader = new TextBlock { Text = "Font Settings", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, VerticalAlignment = VerticalAlignment.Center };
-              var resetBtn = new Button { Content = "Reset to Default", FontSize = 10, Padding = new Thickness(6,2,6,2), HorizontalAlignment = HorizontalAlignment.Right, Background = Brushes.Transparent, BorderThickness = new Thickness(1), BorderBrush = new SolidColorBrush(Color.FromRgb(60,60,60)) };
+              var fontHeader = new TextBlock { Text = "Font Settings", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], VerticalAlignment = VerticalAlignment.Center };
+              var resetBtn = new Button { Content = "Reset to Default", FontSize = 10, Padding = new Thickness(6,2,6,2), HorizontalAlignment = HorizontalAlignment.Right, Background = Brushes.Transparent, BorderThickness = new Thickness(1), BorderBrush = (SolidColorBrush)Application.Current.Resources["BorderColor"] };
               resetBtn.Click += ResetFontBtn_Click;
               
               fontHeaderPanel.Children.Add(fontHeader);
@@ -701,107 +601,15 @@ namespace AIConsumptionTracker.UI
               fontFamilyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
               fontFamilyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-              var fontFamilyLabel = new TextBlock { Text = "Font Family", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
-              var fontFamilyBox = new ComboBox
-              {
-                  Height = 24,
-                  Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
-                  Foreground = Brushes.White,
-                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                  IsEditable = false
-              };
-              
-              // Populate fonts
-              var fonts = _fontProvider.GetInstalledFonts().ToList();
-              fontFamilyBox.ItemsSource = fonts;
-              
-              // Select current preference
-              var selectedFont = FontSelectionHelper.GetSelectedFont(_prefs.FontFamily, fonts);
-              fontFamilyBox.SelectedItem = selectedFont;
-
-              fontFamilyBox.SelectionChanged += (s, e) => {
-                  if (fontFamilyBox.SelectedItem is string font)
-                  {
-                      _prefs.FontFamily = font;
-                      UpdatePreview();
-                  }
-              };
-
-              Grid.SetColumn(fontFamilyLabel, 0);
-              Grid.SetColumn(fontFamilyBox, 1);
-              fontFamilyGrid.Children.Add(fontFamilyLabel);
-              fontFamilyGrid.Children.Add(fontFamilyBox);
-              LayoutStack.Children.Add(fontFamilyGrid);
-
-              // Font Size
-              var fontSizeGrid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
-              fontSizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
-              fontSizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
-              fontSizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-              var fontSizeLabel = new TextBlock { Text = "Font Size (px)", Foreground = Brushes.White, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
-              var fontSizeBox = new TextBox
-              {
-                  Text = _prefs.FontSize.ToString(),
-                  Width = 50,
-                  Height = 24,
-                  Background = new SolidColorBrush(Color.FromRgb(45, 45, 45)),
-                  Foreground = Brushes.White,
-                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
-                  VerticalContentAlignment = VerticalAlignment.Center
-              };
-              fontSizeBox.TextChanged += (s, e) => {
-                  if (int.TryParse(fontSizeBox.Text, out var val)) 
-                  {
-                      _prefs.FontSize = val;
-                      UpdatePreview();
-                  }
-              };
-
-              Grid.SetColumn(fontSizeLabel, 0);
-              Grid.SetColumn(fontSizeBox, 1);
-              fontSizeGrid.Children.Add(fontSizeLabel);
-              fontSizeGrid.Children.Add(fontSizeBox);
-              LayoutStack.Children.Add(fontSizeGrid);
-
-              // Font Style Options
-              var fontStylePanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(100, 0, 0, 0) };
-
-              var boldCheck = new CheckBox
-              {
-                  Content = "Bold",
-                  IsChecked = _prefs.FontBold,
-                  Foreground = Brushes.LightGray,
-                  FontSize = 11,
-                  VerticalAlignment = VerticalAlignment.Center,
-                  Margin = new Thickness(0, 0, 15, 0)
-              };
-              boldCheck.Checked += (s, e) => { _prefs.FontBold = true; UpdatePreview(); };
-              boldCheck.Unchecked += (s, e) => { _prefs.FontBold = false; UpdatePreview(); };
-              fontStylePanel.Children.Add(boldCheck);
-
-              var italicCheck = new CheckBox
-              {
-                  Content = "Italic",
-                  IsChecked = _prefs.FontItalic,
-                  Foreground = Brushes.LightGray,
-                  FontSize = 11,
-                  VerticalAlignment = VerticalAlignment.Center
-              };
-              italicCheck.Checked += (s, e) => { _prefs.FontItalic = true; UpdatePreview(); };
-              italicCheck.Unchecked += (s, e) => { _prefs.FontItalic = false; UpdatePreview(); };
-              fontStylePanel.Children.Add(italicCheck);
-
-              LayoutStack.Children.Add(fontStylePanel);
-
-              // Preview Text
-              var previewLabel = new TextBlock { Text = "Preview:", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = Brushes.Gray, Margin = new Thickness(0, 20, 0, 10) };
+              var fontFamilyLabel = new TextBlock { Text = "Font Family", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var fontSizeLabel = new TextBlock { Text = "Font Size (px)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var previewLabel = new TextBlock { Text = "Preview:", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], Margin = new Thickness(0, 20, 0, 10) };
               LayoutStack.Children.Add(previewLabel);
 
               var previewBox = new Border
               {
-                  Background = new SolidColorBrush(Color.FromRgb(30, 30, 30)),
-                  BorderBrush = new SolidColorBrush(Color.FromRgb(60, 60, 60)),
+                  Background = (SolidColorBrush)Application.Current.Resources["PreviewBackground"],
+                  BorderBrush = (SolidColorBrush)Application.Current.Resources["PreviewBorder"],
                   BorderThickness = new Thickness(1),
                   CornerRadius = new CornerRadius(4),
                   Padding = new Thickness(12),
@@ -899,7 +707,7 @@ namespace AIConsumptionTracker.UI
             }
             else
             {
-                PrivacyBtn.Foreground = Brushes.Gray;
+                PrivacyBtn.Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"];
             }
         }
 
@@ -933,54 +741,13 @@ namespace AIConsumptionTracker.UI
         private void ApplyTheme()
         {
             var isDark = _prefs.Theme == AppTheme.Dark;
-            
-            // Define colors based on theme
-            var windowBg = isDark ? Color.FromRgb(30, 30, 30) : Color.FromRgb(243, 243, 243);
-            var windowFg = isDark ? Brushes.White : Brushes.Black;
-            var headerFooterBg = isDark ? Color.FromRgb(37, 37, 38) : Color.FromRgb(230, 230, 230);
-            var tabBg = isDark ? Color.FromRgb(30, 30, 30) : Color.FromRgb(243, 243, 243);
-            var tabItemBg = isDark ? Color.FromRgb(37, 37, 38) : Color.FromRgb(230, 230, 230);
-            var borderColor = isDark ? Color.FromRgb(51, 51, 51) : Color.FromRgb(204, 204, 204);
-
-            // Apply to current SettingsWindow
-            this.Background = new SolidColorBrush(windowBg);
-            this.Foreground = windowFg;
-
-            // Update header
-            if (this.FindName("HeaderBorder") is Border headerBorder)
-            {
-                headerBorder.Background = new SolidColorBrush(headerFooterBg);
-                headerBorder.BorderBrush = new SolidColorBrush(borderColor);
-            }
-
-            // Update footer
-            if (this.FindName("FooterBorder") is Border footerBorder)
-            {
-                footerBorder.Background = new SolidColorBrush(headerFooterBg);
-                footerBorder.BorderBrush = new SolidColorBrush(borderColor);
-            }
-
-            // Update TabControl
-            if (this.FindName("MainTabControl") is TabControl tabControl)
-            {
-                tabControl.Background = new SolidColorBrush(tabBg);
-                tabControl.BorderBrush = new SolidColorBrush(borderColor);
-                
-                // Update each TabItem
-                foreach (TabItem tabItem in tabControl.Items)
-                {
-                    tabItem.Background = new SolidColorBrush(tabItemBg);
-                    tabItem.BorderBrush = new SolidColorBrush(borderColor);
-                    if (tabItem.Header is TextBlock header)
-                    {
-                        header.Foreground = windowFg;
-                    }
-                }
-            }
 
             // Update theme button icon
             if (ThemeBtn != null)
                 ThemeBtn.Content = isDark ? "🌙" : "☀️";
+
+            // Switch the theme by updating resource values
+            SwitchTheme(isDark);
 
             // Apply to MainWindow
             if (Application.Current is App app && app.MainWindow is MainWindow mainWindow)
@@ -995,88 +762,89 @@ namespace AIConsumptionTracker.UI
                 {
                     if (window != this && window != Application.Current.MainWindow)
                     {
-                        ApplyThemeToWindow(window, windowBg, windowFg, headerFooterBg, borderColor);
+                        ApplyThemeToWindow(window, isDark);
                     }
                 }
             }
         }
 
-        private void ApplyThemeToWindow(Window window, Color bgColor, Brush fgBrush, Color headerFooterBg, Color borderColor)
+        private void SwitchTheme(bool isDark)
         {
             try
             {
-                window.Background = new SolidColorBrush(bgColor);
-                window.Foreground = fgBrush;
-
-                // Apply to window content if it's a FrameworkElement
-                if (window.Content is FrameworkElement root)
+                var appResources = Application.Current.Resources;
+                
+                // Map resource keys - the theme files define Dark/Light prefixed keys
+                // We need to swap the non-prefixed keys to point to the right theme
+                var prefix = isDark ? "Dark" : "Light";
+                
+                // List of all resource keys to swap
+                var resourceKeys = new[]
                 {
-                    ApplyThemeToElement(root, bgColor, fgBrush, headerFooterBg, borderColor);
+                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
+                    "ControlBackground", "ControlBorder", "InputBackground",
+                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
+                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
+                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
+                    "CheckBoxForeground", "CardBackground", "CardBorder",
+                    "GroupHeaderBackground", "GroupHeaderBorder",
+                    "ScrollBarBackground", "ScrollBarForeground",
+                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
+                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
+                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextConsole"
+                };
+                
+                foreach (var key in resourceKeys)
+                {
+                    var themeKey = $"{prefix}{key}";
+                    if (appResources.Contains(themeKey))
+                    {
+                        appResources[key] = appResources[themeKey];
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[WARNING] Failed to apply theme to {window.GetType().Name}: {ex.Message}");
+                Debug.WriteLine($"[WARNING] Failed to switch theme: {ex.Message}");
             }
         }
 
-        private void ApplyThemeToElement(FrameworkElement element, Color bgColor, Brush fgBrush, Color headerFooterBg, Color borderColor)
+        private void ApplyThemeToWindow(Window window, bool isDark)
         {
-            if (element == null) return;
-
-            // Update Border backgrounds (headers/footers)
-            if (element is Border border)
+            try
             {
-                // Check if this is likely a header/footer by examining its position or context
-                var parent = border.Parent as FrameworkElement;
-                if (parent != null)
-                {
-                    // Update header/footer borders
-                    border.Background = new SolidColorBrush(headerFooterBg);
-                    border.BorderBrush = new SolidColorBrush(borderColor);
-                }
+                var appResources = Application.Current.Resources;
+                var prefix = isDark ? "Dark" : "Light";
                 
-                if (border.Child is FrameworkElement borderChild)
+                var resourceKeys = new[]
                 {
-                    ApplyThemeToElement(borderChild, bgColor, fgBrush, headerFooterBg, borderColor);
-                }
-            }
-
-            // Apply to panels
-            if (element is Panel panel)
-            {
-                panel.Background = new SolidColorBrush(bgColor);
-                foreach (var child in panel.Children)
+                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
+                    "ControlBackground", "ControlBorder", "InputBackground",
+                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
+                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
+                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
+                    "CheckBoxForeground", "CardBackground", "CardBorder",
+                    "GroupHeaderBackground", "GroupHeaderBorder",
+                    "ScrollBarBackground", "ScrollBarForeground",
+                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
+                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
+                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextConsole"
+                };
+                
+                foreach (var key in resourceKeys)
                 {
-                    if (child is FrameworkElement childElement)
+                    var themeKey = $"{prefix}{key}";
+                    if (appResources.Contains(themeKey))
                     {
-                        ApplyThemeToElement(childElement, bgColor, fgBrush, headerFooterBg, borderColor);
+                        appResources[key] = appResources[themeKey];
                     }
                 }
-            }
-
-            // Apply to content controls
-            if (element is ContentControl contentControl)
-            {
-                if (contentControl.Content is FrameworkElement content)
-                {
-                    ApplyThemeToElement(content, bgColor, fgBrush, headerFooterBg, borderColor);
-                }
-            }
-
-            // Update text blocks
-            if (element is TextBlock textBlock)
-            {
-                // Only update if it's not a colored text (like links)
-                if (textBlock.Foreground != null && 
-                    textBlock.Foreground != Brushes.Gold && 
-                    !textBlock.Foreground.ToString().Contains("007ACC"))
-                {
-                    textBlock.Foreground = fgBrush;
-                }
-            }
-        }
-
-    }
-}
+             }
+             catch (Exception ex)
+             {
+                 Debug.WriteLine($"[WARNING] Failed to apply theme to {window.GetType().Name}: {ex.Message}");
+             }
+         }
+     }
+ }
 

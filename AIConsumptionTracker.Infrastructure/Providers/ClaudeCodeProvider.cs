@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -275,8 +276,8 @@ public class ClaudeCodeProvider : IProviderService
             PaymentType = PaymentType.UsageBased,
             IsAvailable = true,
             Description = budgetLimit > 0 
-                ? $"${currentUsage:F2} used of ${budgetLimit:F2} limit"
-                : $"${currentUsage:F2} used"
+                ? $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used of ${budgetLimit.ToString("F2", CultureInfo.InvariantCulture)} limit"
+                : $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used"
         };
     }
 

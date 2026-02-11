@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using AIConsumptionTracker.Core.Interfaces;
@@ -31,7 +32,7 @@ public class OpenCodeProvider : IProviderService
             return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
-                ProviderName = "OpenCode",
+                ProviderName = "Opencode Zen",
                 IsAvailable = false,
                 Description = "No API key configured",
                 IsQuotaBased = false,
@@ -53,7 +54,7 @@ public class OpenCodeProvider : IProviderService
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
-                    ProviderName = "OpenCode",
+                    ProviderName = "Opencode Zen",
                     IsAvailable = false,
                     Description = "CLI not found at expected path",
                     IsQuotaBased = false,
@@ -101,7 +102,7 @@ public class OpenCodeProvider : IProviderService
                      return new[] { new ProviderUsage
                     {
                         ProviderId = ProviderId,
-                        ProviderName = "OpenCode",
+                        ProviderName = "Opencode Zen",
                         IsAvailable = false,
                         Description = $"CLI Error: {process.ExitCode} (Check log or clear storage if JSON error)",
                         IsQuotaBased = false,
@@ -123,7 +124,7 @@ public class OpenCodeProvider : IProviderService
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
-                    ProviderName = "OpenCode",
+                    ProviderName = "Opencode Zen",
                     IsAvailable = false,
                     Description = $"Execution Failed: {ex.Message}",
                     IsQuotaBased = false,
@@ -163,7 +164,7 @@ public class OpenCodeProvider : IProviderService
         return new ProviderUsage
         {
             ProviderId = ProviderId,
-            ProviderName = "OpenCode",
+            ProviderName = "Opencode Zen",
             UsagePercentage = 0, // Pay as you go, no limit percentage usually
             CostUsed = totalCost,
             CostLimit = 0,
@@ -171,7 +172,7 @@ public class OpenCodeProvider : IProviderService
             IsQuotaBased = false,
             PaymentType = PaymentType.UsageBased,
             IsAvailable = true,
-            Description = $"${totalCost:F2} (7 days)"
+            Description = $"${totalCost.ToString("F2", CultureInfo.InvariantCulture)} (7 days)"
         };
     }
 }

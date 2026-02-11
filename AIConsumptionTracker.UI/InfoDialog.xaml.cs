@@ -68,49 +68,50 @@ namespace AIConsumptionTracker.UI
         private void ApplyTheme(AppTheme theme)
         {
             var isDark = theme == AppTheme.Dark;
-            var windowBg = isDark ? Color.FromRgb(30, 30, 30) : Color.FromRgb(243, 243, 243);
-            var windowFg = isDark ? Brushes.White : Brushes.Black;
-            var headerFooterBg = isDark ? Color.FromRgb(37, 37, 38) : Color.FromRgb(230, 230, 230);
-            var borderColor = isDark ? Color.FromRgb(51, 51, 51) : Color.FromRgb(204, 204, 204);
-            
-            this.Background = new SolidColorBrush(windowBg);
-            this.Foreground = windowFg;
-            
-            // Update header border
-            if (this.FindName("HeaderBorder") is Border headerBorder)
-            {
-                headerBorder.Background = new SolidColorBrush(headerFooterBg);
-            }
-            
-            // Update footer border
-            if (this.FindName("FooterBorder") is Border footerBorder)
-            {
-                footerBorder.Background = new SolidColorBrush(headerFooterBg);
-            }
-            
-            // Apply to all TextBlocks
-            ApplyThemeToVisualTree(this, windowFg);
-        }
-        
-        private void ApplyThemeToVisualTree(DependencyObject element, Brush foreground)
-        {
-            if (element == null) return;
-            
-            // Apply to TextBlock
-            if (element is TextBlock textBlock)
-            {
-                textBlock.Foreground = foreground;
-            }
-            
-            // Recurse through children
-            int childCount = VisualTreeHelper.GetChildrenCount(element);
-            for (int i = 0; i < childCount; i++)
-            {
-                var child = VisualTreeHelper.GetChild(element, i);
-                ApplyThemeToVisualTree(child, foreground);
-            }
+            SwitchTheme(isDark);
         }
 
+        private void SwitchTheme(bool isDark)
+        {
+            try
+            {
+                var appResources = Application.Current.Resources;
+                
+                // Map resource keys - the theme files define Dark/Light prefixed keys
+                // We need to swap the non-prefixed keys to point to the right theme
+                var prefix = isDark ? "Dark" : "Light";
+                
+                // List of all resource keys to swap
+                var resourceKeys = new[]
+                {
+                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
+                    "ControlBackground", "ControlBorder", "InputBackground",
+                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
+                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
+                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
+                    "CheckBoxForeground", "CardBackground", "CardBorder",
+                    "GroupHeaderBackground", "GroupHeaderBorder",
+                    "ScrollBarBackground", "ScrollBarForeground",
+                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
+                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
+                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextConsole"
+                };
+                
+                foreach (var key in resourceKeys)
+                {
+                    var themeKey = $"{prefix}{key}";
+                    if (appResources.Contains(themeKey))
+                    {
+                        appResources[key] = appResources[themeKey];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WARNING] Failed to switch theme: {ex.Message}");
+            }
+        }
+        
         public async Task PrepareForScreenshot(AppPreferences prefs)
         {
             _isPrivacyMode = true; 
