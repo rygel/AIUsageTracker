@@ -399,6 +399,11 @@
         let compactMode = true; // Default to compact mode
         let usageData = [];
         let agentConnected = false; // Shared agent status
+        let prefs = {
+            yellow_threshold: 60,
+            red_threshold: 80,
+            invert_progress_bar: false
+        }; // Default preferences
 
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
@@ -439,6 +444,9 @@
                 compactMode = this.checked;
                 renderProviders();
             });
+
+            // Load preferences
+            loadPreferences();
 
             // Load initial data
             loadData();
@@ -495,6 +503,20 @@
             return names[id] || id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
         }
 
+        async function loadPreferences() {
+            try {
+                if (window.__TAURI__ && window.__TAURI__.invoke) {
+                    const loadedPrefs = await window.__TAURI__.invoke('load_preferences');
+                    if (loadedPrefs) {
+                        prefs = { ...prefs, ...loadedPrefs };
+                        console.log('Loaded preferences:', prefs);
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load preferences, using defaults:', e);
+            }
+        }
+
         async function refreshData() {
             showAll = document.getElementById('showAllToggle').checked;
             
@@ -547,17 +569,27 @@
             if (compactMode) {
                 // Compact view
                 container.innerHTML = filtered.map(p => {
-                    const pct = p.usage_percentage || 0;
+                    let pct = p.usage_percentage || 0;
                     const avail = p.is_available;
+                    
+                    // Apply inverted calculation if enabled
+                    let displayPct = pct;
+                    let progressWidth = pct;
+                    if (prefs.invert_progress_bar && avail) {
+                        displayPct = Math.max(0, 100 - pct);
+                        progressWidth = displayPct;
+                    }
+                    
+                    // Use preferences for color thresholds
                     let progressClass = 'low';
                     if (!avail) progressClass = 'inactive';
-                    else if (pct >= 80) progressClass = 'high';
-                    else if (pct >= 60) progressClass = 'medium';
+                    else if (pct >= prefs.red_threshold) progressClass = 'high';
+                    else if (pct >= prefs.yellow_threshold) progressClass = 'medium';
                     
                     let statusText = '';
                     if (!avail) statusText = 'N/A';
                     else if (p.usage_unit === 'Status') statusText = 'OK';
-                    else statusText = pct.toFixed(0) + '%';
+                    else statusText = displayPct.toFixed(0) + '%';
                     
                     let statusDetail = '';
                     if (avail && p.cost_used > 0) {
@@ -573,10 +605,10 @@
                         statusDetail = '•••';
                     }
                     
-                    const progressWidth = avail ? Math.min(pct, 100) : 0;
+                    const finalProgressWidth = avail ? Math.min(progressWidth, 100) : 0;
                     
                     return '<div class="provider-item compact' + (avail ? '' : ' unavailable') + '">' +
-                        (avail && progressWidth > 0 ? '<div class="provider-progress-bg ' + progressClass + '" style="width:' + progressWidth + '%"></div>' : '') +
+                        (avail && finalProgressWidth > 0 ? '<div class="provider-progress-bg ' + progressClass + '" style="width:' + finalProgressWidth + '%"></div>' : '') +
                         '<div class="provider-content">' +
                         '<span class="provider-name">' + escapeHtml(p.provider_name) + '</span>' +
                         '<span class="provider-status">' + escapeHtml(statusText) + (statusDetail ? ' (' + escapeHtml(statusDetail) + ')' : '') + '</span>' +
@@ -585,24 +617,34 @@
             } else {
                 // Standard view
                 container.innerHTML = filtered.map(p => {
-                    const pct = p.usage_percentage || 0;
+                    let pct = p.usage_percentage || 0;
                     const avail = p.is_available;
+                    
+                    // Apply inverted calculation if enabled
+                    let displayPct = pct;
+                    let barWidth = pct;
+                    if (prefs.invert_progress_bar && avail) {
+                        displayPct = Math.max(0, 100 - pct);
+                        barWidth = displayPct;
+                    }
+                    
+                    // Use preferences for color thresholds
                     let cls = 'low';
                     if (!avail) cls = 'inactive';
                     else if (p.usage_unit === 'Status') cls = 'status';
-                    else if (pct >= 80) cls = 'high';
-                    else if (pct >= 60) cls = 'medium';
+                    else if (pct >= prefs.red_threshold) cls = 'high';
+                    else if (pct >= prefs.yellow_threshold) cls = 'medium';
                     
                     const type = p.is_quota_based ? 'Quota' : p.payment_type === 'credits' ? 'Credits' : 'Pay-As-You-Go';
                     let txt = '';
                     if (!avail) txt = p.description || 'Not Available';
                     else if (p.usage_unit === 'Status') txt = p.description || 'Connected';
-                    else txt = pct.toFixed(0) + '%';
+                    else txt = displayPct.toFixed(0) + '%';
                     
                     let desc = p.description || '';
                     if (privacyMode && p.cost_used > 0) desc = '••••••••';
                     
-                    const width = avail ? Math.max(pct, 5) : 100;
+                    const width = avail ? Math.max(barWidth, 5) : 100;
                     
                     return '<div class="provider-item' + (avail ? '' : ' unavailable') + '">' +
                         '<div class="provider-header"><span class="provider-name">' + escapeHtml(p.provider_name) + '</span>' +

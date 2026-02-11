@@ -625,6 +625,12 @@
                         <input type="number" class="form-input settings-control" id="redThreshold" value="80" min="0"
                             max="100">
                     </div>
+                    <div class="settings-row">
+                        <label class="settings-label" style="flex: 1;">
+                            <input type="checkbox" id="invertProgressBar" style="margin-right: 8px;">
+                            Invert Progress Bars (Show 'Remaining' instead of 'Used')
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -908,6 +914,7 @@
             document.getElementById('refreshInterval').value = prefs.refresh_interval || 300;
             document.getElementById('yellowThreshold').value = prefs.yellow_threshold || 60;
             document.getElementById('redThreshold').value = prefs.red_threshold || 80;
+            document.getElementById('invertProgressBar').checked = prefs.invert_progress_bar || false;
             document.getElementById('autoUpdate').checked = prefs.auto_update !== false;
         }
 
@@ -975,6 +982,7 @@
                 prefs.refresh_interval = parseInt(document.getElementById('refreshInterval').value) || 300;
                 prefs.yellow_threshold = parseInt(document.getElementById('yellowThreshold').value) || 60;
                 prefs.red_threshold = parseInt(document.getElementById('redThreshold').value) || 80;
+                prefs.invert_progress_bar = document.getElementById('invertProgressBar').checked;
                 prefs.auto_update = document.getElementById('autoUpdate').checked;
                 prefs.font_family = document.getElementById('fontFamily').value;
                 prefs.font_size = parseInt(document.getElementById('fontSize').value) || 13;
