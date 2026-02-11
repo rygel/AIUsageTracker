@@ -455,6 +455,11 @@ pub async fn check_agent_status() -> Result<bool, String> {
     }
 }
 
+#[tauri::command]
+pub async fn is_agent_running_http() -> Result<bool, String> {
+    check_agent_status().await
+}
+
 pub async fn start_agent_internal(
     app_handle: &tauri::AppHandle,
     agent_process: Arc<Mutex<Option<Child>>>,

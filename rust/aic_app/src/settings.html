@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,7 +20,7 @@
             --text-primary: #FFFFFF;
             --text-secondary: #AAAAAA;
             --accent-blue: #007ACC;
-            --accent-green: #00CC6A;
+            --accent-green: #00FF85;
             --accent-red: #FF1744;
             --accent-yellow: #FFD600;
         }
@@ -534,6 +535,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="settings-container">
         <div class="settings-header" data-tauri-drag-region>
@@ -602,7 +604,8 @@
                     <div class="settings-row">
                         <label class="settings-label">Auto-Refresh</label>
                         <div class="settings-control" style="display: flex; gap: 10px; align-items: center;">
-                            <input type="number" class="form-input" id="refreshInterval" min="10" max="3600" value="300" style="width: 80px;">
+                            <input type="number" class="form-input" id="refreshInterval" min="10" max="3600" value="300"
+                                style="width: 80px;">
                             <span style="font-size: 12px; color: var(--text-secondary);">seconds</span>
                         </div>
                     </div>
@@ -614,11 +617,13 @@
                     <div class="settings-section-title">UI Colors</div>
                     <div class="settings-row">
                         <label class="settings-label">Yellow Threshold (%)</label>
-                        <input type="number" class="form-input settings-control" id="yellowThreshold" value="60" min="0" max="100">
+                        <input type="number" class="form-input settings-control" id="yellowThreshold" value="60" min="0"
+                            max="100">
                     </div>
                     <div class="settings-row">
                         <label class="settings-label">Red Threshold (%)</label>
-                        <input type="number" class="form-input settings-control" id="redThreshold" value="80" min="0" max="100">
+                        <input type="number" class="form-input settings-control" id="redThreshold" value="80" min="0"
+                            max="100">
                     </div>
                 </div>
             </div>
@@ -630,11 +635,13 @@
                         <div class="github-avatar">&#128279;</div>
                         <div class="github-info">
                             <div class="github-username" id="githubUsername">Not connected</div>
-                            <div class="github-connected" id="githubConnected">Sign in to access your Copilot usage</div>
+                            <div class="github-connected" id="githubConnected">Sign in to access your Copilot usage
+                            </div>
                         </div>
                     </div>
                     <div id="githubActions">
-                        <button class="btn btn-primary" id="githubLoginBtn" onclick="loginGitHub()">Login with GitHub</button>
+                        <button class="btn btn-primary" id="githubLoginBtn" onclick="loginGitHub()">Login with
+                            GitHub</button>
                     </div>
                 </div>
 
@@ -665,7 +672,8 @@
                             </label>
                         </div>
                     </div>
-                    <button class="btn btn-primary" id="checkUpdatesBtn" onclick="checkForUpdates()">Check for Updates</button>
+                    <button class="btn btn-primary" id="checkUpdatesBtn" onclick="checkForUpdates()">Check for
+                        Updates</button>
                 </div>
             </div>
 
@@ -685,7 +693,8 @@
                     </div>
                     <div class="settings-row">
                         <label class="settings-label">Font Size</label>
-                        <input type="number" class="form-input settings-control" id="fontSize" value="13" min="8" max="24">
+                        <input type="number" class="form-input settings-control" id="fontSize" value="13" min="8"
+                            max="24">
                     </div>
                     <div class="settings-row">
                         <label class="settings-label">Style</label>
@@ -701,7 +710,8 @@
                         </div>
                     </div>
                     <div class="font-preview">
-                        <div class="font-preview-text" id="fontPreviewText" style="font-weight: normal; font-style: normal;">
+                        <div class="font-preview-text" id="fontPreviewText"
+                            style="font-weight: normal; font-style: normal;">
                             The quick brown fox jumps over the lazy dog
                         </div>
                         <div style="font-size: 11px; color: var(--text-secondary);">
@@ -722,7 +732,8 @@
                     <div class="about-links">
                         <a href="https://github.com/aiconsumptiontracker" class="about-link" target="_blank">GitHub</a>
                         <a href="https://aiconsumptiontracker.app" class="about-link" target="_blank">Website</a>
-                        <a href="https://github.com/aiconsumptiontracker/issues" class="about-link" target="_blank">Issues</a>
+                        <a href="https://github.com/aiconsumptiontracker/issues" class="about-link"
+                            target="_blank">Issues</a>
                     </div>
                     <div class="about-license">
                         AI Consumption Tracker is open source software licensed under the MIT License.
@@ -733,10 +744,8 @@
         </div>
 
         <div class="settings-footer">
-            <button class="btn" id="scanKeysBtn" onclick="scanForKeys()">Scan for Keys</button>
             <div class="footer-actions">
                 <button class="btn btn-primary" id="saveBtn" onclick="saveSettings()">Save Changes</button>
-                <button class="btn" id="cancelBtn" onclick="closeSettings()">Cancel</button>
             </div>
         </div>
     </div>
@@ -763,24 +772,24 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             console.log('Settings loaded');
-            
+
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', () => switchTab(tab.dataset.tab));
             });
-            
+
             document.getElementById('closeBtn').addEventListener('click', closeSettings);
             document.getElementById('cancelBtn').addEventListener('click', closeSettings);
-            
+
             document.querySelectorAll('.form-input, .form-select, input[type="checkbox"]').forEach(el => {
                 el.addEventListener('change', () => settingsChanged = true);
                 el.addEventListener('input', () => settingsChanged = true);
             });
-            
+
             document.getElementById('fontBold').addEventListener('change', updateFontPreview);
             document.getElementById('fontItalic').addEventListener('change', updateFontPreview);
             document.getElementById('fontFamily').addEventListener('change', updateFontPreview);
             document.getElementById('fontSize').addEventListener('input', updateFontPreview);
-            
+
             await loadSettings();
             updateFontPreview();
         });
@@ -788,7 +797,7 @@
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-            
+
             document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
             document.getElementById(`${tabName}-panel`).classList.add('active');
         }
@@ -798,13 +807,13 @@
                 if (invoke) {
                     configs = await invoke('get_configured_providers');
                     prefs = await invoke('load_preferences');
-                    
+
                     const githubAuth = await invoke('is_github_authenticated');
                     if (githubAuth) {
                         githubUser = { username: 'Connected' };
                     }
                 }
-                
+
                 const allProviders = [
                     { id: 'github-copilot', name: 'GitHub Copilot', icon: 'G' },
                     { id: 'openai', name: 'OpenAI', icon: 'O' },
@@ -813,7 +822,7 @@
                     { id: 'gemini', name: 'Google Gemini', icon: 'G' },
                     { id: 'kimi', name: 'Kimi', icon: 'K' }
                 ];
-                
+
                 allProviders.forEach(p => {
                     if (!configs.find(c => c.provider_id === p.id)) {
                         configs.push({
@@ -824,7 +833,7 @@
                         });
                     }
                 });
-                
+
                 populateProviders();
                 populateLayout();
                 populateGitHub();
@@ -844,11 +853,11 @@
                 'gemini': { name: 'Google Gemini', icon: 'G', color: '#4285f4' },
                 'kimi': { name: 'Kimi', icon: 'K', color: '#0066cc' }
             };
-            
+
             container.innerHTML = configs.map(config => {
                 const info = providerInfo[config.provider_id] || { name: config.provider_id, icon: config.provider_id.charAt(0).toUpperCase(), color: '#007ACC' };
                 const hasKey = config.api_key && config.api_key.length > 0;
-                
+
                 return `
                     <div class="provider-card" data-provider="${config.provider_id}">
                         <div class="provider-header">
@@ -884,7 +893,7 @@
                     </div>
                 `;
             }).join('');
-            
+
             document.querySelectorAll('.tray-checkbox, .api-key-input, .auth-source-select').forEach(el => {
                 el.addEventListener('change', () => settingsChanged = true);
                 el.addEventListener('input', () => settingsChanged = true);
@@ -926,7 +935,7 @@
             const size = document.getElementById('fontSize').value;
             const bold = document.getElementById('fontBold').checked;
             const italic = document.getElementById('fontItalic').checked;
-            
+
             preview.style.fontFamily = family;
             preview.style.fontSize = size + 'px';
             preview.style.fontWeight = bold ? 'bold' : 'normal';
@@ -950,15 +959,15 @@
                     if (config) {
                         const trayCheckbox = card.querySelector('.tray-checkbox');
                         if (trayCheckbox) config.show_in_tray = trayCheckbox.checked;
-                        
+
                         const apiKeyInput = card.querySelector('.api-key-input');
                         if (apiKeyInput) config.api_key = apiKeyInput.value;
-                        
+
                         const authSelect = card.querySelector('.auth-source-select');
                         if (authSelect) config.auth_source = authSelect.value;
                     }
                 });
-                
+
                 prefs.compact_mode = document.getElementById('compactMode').checked;
                 prefs.always_on_top = document.getElementById('alwaysOnTop').checked;
                 prefs.stay_open = document.getElementById('stayOpen').checked;
@@ -971,16 +980,16 @@
                 prefs.font_size = parseInt(document.getElementById('fontSize').value) || 13;
                 prefs.font_bold = document.getElementById('fontBold').checked;
                 prefs.font_italic = document.getElementById('fontItalic').checked;
-                
+
                 if (invoke) {
                     await invoke('save_provider_configs', { configs });
                     await invoke('save_preferences', { preferences: prefs });
-                    
+
                     if (prefs.always_on_top) {
                         await invoke('toggle_always_on_top', { enabled: true });
                     }
                 }
-                
+
                 settingsChanged = true;
                 closeSettings();
             } catch (e) {
@@ -993,11 +1002,11 @@
             const btn = document.getElementById('scanKeysBtn');
             btn.textContent = 'Scanning...';
             btn.disabled = true;
-            
+
             try {
                 if (invoke) {
                     const discovered = await invoke('scan_for_api_keys');
-                    
+
                     discovered.forEach(newConfig => {
                         const existing = configs.find(c => c.provider_id === newConfig.provider_id);
                         if (!existing) {
@@ -1006,7 +1015,7 @@
                             existing.api_key = newConfig.api_key;
                         }
                     });
-                    
+
                     populateProviders();
                     settingsChanged = true;
                 }
@@ -1020,11 +1029,11 @@
 
         async function loginGitHub() {
             document.getElementById('authModal').classList.add('visible');
-            
+
             try {
                 if (invoke) {
                     const [userCode, verificationUri] = await invoke('initiate_github_login');
-                    
+
                     document.getElementById('authContent').innerHTML = `
                         <p>Go to <a href="${verificationUri}" class="auth-link" target="_blank">${verificationUri}</a></p>
                         <p>and enter this code:</p>
@@ -1032,11 +1041,11 @@
                         <p style="color: #888; font-size: 12px;">Waiting for authentication...</p>
                         <button class="btn" style="margin-top: 12px;" onclick="cancelGitHubLogin()">Cancel</button>
                     `;
-                    
+
                     if (window.__TAURI__?.shell) {
                         await window.__TAURI__.shell.open(verificationUri);
                     }
-                    
+
                     pollGitHubLogin();
                 }
             } catch (e) {
@@ -1046,7 +1055,7 @@
 
         async function pollGitHubLogin() {
             if (!invoke) return;
-            
+
             const poll = async () => {
                 try {
                     const result = await invoke('check_github_login_status');
@@ -1062,7 +1071,7 @@
                     console.error('Poll error:', e);
                 }
             };
-            
+
             setTimeout(poll, 2000);
         }
 
@@ -1090,7 +1099,7 @@
             const btn = document.getElementById('discoverTokenBtn');
             btn.textContent = 'Discovering...';
             btn.disabled = true;
-            
+
             try {
                 if (invoke) {
                     const result = await invoke('discover_github_token');
@@ -1115,10 +1124,10 @@
         async function checkForUpdates() {
             const btn = document.getElementById('checkUpdatesBtn');
             const message = document.getElementById('updateMessage');
-            
+
             btn.textContent = 'Checking...';
             btn.disabled = true;
-            
+
             try {
                 if (invoke) {
                     const result = await invoke('check_for_updates');
@@ -1152,4 +1161,5 @@
         }
     </script>
 </body>
+
 </html>

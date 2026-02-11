@@ -557,6 +557,24 @@
             }
 
             try {
+                // First check if agent is responding via HTTP (works for external agents too)
+                const isRunning = await window.__TAURI__.core.invoke('is_agent_running_http');
+                
+                if (isRunning) {
+                    // Agent is running and responding
+                    if (agentBtn) {
+                        agentBtn.disabled = true;
+                        agentBtn.title = 'Agent is running';
+                        agentBtn.style.opacity = '0.5';
+                    }
+                    if (statusIndicator && statusText) {
+                        statusIndicator.className = 'status-indicator connected';
+                        statusText.textContent = 'Agent Connected';
+                    }
+                    return;
+                }
+                
+                // If HTTP check failed, check local process state
                 const status = await window.__TAURI__.core.invoke('get_agent_status_details');
                 
                 // Update button state
