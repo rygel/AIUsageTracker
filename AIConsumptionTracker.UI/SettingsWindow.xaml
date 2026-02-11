@@ -209,7 +209,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Background="#252526" Padding="20,15" CornerRadius="0" BorderBrush="#333333" BorderThickness="0,0,0,1">
+            <Border x:Name="HeaderBorder" Background="#252526" Padding="20,15" CornerRadius="0" BorderBrush="#333333" BorderThickness="0,0,0,1">
                 <DockPanel>
                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"  Foreground="#007ACC" VerticalAlignment="Center" Margin="0,0,10,0"/>
                     <TextBlock Text="Settings" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
@@ -270,7 +270,7 @@
             </TabControl>
 
             <!-- Footer -->
-            <Border Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0" BorderBrush="#333333" BorderThickness="0,1,0,0">
+            <Border x:Name="FooterBorder" Grid.Row="2" Background="#252526" Padding="15" CornerRadius="0" BorderBrush="#333333" BorderThickness="0,1,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>

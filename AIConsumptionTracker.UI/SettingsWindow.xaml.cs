@@ -932,19 +932,55 @@ namespace AIConsumptionTracker.UI
 
         private void ApplyTheme()
         {
-            var windowBg = _prefs.Theme == AppTheme.Dark 
-                ? Color.FromRgb(30, 30, 30) 
-                : Color.FromRgb(243, 243, 243);
-            var windowFg = _prefs.Theme == AppTheme.Dark 
-                ? Brushes.White 
-                : Brushes.Black;
+            var isDark = _prefs.Theme == AppTheme.Dark;
+            
+            // Define colors based on theme
+            var windowBg = isDark ? Color.FromRgb(30, 30, 30) : Color.FromRgb(243, 243, 243);
+            var windowFg = isDark ? Brushes.White : Brushes.Black;
+            var headerFooterBg = isDark ? Color.FromRgb(37, 37, 38) : Color.FromRgb(230, 230, 230);
+            var tabBg = isDark ? Color.FromRgb(30, 30, 30) : Color.FromRgb(243, 243, 243);
+            var tabItemBg = isDark ? Color.FromRgb(37, 37, 38) : Color.FromRgb(230, 230, 230);
+            var borderColor = isDark ? Color.FromRgb(51, 51, 51) : Color.FromRgb(204, 204, 204);
 
             // Apply to current SettingsWindow
             this.Background = new SolidColorBrush(windowBg);
             this.Foreground = windowFg;
 
+            // Update header
+            if (this.FindName("HeaderBorder") is Border headerBorder)
+            {
+                headerBorder.Background = new SolidColorBrush(headerFooterBg);
+                headerBorder.BorderBrush = new SolidColorBrush(borderColor);
+            }
+
+            // Update footer
+            if (this.FindName("FooterBorder") is Border footerBorder)
+            {
+                footerBorder.Background = new SolidColorBrush(headerFooterBg);
+                footerBorder.BorderBrush = new SolidColorBrush(borderColor);
+            }
+
+            // Update TabControl
+            if (this.FindName("MainTabControl") is TabControl tabControl)
+            {
+                tabControl.Background = new SolidColorBrush(tabBg);
+                tabControl.BorderBrush = new SolidColorBrush(borderColor);
+                
+                // Update each TabItem
+                foreach (TabItem tabItem in tabControl.Items)
+                {
+                    tabItem.Background = new SolidColorBrush(tabItemBg);
+                    tabItem.BorderBrush = new SolidColorBrush(borderColor);
+                    if (tabItem.Header is TextBlock header)
+                    {
+                        header.Foreground = windowFg;
+                    }
+                }
+            }
+
+            // Update theme button icon
             if (ThemeBtn != null)
-                ThemeBtn.Content = _prefs.Theme == AppTheme.Dark ? "🌙" : "☀️";
+                ThemeBtn.Content = isDark ? "🌙" : "☀️";
 
             // Apply to MainWindow
             if (Application.Current is App app && app.MainWindow is MainWindow mainWindow)
@@ -959,13 +995,13 @@ namespace AIConsumptionTracker.UI
                 {
                     if (window != this && window != Application.Current.MainWindow)
                     {
-                        ApplyThemeToWindow(window, windowBg, windowFg);
+                        ApplyThemeToWindow(window, windowBg, windowFg, headerFooterBg, borderColor);
                     }
                 }
             }
         }
 
-        private void ApplyThemeToWindow(Window window, Color bgColor, Brush fgBrush)
+        private void ApplyThemeToWindow(Window window, Color bgColor, Brush fgBrush, Color headerFooterBg, Color borderColor)
         {
             try
             {
@@ -975,7 +1011,7 @@ namespace AIConsumptionTracker.UI
                 // Apply to window content if it's a FrameworkElement
                 if (window.Content is FrameworkElement root)
                 {
-                    ApplyThemeToElement(root, bgColor, fgBrush);
+                    ApplyThemeToElement(root, bgColor, fgBrush, headerFooterBg, borderColor);
                 }
             }
             catch (Exception ex)
@@ -984,38 +1020,60 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private void ApplyThemeToElement(FrameworkElement element, Color bgColor, Brush fgBrush)
+        private void ApplyThemeToElement(FrameworkElement element, Color bgColor, Brush fgBrush, Color headerFooterBg, Color borderColor)
         {
             if (element == null) return;
+
+            // Update Border backgrounds (headers/footers)
+            if (element is Border border)
+            {
+                // Check if this is likely a header/footer by examining its position or context
+                var parent = border.Parent as FrameworkElement;
+                if (parent != null)
+                {
+                    // Update header/footer borders
+                    border.Background = new SolidColorBrush(headerFooterBg);
+                    border.BorderBrush = new SolidColorBrush(borderColor);
+                }
+                
+                if (border.Child is FrameworkElement borderChild)
+                {
+                    ApplyThemeToElement(borderChild, bgColor, fgBrush, headerFooterBg, borderColor);
+                }
+            }
 
             // Apply to panels
             if (element is Panel panel)
             {
+                panel.Background = new SolidColorBrush(bgColor);
                 foreach (var child in panel.Children)
                 {
                     if (child is FrameworkElement childElement)
                     {
-                        ApplyThemeToElement(childElement, bgColor, fgBrush);
+                        ApplyThemeToElement(childElement, bgColor, fgBrush, headerFooterBg, borderColor);
                     }
                 }
             }
 
             // Apply to content controls
-            if (element is ContentControl contentControl && contentControl.Content is FrameworkElement content)
+            if (element is ContentControl contentControl)
             {
-                ApplyThemeToElement(content, bgColor, fgBrush);
-            }
-
-            // Apply to border
-            if (element is Border border && border.Child is FrameworkElement borderChild)
-            {
-                ApplyThemeToElement(borderChild, bgColor, fgBrush);
+                if (contentControl.Content is FrameworkElement content)
+                {
+                    ApplyThemeToElement(content, bgColor, fgBrush, headerFooterBg, borderColor);
+                }
             }
 
             // Update text blocks
             if (element is TextBlock textBlock)
             {
-                textBlock.Foreground = fgBrush;
+                // Only update if it's not a colored text (like links)
+                if (textBlock.Foreground != null && 
+                    textBlock.Foreground != Brushes.Gold && 
+                    !textBlock.Foreground.ToString().Contains("007ACC"))
+                {
+                    textBlock.Foreground = fgBrush;
+                }
             }
         }
 

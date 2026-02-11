@@ -67,15 +67,26 @@ namespace AIConsumptionTracker.UI
         
         private void ApplyTheme(AppTheme theme)
         {
-            var windowBg = theme == AppTheme.Dark 
-                ? Color.FromRgb(30, 30, 30) 
-                : Color.FromRgb(243, 243, 243);
-            var windowFg = theme == AppTheme.Dark 
-                ? Brushes.White 
-                : Brushes.Black;
+            var isDark = theme == AppTheme.Dark;
+            var windowBg = isDark ? Color.FromRgb(30, 30, 30) : Color.FromRgb(243, 243, 243);
+            var windowFg = isDark ? Brushes.White : Brushes.Black;
+            var headerFooterBg = isDark ? Color.FromRgb(37, 37, 38) : Color.FromRgb(230, 230, 230);
+            var borderColor = isDark ? Color.FromRgb(51, 51, 51) : Color.FromRgb(204, 204, 204);
             
             this.Background = new SolidColorBrush(windowBg);
             this.Foreground = windowFg;
+            
+            // Update header border
+            if (this.FindName("HeaderBorder") is Border headerBorder)
+            {
+                headerBorder.Background = new SolidColorBrush(headerFooterBg);
+            }
+            
+            // Update footer border
+            if (this.FindName("FooterBorder") is Border footerBorder)
+            {
+                footerBorder.Background = new SolidColorBrush(headerFooterBg);
+            }
             
             // Apply to all TextBlocks
             ApplyThemeToVisualTree(this, windowFg);

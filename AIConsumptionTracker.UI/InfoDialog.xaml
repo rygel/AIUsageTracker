@@ -44,7 +44,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border Background="#252526" Padding="12" MouseDown="Header_MouseDown">
+            <Border x:Name="HeaderBorder" Background="#252526" Padding="12" MouseDown="Header_MouseDown">
                 <DockPanel>
                     <TextBlock Text="Info" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" DockPanel.Dock="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -98,7 +98,7 @@
             </StackPanel>
 
             <!-- Footer -->
-            <Border Grid.Row="2" Background="#252526" Padding="12,8">
+            <Border x:Name="FooterBorder" Grid.Row="2" Background="#252526" Padding="12,8">
                 <DockPanel>
                     <Button x:Name="CloseBtn" Content="Close" HorizontalAlignment="Right" Click="CloseBtn_Click" Width="80"/>
                 </DockPanel>
