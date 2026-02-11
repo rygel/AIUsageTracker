@@ -214,6 +214,12 @@ namespace AIConsumptionTracker.UI
             }
         }
 
+        private SolidColorBrush GetThemeBrush(string resourceKey, Brush fallback)
+        {
+            var brush = Application.Current?.Resources[resourceKey] as SolidColorBrush;
+            return brush ?? (fallback as SolidColorBrush) ?? Brushes.Gray;
+        }
+
         private void UpdatePrivacyButton()
         {
             if (_preferences.IsPrivacyMode)
@@ -649,7 +655,7 @@ namespace AIConsumptionTracker.UI
                     {
                         background = new Border
                         {
-                            Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
+                            Background = GetThemeBrush("CardBackground", Brushes.Gray),
                             CornerRadius = new CornerRadius(0),
                             Tag = "Part_Background"
                         };
@@ -1077,7 +1083,7 @@ namespace AIConsumptionTracker.UI
 
             var bg = new Border
             {
-                Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
+                Background = GetThemeBrush("CardBackground", Brushes.Gray),
                 CornerRadius = new CornerRadius(0),
                 Tag = "Part_Background",
                 Visibility = shouldHaveProgress ? Visibility.Collapsed : Visibility.Visible
@@ -1108,7 +1114,7 @@ namespace AIConsumptionTracker.UI
                 // Indentation spacer/icon for child
                 var icon = new Border
                 {
-                    Width = 4, Height = 4, Background = (SolidColorBrush)Application.Current.Resources["SecondaryText"], CornerRadius = new CornerRadius(2),
+                    Width = 4, Height = 4, Background = GetThemeBrush("SecondaryText", Brushes.Gray), CornerRadius = new CornerRadius(2),
                     Margin = new Thickness(2, 0, 10, 0), VerticalAlignment = VerticalAlignment.Center
                 };
                 contentPanel.Children.Add(icon);
@@ -1118,7 +1124,7 @@ namespace AIConsumptionTracker.UI
             // Right Side: Usage/Status (Added first so it's prioritized in limited space)
             var statusText = "";
             string resetText = "";
-            Brush statusBrush = (SolidColorBrush)Application.Current.Resources["SecondaryText"];
+            Brush statusBrush = GetThemeBrush("SecondaryText", Brushes.Gray);
 
             if (isMissing) { statusText = "Key Missing"; statusBrush = Brushes.IndianRed; }
             else if (isError) { statusText = "Error"; statusBrush = Brushes.Red; }
@@ -1152,7 +1158,7 @@ namespace AIConsumptionTracker.UI
                 {
                     Text = FormatResetDisplay(resetText, usage.NextResetTime),
                     FontSize = 10,
-                    Foreground = (SolidColorBrush)Application.Current.Resources["StatusTextWarning"],
+                    Foreground = GetThemeBrush("StatusTextWarning", Brushes.Gray),
                     FontWeight = FontWeights.SemiBold,
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(10, 0, 0, 0),
@@ -1188,7 +1194,7 @@ namespace AIConsumptionTracker.UI
                     : $"{usage.ProviderName}{accountPart}",
                 FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold,
                 FontSize = 11,
-                Foreground = isMissing ? (SolidColorBrush)Application.Current.Resources["TertiaryText"] : (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                Foreground = isMissing ? GetThemeBrush("TertiaryText", Brushes.Gray) : GetThemeBrush("PrimaryText", Brushes.Gray),
                 VerticalAlignment = VerticalAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 ToolTip = _preferences.IsPrivacyMode 
@@ -1250,11 +1256,11 @@ namespace AIConsumptionTracker.UI
             // Main Container
             var container = new Border
             {
-                Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
+                Background = GetThemeBrush("CardBackground", Brushes.Gray),
                 CornerRadius = new CornerRadius(0),
                 Padding = new Thickness(12),
                 Margin = new Thickness(isChild ? 20 : 0, 0, 0, 8),
-                BorderBrush = isMissing || isError ? Brushes.Maroon : (isConsoleCheck ? Brushes.DarkOrange : (SolidColorBrush)Application.Current.Resources["CardBorder"]),
+                BorderBrush = isMissing || isError ? Brushes.Maroon : (isConsoleCheck ? Brushes.DarkOrange : GetThemeBrush("CardBorder", Brushes.Gray)),
                 BorderThickness = new Thickness(1),
                 Opacity = (isMissing || !usage.IsAvailable) ? 0.6 : 1.0, Tag = usage.ProviderId
             };
@@ -1269,20 +1275,20 @@ namespace AIConsumptionTracker.UI
                var nameTxt = new TextBlock
                {
                    Text = _preferences.IsPrivacyMode ? PrivacyHelper.MaskString(usage.ProviderName) : usage.ProviderName, // Actually the "Name" of detail
-                   Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"],
+                   Foreground = GetThemeBrush("TertiaryText", Brushes.Gray),
                    FontSize = 12,
                    VerticalAlignment = VerticalAlignment.Center
                };
                
                // Indent
                var panel = new StackPanel { Orientation = Orientation.Horizontal };
-               panel.Children.Add(new Border { Width=6, Height=6, Background=(SolidColorBrush)Application.Current.Resources["SecondaryText"], CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center });
+               panel.Children.Add(new Border { Width=6, Height=6, Background=GetThemeBrush("SecondaryText", Brushes.Gray), CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center });
                panel.Children.Add(nameTxt);
 
                var valueTxt = new TextBlock
                {
                    Text = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description,
-                   Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                   Foreground = GetThemeBrush("PrimaryText", Brushes.Gray),
                    FontSize = 12,
                    FontWeight = FontWeights.SemiBold,
                    VerticalAlignment = VerticalAlignment.Center,
@@ -1326,7 +1332,7 @@ namespace AIConsumptionTracker.UI
                 else
                 {
                     // Child Indent
-                     var indent = new Border { Width=6, Height=6, Background=(SolidColorBrush)Application.Current.Resources["SecondaryText"], CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center };
+                     var indent = new Border { Width=6, Height=6, Background=GetThemeBrush("SecondaryText", Brushes.Gray), CornerRadius=new CornerRadius(3), Margin=new Thickness(4,0,12,0), VerticalAlignment=VerticalAlignment.Center };
                      headerGrid.Children.Add(indent);
                 }
 
@@ -1338,7 +1344,7 @@ namespace AIConsumptionTracker.UI
                         : $"{usage.ProviderName}{accountPart}",
                     FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold, 
                     FontSize = 13,
-                    Foreground = isMissing ? (SolidColorBrush)Application.Current.Resources["TertiaryText"] : (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                    Foreground = isMissing ? GetThemeBrush("TertiaryText", Brushes.Gray) : GetThemeBrush("PrimaryText", Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     ToolTip = _preferences.IsPrivacyMode ? null : (string.IsNullOrEmpty(usage.AuthSource) ? null : usage.AuthSource),
@@ -1366,7 +1372,7 @@ namespace AIConsumptionTracker.UI
             bool shouldHaveProgress = (usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
 
             var pGrid = new Grid { Height = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Tag = "Part_ProgressBarHost" };
-            pGrid.Children.Add(new Border { Background = (SolidColorBrush)Application.Current.Resources["ProgressBarBackground"], CornerRadius = new CornerRadius(0) });
+            pGrid.Children.Add(new Border { Background = GetThemeBrush("ProgressBarBackground", Brushes.Gray), CornerRadius = new CornerRadius(0) });
 
             var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
             if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
@@ -1392,7 +1398,7 @@ namespace AIConsumptionTracker.UI
                 Height = 4,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 10, 0),
-                Background = (SolidColorBrush)Application.Current.Resources["ProgressBarBackground"],
+                Background = GetThemeBrush("ProgressBarBackground", Brushes.Gray),
                 CornerRadius = new CornerRadius(0),
                 Tag = "Part_Background",
                 Visibility = shouldHaveProgress ? Visibility.Collapsed : Visibility.Visible
@@ -1428,7 +1434,7 @@ namespace AIConsumptionTracker.UI
                 {
                     Text = detailText,
                     FontSize = 10.5,
-                    Foreground = (SolidColorBrush)Application.Current.Resources["SecondaryText"],
+                    Foreground = GetThemeBrush("SecondaryText", Brushes.Gray),
                     VerticalAlignment = VerticalAlignment.Center,
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     MaxWidth = 200, // Ensure some bar space remains
@@ -1447,7 +1453,7 @@ namespace AIConsumptionTracker.UI
                  { 
                      Text = FormatResetDisplay(resetTextFromDetail, detailResetTime), 
                      FontSize = 10, 
-                     Foreground = (SolidColorBrush)Application.Current.Resources["StatusTextWarning"], 
+                     Foreground = GetThemeBrush("StatusTextWarning", Brushes.Gray), 
                      Margin = new Thickness(22, 2, 0, 0),
                      FontWeight = FontWeights.SemiBold,
                      Tag = "Part_ResetText"
@@ -1676,8 +1682,8 @@ namespace AIConsumptionTracker.UI
                     Width = 600,
                     Height = 500,
                     WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                    Background = (SolidColorBrush)Application.Current.Resources["CardBackground"],
-                    Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                    Background = GetThemeBrush("CardBackground", Brushes.Gray),
+                    Foreground = GetThemeBrush("PrimaryText", Brushes.Gray),
                     ResizeMode = ResizeMode.CanResize,
                     MinWidth = 400,
                     MinHeight = 300
