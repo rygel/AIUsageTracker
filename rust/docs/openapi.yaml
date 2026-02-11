@@ -1,0 +1,575 @@
+openapi: 3.0.0
+info:
+  title: AI Consumption Tracker - Agent API
+  description: |
+    REST API for the AI Consumption Tracker Agent. 
+    Provides endpoints for retrieving usage data, provider configuration, and historical records.
+    
+    The UI (Tauri application) consumes this API exclusively - there is no local fallback.
+    
+    All timestamps are in ISO 8601 format (UTC).
+  version: 1.7.13
+  contact:
+    name: AI Consumption Tracker Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local Agent Instance
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Usage
+    description: Current and historical usage data
+  - name: Providers
+    description: Provider configuration and discovery
+  - name: Config
+    description: Agent configuration management
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health Check
+      description: Returns 200 OK if the agent is running and healthy
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Agent is healthy and running
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "OK"
+        '503':
+          description: Service unavailable (e.g., database not initialized)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Service unavailable"
+
+  /api/providers/usage:
+    get:
+      tags:
+        - Usage
+      summary: Get Current Usage
+      description: |
+        Returns current usage data for all configured providers.
+        
+        This endpoint returns cached data from the agent's in-memory provider manager.
+        To fetch fresh data from provider APIs, use the refresh endpoint.
+      operationId: getCurrentUsage
+      responses:
+        '200':
+          description: List of provider usage data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProviderUsage'
+              example:
+                - provider_id: "openai"
+                  provider_name: "OpenAI"
+                  usage_percentage: 45.5
+                  cost_used: 45.50
+                  cost_limit: 100.00
+                  payment_type: "payg"
+                  usage_unit: "USD"
+                  is_quota_based: false
+                  is_available: true
+                  description: "Organization: MyOrg"
+                  auth_source: "Environment Variable"
+                  account_name: "my@email.com"
+                  next_reset_time: null
+                  details: null
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/providers/usage/refresh:
+    post:
+      tags:
+        - Usage
+      summary: Refresh Usage Data
+      description: |
+        Triggers a fresh fetch from all provider APIs and returns the updated data.
+        
+        This endpoint:
+        1. Calls each provider's API to get current usage
+        2. Stores the results in the database
+        3. Returns the updated data
+        
+        Note: This may take several seconds depending on provider response times.
+      operationId: refreshUsage
+      responses:
+        '200':
+          description: Refreshed usage data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProviderUsage'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/providers/{provider_id}/usage:
+    get:
+      tags:
+        - Usage
+      summary: Get Provider Usage
+      description: Returns usage data for a specific provider by ID
+      operationId: getProviderUsage
+      parameters:
+        - name: provider_id
+          in: path
+          required: true
+          description: Provider identifier (e.g., "openai", "anthropic", "github-copilot")
+          schema:
+            type: string
+            enum:
+              - openai
+              - anthropic
+              - deepseek
+              - gemini
+              - kimi
+              - github-copilot
+              - claude-code
+              - zai
+      responses:
+        '200':
+          description: Provider usage data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderUsage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/providers/discovered:
+    get:
+      tags:
+        - Providers
+      summary: Get Discovered Providers
+      description: |
+        Returns all providers discovered by the agent.
+        
+        Providers are discovered from:
+        - Environment variables (e.g., OPENAI_API_KEY)
+        - Existing config files (~/.ai-consumption-tracker/auth.json)
+        - Well-known provider defaults
+        
+        The discovered list includes providers even if they don't have API keys configured.
+      operationId: getDiscoveredProviders
+      responses:
+        '200':
+          description: List of discovered providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProviderConfig'
+              example:
+                - provider_id: "openai"
+                  api_key: "sk-..."
+                  config_type: "api"
+                  description: "Discovered via Environment Variable"
+                  auth_source: "Environment Variable"
+                  show_in_tray: true
+                - provider_id: "anthropic"
+                  api_key: ""
+                  config_type: "api"
+                  description: null
+                  auth_source: "System Default"
+                  show_in_tray: true
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/history:
+    get:
+      tags:
+        - Usage
+      summary: Get Historical Usage
+      description: Returns historical usage data from the database
+      operationId: getHistoricalUsage
+      parameters:
+        - name: provider_id
+          in: query
+          required: false
+          description: Filter by specific provider ID
+          schema:
+            type: string
+        - name: start_date
+          in: query
+          required: false
+          description: Start date (ISO 8601 format)
+          schema:
+            type: string
+            format: date
+          example: "2024-01-01"
+        - name: end_date
+          in: query
+          required: false
+          description: End date (ISO 8601 format)
+          schema:
+            type: string
+            format: date
+          example: "2024-12-31"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Historical usage records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoricalUsageRecord'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/config:
+    get:
+      tags:
+        - Config
+      summary: Get Agent Configuration
+      description: Returns the current agent configuration
+      operationId: getConfig
+      responses:
+        '200':
+          description: Agent configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfig'
+    post:
+      tags:
+        - Config
+      summary: Update Agent Configuration
+      description: |
+        Updates the agent's configuration.
+        
+        Only `refresh_interval_minutes` and `auto_refresh_enabled` can be modified.
+        The discovered_providers list is auto-generated and cannot be manually set.
+      operationId: updateConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentConfigUpdate'
+      responses:
+        '200':
+          description: Updated configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentConfig'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    ProviderUsage:
+      type: object
+      required:
+        - provider_id
+        - provider_name
+        - usage_percentage
+        - cost_used
+        - cost_limit
+        - payment_type
+        - usage_unit
+        - is_quota_based
+        - is_available
+        - description
+        - auth_source
+        - account_name
+      properties:
+        provider_id:
+          type: string
+          description: Unique provider identifier
+          example: "openai"
+        provider_name:
+          type: string
+          description: Human-readable provider name
+          example: "OpenAI"
+        usage_percentage:
+          type: number
+          format: double
+          description: Usage percentage (0-100)
+          example: 45.5
+        cost_used:
+          type: number
+          format: double
+          description: Amount used
+          example: 45.50
+        cost_limit:
+          type: number
+          format: double
+          description: Usage limit (0 if unlimited)
+          example: 100.00
+        payment_type:
+          $ref: '#/components/schemas/PaymentType'
+        usage_unit:
+          type: string
+          description: Unit of measurement
+          example: "USD"
+          enum:
+            - USD
+            - requests
+            - tokens
+            - credits
+        is_quota_based:
+          type: boolean
+          description: Whether provider uses quota-based billing
+          example: false
+        is_available:
+          type: boolean
+          description: Whether the provider API is accessible
+          example: true
+        description:
+          type: string
+          description: Additional information (org name, plan, etc.)
+          example: "Organization: MyOrg"
+        auth_source:
+          type: string
+          description: Where the credentials came from
+          example: "Environment Variable"
+          enum:
+            - Environment Variable
+            - Config File
+            - Manual
+            - System Default
+            - GitHub OAuth
+        account_name:
+          type: string
+          description: Account or organization identifier
+          example: "my@email.com"
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the quota resets (for quota-based providers)
+          example: "2024-02-01T00:00:00Z"
+        details:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ProviderUsageDetail'
+
+    ProviderUsageDetail:
+      type: object
+      required:
+        - model_name
+        - cost
+        - percentage
+      properties:
+        model_name:
+          type: string
+          description: Name of the model
+          example: "gpt-4"
+        cost:
+          type: number
+          format: double
+          description: Cost for this model
+          example: 25.50
+        percentage:
+          type: number
+          format: double
+          description: Percentage of total usage
+          example: 56.0
+
+    ProviderConfig:
+      type: object
+      required:
+        - provider_id
+        - api_key
+        - config_type
+        - auth_source
+        - show_in_tray
+      properties:
+        provider_id:
+          type: string
+          description: Unique provider identifier
+          example: "openai"
+        api_key:
+          type: string
+          description: API key (may be empty if not configured)
+          example: "sk-abc123"
+        config_type:
+          type: string
+          description: Type of configuration
+          example: "api"
+          enum:
+            - api
+            - quota
+            - pay-as-you-go
+        description:
+          type: string
+          nullable: true
+          description: Optional description
+          example: "Discovered via Environment Variable"
+        auth_source:
+          type: string
+          description: Source of credentials
+          example: "Environment Variable"
+        show_in_tray:
+          type: boolean
+          description: Whether to show in system tray
+          example: true
+
+    HistoricalUsageRecord:
+      type: object
+      required:
+        - id
+        - provider_id
+        - provider_name
+        - usage
+        - usage_unit
+        - is_quota_based
+        - timestamp
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique record identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        provider_id:
+          type: string
+          description: Provider identifier
+          example: "openai"
+        provider_name:
+          type: string
+          description: Provider name
+          example: "OpenAI"
+        usage:
+          type: number
+          format: double
+          description: Usage amount
+          example: 45.50
+        limit:
+          type: number
+          format: double
+          nullable: true
+          description: Limit if applicable
+          example: 100.00
+        usage_unit:
+          type: string
+          description: Unit of measurement
+          example: "USD"
+        is_quota_based:
+          type: boolean
+          description: Whether quota-based
+          example: false
+        timestamp:
+          type: string
+          format: date-time
+          description: When the record was created
+          example: "2024-01-15T10:30:00Z"
+
+    AgentConfig:
+      type: object
+      required:
+        - refresh_interval_minutes
+        - auto_refresh_enabled
+        - discovered_providers
+      properties:
+        refresh_interval_minutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: How often to refresh usage (in minutes)
+          example: 5
+        auto_refresh_enabled:
+          type: boolean
+          description: Whether auto-refresh is enabled
+          example: true
+        discovered_providers:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProviderConfig'
+          description: List of discovered providers
+
+    AgentConfigUpdate:
+      type: object
+      properties:
+        refresh_interval_minutes:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          description: How often to refresh usage (in minutes)
+          example: 10
+        auto_refresh_enabled:
+          type: boolean
+          description: Whether auto-refresh is enabled
+          example: true
+
+    PaymentType:
+      type: string
+      description: Payment model type
+      enum:
+        - payg
+        - quota
+        - credits
+      example: "payg"
+
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error message
+          example: "Internal server error"
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: "Provider not found"
+
+    BadRequest:
+      description: Invalid request
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: "Invalid request body"
+
+    InternalError:
+      description: Internal server error
+      content:
+        text/plain:
+          schema:
+            type: string
+            example: "Internal server error"
+
+  securitySchemes:
+    none:
+      type: http
+      scheme: basic
+      description: |
+        No authentication required. API is bound to localhost only.
+
+security:
+  - none: []
