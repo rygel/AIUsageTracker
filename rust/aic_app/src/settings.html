@@ -804,35 +804,70 @@
 
         async function loadSettings() {
             try {
+                let agentAvailable = false;
+                
+                // Try to load from agent first
                 if (invoke) {
-                    configs = await invoke('get_configured_providers');
-                    prefs = await invoke('load_preferences');
-
-                    const githubAuth = await invoke('is_github_authenticated');
-                    if (githubAuth) {
-                        githubUser = { username: 'Connected' };
+                    try {
+                        const agentProviders = await invoke('get_all_providers_from_agent');
+                        if (agentProviders && agentProviders.length > 0) {
+                            configs = agentProviders;
+                            console.log('Loaded providers from agent:', configs);
+                            agentAvailable = true;
+                        }
+                    } catch (agentErr) {
+                        console.log('Agent not available for providers, falling back to local:', agentErr);
+                    }
+                }
+                
+                // If agent failed or not available, use local config
+                if (!agentAvailable && invoke) {
+                    try {
+                        configs = await invoke('get_configured_providers');
+                        console.log('Loaded providers from local config:', configs);
+                    } catch (localErr) {
+                        console.log('No local config available:', localErr);
                     }
                 }
 
-                const allProviders = [
-                    { id: 'github-copilot', name: 'GitHub Copilot', icon: 'G' },
-                    { id: 'openai', name: 'OpenAI', icon: 'O' },
-                    { id: 'anthropic', name: 'Anthropic', icon: 'A' },
-                    { id: 'deepseek', name: 'DeepSeek', icon: 'D' },
-                    { id: 'gemini', name: 'Google Gemini', icon: 'G' },
-                    { id: 'kimi', name: 'Kimi', icon: 'K' }
-                ];
+                // Load preferences (always from local)
+                if (invoke) {
+                    try {
+                        prefs = await invoke('load_preferences');
+                    } catch (e) {
+                        console.log('No preferences found:', e);
+                    }
 
-                allProviders.forEach(p => {
-                    if (!configs.find(c => c.provider_id === p.id)) {
+                    try {
+                        const githubAuth = await invoke('is_github_authenticated');
+                        if (githubAuth) {
+                            githubUser = { username: 'Connected' };
+                        }
+                    } catch (e) {
+                        console.log('GitHub auth check failed:', e);
+                    }
+                }
+
+                // Add default providers if none configured
+                if (!configs || configs.length === 0) {
+                    const allProviders = [
+                        { id: 'github-copilot', name: 'GitHub Copilot', icon: 'G' },
+                        { id: 'openai', name: 'OpenAI', icon: 'O' },
+                        { id: 'anthropic', name: 'Anthropic', icon: 'A' },
+                        { id: 'deepseek', name: 'DeepSeek', icon: 'D' },
+                        { id: 'gemini', name: 'Google Gemini', icon: 'G' },
+                        { id: 'kimi', name: 'Kimi', icon: 'K' }
+                    ];
+
+                    allProviders.forEach(p => {
                         configs.push({
                             provider_id: p.id,
                             api_key: '',
                             show_in_tray: true,
-                            auth_source: 'Manual'
+                            auth_source: 'System Default'
                         });
-                    }
-                });
+                    });
+                }
 
                 populateProviders();
                 populateLayout();

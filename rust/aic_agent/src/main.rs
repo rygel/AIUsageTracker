@@ -94,6 +94,7 @@ async fn main() -> Result<()> {
     let config = Arc::new(RwLock::new(AgentConfig {
         refresh_interval_minutes: args.refresh_interval_minutes,
         auto_refresh_enabled: true,
+        discovered_providers: Vec::new(),
     }));
 
     let state = AppState {
@@ -108,6 +109,7 @@ async fn main() -> Result<()> {
         .route("/api/providers/usage", get(get_current_usage))
         .route("/api/providers/usage/refresh", post(trigger_refresh))
         .route("/api/providers/:id/usage", get(get_provider_usage))
+        .route("/api/providers/discovered", get(get_discovered_providers))
         .route("/api/history", get(get_historical_usage))
         .route("/api/config", get(get_config))
         .route("/api/config", post(update_config))
@@ -443,6 +445,14 @@ async fn update_config(
     info!("Configuration updated: {:?}", config);
 
     Json(config.clone())
+}
+
+async fn get_discovered_providers(
+    State(state): State<AppState>,
+) -> Json<Vec<aic_core::ProviderConfig>> {
+    let config = state.config.read().await;
+    let providers = config.discovered_providers.clone();
+    Json(providers)
 }
 
 async fn refresh_and_store(db: &libsql::Database) -> Result<()> {
