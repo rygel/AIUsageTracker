@@ -1,8 +1,12 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
-using Microsoft.Extensions.Logging;
 
 // =============================================================================
 // ⚠️  AI ASSISTANTS: CALCULATION LOGIC WARNING - SEE LINE ~276
@@ -319,7 +323,7 @@ public class GenericPayAsYouGoProvider : IProviderService
             UsageUnit = "Credits",
 
             IsQuotaBased = false,
-            Description = $"{used:F2} / {total:F2} credits{resetStr}",
+            Description = $"{used.ToString("F2", CultureInfo.InvariantCulture)} / {total.ToString("F2", CultureInfo.InvariantCulture)} credits{resetStr}",
             NextResetTime = nextResetTime
         }};
     }

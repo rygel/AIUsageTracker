@@ -24,8 +24,9 @@ public class AppPreferences
     public int AutoRefreshInterval { get; set; } = 300; // In seconds, 0 = Disabled
     public bool IsPrivacyMode { get; set; } = false;
     public bool EnableNotifications { get; set; } = false; // Global notification switch - disabled by default
+    public bool StartWithWindows { get; set; } = false;
     public AppTheme Theme { get; set; } = AppTheme.Dark;
-    public bool StartWithWindows { get; set; } = false; // Windows Auto-Startup
+    public bool DebugMode { get; set; } = false; // Enable detailed debug logging
     
     // Collapsible section states
     public bool IsPlansAndQuotasCollapsed { get; set; } = false;

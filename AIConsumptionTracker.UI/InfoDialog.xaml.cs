@@ -1,12 +1,15 @@
 using System;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.IO;
 using System.Threading.Tasks;
-using System.Windows.Media;
 using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Core.Interfaces;
 
 namespace AIConsumptionTracker.UI
 {
@@ -15,13 +18,100 @@ namespace AIConsumptionTracker.UI
         private bool _isPrivacyMode = false;
         private string? _realUserName;
         private string? _realConfigPath;
+        private readonly IConfigLoader? _configLoader;
 
         public InfoDialog()
         {
             InitializeComponent();
+            
+                // Get config loader from app services if available
+                if (Application.Current is App app)
+                {
+                    _configLoader = (IConfigLoader?)app.Services.GetService(typeof(IConfigLoader));
+                }
+            
+            LoadTheme();
             LoadInfo();
         }
+        
+        private async void LoadTheme()
+        {
+            try
+            {
+                AppPreferences? prefs = null;
+                
+                if (_configLoader != null)
+                {
+                    prefs = await _configLoader.LoadPreferencesAsync();
+                }
+                else if (Application.Current is App app && app.MainWindow is MainWindow mainWindow)
+                {
+                    // Try to get theme from main window's current state
+                    var bg = mainWindow.Background as SolidColorBrush;
+                    if (bg != null && bg.Color.R > 200) // Light theme detected
+                    {
+                        prefs = new AppPreferences { Theme = AppTheme.Light };
+                    }
+                }
+                
+                if (prefs != null)
+                {
+                    ApplyTheme(prefs.Theme);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WARNING] Failed to load theme in InfoDialog: {ex.Message}");
+            }
+        }
+        
+        private void ApplyTheme(AppTheme theme)
+        {
+            var isDark = theme == AppTheme.Dark;
+            SwitchTheme(isDark);
+        }
 
+        private void SwitchTheme(bool isDark)
+        {
+            try
+            {
+                var appResources = Application.Current.Resources;
+                
+                // Map resource keys - the theme files define Dark/Light prefixed keys
+                // We need to swap the non-prefixed keys to point to the right theme
+                var prefix = isDark ? "Dark" : "Light";
+                
+                // List of all resource keys to swap
+                var resourceKeys = new[]
+                {
+                    "Background", "HeaderBackground", "FooterBackground", "BorderColor",
+                    "ControlBackground", "ControlBorder", "InputBackground",
+                    "PrimaryText", "SecondaryText", "TertiaryText", "AccentColor",
+                    "ButtonBackground", "ButtonHover", "ButtonPressed", "ButtonForeground",
+                    "TabUnselected", "ComboBoxBackground", "ComboBoxItemHover",
+                    "CheckBoxForeground", "CardBackground", "CardBorder",
+                    "GroupHeaderBackground", "GroupHeaderBorder",
+                    "ScrollBarBackground", "ScrollBarForeground",
+                    "LinkForeground", "UpdateBannerBackground", "UpdateButtonBackground",
+                    "ProgressBarBackground", "ProgressBarGreen", "ProgressBarYellow", "ProgressBarRed",
+                    "StatusTextNormal", "StatusTextMissing", "StatusTextError", "StatusTextConsole"
+                };
+                
+                foreach (var key in resourceKeys)
+                {
+                    var themeKey = $"{prefix}{key}";
+                    if (appResources.Contains(themeKey))
+                    {
+                        appResources[key] = appResources[themeKey];
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WARNING] Failed to switch theme: {ex.Message}");
+            }
+        }
+        
         public async Task PrepareForScreenshot(AppPreferences prefs)
         {
             _isPrivacyMode = true; 

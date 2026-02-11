@@ -2,9 +2,8 @@
   "profiles": {
     "AIConsumptionTracker.UI": {
       "commandName": "Project",
-      "commandLineArgs": "",
+      "commandLineArgs": "--debug",
       "workingDirectory": "."
     }
   }
 }
-

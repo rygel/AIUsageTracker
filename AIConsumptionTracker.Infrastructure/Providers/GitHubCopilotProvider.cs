@@ -205,7 +205,7 @@ public class GitHubCopilotProvider : IProviderService
             AccountName = username, // Move username to AccountName column
             IsAvailable = isAvailable,
             Description = isAvailable 
-                ? $"API Rate Limit: {costUsed}/{costLimit} Used" 
+                ? $"API Rate Limit: {costLimit - costUsed}/{costLimit} Remaining" 
                 : description,
             UsagePercentage = percentage,  // REMAINING % for quota-like behavior
             CostLimit = costLimit,

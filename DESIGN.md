@@ -624,6 +624,92 @@ When making changes to progress bar logic, verify:
 
 ---
 
-**Last Updated:** 2026-02-10
-**Version:** 1.0
+---
+
+## Locale Independence Requirements
+
+**CRITICAL RULE: All API parsing and number formatting MUST be locale-independent**
+
+All providers MUST use `CultureInfo.InvariantCulture` when formatting numbers to strings. This ensures consistent behavior across all system locales (e.g., US uses "." for decimals, EU uses ",").
+
+### Required Pattern for Number Formatting
+
+```csharp
+using System.Globalization;
+
+// CORRECT - Using invariant culture with explicit format
+Description = $"{used.ToString("F2", CultureInfo.InvariantCulture)} / {total.ToString("F2", CultureInfo.InvariantCulture)} credits";
+
+// WRONG - Using current culture (may use comma for decimals)
+Description = $"{used:F2} / {total:F2} credits";
+
+// WRONG - Implicit ToString() without culture
+Description = $"{used} / {total} credits";
+```
+
+### Required Pattern for Number Parsing
+
+```csharp
+using System.Globalization;
+
+// CORRECT - Using invariant culture when parsing
+if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+
+// CORRECT - Direct conversion from invariant
+var result = Convert.ToDouble(value, CultureInfo.InvariantCulture);
+
+// WRONG - Using current culture
+if (double.TryParse(value, out var result))
+```
+
+### Affected Output Fields
+
+All providers MUST ensure these fields use invariant culture formatting:
+
+| Field | Example Output | Format Required |
+|-------|---------------|-----------------|
+| `Description` (credits format) | "500.00 / 50000.00 credits" | `ToString("F2", CultureInfo.InvariantCulture)` |
+| `Description` (currency format) | "$30.00 used of $100.00 limit" | `ToString("F2", CultureInfo.InvariantCulture)` |
+| Any dollar amounts | "$30.00" | `ToString("F2", CultureInfo.InvariantCulture)` |
+
+### Testing Requirement
+
+All providers that format numbers MUST have unit tests that verify output is independent of system locale. Tests should use `CultureInfo.InvariantCulture` comparison:
+
+```csharp
+// Test verifies output uses period (.) for decimals, not comma (,)
+var usage = await provider.GetUsageAsync(config);
+Assert.Equal("500.00 / 50000.00 credits", usage[0].Description);
+```
+
+### Common Mistakes
+
+```csharp
+// WRONG - Log messages use current culture formatting
+_logger.LogInformation("Cost: ${Cost:F2}", totalCost);
+// May output: "Cost: $30,50" on EU systems
+
+// CORRECT - Log messages use invariant culture
+_logger.LogInformation("Cost: ${Cost}", totalCost);
+// Outputs: "Cost: $30.50" on all systems
+
+// WRONG - Description uses format string without culture
+Description = $"${totalCost:F2} (7 days)";
+
+// CORRECT - Description uses invariant culture
+Description = $"${totalCost.ToString("F2", CultureInfo.InvariantCulture)} (7 days)";
+```
+
+### Provider Implementation Checklist
+
+- [ ] All `Description` fields use `ToString("F2", CultureInfo.InvariantCulture)`
+- [ ] All `double` to string conversions use `CultureInfo.InvariantCulture`
+- [ ] All number parsing uses `CultureInfo.InvariantCulture`
+- [ ] Unit tests verify locale-independent output
+- [ ] Tests pass on systems with different decimal separators
+
+---
+
+**Last Updated:** 2026-02-11
+**Version:** 1.1
 **Status:** APPROVED - DO NOT MODIFY WITHOUT DEVELOPER APPROVAL

@@ -390,7 +390,7 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             UsageUnit = "Quota %",
             IsQuotaBased = true,
             PaymentType = PaymentType.Quota,
-            Description = $"{usedPctTotal:F1}% Used",
+            Description = $"{minRemaining:F1}% Remaining",
 
             Details = sortedDetails,
             AccountName = data.UserStatus?.Email ?? ""

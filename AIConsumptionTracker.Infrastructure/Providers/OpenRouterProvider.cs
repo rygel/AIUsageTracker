@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -171,7 +172,7 @@ public class OpenRouterProvider : IProviderService
                         details.Add(new ProviderUsageDetail 
                         { 
                             Name = "Spending Limit", 
-                            Description = $"{keyData.Data.Limit:F2}{resetStr}", 
+                            Description = $"{keyData.Data.Limit.ToString("F2", CultureInfo.InvariantCulture)}{resetStr}", 
                             Used = "",
                             NextResetTime = nextResetTime
                         });
@@ -231,7 +232,7 @@ public class OpenRouterProvider : IProviderService
             UsageUnit = "Credits",
             IsQuotaBased = true,
             IsAvailable = true,
-            Description = $"{remaining:F2} Credits Remaining{mainReset}",
+            Description = $"{remaining.ToString("F2", CultureInfo.InvariantCulture)} Credits Remaining{mainReset}",
             NextResetTime = spendingLimitDetail?.NextResetTime,
             Details = details
         }};

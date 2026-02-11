@@ -16,6 +16,7 @@ public class ProviderUsage
     public string AuthSource { get; set; } = string.Empty;
     public List<ProviderUsageDetail>? Details { get; set; }
     public string AccountName { get; set; } = string.Empty;
+    public string ConfigKey { get; set; } = string.Empty; // Store API key for UI display
     public DateTime? NextResetTime { get; set; }
 }
 

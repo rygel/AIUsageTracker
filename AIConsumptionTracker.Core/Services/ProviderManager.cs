@@ -110,9 +110,9 @@ public class ProviderManager : IDisposable
         {
             configs.Add(new ProviderConfig { ProviderId = "gemini-cli", ApiKey = "" });
         }
-        if (!configs.Any(c => c.ProviderId == "opencode"))
+        if (!configs.Any(c => c.ProviderId.Equals("opencode", StringComparison.OrdinalIgnoreCase) || c.ProviderId.Equals("opencode-zen", StringComparison.OrdinalIgnoreCase)))
         {
-            configs.Add(new ProviderConfig { ProviderId = "opencode", ApiKey = "" });
+            configs.Add(new ProviderConfig { ProviderId = "opencode-zen", ApiKey = "" });
         }
         if (!configs.Any(c => c.ProviderId == "claude-code"))
         {
@@ -126,7 +126,8 @@ public class ProviderManager : IDisposable
             var provider = _providers.FirstOrDefault(p => 
                 p.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase) ||
                 (p.ProviderId == "minimax" && config.ProviderId.Contains("minimax", StringComparison.OrdinalIgnoreCase)) ||
-                (p.ProviderId == "xiaomi" && config.ProviderId.Contains("xiaomi", StringComparison.OrdinalIgnoreCase))
+                (p.ProviderId == "xiaomi" && config.ProviderId.Contains("xiaomi", StringComparison.OrdinalIgnoreCase)) ||
+                (p.ProviderId == "opencode" && config.ProviderId.Contains("opencode", StringComparison.OrdinalIgnoreCase))
             );
             
             if (provider == null && (config.Type == "pay-as-you-go" || config.Type == "api"))
@@ -214,6 +215,7 @@ public class ProviderManager : IDisposable
         _lastUsages = results;
         return results;
     }
+
 
     private static (bool IsQuota, PaymentType PaymentType) GetProviderPaymentType(string providerId)
     {

@@ -37,6 +37,12 @@ namespace AIConsumptionTracker.UI
         public IServiceProvider Services => _host!.Services;
 
         public event EventHandler<bool>? PrivacyChanged;
+        
+        /// <summary>
+        /// Global debug mode flag - set via --debug command line argument
+        /// When enabled, detailed debug logging is activated
+        /// </summary>
+        public static bool IsDebugMode { get; private set; } = false;
 
         public async Task TogglePrivacyMode(bool? forcedState = null)
         {
@@ -53,21 +59,53 @@ namespace AIConsumptionTracker.UI
         {
             base.OnStartup(e);
 
+            // Check for debug mode command line argument
+            IsDebugMode = e.Args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
+
             _host = Host.CreateDefaultBuilder()
                 .ConfigureLogging(logging =>
                 {
                     logging.ClearProviders();
-                    logging.AddConsole();
-                    logging.AddDebug();
-                    logging.SetMinimumLevel(LogLevel.Debug);
+                    
+                    // Always add console and debug output in debug mode
+                    string logPath;
+                    if (IsDebugMode)
+                    {
+                        logging.AddConsole();
+                        logging.AddDebug();
+                        logging.SetMinimumLevel(LogLevel.Debug);
+                        
+                        // Add a trace listener to capture Debug.WriteLine output
+                        var debugLogPath = Path.Combine(
+                            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                            "AIConsumptionTracker",
+                            "logs",
+                            $"debug_output_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+                        Directory.CreateDirectory(Path.GetDirectoryName(debugLogPath)!);
+                        
+                        // Create a custom trace listener that writes to file
+                        var listener = new TextWriterTraceListener(debugLogPath, "DebugListener");
+                        listener.TraceOutputOptions = TraceOptions.DateTime;
+                        Trace.Listeners.Add(listener);
+                        Trace.AutoFlush = true;
+                        
+                        Debug.WriteLine($"[DEBUG] Application started with --debug flag at {DateTime.Now}");
+                    }
+                    else
+                    {
+                        logging.SetMinimumLevel(LogLevel.Information);
+                    }
 
-                    var logPath = Path.Combine(
+                    // Get a short hash of the app directory to differentiate multiple instances
+                    var appPath = AppContext.BaseDirectory;
+                    var appPathHash = appPath.GetHashCode().ToString("X").Substring(0, 4);
+                    logPath = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         "AIConsumptionTracker",
                         "logs",
-                        $"app_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+                        $"app_{appPathHash}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
                     Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
-                    logging.AddProvider(new FileLoggerProvider(logPath));
+                    logging.AddProvider(new FileLoggerProvider(logPath, IsDebugMode));
                 })
                 .ConfigureServices((context, services) =>
                 {
@@ -97,7 +135,6 @@ namespace AIConsumptionTracker.UI
 
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>();
-                    services.AddTransient<SettingsWindow>();
                     services.AddTransient<InfoDialog>();
                 })
                 .Build();
@@ -269,32 +306,75 @@ namespace AIConsumptionTracker.UI
 
         public void ShowSettings()
         {
-            // Ensure dashboard is created
-            if (_mainWindow == null)
-            {
-                _ = ShowDashboard();
-            }
+            Debug.WriteLine("[DEBUG] ShowSettings called");
             
-            if (_mainWindow == null) return;
-
-            if (_mainWindow.Visibility != Visibility.Visible)
+            try
             {
-                _mainWindow.Show();
+                // Ensure dashboard is created
+                if (_mainWindow == null)
+                {
+                    Debug.WriteLine("[DEBUG] Creating main window...");
+                    _ = ShowDashboard();
+                }
+                
+                if (_mainWindow == null) 
+                {
+                    Debug.WriteLine("[ERROR] Main window is null after ShowDashboard");
+                    return;
+                }
+
+                if (_mainWindow.Visibility != Visibility.Visible)
+                {
+                    Debug.WriteLine("[DEBUG] Showing main window...");
+                    _mainWindow.Show();
+                }
+                _mainWindow.Activate();
+
+                // Check if SettingsWindow is already open
+                Debug.WriteLine("[DEBUG] Checking for existing SettingsWindow...");
+                foreach (Window window in Application.Current.Windows)
+                {
+                    if (window is SettingsWindow existingSettings && existingSettings.IsVisible)
+                    {
+                        Debug.WriteLine("[DEBUG] Found existing SettingsWindow, activating it");
+                        existingSettings.Activate();
+                        return;
+                    }
+                }
+
+                Debug.WriteLine("[DEBUG] Creating new SettingsWindow...");
+                // Create SettingsWindow manually with injected dependencies to ensure fresh instance
+                var settingsWindow = new SettingsWindow(
+                    Services.GetRequiredService<IConfigLoader>(),
+                    Services.GetRequiredService<ProviderManager>(),
+                    Services.GetRequiredService<IFontProvider>(),
+                    Services.GetRequiredService<IUpdateCheckerService>(),
+                    Services.GetRequiredService<IGitHubAuthService>()
+                );
+                
+                Debug.WriteLine("[DEBUG] SettingsWindow created, setting owner...");
+                settingsWindow.Owner = _mainWindow;
+                
+                Debug.WriteLine("[DEBUG] Attaching Closed event...");
+                settingsWindow.Closed += async (s, e) => 
+                {
+                     // Refresh only if settings actually changed
+                     if (settingsWindow.SettingsChanged && _mainWindow != null && _mainWindow.IsVisible && _mainWindow is MainWindow main)
+                     {
+                         await main.RefreshData(forceRefresh: true);
+                     }
+                };
+                
+                Debug.WriteLine("[DEBUG] Calling settingsWindow.Show()...");
+                settingsWindow.Show();
+                Debug.WriteLine("[DEBUG] SettingsWindow shown successfully");
             }
-            _mainWindow.Activate();
-
-            var settingsWindow = Services.GetRequiredService<SettingsWindow>();
-            settingsWindow.Owner = _mainWindow;
-            settingsWindow.Closed += async (s, e) => 
+            catch (Exception ex)
             {
-                 // Refresh only if settings actually changed
-                 if (settingsWindow.SettingsChanged && _mainWindow != null && _mainWindow.IsVisible && _mainWindow is MainWindow main)
-                 {
-                     await main.RefreshData(forceRefresh: true);
-                 }
-            };
-            
-            settingsWindow.Show();
+                Debug.WriteLine($"[ERROR] ShowSettings failed: {ex}");
+                System.Windows.MessageBox.Show($"Failed to open Settings:\n{ex.GetType().Name}: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}", "Settings Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                throw;
+            }
         }
 
         private void ExitApp()
