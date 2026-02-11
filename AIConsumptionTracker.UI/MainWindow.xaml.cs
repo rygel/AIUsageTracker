@@ -238,10 +238,6 @@ namespace AIConsumptionTracker.UI
                         PrivacyBtn_ClickAsync(this, new RoutedEventArgs());
                         e.Handled = true;
                         break;
-                    case Key.T:
-                        ThemeBtn_Click(this, new RoutedEventArgs());
-                        e.Handled = true;
-                        break;
                     case Key.Q:
                         CloseBtn_Click(this, new RoutedEventArgs());
                         e.Handled = true;
@@ -260,10 +256,9 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private async void ThemeBtn_Click(object sender, RoutedEventArgs e)
+        public void ApplyThemeFromPreferences(AppPreferences prefs)
         {
-            _preferences.Theme = _preferences.Theme == AppTheme.Dark ? AppTheme.Light : AppTheme.Dark;
-            await SavePreferences();
+            _preferences.Theme = prefs.Theme;
             ApplyTheme();
         }
 
@@ -297,9 +292,6 @@ namespace AIConsumptionTracker.UI
             if (SettingsBtn != null)
                 SettingsBtn.Background = new SolidColorBrush(
                     _preferences.Theme == AppTheme.Dark ? Color.FromRgb(68, 68, 68) : Color.FromRgb(187, 187, 187));
-            
-            if (ThemeBtn != null)
-                ThemeBtn.Content = _preferences.Theme == AppTheme.Dark ? "🌙" : "☀️";
 
             // Refresh all UI elements
             RenderUsages(_cachedUsages);

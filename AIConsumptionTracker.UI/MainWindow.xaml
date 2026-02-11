@@ -57,7 +57,6 @@
                     <TextBlock x:Name="VersionText" Text="v..." FontSize="11" Foreground="#888888" VerticalAlignment="Center" Margin="8,2,0,0" DockPanel.Dock="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="PrivacyBtn" Content="🔒" Click="PrivacyBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="30" Margin="0,0,10,0" ToolTip="Toggle Privacy Mode (Ctrl+P)" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                        <Button x:Name="ThemeBtn" Content="🌙" Click="ThemeBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="30" Margin="0,0,10,0" ToolTip="Toggle Theme (Ctrl+T)" WindowChrome.IsHitTestVisibleInChrome="True"/>
                         <Button Content="X" Click="CloseBtn_Click" Background="Transparent" Foreground="#AAAAAA" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
                     </StackPanel>
                 </DockPanel>

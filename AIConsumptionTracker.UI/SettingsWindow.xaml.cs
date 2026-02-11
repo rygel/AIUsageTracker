@@ -865,6 +865,38 @@ namespace AIConsumptionTracker.UI
             }
         }
 
+        private async void ThemeBtn_Click(object sender, RoutedEventArgs e)
+        {
+            _prefs.Theme = _prefs.Theme == AppTheme.Dark ? AppTheme.Light : AppTheme.Dark;
+            await _configLoader.SavePreferencesAsync(_prefs);
+            ApplyTheme();
+        }
+
+        private void ApplyTheme()
+        {
+            var headerBg = _prefs.Theme == AppTheme.Dark 
+                ? Color.FromRgb(37, 37, 38) 
+                : Color.FromRgb(230, 230, 230);
+            var windowBg = _prefs.Theme == AppTheme.Dark 
+                ? Color.FromRgb(30, 30, 30) 
+                : Color.FromRgb(243, 243, 243);
+            var windowFg = _prefs.Theme == AppTheme.Dark 
+                ? Brushes.White 
+                : Brushes.Black;
+
+            this.Background = new SolidColorBrush(windowBg);
+            this.Foreground = windowFg;
+
+            if (ThemeBtn != null)
+                ThemeBtn.Content = _prefs.Theme == AppTheme.Dark ? "🌙" : "☀️";
+
+            // Notify the main window to also apply the theme
+            if (Application.Current is App app && app.MainWindow is MainWindow mainWindow)
+            {
+                mainWindow.ApplyThemeFromPreferences(_prefs);
+            }
+        }
+
     }
 }
 

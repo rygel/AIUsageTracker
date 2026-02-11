@@ -73,7 +73,7 @@ public class ZaiProviderTests
 
         // Assert
         var usage = result.Single();
-        Assert.Equal("Z.AI Coding Plan", usage.ProviderName); // Or Coding Plan
+        Assert.Equal("Z.AI Coding Plan", usage.ProviderName);
         
         // Quota-based providers show REMAINING percentage (full bar = lots remaining)
         // CurrentValue = 0 (Used), Total = 100.
@@ -81,5 +81,282 @@ public class ZaiProviderTests
         Assert.Equal(100, usage.UsagePercentage);
         
         Assert.Contains("Used", usage.Description);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_20PercentUsed_ReturnsCorrectPercentage()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
+        
+        // Scenario: 20% used of quota
+        // Total Limit = 135M tokens
+        // Current Value (Used) = 27M tokens (20%)
+        // Remaining = 108M tokens (80%)
+
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = new
+            {
+                limits = new[]
+                {
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        percentage = (double?)null, 
+                        currentValue = 27000000L, // 20% used
+                        usage = 135000000L, // Total limit
+                        remaining = 108000000L
+                    }
+                }
+            }
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.Equal("Z.AI Coding Plan (Ultra/Enterprise)", usage.ProviderName);
+        
+        // Quota-based providers show REMAINING percentage (80% remaining)
+        Assert.Equal(80, usage.UsagePercentage);
+        
+        // Description should show "20.0% Used"
+        Assert.Contains("20.0% Used", usage.Description);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_NullTotalValue_HandlesGracefully()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
+        
+        // This test catches the error that occurred in production where Total was null
+        // Real API response might have missing Total field
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = new
+            {
+                limits = new[]
+                {
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        percentage = (double?)null, 
+                        currentValue = 1000000L, // Some value used
+                        usage = (long?)null, // Total is null - this was causing the error
+                        remaining = (long?)null
+                    }
+                }
+            }
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act & Assert - Should not throw exception
+        var result = await _provider.GetUsageAsync(config);
+
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal(100, usage.UsagePercentage); // 100% remaining when Total is null (treated as 0 limit)
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_RealisticApiResponse_WithNextResetTime()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
+        
+        // This mimics a realistic Z.AI API response with multiple limits
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = new
+            {
+                limits = new object[]
+                {
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        percentage = (double?)null,
+                        currentValue = 35000000L, // 35M used
+                        usage = 135000000L, // 135M total
+                        remaining = 100000000L, // 100M remaining
+                        nextResetTime = 1739232000000L // Unix timestamp in ms
+                    },
+                    new
+                    {
+                        type = "TIME_LIMIT",
+                        percentage = 25.5, // 25.5% used
+                        currentValue = (long?)null,
+                        usage = (long?)null,
+                        remaining = (long?)null,
+                        nextResetTime = 1739232000000L
+                    }
+                }
+            }
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal("Z.AI Coding Plan (Ultra/Enterprise)", usage.ProviderName);
+        Assert.Equal(74.074, usage.UsagePercentage, 3); // ~74% remaining (100M/135M) with tolerance
+        Assert.Contains("25.9% Used of 135M tokens limit", usage.Description);
+        Assert.NotNull(usage.NextResetTime);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_CompleteRealisticResponse_ProPlan()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
+        
+        // Complete realistic response for Pro plan
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = new
+            {
+                limits = new[]
+                {
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        percentage = (double?)null,
+                        currentValue = 15000000L, // 15M used
+                        usage = 12000000L, // 12M total (Pro plan)
+                        remaining = (long?)null,
+                        nextResetTime = (long?)null
+                    }
+                }
+            }
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal("Z.AI Coding Plan (Pro)", usage.ProviderName);
+        Assert.Contains("Used of 12M tokens limit", usage.Description);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_NoLimits_ReturnsUnavailable()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
+        
+        // API returns empty limits array
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = new
+            {
+                limits = new object[0]
+            }
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("No usage data available", usage.Description);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_NullData_HandlesGracefully()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
+        
+        // API returns null data
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = (object?)null
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("No usage data available", usage.Description);
     }
 }

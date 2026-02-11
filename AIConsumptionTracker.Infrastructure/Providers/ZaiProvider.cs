@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -42,7 +43,7 @@ public class ZaiProvider : IProviderService
         // Swift code handles both Envelope<T> and direct T. 
         // Let's assume Envelope based on "ZaiEnvelope" struct.
         var responseString = await response.Content.ReadAsStringAsync();
-        Console.WriteLine($"[DEBUG] ZAI DATA: {responseString}");
+        _logger.LogDebug("[ZAI RAW API RESPONSE] {Response}", responseString);
         var envelope = JsonSerializer.Deserialize<ZaiEnvelope<ZaiQuotaLimitResponse>>(responseString);
         
         string planDescription = "API"; 
@@ -50,47 +51,82 @@ public class ZaiProvider : IProviderService
         var limits = envelope?.Data?.Limits;
         if (limits == null || !limits.Any())
         {
-             // If no limits found, maybe it's just a simple API key with no usage info available yet
-             throw new Exception("No usage limits found for this Z.AI key.");
+             // If no limits found, return unavailable status
+             return new[] { new ProviderUsage
+             {
+                 ProviderId = ProviderId,
+                 ProviderName = "Z.AI",
+                 IsAvailable = false,
+                 Description = "No usage data available",
+                 IsQuotaBased = true,
+                 PaymentType = PaymentType.Quota
+             }};
         }
 
         // Look for indicators of a Coding Plan (subscription)
-        var tokenLimit = limits.FirstOrDefault(l => l.Type?.ToUpper() == "TOKENS_LIMIT");
-        var mcpLimit = limits.FirstOrDefault(l => l.Type?.ToUpper() == "TIME_LIMIT");
-
-            double remainingPercent = 100;
+        // From DESIGN.md: 
+        // - currentValue: Amount used
+        // - remaining: Amount remaining
+        // - usage: Total quota limit
+        var tokenLimit = limits.FirstOrDefault(l => 
+            l.Type != null && (l.Type.Equals("TOKENS_LIMIT", StringComparison.OrdinalIgnoreCase) || 
+                               l.Type.Equals("Tokens", StringComparison.OrdinalIgnoreCase)));
+        var mcpLimit = limits.FirstOrDefault(l => 
+            l.Type != null && (l.Type.Equals("TIME_LIMIT", StringComparison.OrdinalIgnoreCase) || 
+                               l.Type.Equals("Time", StringComparison.OrdinalIgnoreCase)));
+        
+        double remainingPercent = 100;
         string detailInfo = "";
-
+        
         if (tokenLimit != null)
         {
             planDescription = "Coding Plan";
-            // Map JSON properties more clearly:
-            // tokenLimit.CurrentValue likely means USED amount in this API if 0 = unused.
-            // tokenLimit.Total (mapped from 'usage') is the LIMIT.
-            // For quota-based providers, show REMAINING percentage (full bar = lots remaining)
-            double usedVal = tokenLimit.CurrentValue ?? 0;
-            double totalVal = tokenLimit.Total ?? 0;
-            double remainingPercentVal = (totalVal > 0 
-                ? ((totalVal - usedVal) / totalVal) * 100.0 
-                : 100);
             
-            remainingPercent = Math.Min(remainingPercent, remainingPercentVal);
-            
-            if (tokenLimit.Total > 50000000) {
-                 planDescription = "Coding Plan (Ultra/Enterprise)";
-            } else if (tokenLimit.Total > 10000000) {
-                 planDescription = "Coding Plan (Pro)";
+            // Check if API returns percentage-only response (after reset scenario)
+            if (tokenLimit.Percentage.HasValue && tokenLimit.Total == null && tokenLimit.CurrentValue == null && tokenLimit.Remaining == null)
+            {
+                // API returns only percentage (e.g., percentage: 7 means 7% used)
+                double usedPercent = tokenLimit.Percentage.Value;
+                double remainingPercentVal = 100 - usedPercent;
+                remainingPercent = Math.Min(remainingPercent, remainingPercentVal);
+                detailInfo = $"{usedPercent.ToString("F1", CultureInfo.InvariantCulture)}% Used";
             }
-            
-            double usedPercentDisplay = totalVal > 0 ? (usedVal / totalVal) * 100.0 : 0;
-            detailInfo = $"{usedPercentDisplay:F1}% Used of {tokenLimit.Total / 1000000.0:F0}M tokens limit";
+            else
+            {
+                // Map JSON properties (from DESIGN.md):
+                // tokenLimit.Total (mapped from 'usage') is the LIMIT
+                // tokenLimit.CurrentValue is the USED amount
+                // tokenLimit.Remaining is the REMAINING amount
+                // For quota-based providers, show REMAINING percentage (full bar = lots remaining)
+                double totalVal = tokenLimit.Total ?? 0;
+                double usedVal = tokenLimit.CurrentValue ?? 0;
+                double remainingVal = tokenLimit.Remaining ?? (totalVal - usedVal);
+                
+                // Calculate remaining percentage per design: (remaining / total) * 100
+                double remainingPercentVal = (totalVal > 0 
+                    ? (remainingVal / totalVal) * 100.0 
+                    : 100);
+                
+                remainingPercent = Math.Min(remainingPercent, remainingPercentVal);
+                
+                if (tokenLimit.Total > 50000000) {
+                     planDescription = "Coding Plan (Ultra/Enterprise)";
+                } else if (tokenLimit.Total > 10000000) {
+                     planDescription = "Coding Plan (Pro)";
+                }
+                
+                double usedPercentDisplay = totalVal > 0 ? (usedVal / totalVal) * 100.0 : 0;
+                detailInfo = $"{usedPercentDisplay.ToString("F1", CultureInfo.InvariantCulture)}% Used of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit";
+            }
         }
         
         if (mcpLimit != null && mcpLimit.Percentage > 0)
         {
+            _logger.LogDebug("Processing MCP limit - Percentage: {Percentage}", mcpLimit.Percentage);
             // MCP limit percentage is "used", convert to "remaining" for consistency
             double mcpRemainingPercent = Math.Max(0, 100 - mcpLimit.Percentage.Value);
             remainingPercent = Math.Min(remainingPercent, mcpRemainingPercent);
+            _logger.LogDebug("MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
         }
 
         // Get next reset time from the first limit that has it (Unix timestamp in milliseconds)
@@ -101,20 +137,29 @@ public class ZaiProvider : IProviderService
         {
             nextResetTime = DateTimeOffset.FromUnixTimeMilliseconds(limitWithReset.NextResetTime!.Value).LocalDateTime;
             resetStr = $" (Resets: {nextResetTime:MMM dd HH:mm})";
+            _logger.LogDebug("Next reset time: {NextResetTime}", nextResetTime);
         }
 
+        var finalUsagePercentage = Math.Min(remainingPercent, 100);
+        var finalCostUsed = 100 - remainingPercent;
+        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{(100 - remainingPercent).ToString("F1", CultureInfo.InvariantCulture)}% utilized" : detailInfo) + resetStr;
+        
+        _logger.LogInformation("Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, UsagePercentage: {UsagePercentage}%, CostUsed: {CostUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
+            ProviderId, $"Z.AI {planDescription}", finalUsagePercentage, finalCostUsed, finalDescription, true);
+        
         return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = $"Z.AI {planDescription}",
-            UsagePercentage = Math.Min(remainingPercent, 100),
-            CostUsed = 100 - remainingPercent,  // Store actual used percentage
+            UsagePercentage = finalUsagePercentage,
+            CostUsed = finalCostUsed,  // Store actual used percentage
             CostLimit = 100,
             UsageUnit = "Quota %",
             IsQuotaBased = true, 
             PaymentType = PaymentType.Quota,
-            Description = (string.IsNullOrEmpty(detailInfo) ? $"{100 - remainingPercent:F1}% utilized" : detailInfo) + resetStr,
-            NextResetTime = nextResetTime
+            Description = finalDescription,
+            NextResetTime = nextResetTime,
+            IsAvailable = true
         }};
     }
 

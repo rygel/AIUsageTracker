@@ -37,6 +37,12 @@ namespace AIConsumptionTracker.UI
         public IServiceProvider Services => _host!.Services;
 
         public event EventHandler<bool>? PrivacyChanged;
+        
+        /// <summary>
+        /// Global debug mode flag - set via --debug command line argument
+        /// When enabled, detailed debug logging is activated
+        /// </summary>
+        public static bool IsDebugMode { get; private set; } = false;
 
         public async Task TogglePrivacyMode(bool? forcedState = null)
         {
@@ -53,21 +59,28 @@ namespace AIConsumptionTracker.UI
         {
             base.OnStartup(e);
 
+            // Check for debug mode command line argument
+            IsDebugMode = e.Args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
+
             _host = Host.CreateDefaultBuilder()
                 .ConfigureLogging(logging =>
                 {
                     logging.ClearProviders();
                     logging.AddConsole();
                     logging.AddDebug();
-                    logging.SetMinimumLevel(LogLevel.Debug);
+                    // Only log debug messages when --debug flag is provided
+                    logging.SetMinimumLevel(IsDebugMode ? LogLevel.Debug : LogLevel.Information);
 
+                    // Get a short hash of the app directory to differentiate multiple instances
+                    var appPath = AppContext.BaseDirectory;
+                    var appPathHash = appPath.GetHashCode().ToString("X").Substring(0, 4);
                     var logPath = Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         "AIConsumptionTracker",
                         "logs",
-                        $"app_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+                        $"app_{appPathHash}_{DateTime.Now:yyyyMMdd_HHmmss}.log");
                     Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
-                    logging.AddProvider(new FileLoggerProvider(logPath));
+                    logging.AddProvider(new FileLoggerProvider(logPath, IsDebugMode));
                 })
                 .ConfigureServices((context, services) =>
                 {
