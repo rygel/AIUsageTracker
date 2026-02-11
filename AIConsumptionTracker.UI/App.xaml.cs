@@ -110,7 +110,6 @@ namespace AIConsumptionTracker.UI
 
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>();
-                    services.AddTransient<SettingsWindow>();
                     services.AddTransient<InfoDialog>();
                 })
                 .Build();
@@ -306,12 +305,14 @@ namespace AIConsumptionTracker.UI
                 }
             }
 
-            var settingsWindow = Services.GetRequiredService<SettingsWindow>();
-            if (settingsWindow == null)
-            {
-                System.Windows.MessageBox.Show("Failed to create Settings window.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                return;
-            }
+            // Create SettingsWindow manually with injected dependencies to ensure fresh instance
+            var settingsWindow = new SettingsWindow(
+                Services.GetRequiredService<IConfigLoader>(),
+                Services.GetRequiredService<ProviderManager>(),
+                Services.GetRequiredService<IFontProvider>(),
+                Services.GetRequiredService<IUpdateCheckerService>(),
+                Services.GetRequiredService<IGitHubAuthService>()
+            );
             
             settingsWindow.Owner = _mainWindow;
             settingsWindow.Closed += async (s, e) => 
