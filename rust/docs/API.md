@@ -416,11 +416,31 @@ curl http://localhost:8080/api/providers/discovered | jq
 
 ---
 
-## Troubleshooting
+## Scripts
 
-### Killing Stuck Processes
+All helper scripts are in `rust/scripts/`:
 
-If the agent or UI gets stuck, use the kill script:
+### Debug Build (Smart)
+Only builds when source files have changed:
+
+**PowerShell:**
+```powershell
+cd rust/scripts
+.\debug-build.ps1
+```
+
+**Batch (Windows):**
+```batch
+cd rust/scripts
+debug-build.bat
+```
+
+**Options:**
+- `-ForceBuild` - Always build, even if no changes detected
+- `-Help` - Show help
+
+### Kill All Processes
+Kill stuck agent/UI processes:
 
 **PowerShell:**
 ```powershell
