@@ -46,8 +46,10 @@ pub async fn get_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
             // Check if we got a successful status code
             if !response.status().is_success() {
                 let status = response.status();
-                error!("Agent returned error status: {}", status);
-                return Err(format!("Agent error (HTTP {}): Agent returned an error status", status));
+                // Try to read error message from response body (text/plain per OpenAPI spec)
+                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                error!("Agent returned error status {}: {}", status, error_text);
+                return Err(format!("Agent error (HTTP {}): {}", status, error_text));
             }
             
             match response.json::<Vec<aic_core::ProviderUsage>>().await {
@@ -82,8 +84,10 @@ pub async fn refresh_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
             // Check if we got a successful status code
             if !response.status().is_success() {
                 let status = response.status();
-                error!("Agent returned error status: {}", status);
-                return Err(format!("Agent error (HTTP {}): Agent returned an error status", status));
+                // Try to read error message from response body (text/plain per OpenAPI spec)
+                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                error!("Agent returned error status {}: {}", status, error_text);
+                return Err(format!("Agent error (HTTP {}): {}", status, error_text));
             }
             
             match response.json::<Vec<aic_core::ProviderUsage>>().await {
@@ -153,8 +157,10 @@ pub async fn get_all_providers_from_agent(
             // Check if we got a successful status code
             if !response.status().is_success() {
                 let status = response.status();
-                error!("Agent returned error status: {}", status);
-                return Err(format!("Agent error (HTTP {}): Agent returned an error status", status));
+                // Try to read error message from response body (text/plain per OpenAPI spec)
+                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                error!("Agent returned error status {}: {}", status, error_text);
+                return Err(format!("Agent error (HTTP {}): {}", status, error_text));
             }
             
             match response.json::<Vec<aic_core::ProviderConfig>>().await {

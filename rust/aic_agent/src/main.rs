@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use libsql::Builder;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{info, error, debug};
+use tracing::{info, error, debug, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
 
@@ -295,7 +295,7 @@ async fn trigger_refresh(
 async fn get_provider_usage(
     State(state): State<AppState>,
     Path(provider_id): Path<String>,
-) -> Result<Json<ProviderUsage>, StatusCode> {
+) -> Result<Json<ProviderUsage>, (StatusCode, &'static str)> {
     info!("API: GET /api/providers/{}/usage - Fetching specific provider", provider_id);
     
     let client = reqwest::Client::new();
@@ -307,8 +307,12 @@ async fn get_provider_usage(
     let usage = usages
         .into_iter()
         .find(|u| u.provider_id.eq_ignore_ascii_case(&provider_id))
-        .ok_or(StatusCode::NOT_FOUND)?;
+        .ok_or_else(|| {
+            warn!("API: Provider '{}' not found", provider_id);
+            (StatusCode::NOT_FOUND, "Provider not found")
+        })?;
 
+    info!("API: Returning usage for provider '{}'", provider_id);
     Ok(Json(usage))
 }
 
