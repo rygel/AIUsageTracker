@@ -521,30 +521,14 @@ namespace AIConsumptionTracker.UI
 
         private void PopulateLayout()
         {
-            LayoutStack.Children.Clear();
+             var previewText = new TextBlock
+             {
+                  Text = "OpenAI: $15.00 / $100.00 (15%)",
+                  FontSize = _prefs.FontSize > 0 ? _prefs.FontSize : 12,
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  VerticalAlignment = VerticalAlignment.Center
+             };
 
-            var previewText = new TextBlock
-            {
-                   Text = "OpenAI: $15.00 / $100.00 (15%)",
-                   FontSize = _prefs.FontSize > 0 ? _prefs.FontSize : 12,
-                   Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
-                   VerticalAlignment = VerticalAlignment.Center
-               };
-
-            var startWithWindowsCheck = new CheckBox
-            {
-                   Content = "Start with Windows",
-                   IsChecked = _prefs.StartWithWindows,
-                   Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
-                   FontSize = 11,
-                   Margin = new Thickness(0, 0, 0, 5)
-            };
-            startWithWindowsCheck.Checked += (s, e) => _prefs.StartWithWindows = true;
-            startWithWindowsCheck.Unchecked += (s, e) => _prefs.StartWithWindows = false;
-
-            // Note: previewText will be added inside previewBox later, not directly to LayoutStack
-            LayoutStack.Children.Add(startWithWindowsCheck);
-             // Initial state
              try {
                 if (!string.IsNullOrEmpty(_prefs.FontFamily))
                     previewText.FontFamily = new System.Windows.Media.FontFamily(_prefs.FontFamily);
@@ -552,7 +536,6 @@ namespace AIConsumptionTracker.UI
                 previewText.FontStyle = _prefs.FontItalic ? FontStyles.Italic : FontStyles.Normal;
              } catch {}
 
-             // Helper to update preview
              void UpdatePreview()
              {
                  try
@@ -566,59 +549,233 @@ namespace AIConsumptionTracker.UI
                  catch { }
              }
 
-             // Add UI Colors Section
-              var header = new TextBlock { Text = "UI Colors", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], Margin = new Thickness(0, 20, 0, 10) };
-              var lblYellow = new TextBlock { Text = "Yellow Threshold (%)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+             var header = new TextBlock { Text = "UI Colors", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], Margin = new Thickness(0, 20, 0, 10) };
+             LayoutStack.Children.Add(header);
+
+             var grid = new Grid();
+             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+             var lblYellow = new TextBlock { Text = "Yellow Threshold (%)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+             var txtYellow = new TextBox
+             {
+                 Text = _prefs.ColorThresholdYellow.ToString(),
+                 Width = 50,
+                 Height = 24,
+                 Background = (SolidColorBrush)Application.Current.Resources["InputBackground"],
+                 Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                 BorderBrush = (SolidColorBrush)Application.Current.Resources["ControlBorder"],
+                 VerticalContentAlignment = VerticalAlignment.Center
+             };
+             txtYellow.TextChanged += (s, e) => {
+                 if (int.TryParse(txtYellow.Text, out var val)) _prefs.ColorThresholdYellow = val;
+             };
+
+              Grid.SetColumn(lblYellow, 0);
+              Grid.SetColumn(txtYellow, 1);
+              grid.Children.Add(lblYellow);
+              grid.Children.Add(txtYellow);
+
+              LayoutStack.Children.Add(grid);
+
+              var grid2 = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+              grid2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+              grid2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+              grid2.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
               var lblRed = new TextBlock { Text = "Red Threshold (%)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var txtRed = new TextBox
+              {
+                  Text = _prefs.ColorThresholdRed.ToString(),
+                  Width = 50,
+                  Height = 24,
+                  Background = (SolidColorBrush)Application.Current.Resources["InputBackground"],
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  BorderBrush = (SolidColorBrush)Application.Current.Resources["ControlBorder"],
+                  VerticalContentAlignment = VerticalAlignment.Center
+              };
+              txtRed.TextChanged += (s, e) => {
+                  if (int.TryParse(txtRed.Text, out var val)) _prefs.ColorThresholdRed = val;
+              };
+
+              Grid.SetColumn(lblRed, 0);
+              Grid.SetColumn(txtRed, 1);
+              grid2.Children.Add(lblRed);
+              grid2.Children.Add(txtRed);
+
+              LayoutStack.Children.Add(grid2);
+
+              var invertCheck = new CheckBox
+              {
+                  Content = "Invert Progress Bars (Show 'Remaining' instead of 'Used')",
+                  IsChecked = _prefs.InvertProgressBar,
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  FontSize = 11,
+                  Margin = new Thickness(0, 15, 0, 0),
+                  VerticalAlignment = VerticalAlignment.Center
+              };
+              invertCheck.Checked += (s, e) => _prefs.InvertProgressBar = true;
+              invertCheck.Unchecked += (s, e) => _prefs.InvertProgressBar = false;
+              LayoutStack.Children.Add(invertCheck);
+
+              var gridRefresh = new Grid { Margin = new Thickness(0, 15, 0, 0) };
+              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+              gridRefresh.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
               var lblRefresh = new TextBlock { Text = "Auto Refresh (Minutes)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var txtRefresh = new TextBox
+              {
+                  Text = (_prefs.AutoRefreshInterval / 60).ToString(),
+                  Width = 50,
+                  Height = 24,
+                  Background = (SolidColorBrush)Application.Current.Resources["InputBackground"],
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  BorderBrush = (SolidColorBrush)Application.Current.Resources["ControlBorder"],
+                  VerticalContentAlignment = VerticalAlignment.Center,
+                  ToolTip = "Set to 0 to disable automatic refresh"
+              };
+              txtRefresh.TextChanged += (s, e) => {
+                  if (int.TryParse(txtRefresh.Text, out var val)) _prefs.AutoRefreshInterval = val * 60;
+              };
+
+              Grid.SetColumn(lblRefresh, 0);
+              Grid.SetColumn(txtRefresh, 1);
+              gridRefresh.Children.Add(lblRefresh);
+              gridRefresh.Children.Add(txtRefresh);
+              LayoutStack.Children.Add(gridRefresh);
+
               var notifHeader = new TextBlock { Text = "Notifications", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], Margin = new Thickness(0, 20, 0, 10) };
-                LayoutStack.Children.Add(notifHeader);
+              LayoutStack.Children.Add(notifHeader);
 
-                var notifCheck = new CheckBox 
-                { 
-                    Content = "Enable Windows notifications for quota events",
-                    IsChecked = _prefs.EnableNotifications,
-                    Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
-                    Margin = new Thickness(0, 5, 0, 5)
-                };
-                notifCheck.Checked += (s, e) => _prefs.EnableNotifications = true;
-                notifCheck.Unchecked += (s, e) => _prefs.EnableNotifications = false;
-                LayoutStack.Children.Add(notifCheck);
+              var notifCheck = new CheckBox
+              {
+                  Content = "Enable Windows notifications for quota events",
+                  IsChecked = _prefs.EnableNotifications,
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  Margin = new Thickness(0, 5, 0, 5)
+              };
+              notifCheck.Checked += (s, e) => _prefs.EnableNotifications = true;
+              notifCheck.Unchecked += (s, e) => _prefs.EnableNotifications = false;
+              LayoutStack.Children.Add(notifCheck);
 
-                var notifDesc = new TextBlock 
-                { 
-                    Text = "Show notifications when quotas are depleted or refreshed",
-                    Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"],
-                    FontSize = 11,
-                    Margin = new Thickness(20, 0, 0, 10),
-                    TextWrapping = TextWrapping.Wrap
-                };
-                LayoutStack.Children.Add(notifDesc);
+              var notifDesc = new TextBlock
+              {
+                  Text = "Show notifications when quotas are depleted or refreshed",
+                  Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"],
+                  FontSize = 11,
+                  Margin = new Thickness(20, 0, 0, 10),
+                  TextWrapping = TextWrapping.Wrap
+              };
+              LayoutStack.Children.Add(notifDesc);
 
-                // Separator
-                var separator = new Border { Height = 1, Background = (SolidColorBrush)Application.Current.Resources["Separator"], Margin = new Thickness(0, 30, 0, 10) };
-               LayoutStack.Children.Add(separator);
+              var separator = new Border { Height = 1, Background = (SolidColorBrush)Application.Current.Resources["Separator"], Margin = new Thickness(0, 30, 0, 10) };
+              LayoutStack.Children.Add(separator);
 
-              // Font Settings Section
               var fontHeaderPanel = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
               var fontHeader = new TextBlock { Text = "Font Settings", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], VerticalAlignment = VerticalAlignment.Center };
               var resetBtn = new Button { Content = "Reset to Default", FontSize = 10, Padding = new Thickness(6,2,6,2), HorizontalAlignment = HorizontalAlignment.Right, Background = Brushes.Transparent, BorderThickness = new Thickness(1), BorderBrush = (SolidColorBrush)Application.Current.Resources["BorderColor"] };
               resetBtn.Click += ResetFontBtn_Click;
-              
+
               fontHeaderPanel.Children.Add(fontHeader);
               DockPanel.SetDock(fontHeader, Dock.Left);
               fontHeaderPanel.Children.Add(resetBtn);
               DockPanel.SetDock(resetBtn, Dock.Right);
-              
               LayoutStack.Children.Add(fontHeaderPanel);
 
-              // Font Family
               var fontFamilyGrid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
               fontFamilyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
               fontFamilyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
               var fontFamilyLabel = new TextBlock { Text = "Font Family", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var fontFamilyBox = new ComboBox
+              {
+                  Height = 24,
+                  Background = (SolidColorBrush)Application.Current.Resources["ComboBoxBackground"],
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  BorderBrush = (SolidColorBrush)Application.Current.Resources["ControlBorder"],
+                  IsEditable = false
+              };
+
+              var fonts = _fontProvider.GetInstalledFonts().ToList();
+              fontFamilyBox.ItemsSource = fonts;
+              var selectedFont = FontSelectionHelper.GetSelectedFont(_prefs.FontFamily, fonts);
+              fontFamilyBox.SelectedItem = selectedFont;
+
+              fontFamilyBox.SelectionChanged += (s, e) => {
+                  if (fontFamilyBox.SelectedItem is string font)
+                  {
+                      _prefs.FontFamily = font;
+                      UpdatePreview();
+                  }
+              };
+
+              Grid.SetColumn(fontFamilyLabel, 0);
+              Grid.SetColumn(fontFamilyBox, 1);
+              fontFamilyGrid.Children.Add(fontFamilyLabel);
+              fontFamilyGrid.Children.Add(fontFamilyBox);
+              LayoutStack.Children.Add(fontFamilyGrid);
+
+              var fontSizeGrid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+              fontSizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(100) });
+              fontSizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(60) });
+              fontSizeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
               var fontSizeLabel = new TextBlock { Text = "Font Size (px)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0,0,10,0) };
+              var fontSizeBox = new TextBox
+              {
+                  Text = _prefs.FontSize.ToString(),
+                  Width = 50,
+                  Height = 24,
+                  Background = (SolidColorBrush)Application.Current.Resources["InputBackground"],
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  BorderBrush = (SolidColorBrush)Application.Current.Resources["ControlBorder"],
+                  VerticalContentAlignment = VerticalAlignment.Center
+              };
+              fontSizeBox.TextChanged += (s, e) => {
+                  if (int.TryParse(fontSizeBox.Text, out var val))
+                  {
+                      _prefs.FontSize = val;
+                      UpdatePreview();
+                  }
+              };
+
+              Grid.SetColumn(fontSizeLabel, 0);
+              Grid.SetColumn(fontSizeBox, 1);
+              fontSizeGrid.Children.Add(fontSizeLabel);
+              fontSizeGrid.Children.Add(fontSizeBox);
+              LayoutStack.Children.Add(fontSizeGrid);
+
+              var fontStylePanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(100, 0, 0, 0) };
+
+              var boldCheck = new CheckBox
+              {
+                  Content = "Bold",
+                  IsChecked = _prefs.FontBold,
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  FontSize = 11,
+                  VerticalAlignment = VerticalAlignment.Center,
+                  Margin = new Thickness(0, 0, 15, 0)
+              };
+              boldCheck.Checked += (s, e) => { _prefs.FontBold = true; UpdatePreview(); };
+              boldCheck.Unchecked += (s, e) => { _prefs.FontBold = false; UpdatePreview(); };
+              fontStylePanel.Children.Add(boldCheck);
+
+              var italicCheck = new CheckBox
+              {
+                  Content = "Italic",
+                  IsChecked = _prefs.FontItalic,
+                  Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"],
+                  FontSize = 11,
+                  VerticalAlignment = VerticalAlignment.Center
+              };
+              italicCheck.Checked += (s, e) => { _prefs.FontItalic = true; UpdatePreview(); };
+              italicCheck.Unchecked += (s, e) => { _prefs.FontItalic = false; UpdatePreview(); };
+              fontStylePanel.Children.Add(italicCheck);
+
+              LayoutStack.Children.Add(fontStylePanel);
+
               var previewLabel = new TextBlock { Text = "Preview:", FontSize = 12, FontWeight = FontWeights.Bold, Foreground = (SolidColorBrush)Application.Current.Resources["TertiaryText"], Margin = new Thickness(0, 20, 0, 10) };
               LayoutStack.Children.Add(previewLabel);
 
@@ -634,7 +791,6 @@ namespace AIConsumptionTracker.UI
 
               previewBox.Child = previewText;
               LayoutStack.Children.Add(previewBox);
-
         }
 
         private void ResetFontBtn_Click(object sender, RoutedEventArgs e)
