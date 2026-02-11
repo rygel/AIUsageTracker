@@ -9,6 +9,7 @@ use axum::{
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
+use serde_json;
 use libsql::Builder;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -229,13 +230,25 @@ async fn get_current_usage(
     // Log details of each provider
     for usage in &usages {
         info!(
-            "  Provider: {} ({}), Available: {}, Cost: {:.2} / {:.2}",
+            "  Provider: {} ({}), Available: {}, Cost: {:.2} / {:.2}, Usage%: {:.1}",
             usage.provider_name,
             usage.provider_id,
             usage.is_available,
             usage.cost_used,
-            usage.cost_limit
+            usage.cost_limit,
+            usage.usage_percentage
         );
+    }
+    
+    // Debug: Serialize to JSON and log first 500 chars
+    match serde_json::to_string(&usages) {
+        Ok(json) => {
+            let preview = if json.len() > 500 { &json[..500] } else { &json };
+            debug!("API: JSON response preview: {}", preview);
+        }
+        Err(e) => {
+            error!("API: Failed to serialize usages: {}", e);
+        }
     }
 
     Ok(Json(usages))
