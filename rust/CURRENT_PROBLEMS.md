@@ -2,6 +2,31 @@
 
 ## Recent Work (February 11, 2026)
 
+### Feature: Agent Connection Status Indicator
+
+**Added:** Real-time status indicator in the footer showing agent connection state.
+
+**UI Changes:**
+- Added colored status dot in footer between "Show All" checkbox and action buttons
+- Green dot with glow effect: Agent is connected and running
+- Red dot: Agent is disconnected/not running
+- Yellow pulsing dot: Currently connecting/checking
+- Status text: "Agent Connected", "Agent Disconnected", or "Connection Error"
+
+**Implementation:**
+- Updated `checkAgentStatus()` function to also update status indicator
+- Status checks immediately on page load and every 5 seconds
+- Works with existing `get_agent_status_details` Tauri command
+
+**CSS Classes:**
+- `.agent-status` - Container for indicator and text
+- `.status-indicator` - Colored dot
+- `.status-indicator.connected` - Green with glow
+- `.status-indicator.disconnected` - Red
+- `.status-indicator.connecting` - Yellow with pulse animation
+
+---
+
 ### Improvement: Smart Build Script
 
 **Change:** Updated `debug-build.ps1` to intelligently decide whether to build or run.
