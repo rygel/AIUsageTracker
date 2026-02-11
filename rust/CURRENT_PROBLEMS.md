@@ -34,6 +34,40 @@
 
 ---
 
+### Fix: Harmonized Agent Status UI
+
+**Problem:** The footer showed "Agent Connected" while content showed "Agent not available" - conflicting messages in the same window.
+
+**Root Cause:** Multiple independent functions updating UI elements separately:
+- `checkAgentStatus()` updated button, LED, and text
+- `loadData()` updated content area separately
+- These could get out of sync
+
+**Solution:** Single `updateAgentUI(status, message)` function updates ALL elements atomically.
+
+**Unified UI Function:**
+```javascript
+function updateAgentUI(status, message) {
+    // Updates ALL of these together:
+    - Button (disabled/enabled, opacity, title)
+    - Status LED (connected/disconnected/connecting)
+    - Status text (message)
+    - Content area ("Waiting for agent..." or loaded data)
+}
+```
+
+**States:**
+- `status='connected'` → Green LED + "Agent Connected" + Button disabled + Content loaded
+- `status='disconnected'` → Red LED + "Agent Disconnected" + Button enabled + "Waiting..."
+- `status='connecting'` → Yellow pulsing LED + "Starting Agent..." + Button disabled
+
+**Usage:**
+- `checkAgentStatus()` calls `updateAgentUI()` based on HTTP health check
+- `startAgentFromMain()` calls `updateAgentUI('connecting', ...)` immediately on click
+- All UI elements updated together - no conflicts possible
+
+---
+
 ### Fix: Port Already In Use Error
 
 **Problem:** When clicking the agent button (🤖) to start the agent, users got:
