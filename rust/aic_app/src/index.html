@@ -388,57 +388,20 @@
             
             try {
                 let data = [];
-                let agentAvailable = false;
                 
-                // Try to get data from agent first
+                // Get data ONLY from agent - no fallback
                 if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
                     try {
                         data = await window.__TAURI__.core.invoke('get_usage_from_agent');
                         console.log('Loaded usage from agent:', data);
-                        agentAvailable = true;
                     } catch (agentErr) {
-                        console.log('Agent not available, falling back to local:', agentErr);
+                        console.error('Failed to load from agent:', agentErr);
+                        container.innerHTML = '<div class="error">Agent not available. Please start the agent first.</div>';
+                        return;
                     }
-                }
-                
-                // If agent failed or not available, try local
-                if (!agentAvailable && window.__TAURI__ && window.__TAURI__.invoke) {
-                    // Load configured providers
-                    let configs = [];
-                    try {
-                        configs = await window.__TAURI__.invoke('get_configured_providers');
-                        console.log('Loaded configs:', configs);
-                    } catch (e) {
-                        console.log('No local configs:', e);
-                    }
-                    
-                    // Get local usage data
-                    let localData = [];
-                    try {
-                        localData = await window.__TAURI__.invoke('get_usage');
-                        console.log('Loaded local usage:', localData);
-                    } catch (e) {
-                        console.log('No local usage:', e);
-                    }
-                    
-                    // Merge configs with usage data
-                    data = configs.map(config => {
-                        const usage = localData.find(u => u.provider_id === config.provider_id);
-                        if (usage) {
-                            return usage;
-                        }
-                        // Create placeholder for configured but not yet fetched
-                        return {
-                            provider_id: config.provider_id,
-                            provider_name: formatProviderName(config.provider_id),
-                            is_available: false,
-                            description: config.api_key ? 'API key configured' : 'No API key',
-                            is_quota_based: config.config_type === 'quota',
-                            usage_percentage: 0,
-                            usage_unit: 'Status',
-                            auth_source: config.auth_source || 'Manual'
-                        };
-                    });
+                } else {
+                    container.innerHTML = '<div class="error">Tauri API not available</div>';
+                    return;
                 }
                 
                 usageData = data || [];
@@ -467,27 +430,20 @@
             
             try {
                 let data = [];
-                let agentAvailable = false;
                 
-                // Try to refresh via agent first
+                // Refresh ONLY via agent - no fallback
                 if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
                     try {
                         data = await window.__TAURI__.core.invoke('refresh_usage_from_agent');
                         console.log('Refreshed usage from agent:', data);
-                        agentAvailable = true;
                     } catch (agentErr) {
-                        console.log('Agent not available for refresh, falling back to local:', agentErr);
+                        console.error('Failed to refresh via agent:', agentErr);
+                        alert('Agent not available. Please start the agent first.');
+                        return;
                     }
-                }
-                
-                // If agent failed, try local
-                if (!agentAvailable && window.__TAURI__ && window.__TAURI__.invoke) {
-                    try {
-                        data = await window.__TAURI__.invoke('refresh_usage');
-                        console.log('Refreshed local usage:', data);
-                    } catch (e) {
-                        console.log('No local refresh:', e);
-                    }
+                } else {
+                    alert('Tauri API not available');
+                    return;
                 }
                 
                 usageData = data || [];
