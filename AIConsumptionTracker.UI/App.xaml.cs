@@ -1,13 +1,20 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Infrastructure.Configuration;
 using AIConsumptionTracker.Infrastructure.Providers;
+using AIConsumptionTracker.Infrastructure.Services;
 using AIConsumptionTracker.Infrastructure.Helpers;
 using AIConsumptionTracker.UI.Services;
 using System.Runtime.InteropServices;
@@ -46,6 +53,70 @@ namespace AIConsumptionTracker.UI
         {
             base.OnStartup(e);
 
+            _host = Host.CreateDefaultBuilder()
+                .ConfigureLogging(logging =>
+                {
+                    logging.ClearProviders();
+                    logging.AddConsole();
+                    logging.AddDebug();
+                    logging.SetMinimumLevel(LogLevel.Debug);
+
+                    var logPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "AIConsumptionTracker",
+                        "logs",
+                        $"app_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+                    Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+                    logging.AddProvider(new FileLoggerProvider(logPath));
+                })
+                .ConfigureServices((context, services) =>
+                {
+                    services.AddHttpClient();
+                    services.AddSingleton<IConfigLoader, JsonConfigLoader>();
+                    services.AddSingleton<IFontProvider, WpfFontProvider>();
+
+                    services.AddTransient<IProviderService, OpenCodeProvider>();
+                    services.AddTransient<IProviderService, ZaiProvider>();
+                    services.AddTransient<IProviderService, OpenRouterProvider>();
+                    services.AddTransient<IProviderService, AntigravityProvider>();
+                    services.AddTransient<IProviderService, GeminiProvider>();
+                    services.AddTransient<IProviderService, KimiProvider>();
+                    services.AddTransient<IProviderService, DeepSeekProvider>();
+                    services.AddTransient<IProviderService, OpenAIProvider>();
+                    services.AddTransient<IProviderService, ClaudeCodeProvider>();
+                    services.AddTransient<IProviderService, MistralProvider>();
+                    services.AddTransient<IProviderService, GenericPayAsYouGoProvider>();
+                    services.AddTransient<IProviderService, GitHubCopilotProvider>();
+                    services.AddTransient<IProviderService, CodexProvider>();
+                    services.AddTransient<IProviderService, MinimaxProvider>();
+                    services.AddTransient<IProviderService, XiaomiProvider>();
+                    services.AddTransient<IUpdateCheckerService, GitHubUpdateChecker>();
+
+                    services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
+                    services.AddSingleton<INotificationService, WindowsNotificationService>();
+
+                    services.AddSingleton<ProviderManager>();
+                    services.AddTransient<MainWindow>();
+                    services.AddTransient<SettingsWindow>();
+                    services.AddTransient<InfoDialog>();
+                })
+                .Build();
+
+            await _host.StartAsync();
+
+            var notificationService = _host.Services.GetRequiredService<INotificationService>();
+            notificationService.Initialize();
+            notificationService.OnNotificationClicked += OnNotificationClicked;
+
+            bool isTestMode = e.Args.Any(arg => arg == "--test");
+            bool isScreenshotMode = e.Args.Any(arg => arg == "--screenshot");
+
+            if (isScreenshotMode && isTestMode)
+            {
+                await HandleScreenshotMode();
+                return;
+            }
+
             var configLoader = Services.GetRequiredService<IConfigLoader>();
             var prefs = await configLoader.LoadPreferencesAsync();
 
@@ -53,6 +124,12 @@ namespace AIConsumptionTracker.UI
             {
                 await SetStartupTaskAsync();
             }
+
+            var providerManager = _host.Services.GetRequiredService<ProviderManager>();
+            _ = Task.Run(() => providerManager.GetAllUsageAsync(forceRefresh: true));
+
+            InitializeTrayIcon();
+            await ShowDashboard();
         }
 
         private async Task SetStartupTaskAsync()
@@ -85,14 +162,6 @@ namespace AIConsumptionTracker.UI
                 var logger = Services.GetService<ILogger<App>>();
                 logger?.LogWarning(ex, "Failed to set Windows startup: {Message}", ex.Message);
             }
-        }
-            
-            // Preload data
-            var providerManager = _host.Services.GetRequiredService<ProviderManager>();
-            _ = Task.Run(() => providerManager.GetAllUsageAsync(forceRefresh: true)); // Fire and forget preload on thread pool
-
-            InitializeTrayIcon();
-            await ShowDashboard();
         }
 
         private async Task HandleScreenshotMode()

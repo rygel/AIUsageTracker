@@ -1,5 +1,11 @@
 namespace AIConsumptionTracker.Core.Models;
 
+public enum AppTheme
+{
+    Dark,
+    Light
+}
+
 public class AppPreferences
 {
     public bool ShowAll { get; set; } = false;
@@ -18,6 +24,8 @@ public class AppPreferences
     public int AutoRefreshInterval { get; set; } = 300; // In seconds, 0 = Disabled
     public bool IsPrivacyMode { get; set; } = false;
     public bool EnableNotifications { get; set; } = false; // Global notification switch - disabled by default
+    public AppTheme Theme { get; set; } = AppTheme.Dark;
+    public bool StartWithWindows { get; set; } = false; // Windows Auto-Startup
     
     // Collapsible section states
     public bool IsPlansAndQuotasCollapsed { get; set; } = false;
