@@ -339,6 +339,7 @@
         let showAll = true;
         let privacyMode = false;
         let usageData = [];
+        let agentConnected = false; // Shared agent status
 
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
@@ -384,31 +385,29 @@
 
         async function loadData() {
             const container = document.getElementById('providersList');
+            
+            // Check if agent is connected before trying to load
+            if (!agentConnected) {
+                container.innerHTML = '<div class="loading">Waiting for agent...</div>';
+                return;
+            }
+            
             container.innerHTML = '<div class="loading">Loading...</div>';
             
             try {
                 let data = [];
                 
-                // Get data ONLY from agent - no fallback
+                // Get data ONLY from agent
                 if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    try {
-                        data = await window.__TAURI__.core.invoke('get_usage_from_agent');
-                        console.log('Loaded usage from agent:', data);
-                    } catch (agentErr) {
-                        console.error('Failed to load from agent:', agentErr);
-                        container.innerHTML = '<div class="error">Agent not available. Please start the agent first.</div>';
-                        return;
-                    }
-                } else {
-                    container.innerHTML = '<div class="error">Tauri API not available</div>';
-                    return;
+                    data = await window.__TAURI__.core.invoke('get_usage_from_agent');
+                    console.log('Loaded usage from agent:', data);
                 }
                 
                 usageData = data || [];
                 renderProviders();
             } catch (err) {
-                console.error('Error:', err);
-                container.innerHTML = '<div class="error">Error: ' + err.message + '</div>';
+                console.error('Error loading data:', err);
+                container.innerHTML = '<div class="error">Failed to load data from agent</div>';
             }
         }
         
@@ -426,30 +425,27 @@
 
         async function refreshData() {
             showAll = document.getElementById('showAllToggle').checked;
+            
+            // Check if agent is connected before refreshing
+            if (!agentConnected) {
+                return; // Silently ignore if agent not connected
+            }
+            
             document.getElementById('refreshBtn').style.opacity = '0.5';
             
             try {
                 let data = [];
                 
-                // Refresh ONLY via agent - no fallback
+                // Refresh ONLY via agent
                 if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    try {
-                        data = await window.__TAURI__.core.invoke('refresh_usage_from_agent');
-                        console.log('Refreshed usage from agent:', data);
-                    } catch (agentErr) {
-                        console.error('Failed to refresh via agent:', agentErr);
-                        alert('Agent not available. Please start the agent first.');
-                        return;
-                    }
-                } else {
-                    alert('Tauri API not available');
-                    return;
+                    data = await window.__TAURI__.core.invoke('refresh_usage_from_agent');
+                    console.log('Refreshed usage from agent:', data);
                 }
                 
                 usageData = data || [];
                 renderProviders();
             } catch (err) {
-                console.error('Error:', err);
+                console.error('Error refreshing data:', err);
             } finally {
                 document.getElementById('refreshBtn').style.opacity = '1';
             }
@@ -547,6 +543,7 @@
             const statusText = document.getElementById('statusText');
 
             if (!window.__TAURI__ || !window.__TAURI__.core || !window.__TAURI__.core.invoke) {
+                agentConnected = false;
                 if (statusIndicator && statusText) {
                     statusIndicator.className = 'status-indicator disconnected';
                     statusText.textContent = 'Not Connected';
@@ -555,11 +552,12 @@
             }
 
             try {
-                // First check if agent is responding via HTTP (works for external agents too)
+                // Check if agent is responding via HTTP
                 const isRunning = await window.__TAURI__.core.invoke('is_agent_running_http');
                 
                 if (isRunning) {
                     // Agent is running and responding
+                    agentConnected = true;
                     if (agentBtn) {
                         agentBtn.disabled = true;
                         agentBtn.title = 'Agent is running';
@@ -572,7 +570,10 @@
                     return;
                 }
                 
-                // If HTTP check failed, check local process state
+                // Agent not responding via HTTP
+                agentConnected = false;
+                
+                // Check local process state to see if WE started it
                 const status = await window.__TAURI__.core.invoke('get_agent_status_details');
                 
                 // Update button state
@@ -589,7 +590,7 @@
                     }
                 }
                 
-                // Update status indicator in footer
+                // Update status indicator
                 if (statusIndicator && statusText) {
                     if (status.is_running) {
                         statusIndicator.className = 'status-indicator connected';
@@ -601,6 +602,7 @@
                 }
             } catch (e) {
                 console.error('Failed to check agent status:', e);
+                agentConnected = false;
                 if (statusIndicator && statusText) {
                     statusIndicator.className = 'status-indicator disconnected';
                     statusText.textContent = 'Connection Error';
