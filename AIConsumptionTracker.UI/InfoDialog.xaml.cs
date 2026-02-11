@@ -1,12 +1,15 @@
 using System;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.IO;
 using System.Threading.Tasks;
-using System.Windows.Media;
 using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Core.Interfaces;
 
 namespace AIConsumptionTracker.UI
 {
@@ -15,11 +18,86 @@ namespace AIConsumptionTracker.UI
         private bool _isPrivacyMode = false;
         private string? _realUserName;
         private string? _realConfigPath;
+        private readonly IConfigLoader? _configLoader;
 
         public InfoDialog()
         {
             InitializeComponent();
+            
+                // Get config loader from app services if available
+                if (Application.Current is App app)
+                {
+                    _configLoader = (IConfigLoader?)app.Services.GetService(typeof(IConfigLoader));
+                }
+            
+            LoadTheme();
             LoadInfo();
+        }
+        
+        private async void LoadTheme()
+        {
+            try
+            {
+                AppPreferences? prefs = null;
+                
+                if (_configLoader != null)
+                {
+                    prefs = await _configLoader.LoadPreferencesAsync();
+                }
+                else if (Application.Current is App app && app.MainWindow is MainWindow mainWindow)
+                {
+                    // Try to get theme from main window's current state
+                    var bg = mainWindow.Background as SolidColorBrush;
+                    if (bg != null && bg.Color.R > 200) // Light theme detected
+                    {
+                        prefs = new AppPreferences { Theme = AppTheme.Light };
+                    }
+                }
+                
+                if (prefs != null)
+                {
+                    ApplyTheme(prefs.Theme);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[WARNING] Failed to load theme in InfoDialog: {ex.Message}");
+            }
+        }
+        
+        private void ApplyTheme(AppTheme theme)
+        {
+            var windowBg = theme == AppTheme.Dark 
+                ? Color.FromRgb(30, 30, 30) 
+                : Color.FromRgb(243, 243, 243);
+            var windowFg = theme == AppTheme.Dark 
+                ? Brushes.White 
+                : Brushes.Black;
+            
+            this.Background = new SolidColorBrush(windowBg);
+            this.Foreground = windowFg;
+            
+            // Apply to all TextBlocks
+            ApplyThemeToVisualTree(this, windowFg);
+        }
+        
+        private void ApplyThemeToVisualTree(DependencyObject element, Brush foreground)
+        {
+            if (element == null) return;
+            
+            // Apply to TextBlock
+            if (element is TextBlock textBlock)
+            {
+                textBlock.Foreground = foreground;
+            }
+            
+            // Recurse through children
+            int childCount = VisualTreeHelper.GetChildrenCount(element);
+            for (int i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(element, i);
+                ApplyThemeToVisualTree(child, foreground);
+            }
         }
 
         public async Task PrepareForScreenshot(AppPreferences prefs)

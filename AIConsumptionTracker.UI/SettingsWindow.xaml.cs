@@ -132,6 +132,9 @@ namespace AIConsumptionTracker.UI
                 Debug.WriteLine("[DEBUG] Populating layout...");
                 PopulateLayout();
                 
+                Debug.WriteLine("[DEBUG] Applying theme...");
+                ApplyTheme();
+                
                 Debug.WriteLine("[DEBUG] SettingsWindow_Loaded completed successfully");
             }
             catch (Exception ex)
