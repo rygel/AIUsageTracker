@@ -243,9 +243,8 @@ async fn main() {
                 let window_clone = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        // Prevent the window from closing
+                        println!("Main window close requested - hiding instead");
                         api.prevent_close();
-                        // Hide the window instead
                         let _ = window_clone.hide();
                     }
                 });
@@ -253,6 +252,32 @@ async fn main() {
                 println!("Main window shown successfully");
             } else {
                 println!("WARNING: Main window not found!");
+            }
+
+            // Add close handler for settings window (hide instead of close)
+            if let Some(settings_window) = app.get_webview_window("settings") {
+                let settings_clone = settings_window.clone();
+                settings_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        println!("Settings window close requested - hiding instead");
+                        api.prevent_close();
+                        let _ = settings_clone.hide();
+                    }
+                });
+                println!("Settings window close handler installed");
+            }
+
+            // Add close handler for info window (hide instead of close)
+            if let Some(info_window) = app.get_webview_window("info") {
+                let info_clone = info_window.clone();
+                info_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        println!("Info window close requested - hiding instead");
+                        api.prevent_close();
+                        let _ = info_clone.hide();
+                    }
+                });
+                println!("Info window close handler installed");
             }
 
             // Check for updates on startup (silent)
