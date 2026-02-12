@@ -656,6 +656,14 @@
                 
                 usageData = data || [];
                 renderProviders();
+                
+                // Preload settings data in background for faster settings window opening
+                console.log('Preloading settings data in background...');
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    window.__TAURI__.core.invoke('preload_settings_data')
+                        .then(() => console.log('Settings data preloaded successfully'))
+                        .catch(e => console.log('Could not preload settings data:', e));
+                }
             } catch (err) {
                 console.error('Error loading data:', err);
                 // Extract the error message from the error object
@@ -761,6 +769,14 @@
                 
                 usageData = data || [];
                 renderProviders();
+                
+                // Preload settings data after refresh
+                console.log('Preloading settings data after refresh...');
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    window.__TAURI__.core.invoke('preload_settings_data')
+                        .then(() => console.log('Settings data preloaded after refresh'))
+                        .catch(e => console.log('Could not preload settings data:', e));
+                }
             } catch (err) {
                 console.error('Error refreshing data:', err);
                 // Show error message to user

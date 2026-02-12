@@ -1107,10 +1107,35 @@
             console.log('=== loadSettings() START ===');
             console.log('Timestamp:', new Date().toISOString());
             try {
-                // Load providers ONLY from agent - no fallback
-                console.log('Checking invoke availability:', !!invoke);
+                // First try to get preloaded data
+                console.log('Checking for preloaded data...');
+                let dataLoaded = false;
+                
                 if (invoke) {
-                    console.log('About to call get_all_providers_from_agent...');
+                    try {
+                        const startTime = Date.now();
+                        const preloaded = await invoke('get_preloaded_settings_data');
+                        const elapsed = Date.now() - startTime;
+                        console.log(`Preloaded data check completed in ${elapsed}ms`);
+                        
+                        if (preloaded) {
+                            console.log('Using preloaded data!');
+                            configs = preloaded[0] || [];
+                            usageData = preloaded[1] || [];
+                            console.log('Preloaded configs:', configs.length, 'providers');
+                            console.log('Preloaded usage:', usageData?.length || 0, 'providers');
+                            dataLoaded = true;
+                        } else {
+                            console.log('No preloaded data available, will fetch from agent');
+                        }
+                    } catch (preloadErr) {
+                        console.log('Could not get preloaded data:', preloadErr.message || preloadErr);
+                    }
+                }
+                
+                // If no preloaded data, fetch from agent
+                if (!dataLoaded && invoke) {
+                    console.log('Loading providers from agent...');
                     console.log('Starting timer...');
                     const startTime = Date.now();
                     
@@ -1149,7 +1174,7 @@
                         console.error('Error stack:', agentErr.stack);
                         configs = [];
                     }
-                } else {
+                } else if (!invoke) {
                     console.error('invoke is not available!');
                 }
 

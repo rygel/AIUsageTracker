@@ -1,5 +1,5 @@
 use aic_core::{
-    AuthenticationManager, ConfigLoader, ProviderManager, ProviderUsage, TokenPollResult,
+    AuthenticationManager, ConfigLoader, ProviderConfig, ProviderManager, ProviderUsage, TokenPollResult,
 };
 use tracing::{error, info, warn};
 use reqwest::Client;
@@ -16,6 +16,13 @@ pub struct AppState {
     pub auto_refresh_enabled: Arc<Mutex<bool>>,
     pub device_flow_state: Arc<RwLock<Option<DeviceFlowState>>>,
     pub agent_process: Arc<Mutex<Option<Child>>>,
+    pub preloaded_settings: Arc<Mutex<Option<PreloadedSettings>>>,
+}
+
+#[derive(Clone)]
+pub struct PreloadedSettings {
+    pub providers: Vec<ProviderConfig>,
+    pub usage: Vec<ProviderUsage>,
 }
 
 #[derive(Clone)]
@@ -475,16 +482,79 @@ pub async fn close_settings_window(window: tauri::Window) -> Result<(), String> 
 }
 
 #[tauri::command]
-pub async fn reload_settings_window(app: tauri::AppHandle) -> Result<(), String> {
-    tracing::info!("reload_settings_window called");
-    if let Some(window) = app.get_webview_window("settings") {
-        tracing::info!("Emitting settings-window-shown event to reload data");
-        let _ = window.emit("settings-window-shown", ());
-        Ok(())
-    } else {
-        tracing::warn!("Settings window not found, nothing to reload");
-        Ok(())
-    }
+pub async fn preload_settings_data(state: State<'_, AppState>) -> Result<(), String> {
+    tracing::info!("Preloading settings data...");
+    
+    // Fetch providers and usage data in parallel from agent
+    let providers_future = async {
+        let agent_url = "http://localhost:8080/api/providers/discovered";
+        match reqwest::get(agent_url).await {
+            Ok(response) if response.status().is_success() => {
+                match response.json::<Vec<aic_core::ProviderConfig>>().await {
+                    Ok(providers) => {
+                        tracing::info!("Preloaded {} providers", providers.len());
+                        Some(providers)
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to parse providers: {}", e);
+                        None
+                    }
+                }
+            }
+            Ok(response) => {
+                tracing::error!("Agent error: {}", response.status());
+                None
+            }
+            Err(e) => {
+                tracing::error!("Failed to connect to agent: {}", e);
+                None
+            }
+        }
+    };
+    
+    let usage_future = async {
+        let agent_url = "http://localhost:8080/api/providers/usage";
+        match reqwest::get(agent_url).await {
+            Ok(response) if response.status().is_success() => {
+                match response.json::<Vec<ProviderUsage>>().await {
+                    Ok(usage) => {
+                        tracing::info!("Preloaded {} usage records", usage.len());
+                        Some(usage)
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to parse usage: {}", e);
+                        None
+                    }
+                }
+            }
+            Ok(response) => {
+                tracing::error!("Agent error: {}", response.status());
+                None
+            }
+            Err(e) => {
+                tracing::error!("Failed to connect to agent: {}", e);
+                None
+            }
+        }
+    };
+    
+    let (providers, usage) = tokio::join!(providers_future, usage_future);
+    
+    // Store in state
+    let mut preloaded = state.preloaded_settings.lock().await;
+    *preloaded = Some(PreloadedSettings { 
+        providers: providers.unwrap_or_default(), 
+        usage: usage.unwrap_or_default() 
+    });
+    
+    tracing::info!("Settings data preloaded successfully");
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_preloaded_settings_data(state: State<'_, AppState>) -> Result<Option<(Vec<ProviderConfig>, Vec<ProviderUsage>)>, String> {
+    let preloaded = state.preloaded_settings.lock().await;
+    Ok(preloaded.as_ref().map(|p| (p.providers.clone(), p.usage.clone())))
 }
 
 #[tauri::command]

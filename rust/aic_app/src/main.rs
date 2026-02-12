@@ -115,6 +115,7 @@ async fn main() {
             auto_refresh_enabled,
             device_flow_state: Arc::new(RwLock::new(None)),
             agent_process: Arc::new(Mutex::new(None)),
+            preloaded_settings: Arc::new(Mutex::new(None)),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -150,8 +151,9 @@ async fn main() {
             // Settings commands
             close_settings_window,
             open_settings_window,
-            reload_settings_window,
             save_provider_configs,
+            preload_settings_data,
+            get_preloaded_settings_data,
             // Info window commands
             open_info_window,
             close_info_window,
