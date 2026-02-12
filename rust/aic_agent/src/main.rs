@@ -3,7 +3,7 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
-    routing::{get, post},
+    routing::{delete, get, post, put},
     Router,
 };
 use chrono::{DateTime, Utc};
@@ -118,6 +118,10 @@ async fn main() -> Result<()> {
         .route("/api/history", get(get_historical_usage))
         .route("/api/config", get(get_config))
         .route("/api/config", post(update_config))
+        .route("/api/discover", post(trigger_discovery))
+        .route("/api/config/providers", post(save_all_providers))
+        .route("/api/providers/:id", put(save_provider))
+        .route("/api/providers/:id", delete(remove_provider))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", args.port)).await?;
@@ -447,6 +451,126 @@ async fn update_config(
     info!("Configuration updated: {:?}", config);
 
     Json(config.clone())
+}
+
+async fn trigger_discovery(
+    State(state): State<AppState>,
+) -> Json<Vec<aic_core::ProviderConfig>> {
+    info!("API: POST /api/discover - Triggering provider discovery");
+    
+    // Re-run provider discovery
+    let discovered = crate::config::discover_all_providers().await;
+    
+    // Update the in-memory discovered providers
+    {
+        let mut config = state.config.write().await;
+        config.discovered_providers = discovered.clone();
+    }
+    
+    info!("API: Discovery complete. Found {} providers", discovered.len());
+    Json(discovered)
+}
+
+async fn save_all_providers(
+    State(state): State<AppState>,
+    Json(providers): Json<Vec<aic_core::ProviderConfig>>,
+) -> Result<Json<Vec<aic_core::ProviderConfig>>, StatusCode> {
+    info!("API: POST /api/config/providers - Saving all provider configurations (count: {})", providers.len());
+    
+    // Use the agent's config to save all providers
+    let config_loader = aic_core::ConfigLoader::new(reqwest::Client::new());
+    
+    // Save all configs to auth.json
+    if let Err(e) = config_loader.save_config(&providers).await {
+        error!("Failed to save all provider configs: {}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    
+    // Update the in-memory discovered providers
+    {
+        let mut config = state.config.write().await;
+        config.discovered_providers = providers.clone();
+    }
+    
+    info!("Successfully saved all {} providers", providers.len());
+    Ok(Json(providers))
+}
+
+async fn save_provider(
+    State(state): State<AppState>,
+    Path(provider_id): Path<String>,
+    Json(provider_config): Json<aic_core::ProviderConfig>,
+) -> Result<Json<Vec<aic_core::ProviderConfig>>, StatusCode> {
+    info!("API: PUT /api/providers/{} - Saving provider configuration", provider_id);
+    
+    // Use the agent's config to save the provider
+    let config_loader = aic_core::ConfigLoader::new(reqwest::Client::new());
+    
+    // Load existing configs
+    let mut configs = config_loader.load_primary_config().await;
+    
+    // Update or add the provider
+    if let Some(existing) = configs.iter_mut().find(|c| c.provider_id == provider_id) {
+        *existing = provider_config;
+        info!("Updated existing provider: {}", provider_id);
+    } else {
+        configs.push(provider_config);
+        info!("Added new provider: {}", provider_id);
+    }
+    
+    // Save back to auth.json
+    if let Err(e) = config_loader.save_config(&configs).await {
+        error!("Failed to save provider config: {}", e);
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    
+    // Update the in-memory discovered providers
+    {
+        let mut config = state.config.write().await;
+        config.discovered_providers = configs.clone();
+    }
+    
+    info!("Successfully saved provider {}. Total providers: {}", provider_id, configs.len());
+    Ok(Json(configs))
+}
+
+async fn remove_provider(
+    State(state): State<AppState>,
+    Path(provider_id): Path<String>,
+) -> Result<Json<Vec<aic_core::ProviderConfig>>, StatusCode> {
+    info!("API: DELETE /api/providers/{} - Removing provider configuration", provider_id);
+    
+    // Use the agent's config to remove the provider
+    let config_loader = aic_core::ConfigLoader::new(reqwest::Client::new());
+    
+    // Load existing configs
+    let mut configs = config_loader.load_primary_config().await;
+    
+    // Remove the provider
+    let initial_count = configs.len();
+    configs.retain(|c| c.provider_id != provider_id);
+    
+    if configs.len() < initial_count {
+        info!("Removed provider: {}", provider_id);
+        
+        // Save back to auth.json
+        if let Err(e) = config_loader.save_config(&configs).await {
+            error!("Failed to save config after removal: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+        
+        // Update the in-memory discovered providers
+        {
+            let mut config = state.config.write().await;
+            config.discovered_providers = configs.clone();
+        }
+        
+        info!("Successfully removed provider {}. Remaining providers: {}", provider_id, configs.len());
+    } else {
+        info!("Provider {} not found, nothing to remove", provider_id);
+    }
+    
+    Ok(Json(configs))
 }
 
 async fn get_discovered_providers(

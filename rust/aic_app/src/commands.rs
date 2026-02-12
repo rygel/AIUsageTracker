@@ -203,18 +203,29 @@ pub async fn get_all_providers_from_agent(
 }
 
 #[tauri::command]
-pub async fn scan_for_api_keys(state: State<'_, AppState>) -> Result<Vec<aic_core::ProviderConfig>, String> {
+pub async fn scan_for_api_keys(_state: State<'_, AppState>) -> Result<Vec<aic_core::ProviderConfig>, String> {
     let client = Client::new();
     // Trigger explicit discovery scan via agent
-    let agent_url = "http://localhost:8080/api/config";
+    let agent_url = "http://localhost:8080/api/discover";
 
     match client.post(agent_url).send().await {
-        Ok(_) => {
-            // Wait a moment for discovery to complete
-            tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-
-            // Now get the updated providers from agent
-            get_all_providers_from_agent(state).await
+        Ok(response) if response.status().is_success() => {
+            match response.json::<Vec<aic_core::ProviderConfig>>().await {
+                Ok(providers) => {
+                    info!("Discovery completed, found {} providers", providers.len());
+                    Ok(providers)
+                }
+                Err(e) => {
+                    error!("Failed to parse discovery response: {}", e);
+                    Err(format!("Failed to parse discovery response: {}", e))
+                }
+            }
+        }
+        Ok(response) => {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            error!("Agent returned error {}: {}", status, error_text);
+            Err(format!("Agent error (HTTP {}): {}", status, error_text))
         }
         Err(e) => {
             error!("Failed to trigger discovery on agent: {}", e);
@@ -225,41 +236,58 @@ pub async fn scan_for_api_keys(state: State<'_, AppState>) -> Result<Vec<aic_cor
 
 #[tauri::command]
 pub async fn save_provider_config(
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
     config: aic_core::ProviderConfig,
 ) -> Result<(), String> {
-    let mut configs = state.config_loader.load_primary_config().await;
-
-    // Update or add the config
-    if let Some(existing) = configs
-        .iter_mut()
-        .find(|c| c.provider_id == config.provider_id)
-    {
-        *existing = config;
-    } else {
-        configs.push(config);
+    let client = reqwest::Client::new();
+    let url = format!("http://localhost:8080/api/providers/{}", config.provider_id);
+    
+    tracing::info!("Saving provider config via agent: {}", config.provider_id);
+    
+    match client.put(&url).json(&config).send().await {
+        Ok(response) if response.status().is_success() => {
+            tracing::info!("Successfully saved provider: {}", config.provider_id);
+            Ok(())
+        }
+        Ok(response) => {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            tracing::error!("Agent returned error {}: {}", status, error_text);
+            Err(format!("Agent error (HTTP {}): {}", status, error_text))
+        }
+        Err(e) => {
+            tracing::error!("Failed to connect to agent: {}", e);
+            Err(format!("Cannot connect to agent: {}", e))
+        }
     }
-
-    state
-        .config_loader
-        .save_config(&configs)
-        .await
-        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub async fn remove_provider_config(
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
     provider_id: String,
 ) -> Result<(), String> {
-    let mut configs = state.config_loader.load_config().await;
-    configs.retain(|c| c.provider_id != provider_id);
-
-    state
-        .config_loader
-        .save_config(&configs)
-        .await
-        .map_err(|e| e.to_string())
+    let client = reqwest::Client::new();
+    let url = format!("http://localhost:8080/api/providers/{}", provider_id);
+    
+    tracing::info!("Removing provider config via agent: {}", provider_id);
+    
+    match client.delete(&url).send().await {
+        Ok(response) if response.status().is_success() => {
+            tracing::info!("Successfully removed provider: {}", provider_id);
+            Ok(())
+        }
+        Ok(response) => {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            tracing::error!("Agent returned error {}: {}", status, error_text);
+            Err(format!("Agent error (HTTP {}): {}", status, error_text))
+        }
+        Err(e) => {
+            tracing::error!("Failed to connect to agent: {}", e);
+            Err(format!("Cannot connect to agent: {}", e))
+        }
+    }
 }
 
 // Auto-refresh commands
@@ -464,14 +492,30 @@ pub async fn open_browser(url: String) -> Result<(), String> {
 // Settings commands
 #[tauri::command]
 pub async fn save_provider_configs(
-    state: State<'_, AppState>,
+    _state: State<'_, AppState>,
     configs: Vec<aic_core::ProviderConfig>,
 ) -> Result<(), String> {
-    state
-        .config_loader
-        .save_config(&configs)
-        .await
-        .map_err(|e| e.to_string())
+    let client = reqwest::Client::new();
+    let url = "http://localhost:8080/api/config/providers";
+    
+    tracing::info!("Saving all provider configs via agent (count: {})", configs.len());
+    
+    match client.post(url).json(&configs).send().await {
+        Ok(response) if response.status().is_success() => {
+            tracing::info!("Successfully saved all provider configs");
+            Ok(())
+        }
+        Ok(response) => {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            tracing::error!("Agent returned error {}: {}", status, error_text);
+            Err(format!("Agent error (HTTP {}): {}", status, error_text))
+        }
+        Err(e) => {
+            tracing::error!("Failed to connect to agent: {}", e);
+            Err(format!("Cannot connect to agent: {}", e))
+        }
+    }
 }
 
 #[tauri::command]
