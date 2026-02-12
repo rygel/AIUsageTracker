@@ -710,6 +710,77 @@ Description = $"${totalCost.ToString("F2", CultureInfo.InvariantCulture)} (7 day
 
 ---
 
-**Last Updated:** 2026-02-11
-**Version:** 1.1
+## Core System Behavior
+
+### Resume from Hibernate/Sleep - MANDATORY
+
+**CRITICAL RULE: The application MUST immediately refresh all provider data when the system resumes from hibernate or sleep mode**
+
+This is a **core functionality requirement** that ensures users always see current data after their system has been suspended. When a computer wakes from sleep or hibernate, network connections may have been interrupted, cached data may be stale, and provider rate limits or quotas may have changed.
+
+**Implementation Requirements:**
+
+1. **Event Subscription**: Subscribe to `SystemEvents.PowerModeChanged` in the MainWindow
+2. **Resume Detection**: Check for `PowerModes.Resume` event
+3. **Immediate Refresh**: Trigger data refresh immediately upon resume
+4. **Thread Safety**: Use Dispatcher to marshal UI updates to the main thread
+5. **Resource Cleanup**: Unsubscribe from events when window closes
+
+**Implementation Pattern:**
+
+```csharp
+using Microsoft.Win32;
+
+public MainWindow(...)
+{
+    InitializeComponent();
+    
+    // Subscribe to power mode changes
+    SystemEvents.PowerModeChanged += OnPowerModeChanged;
+}
+
+private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+{
+    if (e.Mode == PowerModes.Resume)
+    {
+        // System resumed from sleep/hibernate
+        Dispatcher.Invoke(async () =>
+        {
+            _logger?.LogInformation("System resumed from sleep/hibernate, refreshing data...");
+            await RefreshDataAsync();
+        });
+    }
+}
+
+protected override void OnClosed(EventArgs e)
+{
+    // Critical: Unsubscribe to prevent memory leaks
+    SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+    base.OnClosed(e);
+}
+```
+
+**PowerModes Values:**
+- `Resume` - System waking from sleep or hibernate (**refresh data**)
+- `Suspend` - System entering sleep or hibernate
+- `StatusChange` - Power status changed (battery/AC)
+
+**Why This Matters:**
+- API rate limits may have reset during sleep
+- OAuth tokens may have expired
+- Quota periods may have rolled over
+- Network state may have changed
+- Cached data is potentially stale
+
+**Testing Requirements:**
+- [ ] Application refreshes data after waking from sleep
+- [ ] Application refreshes data after waking from hibernate
+- [ ] No memory leaks from event handlers
+- [ ] Thread-safe UI updates work correctly
+- [ ] Handles cases where network is not yet available after resume
+
+---
+
+**Last Updated:** 2026-02-12
+**Version:** 1.2
 **Status:** APPROVED - DO NOT MODIFY WITHOUT DEVELOPER APPROVAL

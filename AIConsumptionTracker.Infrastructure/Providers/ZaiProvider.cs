@@ -136,7 +136,10 @@ public class ZaiProvider : IProviderService
 
         DateTime? nextResetTime = null;
         string resetStr = "";
-        var limitWithReset = limits.FirstOrDefault(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0);
+        var limitWithReset = limits
+            .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
+            .OrderBy(l => l.NextResetTime.Value)
+            .FirstOrDefault();
         if (limitWithReset != null)
         {
             var ts = limitWithReset.NextResetTime!.Value;

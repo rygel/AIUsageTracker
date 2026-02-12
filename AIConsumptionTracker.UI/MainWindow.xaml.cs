@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 using AIConsumptionTracker.Core.Services;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
@@ -166,6 +167,9 @@ namespace AIConsumptionTracker.UI
                     this.Hide();
                 }
             };
+
+            // Subscribe to power mode changes for resume from sleep/hibernate
+            SystemEvents.PowerModeChanged += OnPowerModeChanged;
         }
 
         private bool _preferencesLoaded = false;
@@ -193,6 +197,29 @@ namespace AIConsumptionTracker.UI
             UpdateLayout();
             UpdatePrivacyButton();
             await Task.Yield(); // Give WPF a moment to pulse layout
+        }
+
+        /// <summary>
+        /// Handles power mode changes to refresh data when resuming from sleep/hibernate.
+        /// This is a core functionality requirement per DESIGN.md.
+        /// </summary>
+        private void OnPowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            if (e.Mode == PowerModes.Resume)
+            {
+                // System resumed from sleep/hibernate - refresh data immediately
+                Dispatcher.Invoke(async () =>
+                {
+                    await RefreshData(forceRefresh: true);
+                });
+            }
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            // Unsubscribe from power mode events to prevent memory leaks
+            SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+            base.OnClosed(e);
         }
 
         private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await PrivacyBtn_ClickAsync(sender, e);
