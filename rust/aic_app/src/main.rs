@@ -1,5 +1,6 @@
 // Prevents additional console window on Windows in release
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Commented out for debug builds - uncomment for production
+// #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use aic_core::{
     AuthenticationManager, ConfigLoader, GitHubAuthService, ProviderManager,
@@ -16,6 +17,7 @@ use tauri::{
 use tauri_plugin_updater::UpdaterExt;
 use tokio::sync::{Mutex, RwLock};
 use tokio::time::interval;
+use tracing::{info, error, debug};
 
 async fn check_and_update_tray_status(app_handle: &AppHandle) {
     let state = app_handle.state::<AppState>();
@@ -73,6 +75,14 @@ fn create_tray_menu<R: Runtime>(
 
 #[tokio::main]
 async fn main() {
+    // Initialize tracing for console output
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env()
+            .add_directive(tracing::Level::INFO.into()))
+        .init();
+    
+    info!("Starting AI Consumption Tracker application");
+
     let client = reqwest::Client::new();
     let provider_manager = Arc::new(ProviderManager::new(client.clone()));
     let config_loader = Arc::new(ConfigLoader::new(client.clone()));
@@ -163,6 +173,7 @@ async fn main() {
             get_all_providers_from_agent,
             // Update management commands
             get_app_version,
+            get_agent_version,
             check_for_updates,
             install_update,
         ])
@@ -234,6 +245,11 @@ async fn main() {
             if let Some(window) = app.get_webview_window("main") {
                 window.show()?;
                 window.set_focus()?;
+                
+                // Set window title with version number
+                let version = env!("CARGO_PKG_VERSION");
+                window.set_title(&format!("AI Consumption Tracker v{}", version))?;
+                
                 println!("Main window shown successfully");
             } else {
                 println!("WARNING: Main window not found!");
@@ -248,14 +264,14 @@ async fn main() {
                 if let Ok(updater) = app_handle.updater() {
                     match updater.check().await {
                         Ok(Some(update)) => {
-                            log::info!("Update available: v{}", update.version);
+                            tracing::info!("Update available: v{}", update.version);
                             // Optionally show notification or update tray menu
                         }
                         Ok(None) => {
-                            log::debug!("No updates available");
+                            tracing::debug!("No updates available");
                         }
                         Err(e) => {
-                            log::error!("Failed to check for updates on startup: {}", e);
+                            tracing::error!("Failed to check for updates on startup: {}", e);
                         }
                     }
                 }

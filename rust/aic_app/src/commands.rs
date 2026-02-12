@@ -1,11 +1,11 @@
 use aic_core::{
     AuthenticationManager, ConfigLoader, ProviderManager, ProviderUsage, TokenPollResult,
 };
-use log::{error, info, warn};
+use tracing::{error, info, warn};
 use reqwest::Client;
 use std::process::{Command, Child};
 use std::sync::Arc;
-use tauri::{State, Manager, AppHandle};
+use tauri::{State, Manager, AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
 use tokio::sync::{Mutex, RwLock};
 
@@ -149,33 +149,41 @@ pub async fn get_configured_providers(
 pub async fn get_all_providers_from_agent(
     _state: State<'_, AppState>,
 ) -> Result<Vec<aic_core::ProviderConfig>, String> {
+    let start = std::time::Instant::now();
+    tracing::info!("get_all_providers_from_agent called");
+    
     // Get all providers from agent (including discovered ones)
     let agent_url = "http://localhost:8080/api/providers/discovered";
     
+    tracing::info!("Making request to: {}", agent_url);
     match reqwest::get(agent_url).await {
         Ok(response) => {
+            let elapsed = start.elapsed();
+            tracing::info!("Received response in {:?}", elapsed);
+            
             // Check if we got a successful status code
             if !response.status().is_success() {
                 let status = response.status();
                 // Try to read error message from response body (text/plain per OpenAPI spec)
                 let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                error!("Agent returned error status {}: {}", status, error_text);
+                tracing::error!("Agent returned error status {}: {}", status, error_text);
                 return Err(format!("Agent error (HTTP {}): {}", status, error_text));
             }
             
             match response.json::<Vec<aic_core::ProviderConfig>>().await {
                 Ok(providers) => {
-                    info!("Retrieved {} providers from agent", providers.len());
+                    let total_elapsed = start.elapsed();
+                    tracing::info!("Retrieved {} providers from agent in {:?}", providers.len(), total_elapsed);
                     Ok(providers)
                 }
                 Err(e) => {
-                    error!("Failed to parse providers from agent: {}", e);
+                    tracing::error!("Failed to parse providers from agent: {}", e);
                     Err(format!("Bad response from agent: The agent sent invalid data. Error: {}", e))
                 }
             }
         }
         Err(e) => {
-            error!("Failed to connect to agent: {}", e);
+            tracing::error!("Failed to connect to agent: {}", e);
             if e.is_connect() {
                 Err(format!("Agent not running: Cannot connect to agent on port 8080. Please start the agent."))
             } else if e.is_timeout() {
@@ -370,18 +378,29 @@ pub async fn minimize_window(window: tauri::Window) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn toggle_always_on_top(window: tauri::Window, enabled: bool) -> Result<(), String> {
-    let _ = window.set_always_on_top(enabled);
-    Ok(())
+pub async fn toggle_always_on_top(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_always_on_top(enabled);
+        tracing::info!("Set main window always_on_top to: {}", enabled);
+        Ok(())
+    } else {
+        tracing::error!("Main window not found");
+        Err("Main window not found".to_string())
+    }
 }
 
 #[tauri::command]
 pub async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
+    tracing::info!("open_settings_window called");
     if let Some(window) = app.get_webview_window("settings") {
+        tracing::info!("Found settings window, showing it and triggering reload");
+        // Emit an event to tell the settings page to reload data
+        let _ = window.emit("settings-window-shown", ());
         let _ = window.show();
         let _ = window.set_focus();
         Ok(())
     } else {
+        tracing::error!("Settings window not found");
         Err("Settings window not found".to_string())
     }
 }
@@ -804,6 +823,32 @@ pub async fn install_update(app: tauri::AppHandle) -> Result<bool, String> {
 #[tauri::command]
 pub async fn get_app_version(app: tauri::AppHandle) -> Result<String, String> {
     Ok(app.package_info().version.to_string())
+}
+
+#[tauri::command]
+pub async fn get_agent_version() -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let agent_url = "http://localhost:8080";
+    
+    match client.get(format!("{}/health", agent_url)).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                match response.json::<serde_json::Value>().await {
+                    Ok(json) => {
+                        if let Some(version) = json.get("version").and_then(|v| v.as_str()) {
+                            Ok(version.to_string())
+                        } else {
+                            Err("Version not found in agent response".to_string())
+                        }
+                    }
+                    Err(e) => Err(format!("Failed to parse agent response: {}", e)),
+                }
+            } else {
+                Err(format!("Agent returned status: {}", response.status()))
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to agent: {}", e)),
+    }
 }
 
 #[cfg(test)]

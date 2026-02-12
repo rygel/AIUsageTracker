@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "aic_agent"
-version = "1.0.0"
+version = "0.5.0"
 dependencies = [
  "aic_core",
  "anyhow",
@@ -66,7 +66,7 @@ dependencies = [
 
 [[package]]
 name = "aic_app"
-version = "1.7.13"
+version = "0.5.0"
 dependencies = [
  "aic_core",
  "log",
@@ -79,11 +79,13 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
 name = "aic_cli"
-version = "1.0.0"
+version = "0.5.0"
 dependencies = [
  "aic_core",
  "chrono",
@@ -99,7 +101,7 @@ dependencies = [
 
 [[package]]
 name = "aic_core"
-version = "1.0.0"
+version = "0.5.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -120,7 +122,7 @@ dependencies = [
 
 [[package]]
 name = "aic_web"
-version = "1.0.0"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "axum 0.7.9",

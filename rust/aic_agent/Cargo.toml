@@ -1,9 +1,9 @@
 [package]
 name = "aic_agent"
-version = "1.0.0"
+version = "0.5.0"
 edition = "2021"
 description = "Background agent service for AI Consumption Tracker"
-authors = ["AI Consumption Tracker Contributors"]
+authors = ["Alexander Brandt"]
 license = "MIT"
 repository = "https://github.com/yourusername/ai-consumption-tracker"
 
@@ -29,8 +29,4 @@ uuid = { version = "1.0", features = ["v4"] }
 tempfile = "3.0"
 tokio-test = "0.4"
 
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = "s"
-strip = true
+

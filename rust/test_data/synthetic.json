@@ -1,0 +1,19 @@
+{
+  "subscription": {
+    "limit": 135,
+    "requests": 107.7,
+    "renewsAt": "2026-02-11T22:19:31.467Z"
+  },
+  "search": {
+    "hourly": {
+      "limit": 250,
+      "requests": 0,
+      "renewsAt": "2026-02-11T22:20:30.467Z"
+    }
+  },
+  "toolCallDiscounts": {
+    "limit": 1620,
+    "requests": 1524,
+    "renewsAt": "2026-02-12T07:18:02.481Z"
+  }
+}

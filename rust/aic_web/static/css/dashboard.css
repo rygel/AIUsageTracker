@@ -125,6 +125,56 @@ header h1 {
     min-width: 200px;
 }
 
+.chart-info {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-left: 10px;
+}
+
+#provider-chart-section .chart-container {
+    height: 450px;
+}
+
+.zoom-controls {
+    display: inline-flex;
+    gap: 5px;
+    margin-left: 10px;
+}
+
+.zoom-controls button {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zoom-controls button:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.zoom-controls button:active {
+    transform: scale(0.95);
+}
+
+#chart-time-range {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    margin-left: 10px;
+}
+
 .providers-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

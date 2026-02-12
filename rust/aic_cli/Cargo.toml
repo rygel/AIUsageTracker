@@ -1,9 +1,9 @@
 [package]
 name = "aic_cli"
-version = "1.0.0"
+version = "0.5.0"
 edition = "2021"
 description = "AI Consumption Tracker CLI"
-authors = ["AI Consumption Tracker Contributors"]
+authors = ["Alexander Brandt"]
 license = "MIT"
 repository = "https://github.com/yourusername/ai-consumption-tracker"
 
@@ -23,7 +23,4 @@ env_logger = "0.10"
 log = "0.4"
 reqwest = { version = "0.11", features = ["json"] }
 
-[profile.release]
-opt-level = 3
-lto = true
-strip = true
+

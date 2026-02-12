@@ -45,6 +45,7 @@ struct Args {
 struct AppState {
     db: Arc<libsql::Database>,
     config: Arc<RwLock<AgentConfig>>,
+    provider_manager: Arc<aic_core::config::ProviderManager>,
 }
 
 // UsageResponse is replaced with ProviderUsage from aic_core for API compatibility
@@ -85,15 +86,25 @@ async fn main() -> Result<()> {
     let conn = db.connect()?;
     create_tables(&conn).await?;
 
+    // Discover providers on startup
+    info!("Discovering providers...");
+    let discovered_providers = config::discover_all_providers().await;
+    info!("Discovered {} providers on startup", discovered_providers.len());
+
     let config = Arc::new(RwLock::new(AgentConfig {
         refresh_interval_minutes: args.refresh_interval_minutes,
         auto_refresh_enabled: true,
-        discovered_providers: Vec::new(),
+        discovered_providers,
     }));
+
+    // Create provider manager once and share it across requests
+    let client = reqwest::Client::new();
+    let provider_manager = Arc::new(aic_core::config::ProviderManager::new(client));
 
     let state = AppState {
         db: Arc::new(db),
         config,
+        provider_manager,
     };
 
     let scheduler_handle = start_scheduler(state.clone()).await?;
@@ -147,10 +158,10 @@ async fn start_scheduler(
 ) -> Result<Option<tokio::task::JoinHandle<()>>> {
     use std::time::Duration;
     use tokio::time::interval;
-    use aic_core::config::ProviderManager;
 
     let db = state.db.clone();
     let config = state.config.clone();
+    let provider_manager = state.provider_manager.clone();
 
     let sched = tokio::spawn(async move {
         let mut tick = interval(Duration::from_secs(60));
@@ -177,7 +188,7 @@ async fn start_scheduler(
 
                 if should_refresh {
                     info!("Triggering scheduled refresh");
-                    if let Err(e) = refresh_and_store(&db).await {
+                    if let Err(e) = refresh_and_store(&db, &provider_manager).await {
                         error!("Refresh failed: {}", e);
                     }
                 }
@@ -220,10 +231,8 @@ async fn get_current_usage(
 ) -> Result<Json<Vec<ProviderUsage>>, StatusCode> {
     info!("API: GET /api/providers/usage - Fetching current usage");
     
-    let client = reqwest::Client::new();
-    let provider_manager = aic_core::config::ProviderManager::new(client);
-
-    let usages = provider_manager.get_all_usage(false).await;
+    // Use cached provider manager from state - returns cached data immediately if available
+    let usages = state.provider_manager.get_all_usage(false).await;
     
     info!("API: Returning {} usage records", usages.len());
     
@@ -259,11 +268,9 @@ async fn trigger_refresh(
 ) -> Result<Json<Vec<ProviderUsage>>, StatusCode> {
     info!("API: POST /api/providers/usage/refresh - Refreshing usage data");
     
-    let client = reqwest::Client::new();
-    let provider_manager = aic_core::config::ProviderManager::new(client);
-
+    // Use cached provider manager but force refresh
     info!("API: Fetching fresh data from providers...");
-    let usages = provider_manager.get_all_usage(true).await;
+    let usages = state.provider_manager.get_all_usage(true).await;
     info!("API: Fetched {} provider records", usages.len());
     
     let now = Utc::now();
@@ -311,10 +318,8 @@ async fn get_provider_usage(
 ) -> Result<Json<ProviderUsage>, (StatusCode, &'static str)> {
     info!("API: GET /api/providers/{}/usage - Fetching specific provider", provider_id);
     
-    let client = reqwest::Client::new();
-    let provider_manager = aic_core::config::ProviderManager::new(client);
-
-    let usages = provider_manager.get_all_usage(false).await;
+    // Use cached provider manager from state
+    let usages = state.provider_manager.get_all_usage(false).await;
     info!("API: Searching through {} providers for {}", usages.len(), provider_id);
 
     let usage = usages
@@ -469,10 +474,10 @@ async fn get_discovered_providers(
     Json(providers)
 }
 
-async fn refresh_and_store(db: &libsql::Database) -> Result<()> {
-    let client = reqwest::Client::new();
-    let provider_manager = aic_core::config::ProviderManager::new(client);
-
+async fn refresh_and_store(
+    db: &libsql::Database,
+    provider_manager: &aic_core::config::ProviderManager,
+) -> Result<()> {
     let usages = provider_manager.get_all_usage(true).await;
 
     for u in &usages {

@@ -1,6 +1,6 @@
 # AI Consumption Tracker - Rust Port
 
-A Rust port of the AI Consumption Tracker application with modular architecture for agent, CLI, web, and Tauri desktop app.
+A Rust port of the AI Consumption Tracker application with a modular architecture consisting of four primary applications: a background Agent, a Command-Line Interface (CLI), a Web Dashboard (Web UI), and a Tauri Desktop Application (UI).
 
 ## Architecture
 
@@ -24,6 +24,15 @@ A Rust port of the AI Consumption Tracker application with modular architecture 
 │  └─────────────────────────────────────┘      │
 └─────────────────────────────────────────────────────┘
 ```
+
+## Applications
+
+This project comprises four primary applications working together:
+
+1. **The Agent (`aic_agent`)**: A background service that periodically collects usage data from various AI providers and stores it in a shared SQLite database.
+2. **The Command-Line Interface (`aic_cli`)**: A powerful CLI for querying current and historical usage data, managing configurations, and authenticating with services.
+3. **The Web Dashboard (`aic_web`)**: A read-only Axum-powered web interface for visualizing consumption trends and metrics in a browser.
+4. **The Desktop Application (`aic_app`)**: A full-featured native desktop UI built with Tauri, providing real-time monitoring and a modern management interface.
 
 ## Components
 

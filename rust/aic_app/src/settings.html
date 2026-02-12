@@ -769,15 +769,21 @@
     </div>
 
     <script>
+        console.log('=== SETTINGS.HTML SCRIPT START ===');
+        
         let configs = [];
         let prefs = {};
         let githubUser = null;
         let settingsChanged = false;
 
+        console.log('window.__TAURI__ available:', typeof window.__TAURI__ !== 'undefined');
+        console.log('window.__TAURI__:', window.__TAURI__);
+        
         const invoke = window.__TAURI__?.invoke || window.__TAURI__?.core?.invoke;
+        console.log('invoke function available:', !!invoke);
 
         document.addEventListener('DOMContentLoaded', async () => {
-            console.log('Settings loaded');
+            console.log('=== DOMContentLoaded EVENT FIRED ===');
 
             document.querySelectorAll('.tab').forEach(tab => {
                 tab.addEventListener('click', () => switchTab(tab.dataset.tab));
@@ -796,8 +802,55 @@
             document.getElementById('fontFamily').addEventListener('change', updateFontPreview);
             document.getElementById('fontSize').addEventListener('input', updateFontPreview);
 
+            // Always on Top checkbox - apply immediately
+            document.getElementById('alwaysOnTop').addEventListener('change', async (e) => {
+                console.log('Always on Top checkbox changed:', e.target.checked);
+                if (invoke) {
+                    try {
+                        await invoke('toggle_always_on_top', { enabled: e.target.checked });
+                        console.log('Always on Top toggled successfully');
+                    } catch (err) {
+                        console.error('Failed to toggle always on top:', err);
+                    }
+                }
+            });
+
             await loadSettings();
+            await loadAppVersion();
             updateFontPreview();
+        });
+
+        // Listen for when the settings window is shown (re-opened)
+        console.log('Checking Tauri event API...');
+        console.log('window.__TAURI__:', window.__TAURI__);
+        console.log('window.__TAURI__?.event:', window.__TAURI__?.event);
+        
+        if (window.__TAURI__?.event) {
+            console.log('Setting up settings-window-shown listener...');
+            try {
+                const unlisten = window.__TAURI__.event.listen('settings-window-shown', async (event) => {
+                    console.log('=== Settings window shown event received ===', event);
+                    console.log('Reloading data...');
+                    await loadSettings();
+                    await loadAppVersion();
+                });
+                console.log('Event listener registered successfully, unlisten function:', typeof unlisten);
+            } catch (err) {
+                console.error('Failed to register event listener:', err);
+            }
+        } else {
+            console.error('Tauri event API not available');
+            console.error('Available on window.__TAURI__:', Object.keys(window.__TAURI__ || {}));
+        }
+
+        // Add F12 key to open DevTools for debugging
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F12') {
+                console.log('F12 pressed - attempting to open DevTools');
+                if (window.__TAURI__?.webviewWindow) {
+                    window.__TAURI__.webviewWindow.getCurrent().then(w => w.openDevTools());
+                }
+            }
         });
 
         function switchTab(tabName) {
@@ -809,60 +862,147 @@
         }
 
         async function loadSettings() {
+            console.log('=== loadSettings() START ===');
+            console.log('Timestamp:', new Date().toISOString());
             try {
                 // Load providers ONLY from agent - no fallback
+                console.log('Checking invoke availability:', !!invoke);
                 if (invoke) {
+                    console.log('About to call get_all_providers_from_agent...');
+                    console.log('Starting timer...');
+                    const startTime = Date.now();
+                    
                     try {
+                        console.log('Invoking get_all_providers_from_agent NOW...');
                         const agentProviders = await invoke('get_all_providers_from_agent');
+                        const elapsed = Date.now() - startTime;
+                        console.log(`Call completed in ${elapsed}ms`);
+                        console.log('Raw response from agent:', agentProviders);
+                        console.log('Response type:', typeof agentProviders);
+                        console.log('Is array:', Array.isArray(agentProviders));
+                        
+                        if (Array.isArray(agentProviders)) {
+                            console.log('Array length:', agentProviders.length);
+                            if (agentProviders.length > 0) {
+                                console.log('First provider:', JSON.stringify(agentProviders[0], null, 2));
+                            }
+                        }
                         configs = agentProviders || [];
-                        console.log('Loaded providers from agent:', configs);
+                        console.log('Configs assigned:', configs.length, 'providers');
                     } catch (agentErr) {
-                        console.error('Failed to load providers from agent:', agentErr);
+                        const elapsed = Date.now() - startTime;
+                        console.error(`ERROR after ${elapsed}ms calling get_all_providers_from_agent:`, agentErr);
+                        console.error('Error name:', agentErr.name);
+                        console.error('Error message:', agentErr.message);
+                        console.error('Error stack:', agentErr.stack);
                         configs = [];
                     }
+                } else {
+                    console.error('invoke is not available!');
                 }
 
                 // Load preferences (always from local - UI-specific settings)
+                console.log('Loading preferences...');
                 if (invoke) {
                     try {
+                        const startTime = Date.now();
                         prefs = await invoke('load_preferences');
+                        console.log(`Preferences loaded in ${Date.now() - startTime}ms:`, prefs);
                     } catch (e) {
-                        console.log('No preferences found:', e);
+                        console.log('No preferences found:', e.message || e);
                     }
 
                     try {
+                        const startTime = Date.now();
                         const githubAuth = await invoke('is_github_authenticated');
+                        console.log(`GitHub auth check completed in ${Date.now() - startTime}ms:`, githubAuth);
                         if (githubAuth) {
                             githubUser = { username: 'Connected' };
                         }
                     } catch (e) {
-                        console.log('GitHub auth check failed:', e);
+                        console.log('GitHub auth check failed:', e.message || e);
                     }
                 }
 
+                console.log('Calling populateProviders() with', configs.length, 'configs');
                 populateProviders();
+                console.log('Calling populateLayout()');
                 populateLayout();
+                console.log('Calling populateGitHub()');
                 populateGitHub();
+                console.log('Calling populateFonts()');
                 populateFonts();
+                console.log('=== loadSettings() END ===');
             } catch (e) {
-                console.error('Error loading settings:', e);
+                console.error('CRITICAL ERROR in loadSettings:', e);
+                console.error('Error name:', e.name);
+                console.error('Error message:', e.message);
+                console.error('Error stack:', e.stack);
+            }
+        }
+
+        async function loadAppVersion() {
+            try {
+                if (invoke) {
+                    const version = await invoke('get_app_version');
+                    const currentVersionEl = document.getElementById('currentVersion');
+                    const aboutVersionEl = document.getElementById('aboutVersion');
+                    if (version) {
+                        if (currentVersionEl) currentVersionEl.textContent = 'v' + version;
+                        if (aboutVersionEl) aboutVersionEl.textContent = 'Version ' + version;
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load app version:', e);
             }
         }
 
         function populateProviders() {
+            console.log('=== populateProviders() START ===');
+            console.log('configs.length:', configs ? configs.length : 'undefined');
+            
             const container = document.getElementById('providers-list');
+            console.log('Container element:', container);
+            
+            if (!container) {
+                console.error('ERROR: providers-list container not found!');
+                return;
+            }
+            
+            if (!configs || configs.length === 0) {
+                console.warn('WARNING: No configs to display');
+                container.innerHTML = '<div class="error">No providers found. Make sure the agent is running.</div>';
+                return;
+            }
+            
             const providerInfo = {
                 'github-copilot': { name: 'GitHub Copilot', icon: 'G', color: '#24292e' },
                 'openai': { name: 'OpenAI', icon: 'O', color: '#10a37f' },
-                'anthropic': { name: 'Anthropic', icon: 'A', color: '#d4a574' },
+                'claude-code': { name: 'Anthropic', icon: 'A', color: '#d4a574' },
                 'deepseek': { name: 'DeepSeek', icon: 'D', color: '#1e80ff' },
-                'gemini': { name: 'Google Gemini', icon: 'G', color: '#4285f4' },
-                'kimi': { name: 'Kimi', icon: 'K', color: '#0066cc' }
+                'gemini-cli': { name: 'Google Gemini', icon: 'G', color: '#4285f4' },
+                'kimi': { name: 'Kimi', icon: 'K', color: '#0066cc' },
+                'minimax': { name: 'MiniMax', icon: 'M', color: '#FF6B35' },
+                'xiaomi': { name: 'Xiaomi', icon: 'X', color: '#FF6900' },
+                'kilocode': { name: 'Kilo Code', icon: 'K', color: '#6366F1' },
+                'antigravity': { name: 'Antigravity', icon: 'A', color: '#8B5CF6' },
+                'openrouter': { name: 'OpenRouter', icon: 'R', color: '#10B981' },
+                'zai': { name: 'Z.ai', icon: 'Z', color: '#3B82F6' },
+                'zai-coding-plan': { name: 'Z.ai Coding', icon: 'Z', color: '#2563EB' },
+                'mistral': { name: 'Mistral', icon: 'M', color: '#F97316' },
+                'opencode': { name: 'OpenCode', icon: 'C', color: '#EC4899' },
+                'synthetic': { name: 'Synthetic', icon: 'S', color: '#14B8A6' }
             };
 
-            container.innerHTML = configs.map(config => {
+            console.log('Generating HTML for', configs.length, 'providers...');
+            console.log('Provider IDs being processed:', configs.map(c => c.provider_id).join(', '));
+            
+            const html = configs.map((config, index) => {
+                console.log(`Processing provider ${index}:`, config.provider_id, '- Has key:', !!(config.api_key && config.api_key.length > 0), '- Auth source:', config.auth_source);
                 const info = providerInfo[config.provider_id] || { name: config.provider_id, icon: config.provider_id.charAt(0).toUpperCase(), color: '#007ACC' };
                 const hasKey = config.api_key && config.api_key.length > 0;
+                
+                console.log(`  -> Using display name: ${info.name}, icon: ${info.icon}`);
 
                 return `
                     <div class="provider-card" data-provider="${config.provider_id}">
@@ -899,11 +1039,16 @@
                     </div>
                 `;
             }).join('');
+            
+            console.log('Setting container innerHTML...');
+            container.innerHTML = html;
+            console.log('Container HTML set, length:', html.length);
 
             document.querySelectorAll('.tray-checkbox, .api-key-input, .auth-source-select').forEach(el => {
                 el.addEventListener('change', () => settingsChanged = true);
                 el.addEventListener('input', () => settingsChanged = true);
             });
+            console.log('=== populateProviders() END ===');
         }
 
         function populateLayout() {
@@ -993,9 +1138,8 @@
                     await invoke('save_provider_configs', { configs });
                     await invoke('save_preferences', { preferences: prefs });
 
-                    if (prefs.always_on_top) {
-                        await invoke('toggle_always_on_top', { enabled: true });
-                    }
+                    // Apply always on top setting
+                    await invoke('toggle_always_on_top', { enabled: prefs.always_on_top });
                 }
 
                 settingsChanged = true;

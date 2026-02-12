@@ -14,6 +14,34 @@ impl GenericPayAsYouGoProvider {
     pub fn new(client: Client) -> Self {
         Self { client }
     }
+
+    /// Try to load provider URL from providers.json file
+    async fn get_url_from_providers_file(provider_id: &str) -> Option<String> {
+        let providers_paths = [
+            directories::BaseDirs::new()
+                .map(|base| base.home_dir().join(".local/share/opencode/providers.json"))
+                .unwrap_or_default(),
+            directories::BaseDirs::new()
+                .map(|base| base.home_dir().join(".config/opencode/providers.json"))
+                .unwrap_or_default(),
+        ];
+
+        for path in &providers_paths {
+            if path.exists() {
+                if let Ok(content) = tokio::fs::read_to_string(path).await {
+                    if let Ok(providers) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
+                        if let Some(url) = providers.get(provider_id) {
+                            if !url.is_empty() {
+                                return Some(url.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,14 +110,19 @@ impl ProviderService for GenericPayAsYouGoProvider {
                     "https://api.kilocode.ai/v1/credits".to_string()
                 }
                 _ => {
-                    return vec![ProviderUsage {
-                        provider_id: config.provider_id.clone(),
-                        provider_name: config.provider_id.clone(),
-                        is_available: false,
-                        description: "Configuration Required (Add 'base_url' to auth.json)"
-                            .to_string(),
-                        ..Default::default()
-                    }];
+                    // Try to load URL from providers.json for unknown providers
+                    if let Some(providers_url) = Self::get_url_from_providers_file(&config.provider_id).await {
+                        providers_url
+                    } else {
+                        return vec![ProviderUsage {
+                            provider_id: config.provider_id.clone(),
+                            provider_name: config.provider_id.clone(),
+                            is_available: false,
+                            description: "Configuration Required (Add 'base_url' to auth.json)"
+                                .to_string(),
+                            ..Default::default()
+                        }];
+                    }
                 }
             });
         }
@@ -160,6 +193,7 @@ impl ProviderService for GenericPayAsYouGoProvider {
                 let mut used = 0.0;
                 let mut payment_type = PaymentType::UsageBased;
                 let mut next_reset_time: Option<DateTime<Utc>> = None;
+                let mut format_matched = false;
 
                 // Try OpenCode format
                 if let Ok(data) = serde_json::from_str::<GenericCreditsResponse>(&response_string) {
@@ -167,33 +201,42 @@ impl ProviderService for GenericPayAsYouGoProvider {
                         total = credits.total_credits;
                         used = credits.used_credits;
                         payment_type = PaymentType::Credits;
+                        format_matched = true;
                     }
                 }
-                // Try Synthetic format
-                else if let Ok(data) = serde_json::from_str::<SyntheticResponse>(&response_string)
-                {
-                    if let Some(sub) = data.subscription {
-                        total = sub.limit;
-                        used = sub.requests;
-                        payment_type = PaymentType::Quota;
 
-                        if let Some(renews_at) = sub.renews_at {
-                            if let Ok(dt) = DateTime::parse_from_rfc3339(&renews_at) {
-                                next_reset_time = Some(dt.with_timezone(&Utc));
+                // Try Synthetic format (only if OpenCode didn't match)
+                if !format_matched {
+                    if let Ok(data) = serde_json::from_str::<SyntheticResponse>(&response_string) {
+                        if let Some(sub) = data.subscription {
+                            total = sub.limit;
+                            used = sub.requests;
+                            payment_type = PaymentType::Quota;
+                            format_matched = true;
+
+                            if let Some(renews_at) = sub.renews_at {
+                                if let Ok(dt) = DateTime::parse_from_rfc3339(&renews_at) {
+                                    next_reset_time = Some(dt.with_timezone(&Utc));
+                                }
                             }
                         }
                     }
                 }
-                // Try Kimi format
-                else if let Ok(data) =
-                    serde_json::from_str::<GenericKimiResponse>(&response_string)
-                {
-                    if let Some(kimi_data) = data.data {
-                        total = kimi_data.available_balance;
-                        used = 0.0;
-                        payment_type = PaymentType::Credits;
+
+                // Try Kimi format (only if previous formats didn't match)
+                if !format_matched {
+                    if let Ok(data) = serde_json::from_str::<GenericKimiResponse>(&response_string)
+                    {
+                        if let Some(kimi_data) = data.data {
+                            total = kimi_data.available_balance;
+                            used = 0.0;
+                            payment_type = PaymentType::Credits;
+                            format_matched = true;
+                        }
                     }
-                } else {
+                }
+
+                if !format_matched {
                     return vec![ProviderUsage {
                         provider_id: config.provider_id.clone(),
                         provider_name: config.provider_id.clone(),
@@ -241,6 +284,15 @@ impl ProviderService for GenericPayAsYouGoProvider {
                     .collect::<Vec<_>>()
                     .join(" ");
 
+                // Determine if this is a quota-based/coding plan (has reset time)
+                let is_quota = next_reset_time.is_some() && matches!(payment_type, PaymentType::Quota);
+                
+                let usage_unit = if is_quota { 
+                    "Quota %".to_string() 
+                } else { 
+                    "Credits".to_string() 
+                };
+                
                 vec![ProviderUsage {
                     provider_id: config.provider_id.clone(),
                     provider_name: display_name,
@@ -248,9 +300,9 @@ impl ProviderService for GenericPayAsYouGoProvider {
                     cost_used: used,
                     cost_limit: total,
                     payment_type,
-                    usage_unit: "Credits".to_string(),
-                    is_quota_based: false,
-                    description: format!("{:.2} / {:.2} credits{}", used, total, reset_str),
+                    usage_unit,
+                    is_quota_based: is_quota,
+                    description: format!("{:.2} / {:.2} {}", used, total, if is_quota { "%" } else { "credits" }),
                     next_reset_time,
                     ..Default::default()
                 }]

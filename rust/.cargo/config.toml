@@ -1,0 +1,47 @@
+[build]
+# Enable parallel compilation with 12 jobs
+# This will use 12 CPU cores for compilation
+jobs = 12
+
+# Enable pipelining for faster builds
+# This allows dependent crates to start compiling before their dependencies finish linking
+pipelining = true
+
+# Use the target directory at the workspace root
+# This ensures all workspace members share the same build cache
+target-dir = "target"
+
+[profile.dev]
+# Split crate into multiple codegen units for parallel compilation
+# Higher values = more parallelism but potentially slower runtime code
+codegen-units = 256
+
+# Enable incremental compilation for faster rebuilds during development
+incremental = true
+
+# No optimization for fastest compile times
+opt-level = 0
+
+[profile.release]
+# Use fewer codegen units for better optimization in release builds
+# but still enable parallelism
+codegen-units = 16
+
+# Enable thin LTO for better performance while keeping build times reasonable
+lto = "thin"
+
+# Optimization level for release builds
+opt-level = 3
+
+[registries.crates-io]
+# Enable sparse registry protocol for faster dependency resolution
+# This significantly speeds up the initial cargo update/fetch
+protocol = "sparse"
+
+# Note: For even faster compilation on nightly Rust, you can set:
+# RUSTFLAGS="-Z threads=8" (or however many cores you have)
+# This enables the experimental parallel frontend compiler
+
+[target.x86_64-pc-windows-msvc]
+linker = "lld-link.exe"
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]

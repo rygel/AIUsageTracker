@@ -447,6 +447,9 @@
 
             // Load preferences
             loadPreferences();
+            
+            // Load and display app version
+            loadAppVersion();
 
             // Load initial data
             loadData();
@@ -514,6 +517,20 @@
                 }
             } catch (e) {
                 console.log('Could not load preferences, using defaults:', e);
+            }
+        }
+
+        async function loadAppVersion() {
+            try {
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    const version = await window.__TAURI__.core.invoke('get_app_version');
+                    const versionElement = document.getElementById('versionText');
+                    if (versionElement && version) {
+                        versionElement.textContent = 'v' + version;
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load app version:', e);
             }
         }
 
@@ -690,7 +707,7 @@
 
             if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
                 // Immediately show connecting state
-                updateAgentUI('connecting', 'Starting Agent...');
+                await updateAgentUI('connecting', 'Starting Agent...');
                 
                 try {
                     const success = await window.__TAURI__.core.invoke('start_agent');
@@ -701,14 +718,14 @@
                     }
                 } catch (e) {
                     console.error('Failed to start agent:', e);
-                    updateAgentUI('disconnected', 'Failed to Start');
+                    await updateAgentUI('disconnected', 'Failed to Start');
                 }
             }
         }
 
         // Unified function to update ALL agent-related UI elements
         // This ensures button, LED, text, and content are always synchronized
-        function updateAgentUI(status, message) {
+        async function updateAgentUI(status, message) {
             const agentBtn = document.getElementById('agentBtn');
             const statusIndicator = document.getElementById('statusIndicator');
             const statusText = document.getElementById('statusText');
@@ -721,7 +738,13 @@
             if (agentBtn) {
                 if (status === 'connected') {
                     agentBtn.disabled = true;
-                    agentBtn.title = 'Agent Running';
+                    // Fetch and display agent version in tooltip
+                    try {
+                        const agentVersion = await window.__TAURI__.core.invoke('get_agent_version');
+                        agentBtn.title = `Agent Running (v${agentVersion})`;
+                    } catch (e) {
+                        agentBtn.title = 'Agent Running';
+                    }
                     agentBtn.style.opacity = '0.5';
                 } else if (status === 'disconnected') {
                     agentBtn.disabled = false;
@@ -759,7 +782,7 @@
 
         async function checkAgentStatus() {
             if (!window.__TAURI__ || !window.__TAURI__.core || !window.__TAURI__.core.invoke) {
-                updateAgentUI('disconnected', 'Not Connected');
+                await updateAgentUI('disconnected', 'Not Connected');
                 return;
             }
 
@@ -769,7 +792,7 @@
                 
                 if (isRunning) {
                     // Agent is running and responding
-                    updateAgentUI('connected', 'Agent Connected');
+                    await updateAgentUI('connected', 'Agent Connected');
                     return;
                 }
                 
@@ -779,18 +802,18 @@
                     
                     if (status.is_running) {
                         // Process exists but not responding yet (starting up)
-                        updateAgentUI('connecting', 'Agent Starting...');
+                        await updateAgentUI('connecting', 'Agent Starting...');
                     } else {
                         // No process and not responding
-                        updateAgentUI('disconnected', 'Agent Disconnected');
+                        await updateAgentUI('disconnected', 'Agent Disconnected');
                     }
                 } catch (e) {
                     // Can't check process status
-                    updateAgentUI('disconnected', 'Agent Disconnected');
+                    await updateAgentUI('disconnected', 'Agent Disconnected');
                 }
             } catch (e) {
                 console.error('Failed to check agent status:', e);
-                updateAgentUI('disconnected', 'Connection Error');
+                await updateAgentUI('disconnected', 'Connection Error');
             }
         }
 

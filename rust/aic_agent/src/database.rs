@@ -13,6 +13,18 @@ pub struct HistoricalUsageRecord {
     pub usage_unit: String,
     pub is_quota_based: bool,
     pub timestamp: String,
+    pub next_reset_time: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResetEvent {
+    pub id: String,
+    pub provider_id: String,
+    pub provider_name: String,
+    pub previous_usage: Option<f64>,
+    pub new_usage: Option<f64>,
+    pub reset_type: String,
+    pub timestamp: String,
 }
 
 pub struct Database {
@@ -45,7 +57,8 @@ impl Database {
                 "limit" REAL,
                 usage_unit TEXT NOT NULL,
                 is_quota_based INTEGER NOT NULL,
-                timestamp TEXT NOT NULL
+                timestamp TEXT NOT NULL,
+                next_reset_time TEXT
             )
             "#,
             (),
@@ -72,6 +85,36 @@ impl Database {
             (),
         ).await?;
 
+        // Create reset events table
+        conn.execute(
+            r#"
+            CREATE TABLE IF NOT EXISTS reset_events (
+                id TEXT PRIMARY KEY,
+                provider_id TEXT NOT NULL,
+                provider_name TEXT NOT NULL,
+                previous_usage REAL,
+                new_usage REAL,
+                reset_type TEXT NOT NULL,
+                timestamp TEXT NOT NULL
+            )
+            "#,
+            (),
+        ).await?;
+
+        conn.execute(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_reset_provider ON reset_events(provider_id);
+            "#,
+            (),
+        ).await?;
+
+        conn.execute(
+            r#"
+            CREATE INDEX IF NOT EXISTS idx_reset_timestamp ON reset_events(timestamp);
+            "#,
+            (),
+        ).await?;
+
         Ok(())
     }
 
@@ -80,8 +123,8 @@ impl Database {
 
         conn.execute(
             r#"
-            INSERT OR REPLACE INTO usage_records (id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+            INSERT OR REPLACE INTO usage_records (id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
             "#,
             (
                 record.id.as_str(),
@@ -92,6 +135,7 @@ impl Database {
                 record.usage_unit.as_str(),
                 if record.is_quota_based { 1 } else { 0 },
                 record.timestamp.as_str(),
+                record.next_reset_time.as_deref(),
             ),
         ).await?;
 
@@ -106,7 +150,7 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp
+            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
             FROM usage_records
             ORDER BY timestamp DESC
             "#,
@@ -134,7 +178,7 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp
+            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
             FROM usage_records
             WHERE provider_id = ?1
             ORDER BY timestamp DESC
@@ -167,7 +211,7 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp
+            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
             FROM usage_records
             WHERE timestamp >= ?1 AND timestamp <= ?2
             ORDER BY timestamp DESC
@@ -196,7 +240,7 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp
+            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
             FROM usage_records
             ORDER BY timestamp DESC
             LIMIT ?1
@@ -231,6 +275,150 @@ impl Database {
 
         Ok(result)
     }
+
+    pub async fn insert_reset_event(&self, event: &ResetEvent) -> Result<()> {
+        let conn = self.db.connect()?;
+
+        conn.execute(
+            r#"
+            INSERT OR REPLACE INTO reset_events 
+            (id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            "#,
+            [
+                event.id.as_str(),
+                event.provider_id.as_str(),
+                event.provider_name.as_str(),
+                event.previous_usage.map(|v| v.to_string()).unwrap_or_default().as_str(),
+                event.new_usage.map(|v| v.to_string()).unwrap_or_default().as_str(),
+                event.reset_type.as_str(),
+                event.timestamp.as_str(),
+            ],
+        ).await?;
+
+        Ok(())
+    }
+
+    pub async fn get_reset_events(&self, provider_id: Option<&str>) -> Vec<ResetEvent> {
+        let conn = match self.db.connect() {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut rows = if let Some(pid) = provider_id {
+            match conn.query(
+                r#"
+                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
+                FROM reset_events
+                WHERE provider_id = ?1
+                ORDER BY timestamp DESC
+                "#,
+                [pid],
+            ).await {
+                Ok(r) => r,
+                Err(_) => return Vec::new(),
+            }
+        } else {
+            match conn.query(
+                r#"
+                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
+                FROM reset_events
+                ORDER BY timestamp DESC
+                "#,
+                (),
+            ).await {
+                Ok(r) => r,
+                Err(_) => return Vec::new(),
+            }
+        };
+
+        let mut events = Vec::new();
+        while let Some(row) = rows.next().await.ok().flatten() {
+            if let Ok(event) = row_to_reset_event(&row) {
+                events.push(event);
+            }
+        }
+
+        events
+    }
+
+    pub async fn get_reset_events_by_time_range(
+        &self,
+        provider_id: Option<&str>,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Vec<ResetEvent> {
+        let conn = match self.db.connect() {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut rows = if let Some(pid) = provider_id {
+            match conn.query(
+                r#"
+                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
+                FROM reset_events
+                WHERE provider_id = ?1 AND timestamp >= ?2 AND timestamp <= ?3
+                ORDER BY timestamp DESC
+                "#,
+                [pid, start.to_rfc3339().as_str(), end.to_rfc3339().as_str()],
+            ).await {
+                Ok(r) => r,
+                Err(_) => return Vec::new(),
+            }
+        } else {
+            match conn.query(
+                r#"
+                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
+                FROM reset_events
+                WHERE timestamp >= ?1 AND timestamp <= ?2
+                ORDER BY timestamp DESC
+                "#,
+                (start.to_rfc3339(), end.to_rfc3339()),
+            ).await {
+                Ok(r) => r,
+                Err(_) => return Vec::new(),
+            }
+        };
+
+        let mut events = Vec::new();
+        while let Some(row) = rows.next().await.ok().flatten() {
+            if let Ok(event) = row_to_reset_event(&row) {
+                events.push(event);
+            }
+        }
+
+        events
+    }
+
+    pub async fn get_latest_usage_for_provider(&self, provider_id: &str) -> Option<HistoricalUsageRecord> {
+        let conn = match self.db.connect() {
+            Ok(c) => c,
+            Err(_) => return None,
+        };
+
+        let mut rows = match conn.query(
+            r#"
+            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
+            FROM usage_records
+            WHERE provider_id = ?1
+            ORDER BY timestamp DESC
+            LIMIT 1
+            "#,
+            [provider_id],
+        ).await {
+            Ok(r) => r,
+            Err(_) => return None,
+        };
+
+        if let Some(row) = rows.next().await.ok().flatten() {
+            if let Ok(record) = row_to_historical_usage(&row) {
+                return Some(record);
+            }
+        }
+
+        None
+    }
 }
 
 fn row_to_historical_usage(row: &libsql::Row) -> Result<HistoricalUsageRecord> {
@@ -243,6 +431,30 @@ fn row_to_historical_usage(row: &libsql::Row) -> Result<HistoricalUsageRecord> {
         usage_unit: row.get(5)?,
         is_quota_based: row.get::<i64>(6)? == 1,
         timestamp: row.get(7)?,
+        next_reset_time: row.get(8).ok(),
+    })
+}
+
+fn row_to_reset_event(row: &libsql::Row) -> Result<ResetEvent> {
+    let previous_usage_str: String = row.get(3)?;
+    let new_usage_str: String = row.get(4)?;
+
+    Ok(ResetEvent {
+        id: row.get(0)?,
+        provider_id: row.get(1)?,
+        provider_name: row.get(2)?,
+        previous_usage: if previous_usage_str.is_empty() {
+            None
+        } else {
+            previous_usage_str.parse().ok()
+        },
+        new_usage: if new_usage_str.is_empty() {
+            None
+        } else {
+            new_usage_str.parse().ok()
+        },
+        reset_type: row.get(5)?,
+        timestamp: row.get(6)?,
     })
 }
 
@@ -268,6 +480,7 @@ mod tests {
             usage_unit: "credits".to_string(),
             is_quota_based: true,
             timestamp: timestamp.to_string(),
+            next_reset_time: None,
         }
     }
 

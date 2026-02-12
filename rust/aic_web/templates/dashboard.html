@@ -56,10 +56,30 @@
             </div>
         </section>
 
-        <section id="charts" class="dashboard-section">
-            <h2>Usage Trends</h2>
+        <section id="provider-chart-section" class="dashboard-section">
+            <div class="section-header">
+                <h2>Provider Usage History</h2>
+                <div class="controls">
+                    <select id="chart-provider-filter">
+                        <option value="">Select a provider...</option>
+                    </select>
+                    <select id="chart-time-range">
+                        <option value="1">Last 24 hours</option>
+                        <option value="7" selected>Last 7 days</option>
+                        <option value="14">Last 14 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                    <div class="zoom-controls">
+                        <button id="zoom-in" title="Zoom In">+</button>
+                        <button id="zoom-reset" title="Reset Zoom">⟲</button>
+                        <button id="zoom-out" title="Zoom Out">−</button>
+                    </div>
+                    <span class="chart-info">Click and drag to pan, use buttons to zoom</span>
+                </div>
+            </div>
             <div class="chart-container">
-                <canvas id="usage-chart"></canvas>
+                <canvas id="provider-usage-chart"></canvas>
             </div>
         </section>
 
@@ -101,8 +121,44 @@
 
         <section id="daily-usage" class="dashboard-section">
             <h2>Daily Usage Summary</h2>
-            <div class="chart-container">
-                <canvas id="daily-chart"></canvas>
+            <div class="section-controls">
+                <div class="controls">
+                    <select id="daily-limit">
+                        <option value="7">Last 7 days</option>
+                        <option value="14">Last 14 days</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="999">All time</option>
+                    </select>
+                    <button id="refresh-daily">Refresh</button>
+                    <div class="date-range-container">
+                        <label for="date-range-start">From:</label>
+                        <input type="date" id="date-range-start" class="date-input">
+                        <label for="date-range-end">To:</label>
+                        <input type="date" id="date-range-end" class="date-input">
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div id="daily-usage-container">
+                <table id="daily-usage-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Total Usage</th>
+                            <th>Records</th>
+                            <th>Active Days</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daily-usage-tbody">
+                        <tr>
+                            <td colspan="4" class="loading">Loading daily usage data...</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div id="daily-usage-chart-container">
+                    <canvas id="daily-usage-chart" width="600" height="200"></canvas>
+                </div>
             </div>
         </section>
     </div>

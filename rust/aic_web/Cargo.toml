@@ -1,9 +1,9 @@
 [package]
 name = "aic_web"
-version = "1.0.0"
+version = "0.5.0"
 edition = "2021"
 description = "Web dashboard for AI Consumption Tracker"
-authors = ["AI Consumption Tracker Contributors"]
+authors = ["Alexander Brandt"]
 license = "MIT"
 repository = "https://github.com/yourusername/ai-consumption-tracker"
 
@@ -22,8 +22,4 @@ anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 dirs = "5.0"
 
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = "s"
-strip = true
+

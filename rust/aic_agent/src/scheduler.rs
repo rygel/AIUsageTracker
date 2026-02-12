@@ -1,5 +1,5 @@
 use aic_core::config::ProviderManager;
-use crate::database::{Database, HistoricalUsageRecord};
+use crate::database::{Database, HistoricalUsageRecord, ResetEvent};
 use crate::config::AgentConfig;
 use std::sync::Arc;
 use std::time::Duration;
@@ -69,28 +69,57 @@ impl Scheduler {
 
     async fn refresh_and_store(&self) -> SchedulerResult<()> {
         let usages = self.provider_manager.get_all_usage(true).await;
+        let mut records = Vec::new();
 
-        let records: Vec<HistoricalUsageRecord> = usages
-            .iter()
-            .filter_map(|u| {
-                if u.is_available && u.cost_used > 0.0 {
-                    Some(HistoricalUsageRecord {
-                        id: uuid::Uuid::new_v4().to_string(),
-                        provider_id: u.provider_id.clone(),
-                        provider_name: u.provider_name.clone(),
-                        usage: u.cost_used,
-                        limit: if u.cost_limit > 0.0 { Some(u.cost_limit) } else { None },
-                        usage_unit: u.usage_unit.clone(),
-                        is_quota_based: u.is_quota_based,
-                        timestamp: Utc::now().to_rfc3339(),
-                    })
-                } else {
-                    None
+        for u in usages.iter() {
+            if !u.is_available {
+                continue;
+            }
+
+            // Store main provider record with actual reset time from API
+            let next_reset = u.next_reset_time.map(|dt| dt.to_rfc3339());
+            
+            records.push(HistoricalUsageRecord {
+                id: uuid::Uuid::new_v4().to_string(),
+                provider_id: u.provider_id.clone(),
+                provider_name: u.provider_name.clone(),
+                usage: u.cost_used,
+                limit: if u.cost_limit > 0.0 { Some(u.cost_limit) } else { None },
+                usage_unit: u.usage_unit.clone(),
+                is_quota_based: u.is_quota_based,
+                timestamp: Utc::now().to_rfc3339(),
+                next_reset_time: next_reset.clone(),
+            });
+
+            // For Antigravity, store each model separately with its own reset time
+            if u.provider_id == "antigravity" {
+                if let Some(ref details) = u.details {
+                    for detail in details {
+                        let model_reset_time = detail.next_reset_time.map(|dt| dt.to_rfc3339());
+                        
+                        // Parse usage from detail (e.g., "65%" -> 65.0)
+                        let model_usage = detail.used.parse::<f64>().unwrap_or(0.0);
+                        
+                        records.push(HistoricalUsageRecord {
+                            id: uuid::Uuid::new_v4().to_string(),
+                            provider_id: format!("{}-{}", u.provider_id, detail.name),
+                            provider_name: format!("{} - {}", u.provider_name, detail.name),
+                            usage: model_usage,
+                            limit: Some(100.0), // All models are percentage-based
+                            usage_unit: "%".to_string(),
+                            is_quota_based: true,
+                            timestamp: Utc::now().to_rfc3339(),
+                            next_reset_time: model_reset_time,
+                        });
+                    }
                 }
-            })
-            .collect();
+            }
+        }
 
-        info!("Collected {} provider records", records.len());
+        info!("Collected {} provider records (including {} model-specific)", 
+              records.len(),
+              records.iter().filter(|r| r.provider_id.contains("-")).count()
+        );
 
         for record in &records {
             if let Err(e) = self.db.insert_usage_record(record).await {

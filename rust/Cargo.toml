@@ -14,3 +14,12 @@ codegen-units = 1
 lto = true
 opt-level = "s"
 strip = true
+
+[profile.dev]
+opt-level = 0        # No optimization (fastest compile)
+debug = 0            # Remove debug info if you don't need it
+incremental = true   # Should be on by default, but double check
+
+# Speed up dependency compilation (even in dev mode)
+[profile.dev.package."*"]
+opt-level = 3        # Compiles dependencies with optimizations once

@@ -46,12 +46,13 @@
     "windows": [
       {
         "label": "main",
+        "url": "index.html",
         "fullscreen": false,
         "height": 500,
         "minHeight": 400,
         "resizable": true,
         "title": "AI Token Tracker",
-        "width": 420,
+        "width": 480,
         "minWidth": 350,
         "visible": true,
         "center": true,
@@ -61,6 +62,7 @@
       },
       {
         "label": "settings",
+        "url": "settings.html",
         "fullscreen": false,
         "height": 600,
         "minHeight": 500,
@@ -77,6 +79,7 @@
       },
       {
         "label": "agent",
+        "url": "index.html",
         "fullscreen": false,
         "height": 700,
         "minHeight": 600,

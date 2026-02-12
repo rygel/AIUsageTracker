@@ -301,12 +301,37 @@ async fn show_status(
 }
 
 async fn show_list(
-    agent_url: &str,
+    _agent_url: &str,
     json: bool,
 ) {
     let client = reqwest::Client::new();
-    let config_loader = ConfigLoader::new(client);
-    let configs = config_loader.load_config().await;
+    let agent_url = format!("{}/api/providers/discovered", _agent_url);
+
+    let mut configs: Vec<aic_core::ProviderConfig> = Vec::new();
+    let mut agent_available = false;
+
+    match client.get(&agent_url).send().await {
+        Ok(response) => {
+            match response.json::<Vec<aic_core::ProviderConfig>>().await {
+                Ok(providers) => {
+                    configs = providers;
+                    agent_available = true;
+                }
+                Err(e) => {
+                    eprintln!("Failed to parse providers from agent: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to connect to agent: {}", e);
+        }
+    };
+
+    // Fallback to local discovery if agent is not available or returned no configs
+    if configs.is_empty() {
+        let config_loader = ConfigLoader::new(client);
+        configs = config_loader.load_config().await;
+    }
 
     if json {
         match serde_json::to_string_pretty(&configs) {

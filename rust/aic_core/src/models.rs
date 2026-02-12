@@ -98,9 +98,10 @@ pub struct ProviderConfig {
     pub show_in_tray: bool,
     #[serde(rename = "enabled_sub_trays")]
     pub enabled_sub_trays: Vec<String>,
-    #[serde(skip)]
+    #[serde(rename = "auth_source")]
     pub auth_source: String,
-    #[serde(skip)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "description")]
     pub description: Option<String>,
 }
 

@@ -59,6 +59,7 @@ struct UsageRecord {
     usage_unit: String,
     is_quota_based: bool,
     timestamp: String,
+    next_reset_time: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,10 +69,30 @@ struct DailyUsage {
     record_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ResetEvent {
+    id: String,
+    provider_id: String,
+    provider_name: String,
+    previous_usage: Option<f64>,
+    new_usage: Option<f64>,
+    reset_type: String,
+    timestamp: String,
+}
+
 #[derive(Debug, Deserialize)]
 struct HistoryQuery {
     provider_id: Option<String>,
     limit: Option<usize>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ResetQuery {
+    provider_id: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
 }
 
 #[tokio::main]
@@ -101,7 +122,16 @@ async fn main() -> Result<()> {
         db: Arc::new(Mutex::new(db)),
     };
 
-    let static_files = ServeDir::new("static").fallback(ServeDir::new("templates"));
+    // Get the executable's directory to find static files
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    
+    let static_path = exe_dir.join("static");
+    let templates_path = exe_dir.join("templates");
+    
+    let static_files = ServeDir::new(&static_path).fallback(ServeDir::new(&templates_path));
 
     let app = Router::new()
         .route("/", get(root))
@@ -109,6 +139,7 @@ async fn main() -> Result<()> {
         .route("/api/providers", get(get_providers))
         .route("/api/history", get(get_history))
         .route("/api/daily", get(get_daily_usage))
+        .route("/api/resets", get(get_reset_events))
         .nest_service("/static", static_files)
         .with_state(state);
 
@@ -237,39 +268,31 @@ async fn get_history(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let mut rows = if let (Some(provider_id), Some(limit)) = (&params.provider_id, params.limit) {
-        conn.query(
-            "SELECT id, provider_id, provider_name, usage, limit, usage_unit, is_quota_based, timestamp FROM usage_records WHERE provider_id = ?1 ORDER BY timestamp DESC LIMIT ?2",
-            [provider_id.as_str(), limit.to_string().as_str()]
-        ).await.map_err(|e| {
-            error!("Failed to fetch history: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-    } else if let Some(provider_id) = &params.provider_id {
-        conn.query(
-            "SELECT id, provider_id, provider_name, usage, limit, usage_unit, is_quota_based, timestamp FROM usage_records WHERE provider_id = ?1 ORDER BY timestamp DESC",
-            [provider_id.as_str()]
-        ).await.map_err(|e| {
-            error!("Failed to fetch history: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-    } else if let Some(limit) = params.limit {
-        conn.query(
-            "SELECT id, provider_id, provider_name, usage, limit, usage_unit, is_quota_based, timestamp FROM usage_records ORDER BY timestamp DESC LIMIT ?1",
-            [limit.to_string().as_str()]
-        ).await.map_err(|e| {
-            error!("Failed to fetch history: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-    } else {
-        conn.query(
-            "SELECT id, provider_id, provider_name, usage, limit, usage_unit, is_quota_based, timestamp FROM usage_records ORDER BY timestamp DESC",
-            ()
-        ).await.map_err(|e| {
-            error!("Failed to fetch history: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?
-    };
+    // Build query based on parameters
+    let mut sql = String::from("SELECT id, provider_id, provider_name, usage, \"limit\", usage_unit, is_quota_based, timestamp, next_reset_time FROM usage_records WHERE 1=1");
+    
+    if let Some(ref provider_id) = params.provider_id {
+        sql.push_str(&format!(" AND provider_id = '{}'", provider_id.replace("'", "''")));
+    }
+    
+    if let Some(ref start) = params.start_date {
+        sql.push_str(&format!(" AND timestamp >= '{}'", start.replace("'", "''")));
+    }
+    
+    if let Some(ref end) = params.end_date {
+        sql.push_str(&format!(" AND timestamp <= '{}'", end.replace("'", "''")));
+    }
+    
+    sql.push_str(" ORDER BY timestamp DESC");
+    
+    if let Some(limit) = params.limit {
+        sql.push_str(&format!(" LIMIT {}", limit));
+    }
+    
+    let mut rows = conn.query(&sql, ()).await.map_err(|e| {
+        error!("Failed to fetch history: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     let mut records = Vec::new();
     while let Some(row) = rows.next().await.map_err(|e| {
@@ -284,6 +307,7 @@ async fn get_history(
         let usage_unit: String = row.get(5).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         let is_quota_based: bool = row.get::<i64>(6).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)? == 1;
         let timestamp: String = row.get(7).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let next_reset_time: Option<String> = row.get(8).ok();
         
         records.push(UsageRecord {
             id,
@@ -294,6 +318,7 @@ async fn get_history(
             usage_unit,
             is_quota_based,
             timestamp,
+            next_reset_time,
         });
     }
 
@@ -345,4 +370,63 @@ async fn get_daily_usage(
     }
 
     Ok(Json(daily_usage))
+}
+
+async fn get_reset_events(
+    State(state): State<AppState>,
+    Query(params): Query<ResetQuery>,
+) -> Result<Json<Vec<ResetEvent>>, StatusCode> {
+    let db = state.db.lock().await;
+    let conn = db.connect().map_err(|e| {
+        error!("Failed to connect to database: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Build query based on parameters
+    let mut sql = String::from("SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp FROM reset_events WHERE 1=1");
+
+    if let Some(ref provider_id) = params.provider_id {
+        sql.push_str(&format!(" AND provider_id = '{}'", provider_id.replace("'", "''")));
+    }
+
+    if let Some(ref start) = params.start_date {
+        sql.push_str(&format!(" AND timestamp >= '{}'", start.replace("'", "''")));
+    }
+
+    if let Some(ref end) = params.end_date {
+        sql.push_str(&format!(" AND timestamp <= '{}'", end.replace("'", "''")));
+    }
+
+    sql.push_str(" ORDER BY timestamp DESC");
+
+    let mut rows = conn.query(&sql, ()).await.map_err(|e| {
+        error!("Failed to fetch reset events: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let mut events = Vec::new();
+    while let Some(row) = rows.next().await.map_err(|e| {
+        error!("Failed to iterate reset events: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })? {
+        let id: String = row.get(0).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let provider_id: String = row.get(1).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let provider_name: String = row.get(2).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let previous_usage: Option<f64> = row.get(3).ok();
+        let new_usage: Option<f64> = row.get(4).ok();
+        let reset_type: String = row.get(5).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let timestamp: String = row.get(6).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+        events.push(ResetEvent {
+            id,
+            provider_id,
+            provider_name,
+            previous_usage,
+            new_usage,
+            reset_type,
+            timestamp,
+        });
+    }
+
+    Ok(Json(events))
 }
