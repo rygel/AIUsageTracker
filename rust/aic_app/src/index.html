@@ -632,6 +632,15 @@
             // Check agent status immediately and periodically
             checkAgentStatus();
             setInterval(checkAgentStatus, 5000);
+
+            // Listen for window focus events to reload preferences
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('tauri://focus', async () => {
+                    console.log('Window focused - reloading preferences');
+                    await loadPreferences();
+                    renderProviders();
+                });
+            }
         });
 
         async function loadData() {
@@ -958,6 +967,12 @@
                                 if (match) detailPct = parseInt(match[1]);
                             }
                             
+                            // Apply inverted calculation for sub-bars too
+                            let detailDisplayPct = detailPct;
+                            if (prefs.invert_progress_bar) {
+                                detailDisplayPct = Math.max(0, 100 - detailPct);
+                            }
+                            
                             let detailCls = 'low';
                             if (detailPct >= prefs.red_threshold) detailCls = 'high';
                             else if (detailPct >= prefs.yellow_threshold) detailCls = 'medium';
@@ -970,7 +985,7 @@
                             
                             // Compact child item - reset text aligned right
                             providerHtml += '<div class="provider-item compact child" style="margin-left:16px;height:18px;padding:2px 6px;">' +
-                                (detailPct > 0 ? '<div class="provider-progress-bg ' + detailCls + '" style="width:' + detailPct + '%;opacity:0.25;"></div>' : '') +
+                                (detailDisplayPct > 0 ? '<div class="provider-progress-bg ' + detailCls + '" style="width:' + detailDisplayPct + '%;opacity:0.25;"></div>' : '') +
                                 '<div class="provider-content" style="font-size:9px;">' +
                                 '<span class="provider-name" style="font-size:10px;color:#C0C0C0;">' + escapeHtml(detail.name) + '</span>' +
                                 '<span style="flex:1;"></span>' + // Spacer to push right content
@@ -1022,6 +1037,12 @@
                                 if (match) detailPct = parseInt(match[1]);
                             }
                             
+                            // Apply inverted calculation for sub-bars too
+                            let detailDisplayPct = detailPct;
+                            if (prefs.invert_progress_bar) {
+                                detailDisplayPct = Math.max(0, 100 - detailPct);
+                            }
+                            
                             let detailCls = 'low';
                             if (detailPct >= prefs.red_threshold) detailCls = 'high';
                             else if (detailPct >= prefs.yellow_threshold) detailCls = 'medium';
@@ -1032,7 +1053,7 @@
                                 '<span class="child-indicator"></span>' + escapeHtml(detail.name) + '</span></div>' +
                                 '<div style="display:flex;align-items:center;">' +
                                 '<div class="provider-bar-container" style="flex:1;">' +
-                                '<div class="provider-bar ' + detailCls + '" style="width:' + Math.min(detailPct, 100) + '%"></div></div>' +
+                                '<div class="provider-bar ' + detailCls + '" style="width:' + Math.min(detailDisplayPct, 100) + '%"></div></div>' +
                                 '<span style="font-size:10.5px;color:#808080;margin-left:10px;">' + escapeHtml(detail.used) + '</span>' +
                                 '</div>' +
                                 (detail.description ? '<div style="font-size:10px;color:#FFD700;margin-top:2px;margin-left:22px;font-weight:600;">' + escapeHtml(detail.description) + '</div>' : '') +
