@@ -283,40 +283,63 @@ jobs:
           echo "Scripts: ${{ steps.check-scripts.outputs.scripts_valid }}"
           echo "All Valid: ${{ steps.set-all-valid.outputs.all_valid }}"
 
-      - name: Generate Appcast File
+      - name: Generate Appcast Files
         if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
         run: |
           version="${{ inputs.version }}"
           version_number="${version#v}"
           pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z')
           
-          echo '<?xml version="1.0" encoding="UTF-8"?>' > appcast.xml
-          echo '<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">' >> appcast.xml
-          echo '    <channel>' >> appcast.xml
-          echo '        <title>AI Consumption Tracker</title>' >> appcast.xml
-          echo '        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>' >> appcast.xml
-          echo '        <description>Most recent changes with links to updates.</description>' >> appcast.xml
-          echo '        <language>en</language>' >> appcast.xml
-          echo '        <item>' >> appcast.xml
-          echo "            <title>Version $version</title>" >> appcast.xml
-          echo "            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v$version_number</sparkle:releaseNotesLink>" >> appcast.xml
-          echo "            <pubDate>$pub_date</pubDate>" >> appcast.xml
-          echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v$version_number.exe\"" >> appcast.xml
-          echo "                       sparkle:version=\"$version_number\"" >> appcast.xml
-          echo '                       sparkle:os="windows"' >> appcast.xml
-          echo '                       length="0"' >> appcast.xml
-          echo '                       type="application/octet-stream" />' >> appcast.xml
-          echo '        </item>' >> appcast.xml
-          echo '    </channel>' >> appcast.xml
-          echo '</rss>' >> appcast.xml
-          echo "✓ Generated appcast.xml"
+          # Function to generate appcast XML
+          generate_appcast() {
+            local arch_suffix="$1"
+            local filename="$2"
+            
+            echo '<?xml version="1.0" encoding="UTF-8"?>' > "$filename"
+            echo '<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">' >> "$filename"
+            echo '    <channel>' >> "$filename"
+            echo '        <title>AI Consumption Tracker</title>' >> "$filename"
+            echo '        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>' >> "$filename"
+            echo '        <description>Most recent changes with links to updates.</description>' >> "$filename"
+            echo '        <language>en</language>' >> "$filename"
+            echo '        <item>' >> "$filename"
+            echo "            <title>Version $version</title>" >> "$filename"
+            echo "            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v$version_number</sparkle:releaseNotesLink>" >> "$filename"
+            echo "            <pubDate>$pub_date</pubDate>" >> "$filename"
+            echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}${arch_suffix}.exe\"" >> "$filename"
+            echo "                       sparkle:version=\"$version_number\"" >> "$filename"
+            echo '                       sparkle:os="windows"' >> "$filename"
+            echo '                       length="0"' >> "$filename"
+            echo '                       type="application/octet-stream" />' >> "$filename"
+            echo '        </item>' >> "$filename"
+            echo '    </channel>' >> "$filename"
+            echo '</rss>' >> "$filename"
+            echo "✓ Generated $filename"
+          }
+          
+          # Generate all appcast files
+          generate_appcast "_win-x64" "appcast.xml"
+          generate_appcast "_win-x64" "appcast_x64.xml"
+          generate_appcast "_win-arm64" "appcast_arm64.xml"
+          generate_appcast "_win-x86" "appcast_x86.xml"
+          
+          echo ""
+          echo "Generated 4 appcast files with architecture-specific URLs:"
+          echo "  - appcast.xml (x64)"
+          echo "  - appcast_x64.xml"
+          echo "  - appcast_arm64.xml"
+          echo "  - appcast_x86.xml"
 
-      - name: Upload Appcast Artifact
+      - name: Upload Appcast Artifacts
         if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: appcast
-          path: appcast.xml
+          name: appcast-files
+          path: |
+            appcast.xml
+            appcast_x64.xml
+            appcast_arm64.xml
+            appcast_x86.xml
 
       - name: Success
         if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
@@ -325,7 +348,12 @@ jobs:
           echo ""
           echo "📋 NEXT STEPS:"
           echo ""
-          echo "1. Download appcast.xml from the workflow artifacts above"
+          echo "1. Download all appcast files from the workflow artifacts above:"
+          echo "   - appcast.xml (x64 - default)"
+          echo "   - appcast_x64.xml"
+          echo "   - appcast_arm64.xml"
+          echo "   - appcast_x86.xml"
+          echo ""
           echo "2. Create and push the git tag manually:"
           echo "   git checkout main"
           echo "   git pull origin main"
@@ -333,7 +361,7 @@ jobs:
           echo "   git push origin v${{ inputs.version }}"
           echo ""
           echo "3. The tag push will automatically trigger the Publish workflow"
-          echo "4. Upload appcast.xml to the release after it's created"
+          echo "4. Upload all 4 appcast files to the release after it's created"
 
       - name: Failure
         if: ${{ steps.set-all-valid.outputs.all_valid != 'true' }}
