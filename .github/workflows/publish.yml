@@ -88,7 +88,7 @@ jobs:
             echo "            <title>Version $version</title>" >> appcast_${arch}.xml
             echo "            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v$version_number</sparkle:releaseNotesLink>" >> appcast_${arch}.xml
             echo "            <pubDate>$pub_date</pubDate>" >> appcast_${arch}.xml
-            echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}_${arch}.exe\"" >> appcast_${arch}.xml
+            echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}_win-${arch}.exe\"" >> appcast_${arch}.xml
             echo "                       sparkle:version=\"$version_number\"" >> appcast_${arch}.xml
             echo '                       sparkle:os="windows"' >> appcast_${arch}.xml
             echo '                       length="0"' >> appcast_${arch}.xml
