@@ -304,16 +304,6 @@ async fn main() {
                 }
             });
 
-            // Do startup discovery once
-            let config_loader = app.state::<AppState>().config_loader.clone();
-            tokio::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-
-                log::info!("Performing startup configuration discovery...");
-                let configs = config_loader.load_config().await;
-                log::info!("Startup discovery found {} provider configurations", configs.len());
-            });
-
             // Auto-start agent if not running
             let app_handle = app.handle().clone();
             let agent_process = app.state::<AppState>().agent_process.clone();
