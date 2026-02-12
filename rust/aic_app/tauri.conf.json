@@ -92,6 +92,23 @@
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": false
+      },
+      {
+        "label": "info",
+        "url": "info.html",
+        "fullscreen": false,
+        "height": 450,
+        "minHeight": 400,
+        "resizable": false,
+        "title": "About AI Consumption Tracker",
+        "width": 450,
+        "minWidth": 400,
+        "visible": false,
+        "center": true,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": false,
+        "parent": "main"
       }
     ],
     "trayIcon": {

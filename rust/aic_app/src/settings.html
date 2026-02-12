@@ -70,6 +70,38 @@
             font-weight: 600;
         }
 
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+        }
+
+        .header-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            line-height: 1;
+            border-radius: 3px;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+            transition: all 0.2s;
+        }
+
+        .header-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .header-btn.active {
+            color: var(--accent-green);
+            background: rgba(0, 255, 133, 0.1);
+        }
+
         .close-btn {
             background: transparent;
             border: none;
@@ -81,6 +113,7 @@
             -webkit-app-region: no-drag;
             app-region: no-drag;
             border-radius: 3px;
+            transition: all 0.2s;
         }
 
         .close-btn:hover {
@@ -135,8 +168,8 @@
         .provider-card {
             background: var(--bg-light);
             border: 1px solid var(--border-color);
-            margin-bottom: 16px;
-            padding: 16px;
+            margin-bottom: 8px;
+            padding: 8px 12px;
             border-radius: 4px;
         }
 
@@ -144,36 +177,76 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
         }
 
         .provider-info {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .provider-icon {
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             background: var(--accent-blue);
             border-radius: 4px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
         }
 
         .provider-name {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
         }
 
         .provider-actions {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
+        }
+
+        .provider-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 6px;
+            gap: 8px;
+        }
+
+        .provider-api-input {
+            flex: 1;
+        }
+
+        .provider-api-input .form-input {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+
+        .auth-source-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            background: var(--bg-dark);
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .api-key-input {
+            flex: 1;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 3px;
+        }
+
+        .api-key-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
         }
 
         .checkbox-label {
@@ -530,9 +603,37 @@
             margin: 20px 0;
         }
 
-        .auth-source-select {
-            margin-top: 8px;
+        /* Dark scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
         }
+
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+            border-radius: 0;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+            border: 2px solid #1e1e1e;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f4f4f;
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: #1e1e1e;
+        }
+
+        /* Firefox scrollbar */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #424242 #1e1e1e;
+        }
+
     </style>
 </head>
 
@@ -543,7 +644,10 @@
                 <span class="header-icon">&#9881;</span>
                 <span class="header-text">Settings</span>
             </div>
-            <button class="close-btn" id="closeBtn">&#215;</button>
+            <div class="header-right">
+                <button class="header-btn" id="privacyToggleBtn" title="Toggle Privacy Mode" onclick="console.log('Inline click!'); togglePrivacyMode(); return false;">👁</button>
+                <button class="close-btn" id="closeBtn">&#215;</button>
+            </div>
         </div>
 
         <div class="tab-container">
@@ -772,9 +876,110 @@
         console.log('=== SETTINGS.HTML SCRIPT START ===');
         
         let configs = [];
+        let usageData = [];  // Store usage data to get antigravity details
         let prefs = {};
         let githubUser = null;
         let settingsChanged = false;
+
+        // Privacy mode state
+        let privacyMode = false;
+        
+        async function togglePrivacyMode() {
+            console.log('togglePrivacyMode called, current state:', privacyMode);
+            privacyMode = !privacyMode;
+            console.log('New privacy mode state:', privacyMode);
+            
+            const btn = document.getElementById('privacyToggleBtn');
+            if (btn) {
+                btn.classList.toggle('active', privacyMode);
+                btn.textContent = privacyMode ? '🙈' : '👁';
+                btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+            }
+            
+            // Apply privacy mode to all API key inputs
+            console.log('Applying privacy mode to inputs...');
+            applyPrivacyMode();
+            
+            // Emit event to sync with other windows
+            if (window.__TAURI__?.event) {
+                try {
+                    await window.__TAURI__.event.emit('privacy-mode-changed', { enabled: privacyMode });
+                } catch (e) {
+                    console.error('Failed to emit privacy mode event:', e);
+                }
+            }
+            
+            // Save to localStorage
+            try {
+                localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
+            } catch (e) {
+                console.warn('Could not save privacy mode:', e);
+            }
+        }
+        
+        function applyPrivacyMode() {
+            console.log('applyPrivacyMode called, privacyMode:', privacyMode);
+            const apiKeyInputs = document.querySelectorAll('.api-key-input');
+            console.log('Found', apiKeyInputs.length, 'API key inputs');
+            apiKeyInputs.forEach((input, index) => {
+                console.log(`Processing input ${index}:`, input.id, 'current type:', input.type, 'value length:', input.value?.length || 0);
+                try {
+                    if (privacyMode) {
+                        input.type = 'password';
+                        console.log(`  Changed to password successfully`);
+                    } else {
+                        input.type = 'text';
+                        console.log(`  Changed to text successfully`);
+                    }
+                } catch (err) {
+                    console.error(`  ERROR changing input type:`, err);
+                }
+            });
+        }
+        
+        function loadPrivacyMode() {
+            try {
+                const saved = localStorage.getItem('privacy_mode');
+                if (saved !== null) {
+                    privacyMode = JSON.parse(saved);
+                    const btn = document.getElementById('privacyToggleBtn');
+                    if (btn) {
+                        btn.classList.toggle('active', privacyMode);
+                        btn.textContent = privacyMode ? '🙈' : '👁';
+                        btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+                    }
+                    applyPrivacyMode();
+                }
+            } catch (e) {
+                console.warn('Could not load privacy mode:', e);
+            }
+        }
+        
+        function setupPrivacyModeListener() {
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('privacy-mode-changed', (event) => {
+                    console.log('Settings received privacy mode change:', event);
+                    const newPrivacyMode = event.payload?.enabled ?? false;
+                    if (newPrivacyMode !== privacyMode) {
+                        privacyMode = newPrivacyMode;
+                        const btn = document.getElementById('privacyToggleBtn');
+                        if (btn) {
+                            btn.classList.toggle('active', privacyMode);
+                            btn.textContent = privacyMode ? '🙈' : '👁';
+                            btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+                        }
+                        applyPrivacyMode();
+                        
+                        // Save to localStorage to keep in sync
+                        try {
+                            localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
+                        } catch (e) {
+                            console.warn('Could not save privacy mode:', e);
+                        }
+                    }
+                });
+            }
+        }
 
         console.log('window.__TAURI__ available:', typeof window.__TAURI__ !== 'undefined');
         console.log('window.__TAURI__:', window.__TAURI__);
@@ -815,6 +1020,14 @@
                 }
             });
 
+            // Setup privacy mode listener for cross-window sync
+            setupPrivacyModeListener();
+            
+            // Load saved privacy mode
+            loadPrivacyMode();
+            
+            console.log('Settings initialized, privacy button has inline onclick handler');
+
             await loadSettings();
             await loadAppVersion();
             updateFontPreview();
@@ -826,15 +1039,25 @@
         console.log('window.__TAURI__?.event:', window.__TAURI__?.event);
         
         if (window.__TAURI__?.event) {
-            console.log('Setting up settings-window-shown listener...');
+            console.log('Setting up event listeners...');
             try {
-                const unlisten = window.__TAURI__.event.listen('settings-window-shown', async (event) => {
+                // Listen for when settings window is shown (re-opened)
+                const unlistenSettings = window.__TAURI__.event.listen('settings-window-shown', async (event) => {
                     console.log('=== Settings window shown event received ===', event);
                     console.log('Reloading data...');
                     await loadSettings();
                     await loadAppVersion();
                 });
-                console.log('Event listener registered successfully, unlisten function:', typeof unlisten);
+                console.log('Settings event listener registered');
+                
+                // Listen for when agent becomes ready
+                const unlistenAgent = window.__TAURI__.event.listen('agent-ready', async (event) => {
+                    console.log('=== Agent ready event received ===', event);
+                    console.log('Agent is ready, reloading providers...');
+                    await loadSettings();
+                    await loadAppVersion();
+                });
+                console.log('Agent-ready event listener registered');
             } catch (err) {
                 console.error('Failed to register event listener:', err);
             }
@@ -844,12 +1067,31 @@
         }
 
         // Add F12 key to open DevTools for debugging
-        document.addEventListener('keydown', (e) => {
+        document.addEventListener('keydown', async (e) => {
             if (e.key === 'F12') {
                 console.log('F12 pressed - attempting to open DevTools');
-                if (window.__TAURI__?.webviewWindow) {
-                    window.__TAURI__.webviewWindow.getCurrent().then(w => w.openDevTools());
+                try {
+                    // Tauri v2 API: Use invoke to open DevTools
+                    if (window.__TAURI__?.core?.invoke) {
+                        await window.__TAURI__.core.invoke('open_devtools');
+                        console.log('DevTools opened via invoke');
+                    } else if (window.__TAURI__?.invoke) {
+                        await window.__TAURI__.invoke('open_devtools');
+                        console.log('DevTools opened via invoke');
+                    } else {
+                        console.warn('Tauri invoke not available for DevTools');
+                    }
+                } catch (err) {
+                    console.error('Failed to open DevTools:', err);
                 }
+            }
+        });
+
+        // Add Escape key to close settings window
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                console.log('Escape pressed - closing settings window');
+                closeSettings();
             }
         });
 
@@ -889,6 +1131,16 @@
                         }
                         configs = agentProviders || [];
                         console.log('Configs assigned:', configs.length, 'providers');
+                        
+                        // Also fetch usage data to get antigravity details
+                        try {
+                            console.log('Fetching usage data for antigravity details...');
+                            usageData = await invoke('get_usage');
+                            console.log('Usage data loaded:', usageData?.length || 0, 'providers');
+                        } catch (usageErr) {
+                            console.log('Could not fetch usage data:', usageErr.message || usageErr);
+                            usageData = [];
+                        }
                     } catch (agentErr) {
                         const elapsed = Date.now() - startTime;
                         console.error(`ERROR after ${elapsed}ms calling get_all_providers_from_agent:`, agentErr);
@@ -984,18 +1236,26 @@
                 'kimi': { name: 'Kimi', icon: 'K', color: '#0066cc' },
                 'minimax': { name: 'MiniMax', icon: 'M', color: '#FF6B35' },
                 'xiaomi': { name: 'Xiaomi', icon: 'X', color: '#FF6900' },
-                'kilocode': { name: 'Kilo Code', icon: 'K', color: '#6366F1' },
                 'antigravity': { name: 'Antigravity', icon: 'A', color: '#8B5CF6' },
                 'openrouter': { name: 'OpenRouter', icon: 'R', color: '#10B981' },
                 'zai': { name: 'Z.ai', icon: 'Z', color: '#3B82F6' },
                 'zai-coding-plan': { name: 'Z.ai Coding', icon: 'Z', color: '#2563EB' },
                 'mistral': { name: 'Mistral', icon: 'M', color: '#F97316' },
-                'opencode': { name: 'OpenCode', icon: 'C', color: '#EC4899' },
+                'opencode-zen': { name: 'OpenCode', icon: 'C', color: '#EC4899' },
                 'synthetic': { name: 'Synthetic', icon: 'S', color: '#14B8A6' }
             };
 
             console.log('Generating HTML for', configs.length, 'providers...');
-            console.log('Provider IDs being processed:', configs.map(c => c.provider_id).join(', '));
+            console.log('Provider IDs before sorting:', configs.map(c => c.provider_id).join(', '));
+            
+            // Sort configs alphabetically by provider name
+            configs.sort((a, b) => {
+                const infoA = providerInfo[a.provider_id] || { name: a.provider_id };
+                const infoB = providerInfo[b.provider_id] || { name: b.provider_id };
+                return infoA.name.localeCompare(infoB.name);
+            });
+            
+            console.log('Provider IDs after sorting:', configs.map(c => c.provider_id).join(', '));
             
             const html = configs.map((config, index) => {
                 console.log(`Processing provider ${index}:`, config.provider_id, '- Has key:', !!(config.api_key && config.api_key.length > 0), '- Auth source:', config.auth_source);
@@ -1004,6 +1264,32 @@
                 
                 console.log(`  -> Using display name: ${info.name}, icon: ${info.icon}`);
 
+                // Format auth source for display - use short names for UI
+                let authSourceDisplay = config.auth_source || 'None';
+                if (authSourceDisplay === 'Environment Variable') authSourceDisplay = 'Env';
+                else if (authSourceDisplay === 'Environment') authSourceDisplay = 'Env';
+                else if (authSourceDisplay === 'AI Consumption Tracker') authSourceDisplay = 'AICT';
+                // Kilo Code and OpenCode stay as is
+                
+                // Check if this is antigravity and has usage data with details
+                let subModelsHtml = '';
+                if (config.provider_id === 'antigravity') {
+                    const usage = usageData.find(u => u.provider_id === 'antigravity');
+                    if (usage && usage.details && usage.details.length > 0) {
+                        subModelsHtml = `
+                            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #3a3a3a;">
+                                <div style="font-size: 11px; color: #888; font-weight: 600; margin-bottom: 8px;">Individual Quota Icons:</div>
+                                ${usage.details.map(detail => `
+                                    <label class="checkbox-label" style="display: block; margin: 4px 0; margin-left: 10px; font-size: 11px;">
+                                        <input type="checkbox" class="subtray-checkbox" data-provider="${config.provider_id}" data-detail="${detail.name}" ${config.enabled_sub_trays && config.enabled_sub_trays.includes(detail.name) ? 'checked' : ''}>
+                                        <span style="color: #ccc;">${detail.name}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                }
+                
                 return `
                     <div class="provider-card" data-provider="${config.provider_id}">
                         <div class="provider-header">
@@ -1012,6 +1298,7 @@
                                 <span class="provider-name">${info.name}</span>
                             </div>
                             <div class="provider-actions">
+                                <span class="auth-source-label" title="Configuration Source: ${config.auth_source || 'None'}">${authSourceDisplay}</span>
                                 <label class="checkbox-label">
                                     <input type="checkbox" class="tray-checkbox" ${config.show_in_tray ? 'checked' : ''}>
                                     <span>Tray</span>
@@ -1020,22 +1307,14 @@
                             </div>
                         </div>
                         ${config.provider_id === 'github-copilot' ? '' : `
-                            <div class="form-group" style="margin-top: 12px;">
-                                <label class="form-label">API Key</label>
-                                <input type="password" class="form-input api-key-input" 
+                            <div class="provider-row">
+                                <input type="text" class="api-key-input" id="api-key-${config.provider_id}"
                                     value="${config.api_key || ''}" 
                                     placeholder="Enter API key"
                                     data-provider="${config.provider_id}">
                             </div>
-                            <div class="form-group auth-source-select">
-                                <label class="form-label">Authentication Source</label>
-                                <select class="form-select auth-source-select" data-provider="${config.provider_id}">
-                                    <option value="Manual" ${config.auth_source === 'Manual' ? 'selected' : ''}>Manual</option>
-                                    <option value="Environment" ${config.auth_source === 'Environment' ? 'selected' : ''}>Environment Variable</option>
-                                    <option value="File" ${config.auth_source === 'File' ? 'selected' : ''}>Configuration File</option>
-                                </select>
-                            </div>
                         `}
+                        ${subModelsHtml}
                     </div>
                 `;
             }).join('');
@@ -1044,8 +1323,19 @@
             container.innerHTML = html;
             console.log('Container HTML set, length:', html.length);
 
-            document.querySelectorAll('.tray-checkbox, .api-key-input, .auth-source-select').forEach(el => {
+            // Apply privacy mode to newly created API key inputs
+            console.log('Calling applyPrivacyMode after populating providers, privacyMode:', privacyMode);
+            applyPrivacyMode();
+            
+            // Verify the inputs were created
+            const verifyInputs = document.querySelectorAll('.api-key-input');
+            console.log('Verified', verifyInputs.length, 'API key inputs exist after population');
+
+            document.querySelectorAll('.tray-checkbox').forEach(el => {
                 el.addEventListener('change', () => settingsChanged = true);
+            });
+            
+            document.querySelectorAll('.api-key-input').forEach(el => {
                 el.addEventListener('input', () => settingsChanged = true);
             });
             console.log('=== populateProviders() END ===');
@@ -1112,11 +1402,22 @@
                         const trayCheckbox = card.querySelector('.tray-checkbox');
                         if (trayCheckbox) config.show_in_tray = trayCheckbox.checked;
 
-                        const apiKeyInput = card.querySelector('.api-key-input');
+                        const apiKeyInput = card.querySelector(`#api-key-${providerId}`);
                         if (apiKeyInput) config.api_key = apiKeyInput.value;
-
-                        const authSelect = card.querySelector('.auth-source-select');
-                        if (authSelect) config.auth_source = authSelect.value;
+                        
+                        // Handle sub-tray checkboxes for antigravity
+                        if (providerId === 'antigravity') {
+                            const subTrayCheckboxes = card.querySelectorAll('.subtray-checkbox');
+                            config.enabled_sub_trays = [];
+                            subTrayCheckboxes.forEach(cb => {
+                                if (cb.checked) {
+                                    config.enabled_sub_trays.push(cb.dataset.detail);
+                                }
+                            });
+                        }
+                        
+                        // Auth source is read-only (displayed as label), so we don't change it here
+                        // It shows where the config came from: Env, Config, Manual, or None
                     }
                 });
 

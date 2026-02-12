@@ -46,26 +46,29 @@ fn create_tray_menu<R: Runtime>(
     app: &tauri::AppHandle<R>,
 ) -> Result<Menu<R>, Box<dyn std::error::Error>> {
     let show_i = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
+    let settings_i = MenuItem::with_id(app, "settings", "Open Settings", true, None::<&str>)?;
+    let info_i = MenuItem::with_id(app, "info", "Info", true, None::<&str>)?;
     let refresh_i = MenuItem::with_id(app, "refresh", "Refresh", true, None::<&str>)?;
     let auto_refresh_i =
         MenuItem::with_id(app, "auto_refresh", "Auto Refresh", true, None::<&str>)?;
     let agent_start_i = MenuItem::with_id(app, "start_agent", "Start Agent", true, None::<&str>)?;
     let agent_stop_i = MenuItem::with_id(app, "stop_agent", "Stop Agent", true, None::<&str>)?;
-    let settings_i = MenuItem::with_id(app, "settings", "Settings", true, None::<&str>)?;
     let quit_i = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
 
     let menu = Menu::with_items(
         app,
         &[
             &show_i,
+            &MenuItem::with_id(app, "separator1", "---", false, None::<&str>)?,
+            &settings_i,
+            &info_i,
+            &MenuItem::with_id(app, "separator2", "---", false, None::<&str>)?,
             &refresh_i,
             &auto_refresh_i,
-            &MenuItem::with_id(app, "separator1", "---", false, None::<&str>)?,
+            &MenuItem::with_id(app, "separator3", "---", false, None::<&str>)?,
             &agent_start_i,
             &agent_stop_i,
-            &MenuItem::with_id(app, "separator2", "---", false, None::<&str>)?,
-            &settings_i,
-            &MenuItem::with_id(app, "separator3", "---", false, None::<&str>)?,
+            &MenuItem::with_id(app, "separator4", "---", false, None::<&str>)?,
             &quit_i,
         ],
     )?;
@@ -160,7 +163,12 @@ async fn main() {
             // Settings commands
             close_settings_window,
             open_settings_window,
+            reload_settings_window,
             save_provider_configs,
+            // Info window commands
+            open_info_window,
+            close_info_window,
+            get_config_path,
             scan_for_api_keys,
             check_github_login_status,
             discover_github_token,
@@ -215,7 +223,16 @@ async fn main() {
                             }
                         }
                         "settings" => {
-                            let _: Result<(), _> = app.emit("open-settings-window", ());
+                            let app_clone = app.clone();
+                            tokio::spawn(async move {
+                                let _ = aic_app::commands::open_settings_window(app_clone).await;
+                            });
+                        }
+                        "info" => {
+                            let app_clone = app.clone();
+                            tokio::spawn(async move {
+                                let _ = aic_app::commands::open_info_window(app_clone).await;
+                            });
                         }
                         "quit" => {
                             app.exit(0);

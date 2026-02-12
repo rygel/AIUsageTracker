@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About AI Consumption Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #1E1E1E;
+            --bg-medium: #252526;
+            --bg-light: #333333;
+            --text-primary: #FFFFFF;
+            --text-secondary: #AAAAAA;
+            --text-muted: #888888;
+            --accent-blue: #007ACC;
+            --accent-green: #00FF85;
+            --border-color: #333333;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-medium);
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            -webkit-app-region: drag;
+            app-region: drag;
+        }
+
+        .header-title {
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+        }
+
+        .header-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+
+        .header-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .header-btn.active {
+            color: var(--accent-green);
+            background: rgba(0, 255, 133, 0.1);
+        }
+
+        .content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .app-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .app-version {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .app-description {
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .info-label {
+            width: 100px;
+            color: var(--text-muted);
+        }
+
+        .info-value {
+            color: var(--text-primary);
+            flex: 1;
+        }
+
+        .config-path {
+            color: var(--accent-blue);
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .config-path:hover {
+            text-decoration: underline;
+        }
+
+        .footer {
+            background: var(--bg-medium);
+            padding: 12px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            background: var(--bg-light);
+            border: none;
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #444444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header" data-tauri-drag-region>
+            <span class="header-title">Info</span>
+            <div class="header-right">
+                <button class="header-btn" id="privacyToggleBtn" title="Toggle Privacy Mode">👁</button>
+                <button class="header-btn" id="closeBtn" title="Close">×</button>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="app-title">AI Consumption Tracker</div>
+            <div class="app-version" id="versionText">v...</div>
+            <div class="app-description">
+                A desktop application for tracking AI service usage and costs.
+            </div>
+
+            <div class="section">
+                <div class="section-title">Application Info</div>
+                <div class="info-row">
+                    <span class="info-label">Rust Version:</span>
+                    <span class="info-value" id="rustVersion">...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">OS:</span>
+                    <span class="info-value" id="osVersion">...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Architecture:</span>
+                    <span class="info-value" id="archText">...</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">System Info</div>
+                <div class="info-row">
+                    <span class="info-label">Machine:</span>
+                    <span class="info-value" id="machineName">...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">User:</span>
+                    <span class="info-value" id="userName">...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Config:</span>
+                    <span class="info-value">
+                        <a href="#" class="config-path" id="configPath">auth.json</a>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <button class="btn" id="closeBtnFooter">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Privacy mode state
+        let privacyMode = false;
+
+        async function togglePrivacyMode() {
+            privacyMode = !privacyMode;
+            const btn = document.getElementById('privacyToggleBtn');
+            btn.classList.toggle('active', privacyMode);
+            btn.textContent = privacyMode ? '🙈' : '👁';
+            btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+            
+            // Emit event to sync with other windows
+            if (window.__TAURI__?.event) {
+                try {
+                    await window.__TAURI__.event.emit('privacy-mode-changed', { enabled: privacyMode });
+                } catch (e) {
+                    console.error('Failed to emit privacy mode event:', e);
+                }
+            }
+            
+            // Save to localStorage
+            try {
+                localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
+            } catch (e) {
+                console.warn('Could not save privacy mode:', e);
+            }
+        }
+
+        function loadPrivacyMode() {
+            try {
+                const saved = localStorage.getItem('privacy_mode');
+                if (saved !== null) {
+                    privacyMode = JSON.parse(saved);
+                    const btn = document.getElementById('privacyToggleBtn');
+                    if (btn) {
+                        btn.classList.toggle('active', privacyMode);
+                        btn.textContent = privacyMode ? '🙈' : '👁';
+                        btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not load privacy mode:', e);
+            }
+        }
+
+        function setupPrivacyModeListener() {
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('privacy-mode-changed', (event) => {
+                    console.log('Info window received privacy mode change:', event);
+                    const newPrivacyMode = event.payload?.enabled ?? false;
+                    if (newPrivacyMode !== privacyMode) {
+                        privacyMode = newPrivacyMode;
+                        const btn = document.getElementById('privacyToggleBtn');
+                        if (btn) {
+                            btn.classList.toggle('active', privacyMode);
+                            btn.textContent = privacyMode ? '🙈' : '👁';
+                            btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+                        }
+                        
+                        // Save to localStorage to keep in sync
+                        try {
+                            localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
+                        } catch (e) {
+                            console.warn('Could not save privacy mode:', e);
+                        }
+                    }
+                });
+            }
+        }
+
+        async function closeWindow() {
+            if (window.__TAURI__?.core?.invoke) {
+                await window.__TAURI__.core.invoke('close_info_window');
+            } else if (window.__TAURI__?.invoke) {
+                await window.__TAURI__.invoke('close_info_window');
+            } else {
+                window.close();
+            }
+        }
+
+        async function loadSystemInfo() {
+            try {
+                // Set version
+                document.getElementById('versionText').textContent = 'v' + (await window.__TAURI__?.core?.invoke('get_app_version') || '1.0.0');
+                
+                // Set system info
+                document.getElementById('rustVersion').textContent = 'Rust ' + navigator.userAgent;
+                document.getElementById('osVersion').textContent = navigator.platform;
+                document.getElementById('archText').textContent = navigator.hardwareConcurrency + ' cores';
+                document.getElementById('machineName').textContent = navigator.platform;
+                document.getElementById('userName').textContent = 'User';
+                
+                // Get config path from Tauri
+                if (window.__TAURI__?.core?.invoke) {
+                    const configPath = await window.__TAURI__.core.invoke('get_config_path');
+                    document.getElementById('configPath').textContent = configPath || 'auth.json';
+                }
+            } catch (e) {
+                console.error('Failed to load system info:', e);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Info window loaded');
+            
+            // Setup close buttons
+            document.getElementById('closeBtn').addEventListener('click', closeWindow);
+            document.getElementById('closeBtnFooter').addEventListener('click', closeWindow);
+            
+            // Setup privacy mode
+            document.getElementById('privacyToggleBtn').addEventListener('click', togglePrivacyMode);
+            setupPrivacyModeListener();
+            loadPrivacyMode();
+            
+            // Load system info
+            await loadSystemInfo();
+        });
+    </script>
+</body>
+</html>

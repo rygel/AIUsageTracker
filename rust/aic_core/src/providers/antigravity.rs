@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Local, Utc};
 #[cfg(windows)]
 use log::error;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use reqwest::Client;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -321,9 +321,12 @@ impl ProviderService for AntigravityProvider {
             let mut results = Vec::new();
 
             // Find all Antigravity processes
+            info!("Antigravity: Searching for running processes...");
             let process_infos = self.find_process_infos();
+            info!("Antigravity: Found {} process(es)", process_infos.len());
 
             if process_infos.is_empty() {
+                warn!("Antigravity: No processes found - extension may not be running");
                 return vec![ProviderUsage {
                     provider_id: self.provider_id().to_string(),
                     provider_name: "Antigravity".to_string(),

@@ -392,17 +392,42 @@ pub async fn toggle_always_on_top(app: tauri::AppHandle, enabled: bool) -> Resul
 #[tauri::command]
 pub async fn open_settings_window(app: tauri::AppHandle) -> Result<(), String> {
     tracing::info!("open_settings_window called");
+    
+    // Try to get existing window
     if let Some(window) = app.get_webview_window("settings") {
-        tracing::info!("Found settings window, showing it and triggering reload");
-        // Emit an event to tell the settings page to reload data
+        tracing::info!("Found existing settings window, showing it");
         let _ = window.emit("settings-window-shown", ());
         let _ = window.show();
         let _ = window.set_focus();
-        Ok(())
-    } else {
-        tracing::error!("Settings window not found");
-        Err("Settings window not found".to_string())
+        return Ok(());
     }
+    
+    // Get parent window
+    let parent = app.get_webview_window("main")
+        .ok_or("Main window not found")?;
+    
+    // Window doesn't exist, create it
+    tracing::info!("Settings window not found, creating new window");
+    let window = tauri::WebviewWindowBuilder::new(
+        &app,
+        "settings",
+        tauri::WebviewUrl::App("settings.html".into())
+    )
+    .title("Settings - AI Consumption Tracker")
+    .inner_size(700.0, 600.0)
+    .min_inner_size(550.0, 500.0)
+    .center()
+    .decorations(false)
+    .transparent(true)
+    .parent(&parent)
+    .map_err(|e| format!("Failed to set parent: {}", e))?
+    .build()
+    .map_err(|e| format!("Failed to create window: {}", e))?;
+    
+    tracing::info!("Settings window created successfully");
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
 }
 
 #[tauri::command]
@@ -437,8 +462,87 @@ pub async fn save_provider_configs(
 
 #[tauri::command]
 pub async fn close_settings_window(window: tauri::Window) -> Result<(), String> {
-    let _ = window.close();
+    // Hide the window instead of closing it so it can be reopened
+    let _ = window.hide();
     Ok(())
+}
+
+#[tauri::command]
+pub async fn reload_settings_window(app: tauri::AppHandle) -> Result<(), String> {
+    tracing::info!("reload_settings_window called");
+    if let Some(window) = app.get_webview_window("settings") {
+        tracing::info!("Emitting settings-window-shown event to reload data");
+        let _ = window.emit("settings-window-shown", ());
+        Ok(())
+    } else {
+        tracing::warn!("Settings window not found, nothing to reload");
+        Ok(())
+    }
+}
+
+#[tauri::command]
+pub async fn open_info_window(app: tauri::AppHandle) -> Result<(), String> {
+    tracing::info!("open_info_window called");
+    
+    // Try to get existing window
+    if let Some(window) = app.get_webview_window("info") {
+        tracing::info!("Found existing info window, showing it");
+        let _ = window.show();
+        let _ = window.set_focus();
+        return Ok(());
+    }
+    
+    // Get parent window
+    let parent = app.get_webview_window("main")
+        .ok_or("Main window not found")?;
+    
+    // Window doesn't exist, create it
+    tracing::info!("Info window not found, creating new window");
+    let window = tauri::WebviewWindowBuilder::new(
+        &app,
+        "info",
+        tauri::WebviewUrl::App("info.html".into())
+    )
+    .title("About AI Consumption Tracker")
+    .inner_size(450.0, 450.0)
+    .min_inner_size(400.0, 400.0)
+    .center()
+    .decorations(false)
+    .transparent(true)
+    .parent(&parent)
+    .map_err(|e| format!("Failed to set parent: {}", e))?
+    .build()
+    .map_err(|e| format!("Failed to create window: {}", e))?;
+    
+    tracing::info!("Info window created successfully");
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn close_info_window(window: tauri::Window) -> Result<(), String> {
+    // Hide the window instead of closing it so it can be reopened
+    let _ = window.hide();
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_config_path() -> Result<String, String> {
+    // Return the path to the auth.json config file
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(app_data) = std::env::var("APPDATA") {
+            return Ok(format!("{}\\aic\\auth.json", app_data));
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            return Ok(format!("{}/.config/aic/auth.json", home));
+        }
+    }
+    Err("Could not determine config path".to_string())
 }
 
 #[tauri::command]
@@ -569,6 +673,75 @@ pub async fn is_agent_running_http() -> Result<bool, String> {
     check_agent_status().await
 }
 
+pub async fn find_agent_executable(app_handle: &tauri::AppHandle) -> Result<String, String> {
+    let exe_name = if cfg!(target_os = "windows") {
+        "aic_agent.exe"
+    } else {
+        "aic_agent"
+    };
+
+    // Build list of possible paths to check
+    let mut possible_paths: Vec<std::path::PathBuf> = Vec::new();
+
+    // 1. Current working directory
+    if let Ok(current_dir) = std::env::current_dir() {
+        possible_paths.push(current_dir.join(exe_name));
+    }
+
+    // 2. App resource directory (for packaged apps)
+    if let Ok(resource_dir) = app_handle.path().resolve(
+        "",
+        tauri::path::BaseDirectory::Resource
+    ) {
+        possible_paths.push(resource_dir.join(exe_name));
+    }
+
+    // 3. App binary directory (where the app executable is located)
+    if let Ok(app_dir) = app_handle.path().resolve(
+        "",
+        tauri::path::BaseDirectory::AppLocalData
+    ) {
+        possible_paths.push(app_dir.join(exe_name));
+        // Also check parent of app data directory
+        if let Some(parent) = app_dir.parent() {
+            possible_paths.push(parent.join(exe_name));
+        }
+    }
+
+    // 4. Development paths (relative to current directory)
+    possible_paths.push(std::path::PathBuf::from(format!("./{}", exe_name)));
+    possible_paths.push(std::path::PathBuf::from(format!("../target/debug/{}", exe_name)));
+    possible_paths.push(std::path::PathBuf::from(format!("../target/release/{}", exe_name)));
+
+    // 5. Check if running from aic_app directory - look in parent rust directory
+    if let Ok(current_dir) = std::env::current_dir() {
+        let rust_debug = current_dir.join("..").join("..").join("target").join("debug").join(exe_name);
+        let rust_release = current_dir.join("..").join("..").join("target").join("release").join(exe_name);
+        possible_paths.push(rust_debug);
+        possible_paths.push(rust_release);
+    }
+
+    // Try each path
+    for path in &possible_paths {
+        tracing::debug!("Checking for agent at: {:?}", path);
+        if path.exists() {
+            tracing::info!("Found agent executable at: {:?}", path);
+            return Ok(path.to_string_lossy().to_string());
+        }
+    }
+
+    // Log all attempted paths for debugging
+    tracing::error!("Agent executable not found. Searched in:");
+    for path in &possible_paths {
+        tracing::error!("  - {:?}", path);
+    }
+
+    Err(format!(
+        "Agent executable '{}' not found. Please build the agent with: cargo build -p aic_agent",
+        exe_name
+    ))
+}
+
 pub async fn start_agent_internal(
     app_handle: &tauri::AppHandle,
     agent_process: Arc<Mutex<Option<Child>>>,
@@ -611,43 +784,7 @@ pub async fn start_agent_internal(
         }
     }
 
-    let agent_path = if cfg!(target_os = "windows") {
-        let possible_paths = [
-            "./aic_agent.exe",
-            "../target/debug/aic_agent.exe",
-            "../target/release/aic_agent.exe",
-        ];
-
-        let mut found_path = None;
-        for path in &possible_paths {
-            if std::path::Path::new(path).exists() {
-                found_path = Some(path.to_string());
-                break;
-            }
-        }
-
-        found_path.ok_or_else(|| {
-            "Agent executable not found. Please build the agent first."
-        })?
-    } else {
-        let possible_paths = [
-            "./aic_agent",
-            "../target/debug/aic_agent",
-            "../target/release/aic_agent",
-        ];
-
-        let mut found_path = None;
-        for path in &possible_paths {
-            if std::path::Path::new(path).exists() {
-                found_path = Some(path.to_string());
-                break;
-            }
-        }
-
-        found_path.ok_or_else(|| {
-            "Agent executable not found. Please build the agent first."
-        })?
-    };
+    let agent_path = find_agent_executable(app_handle).await?;
 
     match Command::new(agent_path).spawn() {
         Ok(child) => {
@@ -656,8 +793,21 @@ pub async fn start_agent_internal(
 
             let app_handle = app_handle.clone();
             tokio::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+                // Wait for agent to be ready
+                tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+                
+                // Update tray icon
                 update_tray_icon_by_status(&app_handle, true).await;
+                
+                // Notify all windows that agent is ready
+                info!("Emitting agent-ready event to all windows");
+                let _ = app_handle.emit("agent-ready", ());
+                
+                // Also try to reload settings window if it's open
+                if let Some(settings_window) = app_handle.get_webview_window("settings") {
+                    info!("Settings window found, emitting settings-window-shown");
+                    let _ = settings_window.emit("settings-window-shown", ());
+                }
             });
 
             Ok(true)
