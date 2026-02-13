@@ -1772,6 +1772,11 @@
                             } catch (err) {
                                 console.error('Failed to fetch username:', err);
                             }
+
+                            // Auto-save the config with the new token
+                            if (invoke) {
+                                await invoke('save_provider_configs', { configs });
+                            }
                         }
                     } else if (data.status === 'expired' || data.status === 'access_denied') {
                         clearInterval(pollInterval);
