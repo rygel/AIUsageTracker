@@ -930,9 +930,30 @@
         // GitHub auth status from agent
         let githubAuthStatus = { is_authenticated: false, username: '' };
 
+        async function getAgentPort() {
+            // Try to read port from .agent_port file
+            try {
+                const response = await fetch('http://localhost:8080/health');
+                // If we get here, port is 8080
+                return 8080;
+            } catch (e) {
+                // Port 8080 not available, try another common port
+                for (let p = 8081; p <= 8100; p++) {
+                    try {
+                        await fetch(`http://localhost:${p}/health`);
+                        return p;
+                    } catch (e2) {
+                        // Continue trying
+                    }
+                }
+                return 8080; // Fallback
+            }
+        }
+
         async function fetchGitHubAuthStatus() {
             try {
-                const response = await fetch('http://localhost:8080/api/auth/github/status');
+                const port = await getAgentPort();
+                const response = await fetch(`http://localhost:${port}/api/auth/github/status`);
                 if (response.ok) {
                     githubAuthStatus = await response.json();
                     console.log('GitHub auth status:', githubAuthStatus);
@@ -1469,7 +1490,8 @@
 
             try {
                 // Call the agent's discover endpoint
-                const response = await fetch('http://localhost:8080/api/discover', {
+                const port = await getAgentPort();
+                const response = await fetch(`http://localhost:${port}/api/discover`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -1689,7 +1711,8 @@
                         } else {
                             // Initiate GitHub login
                             try {
-                                const response = await fetch('http://localhost:8080/api/auth/github/device', {
+                                const port = await getAgentPort();
+                                const response = await fetch(`http://localhost:${port}/api/auth/github/device`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' }
                                 });
@@ -1770,7 +1793,8 @@
                 }
 
                 try {
-                    const response = await fetch('http://localhost:8080/api/auth/github/poll', {
+                    const port = await getAgentPort();
+                    const response = await fetch(`http://localhost:${port}/api/auth/github/poll`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ device_code: deviceCode, interval: interval })
@@ -1789,7 +1813,8 @@
 
                             // Fetch username
                             try {
-                                const userResponse = await fetch('http://localhost:8080/api/auth/github/status');
+                                const port = await getAgentPort();
+                                const userResponse = await fetch(`http://localhost:${port}/api/auth/github/status`);
                                 const userData = await userResponse.json();
                                 if (userData.username) {
                                     config.account_name = userData.username;

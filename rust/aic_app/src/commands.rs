@@ -48,8 +48,10 @@ pub async fn refresh_usage(state: State<'_, AppState>) -> Result<Vec<ProviderUsa
 
 #[tauri::command]
 pub async fn get_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
-    info!("Attempting to fetch usage from agent at http://localhost:8080/api/providers/usage");
-    match reqwest::get("http://localhost:8080/api/providers/usage").await {
+    let port = get_agent_port().await;
+    let url = format!("http://localhost:{}/api/providers/usage", port);
+    info!("Attempting to fetch usage from agent at {}", url);
+    match reqwest::get(&url).await {
         Ok(response) => {
             info!("Agent responded with status: {}", response.status());
             // Check if we got a successful status code
@@ -88,7 +90,8 @@ pub async fn get_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
 #[tauri::command]
 pub async fn refresh_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
     let client = reqwest::Client::new();
-    match client.post("http://localhost:8080/api/providers/usage/refresh").send().await {
+    let port = get_agent_port().await;
+    let url = format!("http://localhost:{}/api/providers/usage/refresh", port);
         Ok(response) => {
             // Check if we got a successful status code
             if !response.status().is_success() {
@@ -128,7 +131,7 @@ pub async fn get_historical_usage_from_agent(
     provider_id: Option<String>,
     limit: Option<u32>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let mut url = "http://localhost:8080/api/history".to_string();
+    let mut url = format!("http://localhost:{}/api/history", port);
     let mut params = Vec::new();
     
     if let Some(pid) = provider_id {
@@ -165,7 +168,7 @@ pub async fn get_raw_responses_from_agent(
     provider_id: Option<String>,
     limit: Option<u32>,
 ) -> Result<Vec<serde_json::Value>, String> {
-    let mut url = "http://localhost:8080/api/raw_responses".to_string();
+    let mut url = format!("http://localhost:{}/api/raw_responses", port);
     let mut params = Vec::new();
     
     if let Some(pid) = provider_id {
@@ -282,7 +285,8 @@ pub async fn get_all_providers_from_agent(
 pub async fn scan_for_api_keys(_state: State<'_, AppState>) -> Result<Vec<aic_core::ProviderConfig>, String> {
     let client = Client::new();
     // Trigger explicit discovery scan via agent
-    let agent_url = "http://localhost:8080/api/discover";
+    let port = get_agent_port().await;
+    let agent_url = format!("http://localhost:{}/api/discover", port);
 
     match client.post(agent_url).send().await {
         Ok(response) if response.status().is_success() => {
@@ -316,7 +320,8 @@ pub async fn save_provider_config(
     config: aic_core::ProviderConfig,
 ) -> Result<(), String> {
     let client = reqwest::Client::new();
-    let url = format!("http://localhost:8080/api/providers/{}", config.provider_id);
+    let port = get_agent_port().await;
+    let url = format!("http://localhost:{}/api/providers/{}", port, config.provider_id);
     
     tracing::info!("Saving provider config via agent: {}", config.provider_id);
     
@@ -344,7 +349,8 @@ pub async fn remove_provider_config(
     provider_id: String,
 ) -> Result<(), String> {
     let client = reqwest::Client::new();
-    let url = format!("http://localhost:8080/api/providers/{}", provider_id);
+    let port = get_agent_port().await;
+    let url = format!("http://localhost:{}/api/providers/{}", port, provider_id);
     
     tracing::info!("Removing provider config via agent: {}", provider_id);
     
@@ -572,7 +578,8 @@ pub async fn save_provider_configs(
     configs: Vec<aic_core::ProviderConfig>,
 ) -> Result<(), String> {
     let client = reqwest::Client::new();
-    let url = "http://localhost:8080/api/config/providers";
+    let port = get_agent_port().await;
+    let url = format!("http://localhost:{}/api/config/providers", port);
     
     tracing::info!("Saving all provider configs via agent (count: {})", configs.len());
     
@@ -607,7 +614,8 @@ pub async fn preload_settings_data(state: State<'_, AppState>) -> Result<(), Str
     
     // Fetch providers and usage data in parallel from agent
     let providers_future = async {
-        let agent_url = "http://localhost:8080/api/providers/discovered";
+    let port = get_agent_port().await;
+    let agent_url = format!("http://localhost:{}/api/providers/discovered", port);
         match reqwest::get(agent_url).await {
             Ok(response) if response.status().is_success() => {
                 match response.json::<Vec<aic_core::ProviderConfig>>().await {
@@ -633,7 +641,8 @@ pub async fn preload_settings_data(state: State<'_, AppState>) -> Result<(), Str
     };
     
     let usage_future = async {
-        let agent_url = "http://localhost:8080/api/providers/usage";
+        let port = get_agent_port().await;
+        let agent_url = format!("http://localhost:{}/api/providers/usage", port);
         match reqwest::get(agent_url).await {
             Ok(response) if response.status().is_success() => {
                 match response.json::<Vec<ProviderUsage>>().await {
@@ -883,8 +892,24 @@ pub async fn update_tray_icon_by_status(app_handle: &AppHandle, is_connected: bo
     }
 }
 
+pub async fn get_agent_port() -> u16 {
+    let port_file_path = std::env::current_dir()
+        .map(|p| p.join(".agent_port"))
+        .unwrap_or_default();
+
+    if let Ok(content) = std::fs::read_to_string(&port_file_path) {
+        if let Ok(port) = content.trim().parse() {
+            return port;
+        }
+    }
+    8080 // Default fallback
+}
+
 pub async fn check_agent_status() -> Result<bool, String> {
-    if let Ok(response) = reqwest::get("http://localhost:8080/health").await {
+    let port = get_agent_port().await;
+    let url = format!("http://localhost:{}/health", port);
+    debug!("Checking agent status at: {}", url);
+    if let Ok(response) = reqwest::get(&url).await {
         Ok(response.status().is_success())
     } else {
         Ok(false)
@@ -1243,7 +1268,8 @@ pub async fn get_app_version() -> Result<String, String> {
 #[tauri::command]
 pub async fn get_agent_version() -> Result<String, String> {
     let client = reqwest::Client::new();
-    let agent_url = "http://localhost:8080";
+    let port = get_agent_port().await;
+    let agent_url = format!("http://localhost:{}", port);
     
     match client.get(format!("{}/health", agent_url)).send().await {
         Ok(response) => {

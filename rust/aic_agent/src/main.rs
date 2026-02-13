@@ -143,11 +143,41 @@ async fn main() -> Result<()> {
         .with_state(state);
     info!("Routes registered");
 
-    let bind_address = format!("127.0.0.1:{}", args.port);
-    info!("Attempting to bind to {}", bind_address);
-    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
-    info!("Successfully bound to {}", bind_address);
+    // Try to bind to the requested port, or fallback to random available port
+    let mut port = args.port;
+    let mut listener = None;
+    let max_attempts = 100;
 
+    info!("Attempting to bind to port {}", port);
+    for attempt in 0..max_attempts {
+        let bind_address = format!("127.0.0.1:{}", port);
+        match tokio::net::TcpListener::bind(&bind_address).await {
+            Ok(l) => {
+                listener = Some(l);
+                info!("Successfully bound to 127.0.0.1:{}", port);
+                break;
+            }
+            Err(e) => {
+                if attempt < max_attempts - 1 {
+                    port += 1;
+                    if port > 65000 {
+                        port = 1024;
+                    }
+                    warn!("Port {} unavailable ({}), trying {}...", port, e, port + 1);
+                } else {
+                    return Err(anyhow::anyhow!("Failed to bind to any port after {} attempts: {}", max_attempts, e));
+                }
+            }
+        }
+    }
+
+    // Write the actual port to a file for the app to read
+    let port_file_path = std::env::current_dir().map(|p| p.join(".agent_port")).unwrap_or_default();
+    let port_str = port.to_string();
+    let _ = std::fs::write(&port_file_path, &port_str);
+    info!("Wrote port {} to {}", port, port_file_path.display());
+
+    let listener = listener.unwrap();
     axum::serve(listener, app).await?;
 
     if let Some(handle) = scheduler_handle {
