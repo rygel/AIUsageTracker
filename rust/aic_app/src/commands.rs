@@ -92,6 +92,8 @@ pub async fn refresh_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
     let client = reqwest::Client::new();
     let port = get_agent_port().await;
     let url = format!("http://localhost:{}/api/providers/usage/refresh", port);
+
+    match client.post(&url).send().await {
         Ok(response) => {
             // Check if we got a successful status code
             if !response.status().is_success() {
@@ -116,7 +118,7 @@ pub async fn refresh_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
         Err(e) => {
             error!("Failed to connect to agent for refresh: {}", e);
             if e.is_connect() {
-                Err(format!("Agent not running: Cannot connect to agent on port 8080. Please start the agent."))
+                Err(format!("Agent not running: Cannot connect to agent. Please start the agent."))
             } else if e.is_timeout() {
                 Err(format!("Agent timeout: The agent did not respond in time."))
             } else {
@@ -131,6 +133,7 @@ pub async fn get_historical_usage_from_agent(
     provider_id: Option<String>,
     limit: Option<u32>,
 ) -> Result<Vec<serde_json::Value>, String> {
+    let port = get_agent_port().await;
     let mut url = format!("http://localhost:{}/api/history", port);
     let mut params = Vec::new();
     
@@ -168,6 +171,7 @@ pub async fn get_raw_responses_from_agent(
     provider_id: Option<String>,
     limit: Option<u32>,
 ) -> Result<Vec<serde_json::Value>, String> {
+    let port = get_agent_port().await;
     let mut url = format!("http://localhost:{}/api/raw_responses", port);
     let mut params = Vec::new();
     
