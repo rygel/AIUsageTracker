@@ -245,18 +245,13 @@ impl AntigravityProvider {
                 }
             }
 
-            let detail_used_pct = 100.0 - remaining_pct;
-
-            let reset_str = if let Some(dt) = item_reset_dt {
-                format!(" (Resets: ({}))", dt.format("%b %d %H:%M"))
-            } else {
-                String::new()
-            };
+            // For Antigravity, show remaining percentage (green when full, empty when exhausted)
+            let detail_remaining_pct = remaining_pct;
 
             details.push(ProviderUsageDetail {
                 name: label,
-                used: format!("{:.0}%", detail_used_pct),
-                description: reset_str,
+                used: format!("{:.0}%", detail_remaining_pct),
+                description: String::new(),
                 next_reset_time: item_reset_dt,
             });
 
@@ -275,18 +270,19 @@ impl AntigravityProvider {
             }
         });
 
-        let used_pct_total = 100.0 - min_remaining;
+        // For Antigravity, show remaining percentage (green when full, empty when exhausted)
+        let remaining_pct_total = min_remaining;
 
         Ok(ProviderUsage {
             provider_id: "antigravity".to_string(),
             provider_name: "Antigravity".to_string(),
-            usage_percentage: used_pct_total,
-            cost_used: used_pct_total,
+            usage_percentage: remaining_pct_total,
+            cost_used: remaining_pct_total,
             cost_limit: 100.0,
             usage_unit: "Quota %".to_string(),
             is_quota_based: true,
             payment_type: PaymentType::Quota,
-            description: format!("{:.1}% Used", used_pct_total),
+            description: format!("{:.1}% Remaining", remaining_pct_total),
             details: if details.is_empty() {
                 None
             } else {
