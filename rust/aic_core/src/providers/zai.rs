@@ -1,7 +1,7 @@
 use crate::models::{PaymentType, ProviderConfig, ProviderUsage};
 use crate::provider::ProviderService;
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use log::error;
 use reqwest::Client;
 use serde::Deserialize;
@@ -146,15 +146,16 @@ impl ProviderService for ZaiProvider {
                             }
                         }
 
-                        // Z.AI resets at UTC midnight
-                        let reset_dt = Utc::now()
+                        // Z.AI resets at UTC midnight - convert to local time for display
+                        let reset_dt_utc = Utc::now()
                             .date_naive()
                             .and_hms_opt(0, 0, 0)
                             .unwrap_or_else(|| Utc::now().naive_utc())
                             + chrono::Duration::days(1);
-                        let reset_datetime = DateTime::from_naive_utc_and_offset(reset_dt, Utc);
+                        let reset_datetime_utc = DateTime::from_naive_utc_and_offset(reset_dt_utc, Utc);
+                        let reset_datetime_local = reset_datetime_utc.with_timezone(&Local);
                         let z_reset =
-                            format!(" (Resets: ({}))", reset_datetime.format("%b %d %H:%M"));
+                            format!(" (Resets: ({}))", reset_datetime_local.format("%b %d %H:%M"));
 
                         let remaining_percent = 100.0 - used_percent.min(100.0);
                         
@@ -177,7 +178,7 @@ impl ProviderService for ZaiProvider {
                                 },
                                 z_reset
                             ),
-                            next_reset_time: Some(reset_datetime),
+                            next_reset_time: Some(reset_datetime_utc),
                             ..Default::default()
                         }]
                     }
