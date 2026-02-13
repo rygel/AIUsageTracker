@@ -8,6 +8,7 @@ use aic_core::{
 use aic_app::commands::*;
 use clap::Parser;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tauri::{
@@ -371,14 +372,16 @@ async fn main() {
                 
                 // Handle window close event - cleanup and exit
                 let window_clone = window.clone();
+                let main_closing = Arc::new(AtomicBool::new(false));
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        if main_closing.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+                            return; // Already closing
+                        }
                         info!("Main window close requested - cleaning up");
                         api.prevent_close();
-                        // Close all windows and exit
+                        // Remove tray icon and exit directly
                         let app_handle = window_clone.app_handle().clone();
-                        let _ = app_handle.get_webview_window("settings").map(|w| w.close());
-                        let _ = app_handle.get_webview_window("info").map(|w| w.close());
                         let _ = app_handle.remove_tray_by_id("main");
                         app_handle.exit(0);
                     }
@@ -392,8 +395,12 @@ async fn main() {
             // Add close handler for settings window
             if let Some(settings_window) = app.get_webview_window("settings") {
                 let settings_window_clone = settings_window.clone();
+                let settings_closing = Arc::new(AtomicBool::new(false));
                 settings_window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        if settings_closing.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+                            return; // Already closing
+                        }
                         info!("Settings window close requested");
                         api.prevent_close();
                         let _ = settings_window_clone.close();
@@ -405,8 +412,12 @@ async fn main() {
             // Add close handler for info window
             if let Some(info_window) = app.get_webview_window("info") {
                 let info_window_clone = info_window.clone();
+                let info_closing = Arc::new(AtomicBool::new(false));
                 info_window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        if info_closing.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+                            return; // Already closing
+                        }
                         info!("Info window close requested");
                         api.prevent_close();
                         let _ = info_window_clone.close();
