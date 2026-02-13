@@ -758,15 +758,22 @@
 
         async function loadAppVersion() {
             try {
+                console.log('Loading app version...');
                 if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
                     const version = await window.__TAURI__.core.invoke('get_app_version');
+                    console.log('Got version:', version);
                     const versionElement = document.getElementById('versionText');
                     if (versionElement && version) {
                         versionElement.textContent = 'v' + version;
+                        console.log('Version displayed:', versionElement.textContent);
+                    } else {
+                        console.warn('Version element not found or version is empty');
                     }
+                } else {
+                    console.warn('Tauri API not available');
                 }
             } catch (e) {
-                console.log('Could not load app version:', e);
+                console.error('Could not load app version:', e);
             }
         }
 
