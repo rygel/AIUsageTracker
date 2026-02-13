@@ -13,6 +13,34 @@ impl SyntheticProvider {
     pub fn new(client: Client) -> Self {
         Self { client }
     }
+
+    /// Try to load provider URL from providers.json file
+    async fn get_url_from_providers_file(&self) -> Option<String> {
+        let providers_paths = [
+            directories::BaseDirs::new()
+                .map(|base| base.home_dir().join(".local/share/opencode/providers.json"))
+                .unwrap_or_default(),
+            directories::BaseDirs::new()
+                .map(|base| base.home_dir().join(".config/opencode/providers.json"))
+                .unwrap_or_default(),
+        ];
+
+        for path in &providers_paths {
+            if path.exists() {
+                if let Ok(content) = tokio::fs::read_to_string(path).await {
+                    if let Ok(providers) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
+                        if let Some(url) = providers.get("synthetic") {
+                            if !url.is_empty() {
+                                return Some(url.clone());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,11 +73,24 @@ impl ProviderService for SyntheticProvider {
             }];
         }
 
-        // Default URL for Synthetic
-        let url = config
-            .base_url
-            .clone()
-            .unwrap_or_else(|| "https://api.synthitic.ai/v1/usage".to_string());
+        // Get URL from config or try providers.json
+        let url = match &config.base_url {
+            Some(url) => url.clone(),
+            None => {
+                // Try to load URL from providers.json
+                if let Some(url) = self.get_url_from_providers_file().await {
+                    url
+                } else {
+                    return vec![ProviderUsage {
+                        provider_id: self.provider_id().to_string(),
+                        provider_name: "Synthetic".to_string(),
+                        is_available: false,
+                        description: "Configuration Required (Add 'base_url' to auth.json)".to_string(),
+                        ..Default::default()
+                    }];
+                }
+            }
+        };
 
         match self
             .client
