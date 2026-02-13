@@ -961,8 +961,9 @@ pub async fn find_agent_executable(app_handle: &tauri::AppHandle) -> Result<Stri
     // Try each path
     info!("Searching for agent executable in {} possible locations", possible_paths.len());
     for (idx, path) in possible_paths.iter().enumerate() {
-        debug!("[{}] Checking for agent at: {:?}", idx, path);
-        if path.exists() {
+        let exists = path.exists();
+        debug!("[{}] Checking for agent at: {:?} - exists: {}", idx, path, exists);
+        if exists {
             info!("Found agent executable at: {:?}", path);
             return Ok(path.to_string_lossy().to_string());
         }
@@ -1035,11 +1036,19 @@ pub async fn start_agent_internal(
     }
 
     debug!("Searching for agent executable");
-    let agent_path = find_agent_executable(app_handle).await?;
-    info!("Found agent executable at: {}", agent_path);
+    let agent_path = match find_agent_executable(app_handle).await {
+        Ok(path) => {
+            info!("Found agent executable at: {}", path);
+            path
+        }
+        Err(e) => {
+            error!("Agent executable not found: {}", e);
+            return Err(e);
+        }
+    };
 
-    debug!("Spawning agent process");
-    match Command::new(agent_path).spawn() {
+    info!("[START] Spawning agent process: {}", agent_path);
+    match Command::new(&agent_path).spawn() {
         Ok(child) => {
             let pid = child.id();
             *agent_process = Some(child);

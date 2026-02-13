@@ -441,31 +441,37 @@ async fn main() {
             let app_handle = app.handle().clone();
             let agent_process = app.state::<AppState>().agent_process.clone();
             tokio::spawn(async move {
+                info!("[AUTO-START] Waiting 2 seconds before checking agent status...");
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
                 
-                info!("Checking if agent is running on startup...");
+                info!("[AUTO-START] Checking if agent is running on startup...");
                 let is_running = match check_agent_status().await {
-                    Ok(running) => running,
+                    Ok(running) => {
+                        info!("[AUTO-START] Agent status check result: {}", running);
+                        running
+                    }
                     Err(e) => {
-                        error!("Failed to check agent status: {}", e);
+                        error!("[AUTO-START] Failed to check agent status: {}", e);
                         false
                     }
                 };
 
                 if !is_running {
-                    info!("Agent not running, starting automatically...");
+                    info!("[AUTO-START] Agent not running, starting automatically...");
                     match start_agent_internal(&app_handle, agent_process).await {
                         Ok(started) => {
                             if started {
-                                info!("Agent started successfully");
+                                info!("[AUTO-START] Agent started successfully");
                             } else {
-                                warn!("Agent failed to start");
+                                warn!("[AUTO-START] Agent failed to start (returned false)");
                             }
                         }
                         Err(e) => {
-                            error!("Failed to start agent: {}", e);
+                            error!("[AUTO-START] Failed to start agent: {}", e);
                         }
                     }
+                } else {
+                    info!("[AUTO-START] Agent is already running, no need to start");
                 }
             });
 
