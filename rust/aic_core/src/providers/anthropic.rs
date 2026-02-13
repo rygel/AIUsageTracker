@@ -14,7 +14,7 @@ impl ProviderService for AnthropicProvider {
         if config.api_key.is_empty() {
             return vec![ProviderUsage {
                 provider_id: self.provider_id().to_string(),
-                provider_name: "Anthropic".to_string(),
+                provider_name: "Claude Code".to_string(),
                 is_available: false,
                 description: "API Key missing".to_string(),
                 ..Default::default()
@@ -23,7 +23,7 @@ impl ProviderService for AnthropicProvider {
 
         vec![ProviderUsage {
             provider_id: self.provider_id().to_string(),
-            provider_name: "Anthropic".to_string(),
+            provider_name: "Claude Code".to_string(),
             is_available: true,
             usage_percentage: 0.0,
             is_quota_based: false,
