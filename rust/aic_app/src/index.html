@@ -1,2 +1,1617 @@
-fatal: path 'rust/aic_app/src/index.html' exists, but not 'aic_app/src/index.html'
-hint: Did you mean '2c86620:rust/aic_app/src/index.html' aka '2c86620:./aic_app/src/index.html'?
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Consumption Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: rgba(30, 30, 30, 0.95);
+            --bg-medium: rgba(37, 37, 38, 0.95);
+            --border-color: rgba(51, 51, 51, 0.8);
+            --text-primary: #FFFFFF;
+            --text-secondary: #AAAAAA;
+            --accent-blue: #007ACC;
+            --accent-green: #00CC6A;
+            --accent-red: #FF1744;
+            --accent-yellow: #FFD600;
+        }
+
+        html,
+        body {
+            background: transparent !important;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background: var(--bg-dark);
+            border: 1px solid var(--border-color);
+        }
+
+        .header {
+            background: var(--bg-medium);
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            -webkit-app-region: drag;
+            app-region: drag;
+            border-bottom: 1px solid var(--border-color);
+            cursor: default;
+            min-height: 40px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-icon {
+            width: 18px;
+            height: 18px;
+            background: var(--accent-blue);
+            border-radius: 3px;
+        }
+
+        .app-title {
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .app-version {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+        }
+
+        .header-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            line-height: 1;
+            border-radius: 3px;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+            transition: all 0.2s;
+        }
+
+        .header-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .header-btn.active {
+            color: #FFD700;
+            /* Gold color for privacy mode */
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            border-radius: 3px;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            color: var(--text-primary);
+            background: var(--accent-red);
+        }
+
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px 8px;
+            background: var(--bg-dark);
+        }
+
+        .provider-item {
+            background: #232323;
+            border-radius: 0;
+            padding: 8px 10px;
+            margin-bottom: 4px;
+            border: 1px solid #323232;
+        }
+
+        .provider-item.child {
+            background: #282828;
+            margin-left: 16px;
+            padding: 6px 8px;
+            margin-bottom: 3px;
+        }
+
+        .provider-item.unavailable {
+            opacity: 0.6;
+            border-color: #800000;
+        }
+
+        .provider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+
+        .provider-name {
+            font-weight: 600;
+            font-size: 13px;
+            color: #FFFFFF;
+        }
+
+        .provider-type {
+            font-size: 10px;
+            color: #AAAAAA;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 0;
+        }
+
+        .provider-bar-container {
+            background: #323232;
+            border-radius: 0;
+            height: 4px;
+            overflow: hidden;
+            margin-bottom: 6px;
+            margin-right: 10px;
+        }
+
+        .provider-bar {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            padding: 0;
+            font-size: 0;
+            transition: width 0.3s ease;
+        }
+
+        .provider-bar.low {
+            background: #3CB371;
+        }
+
+        /* MediumSeaGreen */
+        .provider-bar.medium {
+            background: #FFD700;
+        }
+
+        /* Gold */
+        .provider-bar.high {
+            background: #DC143C;
+        }
+
+        /* Crimson */
+        .provider-bar.inactive {
+            background: #666;
+        }
+
+        .provider-bar.status {
+            background: #007ACC;
+        }
+
+        .provider-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10.5px;
+            color: #808080;
+            line-height: 1.2;
+        }
+
+        .child-indicator {
+            width: 6px;
+            height: 6px;
+            background: #808080;
+            border-radius: 50%;
+            margin-right: 12px;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        /* Dark scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+            border-radius: 0;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+            border: 2px solid #1e1e1e;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f4f4f;
+        }
+
+        ::-webkit-scrollbar-corner {
+            background: #1e1e1e;
+        }
+
+        /* Firefox scrollbar */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #424242 #1e1e1e;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .footer {
+            background: var(--bg-medium);
+            padding: 6px 10px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            min-height: 36px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 12px;
+            height: 12px;
+            accent-color: var(--accent-blue);
+            cursor: pointer;
+        }
+
+        .footer-right {
+            display: flex;
+            gap: 4px;
+        }
+
+        .icon-btn {
+            background: #444444;
+            border: none;
+            color: var(--text-primary);
+            width: 32px;
+            height: 30px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+            position: relative;
+        }
+
+        .icon-btn::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+        }
+
+        .icon-btn:hover::after {
+            opacity: 1;
+        }
+
+        .icon-btn:hover {
+            background: #555555;
+        }
+
+        .icon-btn.active {
+            color: var(--accent-green);
+        }
+
+        .group-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .group-header .group-toggle {
+            transition: transform 0.2s ease;
+        }
+
+        .group-header:active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .error-message {
+            background: rgba(255, 23, 68, 0.1);
+            border: 1px solid var(--accent-red);
+            border-radius: 4px;
+            padding: 12px;
+            margin: 10px;
+            color: var(--text-primary);
+            font-size: 12px;
+        }
+
+        .error-message .error-title {
+            font-weight: bold;
+            color: var(--accent-red);
+            margin-bottom: 8px;
+        }
+
+        .error-message .error-details {
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 11px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px;
+            border-radius: 3px;
+        }
+
+        .error-message .error-actions {
+            margin-top: 10px;
+        }
+
+        .error-message button {
+            background: #444;
+            border: 1px solid #555;
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            margin-right: 8px;
+        }
+
+        .error-message button:hover {
+            background: #555;
+        }
+
+        .sub-providers-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .sub-providers-header .sub-toggle {
+            transition: transform 0.2s ease;
+        }
+
+        .sub-providers-header:active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .error {
+            color: var(--accent-red);
+            padding: 20px;
+            text-align: center;
+        }
+
+        .agent-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-left: 12px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+            transition: background-color 0.3s ease;
+        }
+
+        .status-indicator.connected {
+            background: var(--accent-green);
+            box-shadow: 0 0 4px var(--accent-green);
+        }
+
+        .status-indicator.disconnected {
+            background: var(--accent-red);
+        }
+
+        .status-indicator.connecting {
+            background: var(--accent-yellow);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-indicator.error {
+            background: var(--accent-red);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Compact Mode Styles */
+        .provider-item.compact {
+            padding: 3px 6px;
+            margin-bottom: 2px;
+            border-radius: 0;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            background: #252525;
+            border: 1px solid #2a2a2a;
+        }
+
+        .provider-item.compact .provider-progress-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: var(--accent-green);
+            opacity: 0.3;
+            z-index: 0;
+            transition: width 0.3s ease;
+        }
+
+        .provider-item.compact .provider-progress-bg.medium {
+            background: var(--accent-yellow);
+        }
+
+        .provider-item.compact .provider-progress-bg.high {
+            background: var(--accent-red);
+        }
+
+        .provider-item.compact .provider-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            width: 100%;
+            font-size: 10px;
+        }
+
+        .provider-item.compact .provider-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-size: 11px;
+        }
+
+        .provider-item.compact .provider-status {
+            color: var(--text-secondary);
+            white-space: nowrap;
+            margin-left: 6px;
+            font-size: 10px;
+        }
+
+        .provider-item.compact.child {
+            background: #202020;
+            border-color: #252525;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <div class="header" data-tauri-drag-region>
+            <div class="header-left">
+                <div class="app-icon"></div>
+                <span class="app-title">AI Consumption Tracker</span>
+                <span class="app-version" id="versionText">v</span>
+            </div>
+            <div class="header-right">
+                <button class="header-btn" id="privacyToggleBtn" title="Toggle Privacy Mode">🔒</button>
+                <button class="close-btn" id="closeBtn" title="Close">×</button>
+            </div>
+        </div>
+
+        <div class="content" id="providersList">
+            <div class="loading">Loading providers...</div>
+        </div>
+
+        <div class="footer">
+            <label class="checkbox-label">
+                <input type="checkbox" id="showAllToggle" checked>
+                <span>Show All</span>
+            </label>
+            <div class="agent-status" id="agentStatus">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Checking...</span>
+            </div>
+            <div class="footer-right">
+                <label class="checkbox-label" style="margin-right: 8px;">
+                    <input type="checkbox" id="alwaysOnTopToggle">
+                    <span>Top</span>
+                </label>
+                <label class="checkbox-label" style="margin-right: 8px;">
+                    <input type="checkbox" id="stayOpenToggle">
+                    <span>Pin</span>
+                </label>
+                <label class="checkbox-label" style="margin-right: 8px;">
+                    <input type="checkbox" id="compactToggle" checked>
+                    <span>Compact</span>
+                </label>
+                <button class="icon-btn" id="agentBtn" title="Agent Management">🤖</button>
+                <button class="icon-btn" id="refreshBtn" title="Refresh">↻</button>
+                <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let showAll = true;
+        let privacyMode = false;
+        let compactMode = true; // Default to compact mode
+        let usageData = [];
+        let agentConnected = false; // Shared agent status
+        let prefs = {
+            yellow_threshold: 60,
+            red_threshold: 80,
+            invert_progress_bar: false
+        }; // Default preferences
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('DOM loaded');
+            console.log('Tauri object:', typeof window.__TAURI__);
+            console.log('Tauri keys:', window.__TAURI__ ? Object.keys(window.__TAURI__) : 'none');
+
+            // Setup close button with IPC
+            document.getElementById('closeBtn').addEventListener('click', function () {
+                console.log('Close clicked');
+
+                // Try core.invoke (Tauri 2.0)
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    console.log('Using core.invoke');
+                    window.__TAURI__.core.invoke('close_window')
+                        .then(() => console.log('Close invoked via core'))
+                        .catch(e => console.error('Close error:', e));
+                } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                    console.log('Using invoke');
+                    window.__TAURI__.invoke('close_window')
+                        .then(() => console.log('Close invoked'))
+                        .catch(e => console.error('Close error:', e));
+                } else {
+                    console.error('No invoke method found');
+                }
+            });
+
+            // Setup other buttons
+            document.getElementById('agentBtn').addEventListener('click', toggleAgent);
+            document.getElementById('privacyToggleBtn').addEventListener('click', togglePrivacy);
+            document.getElementById('refreshBtn').addEventListener('click', refreshData);
+            document.getElementById('settingsBtn').addEventListener('click', openSettings);
+
+            // Setup privacy mode listener for cross-window sync
+            setupPrivacyModeListener();
+
+            // Load saved privacy mode
+            loadPrivacyMode();
+            document.getElementById('showAllToggle').addEventListener('change', refreshData);
+            document.getElementById('alwaysOnTopToggle').addEventListener('change', toggleAlwaysOnTop);
+
+            // Setup compact mode toggle
+            document.getElementById('compactToggle').addEventListener('change', function () {
+                compactMode = this.checked;
+                renderProviders();
+            });
+
+            // Load preferences
+            loadPreferences();
+
+            // Load and display app version
+            loadAppVersion();
+
+            // Load initial data
+            loadData();
+
+            // Check agent status immediately and periodically
+            checkAgentStatus();
+            setInterval(checkAgentStatus, 5000);
+
+            // Listen for window focus events to reload preferences
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('tauri://focus', async () => {
+                    console.log('Window focused - reloading preferences');
+                    await loadPreferences();
+                    renderProviders();
+                });
+            }
+        });
+
+        async function loadData() {
+            const container = document.getElementById('providersList');
+
+            // Check if agent is connected before trying to load
+            if (!agentConnected) {
+                container.innerHTML = '<div class="loading">Waiting for agent...</div>';
+                return;
+            }
+
+            container.innerHTML = '<div class="loading">Loading...</div>';
+
+            try {
+                let data = [];
+
+                // Get data ONLY from agent
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    data = await window.__TAURI__.core.invoke('get_usage_from_agent');
+                    console.log('Loaded usage from agent:', data);
+                }
+
+                usageData = data || [];
+                renderProviders();
+
+                // Preload settings data in background for faster settings window opening
+                console.log('Preloading settings data in background...');
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    window.__TAURI__.core.invoke('preload_settings_data')
+                        .then(() => console.log('Settings data preloaded successfully'))
+                        .catch(e => console.log('Could not preload settings data:', e));
+                }
+            } catch (err) {
+                console.error('Error loading data:', err);
+                // Extract the error message from the error object
+                let errorMessage = 'Failed to load data from agent';
+                if (err && err.message) {
+                    errorMessage = err.message;
+                } else if (typeof err === 'string') {
+                    errorMessage = err;
+                }
+                container.innerHTML = '<div class="error">' + escapeHtml(errorMessage) + '</div>';
+            }
+        }
+
+        function formatProviderName(id) {
+            const names = {
+                'github-copilot': 'GitHub Copilot',
+                'openai': 'OpenAI',
+                'anthropic': 'Anthropic',
+                'deepseek': 'DeepSeek',
+                'gemini': 'Google Gemini',
+                'kimi': 'Kimi'
+            };
+            return names[id] || id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        }
+
+        async function loadPreferences() {
+            try {
+                // First try to load from Tauri preferences
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    const loadedPrefs = await window.__TAURI__.core.invoke('load_preferences');
+                    if (loadedPrefs) {
+                        prefs = { ...prefs, ...loadedPrefs };
+                        console.log('Loaded preferences from Tauri:', prefs);
+                    }
+                } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                    const loadedPrefs = await window.__TAURI__.invoke('load_preferences');
+                    if (loadedPrefs) {
+                        prefs = { ...prefs, ...loadedPrefs };
+                        console.log('Loaded preferences from Tauri:', prefs);
+                    }
+                }
+
+                // Also check localStorage for always_on_top (fallback and immediate persistence)
+                try {
+                    const localAlwaysOnTop = localStorage.getItem('always_on_top');
+                    if (localAlwaysOnTop !== null) {
+                        prefs.always_on_top = JSON.parse(localAlwaysOnTop);
+                    }
+                } catch (e) {
+                    console.warn('Could not read localStorage:', e);
+                }
+
+                // Apply always_on_top if it was saved
+                if (prefs.always_on_top) {
+                    const toggle = document.getElementById('alwaysOnTopToggle');
+                    if (toggle) {
+                        toggle.checked = true;
+                        // Apply the setting
+                        if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                            await window.__TAURI__.core.invoke('toggle_always_on_top', { enabled: true });
+                        } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                            await window.__TAURI__.invoke('toggle_always_on_top', { enabled: true });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.log('Could not load preferences, using defaults:', e);
+            }
+        }
+
+        async function loadAppVersion() {
+            try {
+                console.log('Loading app version...');
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    const version = await window.__TAURI__.core.invoke('get_app_version');
+                    console.log('Got version:', version);
+                    const versionElement = document.getElementById('versionText');
+                    if (versionElement && version) {
+                        versionElement.textContent = 'v' + version;
+                        console.log('Version displayed:', versionElement.textContent);
+                    } else {
+                        console.warn('Version element not found or version is empty');
+                    }
+                } else {
+                    console.warn('Tauri API not available');
+                }
+            } catch (e) {
+                console.error('Could not load app version:', e);
+            }
+        }
+
+        async function refreshData() {
+            showAll = document.getElementById('showAllToggle').checked;
+
+            // Check if agent is connected before refreshing
+            if (!agentConnected) {
+                return; // Silently ignore if agent not connected
+            }
+
+            document.getElementById('refreshBtn').style.opacity = '0.5';
+
+            try {
+                let data = [];
+
+                // Refresh ONLY via agent
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    data = await window.__TAURI__.core.invoke('refresh_usage_from_agent');
+                    console.log('Refreshed usage from agent:', data);
+                }
+
+                usageData = data || [];
+                renderProviders();
+
+                // Preload settings data after refresh
+                console.log('Preloading settings data after refresh...');
+                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                    window.__TAURI__.core.invoke('preload_settings_data')
+                        .then(() => console.log('Settings data preloaded after refresh'))
+                        .catch(e => console.log('Could not preload settings data:', e));
+                }
+            } catch (err) {
+                console.error('Error refreshing data:', err);
+                // Show error message to user
+                let errorMessage = 'Failed to refresh data';
+                if (err && err.message) {
+                    errorMessage = err.message;
+                } else if (typeof err === 'string') {
+                    errorMessage = err;
+                }
+                const container = document.getElementById('providersList');
+                if (container) {
+                    container.innerHTML = '<div class="error">' + escapeHtml(errorMessage) + '</div>';
+                }
+            } finally {
+                document.getElementById('refreshBtn').style.opacity = '1';
+            }
+        }
+
+        function renderProviders() {
+            const container = document.getElementById('providersList');
+            let filtered = showAll ? usageData : usageData.filter(u => u.is_available);
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div style="font-size: 24px; margin-bottom: 10px;">📊</div><div>No providers configured</div><div style="font-size: 11px; color: #666; margin-top: 8px;">Use CLI: aic-cli auth &lt;provider&gt;</div></div>';
+                return;
+            }
+
+            // Group providers by payment type
+            const quotaItems = filtered.filter(u => u.is_quota_based || u.payment_type === 'credits');
+            const payGoItems = filtered.filter(u => !u.is_quota_based && u.payment_type !== 'credits');
+
+            // Sort each group alphabetically
+            const sortByName = (a, b) => a.provider_name.localeCompare(b.provider_name);
+            quotaItems.sort(sortByName);
+            payGoItems.sort(sortByName);
+
+            // Group collapse state (persisted in localStorage)
+            let groupCollapseState = {
+                'Plans & Quotas': localStorage.getItem('group_collapsed_plans') === 'true',
+                'Pay As You Go': localStorage.getItem('group_collapsed_paygo') === 'true'
+            };
+
+            // Provider sub-provider collapse state (persisted in localStorage)
+            function getProviderCollapsed(providerId) {
+                return localStorage.getItem(`provider_collapsed_${providerId}`) === 'true';
+            }
+
+            function setProviderCollapsed(providerId, collapsed) {
+                localStorage.setItem(`provider_collapsed_${providerId}`, collapsed.toString());
+            }
+
+            // Helper function to create group header
+            const createGroupHeader = (title, color, groupId) => {
+                const isCollapsed = groupCollapseState[title] || false;
+                return `
+                    <div class="group-header" data-group="${groupId}" style="display: flex; align-items: center; margin: 16px 0 10px 0; cursor: pointer; user-select: none;" title="Click to ${isCollapsed ? 'expand' : 'collapse'}">
+                        <span class="group-toggle" style="font-size: 10px; margin-right: 6px; transition: transform 0.2s;">${isCollapsed ? '▶' : '▼'}</span>
+                        <span style="font-size: 10px; font-weight: bold; color: ${color}; text-transform: uppercase; letter-spacing: 1px; margin-right: 10px;">${title}</span>
+                        <div style="flex: 1; height: 1px; background: ${color}; opacity: 0.3;"></div>
+                    </div>
+                    <div class="group-content" data-group="${groupId}" style="display: ${isCollapsed ? 'none' : 'block'};">
+                `;
+            };
+
+            // Helper function to format reset display (relative and absolute time)
+            // All times from server are UTC - JavaScript Date parses them correctly
+            function formatResetDisplay(nextReset) {
+                if (!nextReset) return '';
+
+                // Parse UTC timestamp from server (e.g., "2024-02-14T22:35:00Z")
+                // JavaScript Date automatically converts to local timezone
+                const resetDate = new Date(nextReset);
+                const now = new Date();
+                const diffMs = resetDate - now;
+
+                if (diffMs <= 0) return '(Resets: Ready)';
+
+                // Calculate relative time
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+
+                let relative = '';
+                if (diffDays >= 1) {
+                    const remainingHours = Math.floor((diffMs % 86400000) / 3600000);
+                    relative = `${diffDays}d ${remainingHours}h`;
+                } else if (diffHours >= 1) {
+                    const remainingMins = Math.floor((diffMs % 3600000) / 60000);
+                    relative = `${diffHours}h ${remainingMins}m`;
+                } else {
+                    relative = `${diffMins}m`;
+                }
+
+                // Format absolute time: "Feb 05 14:30"
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const month = months[resetDate.getMonth()];
+                const day = resetDate.getDate().toString().padStart(2, '0');
+                const hours = resetDate.getHours().toString().padStart(2, '0');
+                const mins = resetDate.getMinutes().toString().padStart(2, '0');
+                const absolute = `${month} ${day} ${hours}:${mins}`;
+
+                // Return both: "(Resets: 2d 5h - Feb 05 14:30)"
+                return `(Resets: ${relative} - ${absolute})`;
+            }
+
+            // Helper function to render a single provider
+            const renderProvider = (p) => {
+                let providerHtml = '';
+                let pct = p.usage_percentage || 0;
+                const avail = p.is_available;
+
+                // Apply inverted calculation if enabled
+                let displayPct = pct;
+                let barWidth = pct;
+                // Use server-provided remaining_percentage when available (Antigravity, Gemini, ZAI, etc.)
+                if (p.remaining_percentage !== undefined && p.remaining_percentage !== null) {
+                    barWidth = p.remaining_percentage;
+                    displayPct = p.remaining_percentage; // Show remaining in text too
+                } else if (prefs.invert_progress_bar && avail) {
+                    displayPct = Math.max(0, 100 - pct);
+                    barWidth = displayPct;
+                }
+
+                // Use preferences for color thresholds
+                let cls = 'low';
+                if (!avail) cls = 'inactive';
+                else if (p.usage_unit === 'Status') cls = 'status';
+                else if (pct >= prefs.red_threshold) cls = 'high';
+                else if (pct >= prefs.yellow_threshold) cls = 'medium';
+
+                const type = p.is_quota_based ? 'Quota' : p.payment_type === 'credits' ? 'Credits' : 'Pay-As-You-Go';
+
+                // Format description based on payment type
+                let desc = '';
+                if (!avail) {
+                    desc = p.description || 'Not Available';
+                } else if (p.usage_unit === 'Status') {
+                    desc = p.description || 'Connected';
+                } else if (p.payment_type === 'credits' && p.cost_limit > 0) {
+                    const remaining = p.cost_limit - p.cost_used;
+                    desc = `${remaining.toFixed(2)} ${p.usage_unit || 'Credits'} Remaining`;
+                } else if (p.payment_type === 'usage_based' && p.cost_limit > 0) {
+                    desc = `Spent: ${p.cost_used.toFixed(2)} ${p.usage_unit || 'USD'} / Limit: ${p.cost_limit.toFixed(2)}`;
+                } else {
+                    desc = p.description || `${displayPct.toFixed(0)}%`;
+                }
+
+                if (privacyMode && p.cost_used > 0) desc = '••••••••';
+
+                const width = avail ? Math.min(barWidth, 100) : 0;
+
+                // Check if compact mode
+                if (compactMode) {
+                    // Compact view with sub-bars support
+                    let progressClass = 'low';
+                    if (!avail) progressClass = 'inactive';
+                    else if (pct >= prefs.red_threshold) progressClass = 'high';
+                    else if (pct >= prefs.yellow_threshold) progressClass = 'medium';
+
+                    let statusText = '';
+                    if (!avail) statusText = 'N/A';
+                    else if (p.usage_unit === 'Status') statusText = 'OK';
+                    else statusText = displayPct.toFixed(0) + '%';
+
+                    let statusDetail = '';
+                    if (avail && p.cost_used > 0 && !privacyMode) {
+                        statusDetail = '$' + p.cost_used.toFixed(2);
+                    } else if (avail && p.usage_unit !== 'Status' && !privacyMode) {
+                        statusDetail = pct.toFixed(0) + '%';
+                    } else {
+                        statusDetail = desc || '';
+                    }
+
+                    // Calculate reset time display
+                    let resetText = '';
+                    if (p.next_reset_time) {
+                        resetText = formatResetDisplay(p.next_reset_time);
+                    }
+
+                    // Build display name with account name for providers that have it
+                    let displayName = p.provider_name;
+                    if (p.account_name && p.account_name.trim() !== '') {
+                        const accountDisplay = privacyMode ? '***' : escapeHtml(p.account_name);
+                        displayName = escapeHtml(p.provider_name) + ' [' + accountDisplay + ']';
+                    } else {
+                        displayName = escapeHtml(p.provider_name);
+                    }
+
+                    // Main compact item - status first, reset time rightmost
+                    providerHtml += '<div class="provider-item compact' + (avail ? '' : ' unavailable') + '">' +
+                        (avail && width > 0 ? '<div class="provider-progress-bg ' + progressClass + '" style="width:' + width + '%"></div>' : '') +
+                        '<div class="provider-content">' +
+                        '<span class="provider-name">' + displayName + '</span>' +
+                        '<span style="flex:1;"></span>' + // Spacer to push right content
+                        '<span class="provider-status">' + escapeHtml(statusText) + (statusDetail ? ' (' + escapeHtml(statusDetail) + ')' : '') + '</span>' +
+                        (resetText ? '<span class="provider-status" style="color:#FFD700;font-weight:600;margin-left:10px;">' + escapeHtml(resetText) + '</span>' : '') +
+                        '</div></div>';
+
+                    // Add compact collapsible sub-bars section for providers with details
+                    if (p.details && p.details.length > 0 && avail) {
+                        const isSubCollapsed = getProviderCollapsed(p.provider_id);
+                        const subCount = p.details.length;
+
+                        providerHtml += '<div class="sub-providers-header" data-provider="' + p.provider_id + '" style="display: flex; align-items: center; margin-top: 4px; margin-left: 16px; cursor: pointer; user-select: none; padding: 2px 0;">' +
+                            '<span class="sub-toggle" style="font-size: 8px; margin-right: 6px; color: #808080; transition: transform 0.2s;">' + (isSubCollapsed ? '▶' : '▼') + '</span>' +
+                            '<span style="font-size: 9px; color: #808080;">' + subCount + ' sub providers</span>' +
+                            '</div>' +
+                            '<div class="sub-providers-content" data-provider="' + p.provider_id + '" style="display: ' + (isSubCollapsed ? 'none' : 'block') + ';">';
+
+                        p.details.forEach(detail => {
+                            // Parse used percentage from detail.used
+                            let detailUsedPct = 0;
+                            if (detail.used) {
+                                const match = detail.used.match(/(\d+)/);
+                                if (match) detailUsedPct = parseInt(match[1]);
+                            }
+
+                            // Use server-provided remaining value if available, otherwise calculate
+                            let detailRemainingPct = detail.remaining !== undefined ? detail.remaining : Math.max(0, 100 - detailUsedPct);
+
+                            // Display text shows remaining
+                            let detailText = detailRemainingPct + '%';
+
+                            // Bar width shows remaining (full bar = lots of quota left)
+                            let detailDisplayPct = detailRemainingPct;
+
+                            // Color based on used percentage (red when nearly exhausted)
+                            let detailCls = 'low';
+                            if (detailUsedPct >= prefs.red_threshold) detailCls = 'high';
+                            else if (detailUsedPct >= prefs.yellow_threshold) detailCls = 'medium';
+
+                            // Calculate reset time display for detail
+                            let detailResetText = '';
+                            if (detail.next_reset_time) {
+                                detailResetText = formatResetDisplay(detail.next_reset_time);
+                            }
+
+                            // Compact child item - percentage inside bar, remaining on right
+                            let usedText = detailUsedPct + '%';
+                            providerHtml += '<div class="provider-item compact child" style="margin-left:16px;height:18px;padding:2px 6px;">' +
+                                (detailDisplayPct > 0 ? '<div class="provider-progress-bg ' + detailCls + '" style="width:' + detailDisplayPct + '%;opacity:0.25;display:flex;align-items:center;justify-content:flex-start;padding-left:4px;">' +
+                                '<span style="font-size:8px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(usedText) + '</span>' +
+                                '</div>' : '') +
+                                '<div class="provider-content" style="font-size:9px;">' +
+                                '<span class="provider-name" style="font-size:10px;color:#C0C0C0;">' + escapeHtml(detail.name) + '</span>' +
+                                '<span style="flex:1;"></span>' + // Spacer to push right content
+                                '<span class="provider-status" style="font-size:9px;">' + escapeHtml(detailText) + '</span>' +
+                                (detailResetText ? '<span class="provider-status" style="color:#FFD700;font-weight:600;font-size:9px;margin-left:8px;">' + escapeHtml(detailResetText) + '</span>' : '') +
+                                '</div></div>';
+                        });
+
+                        providerHtml += '</div>'; // Close sub-providers-content
+                    }
+                } else {
+                    // Standard view with sub-bars
+                    providerHtml += '<div class="provider-item' + (avail ? '' : ' unavailable') + '">' +
+                        '<div class="provider-header">' +
+                        '<span class="provider-name">' + escapeHtml(p.provider_name) +
+                        (p.account_name && !privacyMode ? ' <span style="color:#888;font-weight:normal;">[' + escapeHtml(p.account_name) + ']</span>' : '') +
+                        '</span>';
+
+                    // Show status label for missing/error states
+                    if (!avail || p.description?.includes('not found') || p.description?.includes('Error')) {
+                        const statusText = p.description?.includes('not found') ? 'API Key not found' :
+                            p.description?.includes('Console') ? 'Check Console' :
+                                p.description?.includes('Error') ? '[Error]' : '';
+                        const statusColor = p.description?.includes('not found') ? '#CD5C5C' :
+                            p.description?.includes('Console') ? '#FFA500' : '#FF0000';
+                        if (statusText) {
+                            providerHtml += '<span style="font-size:10px;color:' + statusColor + ';margin-left:10px;">' + statusText + '</span>';
+                        }
+                    }
+
+                    providerHtml += '</div>';
+
+                    // Progress bar row
+                    providerHtml += '<div style="display:flex;align-items:center;">' +
+                        '<div class="provider-bar-container" style="flex:1;">' +
+                        '<div class="provider-bar ' + cls + '" style="width:' + width + '%"></div></div>';
+
+                    // Description text
+                    if (desc) {
+                        providerHtml += '<span style="font-size:10.5px;color:#808080;margin-left:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">' + escapeHtml(desc) + '</span>';
+                    }
+
+                    providerHtml += '</div>';
+
+                    // Add collapsible sub-bars section for providers with details
+                    if (p.details && p.details.length > 0 && avail) {
+                        const isSubCollapsed = getProviderCollapsed(p.provider_id);
+                        const subCount = p.details.length;
+
+                        providerHtml += '<div class="sub-providers-header" data-provider="' + p.provider_id + '" style="display: flex; align-items: center; margin-top: 8px; margin-left: 16px; cursor: pointer; user-select: none; padding: 4px 0;">' +
+                            '<span class="sub-toggle" style="font-size: 9px; margin-right: 6px; color: #808080; transition: transform 0.2s;">' + (isSubCollapsed ? '▶' : '▼') + '</span>' +
+                            '<span style="font-size: 10px; color: #808080; font-weight: 500;">' + subCount + ' sub providers</span>' +
+                            '</div>' +
+                            '<div class="sub-providers-content" data-provider="' + p.provider_id + '" style="display: ' + (isSubCollapsed ? 'none' : 'block') + ';">';
+
+                        p.details.forEach(detail => {
+                            // Parse used percentage from detail.used
+                            let detailUsedPct = 0;
+                            if (detail.used) {
+                                const match = detail.used.match(/(\d+)/);
+                                if (match) detailUsedPct = parseInt(match[1]);
+                            }
+
+                            // Use server-provided remaining value if available, otherwise calculate
+                            let detailRemainingPct = detail.remaining !== undefined ? detail.remaining : Math.max(0, 100 - detailUsedPct);
+
+                            // Display text shows remaining
+                            let detailText = detailRemainingPct + '%';
+
+                            // Bar width shows remaining (full bar = lots of quota left)
+                            let detailDisplayPct = detailRemainingPct;
+
+                            // Color based on used percentage (red when nearly exhausted)
+                            let detailCls = 'low';
+                            if (detailUsedPct >= prefs.red_threshold) detailCls = 'high';
+                            else if (detailUsedPct >= prefs.yellow_threshold) detailCls = 'medium';
+
+                            // Standard child item - percentage inside bar, remaining on right
+                            let usedText = detailUsedPct + '%';
+                            providerHtml += '<div class="provider-item child" style="margin-top:4px;">' +
+                                '<div class="provider-header" style="margin-bottom:4px;">' +
+                                '<span class="provider-name" style="font-weight:normal;font-size:12px;color:#C0C0C0;">' +
+                                '<span class="child-indicator"></span>' + escapeHtml(detail.name) + '</span></div>' +
+                                '<div style="display:flex;align-items:center;">' +
+                                '<div class="provider-bar-container" style="flex:1;">' +
+                                '<div class="provider-bar ' + detailCls + '" style="width:' + Math.min(detailDisplayPct, 100) + '%;display:flex;align-items:center;justify-content:flex-start;padding-left:6px;">' +
+                                '<span style="font-size:10px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(usedText) + '</span>' +
+                                '</div></div>' +
+                                '<span style="font-size:10.5px;color:#808080;margin-left:10px;">' + escapeHtml(detailText) + '</span>' +
+                                '</div>' +
+                                (detail.description ? '<div style="font-size:10px;color:#FFD700;margin-top:2px;margin-left:22px;font-weight:600;">' + escapeHtml(detail.description) + '</div>' : '') +
+                                '</div>';
+                        });
+
+                        providerHtml += '</div>'; // Close sub-providers-content
+                    }
+
+                    providerHtml += '</div>'; // Close provider-item
+                }
+                return providerHtml;
+            };
+
+            // Build HTML with groups
+            let html = '';
+
+            // Render Quota/Plans group
+            if (quotaItems.length > 0) {
+                html += createGroupHeader('Plans & Quotas', '#00BFFF', 'plans');
+                quotaItems.forEach(p => html += renderProvider(p));
+                html += '</div>'; // Close group-content
+            }
+
+            // Render Pay As You Go group
+            if (payGoItems.length > 0) {
+                html += createGroupHeader('Pay As You Go', '#3CB371', 'paygo');
+                payGoItems.forEach(p => html += renderProvider(p));
+                html += '</div>'; // Close group-content
+            }
+
+            container.innerHTML = html;
+
+            // Add click handlers to group headers
+            document.querySelectorAll('.group-header').forEach(header => {
+                header.addEventListener('click', function () {
+                    const groupId = this.getAttribute('data-group');
+                    const content = document.querySelector(`.group-content[data-group="${groupId}"]`);
+                    const toggle = this.querySelector('.group-toggle');
+                    const title = this.querySelector('span:nth-child(2)').textContent;
+
+                    if (content) {
+                        const isCollapsed = content.style.display === 'none';
+                        content.style.display = isCollapsed ? 'block' : 'none';
+                        toggle.textContent = isCollapsed ? '▼' : '▶';
+                        this.title = `Click to ${isCollapsed ? 'collapse' : 'expand'}`;
+
+                        // Save state to localStorage
+                        const storageKey = groupId === 'plans' ? 'group_collapsed_plans' : 'group_collapsed_paygo';
+                        localStorage.setItem(storageKey, (!isCollapsed).toString());
+                    }
+                });
+            });
+
+            // Add click handlers to sub-provider headers
+            document.querySelectorAll('.sub-providers-header').forEach(header => {
+                header.addEventListener('click', function () {
+                    const providerId = this.getAttribute('data-provider');
+                    const content = document.querySelector(`.sub-providers-content[data-provider="${providerId}"]`);
+                    const toggle = this.querySelector('.sub-toggle');
+
+                    if (content) {
+                        const isCollapsed = content.style.display === 'none';
+                        content.style.display = isCollapsed ? 'block' : 'none';
+                        toggle.textContent = isCollapsed ? '▼' : '▶';
+
+                        // Save state to localStorage
+                        setProviderCollapsed(providerId, !isCollapsed);
+                    }
+                });
+            });
+        }
+
+        async function togglePrivacy() {
+            privacyMode = !privacyMode;
+            document.getElementById('privacyToggleBtn').classList.toggle('active', privacyMode);
+
+            // Update tooltip based on state
+            const btn = document.getElementById('privacyToggleBtn');
+            btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+
+            // Re-render to hide/show sensitive data
+            renderProviders();
+
+            // Emit event to sync with other windows (settings, info dialog)
+            if (window.__TAURI__?.event) {
+                try {
+                    await window.__TAURI__.event.emit('privacy-mode-changed', { enabled: privacyMode });
+                    console.log('Privacy mode event emitted:', privacyMode);
+                } catch (e) {
+                    console.error('Failed to emit privacy mode event:', e);
+                }
+            }
+
+            // Save preference
+            try {
+                localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
+            } catch (e) {
+                console.warn('Could not save privacy mode to localStorage:', e);
+            }
+        }
+
+        // Listen for privacy mode changes from other windows
+        function setupPrivacyModeListener() {
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('privacy-mode-changed', (event) => {
+                    console.log('Received privacy mode change:', event);
+                    const newPrivacyMode = event.payload?.enabled ?? false;
+                    if (newPrivacyMode !== privacyMode) {
+                        privacyMode = newPrivacyMode;
+                        document.getElementById('privacyToggleBtn').classList.toggle('active', privacyMode);
+                        const btn = document.getElementById('privacyToggleBtn');
+                        btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+                        renderProviders();
+                    }
+                });
+            }
+        }
+
+        // Load privacy mode from localStorage
+        function loadPrivacyMode() {
+            try {
+                const saved = localStorage.getItem('privacy_mode');
+                if (saved !== null) {
+                    privacyMode = JSON.parse(saved);
+                    const btn = document.getElementById('privacyToggleBtn');
+                    if (btn) {
+                        btn.classList.toggle('active', privacyMode);
+                        btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not load privacy mode:', e);
+            }
+        }
+
+        // Load privacy mode from localStorage
+        function loadPrivacyMode() {
+            try {
+                const saved = localStorage.getItem('privacy_mode');
+                if (saved !== null) {
+                    privacyMode = JSON.parse(saved);
+                    const btn = document.getElementById('privacyToggleBtn');
+                    if (btn) {
+                        btn.classList.toggle('active', privacyMode);
+                        btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
+                    }
+                }
+            } catch (e) {
+                console.warn('Could not load privacy mode:', e);
+            }
+        }
+
+        async function toggleAlwaysOnTop() {
+            const enabled = document.getElementById('alwaysOnTopToggle').checked;
+
+            // Apply the setting immediately
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                try {
+                    await window.__TAURI__.core.invoke('toggle_always_on_top', { enabled });
+                    console.log('Always on top set to:', enabled);
+                } catch (e) {
+                    console.error('Failed to set always on top:', e);
+                }
+            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                try {
+                    await window.__TAURI__.invoke('toggle_always_on_top', { enabled });
+                    console.log('Always on top set to:', enabled);
+                } catch (e) {
+                    console.error('Failed to set always on top:', e);
+                }
+            }
+
+            // Save preference to localStorage for immediate persistence
+            try {
+                localStorage.setItem('always_on_top', JSON.stringify(enabled));
+            } catch (e) {
+                console.warn('Could not save to localStorage:', e);
+            }
+        }
+
+        function openAgentManagement() {
+            console.log('Opening agent management...');
+
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                window.__TAURI__.core.invoke('open_agent_window')
+                    .then(() => console.log('Agent management opened'))
+                    .catch(e => console.error('Failed to open agent management:', e));
+            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                window.__TAURI__.invoke('open_agent_window')
+                    .then(() => console.log('Agent management opened'))
+                    .catch(e => console.error('Failed to open agent management:', e));
+            } else {
+                console.error('Tauri not available');
+                alert('Agent management cannot be opened. Tauri API not available.');
+            }
+        }
+
+        async function toggleAgent() {
+            console.log('Toggling agent... Current state:', agentConnected ? 'running' : 'stopped');
+
+            if (agentConnected) {
+                // Agent is running, stop it
+                await stopAgentFromMain();
+            } else {
+                // Agent is not running, start it
+                await startAgentFromMain();
+            }
+        }
+
+        async function stopAgentFromMain() {
+            console.log('Stopping agent from main window...');
+
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                // Immediately show stopping state
+                await updateAgentUI('connecting', 'Stopping Agent...');
+
+                try {
+                    const success = await window.__TAURI__.core.invoke('stop_agent');
+                    if (success) {
+                        console.log('Agent stopped successfully');
+                        agentConnected = false;
+                        await updateAgentUI('disconnected', 'Agent Stopped');
+                        // Clear the providers list
+                        document.getElementById('providersList').innerHTML = '<div class="loading">Waiting for agent...</div>';
+                    }
+                } catch (e) {
+                    console.error('Failed to stop agent:', e);
+                    const errorDetails = e?.message || e?.toString() || 'Unknown error';
+                    console.error('Error details:', errorDetails);
+                    await updateAgentUI('error', 'Failed to Stop Agent', errorDetails);
+                }
+            } else {
+                console.error('Tauri not available');
+                alert('Cannot stop agent. Tauri API not available.');
+            }
+        }
+
+        async function startAgentFromMain() {
+            console.log('Starting agent from main window...');
+
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                // Immediately show connecting state
+                await updateAgentUI('connecting', 'Starting Agent...');
+
+                try {
+                    const success = await window.__TAURI__.core.invoke('start_agent');
+                    if (success) {
+                        console.log('Agent started successfully');
+                        // Wait a moment then check status
+                        setTimeout(checkAgentStatus, 2000);
+                    }
+                } catch (e) {
+                    console.error('Failed to start agent:', e);
+
+                    // Extract detailed error message
+                    let errorMessage = 'Unknown error';
+                    let errorDetails = '';
+
+                    if (e && typeof e === 'object') {
+                        if (e.message) {
+                            errorMessage = e.message;
+                        } else if (e.error) {
+                            errorMessage = e.error;
+                        }
+                    } else if (typeof e === 'string') {
+                        errorMessage = e;
+                    }
+
+                    // Provide helpful guidance based on error type
+                    if (errorMessage.includes('not found') || errorMessage.includes('executable')) {
+                        errorDetails = `Agent executable not found.\n\nTo fix this:\n1. Open terminal in the rust directory\n2. Run: cargo build -p aic_agent\n3. Then click the 🤖 button again`;
+                    } else if (errorMessage.includes('port') || errorMessage.includes('8080')) {
+                        errorDetails = `Port 8080 is already in use.\n\nAnother instance of the agent may be running.\nTry refreshing the data instead.`;
+                    } else if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+                        errorDetails = `Permission denied.\n\nTry running the application with administrator privileges.`;
+                    } else {
+                        errorDetails = errorMessage;
+                    }
+
+                    await updateAgentUI('error', 'Failed to Start Agent', errorDetails);
+                }
+            }
+        }
+
+        // Unified function to update ALL agent-related UI elements
+        // This ensures button, LED, text, and content are always synchronized
+        async function updateAgentUI(status, message, errorDetails = '') {
+            const agentBtn = document.getElementById('agentBtn');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const statusText = document.getElementById('statusText');
+            const container = document.getElementById('providersList');
+
+            // Update global state
+            agentConnected = (status === 'connected');
+
+            // Update button
+            if (agentBtn) {
+                if (status === 'connected') {
+                    agentBtn.disabled = false; // Enable button so user can stop agent
+                    // Fetch and display agent version in tooltip
+                    try {
+                        const agentVersion = await window.__TAURI__.core.invoke('get_agent_version');
+                        agentBtn.title = `Agent Running (v${agentVersion}) - Click to Stop`;
+                    } catch (e) {
+                        agentBtn.title = 'Agent Running - Click to Stop';
+                    }
+                    agentBtn.style.opacity = '1';
+                } else if (status === 'disconnected') {
+                    agentBtn.disabled = false;
+                    agentBtn.title = 'Start Agent';
+                    agentBtn.style.opacity = '1';
+                } else if (status === 'error') {
+                    agentBtn.disabled = false;
+                    agentBtn.title = 'Click to Retry';
+                    agentBtn.style.opacity = '1';
+                } else {
+                    agentBtn.disabled = false;
+                    agentBtn.title = 'Start Agent';
+                    agentBtn.style.opacity = '1';
+                }
+            }
+
+            // Update LED indicator
+            if (statusIndicator) {
+                if (status === 'error') {
+                    statusIndicator.className = 'status-indicator disconnected';
+                } else {
+                    statusIndicator.className = 'status-indicator ' + status;
+                }
+            }
+
+            // Update status text
+            if (statusText) {
+                statusText.textContent = message;
+            }
+
+            // Update content area based on connection status
+            if (container) {
+                if (status === 'connected') {
+                    // Only load data if we're connected and haven't loaded yet
+                    if (usageData.length === 0) {
+                        loadData();
+                    }
+                } else if (status === 'error' && errorDetails) {
+                    // Show detailed error message with actions
+                    container.innerHTML =
+                        '<div class="error-message">' +
+                        '<div class="error-title">⚠️ ' + escapeHtml(message) + '</div>' +
+                        '<div class="error-details">' + escapeHtml(errorDetails) + '</div>' +
+                        '<div class="error-actions">' +
+                        '<button onclick="startAgentFromMain()">🤖 Retry Start</button>' +
+                        '<button onclick="checkAgentStatus()">🔄 Check Status</button>' +
+                        '</div>' +
+                        '</div>';
+                } else {
+                    container.innerHTML = '<div class="loading">' + escapeHtml(message) + '</div>';
+                }
+            }
+        }
+
+        async function checkAgentStatus() {
+            if (!window.__TAURI__ || !window.__TAURI__.core || !window.__TAURI__.core.invoke) {
+                await updateAgentUI('disconnected', 'Not Connected');
+                return;
+            }
+
+            try {
+                // Check if agent is responding via HTTP
+                const isRunning = await window.__TAURI__.core.invoke('is_agent_running_http');
+
+                if (isRunning) {
+                    // Agent is running and responding
+                    await updateAgentUI('connected', 'Agent Connected');
+                    return;
+                }
+
+                // Agent not responding via HTTP - check if we have a local process
+                try {
+                    const status = await window.__TAURI__.core.invoke('get_agent_status_details');
+
+                    if (status.is_running) {
+                        // Process exists but not responding yet (starting up)
+                        await updateAgentUI('connecting', 'Agent Starting...');
+                    } else {
+                        // No process and not responding
+                        await updateAgentUI('disconnected', 'Agent Disconnected');
+                    }
+                } catch (e) {
+                    // Can't check process status
+                    await updateAgentUI('disconnected', 'Agent Disconnected');
+                }
+            } catch (e) {
+                console.error('Failed to check agent status:', e);
+                await updateAgentUI('disconnected', 'Connection Error');
+            }
+        }
+
+        function openSettings() {
+            console.log('Opening settings...');
+            console.log('__TAURI__:', window.__TAURI__);
+            console.log('invoke:', window.__TAURI__?.invoke);
+            console.log('core:', window.__TAURI__?.core);
+
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                console.log('Using core.invoke...');
+                window.__TAURI__.core.invoke('open_settings_window')
+                    .then(() => console.log('Settings opened'))
+                    .catch(e => console.error('Failed to open settings:', e));
+            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                console.log('Using invoke...');
+                window.__TAURI__.invoke('open_settings_window')
+                    .then(() => console.log('Settings opened'))
+                    .catch(e => console.error('Failed to open settings:', e));
+            } else {
+                console.error('Tauri not available');
+                alert('Settings cannot be opened. Tauri API not available.');
+            }
+        }
+
+        function maskContent(text, accountName) {
+            if (!text) return '';
+            // In privacy mode, mask the content but keep account name visible for identification
+            if (accountName && text.includes(accountName)) {
+                return text; // Keep account name visible
+            }
+            return '***';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
