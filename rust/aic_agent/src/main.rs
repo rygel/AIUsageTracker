@@ -111,6 +111,8 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/health", get(health_check))
+        .route("/debug/info", get(debug_info))
+        .route("/debug/config", get(debug_config))
         .route("/api/providers/usage", get(get_current_usage))
         .route("/api/providers/usage/refresh", post(trigger_refresh))
         .route("/api/providers/:id/usage", get(get_provider_usage))
@@ -227,6 +229,36 @@ async fn health_check() -> Json<serde_json::Value> {
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
         "uptime_seconds": 0,
+    }))
+}
+
+async fn debug_info() -> Json<serde_json::Value> {
+    use serde_json::json;
+    
+    info!("API: GET /debug/info - Debug info request");
+
+    Json(json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "rust_version": env!("RUSTC_VERSION"),
+        "target": env!("TARGET"),
+        "profile": if cfg!(debug_assertions) { "debug" } else { "release" },
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+    }))
+}
+
+async fn debug_config(State(state): State<AppState>) -> Json<serde_json::Value> {
+    use serde_json::json;
+    
+    info!("API: GET /debug/config - Debug config request");
+    
+    let config = state.config.read().await;
+    let discovered = config.discovered_providers.clone();
+    
+    Json(json!({
+        "refresh_interval_minutes": config.refresh_interval_minutes,
+        "auto_refresh_enabled": config.auto_refresh_enabled,
+        "discovered_providers_count": discovered.len(),
+        "discovered_providers": discovered.iter().map(|p| &p.provider_id).collect::<Vec<_>>(),
     }))
 }
 
