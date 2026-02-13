@@ -1324,7 +1324,13 @@
                 const info = providerInfo[config.provider_id] || { name: config.provider_id, icon: config.provider_id.charAt(0).toUpperCase(), color: '#007ACC' };
                 const hasKey = config.api_key && config.api_key.length > 0;
                 
-                console.log(`  -> Using display name: ${info.name}, icon: ${info.icon}`);
+                // Build display name with account name for providers that have it (e.g., GitHub Copilot)
+                let displayName = info.name;
+                if (config.account_name && config.account_name.trim() !== '') {
+                    displayName = info.name + ' [' + config.account_name + ']';
+                }
+                
+                console.log(`  -> Using display name: ${displayName}, icon: ${info.icon}`);
 
                 // Format auth source for display - use short names for UI
                 let authSourceDisplay = config.auth_source || 'None';
@@ -1357,7 +1363,7 @@
                         <div class="provider-header">
                             <div class="provider-info">
                                 <div class="provider-icon" style="background: ${info.color};">${info.icon}</div>
-                                <span class="provider-name">${info.name}</span>
+                                <span class="provider-name">${displayName}</span>
                             </div>
                             <div class="provider-actions">
                                 <span class="auth-source-label" title="Configuration Source: ${config.auth_source || 'None'}">${authSourceDisplay}</span>

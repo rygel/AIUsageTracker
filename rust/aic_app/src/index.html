@@ -985,11 +985,20 @@
                         resetText = formatResetDisplay(p.next_reset_time);
                     }
                     
+                    // Build display name with account name for providers that have it
+                    let displayName = p.provider_name;
+                    if (p.account_name && p.account_name.trim() !== '') {
+                        const accountDisplay = privacyMode ? '***' : escapeHtml(p.account_name);
+                        displayName = escapeHtml(p.provider_name) + ' [' + accountDisplay + ']';
+                    } else {
+                        displayName = escapeHtml(p.provider_name);
+                    }
+                    
                     // Main compact item - reset text aligned right before status
                     providerHtml += '<div class="provider-item compact' + (avail ? '' : ' unavailable') + '">' +
                         (avail && width > 0 ? '<div class="provider-progress-bg ' + progressClass + '" style="width:' + width + '%"></div>' : '') +
                         '<div class="provider-content">' +
-                        '<span class="provider-name">' + escapeHtml(p.provider_name) + '</span>' +
+                        '<span class="provider-name">' + displayName + '</span>' +
                         '<span style="flex:1;"></span>' + // Spacer to push right content
                         (resetText ? '<span class="provider-status" style="color:#FFD700;font-weight:600;margin-right:10px;">' + escapeHtml(resetText) + '</span>' : '') +
                         '<span class="provider-status">' + escapeHtml(statusText) + (statusDetail ? ' (' + escapeHtml(statusDetail) + ')' : '') + '</span>' +
@@ -1542,6 +1551,15 @@
             }
         }
 
+        function maskContent(text, accountName) {
+            if (!text) return '';
+            // In privacy mode, mask the content but keep account name visible for identification
+            if (accountName && text.includes(accountName)) {
+                return text; // Keep account name visible
+            }
+            return '***';
+        }
+        
         function escapeHtml(text) {
             if (!text) return '';
             const div = document.createElement('div');
