@@ -145,9 +145,10 @@ impl ProviderService for KimiProvider {
                                                     .unwrap_or("TIME_UNIT_MINUTE")
                                             )
                                         );
-                                        let item_pct = 100.0
+                                        let item_used_pct = 100.0
                                             - ((detail.remaining as f64 / detail.limit as f64)
                                                 * 100.0);
+                                        let item_remaining_pct = (detail.remaining as f64 / detail.limit as f64) * 100.0;
 
                                         let item_reset = detail.reset_time.and_then(|s| {
                                             DateTime::parse_from_rfc3339(&s)
@@ -165,7 +166,8 @@ impl ProviderService for KimiProvider {
 
                                         details.push(ProviderUsageDetail {
                                             name,
-                                            used: format!("{:.1}%", item_pct),
+                                            used: format!("{:.1}%", item_used_pct),
+                                            remaining: Some(item_remaining_pct),
                                             description: format!("{} remaining", detail.remaining),
                                             next_reset_time: item_reset,
                                         });
@@ -173,10 +175,17 @@ impl ProviderService for KimiProvider {
                                 }
                             }
 
+                            let remaining_percentage = if limit > 0.0 {
+                                (remaining / limit) * 100.0
+                            } else {
+                                100.0
+                            };
+                            
                             return vec![ProviderUsage {
                                 provider_id: self.provider_id().to_string(),
                                 provider_name: "Kimi".to_string(),
                                 usage_percentage: used_percentage,
+                                remaining_percentage: Some(remaining_percentage),
                                 cost_used: used,
                                 cost_limit: limit,
                                 usage_unit: "Points".to_string(),

@@ -251,6 +251,7 @@ impl AntigravityProvider {
             details.push(ProviderUsageDetail {
                 name: label,
                 used: format!("{:.0}%", detail_used_pct),
+                remaining: Some(remaining_pct),
                 description: String::new(),
                 next_reset_time: item_reset_dt,
             });
@@ -277,6 +278,7 @@ impl AntigravityProvider {
             provider_id: "antigravity".to_string(),
             provider_name: "Antigravity".to_string(),
             usage_percentage: used_pct_total,
+            remaining_percentage: Some(min_remaining),
             cost_used: used_pct_total,
             cost_limit: 100.0,
             usage_unit: "Quota %".to_string(),

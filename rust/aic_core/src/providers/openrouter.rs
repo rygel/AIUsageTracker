@@ -120,20 +120,22 @@ impl ProviderService for OpenRouterProvider {
 
                                         details.push(ProviderUsageDetail {
                                             name: "Spending Limit".to_string(),
-                                            description: format!("{:.2}{}", key.limit, main_reset),
                                             used: String::new(),
+                                            remaining: None,
+                                            description: format!("{:.2}{}", key.limit, main_reset),
                                             next_reset_time,
                                         });
                                     }
 
                                     details.push(ProviderUsageDetail {
                                         name: "Free Tier".to_string(),
+                                        used: String::new(),
+                                        remaining: None,
                                         description: if key.is_free_tier {
                                             "Yes".to_string()
                                         } else {
                                             "No".to_string()
                                         },
-                                        used: String::new(),
                                         next_reset_time: None,
                                     });
                                 }

@@ -229,12 +229,16 @@ impl GeminiProvider {
                 }
             }
 
+            let used_pct = used * 100.0;
+            let remaining_pct = bucket.remaining_fraction * 100.0;
+            
             details.push(ProviderUsageDetail {
                 name,
-                used: format!("{:.1}%", used),
+                used: format!("{:.1}%", used_pct),
+                remaining: Some(remaining_pct),
                 description: format!(
                     "{:.1}% remaining{}",
-                    bucket.remaining_fraction * 100.0,
+                    remaining_pct,
                     reset_str
                 ),
                 next_reset_time: item_reset_dt,
@@ -270,10 +274,13 @@ impl GeminiProvider {
             }
         }
 
+        let remaining_percentage = min_frac * 100.0;
+        
         Ok(ProviderUsage {
             provider_id: self.provider_id().to_string(),
             provider_name: "Gemini CLI".to_string(),
             usage_percentage: used_percentage,
+            remaining_percentage: Some(remaining_percentage),
             cost_used: used_percentage,
             cost_limit: 100.0,
             usage_unit: "Quota %".to_string(),

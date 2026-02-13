@@ -111,18 +111,21 @@ impl ProviderService for OpenCodeZenProvider {
                                 ProviderUsageDetail {
                                     name: "Total Credits".to_string(),
                                     used: format!("{:.2}", total),
+                                    remaining: None,
                                     description: "Available credits".to_string(),
                                     next_reset_time: None,
                                 },
                                 ProviderUsageDetail {
                                     name: "Used Credits".to_string(),
                                     used: format!("{:.2}", used),
+                                    remaining: None,
                                     description: format!("{:.1}% of total", utilization),
                                     next_reset_time: None,
                                 },
                                 ProviderUsageDetail {
                                     name: "Remaining Credits".to_string(),
                                     used: format!("{:.2}", credits.remaining_credits),
+                                    remaining: None,
                                     description: "Available for use".to_string(),
                                     next_reset_time: None,
                                 },

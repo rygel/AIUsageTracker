@@ -105,6 +105,7 @@ impl From<AgentUsageResponse> for ProviderUsage {
             provider_id: u.provider_id,
             provider_name: u.provider_name,
             usage_percentage,
+            remaining_percentage: None,
             cost_used,
             cost_limit,
             payment_type: aic_core::PaymentType::UsageBased,

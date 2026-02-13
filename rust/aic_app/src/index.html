@@ -916,7 +916,10 @@
                 // Apply inverted calculation if enabled
                 let displayPct = pct;
                 let barWidth = pct;
-                if (prefs.invert_progress_bar && avail) {
+                // Use server-provided remaining_percentage when available (Antigravity, Gemini, etc.)
+                if (p.remaining_percentage !== undefined && p.remaining_percentage !== null) {
+                    barWidth = p.remaining_percentage;
+                } else if (prefs.invert_progress_bar && avail) {
                     displayPct = Math.max(0, 100 - pct);
                     barWidth = displayPct;
                 }
@@ -999,32 +1002,26 @@
                             '<div class="sub-providers-content" data-provider="' + p.provider_id + '" style="display: ' + (isSubCollapsed ? 'none' : 'block') + ';">';
                         
                         p.details.forEach(detail => {
-                            let detailPct = 0;
+                            // Parse used percentage from detail.used
+                            let detailUsedPct = 0;
                             if (detail.used) {
                                 const match = detail.used.match(/(\d+)/);
-                                if (match) detailPct = parseInt(match[1]);
+                                if (match) detailUsedPct = parseInt(match[1]);
                             }
                             
-                            // For Antigravity, show remaining in text (bar shows used for color consistency)
-                            const isAntigravity = p.provider_id === 'antigravity';
-                            let detailDisplayPct = detailPct;
-                            let detailText = detail.used;
+                            // Use server-provided remaining value if available, otherwise calculate
+                            let detailRemainingPct = detail.remaining !== undefined ? detail.remaining : Math.max(0, 100 - detailUsedPct);
                             
-                            if (isAntigravity) {
-                                // Calculate remaining for display text
-                                const remainingPct = Math.max(0, 100 - detailPct);
-                                detailText = remainingPct + '%';
-                                // Apply inverted calculation for bar width (show remaining)
-                                if (!prefs.invert_progress_bar) {
-                                    detailDisplayPct = remainingPct;
-                                }
-                            } else if (prefs.invert_progress_bar) {
-                                detailDisplayPct = Math.max(0, 100 - detailPct);
-                            }
+                            // Display text shows remaining
+                            let detailText = detailRemainingPct + '%';
                             
+                            // Bar width shows remaining (full bar = lots of quota left)
+                            let detailDisplayPct = detailRemainingPct;
+                            
+                            // Color based on used percentage (red when nearly exhausted)
                             let detailCls = 'low';
-                            if (detailPct >= prefs.red_threshold) detailCls = 'high';
-                            else if (detailPct >= prefs.yellow_threshold) detailCls = 'medium';
+                            if (detailUsedPct >= prefs.red_threshold) detailCls = 'high';
+                            else if (detailUsedPct >= prefs.yellow_threshold) detailCls = 'medium';
                             
                             // Calculate reset time display for detail
                             let detailResetText = '';
@@ -1091,32 +1088,26 @@
                             '<div class="sub-providers-content" data-provider="' + p.provider_id + '" style="display: ' + (isSubCollapsed ? 'none' : 'block') + ';">';
                         
                         p.details.forEach(detail => {
-                            let detailPct = 0;
+                            // Parse used percentage from detail.used
+                            let detailUsedPct = 0;
                             if (detail.used) {
                                 const match = detail.used.match(/(\d+)/);
-                                if (match) detailPct = parseInt(match[1]);
+                                if (match) detailUsedPct = parseInt(match[1]);
                             }
                             
-                            // For Antigravity, show remaining in text (bar shows used for color consistency)
-                            const isAntigravity = p.provider_id === 'antigravity';
-                            let detailDisplayPct = detailPct;
-                            let detailText = detail.used;
+                            // Use server-provided remaining value if available, otherwise calculate
+                            let detailRemainingPct = detail.remaining !== undefined ? detail.remaining : Math.max(0, 100 - detailUsedPct);
                             
-                            if (isAntigravity) {
-                                // Calculate remaining for display text
-                                const remainingPct = Math.max(0, 100 - detailPct);
-                                detailText = remainingPct + '%';
-                                // Apply inverted calculation for bar width (show remaining)
-                                if (!prefs.invert_progress_bar) {
-                                    detailDisplayPct = remainingPct;
-                                }
-                            } else if (prefs.invert_progress_bar) {
-                                detailDisplayPct = Math.max(0, 100 - detailPct);
-                            }
+                            // Display text shows remaining
+                            let detailText = detailRemainingPct + '%';
                             
+                            // Bar width shows remaining (full bar = lots of quota left)
+                            let detailDisplayPct = detailRemainingPct;
+                            
+                            // Color based on used percentage (red when nearly exhausted)
                             let detailCls = 'low';
-                            if (detailPct >= prefs.red_threshold) detailCls = 'high';
-                            else if (detailPct >= prefs.yellow_threshold) detailCls = 'medium';
+                            if (detailUsedPct >= prefs.red_threshold) detailCls = 'high';
+                            else if (detailUsedPct >= prefs.yellow_threshold) detailCls = 'medium';
                             
                             providerHtml += '<div class="provider-item child" style="margin-top:4px;">' +
                                 '<div class="provider-header" style="margin-bottom:4px;">' +

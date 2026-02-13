@@ -21,6 +21,9 @@ impl Default for PaymentType {
 pub struct ProviderUsageDetail {
     pub name: String,
     pub used: String,
+    /// Remaining percentage (0-100) - calculated server-side for UI inversion preference
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remaining: Option<f64>,
     pub description: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_reset_time: Option<DateTime<Utc>>,
@@ -34,6 +37,10 @@ pub struct ProviderUsage {
     pub provider_name: String,
     #[serde(rename = "usage_percentage")]
     pub usage_percentage: f64,
+    /// Remaining percentage (0-100) - calculated server-side for UI inversion preference
+    #[serde(rename = "remaining_percentage")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remaining_percentage: Option<f64>,
     #[serde(rename = "cost_used")]
     pub cost_used: f64,
     #[serde(rename = "cost_limit")]
@@ -64,6 +71,7 @@ impl Default for ProviderUsage {
             provider_id: String::new(),
             provider_name: String::new(),
             usage_percentage: 0.0,
+            remaining_percentage: None,
             cost_used: 0.0,
             cost_limit: 0.0,
             payment_type: PaymentType::default(),
