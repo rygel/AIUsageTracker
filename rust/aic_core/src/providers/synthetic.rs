@@ -132,7 +132,7 @@ impl ProviderService for SyntheticProvider {
 
                             vec![ProviderUsage {
                                 provider_id: self.provider_id().to_string(),
-                                provider_name: "Synthetic Coding Plan".to_string(),
+                                provider_name: "Synthetic".to_string(),
                                 usage_percentage: utilization.min(100.0),
                                 remaining_percentage: Some(remaining_percent),
                                 cost_used: used,
