@@ -429,7 +429,7 @@ async fn test_preferences_window_dimensions_sanity() {
 async fn test_update_result_serialization() {
     // Test that UpdateCheckResult can be serialized
     let result = UpdateCheckResult {
-        current_version: "1.0.0".to_string(),
+        current_version: "0.0.5".to_string(),
         latest_version: "1.1.0".to_string(),
         update_available: true,
         download_url: "https://example.com/download".to_string(),
@@ -441,7 +441,7 @@ async fn test_update_result_serialization() {
     
     let json_str = json.unwrap();
     let parsed: UpdateCheckResult = serde_json::from_str(&json_str).unwrap();
-    assert_eq!(parsed.current_version, "1.0.0");
+    assert_eq!(parsed.current_version, "0.0.5");
     assert!(parsed.update_available);
 }
 

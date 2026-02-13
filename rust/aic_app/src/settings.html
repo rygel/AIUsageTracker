@@ -771,7 +771,7 @@
                 <div class="settings-section">
                     <div class="settings-section-title">Application Updates</div>
                     <div class="update-status" id="updateStatus">
-                        <div class="update-version" id="currentVersion">v1.0.0</div>
+                        <div class="update-version" id="currentVersion">v</div>
                         <div class="update-message" id="updateMessage">Checking for updates...</div>
                     </div>
                     <div class="settings-row">
@@ -839,7 +839,7 @@
                 <div class="about-section">
                     <div class="about-logo">&#128200;</div>
                     <div class="about-title">AI Consumption Tracker</div>
-                    <div class="about-version" id="aboutVersion">Version 1.0.0</div>
+                    <div class="about-version" id="aboutVersion">Version </div>
                     <div class="about-links">
                         <a href="https://github.com/aiconsumptiontracker" class="about-link" target="_blank">GitHub</a>
                         <a href="https://aiconsumptiontracker.app" class="about-link" target="_blank">Website</a>
@@ -1218,14 +1218,12 @@
 
         async function loadAppVersion() {
             try {
-                if (invoke) {
-                    const version = await invoke('get_app_version');
-                    const currentVersionEl = document.getElementById('currentVersion');
-                    const aboutVersionEl = document.getElementById('aboutVersion');
-                    if (version) {
-                        if (currentVersionEl) currentVersionEl.textContent = 'v' + version;
-                        if (aboutVersionEl) aboutVersionEl.textContent = 'Version ' + version;
-                    }
+                const version = await invoke('get_app_version');
+                const currentVersionEl = document.getElementById('currentVersion');
+                const aboutVersionEl = document.getElementById('aboutVersion');
+                if (version) {
+                    if (currentVersionEl) currentVersionEl.textContent = 'v' + version;
+                    if (aboutVersionEl) aboutVersionEl.textContent = 'Version ' + version;
                 }
             } catch (e) {
                 console.log('Could not load app version:', e);

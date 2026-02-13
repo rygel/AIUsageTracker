@@ -308,7 +308,7 @@
         async function loadSystemInfo() {
             try {
                 // Set version
-                document.getElementById('versionText').textContent = 'v' + (await window.__TAURI__?.core?.invoke('get_app_version') || '1.0.0');
+                document.getElementById('versionText').textContent = 'v' + await window.__TAURI__.core.invoke('get_app_version');
                 
                 // Set system info
                 document.getElementById('rustVersion').textContent = 'Rust ' + navigator.userAgent;

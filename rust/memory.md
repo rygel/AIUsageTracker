@@ -98,8 +98,7 @@ Building a Rust-based cross-platform replacement for the .NET WPF AI Consumption
 ## Known Issues
 
 1. **Port Conflicts**: Agent sometimes fails to start if port 8080 is in use
-2. **Build Environment**: Occasional Visual Studio/build tool issues on Windows
-3. **Window Close Warnings**: Some harmless Win32 errors when closing application
+2. **Window Close Warnings**: Some harmless Win32 errors when closing application
 4. **Antigravity Details**: Requires running VS Code extension to show sub-model data
 5. **JavaScript Syntax**: Potential syntax error in index.html (under investigation)
 
