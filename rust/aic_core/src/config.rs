@@ -733,7 +733,8 @@ impl ProviderManager {
         providers.push(Arc::new(DeepSeekProvider::new(client.clone())));
         providers.push(Arc::new(SimulatedProvider));
         providers.push(Arc::new(OpenRouterProvider::new(client.clone())));
-        providers.push(Arc::new(OpenCodeZenProvider::new(client.clone())));
+        providers.push(Arc::new(OpenCodeProvider::new(client.clone())));
+        providers.push(Arc::new(OpenCodeZenProvider::new()));
         providers.push(Arc::new(CodexProvider));
         providers.push(Arc::new(GitHubCopilotProvider::new(client.clone())));
         providers.push(Arc::new(AntigravityProvider::new()));
@@ -742,6 +743,7 @@ impl ProviderManager {
         providers.push(Arc::new(MinimaxIOProvider::new(client.clone())));
         providers.push(Arc::new(ZaiProvider::new(client.clone())));
         providers.push(Arc::new(SyntheticProvider::new(client.clone())));
+        providers.push(Arc::new(MistralProvider::new(client.clone())));
         providers.push(Arc::new(GenericPayAsYouGoProvider::new(client.clone())));
         providers.push(Arc::new(GeminiProvider::new(client.clone())));
 

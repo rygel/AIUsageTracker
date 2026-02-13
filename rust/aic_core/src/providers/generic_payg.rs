@@ -273,6 +273,7 @@ impl ProviderService for GenericPayAsYouGoProvider {
                     is_quota_based: is_quota,
                     description: format!("{:.2} / {:.2} {}", used, total, if is_quota { "%" } else { "credits" }),
                     next_reset_time,
+                    raw_response: Some(response_string),
                     ..Default::default()
                 }]
             }
