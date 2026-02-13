@@ -4,12 +4,14 @@
 
 use aic_core::{
     AuthenticationManager, ConfigLoader, GitHubAuthService, ProviderManager,
+    ProviderConfig, ProviderUsage,
 };
 use aic_app::commands::*;
 use clap::Parser;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use tauri::{
     menu::{Menu, MenuItem},
@@ -24,6 +26,39 @@ use tracing::{info, error, debug, warn};
 
 // Global flag to prevent duplicate cleanup
 static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
+
+// App startup timing - use OnceLock to initialize on first access
+static APP_START_TIME: std::sync::OnceLock<Instant> = std::sync::OnceLock::new();
+
+fn get_app_start_time() -> Instant {
+    *APP_START_TIME.get_or_init(Instant::now)
+}
+
+pub fn log_timing(label: &'static str) {
+    let elapsed = get_app_start_time().elapsed();
+    info!("[TIMING] {} at {:?}", label, elapsed);
+}
+
+fn clean_old_logs(log_dir: &std::path::Path) {
+    use std::time::SystemTime;
+    
+    let cutoff = SystemTime::now()
+        .checked_sub(Duration::from_secs(30 * 24 * 60 * 60))
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+    
+    if let Ok(entries) = std::fs::read_dir(log_dir) {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                if let Ok(modified) = metadata.modified() {
+                    if modified < cutoff {
+                        let _ = std::fs::remove_file(entry.path());
+                        info!("Removed old log file: {:?}", entry.path());
+                    }
+                }
+            }
+        }
+    }
+}
 
 fn cleanup_and_exit(app: &tauri::AppHandle) {
     // Prevent duplicate cleanup
@@ -121,11 +156,38 @@ async fn main() {
     // Parse command line arguments
     let args = Args::parse();
     
-    // Initialize tracing for console output based on --debug flag
-    let log_level = if args.debug { tracing::Level::DEBUG } else { tracing::Level::INFO };
-    tracing_subscriber::fmt()
-        .with_max_level(log_level)
+    // Set up file logging
+    let app_data_dir = std::env::var("LOCALAPPDATA")
+        .map(|p| std::path::PathBuf::from(p).join("ai-consumption-tracker"))
+        .unwrap_or_else(|_| std::path::PathBuf::from(".ai-consumption-tracker"));
+    let log_dir = app_data_dir.join("logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+    
+    let log_file_path = log_dir.join("app.log");
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file_path)
+        .expect("Failed to open log file");
+    
+    let file_layer = tracing_subscriber::fmt::layer()
+        .with_writer(std::sync::Mutex::new(log_file))
+        .with_ansi(false)
+        .with_target(false);
+    
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(if args.debug { "debug" } else { "info" }));
+    
+    tracing_subscriber::registry()
+        .with(env_filter)
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
+        .with(file_layer)
         .init();
+    
+    info!("Log file: {:?}", log_file_path);
+    
+    // Clean up old log files (keep last 30 days)
+    clean_old_logs(&log_dir);
     
     info!("Starting AI Consumption Tracker application");
 
@@ -175,6 +237,7 @@ async fn main() {
             device_flow_state: Arc::new(RwLock::new(None)),
             agent_process: Arc::new(Mutex::new(None)),
             preloaded_settings: Arc::new(Mutex::new(None)),
+            data_is_live: Arc::new(Mutex::new(false)),
         })
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -225,8 +288,16 @@ async fn main() {
             stop_agent,
             is_agent_running,
             is_agent_running_http,
+            get_agent_port_cmd,
+            get_all_ui_data,
+            get_agent_status,
             get_agent_status_details,
             get_all_providers_from_agent,
+            get_historical_usage_from_agent,
+            get_raw_responses_from_agent,
+            // Data status command
+            get_data_status,
+            set_data_live,
             // Update management commands
             get_app_version,
             get_agent_version,
@@ -466,10 +537,10 @@ async fn main() {
             let app_handle = app.handle().clone();
             let agent_process = app.state::<AppState>().agent_process.clone();
             tokio::spawn(async move {
-                info!("[AUTO-START] Waiting 2 seconds before checking agent status...");
-                tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                
+                log_timing("App initialized, starting agent check");
+                // No delay - check immediately
                 info!("[AUTO-START] Checking if agent is running on startup...");
+                
                 let is_running = match check_agent_status().await {
                     Ok(running) => {
                         info!("[AUTO-START] Agent status check result: {}", running);
@@ -482,11 +553,28 @@ async fn main() {
                 };
 
                 if !is_running {
+                    log_timing("Agent not running, starting agent...");
                     info!("[AUTO-START] Agent not running, starting automatically...");
                     match start_agent_internal(&app_handle, agent_process).await {
                         Ok(started) => {
                             if started {
+                                log_timing("Agent started successfully");
                                 info!("[AUTO-START] Agent started successfully");
+                                
+                                // Warm-up: trigger first usage fetch while UI is loading
+                                info!("[WARM-UP] Pre-fetching usage data...");
+                                let client = reqwest::Client::new();
+                                let port = get_agent_port().await;
+                                if let Ok(response) = client
+                                    .get(format!("http://localhost:{}/api/providers/usage", port))
+                                    .timeout(Duration::from_secs(5))
+                                    .send()
+                                    .await
+                                {
+                                    if response.status().is_success() {
+                                        info!("[WARM-UP] Usage data pre-fetched successfully");
+                                    }
+                                }
                             } else {
                                 warn!("[AUTO-START] Agent failed to start (returned false)");
                             }
@@ -496,8 +584,81 @@ async fn main() {
                         }
                     }
                 } else {
+                    log_timing("Agent already running");
                     info!("[AUTO-START] Agent is already running, no need to start");
+                    
+                    // Warm-up: pre-fetch data even when agent already running
+                    info!("[WARM-UP] Pre-fetching usage data (agent already running)...");
+                    let client = reqwest::Client::new();
+                    let port = get_agent_port().await;
+                    if let Ok(response) = client
+                        .get(format!("http://localhost:{}/api/providers/usage", port))
+                        .timeout(Duration::from_secs(5))
+                        .send()
+                        .await
+                    {
+                        if response.status().is_success() {
+                            info!("[WARM-UP] Usage data pre-fetched successfully");
+                        }
+                    }
                 }
+
+                // Preload settings data for settings window
+                info!("[WARM-UP] Preloading settings data for settings window...");
+                let state = app_handle.state::<AppState>();
+                let preloaded = state.preloaded_settings.clone();
+                
+                let providers_future = async {
+                    let port = get_agent_port().await;
+                    let agent_url = format!("http://localhost:{}/api/providers/discovered", port);
+                    match reqwest::get(&agent_url).await {
+                        Ok(response) if response.status().is_success() => {
+                            match response.json::<Vec<ProviderConfig>>().await {
+                                Ok(providers) => Some(providers),
+                                Err(_) => None,
+                            }
+                        }
+                        _ => None,
+                    }
+                };
+                
+                let usage_future = async {
+                    let port = get_agent_port().await;
+                    let agent_url = format!("http://localhost:{}/api/providers/usage", port);
+                    match reqwest::get(&agent_url).await {
+                        Ok(response) if response.status().is_success() => {
+                            match response.json::<Vec<ProviderUsage>>().await {
+                                Ok(usage) => Some(usage),
+                                Err(_) => None,
+                            }
+                        }
+                        _ => None,
+                    }
+                };
+                
+                let agent_info_future = async {
+                    let port = get_agent_port().await;
+                    let agent_url = format!("http://localhost:{}/api/agent/info", port);
+                    match reqwest::get(&agent_url).await {
+                        Ok(response) if response.status().is_success() => {
+                            match response.json::<AgentInfo>().await {
+                                Ok(info) => Some(info),
+                                Err(_) => None,
+                            }
+                        }
+                        _ => None,
+                    }
+                };
+                
+                let (providers, usage, agent_info) = tokio::join!(providers_future, usage_future, agent_info_future);
+                
+                let mut preloaded_guard = preloaded.lock().await;
+                *preloaded_guard = Some(PreloadedSettings {
+                    providers: providers.unwrap_or_default(),
+                    usage: usage.unwrap_or_default(),
+                    agent_info,
+                });
+                info!("[WARM-UP] Settings data preloaded successfully");
             });
 
             Ok(())

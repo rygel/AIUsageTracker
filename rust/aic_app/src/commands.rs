@@ -17,12 +17,14 @@ pub struct AppState {
     pub device_flow_state: Arc<RwLock<Option<DeviceFlowState>>>,
     pub agent_process: Arc<Mutex<Option<Child>>>,
     pub preloaded_settings: Arc<Mutex<Option<PreloadedSettings>>>,
+    pub data_is_live: Arc<Mutex<bool>>,
 }
 
 #[derive(Clone)]
 pub struct PreloadedSettings {
     pub providers: Vec<ProviderConfig>,
     pub usage: Vec<ProviderUsage>,
+    pub agent_info: Option<AgentInfo>,
 }
 
 #[derive(Clone)]
@@ -88,7 +90,7 @@ pub async fn get_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
 }
 
 #[tauri::command]
-pub async fn refresh_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
+pub async fn refresh_usage_from_agent(state: State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<Vec<ProviderUsage>, String> {
     let client = reqwest::Client::new();
     let port = get_agent_port().await;
     let url = format!("http://localhost:{}/api/providers/usage/refresh", port);
@@ -242,11 +244,12 @@ pub async fn get_all_providers_from_agent(
     let start = std::time::Instant::now();
     tracing::info!("get_all_providers_from_agent called");
     
-    // Get all providers from agent (including discovered ones)
-    let agent_url = "http://localhost:8080/api/providers/discovered";
+    // Get port from agent port file
+    let port = get_agent_port().await;
+    let agent_url = format!("http://localhost:{}/api/providers/discovered", port);
     
     tracing::info!("Making request to: {}", agent_url);
-    match reqwest::get(agent_url).await {
+    match reqwest::get(&agent_url).await {
         Ok(response) => {
             let elapsed = start.elapsed();
             tracing::info!("Received response in {:?}", elapsed);
@@ -671,13 +674,41 @@ pub async fn preload_settings_data(state: State<'_, AppState>) -> Result<(), Str
         }
     };
     
-    let (providers, usage) = tokio::join!(providers_future, usage_future);
+    let agent_info_future = async {
+        let port = get_agent_port().await;
+        let agent_url = format!("http://localhost:{}/api/agent/info", port);
+        match reqwest::get(agent_url).await {
+            Ok(response) if response.status().is_success() => {
+                match response.json::<AgentInfo>().await {
+                    Ok(info) => {
+                        tracing::info!("Preloaded agent info: {:?}", info);
+                        Some(info)
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to parse agent info: {}", e);
+                        None
+                    }
+                }
+            }
+            Ok(response) => {
+                tracing::error!("Agent info error: {}", response.status());
+                None
+            }
+            Err(e) => {
+                tracing::error!("Failed to connect to agent for info: {}", e);
+                None
+            }
+        }
+    };
+    
+    let (providers, usage, agent_info) = tokio::join!(providers_future, usage_future, agent_info_future);
     
     // Store in state
     let mut preloaded = state.preloaded_settings.lock().await;
     *preloaded = Some(PreloadedSettings { 
         providers: providers.unwrap_or_default(), 
-        usage: usage.unwrap_or_default() 
+        usage: usage.unwrap_or_default(),
+        agent_info
     });
     
     tracing::info!("Settings data preloaded successfully");
@@ -685,9 +716,26 @@ pub async fn preload_settings_data(state: State<'_, AppState>) -> Result<(), Str
 }
 
 #[tauri::command]
-pub async fn get_preloaded_settings_data(state: State<'_, AppState>) -> Result<Option<(Vec<ProviderConfig>, Vec<ProviderUsage>)>, String> {
+pub async fn set_data_live(state: State<'_, AppState>, app_handle: tauri::AppHandle, is_live: bool) -> Result<(), String> {
+    tracing::info!("[DEBUG] Setting data_is_live to {}", is_live);
+    
+    let mut data_is_live = state.data_is_live.lock().await;
+    *data_is_live = is_live;
+    drop(data_is_live);
+    
+    // Emit event to notify all windows
+    match app_handle.emit("data-status-changed", serde_json::json!({ "isLive": is_live })) {
+        Ok(_) => tracing::info!("[DEBUG] Successfully emitted data-status-changed event"),
+        Err(e) => tracing::error!("[DEBUG] Failed to emit data-status-changed event: {}", e),
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_preloaded_settings_data(state: State<'_, AppState>) -> Result<Option<(Vec<ProviderConfig>, Vec<ProviderUsage>, Option<AgentInfo>)>, String> {
     let preloaded = state.preloaded_settings.lock().await;
-    Ok(preloaded.as_ref().map(|p| (p.providers.clone(), p.usage.clone())))
+    Ok(preloaded.as_ref().map(|p| (p.providers.clone(), p.usage.clone(), p.agent_info.clone())))
 }
 
 #[tauri::command]
@@ -923,6 +971,188 @@ pub async fn check_agent_status() -> Result<bool, String> {
 #[tauri::command]
 pub async fn is_agent_running_http() -> Result<bool, String> {
     check_agent_status().await
+}
+
+#[tauri::command]
+pub async fn get_agent_status() -> Result<serde_json::Value, String> {
+    let port = get_agent_port().await;
+    let url = format!("http://localhost:{}/health", port);
+
+    let is_running = reqwest::get(&url).await.is_ok();
+
+    // Check if process is running
+    let process_running = check_agent_status().await.unwrap_or(false);
+
+    let status = if is_running {
+        serde_json::json!({
+            "status": "connected",
+            "message": "Agent Connected",
+            "is_running": true,
+            "port": port
+        })
+    } else if process_running {
+        serde_json::json!({
+            "status": "connecting",
+            "message": "Agent Starting...",
+            "is_running": true,
+            "port": port
+        })
+    } else {
+        serde_json::json!({
+            "status": "disconnected",
+            "message": "Agent Disconnected",
+            "is_running": false,
+            "port": port
+        })
+    };
+
+    Ok(status)
+}
+
+#[tauri::command]
+pub async fn get_agent_port_cmd() -> u16 {
+    get_agent_port().await
+}
+
+#[derive(serde::Serialize)]
+pub struct UiData {
+    pub providers: Vec<aic_core::ProviderConfig>,
+    pub usage: Vec<aic_core::ProviderUsage>,
+    pub github_auth: GitHubAuthStatus,
+    pub agent_info: AgentInfo,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct GitHubAuthStatus {
+    pub is_authenticated: bool,
+    pub username: String,
+    pub token_invalid: bool,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct AgentInfo {
+    pub version: String,
+    pub agent_path: String,
+    pub uptime_seconds: u64,
+}
+
+#[derive(serde::Serialize)]
+pub struct DataStatus {
+    pub is_live: bool,
+    pub label: String,
+    pub css_class: String,
+}
+
+/// Centralized command that fetches all data needed by the UI in one call.
+/// This ensures both windows get consistent data from a single source.
+#[tauri::command]
+pub async fn get_all_ui_data(state: State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<UiData, String> {
+    let start_time = std::time::Instant::now();
+    tracing::info!("[TIMING] get_all_ui_data START");
+    
+    let port = get_agent_port().await;
+    let client = reqwest::Client::new();
+    
+    tracing::debug!("[TIMING] Fetching data from agent on port {}", port);
+    
+    // Fetch all data in parallel
+    let providers_future = client.get(format!("http://localhost:{}/api/providers/discovered", port))
+        .send();
+    let usage_future = client.get(format!("http://localhost:{}/api/providers/usage", port))
+        .send();
+    let github_future = client.get(format!("http://localhost:{}/api/auth/github/status", port))
+        .send();
+    let agent_info_future = client.get(format!("http://localhost:{}/api/agent/info", port))
+        .send();
+    
+    let (providers_resp, usage_resp, github_resp, agent_info_resp) = 
+        tokio::join!(providers_future, usage_future, github_future, agent_info_future);
+    
+    // Parse providers
+    let providers = match providers_resp {
+        Ok(resp) if resp.status().is_success() => resp.json().await.unwrap_or_default(),
+        _ => Vec::new(),
+    };
+    
+    // Parse usage
+    let usage = match usage_resp {
+        Ok(resp) if resp.status().is_success() => resp.json().await.unwrap_or_default(),
+        _ => Vec::new(),
+    };
+    
+    // Parse GitHub auth
+    let github_auth = match github_resp {
+        Ok(resp) if resp.status().is_success() => {
+            resp.json().await.unwrap_or(GitHubAuthStatus {
+                is_authenticated: false,
+                username: String::new(),
+                token_invalid: false,
+            })
+        },
+        _ => GitHubAuthStatus {
+            is_authenticated: false,
+            username: String::new(),
+            token_invalid: false,
+        },
+    };
+    
+    // Parse agent info
+    let agent_info = match agent_info_resp {
+        Ok(resp) if resp.status().is_success() => {
+            #[derive(serde::Deserialize)]
+            struct RawAgentInfo {
+                version: String,
+                agent_path: String,
+                uptime_seconds: u64,
+            }
+            let info: RawAgentInfo = resp.json().await.unwrap_or(RawAgentInfo {
+                version: String::new(),
+                agent_path: String::new(),
+                uptime_seconds: 0,
+            });
+            AgentInfo {
+                version: info.version,
+                agent_path: info.agent_path,
+                uptime_seconds: info.uptime_seconds,
+            }
+        },
+        _ => AgentInfo {
+            version: String::new(),
+            agent_path: String::new(),
+            uptime_seconds: 0,
+        },
+    };
+    
+    let elapsed = start_time.elapsed();
+    tracing::info!("[TIMING] get_all_ui_data END - total time: {:?}", elapsed);
+    
+    Ok(UiData {
+        providers,
+        usage,
+        github_auth,
+        agent_info,
+    })
+}
+
+/// Returns the current data status - whether we have received fresh data from the agent
+#[tauri::command]
+pub async fn get_data_status(state: State<'_, AppState>) -> Result<DataStatus, String> {
+    let data_is_live = state.data_is_live.lock().await;
+    let is_live = *data_is_live;
+    
+    let (label, css_class) = if is_live {
+        ("Live".to_string(), "live".to_string())
+    } else {
+        ("Cached".to_string(), "cached".to_string())
+    };
+
+    tracing::info!("[DEBUG] get_data_status called, returning: is_live={}, label={}", is_live, label);
+    
+    Ok(DataStatus {
+        is_live,
+        label,
+        css_class,
+    })
 }
 
 pub async fn find_agent_executable(app_handle: &tauri::AppHandle) -> Result<String, String> {

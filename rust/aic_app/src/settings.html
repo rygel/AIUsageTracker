@@ -61,8 +61,9 @@
         }
 
         .header-icon {
-            color: var(--accent-blue);
-            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
         }
 
         .header-text {
@@ -102,6 +103,22 @@
             /* Gold color for privacy mode */
             background: rgba(255, 215, 0, 0.1);
         }
+
+        .cached-badge {
+            display: inline-block;
+            background: rgba(255, 193, 7, 0.2);
+            color: #FFC107;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .cached-badge.live {
+            background: rgba(0, 255, 133, 0.2);
+            color: #00FF85;
+            border: 1px solid rgba(0, 255, 133, 0.3);
         }
 
         .close-btn {
@@ -665,8 +682,9 @@
     <div class="settings-container">
         <div class="settings-header" data-tauri-drag-region>
             <div class="header-title">
-                <span class="header-icon">&#9881;</span>
+                <img class="header-icon" src="./icons/icon.png" alt="Icon">
                 <span class="header-text">Settings</span>
+                <span id="cachedBadge" class="cached-badge" style="display: none;">Cached</span>
             </div>
             <div class="header-right">
                 <button class="header-btn" id="privacyToggleBtn" title="Toggle Privacy Mode"
@@ -792,7 +810,8 @@
                         <div class="history-subtabs" style="display: flex; gap: 10px;">
                             <button class="btn-small active" onclick="switchHistorySubTab('usage')"
                                 id="usage-subtab-btn">Usage</button>
-                            <button class="btn-small" onclick="switchHistorySubTab('agent')" id="agent-subtab-btn">Agent</button>
+                            <button class="btn-small" onclick="switchHistorySubTab('agent')"
+                                id="agent-subtab-btn">Agent</button>
                             <button class="btn-small" onclick="switchHistorySubTab('logs')" id="logs-subtab-btn">Raw
                                 Logs</button>
                         </div>
@@ -877,26 +896,32 @@
                             <span id="agentStatusText" style="color: var(--text-secondary);">Checking...</span>
                         </div>
                     </div>
-                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                    <div style="margin-top: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                         <button class="btn btn-primary" id="startAgentBtn" onclick="startAgent()"
                             style="display: none;">Start Agent</button>
                         <button class="btn" id="stopAgentBtn" onclick="stopAgent()"
                             style="display: none; background: var(--accent-red); color: white;">Stop Agent</button>
+                        <button class="btn" id="discoverTokenBtn" onclick="discoverTokens()"
+                            style="margin-left: 8px;">Discover Tokens</button>
                     </div>
-                </div>
-
-                <div class="settings-section" style="margin-top: 24px;">
-                    <div class="settings-section-title">Token Discovery</div>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
-                        Automatically discover API tokens from common locations on your system via the agent.
-                    </p>
-                    <button class="btn" id="discoverTokenBtn" onclick="discoverTokens()">Discover Tokens</button>
                     <div id="discoveryStatus" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
                     </div>
                 </div>
 
                 <div class="settings-section" style="margin-top: 24px;">
                     <div class="settings-section-title">Connection Information</div>
+                    <div class="settings-row">
+                        <label class="settings-label">Agent Version</label>
+                        <div class="settings-control">
+                            <span id="agentVersion" style="color: var(--text-secondary);">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <label class="settings-label">Agent Path</label>
+                        <div class="settings-control">
+                            <span id="agentPath" style="color: var(--text-secondary);">Loading...</span>
+                        </div>
+                    </div>
                     <div class="settings-row">
                         <label class="settings-label">Agent URL</label>
                         <div class="settings-control">
@@ -945,18 +970,44 @@
         let usageData = [];  // Store usage data to get antigravity details
         let prefs = {};
         let settingsChanged = false;
+        let freshDataArrived = false;  // Track if we've fetched fresh data since opening
 
         // GitHub auth status from agent
-        let githubAuthStatus = { is_authenticated: false, username: '' };
+        let githubAuthStatus = { is_authenticated: false, username: '', token_invalid: false };
+
+        // Cached agent port
+        let cachedAgentPort = 8080;
 
         async function getAgentPort() {
-            // Try to read port from .agent_port file
+            // Use cached port if available and recent
+            if (cachedAgentPort && cachedAgentPort !== 8080) {
+                return cachedAgentPort;
+            }
+
+            // Try to get port from Rust backend
+            try {
+                if (window.__TAURI__?.core?.invoke) {
+                    const port = await window.__TAURI__.core.invoke('get_agent_port_cmd');
+                    if (port && port > 0) {
+                        cachedAgentPort = port;
+                        return port;
+                    }
+                } else if (window.__TAURI__?.invoke) {
+                    const port = await window.__TAURI__.invoke('get_agent_port_cmd');
+                    if (port && port > 0) {
+                        cachedAgentPort = port;
+                        return port;
+                    }
+                }
+            } catch (e) {
+                console.log('Could not get port from backend:', e);
+            }
+
+            // Fallback: try to discover port
             try {
                 const response = await fetch('http://localhost:8080/health');
-                // If we get here, port is 8080
                 return 8080;
             } catch (e) {
-                // Port 8080 not available, try another common port
                 for (let p = 8081; p <= 8100; p++) {
                     try {
                         await fetch(`http://localhost:${p}/health`);
@@ -965,7 +1016,7 @@
                         // Continue trying
                     }
                 }
-                return 8080; // Fallback
+                return 8080;
             }
         }
 
@@ -979,7 +1030,7 @@
                 }
             } catch (e) {
                 console.error('Failed to fetch GitHub auth status:', e);
-                githubAuthStatus = { is_authenticated: false, username: '' };
+                githubAuthStatus = { is_authenticated: false, username: '', token_invalid: false };
             }
         }
 
@@ -1124,6 +1175,14 @@
             // Load saved privacy mode
             loadPrivacyMode();
 
+            // Setup badge update listener (do this early so we don't miss events)
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('data-status-changed', async (event) => {
+                    console.log('[CACHE] Settings received data-status-changed event:', event.payload);
+                    await updateCachedBadge();
+                });
+            }
+
             console.log('Settings initialized, privacy button has inline onclick handler');
 
             await loadSettings();
@@ -1220,16 +1279,17 @@
         }
 
         async function refreshHistory() {
+            // Load history data asynchronously - update UI as each piece arrives
             if (currentHistorySubTab === 'usage') {
-                await loadUsageHistory();
+                loadUsageHistoryAsync();
             } else if (currentHistorySubTab === 'agent') {
-                await loadAgentHistory();
+                loadAgentHistoryAsync();
             } else {
-                await loadRawLogs();
+                loadRawLogsAsync();
             }
         }
 
-        async function loadUsageHistory() {
+        async function loadUsageHistoryAsync() {
             const container = document.getElementById('history-list');
             container.innerHTML = '<div class="loading">Loading usage history...</div>';
 
@@ -1271,7 +1331,7 @@
             }
         }
 
-        async function loadAgentHistory() {
+        async function loadAgentHistoryAsync() {
             const container = document.getElementById('agent-list');
             container.innerHTML = '<div class="loading">Loading agent history...</div>';
 
@@ -1281,11 +1341,11 @@
                 const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
                 const startDate = thirtyDaysAgo.toISOString();
 
-                const history = await invoke('get_historical_usage_from_agent', { 
+                const history = await invoke('get_historical_usage_from_agent', {
                     limit: 100,
                     startDate: startDate
                 });
-                
+
                 if (!history || history.length === 0) {
                     container.innerHTML = '<div class="loading">No agent history found. (Retention: 30 days)</div>';
                     return;
@@ -1324,14 +1384,14 @@
             }
         }
 
-        async function loadRawLogs() {
+        async function loadRawLogsAsync() {
             const container = document.getElementById('logs-list');
             container.innerHTML = '<div class="loading">Loading debug logs...</div>';
 
             try {
                 const logs = await invoke('get_raw_responses_from_agent', { limit: 20 });
                 if (!logs || logs.length === 0) {
-                    container.innerHTML = '<div class="loading">No logs found. (Retention: 24h)</div>';
+                    container.innerHTML = '<div class="loading">No raw logs found. (Retention: 24h)</div>';
                     return;
                 }
 
@@ -1376,6 +1436,68 @@
         async function loadSettings() {
             console.log('=== loadSettings() START ===');
             console.log('Timestamp:', new Date().toISOString());
+
+            // Set up event listeners FIRST to ensure we don't miss any events
+            setupAgentStatusListener();
+
+            // Load providers first (this sets window.preloadedAgentInfo)
+            // Then load agent status (which will use the preloaded info)
+            loadProvidersDataAsync();
+            // Load cached usage data immediately from localStorage for instant UI feedback
+            loadCachedUsageData();
+
+            // Show badge immediately if we have cached data
+            if (usageData && usageData.length > 0) {
+                const cachedBadge = document.getElementById('cachedBadge');
+                if (cachedBadge) {
+                    cachedBadge.innerText = 'Cached';
+                    cachedBadge.className = 'cached-badge';
+                    cachedBadge.style.display = 'inline-block';
+                    console.log('[CACHE] Settings: Instant Cached badge shown from localStorage');
+                }
+            }
+
+            // Wait for providers to load before checking agent status
+            // This ensures window.preloadedAgentInfo is available
+            await new Promise(resolve => {
+                const check = () => {
+                    if (window.preloadedAgentInfo !== undefined) {
+                        resolve();
+                    } else {
+                        setTimeout(check, 50);
+                    }
+                };
+                check();
+            });
+
+            // Now load agent status (preloaded agent info should be available)
+            loadAgentStatusAsync();
+
+            // Finally update badge based on current Rust state (might flip to Live if Rust says so)
+            await updateCachedBadge();
+
+            console.log('=== loadSettings() END (async calls started) ===');
+        }
+
+        function loadCachedUsageData() {
+            try {
+                const cached = localStorage.getItem('cached_usage_data');
+                if (cached) {
+                    const data = JSON.parse(cached);
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        usageData = data;
+                        console.log('[CACHE] Settings loaded usage data from localStorage:', usageData.length, 'providers');
+                        return usageData;
+                    }
+                }
+            } catch (e) {
+                console.warn('[CACHE] Settings could not load from localStorage:', e);
+            }
+            return null;
+        }
+
+        async function loadProvidersDataAsync() {
+            console.log('=== loadProvidersDataAsync() START ===');
             try {
                 // First try to get preloaded data
                 console.log('Checking for preloaded data...');
@@ -1392,9 +1514,23 @@
                             console.log('Using preloaded data!');
                             configs = preloaded[0] || [];
                             usageData = preloaded[1] || [];
+                            // Also get agent info from preloaded data
+                            if (preloaded[2]) {
+                                window.preloadedAgentInfo = preloaded[2];
+                                console.log('Preloaded agent info:', window.preloadedAgentInfo);
+                            }
                             console.log('Preloaded configs:', configs.length, 'providers');
                             console.log('Preloaded usage:', usageData?.length || 0, 'providers');
                             dataLoaded = true;
+                            // Preloaded data is always Cached initially (even if Rust says live, 
+                            // this window hasn't fetched fresh data yet)
+                            const cachedBadge = document.getElementById('cachedBadge');
+                            if (cachedBadge && usageData.length > 0) {
+                                cachedBadge.textContent = 'Cached';
+                                cachedBadge.className = 'cached-badge';
+                                cachedBadge.style.display = 'inline-block';
+                                console.log('[CACHE] Settings showing Cached badge for preloaded data');
+                            }
                         } else {
                             console.log('No preloaded data available, will fetch from agent');
                         }
@@ -1406,49 +1542,64 @@
                 // If no preloaded data, fetch from agent
                 if (!dataLoaded && invoke) {
                     console.log('Loading providers from agent...');
-                    console.log('Starting timer...');
                     const startTime = Date.now();
 
                     try {
-                        console.log('Invoking get_all_providers_from_agent NOW...');
-                        const agentProviders = await invoke('get_all_providers_from_agent');
+                        console.log('Invoking get_all_ui_data NOW...');
+                        const uiData = await invoke('get_all_ui_data');
                         const elapsed = Date.now() - startTime;
                         console.log(`Call completed in ${elapsed}ms`);
-                        console.log('Raw response from agent:', agentProviders);
-                        console.log('Response type:', typeof agentProviders);
-                        console.log('Is array:', Array.isArray(agentProviders));
+                        console.log('Raw response from agent:', uiData);
 
-                        if (Array.isArray(agentProviders)) {
-                            console.log('Array length:', agentProviders.length);
-                            if (agentProviders.length > 0) {
-                                console.log('First provider:', JSON.stringify(agentProviders[0], null, 2));
-                            }
+                        // Use centralized data
+                        configs = uiData?.providers || [];
+                        usageData = uiData?.usage || [];
+                        githubAuthStatus = uiData?.github_auth || { is_authenticated: false, username: '', token_invalid: false };
+
+                        // Update badge based on Rust state (will show Live since get_all_ui_data set it to true)
+                        // Actually, we should call renderProviders first if we wanted to show data here
+                        // but settings has complex rendering. We just want to update the badge.
+                        await updateCachedBadge();
+
+                        // Store agent info for use by loadAgentStatusAsync
+                        if (uiData?.agent_info) {
+                            window.preloadedAgentInfo = uiData.agent_info;
+                            console.log('Stored preloaded agent info:', window.preloadedAgentInfo);
                         }
-                        configs = agentProviders || [];
+
+                        // Update agent info display
+                        if (uiData?.agent_info) {
+                            const agentVersionEl = document.getElementById('agentVersion');
+                            const agentPathEl = document.getElementById('agentPath');
+                            if (agentVersionEl) agentVersionEl.textContent = uiData.agent_info.version || 'Unknown';
+                            if (agentPathEl) agentPathEl.textContent = uiData.agent_info.agent_path || 'Unknown';
+                        }
+
                         console.log('Configs assigned:', configs.length, 'providers');
-
-                        // Also fetch usage data to get antigravity details
-                        try {
-                            console.log('Fetching usage data for antigravity details...');
-                            usageData = await invoke('get_usage');
-                            console.log('Usage data loaded:', usageData?.length || 0, 'providers');
-                        } catch (usageErr) {
-                            console.log('Could not fetch usage data:', usageErr.message || usageErr);
-                            usageData = [];
-                        }
                     } catch (agentErr) {
                         const elapsed = Date.now() - startTime;
-                        console.error(`ERROR after ${elapsed}ms calling get_all_providers_from_agent:`, agentErr);
+                        console.error(`ERROR after ${elapsed}ms calling get_all_ui_data:`, agentErr);
                         console.error('Error name:', agentErr.name);
                         console.error('Error message:', agentErr.message);
                         console.error('Error stack:', agentErr.stack);
                         configs = [];
+                        usageData = [];
                     }
                 } else if (!invoke) {
                     console.error('invoke is not available!');
                 }
 
-                // Load preferences (always from local - UI-specific settings)
+                console.log('Calling populateProviders() with', configs.length, 'configs');
+                populateProviders();
+                console.log('=== loadProvidersDataAsync() END ===');
+            } catch (e) {
+                console.error('CRITICAL ERROR in loadProvidersDataAsync:', e);
+            }
+        }
+
+        async function loadPreferencesAsync() {
+            console.log('=== loadPreferencesAsync() START ===');
+            try {
                 console.log('Loading preferences...');
                 if (invoke) {
                     try {
@@ -1458,29 +1609,63 @@
                     } catch (e) {
                         console.log('No preferences found:', e.message || e);
                     }
-
-
                 }
 
-                console.log('Calling populateProviders() with', configs.length, 'configs');
-                populateProviders();
                 console.log('Calling populateLayout()');
                 populateLayout();
                 console.log('Calling populateFonts()');
                 populateFonts();
-                console.log('Checking agent status...');
-                await checkAgentStatus();
-
-                // Fetch GitHub auth status
-                await fetchGitHubAuthStatus();
-
-                console.log('=== loadSettings() END ===');
+                console.log('=== loadPreferencesAsync() END ===');
             } catch (e) {
-                console.error('CRITICAL ERROR in loadSettings:', e);
-                console.error('Error name:', e.name);
-                console.error('Error message:', e.message);
-                console.error('Error stack:', e.stack);
+                console.error('CRITICAL ERROR in loadPreferencesAsync:', e);
             }
+        }
+
+        async function loadAgentStatusAsync() {
+            console.log('=== loadAgentStatusAsync() START ===');
+            await checkAgentStatus();
+
+            // Update agent version/path display - try to use preloaded data first
+            const agentVersionEl = document.getElementById('agentVersion');
+            const agentPathEl = document.getElementById('agentPath');
+
+            // Check if we have preloaded agent info
+            if (window.preloadedAgentInfo) {
+                console.log('Using preloaded agent info:', window.preloadedAgentInfo);
+                if (agentVersionEl) agentVersionEl.textContent = window.preloadedAgentInfo.version || 'Unknown';
+                if (agentPathEl) agentPathEl.textContent = window.preloadedAgentInfo.agent_path || 'Unknown';
+                console.log('=== loadAgentStatusAsync() END (preloaded) ===');
+                return;
+            }
+
+            // Try to fetch from agent directly
+            if (agentVersionEl && agentPathEl) {
+                try {
+                    const port = await getAgentPort();
+                    console.log('Fetching agent info from port:', port);
+                    const response = await fetch(`http://localhost:${port}/api/agent/info`);
+                    console.log('Agent info response status:', response.status);
+                    if (response.ok) {
+                        const info = await response.json();
+                        console.log('Agent info:', info);
+                        agentVersionEl.textContent = info.version || 'Unknown';
+                        agentPathEl.textContent = info.agent_path || 'Unknown';
+                    } else {
+                        console.log('Agent returned error status');
+                        agentVersionEl.textContent = 'Agent not running';
+                        agentPathEl.textContent = 'Agent not running';
+                    }
+                } catch (e) {
+                    console.error('Failed to fetch agent info:', e);
+                    agentVersionEl.textContent = 'Agent not running';
+                    agentPathEl.textContent = 'Agent not running';
+                }
+            } else {
+                console.log('Agent elements not found, retrying...');
+                setTimeout(loadAgentStatusAsync, 500);
+            }
+
+            console.log('=== loadAgentStatusAsync() END ===');
         }
 
         async function loadAppVersion() {
@@ -1495,32 +1680,88 @@
             }
         }
 
-        // Agent control functions
+        // Listen for agent status changes from main window
+        function setupAgentStatusListener() {
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('agent-status-changed', async (event) => {
+                    const status = event.payload;
+                    console.log('Settings received agent status:', status);
+                    updateAgentStatusUI(status);
+                });
+
+                // Listen for data status changes from Rust
+                window.__TAURI__.event.listen('data-status-changed', async (event) => {
+                    console.log('[CACHE] Settings received data-status-changed event:', event.payload);
+                    await updateCachedBadge();
+                });
+            }
+        }
+
+        // Update settings UI based on status
+        function updateAgentStatusUI(status) {
+            const statusText = document.getElementById('agentStatusText');
+            const startBtn = document.getElementById('startAgentBtn');
+            const stopBtn = document.getElementById('stopAgentBtn');
+
+            if (status.status === 'connected') {
+                if (statusText) {
+                    statusText.textContent = 'Running';
+                    statusText.style.color = 'var(--accent-green)';
+                }
+                if (startBtn) startBtn.style.display = 'none';
+                if (stopBtn) stopBtn.style.display = 'inline-block';
+            } else if (status.status === 'connecting') {
+                if (statusText) {
+                    statusText.textContent = 'Starting...';
+                    statusText.style.color = '#FFD700';
+                }
+                if (startBtn) startBtn.style.display = 'none';
+                if (stopBtn) stopBtn.style.display = 'inline-block';
+            } else {
+                if (statusText) {
+                    statusText.textContent = 'Stopped';
+                    statusText.style.color = 'var(--text-secondary)';
+                }
+                if (startBtn) startBtn.style.display = 'inline-block';
+                if (stopBtn) stopBtn.style.display = 'none';
+            }
+
+            // Update port
+            const agentPortEl = document.getElementById('agentPort');
+            const agentUrlEl = document.getElementById('agentUrl');
+            if (agentPortEl) agentPortEl.textContent = status.port || 8080;
+            if (agentUrlEl) agentUrlEl.textContent = `http://localhost:${status.port || 8080}`;
+        }
+
+        // Shared agent status check - calls Rust command and emits event
         async function checkAgentStatus() {
             try {
-                const isRunning = await invoke('is_agent_running_http');
-                const statusText = document.getElementById('agentStatusText');
-                const startBtn = document.getElementById('startAgentBtn');
-                const stopBtn = document.getElementById('stopAgentBtn');
+                const status = await invoke('get_agent_status');
+                console.log('Agent status:', status);
+                updateAgentStatusUI(status);
 
-                if (isRunning) {
-                    if (statusText) statusText.textContent = 'Running';
-                    if (statusText) statusText.style.color = 'var(--accent-green)';
-                    if (startBtn) startBtn.style.display = 'none';
-                    if (stopBtn) stopBtn.style.display = 'inline-block';
-                } else {
-                    if (statusText) statusText.textContent = 'Stopped';
-                    if (statusText) statusText.style.color = 'var(--text-secondary)';
-                    if (startBtn) startBtn.style.display = 'inline-block';
-                    if (stopBtn) stopBtn.style.display = 'none';
+                // Only update version/path if we don't have preloaded data
+                // This prevents overwriting good data with "Loading..." or "Agent not running"
+                if (status.status === 'connected') {
+                    const port = await getAgentPort();
+                    try {
+                        const response = await fetch(`http://localhost:${port}/api/agent/info`);
+                        if (response.ok) {
+                            const info = await response.json();
+                            const agentPathEl = document.getElementById('agentPath');
+                            const agentVersionEl = document.getElementById('agentVersion');
+
+                            // Only update if we don't have preloaded data
+                            // Otherwise keep the preloaded values (they're more complete)
+                            if (!window.preloadedAgentInfo) {
+                                if (agentPathEl) agentPathEl.textContent = info.agent_path || 'Unknown';
+                                if (agentVersionEl) agentVersionEl.textContent = info.version || 'Unknown';
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to fetch agent info:', e);
+                    }
                 }
-
-                // Update connection info
-                const port = await getAgentPort();
-                const agentPortEl = document.getElementById('agentPort');
-                const agentUrlEl = document.getElementById('agentUrl');
-                if (agentPortEl) agentPortEl.textContent = port;
-                if (agentUrlEl) agentUrlEl.textContent = `http://localhost:${port}`;
             } catch (e) {
                 console.error('Failed to check agent status:', e);
                 const statusText = document.getElementById('agentStatusText');
@@ -1528,12 +1769,6 @@
                     statusText.textContent = 'Error';
                     statusText.style.color = 'var(--accent-red)';
                 }
-                // Still update connection info with fallback
-                const port = await getAgentPort();
-                const agentPortEl = document.getElementById('agentPort');
-                const agentUrlEl = document.getElementById('agentUrl');
-                if (agentPortEl) agentPortEl.textContent = port;
-                if (agentUrlEl) agentUrlEl.textContent = `http://localhost:${port}`;
             }
         }
 
@@ -1692,8 +1927,8 @@
                 // Check if this is antigravity and has usage data with details
                 let subModelsHtml = '';
                 if (config.provider_id === 'antigravity') {
-                    const usage = usageData.find(u => u.provider_id === 'antigravity');
-                    if (usage && usage.details && usage.details.length > 0) {
+                    const usage = usageData && usageData.find && usageData.find(u => u.provider_id === 'antigravity');
+                    if (usage && usage.details && Array.isArray(usage.details) && usage.details.length > 0) {
                         subModelsHtml = `
                             <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #3a3a3a;">
                                 <div style="font-size: 11px; color: #888; font-weight: 600; margin-bottom: 8px;">Individual Quota Icons:</div>
@@ -1733,11 +1968,19 @@
                             // Use username from agent's auth service (primary source)
                             const username = githubAuthStatus.username || usageAccountName;
                             const isAuthenticated = githubAuthStatus.is_authenticated;
+                            const tokenInvalid = githubAuthStatus.token_invalid;
                             const displayUsername = (privacyMode && username) ? '***' : username;
-                            const authStatus = isAuthenticated
-                                ? (username ? `Authenticated (${displayUsername})` : 'Authenticated')
-                                : 'Not Authenticated';
-                            const authColor = isAuthenticated ? '#90EE90' : '#888';
+                            let authStatus;
+                            let authColor;
+                            if (tokenInvalid) {
+                                authStatus = 'Token Invalid - Please Re-authenticate';
+                                authColor = '#FF6B6B';
+                            } else {
+                                authStatus = isAuthenticated
+                                    ? (username ? `Authenticated (${displayUsername})` : 'Authenticated')
+                                    : 'Not Authenticated';
+                                authColor = isAuthenticated ? '#90EE90' : '#888';
+                            }
                             const btnText = isAuthenticated ? 'Log out' : 'Log in';
                             return `
                                         <span style="color: ${authColor}; font-size: 11px;">${authStatus}</span>
@@ -1806,9 +2049,24 @@
                                 const data = await response.json();
 
                                 if (data.success) {
-                                    // Show device code to user
+                                    // Show device code in modal with copy button and open URL
                                     const code = data.user_code;
-                                    alert(`Please enter this code at ${data.verification_uri}:\n\n${code}`);
+                                    const verificationUrl = data.verification_uri;
+
+                                    // Open the verification URL automatically
+                                    window.open(verificationUrl, '_blank');
+
+                                    // Show modal with code
+                                    document.getElementById('authContent').innerHTML = `
+                                        <p>Please enter this code on the GitHub page:</p>
+                                        <div style="display: flex; align-items: center; gap: 10px; margin: 15px 0;">
+                                            <code style="font-size: 24px; font-weight: bold; padding: 10px; background: #f0f0f0; border-radius: 4px; flex: 1; text-align: center;">${code}</code>
+                                            <button class="btn btn-secondary" onclick="navigator.clipboard.writeText('${code}').then(() => this.textContent='Copied!')">Copy</button>
+                                        </div>
+                                        <p style="font-size: 12px; color: #666;">If the page didn't open, <a href="${verificationUrl}" target="_blank">click here</a></p>
+                                        <p id="authStatus" style="margin-top: 15px;">Waiting for authorization...</p>
+                                    `;
+                                    document.getElementById('authModal').classList.add('visible');
 
                                     // Start polling for token
                                     pollForGitHubToken(data.device_code, data.interval);
@@ -1844,6 +2102,40 @@
             document.getElementById('fontItalic').checked = prefs.font_italic || false;
         }
 
+        // Centralized badge update - queries Rust state for single source of truth
+        async function updateCachedBadge() {
+            const cachedBadge = document.getElementById('cachedBadge');
+            if (!cachedBadge) return;
+
+            try {
+                // Query Rust state - single source of truth
+                const status = await invoke('get_data_status');
+                console.log('[CACHE] Settings badge - Rust says:', status, 'usageData length:', usageData?.length);
+
+                if (usageData && usageData.length > 0) {
+                    // We have data to show, use the status from Rust
+                    cachedBadge.textContent = status.label;
+                    cachedBadge.className = 'cached-badge ' + (status.css_class || '');
+                    cachedBadge.style.display = 'inline-block';
+                    console.log('[CACHE] Settings showing badge:', status.label);
+                } else {
+                    // No data yet - hide badge
+                    cachedBadge.style.display = 'none';
+                    console.log('[CACHE] Settings hiding badge (no data)');
+                }
+            } catch (e) {
+                console.log('[CACHE] Settings could not query data status:', e);
+                // Fallback - show Cached if we have data
+                if (usageData && usageData.length > 0) {
+                    cachedBadge.textContent = 'Cached';
+                    cachedBadge.className = 'cached-badge';
+                    cachedBadge.style.display = 'inline-block';
+                } else {
+                    cachedBadge.style.display = 'none';
+                }
+            }
+        }
+
         function updateFontPreview() {
             const preview = document.getElementById('fontPreviewText');
             const family = document.getElementById('fontFamily').value;
@@ -1875,9 +2167,12 @@
                 attempts++;
                 if (attempts > maxAttempts) {
                     clearInterval(pollInterval);
-                    alert('GitHub login timed out. Please try again.');
+                    document.getElementById('authStatus').innerHTML = '<span style="color: red;">Login timed out. Please try again.</span>';
                     return;
                 }
+
+                // Update status
+                document.getElementById('authStatus').textContent = `Waiting for authorization... (attempt ${attempts}/${maxAttempts})`;
 
                 try {
                     const port = await getAgentPort();
@@ -1890,6 +2185,8 @@
 
                     if (data.success) {
                         clearInterval(pollInterval);
+                        document.getElementById('authStatus').innerHTML = '<span style="color: green;">Authentication successful!</span>';
+
                         // Token received, update config
                         const config = configs.find(c => c.provider_id === 'github-copilot');
                         if (config) {
@@ -1916,9 +2213,12 @@
                                 await invoke('save_provider_configs', { configs });
                             }
                         }
+
+                        // Close modal after short delay
+                        setTimeout(() => closeAuthModal(), 1500);
                     } else if (data.status === 'expired' || data.status === 'access_denied') {
                         clearInterval(pollInterval);
-                        alert('GitHub login failed: ' + (data.error || 'Unknown error'));
+                        document.getElementById('authStatus').innerHTML = '<span style="color: red;">Login failed: ' + (data.error || 'Unknown error') + '</span>';
                     }
                     // If pending, continue polling
                 } catch (err) {

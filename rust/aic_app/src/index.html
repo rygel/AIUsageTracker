@@ -67,8 +67,13 @@
         .app-icon {
             width: 18px;
             height: 18px;
-            background: var(--accent-blue);
             border-radius: 3px;
+        }
+
+        .app-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .app-title {
@@ -563,6 +568,57 @@
             background: #202020;
             border-color: #252525;
         }
+
+        /* Skeleton loading placeholders */
+        .skeleton-group {
+            margin-bottom: 16px;
+        }
+
+        .skeleton-header {
+            height: 20px;
+            width: 120px;
+            background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s infinite;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-item {
+            height: 40px;
+            background: linear-gradient(90deg, #252525 25%, #353535 50%, #252525 75%);
+            background-size: 200% 100%;
+            animation: skeleton-shimmer 1.5s infinite;
+            border-radius: 6px;
+            margin-bottom: 6px;
+        }
+
+        @keyframes skeleton-shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .cached-badge {
+            display: inline-block;
+            background: rgba(255, 193, 7, 0.2);
+            color: #FFC107;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .cached-badge.live {
+            background: rgba(0, 200, 83, 0.2);
+            color: #00C853;
+            border: 1px solid rgba(0, 200, 83, 0.3);
+        }
     </style>
 </head>
 
@@ -570,9 +626,10 @@
     <div class="app-container">
         <div class="header" data-tauri-drag-region>
             <div class="header-left">
-                <div class="app-icon"></div>
+                <img class="app-icon" src="./icons/icon.png" alt="Icon">
                 <span class="app-title">AI Consumption Tracker</span>
                 <span class="app-version" id="versionText">v</span>
+                <span id="cachedBadge" class="cached-badge" style="display: none;">Cached</span>
             </div>
             <div class="header-right">
                 <button class="header-btn" id="privacyToggleBtn" title="Toggle Privacy Mode">🔒</button>
@@ -615,14 +672,106 @@
         let privacyMode = false;
         let usageData = [];
         let agentConnected = false; // Shared agent status
+        let githubAuthStatus = { is_authenticated: false, username: '', token_invalid: false };
+        let cachedAgentPort = null;
         let prefs = {
             yellow_threshold: 60,
             red_threshold: 80,
             invert_progress_bar: false
         }; // Default preferences
 
+        // Tauri invoke helper
+        const invoke = window.__TAURI__?.invoke || window.__TAURI__?.core?.invoke;
+
+        // Load cached usage data from localStorage for instant display
+        function loadCachedUsageData() {
+            try {
+                const cached = localStorage.getItem('cached_usage_data');
+                if (cached) {
+                    const data = JSON.parse(cached);
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        console.log('[CACHE] Loaded cached usage data:', data.length, 'providers');
+                        return data;
+                    }
+                }
+            } catch (e) {
+                console.log('[CACHE] Could not load cached data:', e);
+            }
+            return null;
+        }
+
+        // Save usage data to localStorage for next startup
+        function saveUsageDataToCache(data) {
+            try {
+                localStorage.setItem('cached_usage_data', JSON.stringify(data));
+                console.log('[CACHE] Saved usage data to cache');
+            } catch (e) {
+                console.log('[CACHE] Could not save cache:', e);
+            }
+        }
+
+        // Track app start time for timing measurement
+        window.appStartTime = Date.now();
+        console.log('[TIMING] UI_START');
+
+        // Centralized badge update - queries Rust state for single source of truth
+        async function updateCachedBadge() {
+            const cachedBadge = document.getElementById('cachedBadge');
+            if (!cachedBadge) {
+                console.log('[CACHE] Badge element not found');
+                return;
+            }
+
+            try {
+                // Query Rust state - single source of truth
+                const status = await invoke('get_data_status');
+
+                console.log('[CACHE] updateCachedBadge - Rust says:', status, 'usageData length:', usageData?.length);
+
+                if (usageData && usageData.length > 0) {
+                    // We have data to show, use the status from Rust
+                    cachedBadge.textContent = status.label;
+                    cachedBadge.className = 'cached-badge ' + (status.css_class || '');
+                    cachedBadge.style.display = 'inline-block';
+                    console.log('[CACHE] Showing badge:', status.label);
+                } else {
+                    // No data yet - hide badge
+                    cachedBadge.style.display = 'none';
+                    console.log('[CACHE] Hiding badge (no data)');
+                }
+            } catch (e) {
+                console.log('[CACHE] Could not query data status:', e);
+                // Fallback - show Cached if we have data
+                if (usageData && usageData.length > 0) {
+                    cachedBadge.textContent = 'Cached';
+                    cachedBadge.className = 'cached-badge';
+                    cachedBadge.style.display = 'inline-block';
+                } else {
+                    cachedBadge.style.display = 'none';
+                }
+            }
+        }
+
+        async function getAgentPort() {
+            if (cachedAgentPort !== null) {
+                return cachedAgentPort;
+            }
+            try {
+                if (invoke) {
+                    const port = await invoke('get_agent_port_cmd');
+                    if (port && port > 0) {
+                        cachedAgentPort = port;
+                        return port;
+                    }
+                }
+            } catch (e) {
+                console.log('Could not get port from backend:', e);
+            }
+            return 8080;
+        }
+
         // Initialize when DOM is ready
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', async function () {
             console.log('DOM loaded');
             console.log('Tauri object:', typeof window.__TAURI__);
             console.log('Tauri keys:', window.__TAURI__ ? Object.keys(window.__TAURI__) : 'none');
@@ -631,15 +780,9 @@
             document.getElementById('closeBtn').addEventListener('click', function () {
                 console.log('Close clicked');
 
-                // Try core.invoke (Tauri 2.0)
-                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    console.log('Using core.invoke');
-                    window.__TAURI__.core.invoke('close_window')
-                        .then(() => console.log('Close invoked via core'))
-                        .catch(e => console.error('Close error:', e));
-                } else if (window.__TAURI__ && window.__TAURI__.invoke) {
-                    console.log('Using invoke');
-                    window.__TAURI__.invoke('close_window')
+                // Use invoke helper
+                if (invoke) {
+                    invoke('close_window')
                         .then(() => console.log('Close invoked'))
                         .catch(e => console.error('Close error:', e));
                 } else {
@@ -667,63 +810,179 @@
             // Load and display app version
             loadAppVersion();
 
+            // Set connecting status immediately (don't wait for agent check to render UI)
+            updateAgentUI('connecting', 'Connecting...');
+
+            // Start periodic status check in background (will retry connecting if fails)
+            startPeriodicStatusCheck();
+
+            // Listen for status changes from other windows (settings dialog)
+            setupAgentStatusListener();
+
+            // Listen for data status changes from Rust (pushed updates)
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('data-status-changed', async (event) => {
+                    console.log('[CACHE] Received data-status-changed event:', event.payload);
+                    await updateCachedBadge();
+                });
+            }
+
             // Load initial data
             loadData();
 
-            // Check agent status immediately and periodically
-            checkAgentStatus();
-            setInterval(checkAgentStatus, 5000);
-
-            // Listen for window focus events to reload preferences
+            // Listen for window focus to sync badge state
             if (window.__TAURI__?.event) {
                 window.__TAURI__.event.listen('tauri://focus', async () => {
-                    console.log('Window focused - reloading preferences');
-                    await loadPreferences();
-                    renderProviders();
+                    console.log('Window focused - syncing badge state');
+                    await updateCachedBadge();
                 });
             }
         });
 
+        async function fetchGitHubAuthStatus() {
+            try {
+                const port = await getAgentPort();
+                const response = await fetch(`http://localhost:${port}/api/auth/github/status`);
+                if (response.ok) {
+                    githubAuthStatus = await response.json();
+                    console.log('GitHub auth status:', githubAuthStatus);
+                }
+            } catch (e) {
+                console.error('Failed to fetch GitHub auth status:', e);
+                githubAuthStatus = { is_authenticated: false, username: '', token_invalid: false };
+            }
+        }
+
+        // Track if we're showing cached data and when fresh data arrives
+        let isShowingCachedData = false;
+        let freshDataArrived = false;
+        let hadCachedDataInitially = false; // Track if we had cache at start
+
+        // Show skeleton placeholders immediately while loading
+        function showSkeletonPlaceholders() {
+            const container = document.getElementById('providersList');
+            container.innerHTML = `
+                <div class="skeleton-group">
+                    <div class="skeleton-header"></div>
+                    <div class="skeleton-item"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+                <div class="skeleton-group">
+                    <div class="skeleton-header"></div>
+                    <div class="skeleton-item"></div>
+                </div>
+            `;
+        }
+
         async function loadData() {
+            console.log('[TIMING] LOAD_DATA_CALLED: ' + (Date.now() - window.appStartTime) + 'ms');
+
             const container = document.getElementById('providersList');
 
-            // Check if agent is connected before trying to load
-            if (!agentConnected) {
-                container.innerHTML = '<div class="loading">Waiting for agent...</div>';
-                return;
+            // Don't reset freshDataArrived here - it tracks if we've EVER gotten fresh data
+            // Only reset isShowingCachedData when we start loading new data
+            // freshDataArrived = false;  // <-- REMOVED: This was causing sync issues
+
+            // Check for cached data first
+            const cachedData = loadCachedUsageData();
+            if (cachedData && cachedData.length > 0) {
+                console.log('[CACHE] Showing cached data immediately');
+                usageData = cachedData;
+                isShowingCachedData = true;
+                hadCachedDataInitially = true;
+                renderProviders();
+            } else {
+                // No cache - show skeleton placeholders immediately
+                hadCachedDataInitially = false;
+                showSkeletonPlaceholders();
             }
 
-            container.innerHTML = '<div class="loading">Loading...</div>';
+            // Start loading data asynchronously
+            loadUsageDataAsync();
+            loadGitHubAuthAsync();
 
+            // Set timeout: only if we started with NO cached data, show empty after 15 seconds
+            if (!hadCachedDataInitially) {
+                setTimeout(() => {
+                    if (!freshDataArrived) {
+                        console.log('[CACHE] Timeout with no cache - showing empty state');
+                        const container = document.getElementById('providersList');
+                        container.innerHTML = '<div class="loading">Connecting...</div>';
+                    }
+                }, 15000);
+            }
+        }
+
+        async function loadUsageDataAsync() {
+            const loadStartTime = Date.now();
+            const container = document.getElementById('providersList');
+            console.log('[TIMING] FETCH_FROM_AGENT_START: ' + (loadStartTime - window.appStartTime) + 'ms');
             try {
-                let data = [];
-
-                // Get data ONLY from agent
-                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    data = await window.__TAURI__.core.invoke('get_usage_from_agent');
-                    console.log('Loaded usage from agent:', data);
+                let uiData = null;
+                if (invoke) {
+                    uiData = await invoke('get_all_ui_data');
+                    const elapsed = Date.now() - loadStartTime;
+                    console.log('[TIMING] FETCH_FROM_AGENT_DONE: ' + elapsed + 'ms');
+                    console.log('[TIMING] UI Data:', uiData);
+                    console.log('[TIMING] usage count:', uiData?.usage?.length);
                 }
 
-                usageData = data || [];
+                // Only update if we got valid data with providers - don't overwrite with empty
+                const newUsageData = uiData?.usage;
+                console.log('[CACHE] Checking fresh data: newUsageData =', typeof newUsageData, 'length =', newUsageData?.length);
+
+                if (newUsageData && newUsageData.length > 0) {
+                    freshDataArrived = true;
+                    isShowingCachedData = false;
+                    usageData = newUsageData;
+                    console.log('[CACHE] Got FRESH data with', newUsageData.length, 'providers, calling render');
+                    // Save to cache for next startup
+                    saveUsageDataToCache(usageData);
+                } else {
+                    console.log('[CACHE] Got empty data from agent, keeping cached data');
+                    // Keep showing cached data - don't change anything
+                }
+
+                // Render providers - this will also update status to connected
+                console.log('[CACHE] About to call renderProviders, freshDataArrived:', freshDataArrived, 'isShowingCachedData:', isShowingCachedData);
                 renderProviders();
 
-                // Preload settings data in background for faster settings window opening
-                console.log('Preloading settings data in background...');
-                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    window.__TAURI__.core.invoke('preload_settings_data')
-                        .then(() => console.log('Settings data preloaded successfully'))
-                        .catch(e => console.log('Could not preload settings data:', e));
+                // If this was a successful fetch at startup, but NOT an explicit refresh,
+                // we might want to keep it "Cached" to avoid a quick flicker.
+                // However, per user request "It should switch from cache to live once the data arrives",
+                // we will flip it to live but ONLY after rendering is complete.
+                if (freshDataArrived && invoke) {
+                    invoke('set_data_live', { isLive: true })
+                        .catch(e => console.error('Failed to set data live:', e));
                 }
+
             } catch (err) {
-                console.error('Error loading data:', err);
-                // Extract the error message from the error object
-                let errorMessage = 'Failed to load data from agent';
-                if (err && err.message) {
-                    errorMessage = err.message;
-                } else if (typeof err === 'string') {
-                    errorMessage = err;
+                console.error('Error loading usage data:', err);
+                // Keep showing cached data on error - don't overwrite
+                console.log('[CACHE] Error fetching data, keeping cached data');
+
+                // Keep trying periodically
+                setTimeout(() => {
+                    console.log('[CACHE] Retrying data fetch...');
+                    loadUsageDataAsync();
+                }, 5000);
+            }
+        }
+
+        async function loadGitHubAuthAsync() {
+            try {
+                const port = await getAgentPort();
+                const response = await fetch(`http://localhost:${port}/api/auth/github/status`);
+                if (response.ok) {
+                    githubAuthStatus = await response.json();
+                    console.log('GitHub auth status:', githubAuthStatus);
+                    // Re-render to show updated auth info
+                    renderProviders();
                 }
-                container.innerHTML = '<div class="error">' + escapeHtml(errorMessage) + '</div>';
+            } catch (e) {
+                // Agent not running yet - that's OK, will try again later
+                console.log('GitHub auth: Agent not ready yet');
+                githubAuthStatus = { is_authenticated: false, username: '', token_invalid: false };
             }
         }
 
@@ -742,14 +1001,8 @@
         async function loadPreferences() {
             try {
                 // First try to load from Tauri preferences
-                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    const loadedPrefs = await window.__TAURI__.core.invoke('load_preferences');
-                    if (loadedPrefs) {
-                        prefs = { ...prefs, ...loadedPrefs };
-                        console.log('Loaded preferences from Tauri:', prefs);
-                    }
-                } else if (window.__TAURI__ && window.__TAURI__.invoke) {
-                    const loadedPrefs = await window.__TAURI__.invoke('load_preferences');
+                if (invoke) {
+                    const loadedPrefs = await invoke('load_preferences');
                     if (loadedPrefs) {
                         prefs = { ...prefs, ...loadedPrefs };
                         console.log('Loaded preferences from Tauri:', prefs);
@@ -772,10 +1025,8 @@
                     if (toggle) {
                         toggle.checked = true;
                         // Apply the setting
-                        if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                            await window.__TAURI__.core.invoke('toggle_always_on_top', { enabled: true });
-                        } else if (window.__TAURI__ && window.__TAURI__.invoke) {
-                            await window.__TAURI__.invoke('toggle_always_on_top', { enabled: true });
+                        if (invoke) {
+                            await invoke('toggle_always_on_top', { enabled: true });
                         }
                     }
                 }
@@ -787,8 +1038,8 @@
         async function loadAppVersion() {
             try {
                 console.log('Loading app version...');
-                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    const version = await window.__TAURI__.core.invoke('get_app_version');
+                if (invoke) {
+                    const version = await invoke('get_app_version');
                     console.log('Got version:', version);
                     const versionElement = document.getElementById('versionText');
                     if (versionElement && version) {
@@ -808,51 +1059,68 @@
         async function refreshData() {
             showAll = document.getElementById('showAllToggle').checked;
 
-            // Check if agent is connected before refreshing
-            if (!agentConnected) {
-                return; // Silently ignore if agent not connected
-            }
-
             document.getElementById('refreshBtn').style.opacity = '0.5';
 
+            // Always try to refresh, regardless of agentConnected status
+            // This allows retrying when agent was not available before
+            refreshUsageDataAsync();
+            refreshGitHubAuthAsync();
+
+            // Preload settings data after refresh (fire and forget)
+            console.log('Preloading settings data after refresh...');
+            if (invoke) {
+                invoke('preload_settings_data')
+                    .then(() => console.log('Settings data preloaded after refresh'))
+                    .catch(e => console.log('Could not preload settings data:', e));
+            }
+
+            // Reset button opacity after a delay (data will update as it arrives)
+            setTimeout(() => {
+                document.getElementById('refreshBtn').style.opacity = '1';
+            }, 500);
+        }
+
+        async function refreshUsageDataAsync() {
             try {
                 let data = [];
 
                 // Refresh ONLY via agent
-                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    data = await window.__TAURI__.core.invoke('refresh_usage_from_agent');
+                if (invoke) {
+                    data = await invoke('refresh_usage_from_agent');
                     console.log('Refreshed usage from agent:', data);
                 }
 
-                usageData = data || [];
+                // Update data if we got valid data
+                if (data && data.length > 0) {
+                    freshDataArrived = true;
+                    isShowingCachedData = false;
+                    usageData = data;
+                    saveUsageDataToCache(usageData);
+                }
                 renderProviders();
 
-                // Preload settings data after refresh
-                console.log('Preloading settings data after refresh...');
-                if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                    window.__TAURI__.core.invoke('preload_settings_data')
-                        .then(() => console.log('Settings data preloaded after refresh'))
-                        .catch(e => console.log('Could not preload settings data:', e));
+                // Explicit refresh always sets status to Live
+                if (invoke) {
+                    invoke('set_data_live', { isLive: true })
+                        .catch(e => console.error('Failed to set data live:', e));
                 }
             } catch (err) {
-                console.error('Error refreshing data:', err);
-                // Show error message to user
-                let errorMessage = 'Failed to refresh data';
-                if (err && err.message) {
-                    errorMessage = err.message;
-                } else if (typeof err === 'string') {
-                    errorMessage = err;
-                }
-                const container = document.getElementById('providersList');
-                if (container) {
-                    container.innerHTML = '<div class="error">' + escapeHtml(errorMessage) + '</div>';
-                }
-            } finally {
-                document.getElementById('refreshBtn').style.opacity = '1';
+                console.error('Error refreshing usage data:', err);
+            }
+        }
+
+        async function refreshGitHubAuthAsync() {
+            try {
+                await fetchGitHubAuthStatus();
+                renderProviders();
+            } catch (err) {
+                console.error('Error refreshing GitHub auth:', err);
             }
         }
 
         function renderProviders() {
+            const renderStartTime = Date.now();
+            console.log('[TIMING] RENDER_START: ' + (renderStartTime - window.appStartTime) + 'ms');
             const container = document.getElementById('providersList');
             let filtered = showAll ? usageData : usageData.filter(u => u.is_available);
 
@@ -982,7 +1250,7 @@
                 }
 
                 if (privacyMode && p.cost_used > 0) desc = '••••••••';
-                
+
                 const width = avail ? Math.min(barWidth, 100) : 0;
 
                 // Compact view (only mode now)
@@ -1013,8 +1281,15 @@
 
                 // Build display name with account name for providers that have it
                 let displayName = p.provider_name;
-                if (p.account_name && p.account_name.trim() !== '') {
-                    const accountDisplay = privacyMode ? '***' : escapeHtml(p.account_name);
+                // Get account name - prioritize GitHub auth status for GitHub Copilot, else use usage data
+                let accountName = '';
+                if (p.provider_id === 'github-copilot') {
+                    accountName = githubAuthStatus.username || p.account_name || '';
+                } else {
+                    accountName = p.account_name || '';
+                }
+                if (accountName && accountName.trim() !== '') {
+                    const accountDisplay = privacyMode ? '***' : escapeHtml(accountName);
                     displayName = escapeHtml(p.provider_name) + ' [' + accountDisplay + ']';
                 } else {
                     displayName = escapeHtml(p.provider_name);
@@ -1073,8 +1348,8 @@
                         let usedText = detailUsedPct + '%';
                         providerHtml += '<div class="provider-item compact child" style="margin-left:16px;height:18px;padding:2px 6px;">' +
                             (detailDisplayPct > 0 ? '<div class="provider-progress-bg ' + detailCls + '" style="width:' + detailDisplayPct + '%;opacity:0.25;display:flex;align-items:center;justify-content:flex-start;padding-left:4px;">' +
-                            '<span style="font-size:8px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(usedText) + '</span>' +
-                            '</div>' : '') +
+                                '<span style="font-size:8px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(usedText) + '</span>' +
+                                '</div>' : '') +
                             '<div class="provider-content" style="font-size:9px;">' +
                             '<span class="provider-name" style="font-size:10px;color:#C0C0C0;">' + escapeHtml(detail.name) + '</span>' +
                             '<span style="flex:1;"></span>' + // Spacer to push right content
@@ -1145,6 +1420,20 @@
                     }
                 });
             });
+
+            // Content is now rendered - update status to connected
+            agentConnected = true;
+            updateAgentUI('connected', 'Agent Connected');
+
+            // Show/hide cached badge based on data source (async - don't await)
+            updateCachedBadge();
+
+            // Log timing - data is now displayed
+            const totalTime = Date.now() - window.appStartTime;
+            console.log('[TIMING] UI_START_TO_DATA_DISPLAYED: ' + totalTime + 'ms');
+
+            // Start periodic background status check (doesn't block UI)
+            startPeriodicStatusCheck();
         }
 
         async function togglePrivacy() {
@@ -1191,9 +1480,7 @@
                     }
                 });
             }
-        }
-
-        // Load privacy mode from localStorage
+        }        // Load privacy mode from localStorage
         function loadPrivacyMode() {
             try {
                 const saved = localStorage.getItem('privacy_mode');
@@ -1210,37 +1497,14 @@
             }
         }
 
-        // Load privacy mode from localStorage
-        function loadPrivacyMode() {
-            try {
-                const saved = localStorage.getItem('privacy_mode');
-                if (saved !== null) {
-                    privacyMode = JSON.parse(saved);
-                    const btn = document.getElementById('privacyToggleBtn');
-                    if (btn) {
-                        btn.classList.toggle('active', privacyMode);
-                        btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
-                    }
-                }
-            } catch (e) {
-                console.warn('Could not load privacy mode:', e);
-            }
-        }
 
         async function toggleAlwaysOnTop() {
             const enabled = document.getElementById('alwaysOnTopToggle').checked;
 
             // Apply the setting immediately
-            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+            if (invoke) {
                 try {
-                    await window.__TAURI__.core.invoke('toggle_always_on_top', { enabled });
-                    console.log('Always on top set to:', enabled);
-                } catch (e) {
-                    console.error('Failed to set always on top:', e);
-                }
-            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
-                try {
-                    await window.__TAURI__.invoke('toggle_always_on_top', { enabled });
+                    await invoke('toggle_always_on_top', { enabled });
                     console.log('Always on top set to:', enabled);
                 } catch (e) {
                     console.error('Failed to set always on top:', e);
@@ -1258,12 +1522,8 @@
         function openAgentManagement() {
             console.log('Opening agent management...');
 
-            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                window.__TAURI__.core.invoke('open_agent_window')
-                    .then(() => console.log('Agent management opened'))
-                    .catch(e => console.error('Failed to open agent management:', e));
-            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
-                window.__TAURI__.invoke('open_agent_window')
+            if (invoke) {
+                invoke('open_agent_window')
                     .then(() => console.log('Agent management opened'))
                     .catch(e => console.error('Failed to open agent management:', e));
             } else {
@@ -1287,12 +1547,12 @@
         async function stopAgentFromMain() {
             console.log('Stopping agent from main window...');
 
-            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+            if (invoke) {
                 // Immediately show stopping state
                 await updateAgentUI('connecting', 'Stopping Agent...');
 
                 try {
-                    const success = await window.__TAURI__.core.invoke('stop_agent');
+                    const success = await invoke('stop_agent');
                     if (success) {
                         console.log('Agent stopped successfully');
                         agentConnected = false;
@@ -1315,12 +1575,12 @@
         async function startAgentFromMain() {
             console.log('Starting agent from main window...');
 
-            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+            if (invoke) {
                 // Immediately show connecting state
                 await updateAgentUI('connecting', 'Starting Agent...');
 
                 try {
-                    const success = await window.__TAURI__.core.invoke('start_agent');
+                    const success = await invoke('start_agent');
                     if (success) {
                         console.log('Agent started successfully');
                         // Wait a moment then check status
@@ -1376,7 +1636,7 @@
                     agentBtn.disabled = false; // Enable button so user can stop agent
                     // Fetch and display agent version in tooltip
                     try {
-                        const agentVersion = await window.__TAURI__.core.invoke('get_agent_version');
+                        const agentVersion = await invoke('get_agent_version');
                         agentBtn.title = `Agent Running (v${agentVersion}) - Click to Stop`;
                     } catch (e) {
                         agentBtn.title = 'Agent Running - Click to Stop';
@@ -1435,41 +1695,84 @@
             }
         }
 
-        async function checkAgentStatus() {
-            if (!window.__TAURI__ || !window.__TAURI__.core || !window.__TAURI__.core.invoke) {
+        // Shared agent status check function - used by both main window and settings
+        async function checkAndBroadcastAgentStatus() {
+            if (!invoke) {
                 await updateAgentUI('disconnected', 'Not Connected');
                 return;
             }
 
             try {
-                // Check if agent is responding via HTTP
-                const isRunning = await window.__TAURI__.core.invoke('is_agent_running_http');
+                const status = await invoke('get_agent_status');
+                console.log('Agent status:', status);
 
-                if (isRunning) {
-                    // Agent is running and responding
-                    await updateAgentUI('connected', 'Agent Connected');
-                    return;
-                }
-
-                // Agent not responding via HTTP - check if we have a local process
-                try {
-                    const status = await window.__TAURI__.core.invoke('get_agent_status_details');
-
-                    if (status.is_running) {
-                        // Process exists but not responding yet (starting up)
-                        await updateAgentUI('connecting', 'Agent Starting...');
-                    } else {
-                        // No process and not responding
-                        await updateAgentUI('disconnected', 'Agent Disconnected');
+                // Emit to other windows via event
+                if (window.__TAURI__?.event) {
+                    try {
+                        await window.__TAURI__.event.emit('agent-status-changed', status);
+                    } catch (e) {
+                        console.error('Failed to emit agent status:', e);
                     }
-                } catch (e) {
-                    // Can't check process status
-                    await updateAgentUI('disconnected', 'Agent Disconnected');
                 }
+
+                return status;
             } catch (e) {
                 console.error('Failed to check agent status:', e);
-                await updateAgentUI('disconnected', 'Connection Error');
+                return { status: 'disconnected', message: 'Connection Error', is_running: false };
             }
+        }
+
+        // Listen for agent status changes from other windows
+        function setupAgentStatusListener() {
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('agent-status-changed', async (event) => {
+                    const status = event.payload;
+                    console.log('Received agent status from other window:', status);
+
+                    // Update UI based on received status
+                    if (status.status === 'connected') {
+                        agentConnected = true;
+                        await updateAgentUI('connected', status.message);
+                        // Try to refresh data when agent becomes connected (even if we have cached data)
+                        // but only if fresh data hasn't arrived yet
+                        if (!freshDataArrived) {
+                            console.log('[CACHE] Agent connected, refreshing data...');
+                            loadUsageDataAsync();
+                        }
+                    } else if (status.status === 'connecting') {
+                        await updateAgentUI('connecting', status.message);
+                    } else {
+                        agentConnected = false;
+                        await updateAgentUI('disconnected', status.message);
+                    }
+                });
+            }
+        }
+
+        async function checkAgentStatus() {
+            const status = await checkAndBroadcastAgentStatus();
+
+            // Update local UI based on result
+            if (status.status === 'connected') {
+                await updateAgentUI('connected', status.message);
+            } else if (status.status === 'connecting') {
+                await updateAgentUI('connecting', status.message);
+            } else {
+                await updateAgentUI('disconnected', status.message);
+            }
+        }
+
+        let statusCheckInterval = null;
+        function startPeriodicStatusCheck() {
+            // Cancel any existing interval
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+            }
+            // Start new interval in background (doesn't block initial load)
+            statusCheckInterval = setInterval(() => {
+                // Always check status - this will retry connecting if not connected
+                checkAgentStatus().catch(() => { });
+            }, 5000);
         }
 
         function openSettings() {
@@ -1478,14 +1781,9 @@
             console.log('invoke:', window.__TAURI__?.invoke);
             console.log('core:', window.__TAURI__?.core);
 
-            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-                console.log('Using core.invoke...');
-                window.__TAURI__.core.invoke('open_settings_window')
-                    .then(() => console.log('Settings opened'))
-                    .catch(e => console.error('Failed to open settings:', e));
-            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+            if (invoke) {
                 console.log('Using invoke...');
-                window.__TAURI__.invoke('open_settings_window')
+                invoke('open_settings_window')
                     .then(() => console.log('Settings opened'))
                     .catch(e => console.error('Failed to open settings:', e));
             } else {
