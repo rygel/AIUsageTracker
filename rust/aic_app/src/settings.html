@@ -927,6 +927,22 @@
         let prefs = {};
         let settingsChanged = false;
 
+        // GitHub auth status from agent
+        let githubAuthStatus = { is_authenticated: false, username: '' };
+
+        async function fetchGitHubAuthStatus() {
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/github/status');
+                if (response.ok) {
+                    githubAuthStatus = await response.json();
+                    console.log('GitHub auth status:', githubAuthStatus);
+                }
+            } catch (e) {
+                console.error('Failed to fetch GitHub auth status:', e);
+                githubAuthStatus = { is_authenticated: false, username: '' };
+            }
+        }
+
         // Privacy mode state
         let privacyMode = false;
 
@@ -1357,6 +1373,10 @@
                 populateFonts();
                 console.log('Checking agent status...');
                 await checkAgentStatus();
+
+                // Fetch GitHub auth status
+                await fetchGitHubAuthStatus();
+
                 console.log('=== loadSettings() END ===');
             } catch (e) {
                 console.error('CRITICAL ERROR in loadSettings:', e);
@@ -1536,14 +1556,19 @@
                 // Get account_name from usage data for GitHub Copilot (and other providers that have it)
                 let accountName = '';
                 if (config.provider_id === 'github-copilot') {
-                    const usage = usageData.find(u => u.provider_id === 'github-copilot');
-                    accountName = usage?.account_name || '';
+                    // Use username from agent's auth service (primary source)
+                    accountName = githubAuthStatus.username || '';
+                    if (accountName) {
+                        const maskedName = privacyMode ? '***' : accountName;
+                        displayName = info.name + ' [' + maskedName + ']';
+                    }
                 } else {
-                    accountName = config.account_name || '';
-                }
-                if (accountName && accountName.trim() !== '') {
-                    const maskedName = privacyMode ? '***' : accountName;
-                    displayName = info.name + ' [' + maskedName + ']';
+                    const usage = usageData.find(u => u.provider_id === config.provider_id);
+                    accountName = usage?.account_name || config.account_name || '';
+                    if (accountName && config.provider_id !== 'github-copilot') {
+                        const maskedName = privacyMode ? '***' : accountName;
+                        displayName = info.name + ' [' + maskedName + ']';
+                    }
                 }
 
                 console.log(`  -> Using display name: ${displayName}, icon: ${info.icon}`);
@@ -1595,9 +1620,10 @@
                                 ${(() => {
                             // Get account_name from usage data (not from config)
                             const usage = usageData.find(u => u.provider_id === 'github-copilot');
-                            const accountName = usage?.account_name || '';
-                            const isAuthenticated = config.api_key && config.api_key.length > 0;
-                            const username = accountName;
+                            const usageAccountName = usage?.account_name || '';
+                            // Use username from agent's auth service (primary source)
+                            const username = githubAuthStatus.username || usageAccountName;
+                            const isAuthenticated = githubAuthStatus.is_authenticated;
                             const displayUsername = (privacyMode && username) ? '***' : username;
                             const authStatus = isAuthenticated
                                 ? (username ? `Authenticated (${displayUsername})` : 'Authenticated')
