@@ -52,9 +52,9 @@ Download the latest installer or .zip file from the [Release](https://github.com
 | **DeepSeek**                     | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
 | **Gemini**                       | not integrated yet  | 🚧 Planned          | Testers welcome                                              |
 | **GitHub Copilot**               | OAuth Device Flow   | ✅ Tested            |                                                              |
-| **Kimi (Moonshot)**              | API Key¹            |                     | Testers welcome                                              |
-| **Minimax** (China)              | API Key¹            |                     | Testers welcome                                              |
-| **Minimax** (International)      | API Key¹            |                     | Testers welcome                                              |
+| **Kimi (Moonshot)**              | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
+| **Minimax** (China)              | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
+| **Minimax** (International)      | API Key¹            | ⚠️ Beta             | Testers welcome                                              |
 | **Mistral**                      | API Key¹            | ✅ Tested            | but Mistral does not provide usage information via their API |
 | **OpenAI (Codex)**               | via Opencli OAuth   | ️ ⚠️ Beta           | Testers welcome                                              |
 | **OpenRouter**                   | not integrated yet  | 🚧 Planned          | Testers welcome                                              |
