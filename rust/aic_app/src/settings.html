@@ -1542,7 +1542,8 @@
                     accountName = config.account_name || '';
                 }
                 if (accountName && accountName.trim() !== '') {
-                    displayName = info.name + ' [' + accountName + ']';
+                    const maskedName = privacyMode ? '***' : accountName;
+                    displayName = info.name + ' [' + maskedName + ']';
                 }
 
                 console.log(`  -> Using display name: ${displayName}, icon: ${info.icon}`);
