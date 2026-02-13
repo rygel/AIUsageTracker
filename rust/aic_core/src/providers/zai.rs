@@ -36,6 +36,8 @@ struct ZaiQuotaLimitItem {
     #[serde(rename = "usage")]
     total: Option<i64>,
     remaining: Option<i64>,
+    #[serde(rename = "nextResetTime")]
+    next_reset_time: Option<i64>, // Milliseconds since epoch
 }
 
 #[async_trait]
@@ -146,16 +148,43 @@ impl ProviderService for ZaiProvider {
                             }
                         }
 
-                        // Z.AI resets at UTC midnight - convert to local time for display
-                        let reset_dt_utc = Utc::now()
-                            .date_naive()
-                            .and_hms_opt(0, 0, 0)
-                            .unwrap_or_else(|| Utc::now().naive_utc())
-                            + chrono::Duration::days(1);
-                        let reset_datetime_utc = DateTime::from_naive_utc_and_offset(reset_dt_utc, Utc);
-                        let reset_datetime_local = reset_datetime_utc.with_timezone(&Local);
-                        let z_reset =
-                            format!(" (Resets: ({}))", reset_datetime_local.format("%b %d %H:%M"));
+                        // Get next_reset_time from API response
+                        // Priority: TOKENS_LIMIT -> TIME_LIMIT -> calculated (fallback)
+                        let next_reset_ms = token_limit
+                            .and_then(|t| t.next_reset_time)
+                            .or_else(|| mcp_limit.and_then(|m| m.next_reset_time));
+                        
+                        let (reset_datetime_utc, z_reset) = if let Some(ms) = next_reset_ms {
+                            // Convert milliseconds to DateTime<Utc>
+                            let seconds = ms / 1000;
+                            let nanos = ((ms % 1000) * 1_000_000) as u32;
+                            match DateTime::from_timestamp(seconds, nanos) {
+                                Some(dt) => {
+                                    let local = dt.with_timezone(&Local);
+                                    let reset_str = format!(" (Resets: ({}))", local.format("%b %d %H:%M"));
+                                    (Some(dt), reset_str)
+                                }
+                                None => {
+                                    // Fallback to calculated
+                                    let fallback = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+                                        .unwrap_or_else(|| Utc::now().naive_utc())
+                                        + chrono::Duration::days(1);
+                                    let fallback_dt = DateTime::from_naive_utc_and_offset(fallback, Utc);
+                                    let local = fallback_dt.with_timezone(&Local);
+                                    let reset_str = format!(" (Resets: ({}))", local.format("%b %d %H:%M"));
+                                    (Some(fallback_dt), reset_str)
+                                }
+                            }
+                        } else {
+                            // Fallback to calculated UTC midnight
+                            let fallback = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+                                .unwrap_or_else(|| Utc::now().naive_utc())
+                                + chrono::Duration::days(1);
+                            let fallback_dt = DateTime::from_naive_utc_and_offset(fallback, Utc);
+                            let local = fallback_dt.with_timezone(&Local);
+                            let reset_str = format!(" (Resets: ({}))", local.format("%b %d %H:%M"));
+                            (Some(fallback_dt), reset_str)
+                        };
 
                         let remaining_percent = 100.0 - used_percent.min(100.0);
                         
@@ -178,7 +207,7 @@ impl ProviderService for ZaiProvider {
                                 },
                                 z_reset
                             ),
-                            next_reset_time: Some(reset_datetime_utc),
+                            next_reset_time: reset_datetime_utc,
                             ..Default::default()
                         }]
                     }
