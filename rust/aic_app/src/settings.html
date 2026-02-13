@@ -851,6 +851,20 @@
                         Built with Tauri, .NET, and Rust.
                     </div>
                 </div>
+                
+                <div class="settings-section" style="margin-top: 24px;">
+                    <div class="settings-section-title">Agent Control</div>
+                    <div class="settings-row">
+                        <label class="settings-label">Agent Status</label>
+                        <div class="settings-control">
+                            <span id="agentStatusText" style="color: var(--text-secondary);">Checking...</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button class="btn btn-primary" id="startAgentBtn" onclick="startAgent()" style="display: none;">Start Agent</button>
+                        <button class="btn" id="stopAgentBtn" onclick="stopAgent()" style="display: none; background: var(--accent-red); color: white;">Stop Agent</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1207,6 +1221,8 @@
                 populateGitHub();
                 console.log('Calling populateFonts()');
                 populateFonts();
+                console.log('Checking agent status...');
+                await checkAgentStatus();
                 console.log('=== loadSettings() END ===');
             } catch (e) {
                 console.error('CRITICAL ERROR in loadSettings:', e);
@@ -1227,6 +1243,65 @@
                 }
             } catch (e) {
                 console.log('Could not load app version:', e);
+            }
+        }
+
+        // Agent control functions
+        async function checkAgentStatus() {
+            try {
+                const isRunning = await invoke('is_agent_running_http');
+                const statusText = document.getElementById('agentStatusText');
+                const startBtn = document.getElementById('startAgentBtn');
+                const stopBtn = document.getElementById('stopAgentBtn');
+                
+                if (isRunning) {
+                    if (statusText) statusText.textContent = 'Running';
+                    if (statusText) statusText.style.color = 'var(--accent-green)';
+                    if (startBtn) startBtn.style.display = 'none';
+                    if (stopBtn) stopBtn.style.display = 'inline-block';
+                } else {
+                    if (statusText) statusText.textContent = 'Stopped';
+                    if (statusText) statusText.style.color = 'var(--text-secondary)';
+                    if (startBtn) startBtn.style.display = 'inline-block';
+                    if (stopBtn) stopBtn.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Failed to check agent status:', e);
+                const statusText = document.getElementById('agentStatusText');
+                if (statusText) {
+                    statusText.textContent = 'Error';
+                    statusText.style.color = 'var(--accent-red)';
+                }
+            }
+        }
+
+        async function startAgent() {
+            console.log('Starting agent from settings...');
+            try {
+                const success = await invoke('start_agent');
+                if (success) {
+                    console.log('Agent started successfully');
+                    await checkAgentStatus();
+                    // Reload data after agent starts
+                    setTimeout(() => loadSettings(), 2000);
+                }
+            } catch (e) {
+                console.error('Failed to start agent:', e);
+                alert('Failed to start agent: ' + (e?.message || e));
+            }
+        }
+
+        async function stopAgent() {
+            console.log('Stopping agent from settings...');
+            try {
+                const success = await invoke('stop_agent');
+                if (success) {
+                    console.log('Agent stopped successfully');
+                    await checkAgentStatus();
+                }
+            } catch (e) {
+                console.error('Failed to stop agent:', e);
+                alert('Failed to stop agent: ' + (e?.message || e));
             }
         }
 
