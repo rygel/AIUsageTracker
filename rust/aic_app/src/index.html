@@ -1082,10 +1082,11 @@
                                 detailResetText = formatResetDisplay(detail.next_reset_time);
                             }
 
-                            // Compact child item - reset text aligned right
+                            // Compact child item - percentage inside bar, remaining on right
+                            let usedText = detailUsedPct + '%';
                             providerHtml += '<div class="provider-item compact child" style="margin-left:16px;height:18px;padding:2px 6px;">' +
-                                (detailDisplayPct > 0 ? '<div class="provider-progress-bg ' + detailCls + '" style="width:' + detailDisplayPct + '%;opacity:0.25;display:flex;align-items:center;justify-content:flex-end;padding-right:4px;">' +
-                                '<span style="font-size:8px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(detailText) + '</span>' +
+                                (detailDisplayPct > 0 ? '<div class="provider-progress-bg ' + detailCls + '" style="width:' + detailDisplayPct + '%;opacity:0.25;display:flex;align-items:center;justify-content:flex-start;padding-left:4px;">' +
+                                '<span style="font-size:8px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(usedText) + '</span>' +
                                 '</div>' : '') +
                                 '<div class="provider-content" style="font-size:9px;">' +
                                 '<span class="provider-name" style="font-size:10px;color:#C0C0C0;">' + escapeHtml(detail.name) + '</span>' +
@@ -1164,14 +1165,16 @@
                             if (detailUsedPct >= prefs.red_threshold) detailCls = 'high';
                             else if (detailUsedPct >= prefs.yellow_threshold) detailCls = 'medium';
 
+                            // Standard child item - percentage inside bar, remaining on right
+                            let usedText = detailUsedPct + '%';
                             providerHtml += '<div class="provider-item child" style="margin-top:4px;">' +
                                 '<div class="provider-header" style="margin-bottom:4px;">' +
                                 '<span class="provider-name" style="font-weight:normal;font-size:12px;color:#C0C0C0;">' +
                                 '<span class="child-indicator"></span>' + escapeHtml(detail.name) + '</span></div>' +
                                 '<div style="display:flex;align-items:center;">' +
                                 '<div class="provider-bar-container" style="flex:1;">' +
-                                '<div class="provider-bar ' + detailCls + '" style="width:' + Math.min(detailDisplayPct, 100) + '%;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;">' +
-                                '<span style="font-size:10px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(detailText) + '</span>' +
+                                '<div class="provider-bar ' + detailCls + '" style="width:' + Math.min(detailDisplayPct, 100) + '%;display:flex;align-items:center;justify-content:flex-start;padding-left:6px;">' +
+                                '<span style="font-size:10px;color:#fff;font-weight:600;text-shadow:0 0 2px #000;">' + escapeHtml(usedText) + '</span>' +
                                 '</div></div>' +
                                 '<span style="font-size:10.5px;color:#808080;margin-left:10px;">' + escapeHtml(detailText) + '</span>' +
                                 '</div>' +
