@@ -792,6 +792,7 @@
                         <div class="history-subtabs" style="display: flex; gap: 10px;">
                             <button class="btn-small active" onclick="switchHistorySubTab('usage')"
                                 id="usage-subtab-btn">Usage</button>
+                            <button class="btn-small" onclick="switchHistorySubTab('ancient')" id="ancient-subtab-btn">Ancient</button>
                             <button class="btn-small" onclick="switchHistorySubTab('logs')" id="logs-subtab-btn">Raw
                                 Logs</button>
                         </div>
@@ -800,6 +801,12 @@
                     <div id="usage-history-subpanel">
                         <div id="history-list">
                             <div class="loading">Loading history...</div>
+                        </div>
+                    </div>
+
+                    <div id="ancient-history-subpanel" style="display: none;">
+                        <div id="ancient-list">
+                            <div class="loading">Loading ancient history...</div>
                         </div>
                     </div>
 
@@ -896,6 +903,31 @@
                             <span id="aboutVersion">Version </span>
                         </div>
                     </div>
+                </div>
+
+                <div class="settings-section" style="margin-top: 24px;">
+                    <div class="settings-section-title">Connection Information</div>
+                    <div class="settings-row">
+                        <label class="settings-label">Agent URL</label>
+                        <div class="settings-control">
+                            <span id="agentUrl">http://localhost:8080</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <label class="settings-label">Port</label>
+                        <div class="settings-control">
+                            <span id="agentPort">8080</span>
+                        </div>
+                    </div>
+                    <div class="settings-row">
+                        <label class="settings-label">Protocol</label>
+                        <div class="settings-control">
+                            <span>HTTP</span>
+                        </div>
+                    </div>
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px;">
+                        The agent runs on localhost only. Port may vary if 8080 is in use.
+                    </p>
                 </div>
             </div>
         </div>
@@ -1190,9 +1222,11 @@
         function switchHistorySubTab(subTab) {
             currentHistorySubTab = subTab;
             document.getElementById('usage-subtab-btn').classList.toggle('active', subTab === 'usage');
+            document.getElementById('ancient-subtab-btn').classList.toggle('active', subTab === 'ancient');
             document.getElementById('logs-subtab-btn').classList.toggle('active', subTab === 'logs');
 
             document.getElementById('usage-history-subpanel').style.display = subTab === 'usage' ? 'block' : 'none';
+            document.getElementById('ancient-history-subpanel').style.display = subTab === 'ancient' ? 'block' : 'none';
             document.getElementById('logs-history-subpanel').style.display = subTab === 'logs' ? 'block' : 'none';
 
             refreshHistory();
@@ -1201,6 +1235,8 @@
         async function refreshHistory() {
             if (currentHistorySubTab === 'usage') {
                 await loadUsageHistory();
+            } else if (currentHistorySubTab === 'ancient') {
+                await loadAncientHistory();
             } else {
                 await loadRawLogs();
             }
@@ -1245,6 +1281,59 @@
             } catch (e) {
                 console.error('Failed to load history:', e);
                 container.innerHTML = `<div class="error">Failed to load history: ${e}</div>`;
+            }
+        }
+
+        async function loadAncientHistory() {
+            const container = document.getElementById('ancient-list');
+            container.innerHTML = '<div class="loading">Loading ancient history...</div>';
+
+            try {
+                // Calculate date 30+ days ago
+                const now = new Date();
+                const thirtyDaysAgo = new Date(now.setDate(now.getDate() - 30));
+                const startDate = thirtyDaysAgo.toISOString();
+
+                const history = await invoke('get_historical_usage_from_agent', { 
+                    limit: 100,
+                    startDate: startDate
+                });
+                
+                if (!history || history.length === 0) {
+                    container.innerHTML = '<div class="loading">No ancient history found. (Retention: 30 days)</div>';
+                    return;
+                }
+
+                let html = `<table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Provider</th>
+                            <th>Usage</th>
+                            <th>Limit</th>
+                            <th>Reset</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                history.forEach(item => {
+                    const date = new Date(item.timestamp * 1000).toLocaleString();
+                    html += `
+                        <tr>
+                            <td style="white-space: nowrap;">${date}</td>
+                            <td style="white-space: nowrap;">${item.provider_id}</td>
+                            <td>${item.usage !== null ? item.usage : '-'}</td>
+                            <td>${item.limit !== null ? item.limit : '-'}</td>
+                            <td>${item.next_reset ? new Date(item.next_reset * 1000).toLocaleDateString() : '-'}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load ancient history:', e);
+                container.innerHTML = `<div class="error">Failed to load ancient history: ${e}</div>`;
             }
         }
 
@@ -1440,6 +1529,13 @@
                     if (startBtn) startBtn.style.display = 'inline-block';
                     if (stopBtn) stopBtn.style.display = 'none';
                 }
+
+                // Update connection info
+                const port = await getAgentPort();
+                const agentPortEl = document.getElementById('agentPort');
+                const agentUrlEl = document.getElementById('agentUrl');
+                if (agentPortEl) agentPortEl.textContent = port;
+                if (agentUrlEl) agentUrlEl.textContent = `http://localhost:${port}`;
             } catch (e) {
                 console.error('Failed to check agent status:', e);
                 const statusText = document.getElementById('agentStatusText');
@@ -1447,6 +1543,12 @@
                     statusText.textContent = 'Error';
                     statusText.style.color = 'var(--accent-red)';
                 }
+                // Still update connection info with fallback
+                const port = await getAgentPort();
+                const agentPortEl = document.getElementById('agentPort');
+                const agentUrlEl = document.getElementById('agentUrl');
+                if (agentPortEl) agentPortEl.textContent = port;
+                if (agentUrlEl) agentUrlEl.textContent = `http://localhost:${port}`;
             }
         }
 
