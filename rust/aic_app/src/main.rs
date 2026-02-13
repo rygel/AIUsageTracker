@@ -76,9 +76,29 @@ fn create_tray_menu<R: Runtime>(
 
 fn setup_signal_handlers() {
     ctrlc::set_handler(move || {
-        info!("Received shutdown signal - exiting gracefully");
+        info!("Received shutdown signal - closing all windows");
+        // Don't use app.exit() here - just exit directly
+        // The windows will be cleaned up by the OS when process terminates
         std::process::exit(0);
     }).expect("Error setting signal handler");
+}
+
+fn cleanup_and_exit(app: &tauri::AppHandle) {
+    info!("Cleaning up and exiting...");
+
+    // Close all webview windows
+    let window_ids = ["main", "settings", "info"];
+    for id in window_ids {
+        if let Some(window) = app.get_webview_window(id) {
+            let _ = window.close();
+        }
+    }
+
+    // Remove tray icon
+    let _ = app.remove_tray_by_id("main");
+
+    info!("Cleanup complete - exiting");
+    app.exit(0);
 }
 
 #[tokio::main]
@@ -222,9 +242,7 @@ async fn main() {
                             });
                         }
                         "exit" => {
-                            // Remove tray icon first, then exit
-                            let _ = app.remove_tray_by_id("main");
-                            app.exit(0);
+                            cleanup_and_exit(app);
                         }
                         _ => {}
                     }
@@ -351,13 +369,18 @@ async fn main() {
                 let version = env!("CARGO_PKG_VERSION");
                 window.set_title(&format!("AI Consumption Tracker v{}", version))?;
                 
-                // Handle window close event - hide instead of close
+                // Handle window close event - cleanup and exit
                 let window_clone = window.clone();
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        info!("Main window close requested - hiding instead");
+                        info!("Main window close requested - cleaning up");
                         api.prevent_close();
-                        let _ = window_clone.hide();
+                        // Close all windows and exit
+                        let app_handle = window_clone.app_handle().clone();
+                        let _ = app_handle.get_webview_window("settings").map(|w| w.close());
+                        let _ = app_handle.get_webview_window("info").map(|w| w.close());
+                        let _ = app_handle.remove_tray_by_id("main");
+                        app_handle.exit(0);
                     }
                 });
                 
@@ -366,27 +389,27 @@ async fn main() {
                 warn!("Main window not found!");
             }
 
-            // Add close handler for settings window (hide instead of close)
+            // Add close handler for settings window
             if let Some(settings_window) = app.get_webview_window("settings") {
-                let settings_clone = settings_window.clone();
+                let settings_window_clone = settings_window.clone();
                 settings_window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        info!("Settings window close requested - hiding instead");
+                        info!("Settings window close requested");
                         api.prevent_close();
-                        let _ = settings_clone.hide();
+                        let _ = settings_window_clone.close();
                     }
                 });
                 info!("Settings window close handler installed");
             }
 
-            // Add close handler for info window (hide instead of close)
+            // Add close handler for info window
             if let Some(info_window) = app.get_webview_window("info") {
-                let info_clone = info_window.clone();
+                let info_window_clone = info_window.clone();
                 info_window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        info!("Info window close requested - hiding instead");
+                        info!("Info window close requested");
                         api.prevent_close();
-                        let _ = info_clone.hide();
+                        let _ = info_window_clone.close();
                     }
                 });
                 info!("Info window close handler installed");
