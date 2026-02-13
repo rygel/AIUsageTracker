@@ -98,7 +98,8 @@
         }
 
         .header-btn.active {
-            color: #FFD700; /* Gold color for privacy mode */
+            color: #FFD700;
+            /* Gold color for privacy mode */
             background: rgba(255, 215, 0, 0.1);
         }
         }
@@ -562,6 +563,63 @@
             text-align: center;
             padding: 40px;
             color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        /* History Subtabs */
+        .btn-small {
+            padding: 4px 10px;
+            font-size: 11px;
+            background: #333;
+            color: #888;
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-small.active {
+            background: var(--accent-blue);
+            color: white;
+            border-color: var(--accent-blue);
+        }
+
+        /* History Table */
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .history-table th,
+        .history-table td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #333;
+        }
+
+        .history-table th {
+            color: var(--text-primary);
+            font-weight: 600;
+            background: #252525;
+            position: sticky;
+            top: 0;
+        }
+
+        .history-table tr:hover {
+            background: #2a2a2a;
+        }
+
+        .log-body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 100px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            padding: 5px;
+            border-radius: 3px;
         }
 
         .divider {
@@ -600,7 +658,6 @@
             scrollbar-width: thin;
             scrollbar-color: #424242 #1e1e1e;
         }
-
     </style>
 </head>
 
@@ -612,7 +669,8 @@
                 <span class="header-text">Settings</span>
             </div>
             <div class="header-right">
-                <button class="header-btn" id="privacyToggleBtn" title="Toggle Privacy Mode" onclick="console.log('Inline click!'); togglePrivacyMode(); return false;">🔒</button>
+                <button class="header-btn" id="privacyToggleBtn" title="Toggle Privacy Mode"
+                    onclick="console.log('Inline click!'); togglePrivacyMode(); return false;">🔒</button>
                 <button class="close-btn" id="closeBtn">&#215;</button>
             </div>
         </div>
@@ -621,6 +679,7 @@
             <button class="tab active" data-tab="providers">Providers</button>
             <button class="tab" data-tab="layout">Layout</button>
             <button class="tab" data-tab="updates">Updates</button>
+            <button class="tab" data-tab="history">History</button>
             <button class="tab" data-tab="fonts">Fonts</button>
             <button class="tab" data-tab="agent">Agent</button>
         </div>
@@ -725,6 +784,36 @@
                 </div>
             </div>
 
+            <div class="tab-panel" id="history-panel">
+                <div class="settings-section">
+                    <div class="settings-section-title"
+                        style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Historical Data & Logs</span>
+                        <div class="history-subtabs" style="display: flex; gap: 10px;">
+                            <button class="btn-small active" onclick="switchHistorySubTab('usage')"
+                                id="usage-subtab-btn">Usage</button>
+                            <button class="btn-small" onclick="switchHistorySubTab('logs')" id="logs-subtab-btn">Raw
+                                Logs</button>
+                        </div>
+                    </div>
+
+                    <div id="usage-history-subpanel">
+                        <div id="history-list">
+                            <div class="loading">Loading history...</div>
+                        </div>
+                    </div>
+
+                    <div id="logs-history-subpanel" style="display: none;">
+                        <div id="logs-list">
+                            <div class="loading">Loading raw logs...</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                    <button class="btn" onclick="refreshHistory()">Refresh History</button>
+                </div>
+            </div>
+
             <div class="tab-panel" id="fonts-panel">
                 <div class="settings-section">
                     <div class="settings-section-title">Typography</div>
@@ -782,20 +871,23 @@
                         </div>
                     </div>
                     <div style="margin-top: 12px; display: flex; gap: 8px;">
-                        <button class="btn btn-primary" id="startAgentBtn" onclick="startAgent()" style="display: none;">Start Agent</button>
-                        <button class="btn" id="stopAgentBtn" onclick="stopAgent()" style="display: none; background: var(--accent-red); color: white;">Stop Agent</button>
+                        <button class="btn btn-primary" id="startAgentBtn" onclick="startAgent()"
+                            style="display: none;">Start Agent</button>
+                        <button class="btn" id="stopAgentBtn" onclick="stopAgent()"
+                            style="display: none; background: var(--accent-red); color: white;">Stop Agent</button>
                     </div>
                 </div>
-                
+
                 <div class="settings-section" style="margin-top: 24px;">
                     <div class="settings-section-title">Token Discovery</div>
                     <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">
                         Automatically discover API tokens from common locations on your system via the agent.
                     </p>
                     <button class="btn" id="discoverTokenBtn" onclick="discoverTokens()">Discover Tokens</button>
-                    <div id="discoveryStatus" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);"></div>
+                    <div id="discoveryStatus" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                    </div>
                 </div>
-                
+
                 <div class="settings-section" style="margin-top: 24px;">
                     <div class="settings-section-title">Agent Information</div>
                     <div class="settings-row">
@@ -829,7 +921,7 @@
 
     <script>
         console.log('=== SETTINGS.HTML SCRIPT START ===');
-        
+
         let configs = [];
         let usageData = [];  // Store usage data to get antigravity details
         let prefs = {};
@@ -837,22 +929,22 @@
 
         // Privacy mode state
         let privacyMode = false;
-        
+
         async function togglePrivacyMode() {
             console.log('togglePrivacyMode called, current state:', privacyMode);
             privacyMode = !privacyMode;
             console.log('New privacy mode state:', privacyMode);
-            
+
             const btn = document.getElementById('privacyToggleBtn');
             if (btn) {
                 btn.classList.toggle('active', privacyMode);
                 btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
             }
-            
+
             // Apply privacy mode to all API key inputs
             console.log('Applying privacy mode to inputs...');
             applyPrivacyMode();
-            
+
             // Emit event to sync with other windows
             if (window.__TAURI__?.event) {
                 try {
@@ -861,7 +953,7 @@
                     console.error('Failed to emit privacy mode event:', e);
                 }
             }
-            
+
             // Save to localStorage
             try {
                 localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
@@ -869,7 +961,7 @@
                 console.warn('Could not save privacy mode:', e);
             }
         }
-        
+
         function applyPrivacyMode() {
             console.log('applyPrivacyMode called, privacyMode:', privacyMode);
             const apiKeyInputs = document.querySelectorAll('.api-key-input');
@@ -889,7 +981,7 @@
                 }
             });
         }
-        
+
         function loadPrivacyMode() {
             try {
                 const saved = localStorage.getItem('privacy_mode');
@@ -906,7 +998,7 @@
                 console.warn('Could not load privacy mode:', e);
             }
         }
-        
+
         function setupPrivacyModeListener() {
             if (window.__TAURI__?.event) {
                 window.__TAURI__.event.listen('privacy-mode-changed', (event) => {
@@ -920,7 +1012,7 @@
                             btn.title = privacyMode ? 'Privacy Mode On (Click to Show)' : 'Privacy Mode Off (Click to Hide)';
                         }
                         applyPrivacyMode();
-                        
+
                         // Save to localStorage to keep in sync
                         try {
                             localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
@@ -934,7 +1026,7 @@
 
         console.log('window.__TAURI__ available:', typeof window.__TAURI__ !== 'undefined');
         console.log('window.__TAURI__:', window.__TAURI__);
-        
+
         const invoke = window.__TAURI__?.invoke || window.__TAURI__?.core?.invoke;
         console.log('invoke function available:', !!invoke);
 
@@ -972,10 +1064,10 @@
 
             // Setup privacy mode listener for cross-window sync
             setupPrivacyModeListener();
-            
+
             // Load saved privacy mode
             loadPrivacyMode();
-            
+
             console.log('Settings initialized, privacy button has inline onclick handler');
 
             await loadSettings();
@@ -987,7 +1079,7 @@
         console.log('Checking Tauri event API...');
         console.log('window.__TAURI__:', window.__TAURI__);
         console.log('window.__TAURI__?.event:', window.__TAURI__?.event);
-        
+
         if (window.__TAURI__?.event) {
             console.log('Setting up event listeners...');
             try {
@@ -999,7 +1091,7 @@
                     await loadAppVersion();
                 });
                 console.log('Settings event listener registered');
-                
+
                 // Listen for when agent becomes ready
                 const unlistenAgent = window.__TAURI__.event.listen('agent-ready', async (event) => {
                     console.log('=== Agent ready event received ===', event);
@@ -1051,6 +1143,121 @@
 
             document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
             document.getElementById(`${tabName}-panel`).classList.add('active');
+
+            if (tabName === 'history') {
+                refreshHistory();
+            }
+        }
+
+        let currentHistorySubTab = 'usage';
+        function switchHistorySubTab(subTab) {
+            currentHistorySubTab = subTab;
+            document.getElementById('usage-subtab-btn').classList.toggle('active', subTab === 'usage');
+            document.getElementById('logs-subtab-btn').classList.toggle('active', subTab === 'logs');
+
+            document.getElementById('usage-history-subpanel').style.display = subTab === 'usage' ? 'block' : 'none';
+            document.getElementById('logs-history-subpanel').style.display = subTab === 'logs' ? 'block' : 'none';
+
+            refreshHistory();
+        }
+
+        async function refreshHistory() {
+            if (currentHistorySubTab === 'usage') {
+                await loadUsageHistory();
+            } else {
+                await loadRawLogs();
+            }
+        }
+
+        async function loadUsageHistory() {
+            const container = document.getElementById('history-list');
+            container.innerHTML = '<div class="loading">Loading usage history...</div>';
+
+            try {
+                const history = await invoke('get_historical_usage_from_agent', { limit: 50 });
+                if (!history || history.length === 0) {
+                    container.innerHTML = '<div class="loading">No history found.</div>';
+                    return;
+                }
+
+                let html = `<table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Provider</th>
+                            <th>Usage</th>
+                            <th>Unit</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                history.forEach(item => {
+                    const date = new Date(item.timestamp).toLocaleString();
+                    html += `
+                        <tr>
+                            <td>${date}</td>
+                            <td>${item.provider_name}</td>
+                            <td>${item.usage.toFixed(2)}</td>
+                            <td>${item.usage_unit}</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load history:', e);
+                container.innerHTML = `<div class="error">Failed to load history: ${e}</div>`;
+            }
+        }
+
+        async function loadRawLogs() {
+            const container = document.getElementById('logs-list');
+            container.innerHTML = '<div class="loading">Loading debug logs...</div>';
+
+            try {
+                const logs = await invoke('get_raw_responses_from_agent', { limit: 20 });
+                if (!logs || logs.length === 0) {
+                    container.innerHTML = '<div class="loading">No logs found. (Retention: 24h)</div>';
+                    return;
+                }
+
+                let html = `<table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Provider</th>
+                            <th>Response Body</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+                logs.forEach(log => {
+                    const date = new Date(log.timestamp * 1000).toLocaleString();
+                    html += `
+                        <tr>
+                            <td style="white-space: nowrap;">${date}</td>
+                            <td style="white-space: nowrap;">${log.provider_id}</td>
+                            <td><div class="log-body">${escapeHtml(log.response_body)}</div></td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } catch (e) {
+                console.error('Failed to load logs:', e);
+                container.innerHTML = `<div class="error">Failed to load logs: ${e}</div>`;
+            }
+        }
+
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
 
         async function loadSettings() {
@@ -1060,14 +1267,14 @@
                 // First try to get preloaded data
                 console.log('Checking for preloaded data...');
                 let dataLoaded = false;
-                
+
                 if (invoke) {
                     try {
                         const startTime = Date.now();
                         const preloaded = await invoke('get_preloaded_settings_data');
                         const elapsed = Date.now() - startTime;
                         console.log(`Preloaded data check completed in ${elapsed}ms`);
-                        
+
                         if (preloaded) {
                             console.log('Using preloaded data!');
                             configs = preloaded[0] || [];
@@ -1082,13 +1289,13 @@
                         console.log('Could not get preloaded data:', preloadErr.message || preloadErr);
                     }
                 }
-                
+
                 // If no preloaded data, fetch from agent
                 if (!dataLoaded && invoke) {
                     console.log('Loading providers from agent...');
                     console.log('Starting timer...');
                     const startTime = Date.now();
-                    
+
                     try {
                         console.log('Invoking get_all_providers_from_agent NOW...');
                         const agentProviders = await invoke('get_all_providers_from_agent');
@@ -1097,7 +1304,7 @@
                         console.log('Raw response from agent:', agentProviders);
                         console.log('Response type:', typeof agentProviders);
                         console.log('Is array:', Array.isArray(agentProviders));
-                        
+
                         if (Array.isArray(agentProviders)) {
                             console.log('Array length:', agentProviders.length);
                             if (agentProviders.length > 0) {
@@ -1106,7 +1313,7 @@
                         }
                         configs = agentProviders || [];
                         console.log('Configs assigned:', configs.length, 'providers');
-                        
+
                         // Also fetch usage data to get antigravity details
                         try {
                             console.log('Fetching usage data for antigravity details...');
@@ -1180,7 +1387,7 @@
                 const statusText = document.getElementById('agentStatusText');
                 const startBtn = document.getElementById('startAgentBtn');
                 const stopBtn = document.getElementById('stopAgentBtn');
-                
+
                 if (isRunning) {
                     if (statusText) statusText.textContent = 'Running';
                     if (statusText) statusText.style.color = 'var(--accent-green)';
@@ -1236,21 +1443,21 @@
             console.log('Discovering tokens via agent...');
             const statusDiv = document.getElementById('discoveryStatus');
             const btn = document.getElementById('discoverTokenBtn');
-            
+
             if (statusDiv) statusDiv.textContent = 'Discovering tokens...';
             if (btn) btn.disabled = true;
-            
+
             try {
                 // Call the agent's discover endpoint
                 const response = await fetch('http://localhost:8080/api/discover', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                 });
-                
+
                 if (response.ok) {
                     const result = await response.json();
                     console.log('Token discovery result:', result);
-                    
+
                     if (result.discovered && result.discovered.length > 0) {
                         if (statusDiv) statusDiv.textContent = `Discovered ${result.discovered.length} token(s). Reloading providers...`;
                         // Reload settings to show newly discovered providers
@@ -1274,21 +1481,21 @@
         function populateProviders() {
             console.log('=== populateProviders() START ===');
             console.log('configs.length:', configs ? configs.length : 'undefined');
-            
+
             const container = document.getElementById('providers-list');
             console.log('Container element:', container);
-            
+
             if (!container) {
                 console.error('ERROR: providers-list container not found!');
                 return;
             }
-            
+
             if (!configs || configs.length === 0) {
                 console.warn('WARNING: No configs to display');
                 container.innerHTML = '<div class="error">No providers found. Make sure the agent is running.</div>';
                 return;
             }
-            
+
             const providerInfo = {
                 'github-copilot': { name: 'GitHub Copilot', icon: 'G', color: '#24292e' },
                 'openai': { name: 'OpenAI', icon: 'O', color: '#10a37f' },
@@ -1309,27 +1516,35 @@
 
             console.log('Generating HTML for', configs.length, 'providers...');
             console.log('Provider IDs before sorting:', configs.map(c => c.provider_id).join(', '));
-            
+
             // Sort configs alphabetically by provider name
             configs.sort((a, b) => {
                 const infoA = providerInfo[a.provider_id] || { name: a.provider_id };
                 const infoB = providerInfo[b.provider_id] || { name: b.provider_id };
                 return infoA.name.localeCompare(infoB.name);
             });
-            
+
             console.log('Provider IDs after sorting:', configs.map(c => c.provider_id).join(', '));
-            
+
             const html = configs.map((config, index) => {
                 console.log(`Processing provider ${index}:`, config.provider_id, '- Has key:', !!(config.api_key && config.api_key.length > 0), '- Auth source:', config.auth_source);
                 const info = providerInfo[config.provider_id] || { name: config.provider_id, icon: config.provider_id.charAt(0).toUpperCase(), color: '#007ACC' };
                 const hasKey = config.api_key && config.api_key.length > 0;
-                
+
                 // Build display name with account name for providers that have it (e.g., GitHub Copilot)
                 let displayName = info.name;
-                if (config.account_name && config.account_name.trim() !== '') {
-                    displayName = info.name + ' [' + config.account_name + ']';
+                // Get account_name from usage data for GitHub Copilot (and other providers that have it)
+                let accountName = '';
+                if (config.provider_id === 'github-copilot') {
+                    const usage = usageData.find(u => u.provider_id === 'github-copilot');
+                    accountName = usage?.account_name || '';
+                } else {
+                    accountName = config.account_name || '';
                 }
-                
+                if (accountName && accountName.trim() !== '') {
+                    displayName = info.name + ' [' + accountName + ']';
+                }
+
                 console.log(`  -> Using display name: ${displayName}, icon: ${info.icon}`);
 
                 // Format auth source for display - use short names for UI
@@ -1338,7 +1553,7 @@
                 else if (authSourceDisplay === 'Environment') authSourceDisplay = 'Env';
                 else if (authSourceDisplay === 'AI Consumption Tracker') authSourceDisplay = 'AICT';
                 // Kilo Code and OpenCode stay as is
-                
+
                 // Check if this is antigravity and has usage data with details
                 let subModelsHtml = '';
                 if (config.provider_id === 'antigravity') {
@@ -1357,7 +1572,7 @@
                         `;
                     }
                 }
-                
+
                 return `
                     <div class="provider-card" data-provider="${config.provider_id}">
                         <div class="provider-header">
@@ -1377,22 +1592,25 @@
                         ${config.provider_id === 'github-copilot' ? `
                             <div class="provider-row" style="display: flex; align-items: center; gap: 10px;">
                                 ${(() => {
-                                    const isAuthenticated = config.api_key && config.api_key.length > 0;
-                                    const username = config.account_name || '';
-                                    const displayUsername = (privacyMode && username) ? '***' : username;
-                                    const authStatus = isAuthenticated 
-                                        ? (username ? `Authenticated (${displayUsername})` : 'Authenticated')
-                                        : 'Not Authenticated';
-                                    const authColor = isAuthenticated ? '#90EE90' : '#888';
-                                    const btnText = isAuthenticated ? 'Log out' : 'Log in';
-                                    return `
+                            // Get account_name from usage data (not from config)
+                            const usage = usageData.find(u => u.provider_id === 'github-copilot');
+                            const accountName = usage?.account_name || '';
+                            const isAuthenticated = config.api_key && config.api_key.length > 0;
+                            const username = accountName;
+                            const displayUsername = (privacyMode && username) ? '***' : username;
+                            const authStatus = isAuthenticated
+                                ? (username ? `Authenticated (${displayUsername})` : 'Authenticated')
+                                : 'Not Authenticated';
+                            const authColor = isAuthenticated ? '#90EE90' : '#888';
+                            const btnText = isAuthenticated ? 'Log out' : 'Log in';
+                            return `
                                         <span style="color: ${authColor}; font-size: 11px;">${authStatus}</span>
-                                        <button class="auth-btn" data-provider="github-copilot" 
+                                        <button class="auth-btn" data-provider="github-copilot"
                                             style="padding: 4px 12px; font-size: 11px; background: #333; color: #fff; border: 1px solid #555; border-radius: 3px; cursor: pointer;">
                                             ${btnText}
                                         </button>
                                     `;
-                                })()}
+                        })()}
                             </div>
                         ` : `
                             <div class="provider-row">
@@ -1406,7 +1624,7 @@
                     </div>
                 `;
             }).join('');
-            
+
             console.log('Setting container innerHTML...');
             container.innerHTML = html;
             console.log('Container HTML set, length:', html.length);
@@ -1414,7 +1632,7 @@
             // Apply privacy mode to newly created API key inputs
             console.log('Calling applyPrivacyMode after populating providers, privacyMode:', privacyMode);
             applyPrivacyMode();
-            
+
             // Verify the inputs were created
             const verifyInputs = document.querySelectorAll('.api-key-input');
             console.log('Verified', verifyInputs.length, 'API key inputs exist after population');
@@ -1422,11 +1640,11 @@
             document.querySelectorAll('.tray-checkbox').forEach(el => {
                 el.addEventListener('change', () => settingsChanged = true);
             });
-            
+
             document.querySelectorAll('.api-key-input').forEach(el => {
                 el.addEventListener('input', () => settingsChanged = true);
             });
-            
+
             // Add GitHub auth button listeners
             document.querySelectorAll('.auth-btn').forEach(el => {
                 el.addEventListener('click', async (e) => {
@@ -1434,7 +1652,7 @@
                     if (providerId === 'github-copilot') {
                         const config = configs.find(c => c.provider_id === 'github-copilot');
                         const isAuthenticated = config && config.api_key && config.api_key.length > 0;
-                        
+
                         if (isAuthenticated) {
                             // Log out
                             config.api_key = '';
@@ -1449,12 +1667,12 @@
                                     headers: { 'Content-Type': 'application/json' }
                                 });
                                 const data = await response.json();
-                                
+
                                 if (data.success) {
                                     // Show device code to user
                                     const code = data.user_code;
                                     alert(`Please enter this code at ${data.verification_uri}:\n\n${code}`);
-                                    
+
                                     // Start polling for token
                                     pollForGitHubToken(data.device_code, data.interval);
                                 }
@@ -1466,7 +1684,7 @@
                     }
                 });
             });
-            
+
             console.log('=== populateProviders() END ===');
         }
 
@@ -1515,7 +1733,7 @@
         async function pollForGitHubToken(deviceCode, interval) {
             const maxAttempts = 60; // 5 minutes with 5-second interval
             let attempts = 0;
-            
+
             const pollInterval = setInterval(async () => {
                 attempts++;
                 if (attempts > maxAttempts) {
@@ -1523,7 +1741,7 @@
                     alert('GitHub login timed out. Please try again.');
                     return;
                 }
-                
+
                 try {
                     const response = await fetch('http://localhost:8080/api/auth/github/poll', {
                         method: 'POST',
@@ -1531,7 +1749,7 @@
                         body: JSON.stringify({ device_code: deviceCode, interval: interval })
                     });
                     const data = await response.json();
-                    
+
                     if (data.success) {
                         clearInterval(pollInterval);
                         // Token received, update config
@@ -1541,7 +1759,7 @@
                             config.auth_source = 'GitHub OAuth';
                             settingsChanged = true;
                             populateProviders();
-                            
+
                             // Fetch username
                             try {
                                 const userResponse = await fetch('http://localhost:8080/api/auth/github/status');
@@ -1576,7 +1794,7 @@
 
                         const apiKeyInput = card.querySelector(`#api-key-${providerId}`);
                         if (apiKeyInput) config.api_key = apiKeyInput.value;
-                        
+
                         // Handle sub-tray checkboxes for antigravity
                         if (providerId === 'antigravity') {
                             const subTrayCheckboxes = card.querySelectorAll('.subtray-checkbox');
@@ -1587,7 +1805,7 @@
                                 }
                             });
                         }
-                        
+
                         // Auth source is read-only (displayed as label), so we don't change it here
                         // It shows where the config came from: Env, Config, Manual, or None
                     }
