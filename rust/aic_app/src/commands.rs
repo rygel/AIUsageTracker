@@ -48,8 +48,10 @@ pub async fn refresh_usage(state: State<'_, AppState>) -> Result<Vec<ProviderUsa
 
 #[tauri::command]
 pub async fn get_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
+    info!("Attempting to fetch usage from agent at http://localhost:8080/api/providers/usage");
     match reqwest::get("http://localhost:8080/api/providers/usage").await {
         Ok(response) => {
+            info!("Agent responded with status: {}", response.status());
             // Check if we got a successful status code
             if !response.status().is_success() {
                 let status = response.status();
@@ -118,6 +120,80 @@ pub async fn refresh_usage_from_agent() -> Result<Vec<ProviderUsage>, String> {
                 Err(format!("Connection error: {}", e))
             }
         }
+    }
+}
+
+#[tauri::command]
+pub async fn get_historical_usage_from_agent(
+    provider_id: Option<String>,
+    limit: Option<u32>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut url = "http://localhost:8080/api/history".to_string();
+    let mut params = Vec::new();
+    
+    if let Some(pid) = provider_id {
+        params.push(format!("provider_id={}", pid));
+    }
+    if let Some(l) = limit {
+        params.push(format!("limit={}", l));
+    }
+    
+    if !params.is_empty() {
+        url.push('?');
+        url.push_str(&params.join("&"));
+    }
+    
+    match reqwest::get(&url).await {
+        Ok(response) => {
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                return Err(format!("Agent error (HTTP {}): {}", status, error_text));
+            }
+            
+            match response.json::<Vec<serde_json::Value>>().await {
+                Ok(history) => Ok(history),
+                Err(e) => Err(format!("Failed to parse history from agent: {}", e))
+            }
+        }
+        Err(e) => Err(format!("Connection error: {}", e))
+    }
+}
+
+#[tauri::command]
+pub async fn get_raw_responses_from_agent(
+    provider_id: Option<String>,
+    limit: Option<u32>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let mut url = "http://localhost:8080/api/raw_responses".to_string();
+    let mut params = Vec::new();
+    
+    if let Some(pid) = provider_id {
+        params.push(format!("provider_id={}", pid));
+    }
+    if let Some(l) = limit {
+        params.push(format!("limit={}", l));
+    }
+    
+    if !params.is_empty() {
+        url.push('?');
+        url.push_str(&params.join("&"));
+    }
+    
+    match reqwest::get(&url).await {
+        Ok(response) => {
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                return Err(format!("Agent error (HTTP {}): {}", status, error_text));
+            }
+            
+            match response.json::<Vec<serde_json::Value>>().await {
+                Ok(logs) => Ok(logs),
+                Err(e) => Err(format!("Failed to parse raw logs from agent: {}", e))
+            }
+        }
+        Err(e) => Err(format!("Connection error: {}", e))
     }
 }
 
@@ -1205,6 +1281,7 @@ mod tests {
             auto_refresh_enabled: Arc::new(Mutex::new(false)),
             device_flow_state: Arc::new(RwLock::new(None)),
             agent_process: Arc::new(Mutex::new(None)),
+            preloaded_settings: Arc::new(Mutex::new(None)),
         }
     }
 

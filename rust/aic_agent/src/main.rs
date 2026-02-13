@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 use libsql::Builder;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{info, error, debug, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -45,25 +46,17 @@ struct Args {
 
 #[derive(Clone)]
 struct AppState {
-    db: Arc<libsql::Database>,
+    db: Arc<database::Database>,
     config: Arc<RwLock<AgentConfig>>,
     provider_manager: Arc<aic_core::config::ProviderManager>,
     github_auth_service: Arc<GitHubAuthService>,
+    start_time: Instant,
 }
 
 // UsageResponse is replaced with ProviderUsage from aic_core for API compatibility
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct HistoricalUsageRecord {
-    id: String,
-    provider_id: String,
-    provider_name: String,
-    usage: f64,
-    limit: Option<f64>,
-    usage_unit: String,
-    is_quota_based: bool,
-    timestamp: DateTime<Utc>,
-}
+// Use database::HistoricalUsageRecord directly
+use database::HistoricalUsageRecord;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -80,21 +73,22 @@ async fn main() -> Result<()> {
 
     info!("Starting AI Consumption Tracker Agent v{}", env!("CARGO_PKG_VERSION"));
 
-    let db_path = args.db_url.unwrap_or_else(|| {
+    let database_path = args.db_url.unwrap_or_else(|| {
         "./agent.db".to_string()
     });
 
-    info!("Using database: {}", db_path);
+    info!("Using database: {}", database_path);
 
-    let db = Builder::new_local(&db_path).build().await?;
-
-    let conn = db.connect()?;
-    create_tables(&conn).await?;
+    let database = database::Database::new(std::path::Path::new(&database_path)).await?;
+    info!("Database initialized successfully");
 
     // Discover providers on startup
     info!("Discovering providers...");
     let discovered_providers = config::discover_all_providers().await;
     info!("Discovered {} providers on startup", discovered_providers.len());
+    for provider in &discovered_providers {
+        info!("  - {} ({})", provider.provider_id, provider.auth_source);
+    }
 
     let config = Arc::new(RwLock::new(AgentConfig {
         refresh_interval_minutes: args.refresh_interval_minutes,
@@ -102,21 +96,29 @@ async fn main() -> Result<()> {
         discovered_providers,
     }));
 
-    // Create provider manager once and share it across requests
+    // Create HTTP client
     let client = reqwest::Client::new();
+    info!("HTTP client created");
+
+    // Create provider manager
     let provider_manager = Arc::new(aic_core::config::ProviderManager::new(client.clone()));
+    info!("Provider manager created");
 
     // Create GitHub auth service
-    let github_auth_service = Arc::new(GitHubAuthService::new(client));
+    let github_auth_service = Arc::new(GitHubAuthService::new(client.clone()));
+    info!("GitHub auth service created");
 
     let state = AppState {
-        db: Arc::new(db),
+        db: Arc::new(database),
         config,
         provider_manager,
         github_auth_service,
+        start_time: Instant::now(),
     };
+    info!("App state initialized with uptime tracking");
 
     let scheduler_handle = start_scheduler(state.clone()).await?;
+    info!("Scheduler started");
 
     let app = Router::new()
         .route("/health", get(health_check))
@@ -127,6 +129,7 @@ async fn main() -> Result<()> {
         .route("/api/providers/:id/usage", get(get_provider_usage))
         .route("/api/providers/discovered", get(get_discovered_providers))
         .route("/api/history", get(get_historical_usage))
+        .route("/api/raw_responses", get(get_raw_responses))
         .route("/api/config", get(get_config))
         .route("/api/config", post(update_config))
         .route("/api/discover", post(trigger_discovery))
@@ -138,9 +141,12 @@ async fn main() -> Result<()> {
         .route("/api/auth/github/status", get(get_github_auth_status))
         .route("/api/auth/github/logout", post(logout_github))
         .with_state(state);
+    info!("Routes registered");
 
-    let listener = tokio::net::TcpListener::bind(format!("127.0.0.1:{}", args.port)).await?;
-    info!("HTTP server listening on http://127.0.0.1:{}", args.port);
+    let bind_address = format!("127.0.0.1:{}", args.port);
+    info!("Attempting to bind to {}", bind_address);
+    let listener = tokio::net::TcpListener::bind(&bind_address).await?;
+    info!("Successfully bound to {}", bind_address);
 
     axum::serve(listener, app).await?;
 
@@ -151,26 +157,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn create_tables(conn: &libsql::Connection) -> Result<()> {
-    conn.execute_batch(r#"
-        CREATE TABLE IF NOT EXISTS usage_records (
-            id TEXT PRIMARY KEY,
-            provider_id TEXT NOT NULL,
-            provider_name TEXT NOT NULL,
-            usage REAL NOT NULL,
-            "limit" REAL,
-            usage_unit TEXT NOT NULL,
-            is_quota_based INTEGER NOT NULL,
-            timestamp TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_provider_id ON usage_records(provider_id);
-        CREATE INDEX IF NOT EXISTS idx_timestamp ON usage_records(timestamp);
-        CREATE INDEX IF NOT EXISTS idx_provider_timestamp ON usage_records(provider_id, timestamp);
-    "#).await?;
-
-    Ok(())
-}
+// create_tables removed
 
 async fn start_scheduler(
     state: AppState,
@@ -195,7 +182,13 @@ async fn start_scheduler(
 
                 let interval_secs = config_read.refresh_interval_minutes * 60;
 
-                let last_refresh = fetch_latest_record(&db).await;
+                let latest_records = db.get_latest_usage_records(1).await;
+                let last_refresh = latest_records.first().map(|r| {
+                    DateTime::parse_from_rfc3339(&r.timestamp)
+                        .unwrap_or_else(|_| Utc::now().into())
+                        .with_timezone(&Utc)
+                });
+
                 let should_refresh = match last_refresh {
                     Some(ts) => {
                         let now = Utc::now();
@@ -206,9 +199,19 @@ async fn start_scheduler(
                 };
 
                 if should_refresh {
-                    info!("Triggering scheduled refresh");
+                    info!("Triggering scheduled refresh and cleanup");
                     if let Err(e) = refresh_and_store(&db, &provider_manager).await {
                         error!("Refresh failed: {}", e);
+                    }
+                    
+                    // Run database cleanup
+                    if let Err(e) = db.cleanup_raw_responses().await {
+                        error!("Raw response cleanup failed: {}", e);
+                    }
+                    
+                    // Also run historical cleanup (30 days retention)
+                    if let Err(e) = db.cleanup_old_records(30).await {
+                        error!("Historical cleanup failed: {}", e);
                     }
                 }
             } else {
@@ -220,28 +223,22 @@ async fn start_scheduler(
     Ok(Some(sched))
 }
 
-async fn fetch_latest_record(db: &libsql::Database) -> Option<DateTime<Utc>> {
-    let conn = db.connect().ok()?;
-    
-    let mut rows = conn.query("SELECT MAX(timestamp) FROM usage_records", ()).await.ok()?;
+// fetch_latest_record removed
 
-    if let Some(row) = rows.next().await.ok().flatten() {
-        let ts: String = row.get(0).ok()?;
-        DateTime::parse_from_rfc3339(&ts).map(|dt| dt.with_timezone(&Utc)).ok()
-    } else {
-        None
-    }
-}
-
-async fn health_check() -> Json<serde_json::Value> {
+async fn health_check(State(state): State<AppState>) -> Json<serde_json::Value> {
     use serde_json::json;
     
-    debug!("API: GET /health - Health check");
+    let uptime_secs = state.start_time.elapsed().as_secs();
+    let github_authenticated = state.github_auth_service.is_authenticated();
+    
+    debug!("API: GET /health - Health check (uptime: {}s, github_auth: {})", uptime_secs, github_authenticated);
 
     Json(json!({
         "status": "ok",
         "version": env!("CARGO_PKG_VERSION"),
-        "uptime_seconds": 0,
+        "uptime_seconds": uptime_secs,
+        "github_authenticated": github_authenticated,
+        "timestamp": chrono::Utc::now().to_rfc3339(),
     }))
 }
 
@@ -315,45 +312,11 @@ async fn trigger_refresh(
 ) -> Result<Json<Vec<ProviderUsage>>, StatusCode> {
     info!("API: POST /api/providers/usage/refresh - Refreshing usage data");
     
-    // Use cached provider manager but force refresh
-    info!("API: Fetching fresh data from providers...");
     let usages = state.provider_manager.get_all_usage(true).await;
     info!("API: Fetched {} provider records", usages.len());
     
-    let now = Utc::now();
-
-    let db = &state.db;
-
-    for u in &usages {
-        if u.is_available && u.cost_used > 0.0 {
-            let id = Uuid::new_v4().to_string();
-            let timestamp = now.to_rfc3339();
-
-            let conn = db.connect().map_err(|e| {
-                error!("Failed to connect to database: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
-
-            let result = conn.execute(
-                r#"INSERT OR REPLACE INTO usage_records 
-                   (id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp)
-                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"#,
-                (
-                    id.as_str(),
-                    u.provider_id.as_str(),
-                    u.provider_name.as_str(),
-                    u.cost_used,
-                    u.cost_limit,
-                    u.usage_unit.as_str(),
-                    if u.is_quota_based { 1 } else { 0 },
-                    timestamp.as_str(),
-                ),
-            ).await;
-
-            if let Err(e) = result {
-                error!("Failed to insert usage record for {}: {}", u.provider_id, e);
-            }
-        }
+    if let Err(e) = refresh_and_store(&state.db, &state.provider_manager).await {
+        error!("API: Manual refresh failed to store: {}", e);
     }
 
     Ok(Json(usages))
@@ -387,84 +350,26 @@ async fn get_historical_usage(
 ) -> Result<Json<Vec<HistoricalUsageRecord>>, StatusCode> {
     let db = &state.db;
 
-    let (sql, params) = build_historical_query(&params);
-    
-    let conn = db.connect().map_err(|e| {
-        error!("Failed to connect to database: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let mut rows = conn.query(&sql, params).await.map_err(|e| {
-        error!("Failed to fetch historical usage: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let mut records = Vec::new();
-
-    while let Some(row) = rows.next().await.map_err(|e| {
-        error!("Failed to iterate rows: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })? {
-        let id: String = row.get(0).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let provider_id: String = row.get(1).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let provider_name: String = row.get(2).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let usage: f64 = row.get(3).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let limit: Option<f64> = row.get(4).ok();
-        let usage_unit: String = row.get(5).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let is_quota_based: bool = row.get::<i64>(6).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)? == 1;
-        let timestamp_str: String = row.get(7).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        let timestamp = DateTime::parse_from_rfc3339(&timestamp_str)
-            .map(|dt| dt.with_timezone(&Utc))
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        
-        records.push(HistoricalUsageRecord {
-            id,
-            provider_id,
-            provider_name,
-            usage,
-            limit,
-            usage_unit,
-            is_quota_based,
-            timestamp,
-        });
-    }
+    let records = if let Some(provider_id) = params.provider_id {
+        db.get_usage_records_by_provider(&provider_id).await
+    } else if let (Some(start), Some(end)) = (params.start_date, params.end_date) {
+        db.get_usage_records_by_time_range(start, end).await
+    } else {
+        db.get_latest_usage_records(params.limit.unwrap_or(100)).await
+    };
 
     Ok(Json(records))
 }
 
-fn build_historical_query(params: &HistoryQuery) -> (String, (String, String, String)) {
-    let mut sql = String::from("SELECT id, provider_id, provider_name, usage, \"limit\", usage_unit, is_quota_based, timestamp FROM usage_records");
-    
-    let param1 = params.provider_id.clone().unwrap_or_default();
-    let param2 = params.start_date.map(|d| d.to_rfc3339()).unwrap_or_default();
-    let param3 = params.end_date.map(|d| d.to_rfc3339()).unwrap_or_default();
+// build_historical_query removed
 
-    if params.provider_id.is_some() || params.start_date.is_some() || params.end_date.is_some() {
-        sql.push_str(" WHERE ");
-        let mut conditions = Vec::new();
-        
-        if params.provider_id.is_some() {
-            conditions.push("provider_id = ?1");
-        }
-        
-        if params.start_date.is_some() {
-            conditions.push("timestamp >= ?2");
-        }
-        
-        if params.end_date.is_some() {
-            conditions.push("timestamp <= ?3");
-        }
-        
-        sql.push_str(&conditions.join(" AND "));
-    }
-
-    sql.push_str(" ORDER BY timestamp DESC");
-
-    if let Some(limit) = params.limit {
-        sql.push_str(&format!(" LIMIT {}", limit));
-    }
-
-    (sql, (param1, param2, param3))
+async fn get_raw_responses(
+    State(state): State<AppState>,
+    Query(params): Query<HistoryQuery>,
+) -> Result<Json<Vec<database::RawResponse>>, StatusCode> {
+    let db = &state.db;
+    let logs = db.get_raw_responses(params.provider_id, params.limit.unwrap_or(20)).await;
+    Ok(Json(logs))
 }
 
 #[derive(Debug, Deserialize)]
@@ -642,36 +547,61 @@ async fn get_discovered_providers(
 }
 
 async fn refresh_and_store(
-    db: &libsql::Database,
+    db: &database::Database,
     provider_manager: &aic_core::config::ProviderManager,
 ) -> Result<()> {
     let usages = provider_manager.get_all_usage(true).await;
+    let now = Utc::now();
 
     for u in &usages {
-        if u.is_available && u.cost_used > 0.0 {
-            let id = Uuid::new_v4().to_string();
-            let timestamp = Utc::now().to_rfc3339();
-
-            let conn = db.connect()?;
+        if u.is_available && u.cost_used >= 0.0 {
+            // Delta logic:
+            // 1. Get last record for this provider
+            let last_record = db.get_latest_usage_for_provider(&u.provider_id).await;
             
-            let result = conn.execute(
-                r#"INSERT OR REPLACE INTO usage_records 
-                   (id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp)
-                   VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)"#,
-                (
-                    id.as_str(),
-                    u.provider_id.as_str(),
-                    u.provider_name.as_str(),
-                    u.cost_used,
-                    u.cost_limit,
-                    u.usage_unit.as_str(),
-                    if u.is_quota_based { 1 } else { 0 },
-                    timestamp.as_str(),
-                ),
-            ).await;
+            let should_store = match last_record {
+                Some(ref last) => {
+                    let usage_changed = (u.cost_used - last.usage).abs() > 0.000001;
+                    
+                    let last_ts = DateTime::parse_from_rfc3339(&last.timestamp)
+                        .unwrap_or_else(|_| Utc::now().into())
+                        .with_timezone(&Utc);
+                    let heartbeat_due = (now - last_ts).num_hours() >= 1;
+                    
+                    usage_changed || heartbeat_due
+                }
+                None => true, // Always store first record
+            };
 
-            if let Err(e) = result {
-                error!("Failed to insert usage record for {}: {}", u.provider_id, e);
+            if should_store {
+                let timestamp = now.to_rfc3339();
+
+                let record = database::HistoricalUsageRecord {
+                    id: "".to_string(), // Database will generate an ID
+                    provider_id: u.provider_id.clone(),
+                    provider_name: u.provider_name.clone(),
+                    usage: u.cost_used,
+                    limit: Some(u.cost_limit),
+                    usage_unit: u.usage_unit.clone(),
+                    is_quota_based: u.is_quota_based,
+                    timestamp,
+                    next_reset_time: u.next_reset_time.as_ref().map(|dt| dt.to_rfc3339()),
+                };
+
+                if let Err(e) = db.insert_usage_record(&record).await {
+                    error!("Failed to insert usage record for {}: {}", u.provider_id, e);
+                } else {
+                    debug!("Stored usage record for {} (usage: {})", u.provider_id, u.cost_used);
+                    
+                    // Also store raw response if available
+                    if let Some(ref raw) = u.raw_response {
+                        if let Err(e) = db.insert_raw_response(&u.provider_id, raw).await {
+                            error!("Failed to store raw response for {}: {}", u.provider_id, e);
+                        }
+                    }
+                }
+            } else {
+                debug!("Skipping storage for {} (no change and heartbeat not due)", u.provider_id);
             }
         }
     }
