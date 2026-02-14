@@ -8,6 +8,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use clap::Parser;
+use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json;
 use libsql::Builder;
@@ -17,9 +18,11 @@ use tokio::sync::RwLock;
 use tracing::{info, error, debug, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use uuid::Uuid;
+use tower_http::cors::{Any, CorsLayer};
 
 // Import ProviderUsage from aic_core to ensure API compatibility
 use aic_core::ProviderUsage;
+use aic_core::ProviderConfig;
 use aic_core::github_auth::GitHubAuthService;
 
 mod config;
@@ -51,12 +54,35 @@ struct AppState {
     provider_manager: Arc<aic_core::config::ProviderManager>,
     github_auth_service: Arc<GitHubAuthService>,
     start_time: Instant,
+    agent_path: String,
 }
 
 // UsageResponse is replaced with ProviderUsage from aic_core for API compatibility
 
 // Use database::HistoricalUsageRecord directly
 use database::HistoricalUsageRecord;
+
+fn clean_old_logs(log_dir: &std::path::Path) {
+    use std::time::SystemTime;
+    use std::time::Duration;
+    
+    let cutoff = SystemTime::now()
+        .checked_sub(Duration::from_secs(30 * 24 * 60 * 60))
+        .unwrap_or(SystemTime::UNIX_EPOCH);
+    
+    if let Ok(entries) = std::fs::read_dir(log_dir) {
+        for entry in entries.flatten() {
+            if let Ok(metadata) = entry.metadata() {
+                if let Ok(modified) = metadata.modified() {
+                    if modified < cutoff {
+                        let _ = std::fs::remove_file(entry.path());
+                        info!("Removed old log file: {:?}", entry.path());
+                    }
+                }
+            }
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -66,11 +92,37 @@ async fn main() -> Result<()> {
     let log_level = if args.debug { "debug" } else { "info" };
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(log_level));
+    
+    // Set up file logging
+    let app_data_dir = std::env::var("LOCALAPPDATA")
+        .map(|p| std::path::PathBuf::from(p).join("ai-consumption-tracker"))
+        .unwrap_or_else(|_| std::path::PathBuf::from(".ai-consumption-tracker"));
+    let log_dir = app_data_dir.join("logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+    
+    let log_file_path = log_dir.join("agent.log");
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&log_file_path)
+        .expect("Failed to open log file");
+    
+    let file_layer = tracing_subscriber::fmt::layer()
+        .with_writer(std::sync::Mutex::new(log_file))
+        .with_ansi(false)
+        .with_target(false);
+    
     tracing_subscriber::registry()
         .with(env_filter)
-        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stdout))
+        .with(file_layer)
         .init();
-
+    
+    info!("Log file: {:?}", log_file_path);
+    
+    // Clean up old log files (keep last 30 days)
+    clean_old_logs(&log_dir);
+    
     info!("Starting AI Consumption Tracker Agent v{}", env!("CARGO_PKG_VERSION"));
 
     let database_path = args.db_url.unwrap_or_else(|| {
@@ -90,10 +142,15 @@ async fn main() -> Result<()> {
         info!("  - {} ({})", provider.provider_id, provider.auth_source);
     }
 
+    // Load persisted github_token_invalid flag
+    let github_token_invalid = config::load_github_token_invalid().await;
+    info!("Loaded github_token_invalid: {}", github_token_invalid);
+
     let config = Arc::new(RwLock::new(AgentConfig {
         refresh_interval_minutes: args.refresh_interval_minutes,
         auto_refresh_enabled: true,
         discovered_providers,
+        github_token_invalid,
     }));
 
     // Create HTTP client
@@ -114,16 +171,26 @@ async fn main() -> Result<()> {
         provider_manager,
         github_auth_service,
         start_time: Instant::now(),
+        agent_path: std::env::current_exe()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "unknown".to_string()),
     };
     info!("App state initialized with uptime tracking");
 
     let scheduler_handle = start_scheduler(state.clone()).await?;
     info!("Scheduler started");
 
+    // CORS layer for local development
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/debug/info", get(debug_info))
         .route("/debug/config", get(debug_config))
+        .route("/api/agent/info", get(get_agent_info))
         .route("/api/providers/usage", get(get_current_usage))
         .route("/api/providers/usage/refresh", post(trigger_refresh))
         .route("/api/providers/:id/usage", get(get_provider_usage))
@@ -140,6 +207,7 @@ async fn main() -> Result<()> {
         .route("/api/auth/github/poll", post(poll_github_token))
         .route("/api/auth/github/status", get(get_github_auth_status))
         .route("/api/auth/github/logout", post(logout_github))
+        .layer(cors)
         .with_state(state);
     info!("Routes registered");
 
@@ -286,12 +354,12 @@ async fn debug_info() -> Json<serde_json::Value> {
 
 async fn debug_config(State(state): State<AppState>) -> Json<serde_json::Value> {
     use serde_json::json;
-    
+
     info!("API: GET /debug/config - Debug config request");
-    
+
     let config = state.config.read().await;
     let discovered = config.discovered_providers.clone();
-    
+
     Json(json!({
         "refresh_interval_minutes": config.refresh_interval_minutes,
         "auto_refresh_enabled": config.auto_refresh_enabled,
@@ -300,15 +368,86 @@ async fn debug_config(State(state): State<AppState>) -> Json<serde_json::Value> 
     }))
 }
 
+async fn get_agent_info(State(state): State<AppState>) -> Json<serde_json::Value> {
+    use serde_json::json;
+
+    info!("API: GET /api/agent/info - Agent info request");
+
+    let uptime_secs = state.start_time.elapsed().as_secs();
+
+    Json(json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "agent_path": state.agent_path,
+        "uptime_seconds": uptime_secs,
+        "database_path": "./agent.db",
+    }))
+}
+
+fn get_configured_provider_ids(configs: &[ProviderConfig]) -> std::collections::HashSet<String> {
+    let mut ids: std::collections::HashSet<String> = configs
+        .iter()
+        .filter(|c| !c.api_key.is_empty())
+        .map(|c| c.provider_id.to_lowercase())
+        .collect();
+    
+    // Always include system providers that don't need an API key
+    let system_providers = ["antigravity", "gemini-cli", "opencode-zen", "github-copilot", "codex"];
+    for id in system_providers {
+        ids.insert(id.to_string());
+    }
+    
+    ids
+}
+
+fn filter_configured_providers(
+    usages: Vec<ProviderUsage>,
+    configured_providers: &std::collections::HashSet<String>,
+    github_auth: &GitHubAuthService,
+) -> Vec<ProviderUsage> {
+    let github_authenticated = github_auth.is_authenticated();
+    
+    usages
+        .into_iter()
+        .filter(|usage| {
+            let provider_id = usage.provider_id.to_lowercase();
+            
+            // Special handling for GitHub Copilot
+            if provider_id == "github-copilot" {
+                return github_authenticated;
+            }
+            
+            // Allow if available (even if no key, e.g. local process discovery like Antigravity)
+            if usage.is_available {
+                return true;
+            }
+            
+            // For all other providers, check if they have an API key configured
+            configured_providers.contains(&provider_id)
+        })
+        .collect()
+}
+
 async fn get_current_usage(
     State(state): State<AppState>,
 ) -> Result<Json<Vec<ProviderUsage>>, StatusCode> {
-    info!("API: GET /api/providers/usage - Fetching current usage");
+    let start_time = std::time::Instant::now();
+    info!("API: GET /api/providers/usage - Fetching current usage (start)");
+    
+    // Load config to get providers with API keys
+    let config_loader = aic_core::ConfigLoader::new(reqwest::Client::new());
+    let configs = config_loader.load_primary_config().await;
+    let configured_providers = get_configured_provider_ids(&configs);
+    
+    info!("Configured providers with API keys: {:?}", configured_providers);
     
     // Use cached provider manager from state - returns cached data immediately if available
-    let usages = state.provider_manager.get_all_usage(false).await;
+    let all_usages = state.provider_manager.get_all_usage(false).await;
     
-    info!("API: Returning {} usage records", usages.len());
+    // Filter to only show configured providers (or authenticated GitHub Copilot)
+    let usages = filter_configured_providers(all_usages, &configured_providers, &state.github_auth_service);
+    
+    let elapsed = start_time.elapsed();
+    info!("API: Returning {} usage records in {:?}", usages.len(), elapsed);
     
     // Log details of each provider
     for usage in &usages {
@@ -342,8 +481,18 @@ async fn trigger_refresh(
 ) -> Result<Json<Vec<ProviderUsage>>, StatusCode> {
     info!("API: POST /api/providers/usage/refresh - Refreshing usage data");
     
-    let usages = state.provider_manager.get_all_usage(true).await;
-    info!("API: Fetched {} provider records", usages.len());
+    // Load config to get providers with API keys
+    let config_loader = aic_core::ConfigLoader::new(reqwest::Client::new());
+    let configs = config_loader.load_primary_config().await;
+    let configured_providers = get_configured_provider_ids(&configs);
+    
+    let all_usages = state.provider_manager.get_all_usage(true).await;
+    let total_count = all_usages.len();
+    
+    // Filter to only show configured providers (or authenticated GitHub Copilot)
+    let usages = filter_configured_providers(all_usages, &configured_providers, &state.github_auth_service);
+    
+    info!("API: Fetched {} provider records ({} after filtering)", total_count, usages.len());
     
     if let Err(e) = refresh_and_store(&state.db, &state.provider_manager).await {
         error!("API: Manual refresh failed to store: {}", e);
@@ -646,6 +795,15 @@ async fn initiate_github_device_flow(
 ) -> Json<serde_json::Value> {
     info!("API: POST /api/auth/github/device - Initiating GitHub device flow");
 
+    // Reset the invalid token flag when user starts new authentication
+    {
+        let mut config = state.config.write().await;
+        config.github_token_invalid = false;
+        let invalid = config.github_token_invalid;
+        drop(config);
+        config::save_github_token_invalid(invalid).await;
+    }
+
     match state.github_auth_service.initiate_device_flow().await {
         Ok(response) => {
             info!("Device flow initiated. User code: {}", response.user_code);
@@ -683,6 +841,16 @@ async fn poll_github_token(
     match state.github_auth_service.poll_for_token(&request.device_code).await {
         aic_core::github_auth::TokenPollResult::Token(token) => {
             info!("GitHub token received successfully");
+            
+            // Reset the invalid flag since we have a new token
+            {
+                let mut config = state.config.write().await;
+                config.github_token_invalid = false;
+                let invalid = config.github_token_invalid;
+                drop(config);
+                config::save_github_token_invalid(invalid).await;
+            }
+            
             Json(serde_json::json!({
                 "success": true,
                 "token": token
@@ -730,16 +898,71 @@ async fn get_github_auth_status(
 ) -> Json<serde_json::Value> {
     info!("API: GET /api/auth/github/status - Getting GitHub auth status");
 
-    let is_authenticated = state.github_auth_service.is_authenticated();
-    let username = if is_authenticated {
-        state.github_auth_service.get_username().await
-    } else {
-        None
-    };
+    let config = state.config.read().await;
+    let github_token_invalid = config.github_token_invalid;
+    drop(config);
+
+    // First check OAuth service
+    let mut is_authenticated = state.github_auth_service.is_authenticated();
+    let mut username: Option<String> = None;
+
+    // Check provider config for GitHub Copilot token
+    let config = state.config.read().await;
+    if let Some(provider) = config.discovered_providers.iter().find(|p| p.provider_id == "github-copilot") {
+        if !provider.api_key.is_empty() && !github_token_invalid {
+            // Token found in config - try to get username from GitHub API
+            is_authenticated = true;
+            
+            // Try to fetch username from GitHub API
+            let client = reqwest::Client::new();
+            let request = client.get("https://api.github.com/user")
+                .header("Authorization", format!("Bearer {}", provider.api_key))
+                .header("User-Agent", "AIConsumptionTracker/1.0");
+            
+            match request.send().await {
+                Ok(response) if response.status().is_success() => {
+                    if let Ok(json) = response.json::<serde_json::Value>().await {
+                        username = json.get("login").and_then(|v| v.as_str()).map(|s| s.to_string());
+                        info!("Got GitHub username: {:?}", username);
+                    }
+                }
+                Ok(response) => {
+                    warn!("GitHub API returned status: {}", response.status());
+                    // If 403 Forbidden, mark token as invalid
+                    if response.status() == reqwest::StatusCode::FORBIDDEN {
+                        warn!("GitHub token is invalid (403 Forbidden) - marking as invalid");
+                        drop(config);
+                        let mut config = state.config.write().await;
+                        config.github_token_invalid = true;
+                        let invalid = config.github_token_invalid;
+                        drop(config);
+                        config::save_github_token_invalid(invalid).await;
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to fetch GitHub username: {}", e);
+                }
+            }
+        } else if github_token_invalid {
+            is_authenticated = false;
+            info!("GitHub token marked as invalid - skipping API calls");
+        }
+    }
+
+    // If not authenticated via OAuth service, check provider config
+    if !is_authenticated {
+        is_authenticated = state.github_auth_service.is_authenticated();
+    }
+
+    // Get username from OAuth service if authenticated via that
+    if is_authenticated && username.is_none() {
+        username = state.github_auth_service.get_username().await;
+    }
 
     Json(serde_json::json!({
         "is_authenticated": is_authenticated,
-        "username": username
+        "username": username,
+        "token_invalid": github_token_invalid
     }))
 }
 
@@ -749,6 +972,15 @@ async fn logout_github(
     info!("API: POST /api/auth/github/logout - Logging out from GitHub");
 
     state.github_auth_service.logout();
+    
+    // Reset the invalid token flag
+    {
+        let mut config = state.config.write().await;
+        config.github_token_invalid = false;
+        let invalid = config.github_token_invalid;
+        drop(config);
+        config::save_github_token_invalid(invalid).await;
+    }
 
     Json(serde_json::json!({
         "success": true

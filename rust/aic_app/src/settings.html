@@ -1563,8 +1563,16 @@
                         if (uiData?.agent_info) {
                             const agentVersionEl = document.getElementById('agentVersion');
                             const agentPathEl = document.getElementById('agentPath');
+                            const agentPortEl = document.getElementById('agentPort');
+                            const agentUrlEl = document.getElementById('agentUrl');
+
                             if (agentVersionEl) agentVersionEl.textContent = uiData.agent_info.version || 'Unknown';
                             if (agentPathEl) agentPathEl.textContent = uiData.agent_info.agent_path || 'Unknown';
+
+                            // Also update port and URL from cachedAgentPort
+                            const port = await getAgentPort();
+                            if (agentPortEl) agentPortEl.textContent = port;
+                            if (agentUrlEl) agentUrlEl.textContent = `http://localhost:${port}`;
                         }
 
                         console.log('Configs assigned:', configs.length, 'providers');
