@@ -970,6 +970,8 @@
         let usageData = [];  // Store usage data to get antigravity details
         let prefs = {};
         let settingsChanged = false;
+        // Tauri invoke helper
+        const invoke = window.__TAURI__?.invoke || window.__TAURI__?.core?.invoke;
         let freshDataArrived = false;  // Track if we've fetched fresh data since opening
 
         // GitHub auth status from agent
@@ -986,14 +988,8 @@
 
             // Try to get port from Rust backend
             try {
-                if (window.__TAURI__?.core?.invoke) {
-                    const port = await window.__TAURI__.core.invoke('get_agent_port_cmd');
-                    if (port && port > 0) {
-                        cachedAgentPort = port;
-                        return port;
-                    }
-                } else if (window.__TAURI__?.invoke) {
-                    const port = await window.__TAURI__.invoke('get_agent_port_cmd');
+                if (invoke) {
+                    const port = await invoke('get_agent_port_cmd');
                     if (port && port > 0) {
                         cachedAgentPort = port;
                         return port;
@@ -1134,7 +1130,6 @@
         console.log('window.__TAURI__ available:', typeof window.__TAURI__ !== 'undefined');
         console.log('window.__TAURI__:', window.__TAURI__);
 
-        const invoke = window.__TAURI__?.invoke || window.__TAURI__?.core?.invoke;
         console.log('invoke function available:', !!invoke);
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -1206,6 +1201,13 @@
                     await loadAppVersion();
                 });
                 console.log('Settings event listener registered');
+
+                // Listen for window focus to sync badge state
+                const unlistenFocus = window.__TAURI__.event.listen('tauri://focus', async () => {
+                    console.log('Settings window focused - syncing badge state');
+                    await updateCachedBadge();
+                });
+                console.log('Settings focus listener registered');
 
                 // Listen for when agent becomes ready
                 const unlistenAgent = window.__TAURI__.event.listen('agent-ready', async (event) => {
@@ -1446,16 +1448,9 @@
             // Load cached usage data immediately from localStorage for instant UI feedback
             loadCachedUsageData();
 
-            // Show badge immediately if we have cached data
-            if (usageData && usageData.length > 0) {
-                const cachedBadge = document.getElementById('cachedBadge');
-                if (cachedBadge) {
-                    cachedBadge.innerText = 'Cached';
-                    cachedBadge.className = 'cached-badge';
-                    cachedBadge.style.display = 'inline-block';
-                    console.log('[CACHE] Settings: Instant Cached badge shown from localStorage');
-                }
-            }
+            // Initial call to update badge based on current Rust state
+            // This will show Cached if we have data but Rust hasn't set live yet
+            await updateCachedBadge();
 
             // Wait for providers to load before checking agent status
             // This ensures window.preloadedAgentInfo is available
@@ -1522,15 +1517,9 @@
                             console.log('Preloaded configs:', configs.length, 'providers');
                             console.log('Preloaded usage:', usageData?.length || 0, 'providers');
                             dataLoaded = true;
-                            // Preloaded data is always Cached initially (even if Rust says live, 
-                            // this window hasn't fetched fresh data yet)
-                            const cachedBadge = document.getElementById('cachedBadge');
-                            if (cachedBadge && usageData.length > 0) {
-                                cachedBadge.textContent = 'Cached';
-                                cachedBadge.className = 'cached-badge';
-                                cachedBadge.style.display = 'inline-block';
-                                console.log('[CACHE] Settings showing Cached badge for preloaded data');
-                            }
+
+                            // Let the centralized function handle the badge
+                            await updateCachedBadge();
                         } else {
                             console.log('No preloaded data available, will fetch from agent');
                         }
@@ -1556,9 +1545,10 @@
                         usageData = uiData?.usage || [];
                         githubAuthStatus = uiData?.github_auth || { is_authenticated: false, username: '', token_invalid: false };
 
-                        // Update badge based on Rust state (will show Live since get_all_ui_data set it to true)
-                        // Actually, we should call renderProviders first if we wanted to show data here
-                        // but settings has complex rendering. We just want to update the badge.
+                        // Update badge based on Rust state (will show Live since we just got fresh data)
+                        if (invoke) {
+                            await invoke('set_data_live', { isLive: true });
+                        }
                         await updateCachedBadge();
 
                         // Store agent info for use by loadAgentStatusAsync
