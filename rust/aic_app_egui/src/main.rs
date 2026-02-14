@@ -728,13 +728,20 @@ impl AICApp {
         let mut selected_tab = self.selected_tab;
         let viewport_id = self.settings_viewport_id;
         
+        // Calculate center position for the settings window
+        let window_size = [550.0, 650.0];
+        let screen_rect = ctx.screen_rect();
+        let center_x = (screen_rect.width() - window_size[0]) / 2.0;
+        let center_y = (screen_rect.height() - window_size[1]) / 2.0;
+        
         ctx.show_viewport_immediate(
             viewport_id,
             egui::ViewportBuilder::default()
                 .with_title("Settings - AI Consumption Tracker")
-                .with_inner_size([550.0, 650.0])
+                .with_inner_size(window_size)
                 .with_min_inner_size([400.0, 400.0])
-                .with_resizable(true),
+                .with_resizable(true)
+                .with_position(egui::pos2(center_x, center_y)),
             |ctx, class| {
                 assert!(
                     class == egui::ViewportClass::Immediate,
