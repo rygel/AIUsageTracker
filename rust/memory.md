@@ -1,33 +1,83 @@
 # AI Consumption Tracker - Rust Development Notes
 
-## Accomplished
+## egui Desktop Application (NEW)
 
-### Frontend Refactoring
+The egui desktop application (`aic_app_egui`) is a native Rust alternative to the Tauri-based UI.
+
+### Completed Features
+- [x] System tray support (minimize to tray, show/quit)
+- [x] Provider usage display with progress bars
+- [x] Plans & Quotas / Pay As You Go grouping (collapsible)
+- [x] Sub-provider support (antigravity details with expandable bars)
+- [x] Alphabetical sorting of providers
+- [x] Non-blocking API calls with incremental cache updates (polls every 2s)
+- [x] SVG icon loading via resvg crate with fallback to letter icons
+- [x] Settings dialog with 6 tabs (Providers, Layout, Updates, History, Fonts, Agent)
+- [x] GitHub Copilot OAuth device flow
+- [x] Auto-start agent on launch option
+- [x] Provider filtering (only show available providers)
+
+### Key Technical Decisions
+- Uses `eframe` 0.29 with `glow` backend
+- Settings window as separate viewport (not embedded)
+- Non-blocking agent API returns cached data immediately
+- Background refresh updates cache incrementally
+- Progress bars show USED percentage (empty when 0% used)
+
+### Color Scheme
+- Background: `#252526` (37, 37, 38)
+- Card background: `#232323` (35, 35, 35)
+- Button background: `#444444` (68, 68, 68)
+- Green (good): `#3CB371` (60, 179, 113)
+- Yellow (warning): `#FFD700` (255, 215, 0)
+- Red (critical): `#DC143C` (220, 20, 60)
+
+### Recent egui Commits
+- `72fb141` - Sub-bar progress shows used percentage (empty when 0%)
+- `2ce44aa` - Remove fixed window position (allow settings dialog to be moved)
+- `7bd5ea0` - Enlarge footer icons with proper button styling
+- `ca71038` - Only show available providers in main UI
+- `bb0044f` - Center settings dialog on screen
+- `002db44` - Enhance agent tab with auto-start option
+
+---
+
+## Tauri Application
+
+### Accomplished
+
+#### Frontend Refactoring
 - Separated frontend assets from `src/` to new `www/` directory
 - Updated `tauri.conf.json` to use `www` as `frontendDist`
 - Added HTMX library (v2.0.3) with configuration for future component-based UI
 - Created `htmx-components.js` with reusable HTMX components
 - Created `htmx-config.js` with HTMX configuration and Tauri extension
 
-### CSS Extraction
+#### Discoveries
+- HTMX doesn't natively support `javascript:` URLs - attempts to use `hx-get="javascript:HTMXProviders.load()"` failed with "htmx:invalidPath" error
+- The htmx.min.js file became corrupted when fetched locally - fixed by loading from CDN
+- Tauri serves files from the directory specified in `tauri.conf.json` under `build.frontendDist`
+
+#### CSS Extraction
 - Created `css/main.css` with shared styles, CSS variables, scrollbars, base styles
 - Created `css/index.css` for main window styles
 - Created `css/settings.css` for settings window styles  
 - Created `css/info.css` for info window styles
 
-### JavaScript Extraction
+#### JavaScript Extraction
 - Created `js/utils.js` with shared utilities (invoke helper, cache functions, escapeHtml, formatResetDisplay)
 - Created `js/index.js` for main window logic (data loading, rendering, agent management)
 - Created `js/settings.js` for settings window logic (tabs, providers, history, save settings)
 - Created `js/info.js` for info window logic (system info display)
 
-### Provider Fixes
+#### Provider Fixes
 - Fixed Antigravity provider categorization (was showing in wrong category when not running)
 - Fixed GitHub Copilot provider categorization (was showing in wrong category when not authenticated)
 - Added raw response capture to: Synthetic, Z.AI, GitHub Copilot (previously only OpenAI and GenericPayAsYouGo)
 - Filtered providers: only show providers with API keys in main UI (except GitHub Copilot if authenticated)
+- Fixed antigravity CSRF token regex: changed `[=\s]+` to `[= ]+` (literal space)
 
-### UI Improvements
+#### UI Improvements
 - Added async loading to main UI and settings (show data immediately, update when fresh)
 - Added Cached/Live badge to main window header
 - Added Cached/Live badge to settings window header
@@ -40,38 +90,26 @@
 - Added more fonts to font selection (20+ fonts including sans-serif, serif, monospace)
 - Applied font settings (family, size, bold, italic) to main UI content and bars
 
-### Performance & Caching
+#### Performance & Caching
 - Added timing logs throughout the stack
 - Added file logging with 30-day retention to `%LOCALAPPDATA%\ai-consumption-tracker\logs\`
 - Added localStorage caching for instant display on startup
 - Added agent warm-up/prefetch on startup
+- Non-blocking API: returns cached data immediately, updates incrementally
 
-### Missing Commands Fixed
+#### Missing Commands Fixed
 - Added `get_historical_usage_from_agent` command
 - Added `get_raw_responses_from_agent` command
 
-### Icons
-- Copied C# app icons (ico and png) to Rust app icons folder
+#### Icons
+- Copied C# app icons (ico and png) to Rust app icons
 
-## Known Issues
+### Known Issues
 
-### Badge Sync [FIXED]
-- Fixed timing issues where the "Live" badge appeared before the UI finished rendering fresh data.
-- Fixed `localStorage` key mismatch (`cached_usage_data` vs `usage_data`) and removed hardcoded "Cached" labels in `settings.html`.
-- Added `tauri://focus` listener to `settings.html` to force-sync the badge status when the dialog is brought to the foreground.
-- Fixed "Live too early" issue by adding a local `freshDataArrived` flag to both windows, ensuring the "Live" label only appears after that window has rendered fresh data.
-- Improved reliability by re-ordering initialization logic and fixing a script crash (duplicate `invoke` declaration).
-
-### Icons
-- Icons may not be loading correctly in the UI (path issues)
-
-### Raw Logs
-- Raw logs may not appear in settings dialog even for providers that capture raw responses
-
-### Tray Icon
+#### Tray Icon
 - Tray icon cleanup on force-kill not possible (Windows limitation - no signal sent to app)
 
-## Raw Response Providers
+### Raw Response Providers
 Only these providers capture raw HTTP responses:
 - OpenAI
 - GenericPayAsYouGo
