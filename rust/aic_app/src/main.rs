@@ -290,6 +290,7 @@ async fn main() {
             is_agent_running_http,
             get_agent_port_cmd,
             get_all_ui_data,
+            stream_ui_data,
             get_agent_status,
             get_agent_status_details,
             get_all_providers_from_agent,
@@ -561,8 +562,8 @@ async fn main() {
                                 log_timing("Agent started successfully");
                                 info!("[AUTO-START] Agent started successfully");
                                 
-                                // Warm-up: trigger first usage fetch while UI is loading
-                                info!("[WARM-UP] Pre-fetching usage data...");
+                                // Warm-up: pre-fetch usage data and push to frontend via event
+                                info!("[WARM-UP] Pre-fetching usage data and pushing to UI...");
                                 let client = reqwest::Client::new();
                                 let port = get_agent_port().await;
                                 if let Ok(response) = client
@@ -572,7 +573,10 @@ async fn main() {
                                     .await
                                 {
                                     if response.status().is_success() {
-                                        info!("[WARM-UP] Usage data pre-fetched successfully");
+                                        if let Ok(usage) = response.json::<Vec<ProviderUsage>>().await {
+                                            info!("[WARM-UP] Pushing {} providers to frontend", usage.len());
+                                            let _ = app_handle.emit("ui-data-usage", &usage);
+                                        }
                                     }
                                 }
                             } else {
@@ -587,7 +591,7 @@ async fn main() {
                     log_timing("Agent already running");
                     info!("[AUTO-START] Agent is already running, no need to start");
                     
-                    // Warm-up: pre-fetch data even when agent already running
+                    // Warm-up: pre-fetch data and push to frontend via event
                     info!("[WARM-UP] Pre-fetching usage data (agent already running)...");
                     let client = reqwest::Client::new();
                     let port = get_agent_port().await;
@@ -598,7 +602,10 @@ async fn main() {
                         .await
                     {
                         if response.status().is_success() {
-                            info!("[WARM-UP] Usage data pre-fetched successfully");
+                            if let Ok(usage) = response.json::<Vec<ProviderUsage>>().await {
+                                info!("[WARM-UP] Pushing {} providers to frontend (already running)", usage.len());
+                                let _ = app_handle.emit("ui-data-usage", &usage);
+                            }
                         }
                     }
                 }

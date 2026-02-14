@@ -821,6 +821,7 @@
             updateAgentUI('connecting', 'Connecting...');
 
             // Start periodic status check and listeners
+            setupStreamingListeners();
             setupAgentReadyListener();
             startPeriodicStatusCheck();
             setupAgentStatusListener();
@@ -830,6 +831,19 @@
                 window.__TAURI__.event.listen('data-status-changed', async (event) => {
                     console.log('[CACHE] Received data-status-changed event:', event.payload);
                     await updateCachedBadge();
+                });
+            }
+
+            // Listen for font settings changes from settings dialog
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('font-settings-changed', (event) => {
+                    console.log('Received font-settings-changed event:', event.payload);
+                    prefs.font_family = event.payload.font_family;
+                    prefs.font_size = event.payload.font_size;
+                    prefs.font_bold = event.payload.font_bold;
+                    prefs.font_italic = event.payload.font_italic;
+                    applyFontSettings();
+                    renderProviders();
                 });
             }
 
@@ -900,8 +914,8 @@
                 showSkeletonPlaceholders();
             }
 
-            // Start loading data asynchronously
-            loadUsageDataAsync();
+            // Start loading data asynchronously via streaming events
+            requestStreamingData();
             loadGitHubAuthAsync();
 
             // Set timeout: only if we started with NO cached data, show empty after 15 seconds
@@ -1033,9 +1047,72 @@
                         }
                     }
                 }
+
+                // Apply font settings
+                applyFontSettings();
             } catch (e) {
                 console.log('Could not load preferences, using defaults:', e);
             }
+        }
+
+        function applyFontSettings() {
+            const fontFamily = prefs.font_family || '-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+            const fontSize = prefs.font_size || 13;
+            const fontBold = prefs.font_bold || false;
+            const fontItalic = prefs.font_italic || false;
+
+            // Apply to the entire body
+            document.body.style.fontFamily = fontFamily;
+            document.body.style.fontSize = fontSize + 'px';
+            document.body.style.fontWeight = fontBold ? 'bold' : 'normal';
+            document.body.style.fontStyle = fontItalic ? 'italic' : 'normal';
+
+            // Apply to specific elements that need font styling
+            const providerItems = document.querySelectorAll('.provider-item');
+            providerItems.forEach(item => {
+                item.style.fontFamily = fontFamily;
+                item.style.fontSize = fontSize + 'px';
+                item.style.fontWeight = fontBold ? 'bold' : 'normal';
+                item.style.fontStyle = fontItalic ? 'italic' : 'normal';
+            });
+
+            // Apply to provider content
+            const providerContents = document.querySelectorAll('.provider-content');
+            providerContents.forEach(content => {
+                content.style.fontFamily = fontFamily;
+                content.style.fontSize = fontSize + 'px';
+                content.style.fontWeight = fontBold ? 'bold' : 'normal';
+                content.style.fontStyle = fontItalic ? 'italic' : 'normal';
+            });
+
+            // Apply to provider names
+            const providerNames = document.querySelectorAll('.provider-name');
+            providerNames.forEach(name => {
+                name.style.fontFamily = fontFamily;
+                name.style.fontSize = fontSize + 'px';
+                name.style.fontWeight = fontBold ? 'bold' : 'normal';
+                name.style.fontStyle = fontItalic ? 'italic' : 'normal';
+            });
+
+            // Apply to provider status
+            const providerStatuses = document.querySelectorAll('.provider-status');
+            providerStatuses.forEach(status => {
+                status.style.fontFamily = fontFamily;
+                const statusSize = Math.max(8, fontSize - 2);
+                status.style.fontSize = statusSize + 'px';
+                status.style.fontWeight = fontBold ? 'bold' : 'normal';
+                status.style.fontStyle = fontItalic ? 'italic' : 'normal';
+            });
+
+            // Apply to progress bars text
+            const progressTexts = document.querySelectorAll('.progress-text');
+            progressTexts.forEach(text => {
+                text.style.fontFamily = fontFamily;
+                const progressSize = Math.max(8, fontSize - 3);
+                text.style.fontSize = progressSize + 'px';
+            });
+
+            console.log('Applied font settings:', { fontFamily, fontSize, fontBold, fontItalic });
         }
 
         async function loadAppVersion() {
@@ -1431,6 +1508,9 @@
             // Show/hide cached badge based on data source (async - don't await)
             updateCachedBadge();
 
+            // Apply font settings to rendered content
+            applyFontSettings();
+
             // Log timing - data is now displayed
             const totalTime = Date.now() - window.appStartTime;
             console.log('[TIMING] UI_START_TO_DATA_DISPLAYED: ' + totalTime + 'ms');
@@ -1806,16 +1886,70 @@
         function setupAgentReadyListener() {
             if (window.__TAURI__?.event) {
                 window.__TAURI__.event.listen('agent-ready', async () => {
-                    console.log('[EVENT] Received agent-ready event, triggering early data refresh');
+                    console.log('[EVENT] Received agent-ready event, triggering streaming data refresh');
                     // Reset polling attempts to "fast mode" if we just became ready
                     pollingAttempts = 0;
                     startPeriodicStatusCheck();
-                    // Fetch data immediately
-                    loadUsageDataAsync();
-                    loadGitHubAuthAsync();
+                    // Request streaming data (each piece renders as it arrives)
+                    requestStreamingData();
                 });
             }
         }
+
+        // Fire-and-forget: ask backend to stream data via events
+        function requestStreamingData() {
+            if (invoke) {
+                console.log('[STREAM] Requesting streaming data from backend');
+                invoke('stream_ui_data').catch(e => console.error('[STREAM] stream_ui_data failed:', e));
+            }
+        }
+
+        // Set up listeners for incremental data events from the backend
+        function setupStreamingListeners() {
+            if (!window.__TAURI__?.event) return;
+
+            // Usage data (most important - drives the main provider list)
+            window.__TAURI__.event.listen('ui-data-usage', (event) => {
+                const newUsageData = event.payload;
+                console.log('[STREAM] Received ui-data-usage:', newUsageData?.length, 'providers at', (Date.now() - window.appStartTime) + 'ms');
+                if (newUsageData && newUsageData.length > 0) {
+                    freshDataArrived = true;
+                    isShowingCachedData = false;
+                    usageData = newUsageData;
+                    saveUsageDataToCache(usageData);
+                    renderProviders();
+                    // Update agent UI to connected
+                    updateAgentUI('connected', 'Live');
+                    // Mark data as live
+                    if (invoke) {
+                        invoke('set_data_live', { isLive: true })
+                            .catch(e => console.error('Failed to set data live:', e));
+                    }
+                }
+            });
+
+            // GitHub auth status
+            window.__TAURI__.event.listen('ui-data-github', (event) => {
+                const auth = event.payload;
+                console.log('[STREAM] Received ui-data-github:', auth);
+                if (auth) {
+                    githubAuthStatus = auth;
+                    // Re-render to show updated auth info if we have data
+                    if (usageData.length > 0) {
+                        renderProviders();
+                    }
+                }
+            });
+
+            // Agent info (version, path, uptime)
+            window.__TAURI__.event.listen('ui-data-agent-info', (event) => {
+                console.log('[STREAM] Received ui-data-agent-info:', event.payload);
+                // Agent info is mostly used by the settings window
+                // Store it globally for when settings opens
+                window._agentInfo = event.payload;
+            });
+        }
+
 
         function openSettings() {
             console.log('Opening settings...');

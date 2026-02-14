@@ -846,12 +846,29 @@
                     <div class="settings-row">
                         <label class="settings-label">Font Family</label>
                         <select class="form-input settings-control" id="fontFamily">
-                            <option value="-apple-system">System Default</option>
-                            <option value="Segoe UI">Segoe UI</option>
-                            <option value="Arial">Arial</option>
-                            <option value="Helvetica">Helvetica</option>
-                            <option value="Roboto">Roboto</option>
-                            <option value="Inter">Inter</option>
+                            <option value="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif">System Default</option>
+                            <option value="Segoe UI, sans-serif">Segoe UI</option>
+                            <option value="Arial, Helvetica, sans-serif">Arial</option>
+                            <option value="Helvetica, Arial, sans-serif">Helvetica</option>
+                            <option value="Roboto, sans-serif">Roboto</option>
+                            <option value="Inter, sans-serif">Inter</option>
+                            <option value="Open Sans, sans-serif">Open Sans</option>
+                            <option value="Lato, sans-serif">Lato</option>
+                            <option value="Montserrat, sans-serif">Montserrat</option>
+                            <option value="Source Sans Pro, sans-serif">Source Sans Pro</option>
+                            <option value="Ubuntu, sans-serif">Ubuntu</option>
+                            <option value="Nunito, sans-serif">Nunito</option>
+                            <option value="Poppins, sans-serif">Poppins</option>
+                            <option value="Raleway, sans-serif">Raleway</option>
+                            <option value="PT Sans, sans-serif">PT Sans</option>
+                            <option value="Merriweather, serif">Merriweather</option>
+                            <option value="Georgia, serif">Georgia</option>
+                            <option value="Times New Roman, serif">Times New Roman</option>
+                            <option value="Courier New, monospace">Courier New</option>
+                            <option value="Consolas, Monaco, monospace">Consolas</option>
+                            <option value="Fira Code, monospace">Fira Code</option>
+                            <option value="JetBrains Mono, monospace">JetBrains Mono</option>
+                            <option value="Source Code Pro, monospace">Source Code Pro</option>
                         </select>
                     </div>
                     <div class="settings-row">
@@ -1048,6 +1065,10 @@
             console.log('Applying privacy mode to inputs...');
             applyPrivacyMode();
 
+            // Re-render provider cards to apply privacy masking to usernames
+            console.log('Re-rendering provider cards for privacy mode...');
+            populateProviders();
+
             // Emit event to sync with other windows
             if (window.__TAURI__?.event) {
                 try {
@@ -1061,7 +1082,7 @@
             try {
                 localStorage.setItem('privacy_mode', JSON.stringify(privacyMode));
             } catch (e) {
-                console.warn('Could not save privacy mode:', e);
+                console.warn('Could not save privacy mode to localStorage:', e);
             }
         }
 
@@ -1894,6 +1915,10 @@
                 console.log(`Processing provider ${index}:`, config.provider_id, '- Has key:', !!(config.api_key && config.api_key.length > 0), '- Auth source:', config.auth_source);
                 const info = providerInfo[config.provider_id] || { name: config.provider_id, icon: config.provider_id.charAt(0).toUpperCase(), color: '#007ACC' };
                 const hasKey = config.api_key && config.api_key.length > 0;
+                
+                // Check if Antigravity is connected (running)
+                const antigravityUsage = usageData.find(u => u.provider_id === 'antigravity');
+                const isAntigravityConnected = config.provider_id === 'antigravity' && antigravityUsage && antigravityUsage.is_available;
 
                 // Build display name with account name for providers that have it (e.g., GitHub Copilot)
                 let displayName = info.name;
@@ -1956,7 +1981,7 @@
                                     <input type="checkbox" class="tray-checkbox" ${config.show_in_tray ? 'checked' : ''}>
                                     <span>Tray</span>
                                 </label>
-                                <span class="status-badge ${hasKey ? 'active' : 'inactive'}">${hasKey ? 'Active' : 'Inactive'}</span>
+                                <span class="status-badge ${hasKey || isAntigravityConnected ? 'active' : 'inactive'}">${hasKey ? 'Active' : (isAntigravityConnected ? 'Connected' : 'Inactive')}</span>
                             </div>
                         </div>
                         ${config.provider_id === 'github-copilot' ? `
@@ -1991,6 +2016,12 @@
                                     `;
                         })()}
                             </div>
+                        ` : (config.provider_id === 'antigravity' ? `
+                            <div class="provider-row">
+                                <span style="color: ${isAntigravityConnected ? '#90EE90' : '#888'}; font-size: 11px;">
+                                    ${isAntigravityConnected ? 'Running (Connected)' : 'Not Running'}
+                                </span>
+                            </div>
                         ` : `
                             <div class="provider-row">
                                 <input type="text" class="api-key-input" id="api-key-${config.provider_id}"
@@ -1998,7 +2029,7 @@
                                     placeholder="Enter API key"
                                     data-provider="${config.provider_id}">
                             </div>
-                        `}
+                        `)}
                         ${subModelsHtml}
                     </div>
                 `;
@@ -2279,6 +2310,18 @@
 
                     // Apply always on top setting
                     await invoke('toggle_always_on_top', { enabled: prefs.always_on_top });
+
+                    // Emit font settings changed event to update main UI
+                    try {
+                        await window.__TAURI__.event.emit('font-settings-changed', {
+                            font_family: prefs.font_family,
+                            font_size: prefs.font_size,
+                            font_bold: prefs.font_bold,
+                            font_italic: prefs.font_italic
+                        });
+                    } catch (e) {
+                        console.warn('Could not emit font settings event:', e);
+                    }
                 }
 
                 settingsChanged = true;

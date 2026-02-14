@@ -1134,6 +1134,115 @@ pub async fn get_all_ui_data(state: State<'_, AppState>, app_handle: tauri::AppH
     })
 }
 
+/// Streaming version of get_all_ui_data. Instead of waiting for all data,
+/// each data source is fetched independently and pushed to the frontend
+/// via events as soon as it's ready. This enables incremental rendering.
+#[tauri::command]
+pub async fn stream_ui_data(app_handle: tauri::AppHandle) -> Result<(), String> {
+    let start_time = std::time::Instant::now();
+    tracing::info!("[STREAM] stream_ui_data START");
+
+    let port = get_agent_port().await;
+
+    // Spawn independent task for usage data (most important - drives main UI)
+    let app = app_handle.clone();
+    let p = port;
+    tokio::spawn(async move {
+        let client = reqwest::Client::new();
+        let t = std::time::Instant::now();
+        match client.get(format!("http://localhost:{}/api/providers/usage", p))
+            .timeout(std::time::Duration::from_secs(10))
+            .send().await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                let usage: Vec<aic_core::ProviderUsage> = resp.json().await.unwrap_or_default();
+                tracing::info!("[STREAM] usage data ready in {:?} ({} providers)", t.elapsed(), usage.len());
+                let _ = app.emit("ui-data-usage", &usage);
+            }
+            Ok(resp) => {
+                tracing::warn!("[STREAM] usage API returned {}", resp.status());
+                let empty: Vec<aic_core::ProviderUsage> = vec![];
+                let _ = app.emit("ui-data-usage", &empty);
+            }
+            Err(e) => {
+                tracing::warn!("[STREAM] usage fetch failed: {}", e);
+            }
+        }
+    });
+
+    // Spawn independent task for GitHub auth status
+    let app = app_handle.clone();
+    let p = port;
+    tokio::spawn(async move {
+        let client = reqwest::Client::new();
+        match client.get(format!("http://localhost:{}/api/auth/github/status", p))
+            .timeout(std::time::Duration::from_secs(5))
+            .send().await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                let auth: GitHubAuthStatus = resp.json().await.unwrap_or(GitHubAuthStatus {
+                    is_authenticated: false,
+                    username: String::new(),
+                    token_invalid: false,
+                });
+                tracing::info!("[STREAM] github auth ready");
+                let _ = app.emit("ui-data-github", &auth);
+            }
+            _ => {
+                let auth = GitHubAuthStatus {
+                    is_authenticated: false,
+                    username: String::new(),
+                    token_invalid: false,
+                };
+                let _ = app.emit("ui-data-github", &auth);
+            }
+        }
+    });
+
+    // Spawn independent task for agent info
+    let app = app_handle.clone();
+    let p = port;
+    tokio::spawn(async move {
+        let client = reqwest::Client::new();
+        match client.get(format!("http://localhost:{}/api/agent/info", p))
+            .timeout(std::time::Duration::from_secs(5))
+            .send().await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                #[derive(serde::Deserialize)]
+                struct RawAgentInfo {
+                    version: String,
+                    agent_path: String,
+                    uptime_seconds: u64,
+                }
+                let info: RawAgentInfo = resp.json().await.unwrap_or(RawAgentInfo {
+                    version: String::new(),
+                    agent_path: String::new(),
+                    uptime_seconds: 0,
+                });
+                let agent_info = AgentInfo {
+                    version: info.version,
+                    agent_path: info.agent_path,
+                    uptime_seconds: info.uptime_seconds,
+                };
+                tracing::info!("[STREAM] agent info ready");
+                let _ = app.emit("ui-data-agent-info", &agent_info);
+            }
+            _ => {
+                let agent_info = AgentInfo {
+                    version: String::new(),
+                    agent_path: String::new(),
+                    uptime_seconds: 0,
+                };
+                let _ = app.emit("ui-data-agent-info", &agent_info);
+            }
+        }
+    });
+
+    tracing::info!("[STREAM] All fetch tasks spawned in {:?}", start_time.elapsed());
+    Ok(())
+}
+
 /// Returns the current data status - whether we have received fresh data from the agent
 #[tauri::command]
 pub async fn get_data_status(state: State<'_, AppState>) -> Result<DataStatus, String> {
