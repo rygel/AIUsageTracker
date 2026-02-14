@@ -1112,47 +1112,113 @@ impl AICApp {
     }
 
     fn render_agent_tab(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
-        ui.label(egui::RichText::new("Agent Status").strong());
-        ui.add_space(4.0);
+        ui.label(egui::RichText::new("Connection Information").strong().size(12.0));
+        ui.add_space(8.0);
         
         let status_color = if self.agent_status.is_running {
-            egui::Color32::GREEN
+            egui::Color32::from_rgb(0, 204, 106)
         } else {
-            egui::Color32::RED
+            egui::Color32::from_rgb(255, 23, 68)
         };
         
-        ui.horizontal(|ui| {
-            egui::Frame::default()
-                .fill(status_color)
-                .rounding(egui::Rounding::same(4.0))
-                .inner_margin(egui::vec2(6.0, 3.0))
-                .show(ui, |ui| {
-                    ui.label(egui::RichText::new(if self.agent_status.is_running { "Running" } else { "Stopped" }).size(10.0));
+        egui::Frame::default()
+            .fill(egui::Color32::from_rgb(45, 45, 48))
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::vec2(12.0, 8.0))
+            .show(ui, |ui| {
+                ui.horizontal(|ui| {
+                    egui::Frame::default()
+                        .fill(status_color)
+                        .rounding(egui::Rounding::same(4.0))
+                        .inner_margin(egui::vec2(8.0, 4.0))
+                        .show(ui, |ui| {
+                            ui.label(egui::RichText::new(if self.agent_status.is_running { "Running" } else { "Stopped" })
+                                .size(10.0)
+                                .color(egui::Color32::BLACK));
+                        });
+                    ui.label(&self.agent_status.message);
                 });
-            ui.label(&self.agent_status.message);
+                
+                ui.add_space(8.0);
+                
+                if let Some(info) = &self.agent_info {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Version:").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+                        ui.label(egui::RichText::new(&info.version).size(11.0));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Port:").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+                        ui.label(egui::RichText::new(self.agent_status.port.to_string()).size(11.0));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Uptime:").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+                        let uptime_secs = info.uptime_seconds;
+                        let hours = uptime_secs / 3600;
+                        let mins = (uptime_secs % 3600) / 60;
+                        let secs = uptime_secs % 60;
+                        let uptime_str = if hours > 0 {
+                            format!("{}h {}m {}s", hours, mins, secs)
+                        } else if mins > 0 {
+                            format!("{}m {}s", mins, secs)
+                        } else {
+                            format!("{}s", secs)
+                        };
+                        ui.label(egui::RichText::new(uptime_str).size(11.0));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Path:").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+                        ui.label(egui::RichText::new(&info.agent_path).size(10.0).color(egui::Color32::from_rgb(136, 136, 136)));
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new("Database:").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+                        ui.label(egui::RichText::new(&info.database_path).size(10.0).color(egui::Color32::from_rgb(136, 136, 136)));
+                    });
+                }
+            });
+        
+        ui.add_space(12.0);
+        
+        // Auto-start option
+        ui.horizontal(|ui| {
+            let mut auto_start = self.config.auto_start_agent;
+            if ui.checkbox(&mut auto_start, "Auto-start agent on launch").changed() {
+                self.config.auto_start_agent = auto_start;
+            }
         });
         
-        ui.add_space(8.0);
-        
-        if let Some(info) = &self.agent_info {
-            ui.label(format!("Version: {}", info.version));
-            ui.label(format!("Path: {}", info.agent_path));
-            ui.label(format!("Uptime: {}s", info.uptime_seconds));
-            ui.label(format!("Port: {}", self.agent_status.port));
-        }
-        
-        ui.add_space(8.0);
+        ui.add_space(12.0);
         
         ui.horizontal(|ui| {
-            if ui.button("Start Agent").clicked() && !self.is_starting_agent {
-                self.trigger_agent_start(ctx);
-            }
-            if ui.button("Stop Agent").clicked() {
-                let manager = Arc::clone(&self.agent_manager);
-                self.runtime.spawn(async move {
-                    let mut m = manager.lock().await;
-                    m.kill();
-                });
+            if self.agent_status.is_running {
+                if ui.button("Restart Agent").clicked() && !self.is_starting_agent {
+                    let manager = Arc::clone(&self.agent_manager);
+                    let ctx_clone = ctx.clone();
+                    let client = self.agent_client.clone();
+                    self.runtime.spawn(async move {
+                        {
+                            let mut m = manager.lock().await;
+                            m.kill();
+                        }
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        if agent::wait_for_agent_ready(&client, 5).await {
+                            ctx_clone.request_repaint();
+                        }
+                    });
+                    self.trigger_agent_start(ctx);
+                }
+                if ui.button("Stop Agent").clicked() {
+                    let manager = Arc::clone(&self.agent_manager);
+                    self.runtime.spawn(async move {
+                        let mut m = manager.lock().await;
+                        m.kill();
+                    });
+                    self.agent_status.is_running = false;
+                    self.agent_status.message = "Stopped".to_string();
+                }
+            } else {
+                if ui.button("Start Agent").clicked() && !self.is_starting_agent {
+                    self.trigger_agent_start(ctx);
+                }
             }
             if ui.button("Refresh").clicked() && !self.is_refreshing {
                 self.trigger_load(ctx);
@@ -1160,8 +1226,10 @@ impl AICApp {
         });
         
         ui.add_space(16.0);
-        ui.label(egui::RichText::new("GitHub Copilot Authentication").strong());
+        
+        ui.label(egui::RichText::new("GitHub Copilot Authentication").strong().size(12.0));
         ui.separator();
+        ui.add_space(8.0);
         
         self.render_github_auth_section(ui, ctx);
     }
