@@ -65,6 +65,8 @@ impl ProviderService for GitHubCopilotProvider {
                 provider_name: "GitHub Copilot".to_string(),
                 is_available: false,
                 description: "Not authenticated. Please login in Settings.".to_string(),
+                is_quota_based: true,
+                payment_type: PaymentType::Quota,
                 ..Default::default()
             }];
         }
@@ -75,6 +77,10 @@ impl ProviderService for GitHubCopilotProvider {
         let mut percentage = 0.0;
         let mut cost_used = 0.0;
         let mut cost_limit = 0.0;
+        
+        let mut raw_user: Option<String> = None;
+        let mut raw_token: Option<String> = None;
+        let mut raw_rate_limit: Option<String> = None;
 
         // Fetch user info
         match self
@@ -87,7 +93,9 @@ impl ProviderService for GitHubCopilotProvider {
         {
             Ok(response) => {
                 if response.status().is_success() {
-                    if let Ok(user_data) = response.json::<GitHubUserResponse>().await {
+                    let raw = response.text().await.unwrap_or_default();
+                    raw_user = Some(raw.clone());
+                    if let Ok(user_data) = serde_json::from_str::<GitHubUserResponse>(&raw) {
                         username = user_data.login;
                     }
                 }
@@ -108,7 +116,9 @@ impl ProviderService for GitHubCopilotProvider {
         {
             Ok(response) => {
                 if response.status().is_success() {
-                    if let Ok(token_data) = response.json::<GitHubCopilotTokenResponse>().await {
+                    let raw = response.text().await.unwrap_or_default();
+                    raw_token = Some(raw.clone());
+                    if let Ok(token_data) = serde_json::from_str::<GitHubCopilotTokenResponse>(&raw) {
                         plan_name = match token_data.sku.as_deref() {
                             Some("copilot_individual") => "Copilot Individual".to_string(),
                             Some("copilot_business") => "Copilot Business".to_string(),
@@ -135,7 +145,9 @@ impl ProviderService for GitHubCopilotProvider {
         {
             Ok(response) => {
                 if response.status().is_success() {
-                    if let Ok(rate_data) = response.json::<GitHubRateLimitResponse>().await {
+                    let raw = response.text().await.unwrap_or_default();
+                    raw_rate_limit = Some(raw.clone());
+                    if let Ok(rate_data) = serde_json::from_str::<GitHubRateLimitResponse>(&raw) {
                         if let Some(core) = rate_data.resources.get("core") {
                             cost_limit = core.limit as f64;
                             cost_used = (core.limit - core.remaining) as f64;
@@ -157,6 +169,13 @@ impl ProviderService for GitHubCopilotProvider {
             }
         }
 
+        // Combine raw responses into a single JSON object
+        let raw_response = serde_json::json!({
+            "user": raw_user,
+            "copilot_token": raw_token,
+            "rate_limit": raw_rate_limit
+        }).to_string();
+
         vec![ProviderUsage {
             provider_id: self.provider_id().to_string(),
             provider_name: "GitHub Copilot".to_string(),
@@ -174,6 +193,7 @@ impl ProviderService for GitHubCopilotProvider {
             ),
             auth_source: plan_name,
             next_reset_time: reset_time,
+            raw_response: Some(raw_response),
             ..Default::default()
         }]
     }

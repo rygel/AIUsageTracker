@@ -110,7 +110,10 @@ impl ProviderService for SyntheticProvider {
                     }];
                 }
 
-                match response.json::<SyntheticResponse>().await {
+                // Capture raw response before parsing
+                let raw_body = response.text().await.unwrap_or_default();
+                
+                match serde_json::from_str::<SyntheticResponse>(&raw_body) {
                     Ok(data) => {
                         if let Some(sub) = data.subscription {
                             let total = sub.limit;
@@ -142,6 +145,7 @@ impl ProviderService for SyntheticProvider {
                                 is_quota_based: true,
                                 description: format!("{:.1}% used", utilization),
                                 next_reset_time,
+                                raw_response: Some(raw_body),
                                 ..Default::default()
                             }]
                         } else {

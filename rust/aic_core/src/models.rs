@@ -63,6 +63,9 @@ pub struct ProviderUsage {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "next_reset_time")]
     pub next_reset_time: Option<DateTime<Utc>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "raw_response")]
+    pub raw_response: Option<String>,
 }
 
 impl Default for ProviderUsage {
@@ -83,6 +86,7 @@ impl Default for ProviderUsage {
             details: None,
             account_name: String::new(),
             next_reset_time: None,
+            raw_response: None,
         }
     }
 }

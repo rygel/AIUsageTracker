@@ -265,6 +265,7 @@ impl ConfigLoader {
             "claude-code",
             "gemini-cli",
             "antigravity",
+            "github-copilot",
         ];
         for id in well_known {
             discovered.push(ProviderConfig {
@@ -758,35 +759,30 @@ impl ProviderManager {
     pub async fn get_all_usage(&self, force_refresh: bool) -> Vec<ProviderUsage> {
         let _permit = self.refresh_semaphore.acquire().await.unwrap();
 
+        // Return cached data immediately if available and not forcing refresh
         if !force_refresh {
             let usages: tokio::sync::MutexGuard<'_, Vec<ProviderUsage>> =
                 self.last_usages.lock().await;
             if !usages.is_empty() {
+                log::info!("[CACHE HIT] Returning {} cached usage records", usages.len());
                 return usages.clone();
             }
+            log::debug!("[CACHE MISS] No cached data, will fetch from providers");
+        } else {
+            log::debug!("[CACHE BYPASS] force_refresh=true, fetching from providers");
         }
 
-        let usages: Vec<ProviderUsage> = self.fetch_all_usage().await;
-        *self.last_usages.lock().await = usages.clone();
-        usages
+        // No cache - fetch and return partial results as they come in
+        self.fetch_and_update_usage().await
     }
 
-    async fn fetch_all_usage(&self) -> Vec<ProviderUsage> {
-        debug!("Starting fetch_all_usage...");
+    async fn fetch_and_update_usage(&self) -> Vec<ProviderUsage> {
         let mut configs = self.config_loader.load_primary_config().await;
 
         // Auto-add system providers
-        let system_providers = vec![
-            "antigravity",
-            "gemini-cli",
-                    "opencode-zen",
-            "github-copilot",
-        ];
+        let system_providers = vec!["antigravity", "gemini-cli", "opencode-zen", "github-copilot"];
         for provider_id in system_providers {
-            if !configs
-                .iter()
-                .any(|c| c.provider_id.eq_ignore_ascii_case(provider_id))
-            {
+            if !configs.iter().any(|c| c.provider_id.eq_ignore_ascii_case(provider_id)) {
                 configs.push(ProviderConfig {
                     provider_id: provider_id.to_string(),
                     api_key: String::new(),
@@ -796,76 +792,83 @@ impl ProviderManager {
             }
         }
 
-        let mut tasks = Vec::new();
+        // Deduplicate configs by provider_id (keep first occurrence)
+        let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+        configs.retain(|c| seen.insert(c.provider_id.to_lowercase()));
+
+        log::info!("[FETCH] Starting to fetch usage for {} providers", configs.len());
+        
+        let mut results = Vec::new();
+        let timeout = std::time::Duration::from_secs(4);
+        let fetch_start = std::time::Instant::now();
+
         for config in configs {
             let providers = self.providers.clone();
+            let provider_start = std::time::Instant::now();
+            let provider_id = config.provider_id.clone();
             let task = tokio::spawn(async move {
-                let provider = providers.iter().find(|p| {
-                    p.provider_id().eq_ignore_ascii_case(&config.provider_id)
-                        || (p.provider_id() == "anthropic" && config.provider_id.contains("claude"))
-                });
+                let result = tokio::time::timeout(timeout, async {
+                    Ok::<Vec<ProviderUsage>, ()>({
+                        let provider = providers.iter().find(|p| {
+                            p.provider_id().eq_ignore_ascii_case(&config.provider_id)
+                                || (p.provider_id() == "anthropic" && config.provider_id.contains("claude"))
+                        }).or_else(|| {
+                            if config.config_type == "pay-as-you-go" || config.config_type == "api" {
+                                providers.iter().find(|p| p.provider_id() == "generic-pay-as-you-go")
+                            } else { None }
+                        });
 
-                let provider = provider.or_else(|| {
-                    if config.config_type == "pay-as-you-go" || config.config_type == "api" {
-                        providers
-                            .iter()
-                            .find(|p| p.provider_id() == "generic-pay-as-you-go")
-                    } else {
-                        None
-                    }
-                });
+                        if let Some(provider) = provider {
+                            let mut usages = provider.get_usage(&config).await;
+                            for usage in &mut usages { usage.auth_source = config.auth_source.clone(); }
+                            usages
+                        } else {
+                            let display_name = config.provider_id.replace("-", " ").split_whitespace()
+                                .map(|w| {
+                                    let mut chars = w.chars();
+                                    match chars.next() {
+                                        None => String::new(),
+                                        Some(first) => {
+                                            first.to_uppercase().collect::<String>() + chars.as_str()
+                                        }
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            vec![ProviderUsage {
+                                provider_id: config.provider_id.clone(),
+                                provider_name: display_name,
+                                description: "Connected (Generic)".to_string(),
+                                usage_unit: "USD".to_string(),
+                                is_quota_based: false,
+                                is_available: true,
+                                ..Default::default()
+                            }]
+                        }
+                    })
+                }).await;
 
-                if let Some(provider) = provider {
-                    debug!("Fetching usage for provider: {}", config.provider_id);
-                    let mut usages = provider.get_usage(&config).await;
-                    for usage in &mut usages {
-                        usage.auth_source = config.auth_source.clone();
-                    }
-                    debug!("Success for {}: {} items", config.provider_id, usages.len());
-                    usages
-                } else {
-                    // Generic fallback
-                    let display_name = config
-                        .provider_id
-                        .replace("-", " ")
-                        .split_whitespace()
-                        .map(|word| {
-                            let mut chars = word.chars();
-                            match chars.next() {
-                                None => String::new(),
-                                Some(first) => {
-                                    first.to_uppercase().collect::<String>()
-                                        + &chars.as_str().to_lowercase()
-                                }
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join(" ");
-
-                    vec![ProviderUsage {
-                        provider_id: config.provider_id.clone(),
-                        provider_name: display_name,
-                        description: "Connected (Generic)".to_string(),
-                        usage_unit: "USD".to_string(),
-                        is_quota_based: false,
-                        is_available: true,
-                        ..Default::default()
-                    }]
+                match result {
+                    Ok(Ok(usages)) => Some(usages),
+                    _ => None,
                 }
             });
-            tasks.push(task);
-        }
 
-        let mut results = Vec::new();
-        for task in tasks {
-            match task.await {
-                Ok(usages) => results.extend(usages),
-                Err(e) => {
-                    log::error!("Task failed: {}", e);
-                }
+            // Don't await - collect as we go
+            if let Ok(Some(usages)) = task.await {
+                let elapsed = provider_start.elapsed();
+                log::debug!("[FETCH] Provider {} completed in {:?}", provider_id, elapsed);
+                results.extend(usages);
+            } else {
+                log::warn!("[FETCH] Provider {} failed or timed out", provider_id);
             }
         }
 
+        let total_elapsed = fetch_start.elapsed();
+        log::info!("[FETCH] All providers fetched in {:?}, total: {} results", total_elapsed, results.len());
+
+        // Update cache with partial results
+        *self.last_usages.lock().await = results.clone();
         results
     }
 

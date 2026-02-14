@@ -105,18 +105,13 @@ impl From<AgentUsageResponse> for ProviderUsage {
             provider_id: u.provider_id,
             provider_name: u.provider_name,
             usage_percentage,
-            remaining_percentage: None,
             cost_used,
             cost_limit,
             payment_type: aic_core::PaymentType::UsageBased,
             usage_unit: u.usage_unit,
             is_quota_based: u.is_quota_based,
             is_available: u.is_available,
-            account_name: String::new(),
-            description: String::new(),
-            auth_source: String::new(),
-            next_reset_time: None,
-            details: None,
+            ..Default::default()
         }
     }
 }

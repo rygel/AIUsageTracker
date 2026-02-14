@@ -330,6 +330,8 @@ impl ProviderService for AntigravityProvider {
                     provider_name: "Antigravity".to_string(),
                     is_available: false,
                     description: "Antigravity process not running".to_string(),
+                    is_quota_based: true,
+                    payment_type: PaymentType::Quota,
                     ..Default::default()
                 }];
             }
@@ -373,6 +375,8 @@ impl ProviderService for AntigravityProvider {
                     provider_name: "Antigravity".to_string(),
                     is_available: false,
                     description: "Antigravity process not running or unreachable".to_string(),
+                    is_quota_based: true,
+                    payment_type: PaymentType::Quota,
                     ..Default::default()
                 }]
             } else {

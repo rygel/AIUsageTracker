@@ -51,7 +51,10 @@ impl ProviderService for OpenAIProvider {
             .await
         {
             Ok(response) => {
-                if response.status().is_success() {
+                let status = response.status();
+                let raw_body = response.text().await.unwrap_or_else(|_| "Failed to read body".to_string());
+                
+                if status.is_success() {
                     vec![ProviderUsage {
                         provider_id: self.provider_id().to_string(),
                         provider_name: "OpenAI".to_string(),
@@ -61,6 +64,7 @@ impl ProviderService for OpenAIProvider {
                         payment_type: PaymentType::UsageBased,
                         description: "Connected (Check Dashboard)".to_string(),
                         usage_unit: "Status".to_string(),
+                        raw_response: Some(raw_body),
                         ..Default::default()
                     }]
                 } else {
@@ -68,7 +72,8 @@ impl ProviderService for OpenAIProvider {
                         provider_id: self.provider_id().to_string(),
                         provider_name: "OpenAI".to_string(),
                         is_available: false,
-                        description: format!("Invalid Key ({})", response.status()),
+                        description: format!("Invalid Key ({})", status),
+                        raw_response: Some(raw_body),
                         ..Default::default()
                     }]
                 }

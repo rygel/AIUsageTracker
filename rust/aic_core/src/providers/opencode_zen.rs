@@ -1,34 +1,39 @@
-use crate::models::{PaymentType, ProviderConfig, ProviderUsage, ProviderUsageDetail};
+use crate::models::{PaymentType, ProviderConfig, ProviderUsage};
 use crate::provider::ProviderService;
 use async_trait::async_trait;
 use log::error;
-use reqwest::Client;
-use serde::Deserialize;
+use regex::Regex;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 
-pub struct OpenCodeZenProvider {
-    client: Client,
-}
+pub struct OpenCodeZenProvider;
 
 impl OpenCodeZenProvider {
-    pub fn new(client: Client) -> Self {
-        Self { client }
+    pub fn new() -> Self {
+        Self
     }
-}
 
-#[derive(Debug, Deserialize)]
-struct OpenCodeCreditsResponse {
-    data: Option<OpenCodeCreditsData>,
-}
+    fn get_cli_path() -> Option<PathBuf> {
+        if let Ok(home) = std::env::var("HOME") {
+            let path = PathBuf::from(home).join(".npm").join("opencode.cmd");
+            if path.exists() {
+                return Some(path);
+            }
+        }
 
-#[derive(Debug, Deserialize)]
-struct OpenCodeCreditsData {
-    #[serde(rename = "total_credits")]
-    total_credits: f64,
-    #[serde(rename = "used_credits")]
-    used_credits: f64,
-    #[serde(rename = "remaining_credits")]
-    #[allow(dead_code)]
-    remaining_credits: f64,
+        if let Ok(home) = std::env::var("USERPROFILE") {
+            let path = PathBuf::from(home)
+                .join("AppData")
+                .join("Roaming")
+                .join("npm")
+                .join("opencode.cmd");
+            if path.exists() {
+                return Some(path);
+            }
+        }
+
+        None
+    }
 }
 
 #[async_trait]
@@ -37,145 +42,96 @@ impl ProviderService for OpenCodeZenProvider {
         "opencode-zen"
     }
 
-    async fn get_usage(&self, config: &ProviderConfig) -> Vec<ProviderUsage> {
-        if config.api_key.is_empty() {
+    async fn get_usage(&self, _config: &ProviderConfig) -> Vec<ProviderUsage> {
+        let cli_path = match Self::get_cli_path() {
+            Some(path) => path,
+            None => {
+                return vec![ProviderUsage {
+                    provider_id: self.provider_id().to_string(),
+                    provider_name: "OpenCode Zen".to_string(),
+                    is_available: false,
+                    description: "CLI not found at expected path".to_string(),
+                    ..Default::default()
+                }];
+            }
+        };
+
+        let output = match Command::new(&cli_path)
+            .args(&["stats", "--days", "7", "--models", "10"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+        {
+            Ok(output) => output,
+            Err(e) => {
+                error!("Failed to run OpenCode CLI: {}", e);
+                return vec![ProviderUsage {
+                    provider_id: self.provider_id().to_string(),
+                    provider_name: "OpenCode Zen".to_string(),
+                    is_available: false,
+                    description: format!("Execution Failed: {}", e),
+                    ..Default::default()
+                }];
+            }
+        };
+
+        if !output.status.success() {
+            let error_msg = String::from_utf8_lossy(&output.stderr);
+            error!("OpenCode CLI failed: {}", error_msg);
             return vec![ProviderUsage {
                 provider_id: self.provider_id().to_string(),
-                provider_name: "OpenCode".to_string(),
+                provider_name: "OpenCode Zen".to_string(),
                 is_available: false,
-                description: "API Key not found".to_string(),
+                description: format!("CLI Error: {}", output.status),
                 ..Default::default()
             }];
         }
 
-        let url = config
-            .base_url
-            .as_deref()
-            .unwrap_or("https://api.opencode.ai/v1/credits");
+        let stdout = String::from_utf8_lossy(&output.stdout);
 
-        match self
-            .client
-            .get(url)
-            .header("Authorization", format!("Bearer {}", config.api_key))
-            .send()
-            .await
-        {
-            Ok(response) => {
-                if !response.status().is_success() {
-                    return vec![ProviderUsage {
-                        provider_id: self.provider_id().to_string(),
-                        provider_name: "OpenCode".to_string(),
-                        is_available: false,
-                        description: format!("API Error ({})", response.status()),
-                        ..Default::default()
-                    }];
-                }
+        let total_cost = Self::parse_total_cost(&stdout);
+        let avg_cost = Self::parse_avg_cost(&stdout);
 
-                let content = match response.text().await {
-                    Ok(text) => text,
-                    Err(e) => {
-                        error!("Failed to read OpenCode response: {}", e);
-                        return vec![ProviderUsage {
-                            provider_id: self.provider_id().to_string(),
-                            provider_name: "OpenCode".to_string(),
-                            is_available: false,
-                            description: "Failed to read response".to_string(),
-                            ..Default::default()
-                        }];
-                    }
-                };
+        let description = if total_cost > 0.0 {
+            format!("${:.2} (7 days)", total_cost)
+        } else {
+            "No usage data".to_string()
+        };
 
-                if content.trim() == "Not Found" {
-                    return vec![ProviderUsage {
-                        provider_id: self.provider_id().to_string(),
-                        provider_name: "OpenCode".to_string(),
-                        is_available: false,
-                        description: "Service Unavailable".to_string(),
-                        ..Default::default()
-                    }];
-                }
+        vec![ProviderUsage {
+            provider_id: self.provider_id().to_string(),
+            provider_name: "OpenCode Zen".to_string(),
+            usage_percentage: 0.0,
+            cost_used: total_cost,
+            cost_limit: 0.0,
+            usage_unit: "USD".to_string(),
+            is_quota_based: false,
+            payment_type: PaymentType::UsageBased,
+            is_available: true,
+            description,
+            ..Default::default()
+        }]
+    }
+}
 
-                match serde_json::from_str::<OpenCodeCreditsResponse>(&content) {
-                    Ok(data) => {
-                        if let Some(credits) = data.data {
-                            let total = credits.total_credits;
-                            let used = credits.used_credits;
-                            let utilization = if total > 0.0 {
-                                (used / total) * 100.0
-                            } else {
-                                0.0
-                            };
-
-                            // Create collapsible details section
-                            let details = vec![
-                                ProviderUsageDetail {
-                                    name: "Total Credits".to_string(),
-                                    used: format!("{:.2}", total),
-                                    remaining: None,
-                                    description: "Available credits".to_string(),
-                                    next_reset_time: None,
-                                },
-                                ProviderUsageDetail {
-                                    name: "Used Credits".to_string(),
-                                    used: format!("{:.2}", used),
-                                    remaining: None,
-                                    description: format!("{:.1}% of total", utilization),
-                                    next_reset_time: None,
-                                },
-                                ProviderUsageDetail {
-                                    name: "Remaining Credits".to_string(),
-                                    used: format!("{:.2}", credits.remaining_credits),
-                                    remaining: None,
-                                    description: "Available for use".to_string(),
-                                    next_reset_time: None,
-                                },
-                            ];
-
-                            return vec![ProviderUsage {
-                                provider_id: self.provider_id().to_string(),
-                                provider_name: "OpenCode".to_string(),
-                                usage_percentage: utilization.min(100.0),
-                                cost_used: used,
-                                cost_limit: total,
-                                usage_unit: "Credits".to_string(),
-                                is_quota_based: false,
-                                payment_type: PaymentType::Credits,
-                                description: format!("{:.2} / {:.2} credits", used, total),
-                                details: Some(details),
-                                ..Default::default()
-                            }];
-                        }
-
-                        vec![ProviderUsage {
-                            provider_id: self.provider_id().to_string(),
-                            provider_name: "OpenCode".to_string(),
-                            is_available: false,
-                            description: "Invalid response structure".to_string(),
-                            ..Default::default()
-                        }]
-                    }
-                    Err(e) => {
-                        error!("Failed to parse OpenCode response: {}", e);
-                        vec![ProviderUsage {
-                            provider_id: self.provider_id().to_string(),
-                            provider_name: "OpenCode".to_string(),
-                            is_available: false,
-                            description: format!("Parse error: {}", e),
-                            ..Default::default()
-                        }]
-                    }
-                }
-            }
-            Err(e) => {
-                error!("OpenCode request failed: {}", e);
-                vec![ProviderUsage {
-                    provider_id: self.provider_id().to_string(),
-                    provider_name: "OpenCode".to_string(),
-                    is_available: false,
-                    description: "Connection Failed".to_string(),
-                    ..Default::default()
-                }]
+impl OpenCodeZenProvider {
+    fn parse_total_cost(output: &str) -> f64 {
+        let re = Regex::new(r"Total Cost\s+\$([0-9.]+)").unwrap();
+        if let Some(captures) = re.captures(output) {
+            if let Some(m) = captures.get(1) {
+                return m.as_str().parse().unwrap_or(0.0);
             }
         }
+        0.0
+    }
+
+    fn parse_avg_cost(output: &str) -> f64 {
+        let re = Regex::new(r"Avg Cost/Day\s+\$([0-9.]+)").unwrap();
+        if let Some(captures) = re.captures(output) {
+            if let Some(m) = captures.get(1) {
+                return m.as_str().parse().unwrap_or(0.0);
+            }
+        }
+        0.0
     }
 }

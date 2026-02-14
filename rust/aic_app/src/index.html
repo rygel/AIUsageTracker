@@ -814,13 +814,15 @@
             // Load and display app version
             loadAppVersion();
 
-            // Set connecting status immediately (don't wait for agent check to render UI)
+            // Load initial data (shows cache or skeletons immediately)
+            loadData();
+
+            // Set connecting status (won't clear container if loadData already showed cache)
             updateAgentUI('connecting', 'Connecting...');
 
-            // Start periodic status check in background (will retry connecting if fails)
+            // Start periodic status check and listeners
+            setupAgentReadyListener();
             startPeriodicStatusCheck();
-
-            // Listen for status changes from other windows (settings dialog)
             setupAgentStatusListener();
 
             // Listen for data status changes from Rust (pushed updates)
@@ -830,9 +832,6 @@
                     await updateCachedBadge();
                 });
             }
-
-            // Load initial data
-            loadData();
 
             // Listen for window focus to sync badge state
             if (window.__TAURI__?.event) {
@@ -1693,7 +1692,9 @@
                         '<button onclick="checkAgentStatus()">🔄 Check Status</button>' +
                         '</div>' +
                         '</div>';
-                } else {
+                } else if (!freshDataArrived && !isShowingCachedData) {
+                    // Only show loading state if we have NO data at all (neither fresh nor cached)
+                    // This prevents flickering when the agent is "connecting" but we already show cache
                     container.innerHTML = '<div class="loading">' + escapeHtml(message) + '</div>';
                 }
             }
@@ -1767,16 +1768,53 @@
         }
 
         let statusCheckInterval = null;
+        let pollingAttempts = 0;
         function startPeriodicStatusCheck() {
             // Cancel any existing interval
             if (statusCheckInterval) {
                 clearInterval(statusCheckInterval);
             }
-            // Start new interval in background (doesn't block initial load)
-            statusCheckInterval = setInterval(() => {
-                // Always check status - this will retry connecting if not connected
-                checkAgentStatus().catch(() => { });
-            }, 5000);
+
+            // Adaptive polling with back-off:
+            // 1. Aggressive: 1s interval for the first 60 attempts (1 minute)
+            // 2. Standard: 5s interval for the next 60 attempts (another 5 minutes)
+            // 3. Relaxed: 30s interval thereafter to save battery/CPU
+            const runCheck = async () => {
+                pollingAttempts++;
+                await checkAgentStatus();
+
+                // Transition when reaching thresholds
+                if (pollingAttempts === 60 || pollingAttempts === 120) {
+                    const nextInterval = pollingAttempts >= 120 ? '30s' : '5s';
+                    console.log(`[POLL] Transitioning to ${nextInterval} polling mode`);
+                    startPeriodicStatusCheck();
+                }
+            };
+
+            let interval;
+            if (pollingAttempts < 60) {
+                interval = 1000;
+            } else if (pollingAttempts < 120) {
+                interval = 5000;
+            } else {
+                interval = 30000;
+            }
+
+            statusCheckInterval = setInterval(runCheck, interval);
+        }
+
+        function setupAgentReadyListener() {
+            if (window.__TAURI__?.event) {
+                window.__TAURI__.event.listen('agent-ready', async () => {
+                    console.log('[EVENT] Received agent-ready event, triggering early data refresh');
+                    // Reset polling attempts to "fast mode" if we just became ready
+                    pollingAttempts = 0;
+                    startPeriodicStatusCheck();
+                    // Fetch data immediately
+                    loadUsageDataAsync();
+                    loadGitHubAuthAsync();
+                });
+            }
         }
 
         function openSettings() {

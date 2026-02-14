@@ -21,6 +21,8 @@ fn create_test_app_state() -> AppState {
         auth_manager,
         auto_refresh_enabled: Arc::new(Mutex::new(false)),
         device_flow_state: Arc::new(RwLock::new(None)),
+        agent_process: Arc::new(Mutex::new(None)),
+        preloaded_settings: Arc::new(Mutex::new(None)),
     }
 }
 

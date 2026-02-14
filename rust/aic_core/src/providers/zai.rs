@@ -76,7 +76,10 @@ impl ProviderService for ZaiProvider {
                     }];
                 }
 
-                match response.json::<ZaiEnvelope<ZaiQuotaLimitResponse>>().await {
+                // Capture raw response before parsing
+                let raw_body = response.text().await.unwrap_or_default();
+                
+                match serde_json::from_str::<ZaiEnvelope<ZaiQuotaLimitResponse>>(&raw_body) {
                     Ok(envelope) => {
                         let limits = envelope.data.and_then(|d| d.limits);
 
@@ -208,6 +211,7 @@ impl ProviderService for ZaiProvider {
                                 z_reset
                             ),
                             next_reset_time: reset_datetime_utc,
+                            raw_response: Some(raw_body),
                             ..Default::default()
                         }]
                     }

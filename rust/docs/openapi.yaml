@@ -2,11 +2,11 @@ openapi: 3.0.0
 info:
   title: AI Consumption Tracker - Agent API
   description: |
-    REST API for the AI Consumption Tracker Agent. 
+    REST API for the AI Consumption Tracker Agent.
     Provides endpoints for retrieving usage data, provider configuration, and historical records.
-    
+
     The UI (Tauri application) consumes this API exclusively - there is no local fallback.
-    
+
     All timestamps are in ISO 8601 format (UTC).
   version: 1.7.13
   contact:
@@ -25,6 +25,10 @@ tags:
     description: Provider configuration and discovery
   - name: Config
     description: Agent configuration management
+  - name: Auth
+    description: Authentication endpoints (GitHub OAuth)
+  - name: Agent
+    description: Agent information and management
 
 paths:
   /health:
@@ -50,6 +54,21 @@ paths:
                 type: string
                 example: "Service unavailable"
 
+  /api/agent/info:
+    get:
+      tags:
+        - Agent
+      summary: Get Agent Information
+      description: Returns information about the running agent including version, executable path, and uptime
+      operationId: getAgentInfo
+      responses:
+        '200':
+          description: Agent information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentInfo'
+
   /api/providers/usage:
     get:
       tags:
@@ -57,7 +76,7 @@ paths:
       summary: Get Current Usage
       description: |
         Returns current usage data for all configured providers.
-        
+
         This endpoint returns cached data from the agent's in-memory provider manager.
         To fetch fresh data from provider APIs, use the refresh endpoint.
       operationId: getCurrentUsage
@@ -95,12 +114,12 @@ paths:
       summary: Refresh Usage Data
       description: |
         Triggers a fresh fetch from all provider APIs and returns the updated data.
-        
+
         This endpoint:
         1. Calls each provider's API to get current usage
         2. Stores the results in the database
         3. Returns the updated data
-        
+
         Note: This may take several seconds depending on provider response times.
       operationId: refreshUsage
       responses:
@@ -157,12 +176,12 @@ paths:
       summary: Get Discovered Providers
       description: |
         Returns all providers discovered by the agent.
-        
+
         Providers are discovered from:
         - Environment variables (e.g., OPENAI_API_KEY)
         - Existing config files (~/.ai-consumption-tracker/auth.json)
         - Well-known provider defaults
-        
+
         The discovered list includes providers even if they don't have API keys configured.
       operationId: getDiscoveredProviders
       responses:
@@ -189,6 +208,194 @@ paths:
                   show_in_tray: true
         '500':
           $ref: '#/components/responses/InternalError'
+
+  /api/providers/{provider_id}:
+    put:
+      tags:
+        - Providers
+      summary: Save Provider
+      description: Saves or updates a provider configuration
+      operationId: saveProvider
+      parameters:
+        - name: provider_id
+          in: path
+          required: true
+          description: Provider identifier
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderConfig'
+      responses:
+        '200':
+          description: Provider saved successfully
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      tags:
+        - Providers
+      summary: Remove Provider
+      description: Removes a provider configuration
+      operationId: removeProvider
+      parameters:
+        - name: provider_id
+          in: path
+          required: true
+          description: Provider identifier
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Provider removed successfully
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/config/providers:
+    post:
+      tags:
+        - Config
+      summary: Save All Providers
+      description: Saves all provider configurations at once
+      operationId: saveAllProviders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/ProviderConfig'
+      responses:
+        '200':
+          description: All providers saved successfully
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/discover:
+    post:
+      tags:
+        - Providers
+      summary: Trigger Token Discovery
+      description: Triggers automatic discovery of API tokens from common system locations
+      operationId: triggerDiscovery
+      responses:
+        '200':
+          description: Discovery completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  discovered:
+                    type: array
+                    items:
+                      type: string
+                    description: List of newly discovered tokens
+
+  /api/auth/github/device:
+    post:
+      tags:
+        - Auth
+      summary: Initiate GitHub Device Flow
+      description: Initiates the GitHub OAuth device flow for GitHub Copilot authentication
+      operationId: initiateGitHubDeviceFlow
+      responses:
+        '200':
+          description: Device flow initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  user_code:
+                    type: string
+                    description: Code for user to enter on GitHub
+                  verification_uri:
+                    type: string
+                    description: URL to enter the code
+                  interval:
+                    type: integer
+                    description: Polling interval in seconds
+                  expires_in:
+                    type: integer
+                    description: Code expiration time in seconds
+
+  /api/auth/github/poll:
+    post:
+      tags:
+        - Auth
+      summary: Poll for GitHub Token
+      description: Polls for completion of the GitHub OAuth device flow
+      operationId: pollGitHubToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - device_code
+                - interval
+              properties:
+                device_code:
+                  type: string
+                  description: The device code from the device flow initiation
+                interval:
+                  type: integer
+                  description: Polling interval in seconds
+      responses:
+        '200':
+          description: Token polling result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  token:
+                    type: string
+                    description: The obtained access token (if successful)
+
+  /api/auth/github/status:
+    get:
+      tags:
+        - Auth
+      summary: Get GitHub Auth Status
+      description: Returns the current GitHub authentication status
+      operationId: getGitHubAuthStatus
+      responses:
+        '200':
+          description: GitHub authentication status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_authenticated:
+                    type: boolean
+                    description: Whether the user is authenticated with GitHub
+                  username:
+                    type: string
+                    description: The authenticated GitHub username (if authenticated)
+                    nullable: true
+
+  /api/auth/github/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout from GitHub
+      description: Logs out from GitHub Copilot authentication
+      operationId: logoutGitHub
+      responses:
+        '200':
+          description: Logged out successfully
 
   /api/history:
     get:
@@ -241,6 +448,35 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/raw_responses:
+    get:
+      tags:
+        - Usage
+      summary: Get Raw Responses
+      description: |
+        Returns raw API responses stored for debugging.
+        Retention period: 24 hours.
+      operationId: getRawResponses
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of records to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Raw response records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RawResponseRecord'
+
   /api/config:
     get:
       tags:
@@ -261,7 +497,7 @@ paths:
       summary: Update Agent Configuration
       description: |
         Updates the agent's configuration.
-        
+
         Only `refresh_interval_minutes` and `auto_refresh_enabled` can be modified.
         The discovered_providers list is auto-generated and cannot be manually set.
       operationId: updateConfig
@@ -283,8 +519,58 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /debug/info:
+    get:
+      tags:
+        - Health
+      summary: Debug Info
+      description: Returns detailed debug information about the agent
+      operationId: debugInfo
+      responses:
+        '200':
+          description: Debug information
+
+  /debug/config:
+    get:
+      tags:
+        - Health
+      summary: Debug Config
+      description: Returns the agent's current configuration for debugging
+      operationId: debugConfig
+      responses:
+        '200':
+          description: Debug configuration
+
 components:
   schemas:
+    AgentInfo:
+      type: object
+      required:
+        - version
+        - agent_path
+        - uptime_seconds
+      properties:
+        version:
+          type: string
+          description: Agent version
+          example: "1.7.13"
+        agent_path:
+          type: string
+          description: Path to the agent executable
+          example: "/usr/local/bin/aic_agent"
+        uptime_seconds:
+          type: integer
+          description: Uptime in seconds
+          example: 3600
+        database_path:
+          type: string
+          description: Path to the database file
+          example: "./agent.db"
+        port:
+          type: integer
+          description: HTTP server port
+          example: 8080
+
     ProviderUsage:
       type: object
       required:
@@ -372,28 +658,43 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/ProviderUsageDetail'
+        remaining_percentage:
+          type: number
+          format: double
+          nullable: true
+          description: Remaining quota percentage (for providers that track remaining)
+          example: 75.0
 
     ProviderUsageDetail:
       type: object
       required:
-        - model_name
-        - cost
+        - name
+        - used
+        - remaining
         - percentage
       properties:
-        model_name:
+        name:
           type: string
-          description: Name of the model
+          description: Name of the model or sub-resource
           example: "gpt-4"
-        cost:
-          type: number
-          format: double
-          description: Cost for this model
-          example: 25.50
+        used:
+          type: string
+          description: Usage display text
+          example: "45%"
+        remaining:
+          type: integer
+          description: Remaining percentage
+          example: 55
         percentage:
           type: number
           format: double
-          description: Percentage of total usage
-          example: 56.0
+          description: Percentage used
+          example: 45.0
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: When this sub-resource resets
 
     ProviderConfig:
       type: object
@@ -433,6 +734,16 @@ components:
           type: boolean
           description: Whether to show in system tray
           example: true
+        account_name:
+          type: string
+          nullable: true
+          description: Account name for the provider
+        enabled_sub_trays:
+          type: array
+          nullable: true
+          items:
+            type: string
+          description: Enabled sub-trays for providers with multiple resources
 
     HistoricalUsageRecord:
       type: object
@@ -482,6 +793,31 @@ components:
           format: date-time
           description: When the record was created
           example: "2024-01-15T10:30:00Z"
+
+    RawResponseRecord:
+      type: object
+      required:
+        - id
+        - provider_id
+        - timestamp
+        - response_body
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique record identifier
+        provider_id:
+          type: string
+          description: Provider identifier
+          example: "openai"
+        timestamp:
+          type: integer
+          description: Unix timestamp
+          example: 1705321800
+        response_body:
+          type: string
+          description: Raw response body (JSON)
+          example: "{\"usage\": 100}"
 
     AgentConfig:
       type: object

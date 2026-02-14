@@ -134,24 +134,33 @@ async fn main() -> Result<()> {
     let database = database::Database::new(std::path::Path::new(&database_path)).await?;
     info!("Database initialized successfully");
 
-    // Discover providers on startup
-    info!("Discovering providers...");
-    let discovered_providers = config::discover_all_providers().await;
-    info!("Discovered {} providers on startup", discovered_providers.len());
-    for provider in &discovered_providers {
-        info!("  - {} ({})", provider.provider_id, provider.auth_source);
-    }
-
-    // Load persisted github_token_invalid flag
-    let github_token_invalid = config::load_github_token_invalid().await;
-    info!("Loaded github_token_invalid: {}", github_token_invalid);
+    // Load persisted github_token_invalid flag - will be updated in background
+    let github_token_invalid = false; 
 
     let config = Arc::new(RwLock::new(AgentConfig {
         refresh_interval_minutes: args.refresh_interval_minutes,
         auto_refresh_enabled: true,
-        discovered_providers,
+        discovered_providers: Vec::new(), // Start empty for faster boot
         github_token_invalid,
     }));
+
+    // Spawn discovery task in background so server can start immediately
+    let config_clone = config.clone();
+    tokio::spawn(async move {
+        info!("[BACKGROUND] Discovering providers...");
+        let start = Instant::now();
+        let discovered_providers = config::discover_all_providers().await;
+        let github_token_invalid = config::load_github_token_invalid().await;
+        
+        let mut cfg = config_clone.write().await;
+        cfg.discovered_providers = discovered_providers;
+        cfg.github_token_invalid = github_token_invalid;
+        
+        info!("[BACKGROUND] Discovered {} providers in {:?}", cfg.discovered_providers.len(), start.elapsed());
+        for provider in &cfg.discovered_providers {
+            debug!("  - {} ({})", provider.provider_id, provider.auth_source);
+        }
+    });
 
     // Create HTTP client
     let client = reqwest::Client::new();

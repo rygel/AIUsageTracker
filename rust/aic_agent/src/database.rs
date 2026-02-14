@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use libsql::Builder;
 use anyhow::Result;
+use tracing::info;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HistoricalUsageRecord {
@@ -27,6 +28,14 @@ pub struct ResetEvent {
     pub timestamp: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RawResponse {
+    pub id: String,
+    pub provider_id: String,
+    pub timestamp: i64,
+    pub response_body: String,
+}
+
 pub struct Database {
     db: libsql::Database,
 }
@@ -47,73 +56,126 @@ impl Database {
     async fn migrate(&self) -> Result<()> {
         let conn = self.db.connect()?;
 
+        // 1. Create providers table
         conn.execute(
             r#"
-            CREATE TABLE IF NOT EXISTS usage_records (
+            CREATE TABLE IF NOT EXISTS providers (
                 id TEXT PRIMARY KEY,
-                provider_id TEXT NOT NULL,
-                provider_name TEXT NOT NULL,
-                usage REAL NOT NULL,
-                "limit" REAL,
-                usage_unit TEXT NOT NULL,
-                is_quota_based INTEGER NOT NULL,
-                timestamp TEXT NOT NULL,
-                next_reset_time TEXT
+                name TEXT NOT NULL,
+                unit TEXT NOT NULL,
+                is_quota INTEGER NOT NULL
             )
             "#,
             (),
         ).await?;
 
+        // 2. Create optimized usage history table
         conn.execute(
             r#"
-            CREATE INDEX IF NOT EXISTS idx_provider_id ON usage_records(provider_id);
+            CREATE TABLE IF NOT EXISTS usage_history (
+                provider_id TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                usage REAL NOT NULL,
+                "limit" REAL,
+                next_reset INTEGER,
+                PRIMARY KEY (provider_id, timestamp),
+                FOREIGN KEY(provider_id) REFERENCES providers(id)
+            ) WITHOUT ROWID
             "#,
             (),
         ).await?;
 
+        // 3. Create raw responses table (24h retention)
         conn.execute(
             r#"
-            CREATE INDEX IF NOT EXISTS idx_timestamp ON usage_records(timestamp);
+            CREATE TABLE IF NOT EXISTS raw_responses (
+                id TEXT PRIMARY KEY,
+                provider_id TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                response_body TEXT NOT NULL
+            )
             "#,
             (),
         ).await?;
 
+        // 3. Create latest records cache for delta logic
         conn.execute(
             r#"
-            CREATE INDEX IF NOT EXISTS idx_provider_timestamp ON usage_records(provider_id, timestamp);
+            CREATE TABLE IF NOT EXISTS latest_records (
+                provider_id TEXT PRIMARY KEY,
+                usage REAL NOT NULL,
+                timestamp INTEGER NOT NULL,
+                FOREIGN KEY(provider_id) REFERENCES providers(id)
+            )
             "#,
             (),
         ).await?;
 
-        // Create reset events table
+        // 4. Create reset events table (keeping it separate as it's infrequent)
         conn.execute(
             r#"
             CREATE TABLE IF NOT EXISTS reset_events (
                 id TEXT PRIMARY KEY,
                 provider_id TEXT NOT NULL,
-                provider_name TEXT NOT NULL,
                 previous_usage REAL,
                 new_usage REAL,
                 reset_type TEXT NOT NULL,
-                timestamp TEXT NOT NULL
+                timestamp INTEGER NOT NULL
             )
             "#,
             (),
         ).await?;
 
-        conn.execute(
-            r#"
-            CREATE INDEX IF NOT EXISTS idx_reset_provider ON reset_events(provider_id);
-            "#,
-            (),
-        ).await?;
+        // 5. Check if legacy usage_records table exists and migrate if so
+        let mut rows = conn.query("SELECT name FROM sqlite_master WHERE type='table' AND name='usage_records'", ()).await?;
+        if rows.next().await?.is_some() {
+            info!("Migrating legacy usage_records to new normalized schema...");
+            
+            // Migrate providers metadata
+            conn.execute(
+                r#"
+                INSERT OR IGNORE INTO providers (id, name, unit, is_quota)
+                SELECT DISTINCT provider_id, provider_name, usage_unit, is_quota_based
+                FROM usage_records
+                "#,
+                (),
+            ).await?;
 
-        conn.execute(
-            r#"
-            CREATE INDEX IF NOT EXISTS idx_reset_timestamp ON reset_events(timestamp);
-            "#,
-            (),
-        ).await?;
+            // Migrate usage records
+            // We need to parse ISO 8601 strings to unix timestamps. 
+            // SQLite's unixepoch function can help if the strings are formatted correctly.
+            conn.execute(
+                r#"
+                INSERT OR IGNORE INTO usage_history (provider_id, timestamp, usage, "limit", next_reset)
+                SELECT 
+                    provider_id, 
+                    unixepoch(timestamp), 
+                    usage, 
+                    "limit", 
+                    CASE WHEN next_reset_time IS NOT NULL THEN unixepoch(next_reset_time) ELSE NULL END
+                FROM usage_records
+                "#,
+                (),
+            ).await?;
+
+            // Populate latest_records cache
+            conn.execute(
+                r#"
+                INSERT OR IGNORE INTO latest_records (provider_id, usage, timestamp)
+                SELECT provider_id, usage, timestamp
+                FROM (
+                    SELECT provider_id, usage, unixepoch(timestamp) as timestamp,
+                           ROW_NUMBER() OVER (PARTITION BY provider_id ORDER BY timestamp DESC) as rn
+                    FROM usage_records
+                ) WHERE rn = 1
+                "#,
+                (),
+            ).await?;
+
+            // Rename legacy table instead of deleting to be safe
+            conn.execute("ALTER TABLE usage_records RENAME TO usage_records_legacy", ()).await?;
+            info!("Migration complete. Legacy table renamed to usage_records_legacy.");
+        }
 
         Ok(())
     }
@@ -121,21 +183,51 @@ impl Database {
     pub async fn insert_usage_record(&self, record: &HistoricalUsageRecord) -> Result<()> {
         let conn = self.db.connect()?;
 
+        // 1. Ensure provider exists
         conn.execute(
-            r#"
-            INSERT OR REPLACE INTO usage_records (id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-            "#,
+            "INSERT OR REPLACE INTO providers (id, name, unit, is_quota) VALUES (?1, ?2, ?3, ?4)",
             (
-                record.id.as_str(),
                 record.provider_id.as_str(),
                 record.provider_name.as_str(),
-                record.usage,
-                record.limit,
                 record.usage_unit.as_str(),
                 if record.is_quota_based { 1 } else { 0 },
-                record.timestamp.as_str(),
-                record.next_reset_time.as_deref(),
+            ),
+        ).await?;
+
+        // 2. Parse timestamp
+        let ts = DateTime::parse_from_rfc3339(&record.timestamp)?
+            .with_timezone(&Utc)
+            .timestamp();
+        
+        let next_reset = record.next_reset_time.as_deref().and_then(|t| {
+            DateTime::parse_from_rfc3339(t).ok().map(|dt| dt.timestamp())
+        });
+
+        // 3. Insert into history
+        conn.execute(
+            r#"
+            INSERT OR REPLACE INTO usage_history (provider_id, timestamp, usage, "limit", next_reset)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            "#,
+            (
+                record.provider_id.as_str(),
+                ts,
+                record.usage,
+                record.limit,
+                next_reset,
+            ),
+        ).await?;
+
+        // 4. Update latest cache
+        conn.execute(
+            r#"
+            INSERT OR REPLACE INTO latest_records (provider_id, usage, timestamp)
+            VALUES (?1, ?2, ?3)
+            "#,
+            (
+                record.provider_id.as_str(),
+                record.usage,
+                ts,
             ),
         ).await?;
 
@@ -150,9 +242,10 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
-            FROM usage_records
-            ORDER BY timestamp DESC
+            SELECT h.provider_id, p.name, h.usage, h."limit", p.unit, p.is_quota, h.timestamp, h.next_reset
+            FROM usage_history h
+            JOIN providers p ON h.provider_id = p.id
+            ORDER BY h.timestamp DESC
             "#,
             (),
         ).await {
@@ -178,10 +271,11 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
-            FROM usage_records
-            WHERE provider_id = ?1
-            ORDER BY timestamp DESC
+            SELECT h.provider_id, p.name, h.usage, h."limit", p.unit, p.is_quota, h.timestamp, h.next_reset
+            FROM usage_history h
+            JOIN providers p ON h.provider_id = p.id
+            WHERE h.provider_id = ?1
+            ORDER BY h.timestamp DESC
             "#,
             [provider_id],
         ).await {
@@ -211,12 +305,13 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
-            FROM usage_records
-            WHERE timestamp >= ?1 AND timestamp <= ?2
-            ORDER BY timestamp DESC
+            SELECT h.provider_id, p.name, h.usage, h."limit", p.unit, p.is_quota, h.timestamp, h.next_reset
+            FROM usage_history h
+            JOIN providers p ON h.provider_id = p.id
+            WHERE h.timestamp >= ?1 AND h.timestamp <= ?2
+            ORDER BY h.timestamp DESC
             "#,
-            (start.to_rfc3339(), end.to_rfc3339()),
+            (start.timestamp(), end.timestamp()),
         ).await {
             Ok(r) => r,
             Err(_) => return Vec::new(),
@@ -240,9 +335,10 @@ impl Database {
         
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
-            FROM usage_records
-            ORDER BY timestamp DESC
+            SELECT h.provider_id, p.name, h.usage, h."limit", p.unit, p.is_quota, h.timestamp, h.next_reset
+            FROM usage_history h
+            JOIN providers p ON h.provider_id = p.id
+            ORDER BY h.timestamp DESC
             LIMIT ?1
             "#,
             [limit as i64],
@@ -262,15 +358,15 @@ impl Database {
     }
 
     pub async fn cleanup_old_records(&self, days: i64) -> Result<u64> {
-        let cutoff = Utc::now() - chrono::Duration::days(days);
+        let cutoff = (Utc::now() - chrono::Duration::days(days)).timestamp();
         let conn = self.db.connect()?;
 
         let result = conn.execute(
             r#"
-            DELETE FROM usage_records
+            DELETE FROM usage_history
             WHERE timestamp < ?1
             "#,
-            [cutoff.to_rfc3339()],
+            [cutoff],
         ).await?;
 
         Ok(result)
@@ -279,21 +375,24 @@ impl Database {
     pub async fn insert_reset_event(&self, event: &ResetEvent) -> Result<()> {
         let conn = self.db.connect()?;
 
+        let ts = DateTime::parse_from_rfc3339(&event.timestamp)?
+            .with_timezone(&Utc)
+            .timestamp();
+
         conn.execute(
             r#"
             INSERT OR REPLACE INTO reset_events 
-            (id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+            (id, provider_id, previous_usage, new_usage, reset_type, timestamp)
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
             "#,
-            [
+            (
                 event.id.as_str(),
                 event.provider_id.as_str(),
-                event.provider_name.as_str(),
-                event.previous_usage.map(|v| v.to_string()).unwrap_or_default().as_str(),
-                event.new_usage.map(|v| v.to_string()).unwrap_or_default().as_str(),
+                event.previous_usage,
+                event.new_usage,
                 event.reset_type.as_str(),
-                event.timestamp.as_str(),
-            ],
+                ts,
+            ),
         ).await?;
 
         Ok(())
@@ -308,10 +407,11 @@ impl Database {
         let mut rows = if let Some(pid) = provider_id {
             match conn.query(
                 r#"
-                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
-                FROM reset_events
-                WHERE provider_id = ?1
-                ORDER BY timestamp DESC
+                SELECT r.id, r.provider_id, p.name, r.previous_usage, r.new_usage, r.reset_type, r.timestamp
+                FROM reset_events r
+                JOIN providers p ON r.provider_id = p.id
+                WHERE r.provider_id = ?1
+                ORDER BY r.timestamp DESC
                 "#,
                 [pid],
             ).await {
@@ -321,9 +421,10 @@ impl Database {
         } else {
             match conn.query(
                 r#"
-                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
-                FROM reset_events
-                ORDER BY timestamp DESC
+                SELECT r.id, r.provider_id, p.name, r.previous_usage, r.new_usage, r.reset_type, r.timestamp
+                FROM reset_events r
+                JOIN providers p ON r.provider_id = p.id
+                ORDER BY r.timestamp DESC
                 "#,
                 (),
             ).await {
@@ -356,12 +457,13 @@ impl Database {
         let mut rows = if let Some(pid) = provider_id {
             match conn.query(
                 r#"
-                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
-                FROM reset_events
-                WHERE provider_id = ?1 AND timestamp >= ?2 AND timestamp <= ?3
-                ORDER BY timestamp DESC
+                SELECT r.id, r.provider_id, p.name, r.previous_usage, r.new_usage, r.reset_type, r.timestamp
+                FROM reset_events r
+                JOIN providers p ON r.provider_id = p.id
+                WHERE r.provider_id = ?1 AND r.timestamp >= ?2 AND r.timestamp <= ?3
+                ORDER BY r.timestamp DESC
                 "#,
-                [pid, start.to_rfc3339().as_str(), end.to_rfc3339().as_str()],
+                [pid.to_string(), start.timestamp().to_string(), end.timestamp().to_string()],
             ).await {
                 Ok(r) => r,
                 Err(_) => return Vec::new(),
@@ -369,12 +471,13 @@ impl Database {
         } else {
             match conn.query(
                 r#"
-                SELECT id, provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp
-                FROM reset_events
-                WHERE timestamp >= ?1 AND timestamp <= ?2
-                ORDER BY timestamp DESC
+                SELECT r.id, r.provider_id, p.name, r.previous_usage, r.new_usage, r.reset_type, r.timestamp
+                FROM reset_events r
+                JOIN providers p ON r.provider_id = p.id
+                WHERE r.timestamp >= ?1 AND r.timestamp <= ?2
+                ORDER BY r.timestamp DESC
                 "#,
-                (start.to_rfc3339(), end.to_rfc3339()),
+                (start.timestamp(), end.timestamp()),
             ).await {
                 Ok(r) => r,
                 Err(_) => return Vec::new(),
@@ -391,6 +494,71 @@ impl Database {
         events
     }
 
+    pub async fn insert_raw_response(&self, provider_id: &str, body: &str) -> Result<()> {
+        let conn = self.db.connect()?;
+        let id = format!("{}-{}", provider_id, Utc::now().timestamp());
+        let ts = Utc::now().timestamp();
+
+        conn.execute(
+            "INSERT OR REPLACE INTO raw_responses (id, provider_id, timestamp, response_body) VALUES (?1, ?2, ?3, ?4)",
+            (id, provider_id, ts, body),
+        ).await?;
+
+        Ok(())
+    }
+
+    pub async fn get_raw_responses(&self, provider_id: Option<String>, limit: usize) -> Vec<RawResponse> {
+        let conn = match self.db.connect() {
+            Ok(c) => c,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut rows = if let Some(pid) = provider_id {
+            let sql = "SELECT id, provider_id, timestamp, response_body FROM raw_responses WHERE provider_id = ?1 ORDER BY timestamp DESC LIMIT ?2";
+            match conn.query(sql, (pid, limit as i64)).await {
+                Ok(r) => r,
+                Err(_) => return Vec::new(),
+            }
+        } else {
+            let sql = "SELECT id, provider_id, timestamp, response_body FROM raw_responses ORDER BY timestamp DESC LIMIT ?1";
+            match conn.query(sql, [limit as i64]).await {
+                Ok(r) => r,
+                Err(_) => return Vec::new(),
+            }
+        };
+
+        let mut logs = Vec::new();
+        while let Ok(Some(row)) = rows.next().await {
+            if let (Ok(id), Ok(pid), Ok(ts), Ok(body)) = (
+                row.get::<String>(0),
+                row.get::<String>(1),
+                row.get::<i64>(2),
+                row.get::<String>(3),
+            ) {
+                logs.push(RawResponse {
+                    id,
+                    provider_id: pid,
+                    timestamp: ts,
+                    response_body: body,
+                });
+            }
+        }
+        logs
+    }
+
+
+    pub async fn cleanup_raw_responses(&self) -> Result<()> {
+        let conn = self.db.connect()?;
+        let twenty_four_hours_ago = Utc::now().timestamp() - (24 * 60 * 60);
+
+        conn.execute(
+            "DELETE FROM raw_responses WHERE timestamp < ?1",
+            [twenty_four_hours_ago],
+        ).await?;
+
+        Ok(())
+    }
+
     pub async fn get_latest_usage_for_provider(&self, provider_id: &str) -> Option<HistoricalUsageRecord> {
         let conn = match self.db.connect() {
             Ok(c) => c,
@@ -399,10 +567,10 @@ impl Database {
 
         let mut rows = match conn.query(
             r#"
-            SELECT id, provider_id, provider_name, usage, "limit", usage_unit, is_quota_based, timestamp, next_reset_time
-            FROM usage_records
-            WHERE provider_id = ?1
-            ORDER BY timestamp DESC
+            SELECT h.provider_id, p.name, h.usage, h."limit", p.unit, p.is_quota, h.timestamp, h.next_reset
+            FROM latest_records h
+            JOIN providers p ON h.provider_id = p.id
+            WHERE h.provider_id = ?1
             LIMIT 1
             "#,
             [provider_id],
@@ -422,39 +590,45 @@ impl Database {
 }
 
 fn row_to_historical_usage(row: &libsql::Row) -> Result<HistoricalUsageRecord> {
+    let ts_int: i64 = row.get(6)?;
+    let ts_str = DateTime::from_timestamp(ts_int, 0)
+        .unwrap_or_else(|| Utc::now())
+        .to_rfc3339();
+    
+    let next_reset_int: Option<i64> = row.get(7).ok();
+    let next_reset_str = next_reset_int.map(|ts| {
+        DateTime::from_timestamp(ts, 0)
+            .unwrap_or_else(|| Utc::now())
+            .to_rfc3339()
+    });
+
     Ok(HistoricalUsageRecord {
-        id: row.get(0)?,
-        provider_id: row.get(1)?,
-        provider_name: row.get(2)?,
-        usage: row.get(3)?,
-        limit: row.get(4)?,
-        usage_unit: row.get(5)?,
-        is_quota_based: row.get::<i64>(6)? == 1,
-        timestamp: row.get(7)?,
-        next_reset_time: row.get(8).ok(),
+        id: format!("{}-{}", row.get::<String>(0)?, ts_int), // Synthetic ID since we removed UUIDs
+        provider_id: row.get(0)?,
+        provider_name: row.get(1)?,
+        usage: row.get(2)?,
+        limit: row.get(3)?,
+        usage_unit: row.get(4)?,
+        is_quota_based: row.get::<i64>(5)? == 1,
+        timestamp: ts_str,
+        next_reset_time: next_reset_str,
     })
 }
 
 fn row_to_reset_event(row: &libsql::Row) -> Result<ResetEvent> {
-    let previous_usage_str: String = row.get(3)?;
-    let new_usage_str: String = row.get(4)?;
+    let ts_int: i64 = row.get(6)?;
+    let ts_str = DateTime::from_timestamp(ts_int, 0)
+        .unwrap_or_else(|| Utc::now())
+        .to_rfc3339();
 
     Ok(ResetEvent {
         id: row.get(0)?,
         provider_id: row.get(1)?,
         provider_name: row.get(2)?,
-        previous_usage: if previous_usage_str.is_empty() {
-            None
-        } else {
-            previous_usage_str.parse().ok()
-        },
-        new_usage: if new_usage_str.is_empty() {
-            None
-        } else {
-            new_usage_str.parse().ok()
-        },
+        previous_usage: row.get(3).ok(),
+        new_usage: row.get(4).ok(),
         reset_type: row.get(5)?,
-        timestamp: row.get(6)?,
+        timestamp: ts_str,
     })
 }
 
@@ -510,7 +684,7 @@ mod tests {
         
         let records = db.get_all_usage_records().await;
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].id, "test-1");
+        assert!(records[0].id.starts_with("openai-"));
         assert_eq!(records[0].provider_id, "openai");
         assert_eq!(records[0].usage, 50.0);
     }
@@ -608,7 +782,8 @@ mod tests {
         
         let records = db.get_usage_records_by_time_range(start, end).await;
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].id, "test-2");
+        assert!(records[0].id.starts_with("openai-"));
+        assert_eq!(records[0].usage, 75.0);
     }
 
     #[tokio::test]
@@ -628,9 +803,10 @@ mod tests {
         
         let records = db.get_latest_usage_records(3).await;
         assert_eq!(records.len(), 3);
-        assert_eq!(records[0].id, "test-4");
-        assert_eq!(records[1].id, "test-3");
-        assert_eq!(records[2].id, "test-2");
+        assert!(records[0].id.starts_with("openai-"));
+        assert_eq!(records[0].usage, 40.0);
+        assert_eq!(records[1].usage, 30.0);
+        assert_eq!(records[2].usage, 20.0);
     }
 
     #[tokio::test]
@@ -647,6 +823,7 @@ mod tests {
         
         db.insert_usage_record(&record).await.unwrap();
         
+        // Use SAME timestamp to test upsert (replace) logic on (provider_id, timestamp)
         let updated_record = HistoricalUsageRecord {
             id: "test-1".to_string(),
             provider_id: "openai".to_string(),
@@ -655,7 +832,8 @@ mod tests {
             limit: Some(200.0),
             usage_unit: "tokens".to_string(),
             is_quota_based: false,
-            timestamp: "2026-02-09T12:00:00Z".to_string(),
+            timestamp: "2026-02-09T10:00:00Z".to_string(),
+            next_reset_time: None,
         };
         
         db.insert_usage_record(&updated_record).await.unwrap();
@@ -695,7 +873,7 @@ mod tests {
         
         let records = db.get_all_usage_records().await;
         assert_eq!(records.len(), 1);
-        assert_eq!(records[0].id, "recent-1");
+        assert!(records[0].id.starts_with("openai-"));
     }
 
     #[tokio::test]
@@ -737,9 +915,11 @@ mod tests {
         db.insert_usage_record(&record3).await.unwrap();
         
         let records = db.get_all_usage_records().await;
-        assert_eq!(records[0].id, "test-2");
-        assert_eq!(records[1].id, "test-1");
-        assert_eq!(records[2].id, "test-3");
+        // test-2 is most recent (12:00)
+        assert!(records[0].id.starts_with("openai-"));
+        assert_eq!(records[0].usage, 75.0);
+        assert_eq!(records[1].usage, 50.0);
+        assert_eq!(records[2].usage, 100.0);
     }
 
     #[tokio::test]
@@ -755,6 +935,7 @@ mod tests {
             usage_unit: "credits".to_string(),
             is_quota_based: false,
             timestamp: "2026-02-09T10:00:00Z".to_string(),
+            next_reset_time: None,
         };
         
         db.insert_usage_record(&record).await.unwrap();
@@ -762,5 +943,44 @@ mod tests {
         let records = db.get_all_usage_records().await;
         assert_eq!(records.len(), 1);
         assert!(records[0].limit.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_migration_from_legacy() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("migration_test.db");
+        
+        // 1. Create legacy table manually
+        let db = Builder::new_local(db_path.to_str().unwrap()).build().await.unwrap();
+        let conn = db.connect().unwrap();
+        conn.execute_batch(r#"
+            CREATE TABLE usage_records (
+                id TEXT PRIMARY KEY,
+                provider_id TEXT NOT NULL,
+                provider_name TEXT NOT NULL,
+                usage REAL NOT NULL,
+                "limit" REAL,
+                usage_unit TEXT NOT NULL,
+                is_quota_based INTEGER NOT NULL,
+                timestamp TEXT NOT NULL,
+                next_reset_time TEXT
+            );
+            INSERT INTO usage_records VALUES (
+                'old-uuid', 'openai', 'OpenAI', 42.0, 100.0, 'tokens', 0, '2026-02-13T10:00:00Z', NULL
+            );
+        "#).await.unwrap();
+
+        // 2. Initialize Database wrapper (triggers migration)
+        let wrapped_db = Database::new(&temp_dir.path().join("migration_test.db")).await.unwrap();
+
+        // 3. Verify data moved
+        let records = wrapped_db.get_all_usage_records().await;
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].provider_id, "openai");
+        assert_eq!(records[0].usage, 42.0);
+        
+        // 4. Verify legacy table was renamed
+        let mut rows = conn.query("SELECT name FROM sqlite_master WHERE type='table' AND name='usage_records_legacy'", ()).await.unwrap();
+        assert!(rows.next().await.unwrap().is_some());
     }
 }

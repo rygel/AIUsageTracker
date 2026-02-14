@@ -111,13 +111,75 @@ pub trait ProviderService: Send + Sync {
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/health` | Health check with version info |
-| GET | `/api/v1/providers` | List all supported providers |
-| GET | `/api/v1/usage` | Get usage for all configured providers |
-| GET | `/api/v1/usage/:provider` | Get usage for specific provider |
-| GET | `/api/v1/config` | Get current configuration |
-| POST | `/api/v1/config` | Update configuration |
-| POST | `/api/v1/config/:provider` | Update specific provider config |
-| POST | `/api/v1/refresh` | Force refresh of cached data |
+| GET | `/api/agent/info` | Get agent information (path, version, uptime) |
+| GET | `/api/auth/github/status` | GitHub authentication status |
+| POST | `/api/auth/github/device` | Initiate GitHub OAuth device flow |
+| POST | `/api/auth/github/poll` | Poll for GitHub OAuth token |
+| POST | `/api/auth/github/logout` | Logout from GitHub |
+| GET | `/api/providers/usage` | Get usage for all configured providers |
+| POST | `/api/providers/usage/refresh` | Force refresh of cached data |
+| GET | `/api/providers/{provider_id}/usage` | Get usage for specific provider |
+| GET | `/api/providers/discovered` | List all discovered providers |
+| PUT | `/api/providers/{provider_id}` | Save provider configuration |
+| DELETE | `/api/providers/{provider_id}` | Remove provider |
+| POST | `/api/config/providers` | Save all provider configs |
+| POST | `/api/discover` | Trigger token discovery |
+| GET | `/api/history` | Get historical usage records |
+| GET | `/api/raw_responses` | Get raw API responses for debugging |
+| GET | `/api/config` | Get agent configuration |
+| POST | `/api/config` | Update agent configuration |
+| GET | `/debug/info` | Debug information (development) |
+| GET | `/debug/config` | Debug configuration (development) |
+
+#### Agent Info Endpoint
+
+```
+GET /api/agent/info
+
+Response (200 OK):
+{
+  "version": "1.7.13",
+  "agent_path": "C:\\Develop\\Claude\\aiconsumptiontracker-clone\\rust\\target\\debug\\aic_agent.exe",
+  "uptime_seconds": 3600,
+  "database_path": "./agent.db"
+}
+```
+
+#### Port Management
+
+The agent writes its port to `.agent_port` file in the current working directory. The app reads this file via Tauri commands:
+
+- `get_agent_port_cmd()` - Rust command that reads `.agent_port` file, returns port (default: 8080)
+- UI caches the port for subsequent API calls
+- Fallback: UI attempts HTTP discovery on ports 8080-8100 if command fails
+
+#### GitHub Authentication Endpoints
+
+```
+GET /api/auth/github/status
+Response:
+{
+  "is_authenticated": true,
+  "username": "octocat",
+  "token_invalid": false
+}
+
+POST /api/auth/github/device
+Response:
+{
+  "success": true,
+  "user_code": "ABCD-1234",
+  "verification_uri": "https://github.com/login/device/code",
+  "interval": 5,
+  "expires_in": 900
+}
+
+POST /api/auth/github/logout
+Response:
+{
+  "success": true
+}
+```
 
 #### Response Format
 ```json
@@ -518,6 +580,38 @@ aic-tracker/
 
 ## 14. Development Workflow
 
+### 14.0 Build Configuration
+
+#### Debug vs Release Builds
+
+**IMPORTANT: During development, use debug builds.**
+
+```bash
+# Debug builds (development - faster compile, more logging)
+cd rust
+cargo build -p aic_agent      # Agent debug build
+cargo build -p aic_app        # App debug build
+
+# Release builds (production - optimized, smaller binaries)
+cd rust
+cargo build --release -p aic_agent
+cargo build --release -p aic_app
+```
+
+Debug builds include:
+- Symbol information for debugging
+- Extra runtime checks (bounds, overflow)
+- Detailed logging output
+- No binary stripping
+
+Release builds include:
+- Full optimizations (LTO, codegen units=1)
+- Binary size optimization
+- No debug symbols
+- Binary stripping
+
+**Note:** The application and agent must use the same build type (debug or release) for consistent behavior. During active development, always use debug builds.
+
 ### 14.1 Adding a New Provider
 1. Create provider module in `aic_core/src/providers/`
 2. Implement `ProviderService` trait
@@ -551,11 +645,149 @@ aic-tracker/
 | `ANTHROPIC_API_KEY` | Anthropic API key |
 | `GOOGLE_API_KEY` | Google AI API key |
 
-## Appendix B: API Examples
+## Appendix C: GitHub Copilot Authentication
 
-### Health Check
+### C.1 Authentication Storage
+
+GitHub Copilot authentication is stored in the agent's `GitHubAuthService`, NOT in `config.api_key`.
+
+The agent maintains:
+- OAuth token persistence
+- Username tracking
+- Session state management
+
+### C.2 Token Discovery from Config
+
+The GitHub Copilot token can be stored in `auth.json` under the `github-copilot` key:
+
+```json
+{
+  "github-copilot": {
+    "key": "ghp_xxxxxxxxxxxx",
+    "type": "api"
+  }
+}
+```
+
+The agent loads this token from:
+1. Primary config: `%APPDATA%\ai-consumption-tracker\auth.json`
+2. OpenCode configs: `~/.local/share/opencode/auth.json`
+3. Fallback paths
+
+### C.3 Invalid Token Detection
+
+When the GitHub API returns a 403 Forbidden response, the agent marks the token as invalid to prevent repeated failed API calls that would spam the logs.
+
+#### Implementation
+
+1. **Detection**: When calling GitHub API endpoints (e.g., `/api/auth/github/status`), if response is 403:
+   - Set `github_token_invalid = true` in memory
+   - Persist flag to `agent_config.json`
+
+2. **Persistence**: The flag is stored in `%APPDATA%\ai-consumption-tracker\agent_config.json`:
+   ```json
+   {
+     "github_token_invalid": true,
+     "refresh_interval_minutes": 5,
+     "auto_refresh_enabled": true,
+     "discovered_providers": []
+   }
+   ```
+
+3. **Skip API Calls**: When `token_invalid` is true, the agent:
+   - Sets `is_authenticated: false` in status response
+   - Skips calling GitHub API endpoints
+   - Returns cached error state instead
+
+4. **Reset Conditions**: The flag is reset when user:
+   - Initiates new OAuth device flow (`POST /api/auth/github/device`)
+   - Successfully obtains new token via poll (`POST /api/auth/github/poll`)
+   - Logs out (`POST /api/auth/github/logout`)
+
+#### API Response with Invalid Token
+
+```json
+{
+  "is_authenticated": false,
+  "username": null,
+  "token_invalid": true
+}
+```
+
+### C.4 UI Integration
+
+The UI reads auth status from `/api/auth/github/status` endpoint:
+
+```json
+{
+  "is_authenticated": true,
+  "username": "authenticated-user",
+  "token_invalid": false
+}
+```
+
+#### Display Locations
+
+1. **Main UI (index.html)**:
+   - Provider bar shows: "GitHub Copilot [username]"
+   - Account name displayed alongside provider name
+   - Privacy mode masks username as "***"
+
+2. **Settings Dialog (settings.html)**:
+   - Agent tab → Connection Information section
+   - Shows username with auth status badge
+   - Login/Logout button for OAuth flow
+   - Shows "Token Invalid - Please Re-authenticate" in red when token is invalid
+
+#### Privacy Mode
+
+When privacy mode is enabled:
+- Usernames are masked as "***"
+- Cost data hidden
+- Re-render triggered on toggle
+
+## Appendix D: API Examples
+
+### D.1 Agent Info
+```bash
+curl http://localhost:8080/api/agent/info | jq
+```
+
+### D.2 GitHub Auth Status
+```bash
+curl http://localhost:8080/api/auth/github/status | jq
+```
+
+### D.3 Health Check
 ```bash
 curl http://localhost:8080/health
+```
+
+### D.4 Get All Usage
+```bash
+curl http://localhost:8080/api/providers/usage | jq
+```
+
+### D.5 Refresh Usage
+```bash
+curl -X POST http://localhost:8080/api/providers/usage/refresh | jq
+```
+
+### D.6 Historical Usage
+```bash
+curl "http://localhost:8080/api/history?limit=50" | jq
+```
+
+### D.7 Update Provider Config
+```bash
+curl -X PUT http://localhost:8080/api/providers/openai \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "sk-xxx", "show_in_tray": true}'
+```
+
+### D.8 Trigger Token Discovery
+```bash
+curl -X POST http://localhost:8080/api/discover | jq
 ```
 
 ### Get All Usage

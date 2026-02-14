@@ -1,5 +1,6 @@
 use aic_core::ProviderConfig;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{info, error, debug};
@@ -9,6 +10,71 @@ pub struct AgentConfig {
     pub refresh_interval_minutes: u64,
     pub auto_refresh_enabled: bool,
     pub discovered_providers: Vec<ProviderConfig>,
+    /// If true, GitHub token is known to be invalid (403 forbidden) - skip API calls until re-authenticated
+    pub github_token_invalid: bool,
+}
+
+impl Default for AgentConfig {
+    fn default() -> Self {
+        Self {
+            refresh_interval_minutes: 5,
+            auto_refresh_enabled: true,
+            discovered_providers: Vec::new(),
+            github_token_invalid: false,
+        }
+    }
+}
+
+/// Get the agent config file path
+fn get_agent_config_path() -> PathBuf {
+    let config_dir = if cfg!(target_os = "windows") {
+        std::env::var("APPDATA").ok()
+            .map(|p| PathBuf::from(p).join("ai-consumption-tracker"))
+    } else {
+        std::env::var("HOME").ok()
+            .map(|p| PathBuf::from(p).join(".config").join("ai-consumption-tracker"))
+    };
+    
+    config_dir.unwrap_or_else(|| PathBuf::from(".ai-consumption-tracker"))
+        .join("agent_config.json")
+}
+
+/// Load github_token_invalid flag from disk
+pub async fn load_github_token_invalid() -> bool {
+    let path = get_agent_config_path();
+    if path.exists() {
+        if let Ok(content) = tokio::fs::read_to_string(&path).await {
+            if let Ok(config) = serde_json::from_str::<AgentConfig>(&content) {
+                return config.github_token_invalid;
+            }
+        }
+    }
+    false
+}
+
+/// Save github_token_invalid flag to disk
+pub async fn save_github_token_invalid(invalid: bool) {
+    let path = get_agent_config_path();
+    if let Some(parent) = path.parent() {
+        let _ = tokio::fs::create_dir_all(parent).await;
+    }
+    
+    // Load existing config or create new
+    let mut config = if path.exists() {
+        if let Ok(content) = tokio::fs::read_to_string(&path).await {
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            AgentConfig::default()
+        }
+    } else {
+        AgentConfig::default()
+    };
+    
+    config.github_token_invalid = invalid;
+    
+    if let Ok(json) = serde_json::to_string_pretty(&config) {
+        let _ = tokio::fs::write(&path, json).await;
+    }
 }
 
 /// Perform centralized provider discovery including environment scanning and well-known providers
@@ -197,7 +263,7 @@ async fn discover_from_config_files(providers: &mut Vec<ProviderConfig>) {
     }
 }
 
-/// Tier 1: OpenCode config files - highest priority, can override any provider except antigravity/github-copilot
+/// Tier 1: OpenCode config files - highest priority, can override any provider except antigravity
 async fn check_config_file_tier1(providers: &mut Vec<ProviderConfig>, path: &str, source_name: &str) {
     debug!("Tier 1: Checking config file: {}", path);
     if let Ok(content) = tokio::fs::read_to_string(path).await {
@@ -205,10 +271,8 @@ async fn check_config_file_tier1(providers: &mut Vec<ProviderConfig>, path: &str
         if let Ok(raw_configs) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(obj) = raw_configs.as_object() {
                 for (provider_id, value) in obj {
-                    // Skip app_settings and system providers
-                    if provider_id == "app_settings" 
-                        || provider_id == "antigravity" 
-                        || provider_id == "github-copilot" {
+                    // Skip app_settings and antigravity
+                    if provider_id == "app_settings" || provider_id == "antigravity" {
                         continue;
                     }
                     
@@ -233,10 +297,8 @@ async fn check_config_file_tier2(providers: &mut Vec<ProviderConfig>, path: &str
         if let Ok(raw_configs) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(obj) = raw_configs.as_object() {
                 for (provider_id, value) in obj {
-                    // Skip app_settings and system providers
-                    if provider_id == "app_settings" 
-                        || provider_id == "antigravity" 
-                        || provider_id == "github-copilot" {
+                    // Skip app_settings and antigravity
+                    if provider_id == "app_settings" || provider_id == "antigravity" {
                         continue;
                     }
                     
@@ -271,10 +333,8 @@ async fn check_config_file_tier3(providers: &mut Vec<ProviderConfig>, path: &str
         if let Ok(raw_configs) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(obj) = raw_configs.as_object() {
                 for (provider_id, value) in obj {
-                    // Skip app_settings and system providers
-                    if provider_id == "app_settings" 
-                        || provider_id == "antigravity" 
-                        || provider_id == "github-copilot" {
+                    // Skip app_settings and antigravity
+                    if provider_id == "app_settings" || provider_id == "antigravity" {
                         continue;
                     }
                     
@@ -308,6 +368,77 @@ async fn check_config_file(providers: &mut Vec<ProviderConfig>, path: &str, sour
 
 /// Discover GitHub tokens from common locations
 async fn discover_github_token(providers: &mut Vec<ProviderConfig>) {
+    // First check environment variables
+    let env_vars = ["GITHUB_TOKEN", "GH_TOKEN", "GITHUB_COPILOT_TOKEN", "COPILOT_TOKEN"];
+    for var in env_vars.iter() {
+        if let Ok(token) = std::env::var(var) {
+            if !token.is_empty() && token.len() > 10 {
+                info!("Found GitHub token in env var {}", var);
+                if let Some(provider) = providers.iter_mut().find(|p| p.provider_id == "github-copilot") {
+                    provider.api_key = token.clone();
+                    provider.auth_source = format!("Environment Variable ({})", var);
+                    provider.description = Some("GitHub Copilot - Token discovered from environment".to_string());
+                }
+                return; // Found a token, no need to check more
+            }
+        }
+    }
+
+    // Try running `gh auth token` command (like C# version does)
+    #[cfg(target_os = "windows")]
+    {
+        match std::process::Command::new("cmd")
+            .args(["/C", "gh auth token"])
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !token.is_empty() && token.len() > 10 {
+                    info!("Found GitHub token via 'gh auth token' command");
+                    if let Some(provider) = providers.iter_mut().find(|p| p.provider_id == "github-copilot") {
+                        provider.api_key = token;
+                        provider.auth_source = "GitHub CLI".to_string();
+                        provider.description = Some("GitHub Copilot - Token discovered from GitHub CLI".to_string());
+                    }
+                    return;
+                }
+            }
+            Ok(output) => {
+                debug!("gh auth token failed: {:?}", String::from_utf8_lossy(&output.stderr));
+            }
+            Err(e) => {
+                debug!("Could not run gh auth token: {}", e);
+            }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        match std::process::Command::new("sh")
+            .args(["-c", "gh auth token"])
+            .output()
+        {
+            Ok(output) if output.status.success() => {
+                let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !token.is_empty() && token.len() > 10 {
+                    info!("Found GitHub token via 'gh auth token' command");
+                    if let Some(provider) = providers.iter_mut().find(|p| p.provider_id == "github-copilot") {
+                        provider.api_key = token;
+                        provider.auth_source = "GitHub CLI".to_string();
+                        provider.description = Some("GitHub Copilot - Token discovered from GitHub CLI".to_string());
+                    }
+                    return;
+                }
+            }
+            Ok(output) => {
+                debug!("gh auth token failed: {:?}", String::from_utf8_lossy(&output.stderr));
+            }
+            Err(e) => {
+                debug!("Could not run gh auth token: {}", e);
+            }
+        }
+    }
+
     // Get home directory (cross-platform)
     let home = if cfg!(target_os = "windows") {
         std::env::var("USERPROFILE").ok()
@@ -316,15 +447,32 @@ async fn discover_github_token(providers: &mut Vec<ProviderConfig>) {
     };
     
     if let Some(home) = home {
-        let paths_to_check = [
+        let mut paths_to_check = vec![
             format!("{}/.config/gh/hosts.yml", home),
             format!("{}/.git-credential-store", home),
             format!("{}/.config/gh/config.yml", home),
-            #[cfg(target_os = "windows")]
-            format!("{}\\AppData\\Local\\GitHub CLI\\config.yml", home),
-            #[cfg(target_os = "windows")]
-            format!("{}\\AppData\\Roaming\\GitHub CLI\\config.yml", home),
+            format!("{}/.config/gh/credentials.yml", home),
+            format!("{}/.gh", home),
         ];
+
+        // Add VS Code paths for Windows
+        #[cfg(target_os = "windows")]
+        {
+            if let Ok(appdata) = std::env::var("APPDATA") {
+                paths_to_check.push(format!("{}\\GitHub CLI\\config.yml", appdata));
+            }
+            if let Ok(localappdata) = std::env::var("LOCALAPPDATA") {
+                paths_to_check.push(format!("{}\\Programs\\Microsoft VS Code\\User\\settings.json", localappdata));
+                paths_to_check.push(format!("{}\\Code\\User\\settings.json", localappdata));
+            }
+        }
+
+        // Windows GitHub CLI paths
+        #[cfg(target_os = "windows")]
+        {
+            paths_to_check.push(format!("{}\\AppData\\Local\\GitHub CLI\\config.yml", home));
+            paths_to_check.push(format!("{}\\AppData\\Roaming\\GitHub CLI\\config.yml", home));
+        }
         
         for path in paths_to_check.iter() {
             debug!("Checking for GitHub token in: {}", path);
@@ -372,6 +520,34 @@ fn extract_github_pat(content: &str) -> Option<String> {
             }
         }
     }
+
+    // Look for token in various YAML formats
+    // Example: token: gho_xxxx or ghp_xxxx
+    for line in content.lines() {
+        let line = line.trim();
+        if line.starts_with("token:") {
+            if let Some(token) = line.split(':').nth(1) {
+                let token = token.trim().trim_matches('"').trim_matches('\'');
+                if !token.is_empty() && token.len() > 10 && (token.starts_with("gho_") || token.starts_with("ghp_") || token.starts_with("ghs_")) {
+                    return Some(token.to_string());
+                }
+            }
+        }
+    }
+    
+    // Look for access_token in JSON-like format
+    if let Some(start) = content.find("\"access_token\"") {
+        let rest = &content[start..];
+        if let Some(quote_start) = rest.find('"') {
+            let rest = &rest[quote_start+1..];
+            if let Some(quote_end) = rest.find('"') {
+                let token = &rest[..quote_end];
+                if !token.is_empty() && token.len() > 10 {
+                    return Some(token.to_string());
+                }
+            }
+        }
+    }
     
     None
 }
@@ -399,12 +575,3 @@ fn add_or_update_provider(
     }
 }
 
-impl Default for AgentConfig {
-    fn default() -> Self {
-        Self {
-            refresh_interval_minutes: 5,
-            auto_refresh_enabled: true,
-            discovered_providers: Vec::new(),
-        }
-    }
-}

@@ -80,6 +80,26 @@ impl GitHubAuthService {
         }
     }
 
+    /// Get the username of the authenticated user
+    pub async fn get_username(&self) -> Option<String> {
+        let token = self.get_current_token()?;
+        let response = self
+            .client
+            .get("https://api.github.com/user")
+            .header("Authorization", format!("Bearer {}", token))
+            .header("User-Agent", "AIConsumptionTracker/1.0")
+            .send()
+            .await
+            .ok()?;
+
+        if response.status().is_success() {
+            let json: serde_json::Value = response.json().await.ok()?;
+            json.get("login").and_then(|v| v.as_str()).map(|s| s.to_string())
+        } else {
+            None
+        }
+    }
+
     /// Initiate the OAuth2 Device Flow
     /// Returns device code, user code, verification URI, and polling parameters
     pub async fn initiate_device_flow(&self) -> Result<DeviceFlowResponse, String> {

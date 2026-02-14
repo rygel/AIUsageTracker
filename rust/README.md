@@ -54,6 +54,19 @@ cargo run -p aic_cli -- status
 cargo run -p aic_app
 ```
 
+## Logging
+
+Log files are written to:
+- **App**: `%LOCALAPPDATA%\ai-consumption-tracker\logs\app.log`
+- **Agent**: `%LOCALAPPDATA%\ai-consumption-tracker\logs\agent.log`
+
+Log files are automatically cleaned up, keeping only the last 30 days.
+
+To enable debug logging, run with the `--debug` flag:
+```bash
+cargo run -p aic_app -- --debug
+```
+
 ## Key Differences from C#
 
 1. Native async/await without Task overhead

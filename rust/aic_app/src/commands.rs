@@ -1315,22 +1315,43 @@ pub async fn start_agent_internal(
 
             let app_handle = app_handle.clone();
             tokio::spawn(async move {
-                // Wait for agent to be ready
-                debug!("Waiting 2 seconds for agent to initialize");
-                tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+                // Wait for agent to be ready - replace fixed sleep with health polling
+                info!("Polling agent for health...");
+                let start_poll = std::time::Instant::now();
+                let port = get_agent_port().await;
+                let url = format!("http://localhost:{}/health", port);
+                let client = reqwest::Client::new();
+                
+                let mut ready = false;
+                for attempt in 1..=50 { // Max 5 seconds total
+                    if let Ok(resp) = client.get(&url).send().await {
+                        if resp.status().is_success() {
+                            ready = true;
+                            info!("Agent healthy at {} after {} attempts ({:?})", url, attempt, start_poll.elapsed());
+                            break;
+                        }
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+                }
+
+                if !ready {
+                    warn!("Agent at {} did not become healthy after 5s", url);
+                }
                 
                 // Update tray icon
-                debug!("Updating tray icon to show agent is running");
-                update_tray_icon_by_status(&app_handle, true).await;
+                debug!("Updating tray icon to show agent status");
+                update_tray_icon_by_status(&app_handle, ready).await;
                 
-                // Notify all windows that agent is ready
-                info!("Emitting agent-ready event to all windows");
-                let _ = app_handle.emit("agent-ready", ());
-                
-                // Also try to reload settings window if it's open
-                if let Some(settings_window) = app_handle.get_webview_window("settings") {
-                    info!("Settings window found, emitting settings-window-shown");
-                    let _ = settings_window.emit("settings-window-shown", ());
+                if ready {
+                    // Notify all windows that agent is ready
+                    info!("Emitting agent-ready event to all windows");
+                    let _ = app_handle.emit("agent-ready", ());
+                    
+                    // Also try to reload settings window if it's open
+                    if let Some(settings_window) = app_handle.get_webview_window("settings") {
+                        info!("Settings window found, emitting settings-window-shown");
+                        let _ = settings_window.emit("settings-window-shown", ());
+                    }
                 }
             });
 
