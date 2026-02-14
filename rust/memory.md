@@ -2,6 +2,25 @@
 
 ## Accomplished
 
+### Frontend Refactoring
+- Separated frontend assets from `src/` to new `www/` directory
+- Updated `tauri.conf.json` to use `www` as `frontendDist`
+- Added HTMX library (v2.0.3) with configuration for future component-based UI
+- Created `htmx-components.js` with reusable HTMX components
+- Created `htmx-config.js` with HTMX configuration and Tauri extension
+
+### CSS Extraction
+- Created `css/main.css` with shared styles, CSS variables, scrollbars, base styles
+- Created `css/index.css` for main window styles
+- Created `css/settings.css` for settings window styles  
+- Created `css/info.css` for info window styles
+
+### JavaScript Extraction
+- Created `js/utils.js` with shared utilities (invoke helper, cache functions, escapeHtml, formatResetDisplay)
+- Created `js/index.js` for main window logic (data loading, rendering, agent management)
+- Created `js/settings.js` for settings window logic (tabs, providers, history, save settings)
+- Created `js/info.js` for info window logic (system info display)
+
 ### Provider Fixes
 - Fixed Antigravity provider categorization (was showing in wrong category when not running)
 - Fixed GitHub Copilot provider categorization (was showing in wrong category when not authenticated)
