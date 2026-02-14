@@ -6,6 +6,7 @@
 - Fixed Antigravity provider categorization (was showing in wrong category when not running)
 - Fixed GitHub Copilot provider categorization (was showing in wrong category when not authenticated)
 - Added raw response capture to: Synthetic, Z.AI, GitHub Copilot (previously only OpenAI and GenericPayAsYouGo)
+- Filtered providers: only show providers with API keys in main UI (except GitHub Copilot if authenticated)
 
 ### UI Improvements
 - Added async loading to main UI and settings (show data immediately, update when fresh)
@@ -15,6 +16,10 @@
 - Badge sync via Tauri events (`data-status-changed` event) and manual querying
 - Standardized IPC calls in `index.html` via a centralized `invoke` helper to prevent reference errors
 - Fixed agent version/path overwriting issue in settings dialog
+- Privacy mode: fixed Antigravity username not being masked in settings dialog
+- Removed API key input box for Antigravity (shows connection status instead)
+- Added more fonts to font selection (20+ fonts including sans-serif, serif, monospace)
+- Applied font settings (family, size, bold, italic) to main UI content and bars
 
 ### Performance & Caching
 - Added timing logs throughout the stack
