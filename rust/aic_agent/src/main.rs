@@ -24,6 +24,7 @@ use tower_http::cors::{Any, CorsLayer};
 use aic_core::ProviderUsage;
 use aic_core::ProviderConfig;
 use aic_core::github_auth::GitHubAuthService;
+use aic_core::ConfigLoader;
 
 mod config;
 mod database;
@@ -55,6 +56,8 @@ struct AppState {
     github_auth_service: Arc<GitHubAuthService>,
     start_time: Instant,
     agent_path: String,
+    working_directory: String,
+    database_path: String,
 }
 
 // UsageResponse is replaced with ProviderUsage from aic_core for API compatibility
@@ -173,6 +176,16 @@ async fn main() -> Result<()> {
     // Create GitHub auth service
     let github_auth_service = Arc::new(GitHubAuthService::new(client.clone()));
     info!("GitHub auth service created");
+    
+    // Initialize GitHub auth service with existing token from auth.json
+    let config_loader = ConfigLoader::new(client.clone());
+    let configs = config_loader.load_config().await;
+    if let Some(copilot_config) = configs.iter().find(|c| c.provider_id == "github-copilot") {
+        if !copilot_config.api_key.is_empty() {
+            github_auth_service.initialize_token(copilot_config.api_key.clone());
+            info!("GitHub auth service initialized with existing token from auth.json");
+        }
+    }
 
     let state = AppState {
         db: Arc::new(database),
@@ -183,6 +196,10 @@ async fn main() -> Result<()> {
         agent_path: std::env::current_exe()
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| "unknown".to_string()),
+        working_directory: std::env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "unknown".to_string()),
+        database_path: database_path.clone(),
     };
     info!("App state initialized with uptime tracking");
 
@@ -396,8 +413,9 @@ async fn get_agent_info(State(state): State<AppState>) -> Json<serde_json::Value
     Json(json!({
         "version": env!("CARGO_PKG_VERSION"),
         "agent_path": state.agent_path,
+        "working_directory": state.working_directory,
+        "database_path": state.database_path,
         "uptime_seconds": uptime_secs,
-        "database_path": "./agent.db",
     }))
 }
 

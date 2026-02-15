@@ -307,8 +307,6 @@ impl AICApp {
             .inner_margin(egui::vec2(12.0, 8.0))
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.config.show_all, egui::RichText::new("Show All").size(11.0));
-                    
                     let status_color = if self.agent_status.is_running {
                         egui::Color32::from_rgb(0, 204, 106)
                     } else if self.is_starting_agent || self.is_refreshing {
@@ -452,13 +450,15 @@ impl AICApp {
                     .strong()
                     .color(egui::Color32::from_rgb(0, 191, 255));
                 
-                if ui.label(label).clicked() {
+                let response = ui.label(label);
+                if response.clicked() {
                     if is_expanded {
                         self.expanded_groups.remove(group_id);
                     } else {
                         self.expanded_groups.insert(group_id.to_string());
                     }
                 }
+                response.on_hover_cursor(egui::CursorIcon::PointingHand);
                 
                 if is_expanded {
                     for provider in quota_providers {
@@ -476,13 +476,15 @@ impl AICApp {
                                     .size(9.0)
                                     .color(egui::Color32::from_rgb(128, 128, 128));
                                 
-                                if ui.label(sub_label).clicked() {
+                                let sub_response = ui.label(sub_label);
+                                if sub_response.clicked() {
                                     if is_sub_expanded {
                                         self.expanded_sub_providers.remove(&provider_id);
                                     } else {
                                         self.expanded_sub_providers.insert(provider_id.clone());
                                     }
                                 }
+                                sub_response.on_hover_cursor(egui::CursorIcon::PointingHand);
                                 
                                 if is_sub_expanded {
                                     self.render_sub_providers(ui, details, &provider_id);
@@ -504,13 +506,15 @@ impl AICApp {
                     .strong()
                     .color(egui::Color32::from_rgb(60, 179, 113));
                 
-                if ui.label(label).clicked() {
+                let response = ui.label(label);
+                if response.clicked() {
                     if is_expanded {
                         self.expanded_groups.remove(group_id);
                     } else {
                         self.expanded_groups.insert(group_id.to_string());
                     }
                 }
+                response.on_hover_cursor(egui::CursorIcon::PointingHand);
                 
                 if is_expanded {
                     for provider in paygo_providers {
@@ -639,7 +643,10 @@ impl AICApp {
         
         ui.painter().rect_filled(rect, 2.0, bg_color);
 
-        if provider.is_available && provider.usage_percentage > 0.0 {
+        // Don't show progress bar for pay-as-you-go providers
+        let is_pay_as_you_go = provider.payment_type == "UsageBased" || provider.usage_unit == "USD";
+        
+        if provider.is_available && provider.usage_percentage > 0.0 && !is_pay_as_you_go {
             let progress = (provider.usage_percentage / 100.0).min(1.0) as f32;
             let bar_color = self.get_progress_color(provider.usage_percentage);
             let bar_width = rect.width() * progress;
@@ -700,6 +707,13 @@ impl AICApp {
             "N/A".to_string()
         } else if provider.usage_unit == "Status" {
             "OK".to_string()
+        } else if provider.payment_type == "UsageBased" || provider.usage_unit == "USD" {
+            // Pay-as-you-go: show cost only
+            if self.config.privacy_mode {
+                "--".to_string()
+            } else {
+                format!("${:.2}", provider.cost_used)
+            }
         } else {
             let pct = format!("{:.0}%", provider.usage_percentage);
             if self.config.privacy_mode {
