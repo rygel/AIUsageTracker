@@ -262,12 +262,6 @@ impl AICApp {
             return;
         }
         
-        egui::TopBottomPanel::top("header")
-            .exact_height(28.0)
-            .show(ctx, |ui| {
-                self.render_header(ui, ctx);
-            });
-
         egui::TopBottomPanel::bottom("footer")
             .exact_height(44.0)
             .show(ctx, |ui| {
@@ -281,27 +275,6 @@ impl AICApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             self.render_content(ui, ctx);
         });
-    }
-
-    fn render_header(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) {
-        egui::Frame::default()
-            .fill(egui::Color32::from_rgb(37, 37, 38))
-            .inner_margin(egui::vec2(8.0, 4.0))
-            .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("AI Consumption Tracker").size(12.0).strong().color(egui::Color32::from_rgb(255, 255, 255)));
-                    
-                    if let Some(info) = &self.agent_info {
-                        ui.label(egui::RichText::new(format!("v{}", info.version)).size(9.0).color(egui::Color32::from_rgb(136, 136, 136)));
-                    }
-                    
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if self.config.privacy_mode {
-                            ui.label(egui::RichText::new("\u{1F512}").size(14.0).color(egui::Color32::from_rgb(170, 170, 170)));
-                        }
-                    });
-                });
-            });
     }
 
     fn render_footer(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
@@ -340,6 +313,19 @@ impl AICApp {
                             .min_size(egui::vec2(32.0, 28.0));
                         if ui.add(settings_btn).on_hover_text("Settings").clicked() {
                             self.settings_open = !self.settings_open;
+                        }
+                        
+                        ui.add_space(4.0);
+                        
+                        // Privacy button
+                        let privacy_icon = if self.config.privacy_mode { "\u{1F512}" } else { "\u{1F513}" };
+                        let privacy_btn = egui::Button::new(egui::RichText::new(privacy_icon).size(16.0))
+                            .fill(egui::Color32::from_rgb(68, 68, 68))
+                            .rounding(egui::Rounding::same(4.0))
+                            .min_size(egui::vec2(32.0, 28.0));
+                        let privacy_hover = if self.config.privacy_mode { "Privacy: ON (click to disable)" } else { "Privacy: OFF (click to enable)" };
+                        if ui.add(privacy_btn).on_hover_text(privacy_hover).clicked() {
+                            self.config.privacy_mode = !self.config.privacy_mode;
                         }
                         
                         ui.add_space(4.0);
