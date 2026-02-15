@@ -784,3 +784,293 @@ protected override void OnClosed(EventArgs e)
 **Last Updated:** 2026-02-12
 **Version:** 1.2
 **Status:** APPROVED - DO NOT MODIFY WITHOUT DEVELOPER APPROVAL
+
+---
+
+## Agent Refresh Behavior
+
+**CRITICAL RULE: The Agent MUST NOT perform an immediate refresh on startup. It should only refresh on the configured interval.**
+
+### Design Rationale
+
+The Agent uses a **cached data model** where:
+1. **On startup**: Agent serves cached data from the database immediately
+2. **On interval**: Agent refreshes provider data every 5 minutes (configurable)
+3. **On manual refresh**: UI can trigger refresh via `/api/refresh` endpoint
+
+This design ensures:
+- **Fast startup**: No waiting for API calls on Agent restart
+- **Reduced API load**: Providers are only queried on the configured interval
+- **Consistent behavior**: Restarting the Agent doesn't cause unnecessary API hits
+- **Offline capability**: Cached data is available even if providers are temporarily unreachable
+
+### Implementation Details
+
+**ProviderRefreshService.cs:**
+```csharp
+protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+{
+    _logger.LogInformation("Provider Refresh Service starting...");
+
+    InitializeProviders();
+
+    // No immediate refresh on startup - use cached data from database
+    // Refresh only happens on the configured interval
+
+    while (!stoppingToken.IsCancellationRequested)
+    {
+        try
+        {
+            await Task.Delay(_refreshInterval, stoppingToken);
+            await TriggerRefreshAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            break;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during scheduled refresh");
+        }
+    }
+
+    _logger.LogInformation("Provider Refresh Service stopping...");
+}
+```
+
+**Default Refresh Interval:**
+- `_refreshInterval = TimeSpan.FromMinutes(5)`
+- This means providers are queried once every 5 minutes
+- Users can manually trigger refresh via Slim UI if needed
+
+**API Endpoints:**
+- `GET /api/usage` - Returns cached data from database (fast, no API calls)
+- `POST /api/refresh` - Triggers manual refresh (queries all providers)
+
+**Slim UI Behavior:**
+- On startup: Fetches cached data immediately from `/api/usage`
+- Status shows last refresh time (e.g., "14:32:15")
+- Refresh button triggers `/api/refresh` and updates display
+
+### Testing Requirements
+
+- [ ] Agent startup does NOT hit provider APIs
+- [ ] Agent serves cached data immediately on startup
+- [ ] First refresh happens only after the configured interval
+- [ ] Manual refresh via `/api/refresh` works correctly
+- [ ] Database retains data across Agent restarts
+
+---
+
+## Agent API Key Filtering
+
+**CRITICAL RULE: The Agent MUST NOT query upstream providers that don't have API keys configured.**
+
+### Design Principle
+
+The Agent implements a **"no key, no query"** policy:
+- Providers without API keys are completely skipped
+- No upstream API calls are made to providers without keys
+- Providers appear in UI but show "Not Configured" status
+- This prevents unnecessary errors and rate limiting
+
+### Implementation
+
+**ProviderRefreshService.TriggerRefreshAsync():**
+
+```csharp
+// Get all provider configurations
+var configs = await _configService.GetConfigsAsync();
+
+// Filter to only providers with API keys
+var activeConfigs = configs.Where(c => !string.IsNullOrEmpty(c.ApiKey)).ToList();
+var skippedCount = configs.Count - activeConfigs.Count;
+
+if (skippedCount > 0)
+{
+    _logger.LogInformation("Skipping {Count} providers without API keys", skippedCount);
+}
+
+// Only query providers with API keys
+if (activeConfigs.Count > 0)
+{
+    var usages = await _providerManager.GetAllUsageAsync(forceRefresh: true);
+    
+    // Filter to only include providers that have configs with API keys
+    var activeProviderIds = activeConfigs.Select(c => c.ProviderId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    var filteredUsages = usages.Where(u => activeProviderIds.Contains(u.ProviderId)).ToList();
+    
+    await _database.StoreHistoryAsync(filteredUsages);
+}
+```
+
+### API Key Discovery
+
+**Manual Scanning:**
+- `POST /api/scan-keys` - Scans system for API keys
+- Only runs when user explicitly requests it
+- Updates configs with discovered keys
+- Next refresh will query newly configured providers
+
+**No Automatic Discovery:**
+- Agent does NOT scan for keys on startup
+- Agent does NOT scan for keys on interval
+- Keys must be added manually or via explicit scan
+
+### Behavior Examples
+
+**Scenario 1: Fresh Install**
+1. Agent starts with no API keys configured
+2. Providers list shows all supported providers
+3. All providers show "Not Configured" status
+4. Agent does NOT make any upstream API calls
+5. User clicks "Scan for Keys" → Keys discovered
+6. Next refresh queries only providers with keys
+
+**Scenario 2: Key Removed**
+1. Provider had API key, was being queried
+2. User removes API key from config
+3. Next refresh skips this provider
+4. Provider still shows in UI as "Not Configured"
+5. No upstream calls made
+
+**Scenario 3: Key Added**
+1. Provider had no key, was skipped
+2. User adds API key via Settings
+3. Next refresh includes this provider
+4. Upstream API call made to fetch usage
+5. Usage data stored in database
+
+### Benefits
+
+1. **No Unnecessary API Calls** - Prevents hitting rate limits
+2. **No Error Spam** - No "API Key missing" errors in logs
+3. **Clear Status** - UI clearly shows which providers are configured
+4. **User Control** - User decides which providers to monitor
+5. **Privacy** - No data sent to providers user doesn't use
+
+---
+
+## Agent Status Detection
+
+### Port Configuration
+
+The Agent supports dynamic port allocation to handle conflicts:
+
+**Port Selection Priority:**
+1. Try preferred port (5000)
+2. If in use, try ports 5001-5010
+3. If all in use, use random available port
+
+**Port Persistence:**
+- Port saved to `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+- JSON info saved to `agent.info`:
+  ```json
+  {
+    "Port": 5000,
+    "StartedAt": "2024-01-15T10:30:00Z",
+    "ProcessId": 12345
+  }
+  ```
+
+### Status Checking
+
+**Health Endpoint:**
+```
+GET /api/health
+```
+
+Returns:
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "port": 5000
+}
+```
+
+**UI Status Detection:**
+
+The Settings dialog checks agent status on load:
+
+```csharp
+private async Task UpdateAgentStatusAsync()
+{
+    // Check if agent is running
+    var isRunning = await AgentLauncher.IsAgentRunningAsync();
+    
+    // Get the actual port from the agent
+    int port = await GetAgentPortAsync();
+    
+    // Update UI
+    AgentStatusText.Text = isRunning ? "Running" : "Not Running";
+    AgentPortText.Text = port.ToString();
+}
+
+private async Task<int> GetAgentPortAsync()
+{
+    // Try to read port from agent info file
+    var portFile = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AIConsumptionTracker", "Agent", "agent.port"
+    );
+    
+    if (File.Exists(portFile))
+    {
+        var portStr = await File.ReadAllTextAsync(portFile);
+        if (int.TryParse(portStr, out int port))
+        {
+            return port;
+        }
+    }
+    
+    // Default to 5000 if file doesn't exist
+    return 5000;
+}
+```
+
+### UI Display
+
+**Settings Dialog - Agent Tab:**
+- **Status:** Shows "Running", "Not Running", or "Error"
+- **Port:** Shows actual port (e.g., "5000" or "5001")
+- **Auto-Start:** Checkbox to auto-start Agent with UI
+- **Actions:** "Restart Agent", "Check Health" buttons
+
+**Status Indicators:**
+- 🟢 **Running** - Agent responding on expected port
+- 🔴 **Not Running** - Agent not reachable
+- 🟡 **Error** - Agent process exists but not responding
+
+### Port Conflict Handling
+
+**When Port 5000 is in use:**
+1. Agent detects port conflict
+2. Logs message: "Port 5000 was in use, using port 5001 instead"
+3. Saves new port to `agent.port` file
+4. UI reads port from file on next status check
+5. UI displays updated port number
+
+**Communication:**
+- Slim UI reads `agent.port` file to discover actual port
+- Falls back to 5000 if file doesn't exist
+- Updates display dynamically
+- No hardcoded port in UI
+
+### Troubleshooting
+
+**Agent not detected:**
+1. Check if `agent.port` file exists
+2. Verify file contains valid port number
+3. Check if process is running on that port
+4. Try restarting Agent
+
+**Port in use:**
+1. Stop other application using port 5000
+2. Or let Agent auto-select different port
+3. UI will automatically detect new port
+
+**File permissions:**
+- `agent.port` and `agent.info` saved to user's LocalApplicationData
+- No admin privileges required
+- User must have write access to folder

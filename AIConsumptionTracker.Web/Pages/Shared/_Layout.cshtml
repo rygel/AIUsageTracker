@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AI Consumption Tracker</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/themes.css" />
+    <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1LZYnlE4Rl/0voB/4hEhA1C5F5v0Yk0P4MX3O4wG4fCaA3r8q/8P4y1P4P4P4P4" crossorigin="anonymous"></script>
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="container">
+                <a class="navbar-brand" href="/">AI Consumption Tracker</a>
+                <ul class="navbar-nav">
+                    <li><a href="/">Dashboard</a></li>
+                    <li><a href="/Providers">Providers</a></li>
+                    <li><a href="/History">History</a></li>
+                </ul>
+                <div class="theme-toggle">
+                    <button id="theme-toggle-btn" class="btn btn-secondary" data-action="toggle-theme" title="Toggle theme">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+    
+    <main class="container">
+        @RenderBody()
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; @DateTime.Now.Year - AI Consumption Tracker Web UI</p>
+        </div>
+    </footer>
+
+    <script src="~/js/theme.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

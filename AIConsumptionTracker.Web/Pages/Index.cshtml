@@ -1,0 +1,92 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h1 class="page-title">Dashboard</h1>
+
+<div hx-get="/" hx-trigger="every 60s" hx-select="#dashboard-content" hx-swap="innerHTML">
+    <div id="dashboard-content">
+        @if (!Model.IsDatabaseAvailable)
+        {
+            <div class="alert alert-warning">
+                <strong>Database not found!</strong> The Agent database is not available. 
+                Ensure the Agent has run at least once to initialize the database.
+            </div>
+        }
+        else if (Model.Summary != null)
+        {
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Active Providers</h3>
+                    <div class="stat-value">@Model.Summary.ProviderCount</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Average Usage</h3>
+                    <div class="stat-value @GetUsageClass(Model.Summary.AverageUsage)">@Model.Summary.AverageUsage.ToString("F1")%</div>
+                </div>
+                <div class="stat-card">
+                    <h3>Last Update</h3>
+                    <div class="stat-value">@(Model.Summary.LastUpdate != null ? DateTime.Parse(Model.Summary.LastUpdate).ToString("g") : "Never")</div>
+                </div>
+            </div>
+        }
+
+        <h2 class="mb-2">Current Usage</h2>
+
+        @if (Model.LatestUsage?.Any() != true)
+        {
+            <div class="alert alert-info">
+                No usage data available. The Agent may still be collecting data.
+            </div>
+        }
+        else
+        {
+            <div class="provider-grid">
+                @foreach (var usage in Model.LatestUsage)
+                {
+                    <div class="provider-card">
+                        <div class="provider-header">
+                            <span class="provider-name">@usage.ProviderName</span>
+                            <span class="provider-status @(usage.IsAvailable ? "active" : "inactive")">
+                                @(usage.IsAvailable ? "Active" : "Inactive")
+                            </span>
+                        </div>
+                        
+                        <div class="progress-container">
+                            <div class="progress-bar-bg">
+                                <div class="progress-bar-fill @GetProgressClass(usage.UsagePercentage)" 
+                                     style="width: @usage.UsagePercentage%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>@usage.UsagePercentage.ToString("F1")%</span>
+                                <span>@usage.Description</span>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-2">
+                            <a href="/Provider/@usage.ProviderId" class="btn btn-secondary btn-sm">View Details</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@functions {
+    string GetUsageClass(double usage) => usage switch
+    {
+        >= 80 => "danger",
+        >= 50 => "warning",
+        _ => "success"
+    };
+
+    string GetProgressClass(double percentage) => percentage switch
+    {
+        >= 80 => "high",
+        >= 50 => "medium",
+        _ => "low"
+    };
+}

@@ -293,14 +293,25 @@ namespace AIConsumptionTracker.UI
                     // Special GitHub Login UI (no label)
                     var authBox = new StackPanel { Orientation = Orientation.Horizontal };
                     var displayUsername = _githubUsername;
-                    if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(displayUsername))
+                    
+                    string authStatusText;
+                    if (!_githubAuthService.IsAuthenticated)
                     {
-                        displayUsername = PrivacyHelper.MaskString(displayUsername);
+                        authStatusText = "Not Authenticated";
                     }
-
-                    var authStatusText = _githubAuthService.IsAuthenticated 
-                        ? (string.IsNullOrEmpty(displayUsername) ? "Authenticated" : $"Authenticated ({displayUsername})")
-                        : "Not Authenticated";
+                    else if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(displayUsername))
+                    {
+                        // Privacy mode: show only masked username
+                        authStatusText = PrivacyHelper.MaskString(displayUsername);
+                    }
+                    else if (!string.IsNullOrEmpty(displayUsername))
+                    {
+                        authStatusText = $"Authenticated ({displayUsername})";
+                    }
+                    else
+                    {
+                        authStatusText = "Authenticated";
+                    }
 
                     var authStatus = new TextBlock 
                     { 
@@ -356,16 +367,11 @@ namespace AIConsumptionTracker.UI
                 }
                 else if (config.ProviderId == "antigravity")
                 {
-                    // Antigravity: Local Process Auto-Detection (No Key Input)
+                    // Antigravity: Local Process Auto-Detection (No Key Input) - no privacy masking
                     var statusPanel = new StackPanel { Orientation = Orientation.Horizontal };
                     
                     bool isConnected = usage != null && usage.IsAvailable;
                     string accountInfo = usage?.AccountName ?? "Unknown";
-
-                    if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(accountInfo) && accountInfo != "Unknown")
-                    {
-                        accountInfo = PrivacyHelper.MaskString(accountInfo);
-                    }
 
                     var statusText = new TextBlock
                     {

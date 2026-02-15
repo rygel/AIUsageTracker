@@ -18,6 +18,7 @@ public class ProviderUsage
     public string AccountName { get; set; } = string.Empty;
     public string ConfigKey { get; set; } = string.Empty; // Store API key for UI display
     public DateTime? NextResetTime { get; set; }
+    public DateTime FetchedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class ProviderUsageDetail
