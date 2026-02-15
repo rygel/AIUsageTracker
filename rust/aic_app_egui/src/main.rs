@@ -5,8 +5,9 @@ mod models;
 mod tray;
 
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use eframe::egui;
 use serde::{Deserialize, Serialize};
@@ -103,13 +104,15 @@ pub struct AICApp {
 impl Default for AICApp {
     fn default() -> Self {
         let runtime = tokio::runtime::Runtime::new().unwrap();
+        let config = Self::load_config();
+        let prefs = Self::load_prefs();
         
         Self {
             agent_client: AgentClient::with_auto_discovery(),
             agent_manager: Arc::new(TokioMutex::new(AgentManager::new())),
             providers: Vec::new(),
-            config: AppConfig::default(),
-            prefs: AppPreferences::default(),
+            config,
+            prefs,
             agent_info: None,
             agent_status: AgentStatus {
                 is_running: false,
@@ -157,6 +160,70 @@ impl Default for AICApp {
 }
 
 impl AICApp {
+    fn get_prefs_path() -> PathBuf {
+        let app_data = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(app_data)
+            .join("ai-consumption-tracker")
+            .join("egui_prefs.json")
+    }
+    
+    fn get_config_path() -> PathBuf {
+        let app_data = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(app_data)
+            .join("ai-consumption-tracker")
+            .join("egui_config.json")
+    }
+    
+    fn load_prefs() -> AppPreferences {
+        let path = Self::get_prefs_path();
+        if path.exists() {
+            if let Ok(contents) = std::fs::read_to_string(&path) {
+                if let Ok(prefs) = serde_json::from_str(&contents) {
+                    log::info!("Loaded preferences from {:?}", path);
+                    return prefs;
+                }
+            }
+        }
+        AppPreferences::default()
+    }
+    
+    fn save_prefs(&self) {
+        let path = Self::get_prefs_path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(contents) = serde_json::to_string_pretty(&self.prefs) {
+            if std::fs::write(&path, contents).is_ok() {
+                log::debug!("Saved preferences to {:?}", path);
+            }
+        }
+    }
+    
+    fn load_config() -> AppConfig {
+        let path = Self::get_config_path();
+        if path.exists() {
+            if let Ok(contents) = std::fs::read_to_string(&path) {
+                if let Ok(config) = serde_json::from_str(&contents) {
+                    log::info!("Loaded config from {:?}", path);
+                    return config;
+                }
+            }
+        }
+        AppConfig::default()
+    }
+    
+    fn save_config(&self) {
+        let path = Self::get_config_path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        if let Ok(contents) = serde_json::to_string_pretty(&self.config) {
+            if std::fs::write(&path, contents).is_ok() {
+                log::debug!("Saved config to {:?}", path);
+            }
+        }
+    }
+    
     fn log(&mut self, msg: &str) {
         let timestamp = chrono::Local::now().format("%H:%M:%S%.3f");
         let entry = format!("[{}] {}", timestamp, msg);
@@ -326,6 +393,24 @@ impl AICApp {
                         let privacy_hover = if self.config.privacy_mode { "Privacy: ON (click to disable)" } else { "Privacy: OFF (click to enable)" };
                         if ui.add(privacy_btn).on_hover_text(privacy_hover).clicked() {
                             self.config.privacy_mode = !self.config.privacy_mode;
+                            self.save_config();
+                        }
+                        
+                        ui.add_space(4.0);
+                        
+                        // Invert progress bar button
+                        let (inv_icon, inv_tooltip) = if self.prefs.invert_progress_bar {
+                            ("I", "Invert: ON - Bar shows used (click to show remaining)")
+                        } else {
+                            ("I", "Invert: OFF - Bar shows remaining (click to show used)")
+                        };
+                        let invert_btn = egui::Button::new(egui::RichText::new(inv_icon).size(14.0).strong())
+                            .fill(egui::Color32::from_rgb(68, 68, 68))
+                            .rounding(egui::Rounding::same(4.0))
+                            .min_size(egui::vec2(28.0, 28.0));
+                        if ui.add(invert_btn).on_hover_text(inv_tooltip).clicked() {
+                            self.prefs.invert_progress_bar = !self.prefs.invert_progress_bar;
+                            self.save_prefs();
                         }
                         
                         ui.add_space(4.0);
@@ -342,8 +427,8 @@ impl AICApp {
                         
                         ui.add_space(4.0);
                         
-                        // Agent button - larger clickable area
-                        let agent_btn = egui::Button::new(egui::RichText::new("A").size(16.0).strong())
+                        // Agent button - robot icon like Tauri
+                        let agent_btn = egui::Button::new(egui::RichText::new("\u{1F916}").size(16.0))
                             .fill(egui::Color32::from_rgb(68, 68, 68))
                             .rounding(egui::Rounding::same(4.0))
                             .min_size(egui::vec2(32.0, 28.0));
@@ -551,9 +636,16 @@ impl AICApp {
             // Progress bar background - same as main bars
             ui.painter().rect_filled(rect, 2.0, egui::Color32::from_rgb(35, 35, 35));
             
-            // Progress bar fill - show USED percentage (empty when nothing used)
-            if used_pct > 0.0 {
-                let progress = (used_pct / 100.0).min(1.0) as f32;
+            // Progress bar fill - Antigravity: default USED percentage, invert REMAINING percentage
+            // Color is based on USED percentage (warning when high usage)
+            let bar_pct = if self.prefs.invert_progress_bar {
+                remaining_pct
+            } else {
+                used_pct as f32
+            };
+            
+            if bar_pct > 0.0 {
+                let progress = (bar_pct / 100.0).min(1.0) as f32;
                 let bar_width = rect.width() * progress;
                 let bar_rect = egui::Rect::from_min_size(rect.min, egui::vec2(bar_width, rect.height()));
                 
@@ -713,7 +805,19 @@ impl AICApp {
         let is_pay_as_you_go = provider.payment_type == "UsageBased" || provider.usage_unit == "USD";
         
         if provider.is_available && provider.usage_percentage > 0.0 && !is_pay_as_you_go {
-            let progress = (provider.usage_percentage / 100.0).min(1.0) as f32;
+            // Default: bar width = USED percentage (bar fills as you use more)
+            // With invert: bar width = REMAINING percentage (full bar = plenty remaining)
+            let bar_pct = if self.prefs.invert_progress_bar {
+                if let Some(remaining) = provider.remaining_percentage {
+                    remaining
+                } else {
+                    (100.0 - provider.usage_percentage).max(0.0)
+                }
+            } else {
+                provider.usage_percentage
+            };
+            
+            let progress = (bar_pct / 100.0).min(1.0) as f32;
             let bar_color = self.get_progress_color(provider.usage_percentage);
             let bar_width = rect.width() * progress;
             let bar_rect = egui::Rect::from_min_size(rect.min, egui::vec2(bar_width, rect.height()));
@@ -760,19 +864,43 @@ impl AICApp {
         }
 
         let text_color = if provider.is_available {
-            egui::Color32::from_rgb(255, 255, 255)  // White
+            egui::Color32::from_rgb(255, 255, 255)
         } else {
-            egui::Color32::from_rgb(136, 136, 136)  // Gray
+            egui::Color32::from_rgb(136, 136, 136)
         };
 
         let name_pos = egui::pos2(rect.min.x + icon_size + 8.0, rect.min.y + (bar_height - font_size) / 2.0);
-        ui.painter().text(
-            name_pos,
-            egui::Align2::LEFT_TOP,
-            &name,
-            egui::FontId::proportional(font_size),
-            text_color,
-        );
+        
+        let font_id = egui::FontId::proportional(font_size);
+        
+        if self.prefs.font_italic {
+            let galley = ui.ctx().fonts(|f| {
+                let mut job = egui::text::LayoutJob::default();
+                job.text = name.clone();
+                job.wrap = egui::text::TextWrapping::no_max_width();
+                let format = egui::TextFormat {
+                    font_id: font_id.clone(),
+                    color: text_color,
+                    italics: true,
+                    ..Default::default()
+                };
+                job.sections.push(egui::text::LayoutSection {
+                    leading_space: 0.0,
+                    byte_range: 0..name.len(),
+                    format,
+                });
+                f.layout_job(job)
+            });
+            ui.painter().galley(name_pos, galley, text_color);
+        } else {
+            ui.painter().text(
+                name_pos,
+                egui::Align2::LEFT_TOP,
+                &name,
+                font_id,
+                text_color,
+            );
+        }
 
         let status_text = if !provider.is_available {
             "N/A".to_string()
@@ -878,6 +1006,7 @@ impl AICApp {
         
         let mut settings_open = self.settings_open;
         let mut selected_tab = self.selected_tab;
+        let mut privacy_mode = self.config.privacy_mode;
         let viewport_id = self.settings_viewport_id;
         let window_size = [550.0, 650.0];
         
@@ -895,25 +1024,65 @@ impl AICApp {
                 );
                 
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        let tabs = ["Providers", "Layout", "Updates", "History", "Fonts", "Agent"];
-                        for (i, tab) in tabs.iter().enumerate() {
-                            if ui.selectable_label(selected_tab == i, *tab).clicked() {
-                                selected_tab = i;
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            let tabs = ["Providers", "Layout", "Updates", "History", "Fonts", "Agent"];
+                            for (i, tab) in tabs.iter().enumerate() {
+                                if ui.selectable_label(selected_tab == i, *tab).clicked() {
+                                    selected_tab = i;
+                                }
                             }
-                        }
+                        });
+                        ui.separator();
+                        
+                        ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                            ui.set_clip_rect(ui.max_rect());
+                            
+                            egui::ScrollArea::vertical()
+                                .auto_shrink([false; 2])
+                                .max_height(ui.available_height() - 50.0)
+                                .show(ui, |ui| {
+                                    match selected_tab {
+                                        0 => self.render_providers_tab(ui, ctx),
+                                        1 => self.render_layout_tab(ui),
+                                        2 => self.render_updates_tab(ui),
+                                        3 => self.render_history_tab(ui),
+                                        4 => self.render_fonts_tab(ui),
+                                        5 => self.render_agent_tab(ui, ctx),
+                                        _ => {}
+                                    }
+                                });
+                        });
+                        
+                        ui.separator();
+                        
+                        ui.horizontal(|ui| {
+                            let (icon, tooltip) = if privacy_mode {
+                                ("\u{1F512}", "Privacy: ON (click to disable)")
+                            } else {
+                                ("\u{1F513}", "Privacy: OFF (click to enable)")
+                            };
+                            
+                            let privacy_btn = egui::Button::new(egui::RichText::new(icon).size(16.0))
+                                .fill(egui::Color32::from_rgb(68, 68, 68))
+                                .rounding(egui::Rounding::same(4.0))
+                                .min_size(egui::vec2(32.0, 28.0));
+                            
+                            if ui.add(privacy_btn).on_hover_text(tooltip).clicked() {
+                                privacy_mode = !privacy_mode;
+                            }
+                            
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                let ok_btn = egui::Button::new(egui::RichText::new("OK").size(14.0))
+                                    .fill(egui::Color32::from_rgb(0, 122, 204))
+                                    .rounding(egui::Rounding::same(4.0))
+                                    .min_size(egui::vec2(80.0, 32.0));
+                                if ui.add(ok_btn).clicked() {
+                                    settings_open = false;
+                                }
+                            });
+                        });
                     });
-                    ui.separator();
-                    
-                    match selected_tab {
-                        0 => self.render_providers_tab(ui, ctx),
-                        1 => self.render_layout_tab(ui),
-                        2 => self.render_updates_tab(ui),
-                        3 => self.render_history_tab(ui),
-                        4 => self.render_fonts_tab(ui),
-                        5 => self.render_agent_tab(ui, ctx),
-                        _ => {}
-                    }
                 });
                 
                 if ctx.input(|i| i.viewport().close_requested()) {
@@ -922,6 +1091,7 @@ impl AICApp {
             },
         );
         
+        self.config.privacy_mode = privacy_mode;
         self.settings_open = settings_open;
         self.selected_tab = selected_tab;
         
@@ -1260,22 +1430,42 @@ impl AICApp {
     }
 
     fn render_layout_tab(&mut self, ui: &mut egui::Ui) {
-        ui.checkbox(&mut self.config.privacy_mode, "Privacy Mode");
-        ui.checkbox(&mut self.config.show_all, "Show All Providers");
-        ui.checkbox(&mut self.config.auto_start_agent, "Auto Start Agent");
-        ui.checkbox(&mut self.config.always_on_top, "Always on Top");
-        ui.checkbox(&mut self.config.compact_mode, "Compact Mode");
+        let mut changed = false;
+        
+        if ui.checkbox(&mut self.config.privacy_mode, "Privacy Mode").changed() {
+            changed = true;
+        }
+        if ui.checkbox(&mut self.config.show_all, "Show All Providers").changed() {
+            changed = true;
+        }
+        if ui.checkbox(&mut self.config.auto_start_agent, "Auto Start Agent").changed() {
+            changed = true;
+        }
+        if ui.checkbox(&mut self.config.always_on_top, "Always on Top").changed() {
+            changed = true;
+        }
+        if ui.checkbox(&mut self.config.compact_mode, "Compact Mode").changed() {
+            changed = true;
+        }
         
         ui.add_space(8.0);
         ui.label("Color Thresholds:");
         ui.horizontal(|ui| {
             ui.label("Yellow:");
-            ui.add(egui::Slider::new(&mut self.config.color_threshold_yellow, 0..=100));
+            if ui.add(egui::Slider::new(&mut self.config.color_threshold_yellow, 0..=100)).changed() {
+                changed = true;
+            }
         });
         ui.horizontal(|ui| {
             ui.label("Red:");
-            ui.add(egui::Slider::new(&mut self.config.color_threshold_red, 0..=100));
+            if ui.add(egui::Slider::new(&mut self.config.color_threshold_red, 0..=100)).changed() {
+                changed = true;
+            }
         });
+        
+        if changed {
+            self.save_config();
+        }
     }
 
     fn render_updates_tab(&mut self, ui: &mut egui::Ui) {
@@ -1295,9 +1485,83 @@ impl AICApp {
     }
 
     fn render_fonts_tab(&mut self, ui: &mut egui::Ui) {
-        ui.label("Fonts");
-        ui.add_space(8.0);
-        ui.label(egui::RichText::new("Font settings will be available in a future update.").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+        ui.label(egui::RichText::new("Font Settings").strong().size(14.0));
+        ui.add_space(12.0);
+        
+        let mut changed = false;
+        
+        egui::Frame::default()
+            .fill(egui::Color32::from_rgb(45, 45, 48))
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::vec2(12.0, 8.0))
+            .show(ui, |ui| {
+                ui.set_min_width(ui.available_width() - 24.0);
+                
+                ui.label(egui::RichText::new("Font Size").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+                ui.add_space(4.0);
+                
+                ui.horizontal(|ui| {
+                    if ui.add(egui::Slider::new(&mut self.prefs.font_size, 8..=24).text("pt")).changed() {
+                        changed = true;
+                    }
+                });
+                
+                ui.add_space(12.0);
+                
+                ui.label(egui::RichText::new("Font Style").size(11.0).color(egui::Color32::from_rgb(170, 170, 170)));
+                ui.add_space(4.0);
+                
+                ui.horizontal(|ui| {
+                    if ui.checkbox(&mut self.prefs.font_bold, "Bold").changed() {
+                        changed = true;
+                    }
+                    ui.add_space(16.0);
+                    if ui.checkbox(&mut self.prefs.font_italic, "Italic").changed() {
+                        changed = true;
+                    }
+                });
+            });
+        
+        ui.add_space(12.0);
+        
+        ui.label(egui::RichText::new("Preview").size(12.0).color(egui::Color32::from_rgb(170, 170, 170)));
+        ui.add_space(4.0);
+        
+        egui::Frame::default()
+            .fill(egui::Color32::from_rgb(35, 35, 35))
+            .rounding(egui::Rounding::same(4.0))
+            .inner_margin(egui::vec2(12.0, 8.0))
+            .show(ui, |ui| {
+                let preview_text = "OpenAI [user@example.com] 45%";
+                let mut text = egui::RichText::new(preview_text)
+                    .size(self.prefs.font_size as f32);
+                
+                if self.prefs.font_bold {
+                    text = text.strong();
+                }
+                if self.prefs.font_italic {
+                    text = text.italics();
+                }
+                
+                ui.label(text);
+                
+                ui.add_space(8.0);
+                
+                let preview_text2 = "Antigravity $12.34";
+                let mut text2 = egui::RichText::new(preview_text2)
+                    .size((self.prefs.font_size - 2) as f32)
+                    .color(egui::Color32::from_rgb(200, 200, 200));
+                
+                if self.prefs.font_italic {
+                    text2 = text2.italics();
+                }
+                
+                ui.label(text2);
+            });
+        
+        if changed {
+            self.save_prefs();
+        }
     }
 
     fn render_agent_tab(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {

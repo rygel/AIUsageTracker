@@ -16,29 +16,50 @@ The egui desktop application (`aic_app_egui`) is a native Rust alternative to th
 - [x] GitHub Copilot OAuth device flow
 - [x] Auto-start agent on launch option
 - [x] Provider filtering (only show available providers)
+- [x] "Connected" status display for Status-type providers (Mistral, OpenAI, Anthropic)
+- [x] Invert progress bar toggle (shows remaining % instead of used %)
+- [x] Hand cursor on hover for clickable elements (providers, groups, sub-providers)
+- [x] Improved Layout tab with sections, cards, and better spacing
 
 ### Key Technical Decisions
 - Uses `eframe` 0.29 with `glow` backend
 - Settings window as separate viewport (not embedded)
 - Non-blocking agent API returns cached data immediately
 - Background refresh updates cache incrementally
-- Progress bars show USED percentage (empty when 0% used)
+- Progress bars show REMAINING percentage by default (full bar = plenty remaining, like a battery)
+- Invert mode: displays USED percentage (bar fills as you use more)
+- Color always reflects actual usage (high usage = red, regardless of bar display)
+- Sub-provider bars match main bar height (24px)
 
 ### Color Scheme
-- Background: `#252526` (37, 37, 38)
+- Background: `#1E1E1E` (30, 30, 30) - darker
+- Panel fill: `#252526` (37, 37, 38)
 - Card background: `#232323` (35, 35, 35)
 - Button background: `#444444` (68, 68, 68)
 - Green (good): `#3CB371` (60, 179, 113)
 - Yellow (warning): `#FFD700` (255, 215, 0)
 - Red (critical): `#DC143C` (220, 20, 60)
 
-### Recent egui Commits
-- `72fb141` - Sub-bar progress shows used percentage (empty when 0%)
-- `2ce44aa` - Remove fixed window position (allow settings dialog to be moved)
-- `7bd5ea0` - Enlarge footer icons with proper button styling
-- `ca71038` - Only show available providers in main UI
-- `bb0044f` - Center settings dialog on screen
-- `002db44` - Enhance agent tab with auto-start option
+### Footer Controls (Main UI)
+- Privacy button (🔒/🔓) - toggles privacy mode to hide sensitive data
+- Invert button (⇤/⇥) - toggles progress bar between remaining%/used%
+- Agent status badge (green/yellow/red LED indicator)
+- Time since last refresh
+- Settings, Refresh, and Agent buttons
+
+### Layout Tab Improvements
+- Organized into 3 sections: Display Options, Automation, Color Thresholds
+- Each section in a framed card with rounded corners
+- More spacing between items (8-12px)
+- Larger text (12-13pt)
+- Cleaner slider labels with % suffix
+
+### Recent egui Changes
+- Added minimax-io provider support (MiniMax International)
+- Removed "Show All" checkbox from footer (still in Layout tab)
+- Removed "Enter API key" placeholder text (less clutter)
+- Made main window background darker
+- Status-type providers now show "Connected" instead of "OK"
 
 ---
 
@@ -116,3 +137,14 @@ Only these providers capture raw HTTP responses:
 - Synthetic
 - Z.AI
 - GitHub Copilot
+
+---
+
+## Provider Configuration
+
+### MiniMax Providers
+Two separate MiniMax providers are supported:
+- `minimax` - MiniMax (China) - uses `MINIMAX_API_KEY` env var, endpoint: `api.minimax.chat`
+- `minimax-io` - MiniMax (International) - uses `MINIMAX_IO_API_KEY` env var, endpoint: `api.minimax.io`
+
+Both are registered in well-known providers list for easy configuration.
