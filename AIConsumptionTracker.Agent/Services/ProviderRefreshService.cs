@@ -97,7 +97,7 @@ public class ProviderRefreshService : BackgroundService
             
             // Usage-based providers
             new OpenAIProvider(httpClient, _loggerFactory.CreateLogger<OpenAIProvider>()),
-            new AnthropicProvider(httpClient, _loggerFactory.CreateLogger<AnthropicProvider>()),
+            new AnthropicProvider(_loggerFactory.CreateLogger<AnthropicProvider>()),
             new GeminiProvider(httpClient, _loggerFactory.CreateLogger<GeminiProvider>()),
             new DeepSeekProvider(httpClient, _loggerFactory.CreateLogger<DeepSeekProvider>()),
             new OpenRouterProvider(httpClient, _loggerFactory.CreateLogger<OpenRouterProvider>()),
