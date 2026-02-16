@@ -1,4 +1,5 @@
 using AIConsumptionTracker.Web.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AIConsumptionTracker.Web.Pages;
@@ -17,14 +18,14 @@ public class DataViewModel : PageModel
     public List<Dictionary<string, object?>>? Rows { get; set; }
     public List<string> Columns { get; set; } = new();
     public int TotalCount { get; set; }
-    public int Page { get; set; } = 1;
+    public int PageNumber { get; set; } = 1;
     public int TotalPages { get; set; }
     public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
 
     public async Task<IActionResult> OnGetAsync(string? tableName, int page = 1)
     {
         if (page < 1) page = 1;
-        Page = page;
+        PageNumber = page;
 
         // Map URL-friendly names to actual table names
         var actualTable = tableName?.ToLower() switch

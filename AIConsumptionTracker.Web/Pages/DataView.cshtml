@@ -24,7 +24,7 @@ else if (Model.Rows == null || !Model.Rows.Any())
 else
 {
     <div class="table-stats mb-1">
-        @Model.TotalCount rows total - Page @Model.Page of @Model.TotalPages
+        @Model.TotalCount rows total - Page @Model.PageNumber of @Model.TotalPages
     </div>
     
     <div class="table-container">
@@ -54,17 +54,17 @@ else
     @if (Model.TotalPages > 1)
     {
         <div class="pagination mt-2">
-            @if (Model.Page > 1)
+            @if (Model.PageNumber > 1)
             {
                 <a href="/Data/@Model.TableName?page=1" class="btn btn-secondary btn-sm">First</a>
-                <a href="/Data/@Model.TableName?page=@(Model.Page - 1)" class="btn btn-secondary btn-sm">Prev</a>
+                <a href="/Data/@Model.TableName?page=@(Model.PageNumber - 1)" class="btn btn-secondary btn-sm">Prev</a>
             }
             
-            <span class="page-info">@Model.Page / @Model.TotalPages</span>
+            <span class="page-info">@Model.PageNumber / @Model.TotalPages</span>
             
-            @if (Model.Page < Model.TotalPages)
+            @if (Model.PageNumber < Model.TotalPages)
             {
-                <a href="/Data/@Model.TableName?page=@(Model.Page + 1)" class="btn btn-secondary btn-sm">Next</a>
+                <a href="/Data/@Model.TableName?page=@(Model.PageNumber + 1)" class="btn btn-secondary btn-sm">Next</a>
                 <a href="/Data/@Model.TableName?page=@Model.TotalPages" class="btn btn-secondary btn-sm">Last</a>
             }
         </div>
