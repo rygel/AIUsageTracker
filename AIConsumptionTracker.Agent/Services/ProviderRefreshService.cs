@@ -244,39 +244,77 @@ public class ProviderRefreshService : BackgroundService
     /// </summary>
     private async Task DetectResetEventsAsync(List<ProviderUsage> currentUsages)
     {
+        DebugLog("[RESET] Checking for reset events...");
+        
         foreach (var usage in currentUsages)
         {
             try
             {
-                // Get previous usage from history
-                var previousHistory = await _database.GetHistoryByProviderAsync(usage.ProviderId, 2);
-                if (previousHistory.Count >= 2)
+                // Get previous usage from history (need at least 2 entries to compare)
+                var history = await _database.GetHistoryByProviderAsync(usage.ProviderId, 2);
+                
+                DebugLog($"[RESET] {usage.ProviderId}: {history.Count} history entries");
+                
+                if (history.Count < 2)
                 {
-                    var previous = previousHistory[1]; // Second most recent
-                    var current = previousHistory[0];  // Most recent
-                    
-                    // Detect significant decrease in usage (indicates a reset)
-                    if (previous.CostUsed > current.CostUsed && 
-                        previous.CostUsed - current.CostUsed > previous.CostUsed * 0.5)
+                    DebugLog($"[RESET] {usage.ProviderId}: Not enough history for reset detection");
+                    continue;
+                }
+
+                var current = history[0];  // Most recent (just stored)
+                var previous = history[1]; // Previous entry
+                
+                DebugLog($"[RESET] {usage.ProviderId}: prev={previous.CostUsed:F2}, curr={current.CostUsed:F2}");
+                
+                // For quota-based providers: detect when remaining credits jump UP (usage % drops)
+                // For usage-based providers: detect when used amount drops significantly
+                
+                bool isReset = false;
+                string resetReason = "";
+                
+                if (usage.IsQuotaBased)
+                {
+                    // Quota-based: UsagePercentage represents % of quota USED
+                    // When reset happens, usage% drops from high to low
+                    if (previous.UsagePercentage > 50 && current.UsagePercentage < previous.UsagePercentage * 0.3)
                     {
-                        await _database.StoreResetEventAsync(
-                            usage.ProviderId,
-                            usage.ProviderName,
-                            previous.CostUsed,
-                            current.CostUsed,
-                            "monthly"
-                        );
-                        
-                        _logger.LogInformation("Detected reset for {ProviderId}: {PreviousUsage} -> {NewUsage}",
-                            usage.ProviderId, previous.CostUsed, current.CostUsed);
-                        DebugLog($"[RESET] Detected reset for {usage.ProviderId}: {previous.CostUsed:F2} -> {current.CostUsed:F2}");
+                        isReset = true;
+                        resetReason = $"Quota reset: {previous.UsagePercentage:F1}% -> {current.UsagePercentage:F1}%";
                     }
+                }
+                else
+                {
+                    // Usage-based: CostUsed represents total money spent
+                    // When reset happens (rare), it drops significantly
+                    if (previous.CostUsed > current.CostUsed)
+                    {
+                        var dropPercent = (previous.CostUsed - current.CostUsed) / previous.CostUsed * 100;
+                        if (dropPercent > 20) // 20% drop threshold
+                        {
+                            isReset = true;
+                            resetReason = $"Usage reset: ${previous.CostUsed:F2} -> ${current.CostUsed:F2} ({dropPercent:F0}% drop)";
+                        }
+                    }
+                }
+                
+                if (isReset)
+                {
+                    await _database.StoreResetEventAsync(
+                        usage.ProviderId,
+                        usage.ProviderName,
+                        previous.CostUsed,
+                        current.CostUsed,
+                        usage.IsQuotaBased ? "quota" : "usage"
+                    );
+                    
+                    _logger.LogInformation("Detected {Reason}", resetReason);
+                    DebugLog($"[RESET] {usage.ProviderId}: {resetReason}");
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to detect reset for {ProviderId}", usage.ProviderId);
-                DebugLog($"[WARN] Failed to detect reset for {usage.ProviderId}: {ex.Message}");
+                DebugLog($"[RESET] {usage.ProviderId}: Error - {ex.Message}");
             }
         }
     }
