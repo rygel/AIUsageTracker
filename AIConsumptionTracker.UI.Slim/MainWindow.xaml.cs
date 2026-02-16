@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -920,6 +921,123 @@ public partial class MainWindow : Window
         };
         
         settingsWindow.Show();
+    }
+
+    private void WebBtn_Click(object sender, RoutedEventArgs e)
+    {
+        OpenWebUI();
+    }
+
+    private void OpenWebUI()
+    {
+        try
+        {
+            // Start the Web service if not running
+            StartWebService();
+            
+            // Open browser to the Web UI
+            var webUrl = "http://localhost:5100";
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = webUrl,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to open Web UI: {ex.Message}");
+            MessageBox.Show($"Failed to open Web UI: {ex.Message}", "Error", 
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void StartWebService()
+    {
+        try
+        {
+            // Check if web service is already running
+            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(1) };
+            try
+            {
+                var response = client.GetAsync("http://localhost:5100").GetAwaiter().GetResult();
+                if (response.IsSuccessStatusCode)
+                {
+                    Debug.WriteLine("Web service already running");
+                    return;
+                }
+            }
+            catch
+            {
+                // Service not running, start it
+            }
+
+            // Find Web executable
+            var possiblePaths = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIConsumptionTracker.Web", "bin", "Debug", "net8.0", "AIConsumptionTracker.Web.exe"),
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIConsumptionTracker.Web", "bin", "Release", "net8.0", "AIConsumptionTracker.Web.exe"),
+                Path.Combine(AppContext.BaseDirectory, "AIConsumptionTracker.Web.exe"),
+            };
+
+            var webPath = possiblePaths.FirstOrDefault(File.Exists);
+
+            if (webPath == null)
+            {
+                // Try dotnet run
+                var webProjectDir = FindProjectDirectory("AIConsumptionTracker.Web");
+                if (webProjectDir != null)
+                {
+                    var psi = new ProcessStartInfo
+                    {
+                        FileName = "dotnet",
+                        Arguments = $"run --project \"{webProjectDir}\" --urls \"http://localhost:5100\"",
+                        UseShellExecute = true,
+                        CreateNoWindow = true,
+                        WorkingDirectory = webProjectDir
+                    };
+                    Process.Start(psi);
+                    Debug.WriteLine("Started Web service via dotnet run");
+                    return;
+                }
+
+                Debug.WriteLine("Web executable not found");
+                return;
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = webPath,
+                Arguments = "--urls \"http://localhost:5100\"",
+                UseShellExecute = true,
+                CreateNoWindow = true,
+                WorkingDirectory = Path.GetDirectoryName(webPath)
+            };
+
+            Process.Start(startInfo);
+            Debug.WriteLine($"Started Web service from: {webPath}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to start Web service: {ex.Message}");
+        }
+    }
+
+    private static string? FindProjectDirectory(string projectName)
+    {
+        var currentDir = AppContext.BaseDirectory;
+        var dir = new DirectoryInfo(currentDir);
+        
+        while (dir != null)
+        {
+            var projectPath = Path.Combine(dir.FullName, projectName, $"{projectName}.csproj");
+            if (File.Exists(projectPath))
+            {
+                return Path.GetDirectoryName(projectPath);
+            }
+            dir = dir.Parent;
+        }
+        
+        return null;
     }
 
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
