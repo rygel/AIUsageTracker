@@ -384,16 +384,18 @@ public class WebDatabaseService
             var orderClause = string.IsNullOrEmpty(orderBy) ? "" : $"ORDER BY {orderBy}";
 
             // Get total count
+            int totalCount;
             using (var countCmd = connection.CreateCommand())
             {
                 countCmd.CommandText = $"SELECT COUNT(*) FROM {tableName}";
-                var totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+                totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+            }
 
-                // Get rows
-                using var cmd = connection.CreateCommand();
+            // Get rows
+            var rows = new List<Dictionary<string, object?>>();
+            using (var cmd = connection.CreateCommand())
+            {
                 cmd.CommandText = $"SELECT * FROM {tableName} {orderClause} LIMIT {pageSize} OFFSET {offset}";
-
-                var rows = new List<Dictionary<string, object?>>();
                 using var reader = await cmd.ExecuteReaderAsync();
 
                 while (await reader.ReadAsync())
@@ -406,9 +408,9 @@ public class WebDatabaseService
                     }
                     rows.Add(row);
                 }
-
-                return (rows, totalCount);
             }
+
+            return (rows, totalCount);
         }
         finally
         {
