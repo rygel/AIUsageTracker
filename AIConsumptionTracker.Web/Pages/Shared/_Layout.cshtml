@@ -13,26 +13,23 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <a href="/" class="sidebar-brand">AI Consumption Tracker</a>
+                <span class="sidebar-brand">AI Tracker</span>
             </div>
             
             <nav class="sidebar-nav">
                 <ul>
                     <li class="nav-item">
                         <a href="/" class="nav-link @(Context.Request.Path == "/" ? "active" : "")">
-                            <span class="nav-icon">📊</span>
                             <span class="nav-text">Dashboard</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="/Providers" class="nav-link @(Context.Request.Path.Value?.Contains("/Providers") == true ? "active" : "")">
-                            <span class="nav-icon">🔌</span>
                             <span class="nav-text">Providers</span>
                         </a>
                     </li>
                     <li class="nav-item">
                         <a href="/History" class="nav-link @(Context.Request.Path.Value?.Contains("/History") == true ? "active" : "")">
-                            <span class="nav-icon">📜</span>
                             <span class="nav-text">History</span>
                         </a>
                     </li>
@@ -41,49 +38,14 @@
             
             <div class="sidebar-footer">
                 <div class="theme-section">
-                    <div class="theme-label">Theme</div>
-                    <div class="theme-selector-container">
-                        <button id="theme-dropdown-btn" class="theme-dropdown-btn">
-                            <span id="current-theme-icon">🌙</span>
-                            <span id="current-theme-name">Dark</span>
-                            <span class="dropdown-arrow">▼</span>
-                        </button>
-                        <div id="theme-dropdown-menu" class="theme-dropdown-menu">
-                            <div class="theme-option" data-theme="dark">
-                                <span class="theme-icon">🌙</span>
-                                <span class="theme-name">Dark</span>
-                            </div>
-                            <div class="theme-option" data-theme="light">
-                                <span class="theme-icon">☀️</span>
-                                <span class="theme-name">Light</span>
-                            </div>
-                            <div class="theme-option" data-theme="high-contrast">
-                                <span class="theme-icon">👁️</span>
-                                <span class="theme-name">High Contrast</span>
-                            </div>
-                            <div class="theme-option" data-theme="solarized-dark">
-                                <span class="theme-icon">🌆</span>
-                                <span class="theme-name">Solarized Dark</span>
-                            </div>
-                            <div class="theme-option" data-theme="solarized-light">
-                                <span class="theme-icon">🌅</span>
-                                <span class="theme-name">Solarized Light</span>
-                            </div>
-                            <div class="theme-option" data-theme="dracula">
-                                <span class="theme-icon">🧛</span>
-                                <span class="theme-name">Dracula</span>
-                            </div>
-                            <div class="theme-option" data-theme="nord">
-                                <span class="theme-icon">❄️</span>
-                                <span class="theme-name">Nord</span>
-                            </div>
-                        </div>
-                    </div>
+                    <select id="theme-select" class="theme-select">
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                        <option value="corporate">Corporate</option>
+                        <option value="midnight">Midnight</option>
+                    </select>
                 </div>
-                
-                <div class="sidebar-footer-text">
-                    <p>&copy; @DateTime.Now.Year</p>
-                </div>
+                <div class="sidebar-footer-text">&copy; @DateTime.Now.Year</div>
             </div>
         </aside>
 
@@ -91,12 +53,12 @@
         <div class="main-content">
             <!-- Mobile Header -->
             <header class="mobile-header">
-                <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">
+                <button class="menu-toggle" id="menu-toggle" aria-label="Menu">
                     <span></span>
                     <span></span>
                     <span></span>
                 </button>
-                <span class="mobile-title">AI Consumption Tracker</span>
+                <span class="mobile-title">AI Tracker</span>
             </header>
 
             <!-- Page Content -->
