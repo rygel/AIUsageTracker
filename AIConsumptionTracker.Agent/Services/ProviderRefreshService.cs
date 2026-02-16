@@ -19,6 +19,9 @@ public class ProviderRefreshService : BackgroundService
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private ProviderManager? _providerManager;
+    private static bool _debugMode = false;
+
+    public static void SetDebugMode(bool enabled) => _debugMode = enabled;
 
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
@@ -37,16 +40,21 @@ public class ProviderRefreshService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Provider Refresh Service starting...");
+        DebugLog("[SERVICE] Provider Refresh Service starting...");
 
         InitializeProviders();
 
-        // No immediate refresh on startup - use cached data from database
-        // Refresh only happens on the configured interval
+        DebugLog("[SERVICE] Waiting 30 seconds before first refresh...");
+        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+        
+        // Do initial refresh after delay
+        await TriggerRefreshAsync();
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
+                DebugLog($"[SERVICE] Next refresh in {_refreshInterval.TotalMinutes} minutes...");
                 await Task.Delay(_refreshInterval, stoppingToken);
                 await TriggerRefreshAsync();
             }
@@ -57,14 +65,18 @@ public class ProviderRefreshService : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during scheduled refresh");
+                DebugLog($"[ERROR] Error during scheduled refresh: {ex.Message}");
             }
         }
 
         _logger.LogInformation("Provider Refresh Service stopping...");
+        DebugLog("[SERVICE] Provider Refresh Service stopping...");
     }
 
     private void InitializeProviders()
     {
+        DebugLog("[INIT] Initializing providers...");
+        
         var httpClient = _httpClientFactory.CreateClient();
         var configLoader = new JsonConfigLoader(
             _loggerFactory.CreateLogger<JsonConfigLoader>(),
@@ -85,7 +97,7 @@ public class ProviderRefreshService : BackgroundService
             
             // Usage-based providers
             new OpenAIProvider(httpClient, _loggerFactory.CreateLogger<OpenAIProvider>()),
-            new AnthropicProvider(_loggerFactory.CreateLogger<AnthropicProvider>()),
+            new AnthropicProvider(httpClient, _loggerFactory.CreateLogger<AnthropicProvider>()),
             new GeminiProvider(httpClient, _loggerFactory.CreateLogger<GeminiProvider>()),
             new DeepSeekProvider(httpClient, _loggerFactory.CreateLogger<DeepSeekProvider>()),
             new OpenRouterProvider(httpClient, _loggerFactory.CreateLogger<OpenRouterProvider>()),
@@ -105,15 +117,18 @@ public class ProviderRefreshService : BackgroundService
             
             // Generic fallback
             new GenericPayAsYouGoProvider(httpClient, _loggerFactory.CreateLogger<GenericPayAsYouGoProvider>()),
-            
-            // Test provider (only for development)
-            // new SimulatedProvider(_loggerFactory.CreateLogger<SimulatedProvider>()),
         };
 
         _providerManager = new ProviderManager(
             providers, 
             configLoader, 
             _loggerFactory.CreateLogger<ProviderManager>());
+        
+        DebugLog($"[INIT] Initialized {providers.Count} providers:");
+        foreach (var p in providers)
+        {
+            DebugLog($"[INIT]   - {p.ProviderId}");
+        }
         
         _logger.LogInformation("Initialized {Count} providers", providers.Count);
     }
@@ -123,16 +138,30 @@ public class ProviderRefreshService : BackgroundService
         if (_providerManager == null)
         {
             _logger.LogWarning("ProviderManager not initialized");
+            DebugLog("[ERROR] ProviderManager not initialized!");
             return;
         }
 
         await _refreshSemaphore.WaitAsync();
         try
         {
+            DebugLog("");
+            DebugLog("═══════════════════════════════════════════════════════════════");
+            DebugLog($"[REFRESH] Starting data refresh - {DateTime.Now:HH:mm:ss}");
+            DebugLog("═══════════════════════════════════════════════════════════════");
+            
             _logger.LogInformation("Starting provider data refresh...");
             
             // Get all provider configurations
+            DebugLog("[CONFIG] Loading provider configurations...");
             var configs = await _configService.GetConfigsAsync();
+            DebugLog($"[CONFIG] Found {configs.Count} total configurations");
+            
+            foreach (var c in configs)
+            {
+                var hasKey = !string.IsNullOrEmpty(c.ApiKey);
+                DebugLog($"[CONFIG]   {c.ProviderId}: {(hasKey ? $"Has API key ({c.ApiKey?.Length ?? 0} chars)" : "NO API KEY")}");
+            }
             
             // Filter to only providers with API keys
             var activeConfigs = configs.Where(c => !string.IsNullOrEmpty(c.ApiKey)).ToList();
@@ -140,6 +169,7 @@ public class ProviderRefreshService : BackgroundService
             
             if (skippedCount > 0)
             {
+                DebugLog($"[CONFIG] Skipping {skippedCount} providers without API keys");
                 _logger.LogInformation("Skipping {Count} providers without API keys", skippedCount);
             }
             
@@ -152,34 +182,56 @@ public class ProviderRefreshService : BackgroundService
             // Only query providers with API keys
             if (activeConfigs.Count > 0)
             {
+                DebugLog($"[QUERY] Querying {activeConfigs.Count} providers with API keys...");
                 _logger.LogInformation("Querying {Count} providers with API keys", activeConfigs.Count);
                 
                 // Get usage data only from providers with keys
                 var usages = await _providerManager.GetAllUsageAsync(forceRefresh: true);
                 
+                DebugLog($"[QUERY] Received {usages.Count()} total usage results");
+                
                 // Filter to only include providers that have configs with API keys
                 var activeProviderIds = activeConfigs.Select(c => c.ProviderId).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var filteredUsages = usages.Where(u => activeProviderIds.Contains(u.ProviderId)).ToList();
                 
+                // Log each provider's result
+                DebugLog("[RESULTS] Provider query results:");
+                foreach (var usage in filteredUsages)
+                {
+                    var status = usage.IsAvailable ? "OK" : "FAILED";
+                    var msg = usage.IsAvailable 
+                        ? $"{usage.UsagePercentage:F1}% used" 
+                        : usage.Description;
+                    DebugLog($"[RESULTS]   {usage.ProviderId}: [{status}] {msg}");
+                }
+                
                 // Store in provider_history (indefinite retention)
                 await _database.StoreHistoryAsync(filteredUsages);
+                DebugLog($"[DB] Stored {filteredUsages.Count} provider histories");
                 
                 // Detect and store reset events
                 await DetectResetEventsAsync(filteredUsages);
                 
                 _logger.LogInformation("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
+                DebugLog($"[REFRESH] Complete. Stored {filteredUsages.Count} provider histories");
             }
             else
             {
+                DebugLog("[CONFIG] No providers with API keys configured. Nothing to refresh.");
                 _logger.LogInformation("No providers with API keys configured. Nothing to refresh.");
             }
             
             // Clean up old raw snapshots (14-day retention)
             await _database.CleanupOldSnapshotsAsync();
+            
+            DebugLog("═══════════════════════════════════════════════════════════════");
+            DebugLog("");
         }
         catch (Exception ex)
-            {
+        {
             _logger.LogError(ex, "Error during provider refresh");
+            DebugLog($"[ERROR] Error during provider refresh: {ex.Message}");
+            DebugLog($"[ERROR] Stack trace: {ex.StackTrace}");
         }
         finally
         {
@@ -212,18 +264,28 @@ public class ProviderRefreshService : BackgroundService
                             usage.ProviderName,
                             previous.CostUsed,
                             current.CostUsed,
-                            "monthly" // Assuming monthly reset, can be enhanced later
+                            "monthly"
                         );
                         
                         _logger.LogInformation("Detected reset for {ProviderId}: {PreviousUsage} -> {NewUsage}",
                             usage.ProviderId, previous.CostUsed, current.CostUsed);
+                        DebugLog($"[RESET] Detected reset for {usage.ProviderId}: {previous.CostUsed:F2} -> {current.CostUsed:F2}");
                     }
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to detect reset for {ProviderId}", usage.ProviderId);
+                DebugLog($"[WARN] Failed to detect reset for {usage.ProviderId}: {ex.Message}");
             }
+        }
+    }
+
+    private static void DebugLog(string message)
+    {
+        if (_debugMode)
+        {
+            Console.WriteLine(message);
         }
     }
 }

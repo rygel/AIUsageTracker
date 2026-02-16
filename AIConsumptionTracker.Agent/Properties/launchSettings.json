@@ -2,6 +2,7 @@
   "profiles": {
     "AIConsumptionTracker.Agent": {
       "commandName": "Project",
+      "commandLineArgs": "--debug",
       "launchBrowser": true,
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
