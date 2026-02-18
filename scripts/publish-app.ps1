@@ -15,6 +15,9 @@ $publishDir = ".\dist\publish-$Runtime"
 if (-not [string]::IsNullOrEmpty($Version)) {
     Write-Host "Synchronizing version $Version across all files..." -ForegroundColor Cyan
     
+    # Create a clean version (x.y.z) for AssemblyVersion/FileVersion which don't support semantic suffixes
+    $cleanVersion = $Version.Split('-')[0]
+    
     # 1. Update all .csproj files
     # We find all .csproj files except for test projects (or just update all of them)
     $csprojFiles = Get-ChildItem -Path "." -Filter "*.csproj" -Recurse | Where-Object { $_.FullName -notlike "*Tests*" }
@@ -22,9 +25,9 @@ if (-not [string]::IsNullOrEmpty($Version)) {
         $content = Get-Content $file.FullName -Raw
         if ($content -match "<Version>(.*?)</Version>") {
             $newContent = $content -replace "<Version>.*?</Version>", "<Version>$Version</Version>"
-            # Also update AssemblyVersion and FileVersion if they exist
-            $newContent = $newContent -replace "<AssemblyVersion>.*?</AssemblyVersion>", "<AssemblyVersion>$Version</AssemblyVersion>"
-            $newContent = $newContent -replace "<FileVersion>.*?</FileVersion>", "<FileVersion>$Version</FileVersion>"
+            # Also update AssemblyVersion and FileVersion if they exist (use clean version)
+            $newContent = $newContent -replace "<AssemblyVersion>.*?</AssemblyVersion>", "<AssemblyVersion>$cleanVersion</AssemblyVersion>"
+            $newContent = $newContent -replace "<FileVersion>.*?</FileVersion>", "<FileVersion>$cleanVersion</FileVersion>"
             Set-Content $file.FullName $newContent -NoNewline
             Write-Host "  Updated $($file.Name)" -ForegroundColor Gray
         }
@@ -91,8 +94,8 @@ dotnet publish $projectPath `
     -p:PublishReadyToRun=true `
     -p:DebugType=None `
     -p:Version=$Version `
-    -p:AssemblyVersion=$Version `
-    -p:FileVersion=$Version
+    -p:AssemblyVersion=$cleanVersion `
+    -p:FileVersion=$cleanVersion
 
 Write-Host "Copying documentation..." -ForegroundColor Cyan
 Copy-Item ".\README.md" -Destination $publishDir

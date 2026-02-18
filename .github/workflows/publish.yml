@@ -113,7 +113,7 @@ jobs:
             appcast_x86.xml
             appcast_arm64.xml
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
           generate_release_notes: true
           fail_on_unmatched_files: false
         env:
