@@ -137,9 +137,8 @@ app.MapGet("/api/usage", async (UsageDatabase db) =>
 {
     if (isDebugMode) Console.WriteLine($"[API] GET /api/usage - {DateTime.Now:HH:mm:ss}");
     var usage = await db.GetLatestHistoryAsync();
-    var filtered = usage.Where(u => u.ProviderId != "antigravity").ToList();
-    if (isDebugMode) Console.WriteLine($"[API] Returning {filtered.Count} providers");
-    return Results.Ok(filtered);
+    if (isDebugMode) Console.WriteLine($"[API] Returning {usage.Count} providers");
+    return Results.Ok(usage);
 });
 
 app.MapGet("/api/usage/{providerId}", async (string providerId, UsageDatabase db) =>
