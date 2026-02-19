@@ -53,15 +53,31 @@ public class ProviderRefreshService : BackgroundService
         var isEmpty = await _database.IsHistoryEmptyAsync();
         if (isEmpty)
         {
-            _logger.LogInformation("First-time startup detected. Scanning for keys and performing full refresh.");
-            await _configService.ScanForKeysAsync();
-            await TriggerRefreshAsync(forceAll: true);
+            // First-time startup: scan for keys and populate the database.
+            // Fire as a background task so the HTTP server starts serving immediately.
+            // The Slim UI's rapid-poll will pick up the data once the refresh completes.
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    _logger.LogInformation("First-time startup: scanning for keys and seeding database.");
+                    await _configService.ScanForKeysAsync();
+                    await TriggerRefreshAsync(forceAll: true);
+                    _logger.LogInformation("First-time data seeding complete.");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error during first-time data seeding.");
+                }
+            }, stoppingToken);
         }
         else
         {
-            _logger.LogInformation("Triggering initial refresh...");
-            await TriggerRefreshAsync();
+            // Database has existing data — serve it immediately.
+            // Do NOT refresh on startup; the scheduled interval will refresh on time.
+            _logger.LogInformation("Startup: serving cached data from database (next refresh in {Minutes}m).", _refreshInterval.TotalMinutes);
         }
+
 
         while (!stoppingToken.IsCancellationRequested)
         {
