@@ -28,6 +28,7 @@ namespace AIConsumptionTracker.UI
         private readonly ProviderManager _providerManager;
         private readonly IConfigLoader _configLoader;
         private readonly INotificationService _notificationService;
+        private readonly AIConsumptionTracker.Core.AgentClient.AgentService _agentService;
         private AppPreferences _preferences = new();
         private List<ProviderUsage> _cachedUsages = new();
         private List<ProviderConfig> _cachedConfigs = new(); // Cache configs for notification checks
@@ -86,13 +87,14 @@ namespace AIConsumptionTracker.UI
         private readonly IUpdateCheckerService _updateChecker;
         private AIConsumptionTracker.Core.Interfaces.UpdateInfo? _latestUpdate;
 
-        public MainWindow(ProviderManager providerManager, IConfigLoader configLoader, IUpdateCheckerService updateChecker, INotificationService notificationService)
+        public MainWindow(ProviderManager providerManager, IConfigLoader configLoader, IUpdateCheckerService updateChecker, INotificationService notificationService, AIConsumptionTracker.Core.AgentClient.AgentService agentService)
         {
             InitializeComponent();
             _providerManager = providerManager;
             _configLoader = configLoader;
             _updateChecker = updateChecker;
             _notificationService = notificationService;
+            _agentService = agentService;
 
             this.KeyDown += OnKeyDown;
 
@@ -904,14 +906,14 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private List<UIElement> GetGroupElements(ProviderUsage usage)
+        private List<FrameworkElement> GetGroupElements(ProviderUsage usage)
         {
-            var elements = new List<UIElement>();
+            var elements = new List<FrameworkElement>();
             
             // Parent
             var parentBar = CreateProviderBar(usage);
-            if (parentBar is FrameworkElement fe) fe.Tag = usage.ProviderId;
-            elements.Add(parentBar);
+            if (parentBar is FrameworkElement fe) { fe.Tag = usage.ProviderId; elements.Add(fe); }
+            else elements.Add((FrameworkElement)parentBar);
 
             // Children (Details)
             if (usage.Details != null && usage.Details.Count > 0)
@@ -923,7 +925,7 @@ namespace AIConsumptionTracker.UI
                         () => _preferences.IsAntigravityCollapsed,
                         v => _preferences.IsAntigravityCollapsed = v);
                     
-                    elements.Add(header);
+                    elements.Add((FrameworkElement)header);
                     elements.Add(container);
                     
                     foreach (var detail in usage.Details)
@@ -940,8 +942,8 @@ namespace AIConsumptionTracker.UI
                     {
                         var childUsage = CreateChildUsage(usage, detail);
                         var childBar = CreateProviderBar(childUsage, isChild: true);
-                        if (childBar is FrameworkElement cfe) cfe.Tag = usage.ProviderId;
-                        elements.Add(childBar);
+                        if (childBar is FrameworkElement cfe) { cfe.Tag = usage.ProviderId; elements.Add(cfe); }
+                        else elements.Add((FrameworkElement)childBar);
                     }
                 }
             }
