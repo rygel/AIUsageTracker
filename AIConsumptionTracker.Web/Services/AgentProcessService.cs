@@ -4,28 +4,30 @@ namespace AIConsumptionTracker.Web.Services;
 
 public class AgentProcessService
 {
-    private readonly string _portFilePath;
+    private readonly string _infoFilePath;
+    private readonly ILogger<AgentProcessService> _logger;
     
-    public AgentProcessService()
+    public AgentProcessService(ILogger<AgentProcessService> logger)
     {
+        _logger = logger;
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _portFilePath = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.port");
+        _infoFilePath = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.info");
     }
 
     public async Task<(bool isRunning, int port)> GetAgentStatusAsync()
     {
-        var port = await GetPortFromFileAsync();
-        if (port == 0) port = 5000;
+        var info = await GetAgentInfoAsync();
+        if (info == null) return (false, 5000);
         
         using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
         try
         {
-            var response = await client.GetAsync($"http://localhost:{port}/api/health");
-            return (response.IsSuccessStatusCode, port);
+            var response = await client.GetAsync($"http://localhost:{info.Port}/api/health");
+            return (response.IsSuccessStatusCode, info.Port);
         }
         catch
         {
-            return (false, port);
+            return (false, info.Port);
         }
     }
 
@@ -34,11 +36,15 @@ public class AgentProcessService
         var (isRunning, _) = await GetAgentStatusAsync();
         if (isRunning) return true;
         
-        var port = await GetPortFromFileAsync();
-        if (port == 0) port = 5000;
+        var info = await GetAgentInfoAsync();
+        int port = info?.Port ?? 5000;
         
         var agentPath = FindAgentExecutable();
-        if (agentPath == null) return false;
+        if (agentPath == null) 
+        {
+            _logger.LogError("Could not find agent executable");
+            return false;
+        }
         
         try
         {
@@ -52,10 +58,40 @@ public class AgentProcessService
             };
             
             Process.Start(startInfo);
+            _logger.LogInformation("Started agent from {Path}", agentPath);
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to start agent");
+            return false;
+        }
+    }
+
+    public async Task<bool> StopAgentAsync()
+    {
+        var info = await GetAgentInfoAsync();
+        if (info == null)
+        {
+            _logger.LogWarning("Cannot stop agent: agent.info not found");
+            return true; // Assume already stopped if no info
+        }
+
+        try
+        {
+            var process = Process.GetProcessById(info.ProcessId);
+            process.Kill();
+            _logger.LogInformation("Killed agent process {Pid}", info.ProcessId);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            _logger.LogInformation("Agent process {Pid} not currently running", info.ProcessId);
+            return true; // Already gone
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to stop agent process {Pid}", info.ProcessId);
             return false;
         }
     }
@@ -74,17 +110,30 @@ public class AgentProcessService
         return paths.FirstOrDefault(File.Exists);
     }
 
-    private async Task<int> GetPortFromFileAsync()
+    private async Task<AgentInfo?> GetAgentInfoAsync()
     {
         try
         {
-            if (File.Exists(_portFilePath))
+            if (File.Exists(_infoFilePath))
             {
-                var portStr = await File.ReadAllTextAsync(_portFilePath);
-                return int.TryParse(portStr, out var port) ? port : 0;
+                var json = await File.ReadAllTextAsync(_infoFilePath);
+                var options = new System.Text.Json.JsonSerializerOptions 
+                { 
+                    PropertyNameCaseInsensitive = true 
+                };
+                return System.Text.Json.JsonSerializer.Deserialize<AgentInfo>(json, options);
             }
         }
-        catch { }
-        return 0;
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to read agent.info");
+        }
+        return null;
+    }
+
+    private class AgentInfo
+    {
+        public int Port { get; set; }
+        public int ProcessId { get; set; }
     }
 }

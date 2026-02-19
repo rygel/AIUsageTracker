@@ -78,7 +78,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }})
         };
 
@@ -122,7 +122,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }})
         };
 
@@ -157,7 +157,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Antigravity",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 Details = new List<ProviderUsageDetail>
                 {
                     new ProviderUsageDetail { Name = "Sub-provider 1", Used = "50%" },
@@ -199,7 +199,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }})
         };
 

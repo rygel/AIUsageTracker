@@ -27,7 +27,7 @@ public class AnthropicProvider : IProviderService
                     IsAvailable = false,
                     Description = "API Key missing",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased,
+                    PlanType = PlanType.Usage,
                     AuthSource = config.AuthSource
                 }
             };
@@ -40,9 +40,9 @@ public class AnthropicProvider : IProviderService
                 ProviderId = ProviderId,
                 ProviderName = "Anthropic",
                 IsAvailable = true,
-                UsagePercentage = 0.0,
+                RequestsPercentage = 0.0,
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased,
+                PlanType = PlanType.Usage,
                 Description = "Connected (Check Dashboard)",
                 UsageUnit = "Status",
                 AuthSource = config.AuthSource

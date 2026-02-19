@@ -1,4 +1,4 @@
-@page
+@page "/providers"
 @model ProvidersModel
 @{
     ViewData["Title"] = "Providers";
@@ -28,23 +28,25 @@ else
                     <th>Type</th>
                     <th>Status</th>
                     <th>Latest Usage</th>
+                    <th>Next Reset</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var provider in Model.Providers)
+                @foreach (var provider in Model.Providers.Where(p => p.ProviderId != "antigravity"))
                 {
                     <tr>
                         <td>@provider.ProviderName</td>
-                        <td>@provider.PaymentType</td>
+                        <td>@provider.PlanType</td>
                         <td>
                             <span class="provider-status @(provider.IsActive ? "active" : "inactive")">
                                 @(provider.IsActive ? "Active" : "Inactive")
                             </span>
                         </td>
                         <td>@provider.LatestUsage.ToString("F1")%</td>
+                        <td>@(provider.NextResetTime.HasValue ? provider.NextResetTime.Value.ToString("g") : "-")</td>
                         <td>
-                            <a href="/Provider/@provider.ProviderId" class="btn btn-secondary btn-sm">View</a>
+                            <a href="/provider/@provider.ProviderId" class="btn btn-secondary btn-sm">View</a>
                         </td>
                     </tr>
                 }

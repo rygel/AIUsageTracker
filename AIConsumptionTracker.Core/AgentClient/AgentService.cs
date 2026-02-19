@@ -3,9 +3,9 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AIConsumptionTracker.UI.Slim.Models;
+using AIConsumptionTracker.Core.Models;
 
-namespace AIConsumptionTracker.UI.Slim.Services;
+namespace AIConsumptionTracker.Core.AgentClient;
 
 public class AgentService
 {
@@ -14,12 +14,15 @@ public class AgentService
 
     public string AgentUrl { get; set; } = "http://localhost:5000";
 
-    public AgentService()
+    public AgentService() : this(new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
     {
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(30)
-        };
+    }
+
+    public List<string> LastAgentErrors { get; private set; } = new();
+
+    public AgentService(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
         _jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
@@ -27,43 +30,62 @@ public class AgentService
             Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) }
         };
         
-        // Discover actual port from file
-        _ = DiscoverPortAsync();
+        // Discover actual port and errors from file
+        _ = RefreshAgentInfoAsync();
     }
     
-    private async Task DiscoverPortAsync()
-    {
-        var port = await GetAgentPortAsync();
-        AgentUrl = $"http://localhost:{port}";
-    }
-    
-    private static async Task<int> GetAgentPortAsync()
+    public async Task RefreshAgentInfoAsync()
     {
         try
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var portFile = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.port");
+            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+            var jsonFile = Path.Combine(agentDir, "agent.json");
+            var infoFile = Path.Combine(agentDir, "agent.info");
             
-            if (File.Exists(portFile))
+            string? path = null;
+            if (File.Exists(jsonFile)) path = jsonFile;
+            else if (File.Exists(infoFile)) path = infoFile;
+
+            if (path != null)
             {
-                var portStr = await File.ReadAllTextAsync(portFile);
-                if (int.TryParse(portStr, out int port))
+                var json = await File.ReadAllTextAsync(path);
+                var info = JsonSerializer.Deserialize<AgentInfo>(json, new JsonSerializerOptions
                 {
-                    return port;
+                    PropertyNameCaseInsensitive = true
+                });
+                
+                if (info != null)
+                {
+                    if (info.Port > 0) AgentUrl = $"http://localhost:{info.Port}";
+                    LastAgentErrors = info.Errors ?? new List<string>();
+                    return;
                 }
             }
             
-            return 5000;
+            AgentUrl = "http://localhost:5000";
+            LastAgentErrors = new List<string>();
         }
-        catch
+        catch (Exception ex)
         {
-            return 5000;
+            System.Diagnostics.Debug.WriteLine($"Error refreshing agent info: {ex.Message}");
+            AgentUrl = "http://localhost:5000";
+            LastAgentErrors = new List<string>();
         }
+    }
+    
+    private class AgentInfo
+    {
+        public int Port { get; set; }
+        public string? StartedAt { get; set; }
+        public int ProcessId { get; set; }
+        public bool DebugMode { get; set; }
+        public List<string>? Errors { get; set; }
     }
     
     public async Task RefreshPortAsync()
     {
-        await DiscoverPortAsync();
+        await RefreshAgentInfoAsync();
     }
 
     // Provider usage endpoints
@@ -264,5 +286,59 @@ public class AgentService
         
         [JsonPropertyName("configs")]
         public List<ProviderConfig>? Configs { get; set; }
+    }
+
+    // Diagnostics & Export
+    public async Task<(bool success, string message)> CheckProviderAsync(string providerId)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{AgentUrl}/api/providers/{providerId}/check");
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<CheckResponse>(_jsonOptions);
+                return (result?.Success ?? false, result?.Message ?? "Unknown status");
+            }
+            else
+            {
+                // Try to read error message if available
+                try 
+                {
+                    var error = await response.Content.ReadFromJsonAsync<CheckResponse>(_jsonOptions);
+                    if (!string.IsNullOrEmpty(error?.Message))
+                        return (false, error.Message);
+                }
+                catch { }
+                
+                return (false, $"HTTP {response.StatusCode}");
+            }
+        }
+        catch (Exception ex)
+        {
+            return (false, $"Connection error: {ex.Message}");
+        }
+    }
+
+    public async Task<Stream?> ExportDataAsync(string format, int days)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{AgentUrl}/api/export?format={format}&days={days}");
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadAsStreamAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"ExportDataAsync error: {ex.Message}");
+        }
+        return null; // or throw
+    }
+
+    private class CheckResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

@@ -37,9 +37,9 @@ public class CodexProvider : IProviderService
         {
             ProviderId = ProviderId,
             ProviderName = "Codex",
-            CostUsed = 0, // Placeholder
-            CostLimit = 0,
-            UsagePercentage = 0,
+            RequestsUsed = 0, // Placeholder
+            RequestsAvailable = 0,
+            RequestsPercentage = 0,
             IsAvailable = true,
             Description = "Codex usage tracking (Implementation pending specific API details)"
         }};

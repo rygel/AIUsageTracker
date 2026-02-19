@@ -1,4 +1,4 @@
-@page
+@page "/history"
 @model HistoryModel
 @{
     ViewData["Title"] = "History";
@@ -27,8 +27,6 @@ else
                     <th>Time</th>
                     <th>Provider</th>
                     <th>Usage</th>
-                    <th>Cost Used</th>
-                    <th>Cost Limit</th>
                     <th>Status</th>
                 </tr>
             </thead>
@@ -38,9 +36,7 @@ else
                     <tr>
                         <td>@usage.FetchedAt.ToString("g")</td>
                         <td>@usage.ProviderName</td>
-                        <td>@usage.UsagePercentage.ToString("F1")%</td>
-                        <td>@usage.CostUsed.ToString("F2")</td>
-                        <td>@usage.CostLimit.ToString("F2")</td>
+                        <td>@usage.RequestsPercentage.ToString("F1")%</td>
                         <td>
                             <span class="provider-status @(usage.IsAvailable ? "active" : "inactive")">
                                 @(usage.IsAvailable ? "Active" : "Inactive")

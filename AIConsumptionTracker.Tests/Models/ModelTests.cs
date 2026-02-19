@@ -11,7 +11,7 @@ public class ModelTests
         var usage = new ProviderUsage();
 
         // Assert
-        Assert.Equal(PaymentType.UsageBased, usage.PaymentType);
+        Assert.Equal(PlanType.Usage, usage.PlanType);
         Assert.False(usage.IsQuotaBased);
         Assert.True(usage.IsAvailable);
         Assert.Empty(usage.Description);

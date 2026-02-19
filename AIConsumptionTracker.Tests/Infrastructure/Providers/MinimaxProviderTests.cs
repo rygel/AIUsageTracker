@@ -60,8 +60,8 @@ public class MinimaxProviderTests
         // Assert
         var usage = result.Single();
         Assert.Equal("Minimax", usage.ProviderName);
-        Assert.Equal(100, usage.CostUsed);
-        Assert.Equal(1000, usage.CostLimit);
+        Assert.Equal(100, usage.RequestsUsed);
+        Assert.Equal(1000, usage.RequestsAvailable);
     }
 
     [Fact]
@@ -100,8 +100,8 @@ public class MinimaxProviderTests
         // Assert
         var usage = result.Single();
         Assert.Equal("Minimax", usage.ProviderName);
-        Assert.Equal(50, usage.CostUsed);
-        Assert.Equal(500, usage.CostLimit);
+        Assert.Equal(50, usage.RequestsUsed);
+        Assert.Equal(500, usage.RequestsAvailable);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -28,7 +29,9 @@ public class DeepSeekProvider : IProviderService
                 ProviderId = ProviderId,
                 ProviderName = "DeepSeek",
                 IsAvailable = false,
-                Description = "API Key missing"
+                Description = "API Key missing",
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage
             }};
         }
 
@@ -51,8 +54,9 @@ public class DeepSeekProvider : IProviderService
                     ProviderName = "DeepSeek",
                     IsAvailable = true, // Key exists, just failed request
                     Description = $"API Error ({response.StatusCode})",
-                    UsagePercentage = 0,
-                    IsQuotaBased = false
+                    RequestsPercentage = 0,
+                    IsQuotaBased = false,
+                    PlanType = PlanType.Usage
                 }};
             }
 
@@ -65,7 +69,9 @@ public class DeepSeekProvider : IProviderService
                     ProviderId = ProviderId,
                     ProviderName = "DeepSeek",
                     IsAvailable = false,
-                    Description = "Failed to parse DeepSeek response"
+                    Description = "Failed to parse DeepSeek response",
+                    IsQuotaBased = false,
+                    PlanType = PlanType.Usage
                 }};
             }
 
@@ -78,19 +84,17 @@ public class DeepSeekProvider : IProviderService
                 {
                     string currencySymbol = info.Currency == "CNY" ? "¥" : "$";
                     string detailName = $"Balance ({info.Currency})";
-                    string detailDesc = $"{currencySymbol}{info.ToppedUpBalance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)} (Topped-up: {currencySymbol}{info.ToppedUpBalance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}, Granted: {currencySymbol}{info.GrantedBalance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)})";
-                    
                     details.Add(new ProviderUsageDetail
                     {
                         Name = detailName,
-                        Used = info.Currency == "CNY" ? $"¥{info.TotalBalance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}" : $"${info.TotalBalance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}",
-                        Description = detailDesc
+                        Used = $"{currencySymbol}{info.TotalBalance.ToString("F2", CultureInfo.InvariantCulture)}",
+                        Description = $"{currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)} (Topped-up: {currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)}, Granted: {currencySymbol}{info.GrantedBalance.ToString("F2", CultureInfo.InvariantCulture)})"
                     });
 
                     // If it's the first or a primary currency, use for main description
                     if (mainDescription == "No balance found")
                     {
-                        mainDescription = $"Balance: {currencySymbol}{info.TotalBalance.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}";
+                        mainDescription = $"Balance: {currencySymbol}{info.TotalBalance.ToString("F2", CultureInfo.InvariantCulture)}";
                     }
                 }
             }
@@ -100,12 +104,12 @@ public class DeepSeekProvider : IProviderService
                 ProviderId = ProviderId,
                 ProviderName = "DeepSeek",
                 IsAvailable = true,
-                UsagePercentage = 0, // Pay-as-you-go/Balance model
-                CostUsed = 0,
-                CostLimit = 0,
+                RequestsPercentage = 0, // Pay-as-you-go/Balance model
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
                 UsageUnit = "Currency",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased,
+                PlanType = PlanType.Usage,
                 Description = mainDescription,
                 Details = details
             }};
@@ -118,7 +122,9 @@ public class DeepSeekProvider : IProviderService
                 ProviderId = ProviderId,
                 ProviderName = "DeepSeek",
                 IsAvailable = false,
-                Description = "Check failed"
+                Description = "Check failed",
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage
             }};
         }
     }

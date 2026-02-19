@@ -120,7 +120,7 @@ public class OpenAIProvider : IProviderService
                     ProviderName = "OpenAI",
                     IsAvailable = true,
                     UsagePercentage = primaryUsed / 100,
-                    PaymentType = creditsBalance.HasValue ? PaymentType.Credits : PaymentType.UsageBased,
+                    PaymentType = creditsBalance.HasValue ? PlanType.Usage : PlanType.Usage,
                     Description = description,
                     CostUsed = creditsBalance ?? 0,
                     UsageUnit = isUnlimited ? "Unlimited" : "Tokens"
@@ -167,7 +167,7 @@ public class OpenAIProvider : IProviderService
                      IsAvailable = true,
                      UsagePercentage = 0,
                      IsQuotaBased = false,
-                     PaymentType = PaymentType.UsageBased,
+                     PaymentType = PlanType.Usage,
                      Description = "Connected (API Key - Check Dashboard)",
 
                      UsageUnit = "Status"

@@ -55,9 +55,9 @@ public class XiaomiProviderTests
         // Assert
         var usage = result.Single();
         Assert.Equal("Xiaomi", usage.ProviderName);
-        Assert.Equal(25, usage.UsagePercentage);
-        Assert.Equal(50, usage.CostUsed);
-        Assert.Equal(200, usage.CostLimit);
+        Assert.Equal(25, usage.RequestsPercentage);
+        Assert.Equal(50, usage.RequestsUsed);
+        Assert.Equal(200, usage.RequestsAvailable);
         Assert.True(usage.IsQuotaBased);
         Assert.Contains("150 remaining", usage.Description);
     }
@@ -93,13 +93,13 @@ public class XiaomiProviderTests
         // Assert
         var usage = result.Single();
         Assert.Equal("Xiaomi", usage.ProviderName);
-        Assert.Equal(0, usage.UsagePercentage);
-        Assert.Equal(0, usage.CostUsed); // Since quota is 0, cost used logic was quota - balance = -50 -> 0 clamped? No, logic is "quota > 0 ? quota - balance : 0"
+        Assert.Equal(0, usage.RequestsPercentage);
+        Assert.Equal(0, usage.RequestsUsed); // Since quota is 0, cost used logic was quota - balance = -50 -> 0 clamped? No, logic is "quota > 0 ? quota - balance : 0"
         
         // Recalculating expected based on code:
-        // CostLimit = quota > 0 ? quota : balance => 50
-        // PaymentType = UsageBased
-        Assert.Equal(50, usage.CostLimit); 
+        // Limit = quota > 0 ? quota : balance => 50
+        // PlanType = UsageBased
+        Assert.Equal(50, usage.RequestsAvailable); 
         Assert.False(usage.IsQuotaBased);
         Assert.Contains("Balance: 50", usage.Description);
     }

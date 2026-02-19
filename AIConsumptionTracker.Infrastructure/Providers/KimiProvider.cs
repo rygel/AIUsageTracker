@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -61,7 +62,7 @@ public class KimiProvider : IProviderService
                 usedPercentage = 100.0 - ((remaining / limit) * 100.0);
             }
 
-            var description = $"{usedPercentage:F1}% Used ({remaining}/{limit})";
+            var description = $"{usedPercentage.ToString("F1", CultureInfo.InvariantCulture)}% Used ({remaining}/{limit})";
             if (limit == 0) description = "Unlimited / Pay-as-you-go";
             
             // Limits Detail
@@ -86,7 +87,7 @@ public class KimiProvider : IProviderService
                     
                     var resetDisplay = FormatResetTime(det.ResetTime ?? "");
                     DateTime? itemResetDt = null;
-                    if (DateTime.TryParse(det.ResetTime, out var dt))
+                    if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
                     {
                         itemResetDt = dt.ToLocalTime();
                         var diff = itemResetDt.Value - DateTime.Now;
@@ -101,7 +102,7 @@ public class KimiProvider : IProviderService
                     details.Add(new ProviderUsageDetail
                     {
                          Name = name,
-                         Used = $"{itemPct:F1}%",
+                         Used = $"{itemPct.ToString("F1", CultureInfo.InvariantCulture)}%",
                          Description = $"{det.Remaining} remaining (Resets: {resetDisplay})", // Kept original description for detail item
                          NextResetTime = itemResetDt
                     });
@@ -114,12 +115,12 @@ public class KimiProvider : IProviderService
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Kimi",
-                UsagePercentage = usedPercentage,
-                CostUsed = used,
-                CostLimit = limit,
+                RequestsPercentage = usedPercentage,
+                RequestsUsed = used,
+                RequestsAvailable = limit,
                 UsageUnit = "Points", 
                 IsQuotaBased = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 IsAvailable = true,
                 Description = description,
 
@@ -150,7 +151,7 @@ public class KimiProvider : IProviderService
 
     private string FormatResetTime(string resetTime)
     {
-        if (DateTime.TryParse(resetTime, out var dt))
+        if (DateTime.TryParse(resetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {
             return $"({dt:MMM dd HH:mm})";
         }

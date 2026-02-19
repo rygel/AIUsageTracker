@@ -30,7 +30,7 @@ public class ConfigService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load configs");
+            _logger.LogError(ex, "Failed to load configs: {Message}", ex.Message);
             return new List<ProviderConfig>();
         }
     }
@@ -56,11 +56,11 @@ public class ConfigService
             }
             
             await _configLoader.SaveConfigAsync(configs);
-            _logger.LogInformation("Saved config for provider: {ProviderId}", config.ProviderId);
+            _logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save config for {ProviderId}", config.ProviderId);
+            _logger.LogError(ex, "Failed to save config for {ProviderId}: {Message}", config.ProviderId, ex.Message);
             throw;
         }
     }
@@ -72,11 +72,11 @@ public class ConfigService
             var configs = await _configLoader.LoadConfigAsync();
             configs.RemoveAll(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
             await _configLoader.SaveConfigAsync(configs);
-            _logger.LogInformation("Removed config for provider: {ProviderId}", providerId);
+            _logger.LogInformation("Removed: {ProviderId}", providerId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to remove config for {ProviderId}", providerId);
+            _logger.LogError(ex, "Failed to remove config for {ProviderId}: {Message}", providerId, ex.Message);
             throw;
         }
     }
@@ -89,7 +89,7 @@ public class ConfigService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load preferences");
+            _logger.LogError(ex, "Failed to load preferences: {Message}", ex.Message);
             return new AppPreferences();
         }
     }
@@ -99,11 +99,11 @@ public class ConfigService
         try
         {
             await _configLoader.SavePreferencesAsync(preferences);
-            _logger.LogInformation("Saved preferences");
+            _logger.LogInformation("Prefs saved");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save preferences");
+            _logger.LogError(ex, "Failed to save preferences: {Message}", ex.Message);
             throw;
         }
     }
@@ -124,14 +124,14 @@ public class ConfigService
                 if (existingConfig == null)
                 {
                     existing.Add(newConfig);
-                    _logger.LogInformation("Discovered new provider: {ProviderId}", newConfig.ProviderId);
+                    _logger.LogInformation("Found: {ProviderId}", newConfig.ProviderId);
                 }
                 else if (string.IsNullOrEmpty(existingConfig.ApiKey) && !string.IsNullOrEmpty(newConfig.ApiKey))
                 {
                     // Update with discovered key
                     existingConfig.ApiKey = newConfig.ApiKey;
                     existingConfig.AuthSource = newConfig.AuthSource;
-                    _logger.LogInformation("Updated API key for: {ProviderId}", newConfig.ProviderId);
+                    _logger.LogInformation("Key updated: {ProviderId}", newConfig.ProviderId);
                 }
             }
             
@@ -140,7 +140,7 @@ public class ConfigService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to scan for keys");
+            _logger.LogError(ex, "Failed to scan for keys: {Message}", ex.Message);
             return new List<ProviderConfig>();
         }
     }

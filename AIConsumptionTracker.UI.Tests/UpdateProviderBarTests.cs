@@ -35,7 +35,7 @@ public class UpdateProviderBarTests
                 AccountName = "test@example.com",
                 Description = "Usage for test@example.com is 50",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }});
         
         var providers = new List<IProviderService> { _mockProvider.Object };
@@ -82,7 +82,7 @@ public class UpdateProviderBarTests
                 AccountName = "",
                 Description = "API Key not found",
                 IsAvailable = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }});
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
@@ -96,7 +96,7 @@ public class UpdateProviderBarTests
             AccountName = "",
             Description = "API Key not found",
             IsAvailable = false,
-            PaymentType = PaymentType.UsageBased
+            PlanType = PlanType.Usage
         };
 
         var method = typeof(MainWindow).GetMethod("UpdateProviderBar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -128,7 +128,7 @@ public class UpdateProviderBarTests
                 AccountName = "",
                 Description = "API Key not found",
                 IsAvailable = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }});
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
@@ -142,7 +142,7 @@ public class UpdateProviderBarTests
             AccountName = "",
             Description = "API Key not found",
             IsAvailable = false,
-            PaymentType = PaymentType.UsageBased
+            PlanType = PlanType.Usage
         };
 
         var method = typeof(MainWindow).GetMethod("UpdateProviderBar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
@@ -174,7 +174,7 @@ public class UpdateProviderBarTests
                 AccountName = "",
                 Description = "API Key not found",
                 IsAvailable = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }});
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
@@ -188,7 +188,7 @@ public class UpdateProviderBarTests
             AccountName = "",
             Description = "Connected",
             IsAvailable = true,
-            PaymentType = PaymentType.Quota,
+            PlanType = PlanType.Coding,
             IsQuotaBased = true
         };
 
@@ -221,7 +221,7 @@ public class UpdateProviderBarTests
                 AccountName = "",
                 Description = "API Key not found",
                 IsAvailable = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }});
 
         var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
@@ -235,7 +235,7 @@ public class UpdateProviderBarTests
             AccountName = "",
             Description = "Connected",
             IsAvailable = true,
-            PaymentType = PaymentType.UsageBased,
+            PlanType = PlanType.Usage,
             NextResetTime = DateTime.UtcNow.AddDays(7)
         };
 
@@ -268,7 +268,7 @@ public class UpdateProviderBarTests
                 AccountName = "",
                 Description = "Usage: 50%",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 IsQuotaBased = true
             }});
 
@@ -288,7 +288,7 @@ public class UpdateProviderBarTests
             AccountName = "",
             Description = "Usage: 75%",
             IsAvailable = true,
-            PaymentType = PaymentType.Quota,
+            PlanType = PlanType.Coding,
             IsQuotaBased = true
         };
 
@@ -303,58 +303,58 @@ public class UpdateProviderBarTests
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithQuotaProvider()
     {
-        await TestProviderRendering("zai-coding-plan", "Z.AI", PaymentType.Quota, true);
+        await TestProviderRendering("zai-coding-plan", "Z.AI", PlanType.Coding, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithAntigravityProvider()
     {
-        await TestProviderRendering("antigravity", "Antigravity", PaymentType.Quota, true);
+        await TestProviderRendering("antigravity", "Antigravity", PlanType.Coding, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithGitHubCopilotProvider()
     {
-        await TestProviderRendering("github-copilot", "GitHub Copilot", PaymentType.Quota, true);
+        await TestProviderRendering("github-copilot", "GitHub Copilot", PlanType.Coding, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithGeminiProvider()
     {
-        await TestProviderRendering("gemini-cli", "Gemini CLI", PaymentType.Quota, true);
+        await TestProviderRendering("gemini-cli", "Gemini CLI", PlanType.Coding, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithOpenCodeProvider()
     {
-        await TestProviderRendering("opencode", "OpenCode", PaymentType.UsageBased, true);
+        await TestProviderRendering("opencode", "OpenCode", PlanType.Usage, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithOpenAIProvider()
     {
-        await TestProviderRendering("openai", "OpenAI", PaymentType.UsageBased, true);
+        await TestProviderRendering("openai", "OpenAI", PlanType.Usage, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithOpenRouterProvider()
     {
-        await TestProviderRendering("openrouter", "OpenRouter", PaymentType.UsageBased, true);
+        await TestProviderRendering("openrouter", "OpenRouter", PlanType.Usage, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithDeepSeekProvider()
     {
-        await TestProviderRendering("deepseek", "DeepSeek", PaymentType.UsageBased, true);
+        await TestProviderRendering("deepseek", "DeepSeek", PlanType.Usage, true);
     }
 
     [WpfFact]
     public async Task UpdateProviderBar_ShouldWorkWithKimiProvider()
     {
-        await TestProviderRendering("kimi", "Kimi", PaymentType.Quota, true);
+        await TestProviderRendering("kimi", "Kimi", PlanType.Coding, true);
     }
 
-    private async Task TestProviderRendering(string providerId, string providerName, PaymentType paymentType, bool isAvailable)
+    private async Task TestProviderRendering(string providerId, string providerName, PlanType planType, bool isAvailable)
     {
         // Arrange
         _mockConfigLoader.Setup(c => c.LoadPreferencesAsync()).ReturnsAsync(new AppPreferences { ShowAll = false, CompactMode = true });
@@ -373,10 +373,10 @@ public class UpdateProviderBarTests
             AccountName = "test@example.com",
             Description = "Connected",
             IsAvailable = isAvailable,
-            PaymentType = paymentType,
-            IsQuotaBased = paymentType == PaymentType.Quota,
-            CostUsed = 50,
-            CostLimit = 100
+            PlanType = planType,
+            IsQuotaBased = planType == PlanType.Coding,
+            RequestsUsed = 50,
+            RequestsAvailable = 100
         };
 
         var method = typeof(MainWindow).GetMethod("UpdateProviderBar", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);

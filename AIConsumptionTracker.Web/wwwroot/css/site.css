@@ -54,6 +54,18 @@ body {
 .stat-value.warning { color: var(--accent-warning); }
 .stat-value.danger { color: var(--accent-danger); }
 
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.section-header h2 {
+    margin: 0;
+}
+
 /* Provider Grid */
 .provider-grid {
     display: grid;
@@ -97,6 +109,63 @@ body {
     color: #fff;
 }
 
+/* Sub-providers (e.g., Antigravity models) */
+.sub-providers-container {
+    margin: 0.5rem 0;
+}
+
+.sub-providers-toggle {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.75rem;
+    padding: 0.25rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+}
+
+.sub-providers-toggle:hover {
+    color: var(--text-primary);
+}
+
+.sub-providers {
+    margin: 0.5rem 0;
+    padding-left: 0.5rem;
+    border-left: 2px solid var(--border-color);
+}
+
+.sub-providers.collapsed {
+    display: none;
+}
+
+.sub-provider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+    font-size: 0.75rem;
+}
+
+.sub-provider-name {
+    color: var(--text-secondary);
+    flex: 1;
+}
+
+.sub-provider-value {
+    color: var(--text-tertiary);
+    margin-right: 0.5rem;
+}
+
+.sub-provider-reset {
+    color: var(--accent-warning);
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
 /* Progress */
 .progress-container { margin: 0.5rem 0; }
 
@@ -123,6 +192,13 @@ body {
     font-size: 0.75rem;
     color: var(--text-secondary);
     margin-top: 0.25rem;
+}
+
+.reset-time {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    margin-top: 0.15rem;
+    text-align: right;
 }
 
 /* Table */

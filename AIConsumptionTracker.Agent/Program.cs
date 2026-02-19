@@ -34,7 +34,7 @@ if (port != 5000)
 }
 
 // Save port info for UI to discover
-SavePortInfo(port, isDebugMode);
+Program.SaveAgentInfo(port, isDebugMode);
 
 if (isDebugMode)
 {
@@ -83,6 +83,13 @@ if (isDebugMode)
 }
 
 var app = builder.Build();
+
+// Async database initialization
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<UsageDatabase>();
+    await db.InitializeAsync();
+}
 
 app.UseCors();
 
@@ -269,39 +276,6 @@ static int GetRandomAvailablePort()
     int port = ((IPEndPoint)listener.LocalEndpoint).Port;
     listener.Stop();
     return port;
-}
-
-// Helper: Save port info for UI discovery
-static void SavePortInfo(int port, bool debug)
-{
-    try
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
-        Directory.CreateDirectory(agentDir);
-        
-        var portFile = Path.Combine(agentDir, "agent.port");
-        File.WriteAllText(portFile, port.ToString());
-        
-        if (debug) Console.WriteLine($"[PORT] Saved port info to: {portFile}");
-        
-        // Also save with timestamp for debugging
-        var infoFile = Path.Combine(agentDir, "agent.info");
-        var info = new
-        {
-            Port = port,
-            StartedAt = DateTime.UtcNow.ToString("O"),
-            ProcessId = Environment.ProcessId,
-            DebugMode = debug
-        };
-        File.WriteAllText(infoFile, JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true }));
-        
-        if (debug) Console.WriteLine($"[PORT] Saved agent info to: {infoFile}");
-    }
-    catch (Exception ex)
-    {
-        if (debug) Console.WriteLine($"[ERROR] Failed to save port info: {ex.Message}");
-    }
 }
 
 // P/Invoke to allocate console window

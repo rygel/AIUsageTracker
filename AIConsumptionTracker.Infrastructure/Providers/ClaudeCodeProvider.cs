@@ -33,7 +33,7 @@ public class ClaudeCodeProvider : IProviderService
                 IsAvailable = false,
                 Description = "No API key configured",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }};
         }
 
@@ -66,7 +66,7 @@ public class ClaudeCodeProvider : IProviderService
             testRequest.Headers.Add("anthropic-version", "2023-06-01");
             testRequest.Content = new StringContent("{\"model\":\"claude-sonnet-4-20250514\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}", System.Text.Encoding.UTF8, "application/json");
 
-            var testResponse = await _httpClient.SendAsync(testRequest);
+            using var testResponse = await _httpClient.SendAsync(testRequest);
             
             // Extract rate limit information from headers
             var rateLimitHeaders = ExtractRateLimitInfo(testResponse.Headers);
@@ -111,12 +111,12 @@ public class ClaudeCodeProvider : IProviderService
                 {
                     ProviderId = ProviderId,
                     ProviderName = "Claude Code",
-                    UsagePercentage = usagePercentage,
-                    CostUsed = 0, // Anthropic doesn't provide cost via API
-                    CostLimit = 0,
+                    RequestsPercentage = usagePercentage,
+                    RequestsUsed = 0, // Anthropic doesn't provide cost via API
+                    RequestsAvailable = 0,
                     UsageUnit = "RPM",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased,
+                    PlanType = PlanType.Usage,
                     IsAvailable = true,
                     Description = description,
                     Details = tooltipDetails,
@@ -167,7 +167,7 @@ public class ClaudeCodeProvider : IProviderService
 
     private async Task<IEnumerable<ProviderUsage>> GetUsageFromCliAsync(ProviderConfig config)
     {
-        return await Task.Run(() =>
+        return await Task.Run(async () =>
         {
             try
             {
@@ -192,13 +192,15 @@ public class ClaudeCodeProvider : IProviderService
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsQuotaBased = false,
-                        PaymentType = PaymentType.UsageBased
+                        PlanType = PlanType.Usage
                     }};
                 }
 
-                var output = process.StandardOutput.ReadToEnd();
-                var error = process.StandardError.ReadToEnd();
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
                 process.WaitForExit(5000);
+                var output = await outputTask;
+                var error = await errorTask;
 
                 if (process.ExitCode != 0)
                 {
@@ -211,7 +213,7 @@ public class ClaudeCodeProvider : IProviderService
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsQuotaBased = false,
-                        PaymentType = PaymentType.UsageBased
+                        PlanType = PlanType.Usage
                     }};
                 }
 
@@ -228,7 +230,7 @@ public class ClaudeCodeProvider : IProviderService
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased
+                    PlanType = PlanType.Usage
                 }};
             }
         });
@@ -268,12 +270,12 @@ public class ClaudeCodeProvider : IProviderService
         {
             ProviderId = ProviderId,
             ProviderName = "Claude Code",
-            UsagePercentage = Math.Min(usagePercentage, 100),
-            CostUsed = currentUsage,
-            CostLimit = budgetLimit,
+            RequestsPercentage = Math.Min(usagePercentage, 100),
+            RequestsUsed = currentUsage,
+            RequestsAvailable = budgetLimit,
             UsageUnit = "USD",
             IsQuotaBased = false,
-            PaymentType = PaymentType.UsageBased,
+            PlanType = PlanType.Usage,
             IsAvailable = true,
             Description = budgetLimit > 0 
                 ? $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used of ${budgetLimit.ToString("F2", CultureInfo.InvariantCulture)} limit"

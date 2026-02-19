@@ -217,6 +217,9 @@ namespace AIConsumptionTracker.UI
 
         protected override void OnClosed(EventArgs e)
         {
+            // Capture and save final window preferences
+            _ = SavePreferences();
+
             // Unsubscribe from power mode events to prevent memory leaks
             SystemEvents.PowerModeChanged -= OnPowerModeChanged;
             base.OnClosed(e);
@@ -318,6 +321,13 @@ namespace AIConsumptionTracker.UI
              AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
              CompactCheck.IsChecked = _preferences.CompactMode;
              this.Topmost = _preferences.AlwaysOnTop;
+
+             // Apply Window Position and Size
+             if (_preferences.WindowWidth > 0) this.Width = _preferences.WindowWidth;
+             if (_preferences.WindowHeight > 0) this.Height = _preferences.WindowHeight;
+             if (_preferences.WindowLeft.HasValue) this.Left = _preferences.WindowLeft.Value;
+             if (_preferences.WindowTop.HasValue) this.Top = _preferences.WindowTop.Value;
+
              ApplyTheme();
 
              // Apply Font Settings
@@ -387,20 +397,54 @@ namespace AIConsumptionTracker.UI
             _preferences.StayOpen = StayOpenCheck.IsChecked ?? false;
             _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
             _preferences.CompactMode = CompactCheck.IsChecked ?? true;
+
+            // Save Window State
+            if (this.WindowState == WindowState.Normal)
+            {
+                _preferences.WindowWidth = this.Width;
+                _preferences.WindowHeight = this.Height;
+                _preferences.WindowLeft = this.Left;
+                _preferences.WindowTop = this.Top;
+            }
+
             await _configLoader.SavePreferencesAsync(_preferences);
         }
 
         public async Task RefreshData(bool forceRefresh = false)
         {
             // Reload preferences to ensure we have the latest settings (e.g. from SettingsWindow)
-            _preferences = await _configLoader.LoadPreferencesAsync();
+            _preferences = await Task.Run(() => _configLoader.LoadPreferencesAsync());
             ApplyPreferences();
 
-            var usages = await _providerManager.GetAllUsageAsync(forceRefresh, OnProviderUsageUpdated);
+            // Refresh agent info (port and errors) first
+            await Task.Run(() => _agentService.RefreshAgentInfoAsync());
+
+            // Offload to background thread because some providers (like Antigravity) 
+            // have synchronous blocking legacy code (WMI/process lookups)
+            var usages = await Task.Run(async () => await _providerManager.GetAllUsageAsync(forceRefresh, OnProviderUsageUpdated));
             _cachedUsages = usages; // Cache the data
+
+            // Check for Agent Errors
+            var agentErrors = _agentService.LastAgentErrors;
+            if (agentErrors.Any() || (usages.Count == 0 && !await _agentService.CheckHealthAsync()))
+            {
+                ErrorBanner.Visibility = Visibility.Visible;
+                if (agentErrors.Any())
+                {
+                    ErrorText.Text = string.Join("\n", agentErrors.Take(3));
+                }
+                else
+                {
+                    ErrorText.Text = "Could not connect to background agent. Please ensure the agent is running.";
+                }
+            }
+            else
+            {
+                ErrorBanner.Visibility = Visibility.Collapsed;
+            }
             
             // Update Individual Tray Icons - use cached configs to avoid loading again
-            var configs = _providerManager.LastConfigs ?? await _configLoader.LoadConfigAsync();
+            var configs = _providerManager.LastConfigs ?? await Task.Run(() => _configLoader.LoadConfigAsync());
             _cachedConfigs = configs; // Cache configs for notification checks
             if (Application.Current is App app)
             {
@@ -424,7 +468,7 @@ namespace AIConsumptionTracker.UI
             
             foreach (var usage in usages)
             {
-                if (!usage.IsQuotaBased && usage.PaymentType != PaymentType.Quota)
+                if (!usage.IsQuotaBased && usage.PlanType != PlanType.Coding)
                     continue;
 
                 var providerId = usage.ProviderId;
@@ -433,8 +477,8 @@ namespace AIConsumptionTracker.UI
                 if (configLookup.TryGetValue(providerId, out var config) && !config.EnableNotifications)
                     continue; // Skip if notifications disabled
                 
-                var costRemaining = usage.CostLimit - usage.CostUsed;
-                var isCurrentlyDepleted = usage.UsagePercentage >= 100 || costRemaining <= 0;
+                var costRemaining = usage.RequestsAvailable - usage.RequestsUsed;
+                var isCurrentlyDepleted = usage.RequestsPercentage >= 100 || costRemaining <= 0;
                 
                 // Check previous state
                 bool wasPreviouslyDepleted = _providerQuotaDepletedState.TryGetValue(providerId, out var prevState) && prevState;
@@ -444,7 +488,7 @@ namespace AIConsumptionTracker.UI
                     // Quota just got depleted - show notification
                     _notificationService.ShowQuotaExceeded(
                         usage.ProviderName,
-                        $"Quota depleted at {usage.UsagePercentage:F1}% usage"
+                        $"Quota depleted at {usage.RequestsPercentage:F1}% usage"
                     );
                     _providerQuotaDepletedState[providerId] = true;
                 }
@@ -489,7 +533,7 @@ namespace AIConsumptionTracker.UI
             bool showAll = ShowAllToggle?.IsChecked ?? true;
             bool shouldShow = showAll ||
                            (usage.IsAvailable && !usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
-                           (usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota || usage.NextResetTime.HasValue || (usage.Details != null && usage.Details.Any(d => d.NextResetTime.HasValue)));
+                           (usage.IsQuotaBased || usage.PlanType == PlanType.Coding || usage.NextResetTime.HasValue || (usage.Details != null && usage.Details.Any(d => d.NextResetTime.HasValue)));
 
             // Find existing bars for this provider group (search recursively in containers)
             var existingBars = FindElementsByTagRecursive(ProvidersList, usage.ProviderId).ToList();
@@ -540,7 +584,7 @@ namespace AIConsumptionTracker.UI
             // Create new group (Parent + Children)
             var newElements = GetGroupElements(usage);
             
-            // Find the appropriate container based on PaymentType
+            // Find the appropriate container based on PlanType
             var targetContainer = GetTargetContainerForProvider(usage);
             if (targetContainer == null)
             {
@@ -615,7 +659,7 @@ namespace AIConsumptionTracker.UI
         private Panel? GetTargetContainerForProvider(ProviderUsage usage)
         {
             // Determine which section container this provider belongs to
-            bool isQuota = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
+            bool isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
             
             // Find the appropriate container by looking through ProvidersList
             foreach (var child in ProvidersList.Children)
@@ -642,7 +686,7 @@ namespace AIConsumptionTracker.UI
             var progressFill = FindChildByTag<Border>(element, "Part_ProgressFill");
             var progressHost = FindChildByTag<Grid>(element, "Part_ProgressBarHost");
             var background = FindChildByTag<Border>(element, "Part_Background");
-            bool shouldHaveProgress = (usage.UsagePercentage > 0 || usage.IsQuotaBased) &&
+            bool shouldHaveProgress = (usage.RequestsPercentage > 0 || usage.IsQuotaBased) &&
                                     !usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase) &&
                                     !usage.Description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
 
@@ -656,7 +700,7 @@ namespace AIConsumptionTracker.UI
                 }
                 progressHost.Visibility = Visibility.Visible;
 
-                var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
+                var indicatorWidth = Math.Min(usage.RequestsPercentage, 100);
                 if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
 
                 if (progressHost.ColumnDefinitions.Count == 2)
@@ -665,8 +709,8 @@ namespace AIConsumptionTracker.UI
                     progressHost.ColumnDefinitions[1].Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star);
                 }
 
-                var isQuota = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
-                progressFill.Background = GetProgressBarColor(usage.UsagePercentage, isQuota);
+                var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
+                progressFill.Background = GetProgressBarColor(usage.RequestsPercentage, isQuota);
             }
             else
             {
@@ -698,14 +742,14 @@ namespace AIConsumptionTracker.UI
             {
                 var newStatus = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;
                 
-                if (usage.PaymentType == PaymentType.Credits)
+                if (usage.PlanType == PlanType.Usage)
                 {
-                    var remaining = usage.CostLimit - usage.CostUsed;
+                    var remaining = usage.RequestsAvailable - usage.RequestsUsed;
                     newStatus = isCompactElement ? $"{remaining:F2} Rem" : $"{remaining:F2} {usage.UsageUnit} Remaining";
                 }
-                else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+                else if (usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
                 {
-                    newStatus = isCompactElement ? $"${usage.CostUsed:F2} / ${usage.CostLimit:F2}" : $"Spent: ${usage.CostUsed:F2} / Limit: ${usage.CostLimit:F2}";
+                    newStatus = isCompactElement ? $"${usage.RequestsUsed:F2} / ${usage.RequestsAvailable:F2}" : $"Spent: ${usage.RequestsUsed:F2} / Limit: ${usage.RequestsAvailable:F2}";
                 }
 
                 // Handle embedded reset info
@@ -778,7 +822,7 @@ namespace AIConsumptionTracker.UI
             var filteredUsages = usages
                 .Where(u => showAll ||
                            (u.IsAvailable && !u.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
-                           (u.IsQuotaBased || u.PaymentType == PaymentType.Quota || u.NextResetTime.HasValue || (u.Details != null && u.Details.Any(d => d.NextResetTime.HasValue))) ||
+                           (u.IsQuotaBased || u.PlanType == PlanType.Coding || u.NextResetTime.HasValue || (u.Details != null && u.Details.Any(d => d.NextResetTime.HasValue))) ||
                            (!string.IsNullOrEmpty(u.ConfigKey))) // Show if it has a key configured
                 .OrderBy(u => u.ProviderName)
                 .ToList();
@@ -797,8 +841,8 @@ namespace AIConsumptionTracker.UI
                 return;
             }
 
-            var planItems = filteredUsages.Where(u => u.PaymentType == PaymentType.Quota).ToList();
-            var payGoItems = filteredUsages.Where(u => u.PaymentType != PaymentType.Quota).ToList();
+            var planItems = filteredUsages.Where(u => u.PlanType == PlanType.Coding).ToList();
+            var payGoItems = filteredUsages.Where(u => u.PlanType != PlanType.Coding).ToList();
 
             if (planItems.Any())
             {
@@ -892,12 +936,12 @@ namespace AIConsumptionTracker.UI
                 ProviderId = parent.ProviderId,
                 ProviderName = detail.Name,
                 Description = detail.Description,
-                UsagePercentage = pct,
+                RequestsPercentage = pct,
                 IsQuotaBased = true, // Treat as quota bar usually
                 IsAvailable = true,
                 AccountName = "", // Don't repeat account
                 NextResetTime = detail.NextResetTime,
-                PaymentType = parent.PaymentType // Inherit for rendering logic
+                PlanType = parent.PlanType // Inherit for rendering logic
             };
         }
 
@@ -1087,19 +1131,19 @@ namespace AIConsumptionTracker.UI
                 Tag = usage.ProviderId
             };
 
-            bool shouldHaveProgress = (usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
+            bool shouldHaveProgress = (usage.RequestsPercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
 
             var pGrid = new Grid { Tag = "Part_ProgressBarHost" };
-            var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
+            var indicatorWidth = Math.Min(usage.RequestsPercentage, 100);
             if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
 
             pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
             pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
 
-            var isQuota2 = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
+            var isQuota2 = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
             var fill = new Border
             {
-                Background = GetProgressBarColor(usage.UsagePercentage, isQuota2),
+                Background = GetProgressBarColor(usage.RequestsPercentage, isQuota2),
                 Opacity = 0.45,
                 CornerRadius = new CornerRadius(0),
                 Tag = "Part_ProgressFill"
@@ -1160,15 +1204,15 @@ namespace AIConsumptionTracker.UI
             { 
                 statusText = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;
                 
-                // Tailor description based on PaymentType if needed
-                if (usage.PaymentType == PaymentType.Credits)
+                // Tailor description based on PlanType
+                if (usage.PlanType == PlanType.Usage)
                 {
-                    var remaining = usage.CostLimit - usage.CostUsed;
+                    var remaining = usage.RequestsAvailable - usage.RequestsUsed;
                     statusText = $"{remaining:F2} Rem";
                 }
-                else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+                else if (usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
                 {
-                    statusText = $"${usage.CostUsed:F2} / ${usage.CostLimit:F2}";
+                    statusText = $"${usage.RequestsUsed:F2} / ${usage.RequestsAvailable:F2}";
                 }
 
                 var rIdx = statusText.IndexOf("(Resets:");
@@ -1252,12 +1296,12 @@ namespace AIConsumptionTracker.UI
                 }
                 
                 // Add warning indicator
-                if (usage.UsagePercentage >= 90)
+                if (usage.RequestsPercentage >= 90)
                 {
                     tooltipBuilder.AppendLine();
                     tooltipBuilder.AppendLine("⚠️ CRITICAL: Approaching rate limit!");
                 }
-                else if (usage.UsagePercentage >= 70)
+                else if (usage.RequestsPercentage >= 70)
                 {
                     tooltipBuilder.AppendLine();
                     tooltipBuilder.AppendLine("⚠️ WARNING: High usage");
@@ -1293,7 +1337,7 @@ namespace AIConsumptionTracker.UI
             };
 
             // Special case for non-quota Child Items (e.g. Free Tier: Yes)
-            if (isChild && (!usage.IsQuotaBased && usage.UsagePercentage <= 0.001))
+            if (isChild && (!usage.IsQuotaBased && usage.RequestsPercentage <= 0.001))
             {
                var simpleGrid = new Grid();
                simpleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -1396,22 +1440,22 @@ namespace AIConsumptionTracker.UI
             usageDetailGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // Progress Bar
             usageDetailGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto }); // Values/Text
 
-            bool shouldHaveProgress = (usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
+            bool shouldHaveProgress = (usage.RequestsPercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
 
             var pGrid = new Grid { Height = 4, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0), Tag = "Part_ProgressBarHost" };
             pGrid.Children.Add(new Border { Background = GetThemeBrush("ProgressBarBackground", Brushes.Gray), CornerRadius = new CornerRadius(0) });
 
-            var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
+            var indicatorWidth = Math.Min(usage.RequestsPercentage, 100);
             if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
 
             var fillGrid = new Grid();
             fillGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
             fillGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
 
-            var isQuota3 = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
+            var isQuota3 = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
             var fill = new Border
             {
-                Background = GetProgressBarColor(usage.UsagePercentage, isQuota3),
+                Background = GetProgressBarColor(usage.RequestsPercentage, isQuota3),
                 CornerRadius = new CornerRadius(0),
                 Tag = "Part_ProgressFill"
             };
@@ -1435,15 +1479,15 @@ namespace AIConsumptionTracker.UI
             // Details Text (The tokens/credits/cost)
             var detailText = _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;
 
-            // Tailor description based on PaymentType
-            if (usage.PaymentType == PaymentType.Credits)
+            // Tailor description based on PlanType
+            if (usage.PlanType == PlanType.Usage)
             {
-                var remaining = usage.CostLimit - usage.CostUsed;
+                var remaining = usage.RequestsAvailable - usage.RequestsUsed;
                 detailText = $"{remaining:F2} {usage.UsageUnit} Remaining";
             }
-            else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+            else if (usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
             {
-                detailText = $"Spent: ${usage.CostUsed:F2} / Limit: ${usage.CostLimit:F2}";
+                detailText = $"Spent: ${usage.RequestsUsed:F2} / Limit: ${usage.RequestsAvailable:F2}";
             }
 
             string? resetTextFromDetail = null;
@@ -1515,12 +1559,12 @@ namespace AIConsumptionTracker.UI
                 }
                 
                 // Add warning indicator
-                if (usage.UsagePercentage >= 90)
+                if (usage.RequestsPercentage >= 90)
                 {
                     tooltipBuilder.AppendLine();
                     tooltipBuilder.AppendLine("⚠️ CRITICAL: Approaching rate limit!");
                 }
-                else if (usage.UsagePercentage >= 70)
+                else if (usage.RequestsPercentage >= 70)
                 {
                     tooltipBuilder.AppendLine();
                     tooltipBuilder.AppendLine("⚠️ WARNING: High usage");
@@ -1797,14 +1841,14 @@ namespace AIConsumptionTracker.UI
             if (isMissing) return "Key Missing";
             if (isError) return "Error";
 
-            if (usage.PaymentType == PaymentType.Credits)
+            if (usage.PlanType == PlanType.Usage)
             {
-                var remaining = usage.CostLimit - usage.CostUsed;
+                var remaining = usage.RequestsAvailable - usage.RequestsUsed;
                 return $"{remaining:F2} Rem";
             }
-            else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+            else if (usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
             {
-                return $"${usage.CostUsed:F2} / ${usage.CostLimit:F2}";
+                return $"${usage.RequestsUsed:F2} / ${usage.RequestsAvailable:F2}";
             }
 
             return _preferences.IsPrivacyMode ? PrivacyHelper.MaskContent(usage.Description, usage.AccountName) : usage.Description;

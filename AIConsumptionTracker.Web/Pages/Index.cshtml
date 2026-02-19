@@ -33,7 +33,12 @@
             </div>
         }
 
-        <h2 class="mb-2">Current Usage</h2>
+        <div class="section-header">
+            <h2 class="mb-2">Current Usage</h2>
+            <button id="display-mode-btn" class="btn btn-secondary btn-sm" data-show-used="@(Model.ShowUsedPercentage.ToString().ToLower())">
+                @(Model.ShowUsedPercentage ? "Show Remaining %" : "Show Used %")
+            </button>
+        </div>
 
         @if (Model.LatestUsage?.Any() != true)
         {
@@ -44,8 +49,31 @@
         else
         {
             <div class="provider-grid">
-                @foreach (var usage in Model.LatestUsage)
+                @foreach (var usage in Model.LatestUsage.Where(u => u.ProviderId != "antigravity"))
                 {
+                    var displayPercentage = Model.ShowUsedPercentage 
+                        ? (100 - usage.RequestsPercentage) 
+                        : usage.RequestsPercentage;
+                    
+                    var usageText = "";
+                    if (usage.DisplayAsFraction)
+                    {
+                        if (Model.ShowUsedPercentage)
+                        {
+                            usageText = $"{usage.RequestsUsed:N0} / {usage.RequestsAvailable:N0} used";
+                        }
+                        else
+                        {
+                            var remaining = usage.RequestsAvailable - usage.RequestsUsed;
+                            usageText = $"{remaining:N0} / {usage.RequestsAvailable:N0} remaining";
+                        }
+                    }
+                    else
+                    {
+                        var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
+                        usageText = $"{displayPercentage:F1}% {modeText}";
+                    }
+                    
                     <div class="provider-card">
                         <div class="provider-header">
                             <span class="provider-name">@usage.ProviderName</span>
@@ -56,17 +84,47 @@
                         
                         <div class="progress-container">
                             <div class="progress-bar-bg">
-                                <div class="progress-bar-fill @GetProgressClass(usage.UsagePercentage)" 
-                                     style="width: @usage.UsagePercentage%"></div>
+                                <div class="progress-bar-fill @GetProgressClass(displayPercentage, Model.ShowUsedPercentage, usage.IsQuotaBased)" 
+                                     style="width: @displayPercentage%">
+                                </div>
                             </div>
                             <div class="progress-text">
-                                <span>@usage.UsagePercentage.ToString("F1")%</span>
+                                <span>@usageText</span>
                                 <span>@usage.Description</span>
                             </div>
+                            @if (usage.NextResetTime.HasValue)
+                            {
+                                <div class="reset-time">
+                                    Resets: @usage.NextResetTime.Value.ToString("MMM d, HH:mm") (@GetRelativeTimeString(usage.NextResetTime.Value))
+                                </div>
+                            }
                         </div>
                         
+                        @if (usage.Details?.Any() == true)
+                        {
+                            <div class="sub-providers-container">
+                                <button class="sub-providers-toggle" onclick="toggleSubProviders('@usage.ProviderId')">
+                                    <span id="toggle-icon-@usage.ProviderId">▼</span>
+                                    <span id="toggle-text-@usage.ProviderId">Hide @(usage.Details.Count()) models</span>
+                                </button>
+                                <div id="sub-providers-@usage.ProviderId" class="sub-providers">
+                                    @foreach (var detail in usage.Details)
+                                    {
+                                        <div class="sub-provider-row">
+                                            <span class="sub-provider-name">@detail.Name</span>
+                                            <span class="sub-provider-value">@detail.Used</span>
+                                            @if (detail.NextResetTime.HasValue)
+                                            {
+                                                <span class="sub-provider-reset">(@GetRelativeTimeString(detail.NextResetTime.Value))</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        
                         <div class="mt-2">
-                            <a href="/Provider/@usage.ProviderId" class="btn btn-secondary btn-sm">View Details</a>
+                            <a href="/provider/@usage.ProviderId" class="btn btn-secondary btn-sm">View Details</a>
                         </div>
                     </div>
                 }
@@ -74,6 +132,65 @@
         }
     </div>
 </div>
+
+<script>
+    function toggleSubProviders(providerId) {
+        const container = document.getElementById('sub-providers-' + providerId);
+        const icon = document.getElementById('toggle-icon-' + providerId);
+        const text = document.getElementById('toggle-text-' + providerId);
+        const count = container.querySelectorAll('.sub-provider-row').length;
+        
+        if (container.classList.contains('collapsed')) {
+            container.classList.remove('collapsed');
+            icon.textContent = '▼';
+            text.textContent = 'Hide ' + count + ' models';
+            localStorage.setItem('subproviders-' + providerId + '-collapsed', 'false');
+        } else {
+            container.classList.add('collapsed');
+            icon.textContent = '▶';
+            text.textContent = 'Show ' + count + ' models';
+            localStorage.setItem('subproviders-' + providerId + '-collapsed', 'true');
+        }
+    }
+    
+    // Restore collapsed state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.sub-providers').forEach(function(container) {
+            const providerId = container.id.replace('sub-providers-', '');
+            const isCollapsed = localStorage.getItem('subproviders-' + providerId + '-collapsed') === 'true';
+            if (isCollapsed) {
+                container.classList.add('collapsed');
+                const icon = document.getElementById('toggle-icon-' + providerId);
+                const text = document.getElementById('toggle-text-' + providerId);
+                const count = container.querySelectorAll('.sub-provider-row').length;
+                if (icon) icon.textContent = '▶';
+                if (text) text.textContent = 'Show ' + count + ' models';
+            }
+        });
+        
+        const btn = document.getElementById('display-mode-btn');
+        if (btn) {
+            // Load saved preference
+            const savedMode = localStorage.getItem('showUsedPercentage');
+            if (savedMode !== null) {
+                const showUsed = savedMode === 'true';
+                btn.setAttribute('data-show-used', showUsed);
+                btn.textContent = showUsed ? 'Show Remaining %' : 'Show Used %';
+            }
+            
+            btn.addEventListener('click', function() {
+                const currentShowUsed = this.getAttribute('data-show-used') === 'true';
+                const newShowUsed = !currentShowUsed;
+                localStorage.setItem('showUsedPercentage', newShowUsed);
+                this.setAttribute('data-show-used', newShowUsed);
+                this.textContent = newShowUsed ? 'Show Remaining %' : 'Show Used %';
+                // Trigger page refresh with new parameter
+                window.location.href = window.location.pathname + '?showUsed=' + newShowUsed;
+                htmx.trigger('#dashboard-content', 'refresh');
+            });
+        }
+    });
+</script>
 
 @functions {
     string GetUsageClass(double usage) => usage switch
@@ -83,10 +200,41 @@
         _ => "success"
     };
 
-    string GetProgressClass(double percentage) => percentage switch
+    string GetProgressClass(double percentage, bool showUsed, bool isQuotaBased)
     {
-        >= 80 => "high",
-        >= 50 => "medium",
-        _ => "low"
-    };
+        // For quota-based: high remaining % = green (good), low = red (bad)
+        // For usage-based: high used % = red (bad), low = green (good)
+        // When showing used %: invert the logic
+        
+        if (showUsed)
+        {
+            // Showing "used %" - high is bad
+            return percentage switch
+            {
+                >= 80 => "high",
+                >= 50 => "medium",
+                _ => "low"
+            };
+        }
+        else
+        {
+            // Showing "remaining %" - low is bad
+            return percentage switch
+            {
+                <= 20 => "high",
+                <= 50 => "medium",
+                _ => "low"
+            };
+        }
+    }
+
+    string GetRelativeTimeString(DateTime nextReset)
+    {
+        var diff = nextReset - DateTime.Now;
+        
+        if (diff.TotalSeconds <= 0) return "Ready";
+        if (diff.TotalDays >= 1) return $"{diff.Days}d {diff.Hours}h";
+        if (diff.TotalHours >= 1) return $"{diff.Hours}h {diff.Minutes}m";
+        return $"{diff.Minutes}m";
+    }
 }

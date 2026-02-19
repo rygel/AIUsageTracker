@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - AI Consumption Tracker</title>
+    <link rel="icon" type="image/png" href="~/favicon.png" />
     <link rel="stylesheet" href="~/css/site.css" />
     <link rel="stylesheet" href="~/css/themes.css" />
     <script src="https://unpkg.com/htmx.org@1.9.12" crossorigin="anonymous"></script>
@@ -24,22 +25,22 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/Charts" class="nav-link @(Context.Request.Path.Value?.Contains("/Charts") == true ? "active" : "")">
+                        <a href="/charts" class="nav-link @(Context.Request.Path.Value?.Contains("/charts") == true ? "active" : "")">
                             <span class="nav-text">Charts</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/Providers" class="nav-link @(Context.Request.Path.Value?.Contains("/Providers") == true ? "active" : "")">
+                        <a href="/providers" class="nav-link @(Context.Request.Path.Value?.Contains("/providers") == true ? "active" : "")">
                             <span class="nav-text">Providers</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/History" class="nav-link @(Context.Request.Path.Value?.Contains("/History") == true ? "active" : "")">
+                        <a href="/history" class="nav-link @(Context.Request.Path.Value?.Contains("/history") == true ? "active" : "")">
                             <span class="nav-text">History</span>
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/Data/providers" class="nav-link @(Context.Request.Path.Value?.Contains("/Data") == true ? "active" : "")">
+                        <a href="/data/providers" class="nav-link @(Context.Request.Path.Value?.Contains("/data") == true ? "active" : "")">
                             <span class="nav-text">Raw Data</span>
                         </a>
                     </li>
@@ -50,7 +51,7 @@
                 <div class="agent-section">
                     <div class="agent-status-row">
                         <span id="agent-status" class="agent-status">Checking...</span>
-                        <button id="start-agent-btn" class="btn btn-sm btn-primary" onclick="startAgent()">Start</button>
+                        <button id="agent-toggle-btn" class="btn btn-sm btn-primary" onclick="toggleAgent()">Start</button>
                     </div>
                 </div>
                 
@@ -92,43 +93,66 @@
     <script src="~/js/sidebar.js"></script>
     <script>
         // Agent status check
+        let isAgentRunning = false;
+        
         async function checkAgentStatus() {
             try {
                 const res = await fetch('/api/agent/status');
                 const data = await res.json();
                 const statusEl = document.getElementById('agent-status');
-                const btn = document.getElementById('start-agent-btn');
+                const btn = document.getElementById('agent-toggle-btn');
+                
+                isAgentRunning = data.isRunning;
                 
                 if (data.isRunning) {
                     statusEl.textContent = 'Agent: Running';
                     statusEl.classList.add('running');
-                    btn.style.display = 'none';
+                    btn.textContent = 'Stop';
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-danger');
                 } else {
                     statusEl.textContent = 'Agent: Stopped';
                     statusEl.classList.remove('running');
-                    btn.style.display = 'inline-block';
+                    btn.textContent = 'Start';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-primary');
                 }
             } catch {
                 document.getElementById('agent-status').textContent = 'Agent: Unknown';
+                isAgentRunning = false;
             }
         }
         
-        async function startAgent() {
-            const btn = document.getElementById('start-agent-btn');
+        async function toggleAgent() {
+            const btn = document.getElementById('agent-toggle-btn');
             btn.disabled = true;
-            btn.textContent = 'Starting...';
             
-            try {
-                const res = await fetch('/api/agent/start', { method: 'POST' });
-                if (res.ok) {
-                    setTimeout(checkAgentStatus, 2000);
+            if (isAgentRunning) {
+                btn.textContent = 'Stopping...';
+                try {
+                    const res = await fetch('/api/agent/stop', { method: 'POST' });
+                    if (res.ok) {
+                        setTimeout(checkAgentStatus, 1000);
+                    }
+                } catch (e) {
+                    console.error(e);
                 }
-            } catch (e) {
-                console.error(e);
+            } else {
+                btn.textContent = 'Starting...';
+                try {
+                    const res = await fetch('/api/agent/start', { method: 'POST' });
+                    if (res.ok) {
+                        setTimeout(checkAgentStatus, 2000);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
             }
             
-            btn.disabled = false;
-            btn.textContent = 'Start';
+            setTimeout(() => {
+                btn.disabled = false;
+                checkAgentStatus();
+            }, 3000);
         }
         
         document.addEventListener('DOMContentLoaded', checkAgentStatus);

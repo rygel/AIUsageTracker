@@ -7,8 +7,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using AIConsumptionTracker.UI.Slim.Models;
-using AIConsumptionTracker.UI.Slim.Services;
+using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Core.AgentClient;
 using SharpVectors.Renderers.Wpf;
 using SharpVectors.Converters;
 
@@ -45,7 +45,44 @@ public partial class MainWindow : Window
             VersionText.Text = $"v{version.Major}.{version.Minor}.{version.Build}";
         }
 
-        Loaded += async (s, e) => await InitializeAsync();
+        Loaded += async (s, e) =>
+        {
+            PositionWindowNearTray();
+            await InitializeAsync();
+        };
+
+        // Track window position changes
+        LocationChanged += async (s, e) => await SaveWindowPositionAsync();
+        SizeChanged += async (s, e) => await SaveWindowPositionAsync();
+    }
+
+    private void PositionWindowNearTray()
+    {
+        // If saved position exists, use it
+        if (_preferences.WindowLeft.HasValue && _preferences.WindowTop.HasValue)
+        {
+            // Ensure window is visible on screen
+            var screen = SystemParameters.WorkArea;
+            var left = Math.Max(screen.Left, Math.Min(_preferences.WindowLeft.Value, screen.Right - Width));
+            var top = Math.Max(screen.Top, Math.Min(_preferences.WindowTop.Value, screen.Bottom - Height));
+
+            Left = left;
+            Top = top;
+        }
+    }
+
+    private async Task SaveWindowPositionAsync()
+    {
+        if (!IsLoaded || _agentService == null) return;
+
+        // Only save if position has changed meaningfully
+        if (Math.Abs(_preferences.WindowLeft.GetValueOrDefault() - Left) > 1 ||
+            Math.Abs(_preferences.WindowTop.GetValueOrDefault() - Top) > 1)
+        {
+            _preferences.WindowLeft = Left;
+            _preferences.WindowTop = Top;
+            await _agentService.SavePreferencesAsync(_preferences);
+        }
     }
 
     private async Task InitializeAsync()
@@ -58,56 +95,80 @@ public partial class MainWindow : Window
             _isLoading = true;
             ShowStatus("Checking agent status...", StatusType.Info);
             
-            // Refresh port discovery before making API calls
-            await _agentService.RefreshPortAsync();
+            // Offload the expensive discovery/startup logic to a background thread
+            // to prevent UI freezing during port scans or agent startup waits.
+            var success = await Task.Run(async () => {
+                try {
+                    // Refresh port discovery
+                    await _agentService.RefreshPortAsync();
 
-            // Check if Agent is running, auto-start if needed
-            if (!await AgentLauncher.IsAgentRunningAsync())
-            {
-                ShowStatus("Agent not running. Starting agent...", StatusType.Warning);
-                
-                if (AgentLauncher.StartAgent())
-                {
-                    ShowStatus("Waiting for agent...", StatusType.Warning);
-                    var agentReady = await AgentLauncher.WaitForAgentAsync();
-                    
-                    if (!agentReady)
+                    // Check if Agent is running, auto-start if needed
+                    if (!await AgentLauncher.IsAgentRunningAsync())
                     {
-                        ShowStatus("Agent failed to start", StatusType.Error);
-                        ShowErrorState("Agent failed to start.\n\nPlease ensure AIConsumptionTracker.Agent is installed and try again.");
-                        return;
+                        Dispatcher.Invoke(() => ShowStatus("Agent not running. Starting agent...", StatusType.Warning));
+                        
+                        if (await AgentLauncher.StartAgentAsync())
+                        {
+                            Dispatcher.Invoke(() => ShowStatus("Waiting for agent...", StatusType.Warning));
+                            var agentReady = await AgentLauncher.WaitForAgentAsync();
+                            
+                            if (!agentReady)
+                            {
+                                Dispatcher.Invoke(() => {
+                                    ShowStatus("Agent failed to start", StatusType.Error);
+                                    ShowErrorState("Agent failed to start.\n\nPlease ensure AIConsumptionTracker.Agent is installed and try again.");
+                                });
+                                return false;
+                            }
+                            
+                            Dispatcher.Invoke(() => {
+                                ShowStatus("Agent started", StatusType.Success);
+                                UpdateAgentStatusButton(true);
+                            });
+                        }
+                        else
+                        {
+                            Dispatcher.Invoke(() => {
+                                ShowStatus("Could not start agent", StatusType.Error);
+                                ShowErrorState("Could not start agent automatically.\n\nPlease start it manually:\n\ndotnet run --project AIConsumptionTracker.Agent");
+                                UpdateAgentStatusButton(false);
+                            });
+                            return false;
+                        }
                     }
-                    
-                    ShowStatus("Agent started", StatusType.Success);
-                    UpdateAgentStatusButton(true);
+                    else
+                    {
+                        Dispatcher.Invoke(() => UpdateAgentStatusButton(true));
+                    }
+
+                    // Load preferences on background thread
+                    var prefs = await _agentService.GetPreferencesAsync();
+                    Dispatcher.Invoke(() => {
+                        _preferences = prefs;
+                        _isPrivacyMode = _preferences.IsPrivacyMode;
+                        ApplyPreferences();
+                    });
+
+                    // Update agent toggle button state
+                    await UpdateAgentToggleButtonStateAsync();
+
+                    return true;
+                } catch (Exception ex) {
+                    Debug.WriteLine($"Error in background initialization: {ex.Message}");
+                    return false;
                 }
-                else
-                {
-                    ShowStatus("Could not start agent", StatusType.Error);
-                    ShowErrorState("Could not start agent automatically.\n\nPlease start it manually:\n\ndotnet run --project AIConsumptionTracker.Agent");
-                    UpdateAgentStatusButton(false);
-                    return;
-                }
-            }
-            else
+            });
+
+            if (success)
             {
-                UpdateAgentStatusButton(true);
+                // Rapid polling at startup until data is available
+                await RapidPollUntilDataAvailableAsync();
+
+                // Start polling timer - UI polls Agent every minute
+                StartPollingTimer();
+
+                ShowStatus("Ready", StatusType.Success);
             }
-
-            // Load preferences
-            _preferences = await _agentService.GetPreferencesAsync();
-            _isPrivacyMode = _preferences.IsPrivacyMode;
-
-            // Apply preferences to UI
-            ApplyPreferences();
-
-            // Rapid polling at startup until data is available
-            await RapidPollUntilDataAvailableAsync();
-
-            // Start polling timer - UI polls Agent every minute
-            StartPollingTimer();
-
-            ShowStatus("Ready", StatusType.Success);
         }
         catch (Exception ex)
         {
@@ -176,7 +237,7 @@ public partial class MainWindow : Window
         // Apply UI controls
         ShowAllToggle.IsChecked = _preferences.ShowAll;
         AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
-        CompactCheck.IsChecked = _preferences.CompactMode;
+        ShowUsedToggle.IsChecked = _preferences.InvertProgressBar;
     }
 
     private async Task RefreshDataAsync()
@@ -262,18 +323,18 @@ public partial class MainWindow : Window
         var filteredUsages = _preferences.ShowAll ? _usages : _usages.Where(u => u.IsAvailable).ToList();
 
         // Filter out Antigravity completely if not available (regardless of ShowAll setting)
-        filteredUsages = filteredUsages.Where(u => !(u.ProviderId == "antigravity" && !u.IsAvailable)).ToList();
+        // Also filter out Antigravity child items (antigravity.*) as they are shown inside the main card
+        filteredUsages = filteredUsages.Where(u => 
+            !(u.ProviderId == "antigravity" && !u.IsAvailable) &&
+            !u.ProviderId.StartsWith("antigravity.")
+        ).ToList();
 
         // Separate providers by type and order alphabetically
-        var quotaProviders = filteredUsages.Where(u => u.IsQuotaBased || u.PaymentType == PaymentType.Quota).OrderBy(u => u.ProviderName).ToList();
-        var paygProviders = filteredUsages.Where(u => !u.IsQuotaBased && u.PaymentType != PaymentType.Quota).OrderBy(u => u.ProviderName).ToList();
-        
-        // Special handling for Antigravity - check if it has sub-providers
-        var antigravityProviders = quotaProviders.Where(u => u.ProviderId == "antigravity").ToList();
-        quotaProviders = quotaProviders.Where(u => u.ProviderId != "antigravity").ToList();
+        var quotaProviders = filteredUsages.Where(u => u.IsQuotaBased || u.PlanType == PlanType.Coding).OrderBy(u => u.ProviderName).ToList();
+        var paygProviders = filteredUsages.Where(u => !u.IsQuotaBased && u.PlanType != PlanType.Coding).OrderBy(u => u.ProviderName).ToList();
 
         // Plans & Quotas Section
-        if (quotaProviders.Any() || antigravityProviders.Any())
+        if (quotaProviders.Any())
         {
             var (plansHeader, plansContainer) = CreateCollapsibleGroupHeader(
                 "Plans & Quotas",
@@ -287,43 +348,15 @@ public partial class MainWindow : Window
 
             if (!_preferences.IsPlansAndQuotasCollapsed)
             {
-                // Add regular quota providers
+                // Add all quota providers (including antigravity) with collapsible sub-providers if available
                 foreach (var usage in quotaProviders.OrderBy(u => u.ProviderName))
                 {
                     AddProviderCard(usage, plansContainer);
-                }
-
-                // Special handling for Antigravity with sub-providers
-                foreach (var antigravity in antigravityProviders)
-                {
-                    if (antigravity.Details?.Any() == true)
+                    
+                    // Add collapsible sub-providers section if details exist
+                    if (usage.Details?.Any() == true)
                     {
-                        // Antigravity with collapsible sub-providers
-                        var (antiHeader, antiContainer) = CreateCollapsibleSubHeader(
-                            antigravity.ProviderName,
-                            Brushes.DeepSkyBlue,
-                            () => _preferences.IsAntigravityCollapsed,
-                            v => _preferences.IsAntigravityCollapsed = v);
-                        
-                        plansContainer.Children.Add(antiHeader);
-                        plansContainer.Children.Add(antiContainer);
-
-                        if (!_preferences.IsAntigravityCollapsed)
-                        {
-                            // Add main Antigravity card
-                            AddProviderCard(antigravity, antiContainer);
-                            
-                            // Add sub-provider details
-                            foreach (var detail in antigravity.Details)
-                            {
-                                AddSubProviderCard(detail, antiContainer);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Regular Antigravity without sub-providers
-                        AddProviderCard(antigravity, plansContainer);
+                        AddCollapsibleSubProviders(usage, plansContainer);
                     }
                 }
             }
@@ -451,19 +484,31 @@ public partial class MainWindow : Window
             Tag = usage.ProviderId
         };
 
-        bool shouldHaveProgress = (usage.UsagePercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
+        bool shouldHaveProgress = (usage.RequestsPercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
 
         // Background Progress Bar
         var pGrid = new Grid();
-        var indicatorWidth = Math.Min(usage.UsagePercentage, 100);
-        if (_preferences.InvertProgressBar) indicatorWidth = Math.Max(0, 100 - indicatorWidth);
+
+        // Normalize percentages based on provider type
+        // Quota/Coding: RequestsPercentage is REMAINING %
+        // Usage/PAYG: RequestsPercentage is USED %
+        bool isQuotaType = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
+        double pctRemaining = isQuotaType ? usage.RequestsPercentage : Math.Max(0, 100 - usage.RequestsPercentage);
+        double pctUsed = isQuotaType ? Math.Max(0, 100 - usage.RequestsPercentage) : usage.RequestsPercentage;
+
+        // Determine which width to show based on toggle
+        bool showUsed = ShowUsedToggle?.IsChecked ?? false;
+        double indicatorWidth = showUsed ? pctUsed : pctRemaining;
+        
+        // Clamp to 0-100
+        indicatorWidth = Math.Max(0, Math.Min(100, indicatorWidth));
 
         pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
         pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
 
         var fill = new Border
         {
-            Background = GetProgressBarColor(usage.UsagePercentage, usage.IsQuotaBased),
+            Background = GetProgressBarColor(pctUsed),
             Opacity = 0.45,
             CornerRadius = new CornerRadius(0)
         };
@@ -501,7 +546,9 @@ public partial class MainWindow : Window
         {
             // Provider icon for parent items
             var providerIcon = CreateProviderIcon(usage.ProviderId);
-            providerIcon.Margin = new Thickness(0, 0, 8, 0);
+            providerIcon.Margin = new Thickness(0, 0, 6, 0); // Reduced margin for specific alignment
+            providerIcon.Width = 14; 
+            providerIcon.Height = 14;
             providerIcon.VerticalAlignment = VerticalAlignment.Center;
             contentPanel.Children.Add(providerIcon);
             DockPanel.SetDock(providerIcon, Dock.Left);
@@ -518,14 +565,55 @@ public partial class MainWindow : Window
         { 
             statusText = _isPrivacyMode ? "***" : usage.Description;
             
-            if (usage.PaymentType == PaymentType.Credits)
+            if (usage.PlanType == PlanType.Coding)
             {
-                var remaining = usage.CostLimit - usage.CostUsed;
-                statusText = $"{remaining:F0} remaining";
+                var displayUsed = ShowUsedToggle?.IsChecked ?? false;
+                
+                // Check if we have raw numbers (limit > 100 serves as a heuristic for usage limits > 100%)
+                if (usage.DisplayAsFraction)
+                {
+                    if (displayUsed)
+                    {
+                        statusText = $"{usage.RequestsUsed:N0} / {usage.RequestsAvailable:N0} used";
+                    }
+                    else
+                    {
+                        var remaining = usage.RequestsAvailable - usage.RequestsUsed;
+                        statusText = $"{remaining:N0} / {usage.RequestsAvailable:N0} remaining";
+                    }
+                }
+                else
+                {
+                    // Percentage only mode
+                    if (displayUsed)
+                    {
+                        statusText = $"{usage.RequestsUsed:F0}% used";
+                    }
+                    else
+                    {
+                        var remaining = usage.RequestsAvailable - usage.RequestsUsed;
+                        statusText = $"{remaining:F0}% remaining";
+                    }
+                }
             }
-            else if (usage.PaymentType == PaymentType.UsageBased && usage.CostLimit > 0)
+            else if (usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
             {
-                statusText = $"${usage.CostUsed:F2} / ${usage.CostLimit:F2}";
+                statusText = $"${usage.RequestsUsed:F2} / ${usage.RequestsAvailable:F2}";
+            }
+            else if (usage.IsQuotaBased || usage.PlanType == PlanType.Coding)
+            {
+                // Show used% or remaining% based on toggle
+                // Show used% or remaining% based on toggle (variable renamed to avoid conflict)
+                var usePercentage = ShowUsedToggle?.IsChecked ?? false;
+                if (usePercentage)
+                {
+                    var usedPercent = 100.0 - usage.RequestsPercentage;
+                    statusText = $"{usedPercent:F0}% used";
+                }
+                else
+                {
+                    statusText = $"{usage.RequestsPercentage:F0}% remaining";
+                }
             }
         }
 
@@ -540,7 +628,8 @@ public partial class MainWindow : Window
                 Foreground = GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(6, 0, 0, 0)
+
+                Margin = new Thickness(10, 0, 0, 0)
             };
             DockPanel.SetDock(resetBlock, Dock.Right);
             contentPanel.Children.Add(resetBlock);
@@ -612,7 +701,42 @@ public partial class MainWindow : Window
             Background = Brushes.Transparent
         };
 
-        // Bullet point
+        // Calculate Percentages
+        // Antigravity detail.Used comes as "80%" which represents REMAINING percentage
+        double pctRemaining = 0;
+        double pctUsed = 0;
+        
+        // Try parse percentage
+        var valueText = detail.Used?.Replace("%", "").Trim();
+        if (double.TryParse(valueText, out double val))
+        {
+            pctRemaining = val; // Antigravity sends Remaining % in this field
+            pctUsed = Math.Max(0, 100 - pctRemaining);
+        }
+
+        // Determine display values based on toggle
+        bool showUsed = ShowUsedToggle?.IsChecked ?? false;
+        double displayPct = showUsed ? pctUsed : pctRemaining;
+        string displayStr = $"{displayPct:F0}%";
+        
+        // Calculate Bar Width (normalized to 0-100)
+        double indicatorWidth = Math.Max(0, Math.Min(100, displayPct));
+
+        // Background Progress Bar (Miniature)
+        var pGrid = new Grid();
+        pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
+        pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
+
+        var fill = new Border
+        {
+            Background = GetProgressBarColor(pctUsed), // Always color based on USED percentage
+            Opacity = 0.3, // Slightly more transparent for sub-items
+            CornerRadius = new CornerRadius(0)
+        };
+        pGrid.Children.Add(fill);
+        grid.Children.Add(pGrid);
+
+        // Content Overlay
         var bulletPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
         
         var bullet = new Border
@@ -626,10 +750,26 @@ public partial class MainWindow : Window
         bulletPanel.Children.Add(bullet);
         DockPanel.SetDock(bullet, Dock.Left);
 
+        // Reset time on the right (if available) - shown in yellow
+        if (detail.NextResetTime.HasValue)
+        {
+            var resetBlock = new TextBlock
+            {
+                Text = $"({GetRelativeTimeString(detail.NextResetTime.Value)})",
+                FontSize = 9,
+                Foreground = GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(6, 0, 0, 0)
+            };
+            bulletPanel.Children.Add(resetBlock);
+            DockPanel.SetDock(resetBlock, Dock.Right);
+        }
+
         // Value on the right
         var valueBlock = new TextBlock
         {
-            Text = detail.Used,
+            Text = displayStr,
             FontSize = 10,
             Foreground = GetResourceBrush("TertiaryText", Brushes.Gray),
             VerticalAlignment = VerticalAlignment.Center,
@@ -652,6 +792,30 @@ public partial class MainWindow : Window
 
         grid.Children.Add(bulletPanel);
         container.Children.Add(grid);
+    }
+
+    private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container)
+    {
+        if (usage.Details?.Any() != true) return;
+
+        // Create collapsible section for sub-providers
+        var (subHeader, subContainer) = CreateCollapsibleSubHeader(
+            $"{usage.ProviderName} Details",
+            Brushes.DeepSkyBlue,
+            () => _preferences.IsAntigravityCollapsed,
+            v => _preferences.IsAntigravityCollapsed = v);
+
+        container.Children.Add(subHeader);
+        container.Children.Add(subContainer);
+
+        if (!_preferences.IsAntigravityCollapsed)
+        {
+            // Add sub-provider details
+            foreach (var detail in usage.Details)
+            {
+                AddSubProviderCard(detail, subContainer);
+            }
+        }
     }
 
     private string GetRelativeTimeString(DateTime nextReset)
@@ -795,28 +959,14 @@ public partial class MainWindow : Window
         return grid;
     }
 
-    private Brush GetProgressBarColor(double percentage, bool isQuotaBased)
+    private Brush GetProgressBarColor(double usedPercentage)
     {
-        // For quota-based providers: high percentage = green (good), low = red (bad)
-        // For usage-based providers: low percentage = green (good), high = red (bad)
-        
         var yellowThreshold = _preferences.ColorThresholdYellow;
         var redThreshold = _preferences.ColorThresholdRed;
         
-        if (isQuotaBased)
-        {
-            // Quota-based: high remaining % = green, low = red
-            if (percentage < redThreshold) return Brushes.Crimson;
-            if (percentage < yellowThreshold) return Brushes.Gold;
-            return Brushes.MediumSeaGreen;
-        }
-        else
-        {
-            // Usage-based: high used % = red, low = green
-            if (percentage >= redThreshold) return Brushes.Crimson;
-            if (percentage >= yellowThreshold) return Brushes.Gold;
-            return Brushes.MediumSeaGreen;
-        }
+        if (usedPercentage >= redThreshold) return GetResourceBrush("ProgressBarRed", Brushes.Crimson);
+        if (usedPercentage >= yellowThreshold) return GetResourceBrush("ProgressBarYellow", Brushes.Gold);
+        return GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
     }
 
     private void StartPollingTimer()
@@ -1076,11 +1226,19 @@ public partial class MainWindow : Window
 
     private async void Compact_Checked(object sender, RoutedEventArgs e)
     {
+       // No-op (Field removed from UI)
+       await Task.CompletedTask;
+    }
+
+    private async void ShowUsedToggle_Checked(object sender, RoutedEventArgs e)
+    {
         if (!IsLoaded) return;
         
-        _preferences.CompactMode = CompactCheck.IsChecked ?? true;
+        _preferences.InvertProgressBar = ShowUsedToggle.IsChecked ?? false;
         if (_agentService != null)
             await _agentService.SavePreferencesAsync(_preferences);
+            
+        // Refresh the display to show used% vs remaining%
         RenderProviders();
     }
 
@@ -1163,6 +1321,70 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void AgentToggleBtn_Click(object sender, RoutedEventArgs e)
+    {
+        var (isRunning, _) = await AgentLauncher.IsAgentRunningWithPortAsync();
+        
+        if (isRunning)
+        {
+            // Stop the agent
+            ShowStatus("Stopping agent...", StatusType.Warning);
+            var stopped = await AgentLauncher.StopAgentAsync();
+            if (stopped)
+            {
+                ShowStatus("Agent stopped", StatusType.Info);
+                UpdateAgentStatusButton(false);
+                UpdateAgentToggleButton(false);
+            }
+            else
+            {
+                ShowStatus("Failed to stop agent", StatusType.Error);
+            }
+        }
+        else
+        {
+            // Start the agent
+            ShowStatus("Starting agent...", StatusType.Warning);
+            if (AgentLauncher.StartAgent())
+            {
+                var agentReady = await AgentLauncher.WaitForAgentAsync();
+                if (agentReady)
+                {
+                    ShowStatus("Agent started", StatusType.Success);
+                    UpdateAgentStatusButton(true);
+                    UpdateAgentToggleButton(true);
+                    await RefreshDataAsync();
+                }
+                else
+                {
+                    ShowStatus("Agent failed to start", StatusType.Error);
+                    UpdateAgentToggleButton(false);
+                }
+            }
+            else
+            {
+                ShowStatus("Could not start agent", StatusType.Error);
+                UpdateAgentToggleButton(false);
+            }
+        }
+    }
+
+    private void UpdateAgentToggleButton(bool isRunning)
+    {
+        if (AgentToggleBtn != null && AgentToggleIcon != null)
+        {
+            // Update icon: Play (E768) when stopped, Stop (E71A) when running
+            AgentToggleIcon.Text = isRunning ? "\uE71A" : "\uE768";
+            AgentToggleBtn.ToolTip = isRunning ? "Stop Agent" : "Start Agent";
+        }
+    }
+
+    private async Task UpdateAgentToggleButtonStateAsync()
+    {
+        var (isRunning, _) = await AgentLauncher.IsAgentRunningWithPortAsync();
+        UpdateAgentToggleButton(isRunning);
+    }
+
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
@@ -1192,6 +1414,9 @@ public partial class MainWindow : Window
         {
             SettingsBtn_Click(this, new RoutedEventArgs());
             e.Handled = true;
+            e.Handled = true;
         }
     }
+
+
 }

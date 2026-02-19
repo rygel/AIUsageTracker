@@ -14,7 +14,7 @@ public class TokenDiscoveryService
         _logger = logger;
     }
 
-    public List<ProviderConfig> DiscoverTokens()
+    public async Task<List<ProviderConfig>> DiscoverTokensAsync()
     {
         var discoveredConfigs = new List<ProviderConfig>();
         
@@ -58,24 +58,24 @@ public class TokenDiscoveryService
         }
 
         // 3. Discover from Kilo Code
-        DiscoverKiloCodeTokens(discoveredConfigs);
+        await DiscoverKiloCodeTokensAsync(discoveredConfigs);
 
         // 4. Discover from Roo Code
-        DiscoverRooCodeTokens(discoveredConfigs);
+        await DiscoverRooCodeTokensAsync(discoveredConfigs);
 
         // 5. Discover from providers.json (to get IDs user might have added)
-        DiscoverFromProvidersFile(discoveredConfigs);
+        await DiscoverFromProvidersFileAsync(discoveredConfigs);
 
         // 6. Discover from GitHub CLI
-        DiscoverGitHubCliToken(discoveredConfigs);
+        await DiscoverGitHubCliTokenAsync(discoveredConfigs);
 
         // 7. Discover from Claude Code
-        DiscoverClaudeCodeToken(discoveredConfigs);
+        await DiscoverClaudeCodeTokenAsync(discoveredConfigs);
 
         return discoveredConfigs;
     }
 
-    private void DiscoverGitHubCliToken(List<ProviderConfig> configs)
+    private async Task DiscoverGitHubCliTokenAsync(List<ProviderConfig> configs)
     {
         try
         {
@@ -91,8 +91,8 @@ public class TokenDiscoveryService
                 }
             };
             process.Start();
-            string token = process.StandardOutput.ReadToEnd().Trim();
-            process.WaitForExit();
+            string token = (await process.StandardOutput.ReadToEndAsync()).Trim();
+            await process.WaitForExitAsync();
 
             if (!string.IsNullOrEmpty(token) && process.ExitCode == 0)
             {
@@ -105,14 +105,14 @@ public class TokenDiscoveryService
         }
     }
 
-    private void DiscoverClaudeCodeToken(List<ProviderConfig> configs)
+    private async Task DiscoverClaudeCodeTokenAsync(List<ProviderConfig> configs)
     {
         try
         {
             var claudeCredentialsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", ".credentials.json");
             if (File.Exists(claudeCredentialsPath))
             {
-                var json = File.ReadAllText(claudeCredentialsPath);
+                var json = await File.ReadAllTextAsync(claudeCredentialsPath);
                 using var doc = JsonDocument.Parse(json);
                 
                 if (doc.RootElement.TryGetProperty("claudeAiOauth", out var oauthElement))
@@ -147,7 +147,7 @@ public class TokenDiscoveryService
         }
     }
 
-    private void DiscoverFromProvidersFile(List<ProviderConfig> configs)
+    private async Task DiscoverFromProvidersFileAsync(List<ProviderConfig> configs)
     {
         var providersPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "providers.json");
         
@@ -159,7 +159,7 @@ public class TokenDiscoveryService
             
             try
             {
-                var json = File.ReadAllText(providersPath);
+                var json = await File.ReadAllTextAsync(providersPath);
                 _logger.LogDebug("[OpenCode Discovery] Read {Length} bytes from providers.json", json.Length);
                 
                 var known = JsonSerializer.Deserialize<Dictionary<string, string>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -216,7 +216,7 @@ public class TokenDiscoveryService
         }
     }
 
-    private void DiscoverKiloCodeTokens(List<ProviderConfig> configs)
+    private async Task DiscoverKiloCodeTokensAsync(List<ProviderConfig> configs)
     {
         // 1. Try VS Code extension secrets.json
         var kiloSecretsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kilocode", "secrets.json");
@@ -224,7 +224,7 @@ public class TokenDiscoveryService
         {
             try
             {
-                var json = File.ReadAllText(kiloSecretsPath);
+                var json = await File.ReadAllTextAsync(kiloSecretsPath);
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("kilo code.kilo-code", out var kiloEntry))
                 {
@@ -243,7 +243,7 @@ public class TokenDiscoveryService
         }
     }
 
-    private void DiscoverRooCodeTokens(List<ProviderConfig> configs)
+    private async Task DiscoverRooCodeTokensAsync(List<ProviderConfig> configs)
     {
         try
         {
@@ -260,7 +260,7 @@ public class TokenDiscoveryService
                     {
                         try
                         {
-                            var json = File.ReadAllText(stateFile);
+                            var json = await File.ReadAllTextAsync(stateFile);
                             using var doc = JsonDocument.Parse(json);
                             
                             // Extract API configurations from Roo Code state
@@ -290,7 +290,7 @@ public class TokenDiscoveryService
                 {
                     try
                     {
-                        var json = File.ReadAllText(secretsPath);
+                        var json = await File.ReadAllTextAsync(secretsPath);
                         using var doc = JsonDocument.Parse(json);
                         
                         // Parse similar structure to Kilo Code

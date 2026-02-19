@@ -44,8 +44,8 @@ public class ProviderManagerTests
         // Assert
         // We expect at least our 2 mocks, plus possibly auto-added system ones
         Assert.True(result.Count(r => r.IsAvailable) >= 2);
-        Assert.Contains(result, r => r.PaymentType == PaymentType.UsageBased && r.ProviderId == "openai");
-        Assert.Contains(result, r => r.PaymentType == PaymentType.Quota && r.ProviderId == "gemini");
+        Assert.Contains(result, r => r.PlanType == PlanType.Usage && r.ProviderId == "openai");
+        Assert.Contains(result, r => r.PlanType == PlanType.Coding && r.ProviderId == "gemini");
     }
 
     [Fact]

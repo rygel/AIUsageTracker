@@ -2,8 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
 using System.Drawing;
-using AIConsumptionTracker.UI.Slim.Models;
-using AIConsumptionTracker.UI.Slim.Services;
+using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Core.AgentClient;
 
 namespace AIConsumptionTracker.UI.Slim;
 
@@ -64,14 +64,15 @@ public partial class App : Application
         var infoMenuItem = new MenuItem { Header = "Info" };
         infoMenuItem.Click += (s, e) =>
         {
-            var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            MessageBox.Show(
-                $"AI Consumption Tracker Slim\n" +
-                $"Version: {version?.Major}.{version?.Minor}.{version?.Build}\n" +
-                $"\nA lightweight provider usage tracker.",
-                "About",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+            var infoDialog = new InfoDialog();
+            // If main window is visible, center over it, otherwise center screen (default)
+            if (_mainWindow != null && _mainWindow.IsVisible)
+            {
+                infoDialog.Owner = _mainWindow;
+                infoDialog.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
+            infoDialog.Show();
+            infoDialog.Activate();
         };
         contextMenu.Items.Add(infoMenuItem);
         

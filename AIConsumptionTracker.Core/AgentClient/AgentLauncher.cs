@@ -1,36 +1,58 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Text.Json;
 
-namespace AIConsumptionTracker.UI.Slim.Services;
+namespace AIConsumptionTracker.Core.AgentClient;
 
 public class AgentLauncher
 {
     private const int DefaultPort = 5000;
     private const int MaxWaitSeconds = 30;
 
-    public static async Task<int> GetAgentPortAsync()
+    private class AgentInfo
+    {
+        public int Port { get; set; }
+        public string? StartedAt { get; set; }
+        public int ProcessId { get; set; }
+        public bool DebugMode { get; set; }
+        public List<string>? Errors { get; set; }
+    }
+
+    private static async Task<AgentInfo?> GetAgentInfoAsync()
     {
         try
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var portFile = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.port");
+            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+            var jsonFile = Path.Combine(agentDir, "agent.json");
+            var infoFile = Path.Combine(agentDir, "agent.info");
             
-            if (File.Exists(portFile))
+            string? path = null;
+            if (File.Exists(jsonFile)) path = jsonFile;
+            else if (File.Exists(infoFile)) path = infoFile;
+
+            if (path != null)
             {
-                var portStr = await File.ReadAllTextAsync(portFile);
-                if (int.TryParse(portStr, out int port))
+                var json = await File.ReadAllTextAsync(path);
+                return JsonSerializer.Deserialize<AgentInfo>(json, new JsonSerializerOptions
                 {
-                    return port;
-                }
+                    PropertyNameCaseInsensitive = true
+                });
             }
             
-            return DefaultPort;
+            return null;
         }
         catch
         {
-            return DefaultPort;
+            return null;
         }
+    }
+
+    public static async Task<int> GetAgentPortAsync()
+    {
+        var info = await GetAgentInfoAsync();
+        return info?.Port > 0 ? info.Port : DefaultPort;
     }
 
     public static async Task<bool> IsAgentRunningAsync()
@@ -164,6 +186,54 @@ public class AgentLauncher
     public static bool StartAgent()
     {
         return StartAgentAsync().GetAwaiter().GetResult();
+    }
+
+    public static async Task<bool> StopAgentAsync()
+    {
+        try
+        {
+            var info = await GetAgentInfoAsync();
+            if (info?.ProcessId > 0)
+            {
+                try
+                {
+                    var process = Process.GetProcessById(info.ProcessId);
+                    process.Kill();
+                    await process.WaitForExitAsync();
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    // Process already exited
+                    return true;
+                }
+            }
+            
+            // Fallback: try to find and kill by process name
+            var processes = Process.GetProcessesByName("AIConsumptionTracker.Agent");
+            foreach (var process in processes)
+            {
+                try
+                {
+                    process.Kill();
+                    await process.WaitForExitAsync();
+                }
+                catch { /* Ignore errors */ }
+            }
+            
+            return processes.Length > 0;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to stop Agent: {ex.Message}");
+            return false;
+        }
+    }
+    
+    // Backward compatibility - synchronous wrapper
+    public static bool StopAgent()
+    {
+        return StopAgentAsync().GetAwaiter().GetResult();
     }
 
     public static async Task<bool> WaitForAgentAsync(CancellationToken cancellationToken = default)

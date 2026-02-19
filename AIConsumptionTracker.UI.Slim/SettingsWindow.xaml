@@ -251,9 +251,9 @@
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Provider" Binding="{Binding ProviderName}" Width="120"/>
                                         <DataGridTextColumn Header="Usage %" Binding="{Binding UsagePercentage, StringFormat=F1}" Width="70"/>
-                                        <DataGridTextColumn Header="Cost Used" Binding="{Binding CostUsed, StringFormat=F2}" Width="80"/>
-                                        <DataGridTextColumn Header="Cost Limit" Binding="{Binding CostLimit, StringFormat=F2}" Width="80"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding PaymentType}" Width="80"/>
+                                        <DataGridTextColumn Header="Cost Used" Binding="{Binding Used, StringFormat=F2}" Width="80"/>
+                                        <DataGridTextColumn Header="Cost Limit" Binding="{Binding Limit, StringFormat=F2}" Width="80"/>
+                                        <DataGridTextColumn Header="Type" Binding="{Binding PlanType}" Width="80"/>
                                         <DataGridTextColumn Header="Status" Binding="{Binding Description}" Width="150"/>
                                         <DataGridTextColumn Header="Fetched At" Binding="{Binding FetchedAt, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="140"/>
                                     </DataGrid.Columns>

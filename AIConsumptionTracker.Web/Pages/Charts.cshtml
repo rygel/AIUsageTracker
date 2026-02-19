@@ -1,4 +1,4 @@
-@page
+@page "/charts"
 @model ChartsModel
 @{
     ViewData["Title"] = "Charts";
@@ -40,6 +40,8 @@ else
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         const chartData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartData ?? new List<AIConsumptionTracker.Web.Services.ChartDataPoint>()));
+        const resetEvents = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ResetEvents ?? new List<AIConsumptionTracker.Web.Services.ResetEvent>()));
+        const providerColors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProviderColors ?? new Dictionary<string, string>()));
         
         function initChart(hours) {
             const ctx = document.getElementById('usageChart');
@@ -48,39 +50,121 @@ else
             // Filter data by time range
             const cutoff = new Date();
             cutoff.setHours(cutoff.getHours() - hours);
-            const filtered = chartData.filter(d => new Date(d.Timestamp) >= cutoff);
+            const filteredData = chartData.filter(d => new Date(d.Timestamp) >= cutoff);
+            const filteredResets = resetEvents.filter(r => new Date(r.Timestamp) >= cutoff);
+            
+            if (filteredData.length === 0) {
+                // No data to display
+                return;
+            }
             
             // Group by provider
-            const providers = [...new Set(filtered.map(d => d.ProviderName))];
-            const colors = ['#3b82f6', '#22c55e', '#eab308', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+            const providers = [...new Set(filteredData.map(d => d.ProviderName))].sort();
+            const colors = {
+                'Antigravity': '#ef4444', // Red
+                'Anthropic': '#ec4899', // Pink
+                'OpenAI': '#22c55e', // Green
+                'GitHub Copilot': '#3b82f6', // Blue
+                'OpenCode ': '#eab308' // Yellow
+            };
+            const defaultColors = ['#06b6d4', '#8b5cf6', '#f97316', '#64748b'];
+
+            function getColor(name, index) {
+                // Check user config first
+                if (providerColors[name]) return providerColors[name];
+                
+                for (const key in colors) {
+                    if (name.includes(key)) return colors[key];
+                }
+                return defaultColors[index % defaultColors.length];
+            }
             
+            // Get unique timestamps for labels (sorted), merging data points and reset events
+            const allTimestamps = [...new Set([
+                ...filteredData.map(d => d.Timestamp),
+                ...filteredResets.map(r => r.Timestamp)
+            ])].sort();
+
+            const labels = allTimestamps.map(ts => {
+                const date = new Date(ts);
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
+            
+            // Create datasets with aligned data points
             const datasets = providers.map((name, i) => {
-                const data = filtered
-                    .filter(d => d.ProviderName === name)
-                    .map(d => ({ x: new Date(d.Timestamp), y: d.UsagePercentage }));
+                const providerData = filteredData.filter(d => d.ProviderName === name);
+                const color = getColor(name, i);
+                
+                // Map data to the unified timeline. 
+                // We use 'spanGaps: true' so we don't need to fill every single point, 
+                // but Chart.js needs nulls for alignment.
+                const data = allTimestamps.map(ts => {
+                    const point = providerData.find(d => d.Timestamp === ts);
+                    return point ? point.RequestsPercentage : null;
+                });
+                
                 return {
                     label: name,
                     data: data,
-                    borderColor: colors[i % colors.length],
-                    backgroundColor: colors[i % colors.length] + '20',
+                    borderColor: color,
+                    backgroundColor: color + '20', // transparent fill
                     fill: false,
                     tension: 0.1,
-                    pointRadius: 2
+                    pointRadius: 2,
+                    spanGaps: true
                 };
             });
             
-            new Chart(ctx, {
+            // Destroy existing chart if present
+            if (window.usageChartInstance) {
+                window.usageChartInstance.destroy();
+            }
+
+            const resetLinePlugin = {
+                id: 'resetLines',
+                afterDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const xAxis = chart.scales.x;
+                    const yAxis = chart.scales.y;
+
+                    filteredResets.forEach(reset => {
+                        const x = xAxis.getPixelForTick(allTimestamps.indexOf(reset.Timestamp));
+                        if (x < xAxis.left || x > xAxis.right) return; // Clip if out of view
+
+                        // Find provider color
+                        const providerIndex = providers.indexOf(reset.ProviderName);
+                        // If not found (provider has no data points but has reset), skip or use gray
+                        let color = '#999999';
+                        if (providerIndex !== -1) {
+                             color = datasets[providerIndex].borderColor;
+                             // Only draw if the dataset is visible
+                             if (chart.isDatasetVisible(providerIndex) === false) return;
+                        }
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(x, yAxis.top);
+                        ctx.lineTo(x, yAxis.bottom);
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = color;
+                        ctx.setLineDash([5, 5]);
+                        ctx.stroke();
+                        ctx.restore();
+                    });
+                }
+            };
+            
+            window.usageChartInstance = new Chart(ctx, {
                 type: 'line',
-                data: { datasets },
+                data: { labels, datasets },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { intersect: false, mode: 'index' },
                     scales: {
                         x: {
-                            type: 'time',
-                            time: { displayFormats: { hour: 'HH:mm' } },
-                            title: { display: false }
+                            title: { display: false },
+                            ticks: { maxRotation: 45, minRotation: 45, maxTicksLimit: 20 }
                         },
                         y: {
                             beginAtZero: true,
@@ -92,11 +176,12 @@ else
                         legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } },
                         tooltip: {
                             callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1) ?? '-'}%`
                             }
                         }
                     }
-                }
+                },
+                plugins: [resetLinePlugin]
             });
         }
         

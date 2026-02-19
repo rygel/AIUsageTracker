@@ -71,9 +71,9 @@ public class CloudCodeProvider : IProviderService
                 ProviderId = ProviderId,
                 ProviderName = "Cloud Code (Google)",
                 IsAvailable = isConnected,
-                UsagePercentage = 0.0,
+                RequestsPercentage = 0.0,
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased,
+                PlanType = PlanType.Usage,
                 Description = message,
                 UsageUnit = "Status",
                 AuthSource = config.AuthSource

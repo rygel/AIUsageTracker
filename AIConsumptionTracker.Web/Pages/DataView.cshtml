@@ -1,4 +1,4 @@
-@page "/Data/{tableName?}"
+@page "/data/{tableName?}"
 @model DataViewModel
 @{
     ViewData["Title"] = "Database: " + (Model.TableName ?? "Select Table");
@@ -7,10 +7,10 @@
 <h1 class="page-title">Database: @Model.TableName</h1>
 
 <div class="data-tabs mb-2">
-    <a href="/Data/providers" class="data-tab @(Model.TableName == "providers" ? "active" : "")">Providers</a>
-    <a href="/Data/history" class="data-tab @(Model.TableName == "history" ? "active" : "")">History</a>
-    <a href="/Data/snapshots" class="data-tab @(Model.TableName == "snapshots" ? "active" : "")">Snapshots</a>
-    <a href="/Data/resets" class="data-tab @(Model.TableName == "resets" ? "active" : "")">Resets</a>
+    <a href="/data/providers" class="data-tab @(Model.TableName == "providers" ? "active" : "")">Providers</a>
+    <a href="/data/history" class="data-tab @(Model.TableName == "history" ? "active" : "")">History</a>
+    <a href="/data/snapshots" class="data-tab @(Model.TableName == "snapshots" ? "active" : "")">Snapshots</a>
+    <a href="/data/resets" class="data-tab @(Model.TableName == "resets" ? "active" : "")">Resets</a>
 </div>
 
 @if (!Model.IsDatabaseAvailable)
@@ -56,16 +56,16 @@ else
         <div class="pagination mt-2">
             @if (Model.PageNumber > 1)
             {
-                <a href="/Data/@Model.TableName?page=1" class="btn btn-secondary btn-sm">First</a>
-                <a href="/Data/@Model.TableName?page=@(Model.PageNumber - 1)" class="btn btn-secondary btn-sm">Prev</a>
+                <a href="/data/@Model.TableName?page=1" class="btn btn-secondary btn-sm">First</a>
+                <a href="/data/@Model.TableName?page=@(Model.PageNumber - 1)" class="btn btn-secondary btn-sm">Prev</a>
             }
             
             <span class="page-info">@Model.PageNumber / @Model.TotalPages</span>
             
             @if (Model.PageNumber < Model.TotalPages)
             {
-                <a href="/Data/@Model.TableName?page=@(Model.PageNumber + 1)" class="btn btn-secondary btn-sm">Next</a>
-                <a href="/Data/@Model.TableName?page=@Model.TotalPages" class="btn btn-secondary btn-sm">Last</a>
+                <a href="/data/@Model.TableName?page=@(Model.PageNumber + 1)" class="btn btn-secondary btn-sm">Next</a>
+                <a href="/data/@Model.TableName?page=@Model.TotalPages" class="btn btn-secondary btn-sm">Last</a>
             }
         </div>
     }

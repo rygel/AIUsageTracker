@@ -37,7 +37,7 @@ public class PrivacyTests
                 AccountName = "test@example.com",
                 Description = "Usage for test@example.com is 50",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }});
         
         var providers = new List<IProviderService> { _mockProvider.Object };
@@ -86,7 +86,7 @@ public class PrivacyTests
                 AccountName = "test@example.com",
                 Description = "Usage for test@example.com is 50",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 IsQuotaBased = true
             }});
 
@@ -137,7 +137,7 @@ public class PrivacyTests
                 AccountName = "johndoe",
                 Description = "Logged in as johndoe",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 IsQuotaBased = true
             }});
 

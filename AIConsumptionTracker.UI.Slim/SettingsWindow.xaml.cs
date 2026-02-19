@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using AIConsumptionTracker.UI.Slim.Models;
-using AIConsumptionTracker.UI.Slim.Services;
+using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Core.AgentClient;
 
 namespace AIConsumptionTracker.UI.Slim;
 
@@ -52,7 +53,7 @@ public partial class SettingsWindow : Window
             var isRunning = await AgentLauncher.IsAgentRunningAsync();
             
             // Get the actual port from the agent
-            int port = await GetAgentPortAsync();
+            int port = await AgentLauncher.GetAgentPortAsync();
             
             if (AgentStatusText != null)
             {
@@ -72,32 +73,6 @@ public partial class SettingsWindow : Window
             {
                 AgentStatusText.Text = "Error";
             }
-        }
-    }
-
-    private async Task<int> GetAgentPortAsync()
-    {
-        try
-        {
-            // Try to read port from agent info file
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var portFile = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.port");
-            
-            if (File.Exists(portFile))
-            {
-                var portStr = await File.ReadAllTextAsync(portFile);
-                if (int.TryParse(portStr, out int port))
-                {
-                    return port;
-                }
-            }
-            
-            // Default to 5000 if file doesn't exist
-            return 5000;
-        }
-        catch
-        {
-            return 5000;
         }
     }
 
@@ -637,7 +612,7 @@ public partial class SettingsWindow : Window
             await Task.Delay(1000);
             
             // Restart agent
-            if (AgentLauncher.StartAgent())
+            if (await AgentLauncher.StartAgentAsync())
             {
                 MessageBox.Show("Agent restarted successfully.", "Restart Complete", 
                     MessageBoxButton.OK, MessageBoxImage.Information);

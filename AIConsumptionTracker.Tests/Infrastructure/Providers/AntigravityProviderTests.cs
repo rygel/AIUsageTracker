@@ -18,7 +18,7 @@ public class AntigravityProviderTests
     }
 
     [Fact]
-    public async Task GetUsageAsync_WhenNotRunning_ReturnsQuotaPaymentType()
+    public async Task GetUsageAsync_WhenNotRunning_ReturnsQuotaPlanType()
     {
         // Arrange
         var config = new ProviderConfig { ProviderId = "antigravity", ApiKey = "" };
@@ -27,15 +27,17 @@ public class AntigravityProviderTests
         var result = await _provider.GetUsageAsync(config);
 
         // Assert
-        var usage = result.Single();
-        Console.WriteLine($"DEBUG: ProviderId={usage.ProviderId}, IsQuotaBased={usage.IsQuotaBased}, PaymentType={usage.PaymentType}, Description={usage.Description}");
+        // Use First() instead of Single() because on a dev machine with the app running, 
+        // it might return actual process data.
+        var usage = result.First();
+        Console.WriteLine($"DEBUG: ProviderId={usage.ProviderId}, IsQuotaBased={usage.IsQuotaBased}, PlanType={usage.PlanType}, Description={usage.Description}");
         Assert.Equal("antigravity", usage.ProviderId);
         Assert.True(usage.IsQuotaBased, "Antigravity should be quota-based even when not running");
-        Assert.Equal(PaymentType.Quota, usage.PaymentType);
+        Assert.Equal(PlanType.Coding, usage.PlanType);
     }
 
     [Fact]
-    public async Task GetUsageAsync_Result_ShouldAlwaysHaveQuotaPaymentType()
+    public async Task GetUsageAsync_Result_ShouldAlwaysHaveQuotaPlanType()
     {
         // Arrange
         var config = new ProviderConfig { ProviderId = "antigravity", ApiKey = "" };
@@ -47,7 +49,7 @@ public class AntigravityProviderTests
         Assert.All(result, usage =>
         {
             Assert.True(usage.IsQuotaBased, $"Provider {usage.ProviderId} should have IsQuotaBased=true");
-            Assert.Equal(PaymentType.Quota, usage.PaymentType);
+            Assert.Equal(PlanType.Coding, usage.PlanType);
         });
     }
 }

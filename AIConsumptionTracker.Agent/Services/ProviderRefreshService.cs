@@ -13,48 +13,47 @@ public class ProviderRefreshService : BackgroundService
 {
     private readonly ILogger<ProviderRefreshService> _logger;
     private readonly ILoggerFactory _loggerFactory;
-    private readonly UsageDatabase _database;
+    private readonly IUsageDatabase _database;
+    private readonly INotificationService _notificationService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ConfigService _configService;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private ProviderManager? _providerManager;
-    private static bool _debugMode = false;
-
-    public static void SetDebugMode(bool enabled) => _debugMode = enabled;
 
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
         ILoggerFactory loggerFactory,
-        UsageDatabase database,
+        IUsageDatabase database,
+        INotificationService notificationService,
         IHttpClientFactory httpClientFactory,
         ConfigService configService)
     {
         _logger = logger;
         _loggerFactory = loggerFactory;
         _database = database;
+        _notificationService = notificationService;
         _httpClientFactory = httpClientFactory;
         _configService = configService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Provider Refresh Service starting...");
-        DebugLog("[SERVICE] Provider Refresh Service starting...");
+        _logger.LogInformation("Starting...");
 
+        _notificationService.Initialize();
         InitializeProviders();
 
-        DebugLog("[SERVICE] Waiting 30 seconds before first refresh...");
+        _logger.LogDebug("Waiting 30 seconds before first refresh...");
         await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-        
-        // Do initial refresh after delay
+
         await TriggerRefreshAsync();
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                DebugLog($"[SERVICE] Next refresh in {_refreshInterval.TotalMinutes} minutes...");
+                _logger.LogDebug("Next refresh in {Minutes} minutes...", _refreshInterval.TotalMinutes);
                 await Task.Delay(_refreshInterval, stoppingToken);
                 await TriggerRefreshAsync();
             }
@@ -64,38 +63,31 @@ public class ProviderRefreshService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during scheduled refresh");
-                DebugLog($"[ERROR] Error during scheduled refresh: {ex.Message}");
+                _logger.LogError(ex, "Error during scheduled refresh: {Message}", ex.Message);
             }
         }
 
-        _logger.LogInformation("Provider Refresh Service stopping...");
-        DebugLog("[SERVICE] Provider Refresh Service stopping...");
+        _logger.LogInformation("Stopping...");
     }
 
     private void InitializeProviders()
     {
-        DebugLog("[INIT] Initializing providers...");
-        
+        _logger.LogDebug("Initializing providers...");
+
         var httpClient = _httpClientFactory.CreateClient();
         var configLoader = new JsonConfigLoader(
             _loggerFactory.CreateLogger<JsonConfigLoader>(),
             _loggerFactory.CreateLogger<TokenDiscoveryService>());
-        
+
         var gitHubAuthService = new GitHubAuthService(
-            httpClient, 
+            httpClient,
             _loggerFactory.CreateLogger<GitHubAuthService>());
 
         var providers = new List<IProviderService>
         {
-            // Quota-based providers
             new ZaiProvider(httpClient, _loggerFactory.CreateLogger<ZaiProvider>()),
             new AntigravityProvider(_loggerFactory.CreateLogger<AntigravityProvider>()),
-            
-            // Credits-based providers
             new OpenCodeProvider(httpClient, _loggerFactory.CreateLogger<OpenCodeProvider>()),
-            
-            // Usage-based providers
             new OpenAIProvider(httpClient, _loggerFactory.CreateLogger<OpenAIProvider>()),
             new AnthropicProvider(_loggerFactory.CreateLogger<AnthropicProvider>()),
             new GeminiProvider(httpClient, _loggerFactory.CreateLogger<GeminiProvider>()),
@@ -107,223 +99,296 @@ public class ProviderRefreshService : BackgroundService
             new XiaomiProvider(httpClient, _loggerFactory.CreateLogger<XiaomiProvider>()),
             new CodexProvider(httpClient, _loggerFactory.CreateLogger<CodexProvider>()),
             new GitHubCopilotProvider(
-                httpClient, 
-                _loggerFactory.CreateLogger<GitHubCopilotProvider>(), 
+                httpClient,
+                _loggerFactory.CreateLogger<GitHubCopilotProvider>(),
                 gitHubAuthService),
             new ClaudeCodeProvider(_loggerFactory.CreateLogger<ClaudeCodeProvider>(), httpClient),
             new CloudCodeProvider(_loggerFactory.CreateLogger<CloudCodeProvider>()),
             new OpenCodeZenProvider(_loggerFactory.CreateLogger<OpenCodeZenProvider>()),
             new EvolveMigrationProvider(_loggerFactory.CreateLogger<EvolveMigrationProvider>()),
-            
-            // Generic fallback
             new GenericPayAsYouGoProvider(httpClient, _loggerFactory.CreateLogger<GenericPayAsYouGoProvider>()),
         };
 
         _providerManager = new ProviderManager(
-            providers, 
-            configLoader, 
+            providers,
+            configLoader,
             _loggerFactory.CreateLogger<ProviderManager>());
-        
-        DebugLog($"[INIT] Initialized {providers.Count} providers:");
-        foreach (var p in providers)
-        {
-            DebugLog($"[INIT]   - {p.ProviderId}");
-        }
-        
-        _logger.LogInformation("Initialized {Count} providers", providers.Count);
+
+        _logger.LogDebug("Initialized {Count} providers: {Providers}",
+            providers.Count, string.Join(", ", providers.Select(p => p.ProviderId)));
+
+        _logger.LogInformation("Loaded {Count} providers", providers.Count);
     }
 
     public async Task TriggerRefreshAsync()
     {
         if (_providerManager == null)
         {
-            _logger.LogWarning("ProviderManager not initialized");
-            DebugLog("[ERROR] ProviderManager not initialized!");
+            _logger.LogWarning("ProviderManager not ready");
             return;
         }
 
         await _refreshSemaphore.WaitAsync();
         try
         {
-            DebugLog("");
-            DebugLog("═══════════════════════════════════════════════════════════════");
-            DebugLog($"[REFRESH] Starting data refresh - {DateTime.Now:HH:mm:ss}");
-            DebugLog("═══════════════════════════════════════════════════════════════");
-            
-            _logger.LogInformation("Starting provider data refresh...");
-            
-            // Get all provider configurations
-            DebugLog("[CONFIG] Loading provider configurations...");
+            _logger.LogDebug("Starting data refresh - {Time}", DateTime.Now.ToString("HH:mm:ss"));
+
+            _logger.LogInformation("Refreshing...");
+
+            _logger.LogDebug("Loading provider configurations...");
             var configs = await _configService.GetConfigsAsync();
-            DebugLog($"[CONFIG] Found {configs.Count} total configurations");
-            
+            _logger.LogDebug("Found {Count} total configurations", configs.Count);
+
             foreach (var c in configs)
             {
                 var hasKey = !string.IsNullOrEmpty(c.ApiKey);
-                DebugLog($"[CONFIG]   {c.ProviderId}: {(hasKey ? $"Has API key ({c.ApiKey?.Length ?? 0} chars)" : "NO API KEY")}");
+                _logger.LogDebug("Provider {ProviderId}: {Status}",
+                    c.ProviderId, hasKey ? $"Has API key ({c.ApiKey?.Length ?? 0} chars)" : "NO API KEY");
             }
-            
-            // Filter to only providers with API keys
-            var activeConfigs = configs.Where(c => !string.IsNullOrEmpty(c.ApiKey)).ToList();
-            var skippedCount = configs.Count - activeConfigs.Count;
-            
+
+            var activeConfigs = configs.Where(c => 
+                c.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase) || 
+                c.ProviderId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) ||
+                !string.IsNullOrEmpty(c.ApiKey)).ToList();
+            var skippedCount = configs.Count(c => 
+                !c.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase) && 
+                string.IsNullOrEmpty(c.ApiKey));
+
+            _logger.LogInformation("Providers: {Available} available, {Initialized} initialized", configs.Count, activeConfigs.Count);
+
             if (skippedCount > 0)
             {
-                DebugLog($"[CONFIG] Skipping {skippedCount} providers without API keys");
-                _logger.LogInformation("Skipping {Count} providers without API keys", skippedCount);
+                _logger.LogDebug("Skipping {Count} providers without API keys", skippedCount);
             }
-            
-            // Store provider configurations (including those without keys for UI display)
+
             foreach (var config in configs)
             {
                 await _database.StoreProviderAsync(config);
             }
-            
-            // Only query providers with API keys
+
             if (activeConfigs.Count > 0)
             {
-                DebugLog($"[QUERY] Querying {activeConfigs.Count} providers with API keys...");
-                _logger.LogInformation("Querying {Count} providers with API keys", activeConfigs.Count);
-                
-                // Get usage data only from providers with keys
+                _logger.LogDebug("Querying {Count} providers with API keys...", activeConfigs.Count);
+                _logger.LogInformation("Querying {Count} providers", activeConfigs.Count);
+
                 var usages = await _providerManager.GetAllUsageAsync(forceRefresh: true);
-                
-                DebugLog($"[QUERY] Received {usages.Count()} total usage results");
-                
-                // Filter to only include providers that have configs with API keys
+
+                _logger.LogDebug("Received {Count} total usage results", usages.Count());
+
                 var activeProviderIds = activeConfigs.Select(c => c.ProviderId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                var filteredUsages = usages.Where(u => activeProviderIds.Contains(u.ProviderId)).ToList();
                 
-                // Log each provider's result
-                DebugLog("[RESULTS] Provider query results:");
+                // Allow dynamic children (e.g. antigravity.claude-3-5-sonnet) through the filter even if not in config explicitly yet
+                var filteredUsages = usages.Where(u => 
+                    activeProviderIds.Contains(u.ProviderId) || 
+                    (u.ProviderId.StartsWith("antigravity.") && activeProviderIds.Contains("antigravity"))
+                ).ToList();
+
+                _logger.LogDebug("Provider query results:");
                 foreach (var usage in filteredUsages)
                 {
                     var status = usage.IsAvailable ? "OK" : "FAILED";
-                    var msg = usage.IsAvailable 
-                        ? $"{usage.UsagePercentage:F1}% used" 
+                    var msg = usage.IsAvailable
+                        ? $"{usage.RequestsPercentage:F1}% used"
                         : usage.Description;
-                    DebugLog($"[RESULTS]   {usage.ProviderId}: [{status}] {msg}");
+                    _logger.LogDebug("  {ProviderId}: [{Status}] {Message}", usage.ProviderId, status, msg);
                 }
-                
-                // Store in provider_history (indefinite retention)
+
+                // Auto-register any dynamic sub-providers (e.g. antigravity models) that aren't in config yet
+                // This ensures we have a provider record for foreign keys
+                foreach (var usage in filteredUsages)
+                {
+                    // Auto-register OR update dynamic sub-providers (e.g. antigravity models)
+                    // We update even if existing to ensure Friendly Name changes (like adding prefix) are persisted
+                    if (usage.ProviderId.StartsWith("antigravity.") || !activeProviderIds.Contains(usage.ProviderId))
+                    {
+                        if (!activeProviderIds.Contains(usage.ProviderId))
+                        {
+                            _logger.LogInformation("Auto-registering dynamic provider: {ProviderId}", usage.ProviderId);
+                        }
+                        
+                        var dynamicConfig = new ProviderConfig
+                        {
+                            ProviderId = usage.ProviderId,
+                            Type = usage.PlanType == Core.Models.PlanType.Coding ? "coding" : "usage",
+                            AuthSource = usage.AuthSource,
+                            ApiKey = "dynamic" // Placeholder to mark as active
+                        };
+                        
+                        await _database.StoreProviderAsync(dynamicConfig, usage.ProviderName);
+                        
+                        if (!activeProviderIds.Contains(usage.ProviderId))
+                        {
+                            activeProviderIds.Add(usage.ProviderId);
+                        }
+                    }
+                }
+
                 await _database.StoreHistoryAsync(filteredUsages);
-                DebugLog($"[DB] Stored {filteredUsages.Count} provider histories");
-                
-                // Detect and store reset events
+                _logger.LogDebug("Stored {Count} provider histories", filteredUsages.Count);
+
+                foreach (var usage in filteredUsages.Where(u => !string.IsNullOrEmpty(u.RawJson)))
+                {
+                    await _database.StoreRawSnapshotAsync(usage.ProviderId, usage.RawJson!, usage.HttpStatus);
+                }
+
                 await DetectResetEventsAsync(filteredUsages);
-                
-                _logger.LogInformation("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
-                DebugLog($"[REFRESH] Complete. Stored {filteredUsages.Count} provider histories");
+                var prefs = await _configService.GetPreferencesAsync();
+                CheckUsageAlerts(filteredUsages, prefs, configs);
+
+                _logger.LogInformation("Done: {Count} records", filteredUsages.Count);
+                _logger.LogDebug("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
             }
             else
             {
-                DebugLog("[CONFIG] No providers with API keys configured. Nothing to refresh.");
-                _logger.LogInformation("No providers with API keys configured. Nothing to refresh.");
+                _logger.LogDebug("No providers with API keys configured. Nothing to refresh.");
+                _logger.LogInformation("No providers configured");
             }
-            
-            // Clean up old raw snapshots (14-day retention)
+
             await _database.CleanupOldSnapshotsAsync();
-            
-            DebugLog("═══════════════════════════════════════════════════════════════");
-            DebugLog("");
+            _logger.LogInformation("Cleanup complete");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during provider refresh");
-            DebugLog($"[ERROR] Error during provider refresh: {ex.Message}");
-            DebugLog($"[ERROR] Stack trace: {ex.StackTrace}");
+            _logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
+            Program.ReportError($"Refresh failed: {ex.Message}");
         }
         finally
         {
             _refreshSemaphore.Release();
         }
     }
-    
-    /// <summary>
-    /// Detect quota/limit resets by comparing with previous usage
-    /// </summary>
+
+    public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)
+    {
+        if (!prefs.EnableNotifications) return;
+
+        foreach (var usage in usages)
+        {
+            var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
+            if (config != null && config.EnableNotifications && usage.RequestsPercentage >= prefs.NotificationThreshold)
+            {
+                _notificationService.ShowUsageAlert(usage.ProviderName, usage.RequestsPercentage);
+            }
+        }
+    }
+
     private async Task DetectResetEventsAsync(List<ProviderUsage> currentUsages)
     {
-        DebugLog("[RESET] Checking for reset events...");
-        
+        _logger.LogDebug("Checking for reset events...");
+
         foreach (var usage in currentUsages)
         {
             try
             {
-                // Get previous usage from history (need at least 2 entries to compare)
                 var history = await _database.GetHistoryByProviderAsync(usage.ProviderId, 2);
-                
-                DebugLog($"[RESET] {usage.ProviderId}: {history.Count} history entries");
-                
+
+                _logger.LogDebug("{ProviderId}: {Count} history entries", usage.ProviderId, history.Count);
+
                 if (history.Count < 2)
                 {
-                    DebugLog($"[RESET] {usage.ProviderId}: Not enough history for reset detection");
+                    _logger.LogDebug("{ProviderId}: Not enough history for reset detection", usage.ProviderId);
                     continue;
                 }
 
-                var current = history[0];  // Most recent (just stored)
-                var previous = history[1]; // Previous entry
-                
-                DebugLog($"[RESET] {usage.ProviderId}: prev={previous.CostUsed:F2}, curr={current.CostUsed:F2}");
-                
-                // For quota-based providers: detect when remaining credits jump UP (usage % drops)
-                // For usage-based providers: detect when used amount drops significantly
-                
+                var current = history[0];
+                var previous = history[1];
+
+                _logger.LogDebug("{ProviderId}: prev={Prev}, curr={Curr}",
+                    usage.ProviderId, previous.RequestsUsed.ToString("F2"), current.RequestsUsed.ToString("F2"));
+
                 bool isReset = false;
                 string resetReason = "";
-                
+
                 if (usage.IsQuotaBased)
                 {
-                    // Quota-based: UsagePercentage represents % of quota USED
-                    // When reset happens, usage% drops from high to low
-                    if (previous.UsagePercentage > 50 && current.UsagePercentage < previous.UsagePercentage * 0.3)
+                    if (previous.RequestsPercentage > 50 && current.RequestsPercentage < previous.RequestsPercentage * 0.3)
                     {
                         isReset = true;
-                        resetReason = $"Quota reset: {previous.UsagePercentage:F1}% -> {current.UsagePercentage:F1}%";
+                        resetReason = $"Quota reset: {previous.RequestsPercentage:F1}% -> {current.RequestsPercentage:F1}%";
                     }
                 }
                 else
                 {
-                    // Usage-based: CostUsed represents total money spent
-                    // When reset happens (rare), it drops significantly
-                    if (previous.CostUsed > current.CostUsed)
+                    if (previous.RequestsUsed > current.RequestsUsed)
                     {
-                        var dropPercent = (previous.CostUsed - current.CostUsed) / previous.CostUsed * 100;
-                        if (dropPercent > 20) // 20% drop threshold
+                        var dropPercent = (previous.RequestsUsed - current.RequestsUsed) / previous.RequestsUsed * 100;
+                        if (dropPercent > 20)
                         {
                             isReset = true;
-                            resetReason = $"Usage reset: ${previous.CostUsed:F2} -> ${current.CostUsed:F2} ({dropPercent:F0}% drop)";
+                            resetReason = $"Usage reset: ${previous.RequestsUsed:F2} -> ${current.RequestsUsed:F2} ({dropPercent:F0}% drop)";
                         }
                     }
                 }
-                
+
                 if (isReset)
                 {
                     await _database.StoreResetEventAsync(
                         usage.ProviderId,
                         usage.ProviderName,
-                        previous.CostUsed,
-                        current.CostUsed,
+                        previous.RequestsUsed,
+                        current.RequestsUsed,
                         usage.IsQuotaBased ? "quota" : "usage"
                     );
-                    
-                    _logger.LogInformation("Detected {Reason}", resetReason);
-                    DebugLog($"[RESET] {usage.ProviderId}: {resetReason}");
+
+                    var prefs = await _configService.GetPreferencesAsync();
+                    var configs = await _configService.GetConfigsAsync();
+                    var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
+
+                    if (prefs.EnableNotifications && config != null && config.EnableNotifications)
+                    {
+                        var details = usage.IsQuotaBased ? "Quota reset detected." : "Usage reset detected.";
+                        _notificationService.ShowQuotaExceeded(usage.ProviderName, details);
+                    }
+
+                    _logger.LogInformation("Reset: {Reason}", resetReason);
+                    _logger.LogDebug("{ProviderId}: {Reason}", usage.ProviderId, resetReason);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to detect reset for {ProviderId}", usage.ProviderId);
-                DebugLog($"[RESET] {usage.ProviderId}: Error - {ex.Message}");
+                _logger.LogWarning(ex, "Reset check failed for {ProviderId}: {Message}", usage.ProviderId, ex.Message);
             }
         }
     }
 
-    private static void DebugLog(string message)
+    public async Task<(bool success, string message, int status)> CheckProviderAsync(string providerId)
     {
-        if (_debugMode)
+        if (_providerManager == null)
         {
-            Console.WriteLine(message);
+            return (false, "ProviderManager not initialized", 503);
+        }
+
+        try
+        {
+            await _refreshSemaphore.WaitAsync();
+            try
+            {
+                var usages = await _providerManager.GetUsageAsync(providerId);
+                var usage = usages.FirstOrDefault();
+                
+                if (usage == null)
+                    return (false, "No usage data returned", 404);
+
+                if (usage.HttpStatus >= 400 && usage.HttpStatus != 429) // 429 is rate limit, which means auth works
+                {
+                    return (false, usage.Description, usage.HttpStatus);
+                }
+
+                if (!usage.IsAvailable)
+                {
+                    return (false, usage.Description, 503);
+                }
+
+                return (true, "Connected", 200);
+            }
+            finally
+            {
+                _refreshSemaphore.Release();
+            }
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message, 500);
         }
     }
 }

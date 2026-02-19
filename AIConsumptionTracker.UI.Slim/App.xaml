@@ -47,6 +47,8 @@
             <SolidColorBrush x:Key="ScrollBarBackground" Color="#1E1E1E"/>
             <SolidColorBrush x:Key="ScrollBarForeground" Color="#4E4E4E"/>
             <SolidColorBrush x:Key="ScrollBarHover" Color="#6E6E6E"/>
+            
+            <SolidColorBrush x:Key="LinkForeground" Color="#3794ff"/>
 
             <Style TargetType="Button">
                 <Setter Property="Background" Value="{DynamicResource ButtonBackground}"/>

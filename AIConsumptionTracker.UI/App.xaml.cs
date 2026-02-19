@@ -18,6 +18,7 @@ using AIConsumptionTracker.Infrastructure.Services;
 using AIConsumptionTracker.Infrastructure.Helpers;
 using AIConsumptionTracker.UI.Services;
 using System.Runtime.InteropServices;
+using AIConsumptionTracker.Core.AgentClient;
 
 // =============================================================================
 // ⚠️  AI ASSISTANTS: COLOR LOGIC WARNING - SEE LINE ~426
@@ -132,6 +133,7 @@ namespace AIConsumptionTracker.UI
 
                     services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
                     services.AddSingleton<INotificationService, WindowsNotificationService>();
+                    services.AddSingleton<AgentService>();
 
                     services.AddSingleton<ProviderManager>();
                     services.AddTransient<MainWindow>();
@@ -166,6 +168,27 @@ namespace AIConsumptionTracker.UI
             _ = Task.Run(() => providerManager.GetAllUsageAsync(forceRefresh: true));
 
             InitializeTrayIcon();
+
+            // Auto-start Agent if not running
+            _ = Task.Run(async () => {
+                try 
+                {
+                    if (!await AgentLauncher.IsAgentRunningAsync())
+                    {
+                        Debug.WriteLine("[DEBUG] Agent not running, attempting to start...");
+                        if (await AgentLauncher.StartAgentAsync())
+                        {
+                            await AgentLauncher.WaitForAgentAsync();
+                            Debug.WriteLine("[DEBUG] Agent started successfully.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[ERROR] Failed to auto-start agent: {ex.Message}");
+                }
+            });
+
             await ShowDashboard();
         }
 
@@ -349,7 +372,9 @@ namespace AIConsumptionTracker.UI
                     Services.GetRequiredService<ProviderManager>(),
                     Services.GetRequiredService<IFontProvider>(),
                     Services.GetRequiredService<IUpdateCheckerService>(),
-                    Services.GetRequiredService<IGitHubAuthService>()
+
+                    Services.GetRequiredService<IGitHubAuthService>(),
+                    Services.GetRequiredService<AgentService>()
                 );
                 
                 Debug.WriteLine("[DEBUG] SettingsWindow created, setting owner...");
@@ -475,10 +500,10 @@ namespace AIConsumptionTracker.UI
                 // Main Tray
                 if (config.ShowInTray)
                 {
-                    var isQuota = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
+                    var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                     desiredIcons[config.ProviderId] = (
                         $"{usage.ProviderName}: {usage.Description}",
-                        usage.UsagePercentage,
+                        usage.RequestsPercentage,
                         isQuota
                     );
                 }
@@ -500,7 +525,7 @@ namespace AIConsumptionTracker.UI
                             }
 
                             var key = $"{config.ProviderId}:{subName}";
-                            var isQuotaSub = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
+                            var isQuotaSub = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                             desiredIcons[key] = (
                                 $"{usage.ProviderName} - {subName}: {detail.Description} ({detail.Used})",
                                 pct,

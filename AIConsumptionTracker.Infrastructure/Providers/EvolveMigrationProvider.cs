@@ -75,10 +75,10 @@ public class EvolveMigrationProvider : IProviderService
             {
                 ProviderId = ProviderId,
                 ProviderName = "Evolve Migrations",
-                UsagePercentage = failedMigrations > 0 ? 100 : 0, // Red if failures
-                CostUsed = failedMigrations,
-                CostLimit = totalMigrations,
-                PaymentType = PaymentType.UsageBased,
+                RequestsPercentage = failedMigrations > 0 ? 100 : 0, // Red if failures
+                RequestsUsed = failedMigrations,
+                RequestsAvailable = totalMigrations,
+                PlanType = PlanType.Usage,
                 UsageUnit = "Migrations",
                 IsQuotaBased = false,
                 IsAvailable = true,

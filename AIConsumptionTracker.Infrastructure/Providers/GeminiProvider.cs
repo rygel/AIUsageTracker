@@ -31,7 +31,7 @@ public class GeminiProvider : IProviderService
                  ProviderName = "Gemini CLI",
                  IsAvailable = false,
                  IsQuotaBased = false,
-                 PaymentType = PaymentType.Credits,
+                 PlanType = PlanType.Usage,
                  Description = "No Gemini accounts found"
              }};
         }
@@ -126,12 +126,12 @@ public class GeminiProvider : IProviderService
                 {
                     ProviderId = ProviderId,
                     ProviderName = "Gemini CLI",
-                    UsagePercentage = usedPercentage,
-                    CostUsed = usedPercentage,
-                    CostLimit = 100,
+                    RequestsPercentage = usedPercentage,
+                    RequestsUsed = usedPercentage,
+                    RequestsAvailable = 100,
                     UsageUnit = "Quota %",
                     IsQuotaBased = true,
-                    PaymentType = PaymentType.Quota,
+                    PlanType = PlanType.Coding,
                     AccountName = account.Email, // Separate usage per account
                     Description = $"{usedPercentage:F1}% Used{mainResetStr}",
                     NextResetTime = soonestResetDt,
@@ -188,7 +188,7 @@ public class GeminiProvider : IProviderService
         var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
         var content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            { "client_id", "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com" }, // Public CLI ID
+            { "client_id", "GEMINI_CLI_OAUTH_CLIENT_ID_REMOVED" }, // Public CLI ID
             { "client_secret", "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" },
             { "refresh_token", refreshToken },
             { "grant_type", "refresh_token" }

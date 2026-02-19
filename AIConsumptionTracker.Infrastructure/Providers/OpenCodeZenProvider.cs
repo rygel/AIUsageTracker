@@ -44,7 +44,7 @@ public class OpenCodeZenProvider : IProviderService
                     IsAvailable = false,
                     Description = "CLI not found at expected path",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased,
+                    PlanType = PlanType.Usage,
                     AuthSource = config.AuthSource
                 }
             };
@@ -67,7 +67,7 @@ public class OpenCodeZenProvider : IProviderService
                     IsAvailable = false,
                     Description = $"CLI Error: {ex.Message} (Check log or clear storage if JSON error)",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased,
+                    PlanType = PlanType.Usage,
                     AuthSource = config.AuthSource
                 }
             };
@@ -128,12 +128,12 @@ public class OpenCodeZenProvider : IProviderService
         {
             ProviderId = ProviderId,
             ProviderName = "OpenCode Zen",
-            UsagePercentage = 0.0, // Pay as you go, no limit
-            CostUsed = totalCost,
-            CostLimit = 0.0,
+            RequestsPercentage = 0.0, // Pay as you go, no limit
+            RequestsUsed = totalCost,
+            RequestsAvailable = 0.0,
             UsageUnit = "USD",
             IsQuotaBased = false,
-            PaymentType = PaymentType.UsageBased,
+            PlanType = PlanType.Usage,
             IsAvailable = true,
             Description = $"${totalCost:F2} (7 days)",
             AuthSource = config.AuthSource

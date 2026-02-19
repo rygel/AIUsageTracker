@@ -33,7 +33,7 @@ public class OpenCodeProvider : IProviderService
                 IsAvailable = false,
                 Description = "No API key configured",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }};
         }
 
@@ -55,13 +55,13 @@ public class OpenCodeProvider : IProviderService
                     IsAvailable = false,
                     Description = $"API Error: {response.StatusCode}",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased
+                    PlanType = PlanType.Usage
                 }};
             }
 
             var responseString = await response.Content.ReadAsStringAsync();
             var result = ParseJsonResponse(responseString);
-            _logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.CostUsed);
+            _logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.RequestsUsed);
             
             return new[] { result };
         }
@@ -75,7 +75,7 @@ public class OpenCodeProvider : IProviderService
                 IsAvailable = false,
                 Description = $"API Call Failed: {ex.Message}",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }};
         }
     }
@@ -95,7 +95,7 @@ private ProviderUsage ParseJsonResponse(string json)
                     IsAvailable = false,
                     Description = "Empty API response",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased
+                    PlanType = PlanType.Usage
                 };
             }
 
@@ -115,11 +115,11 @@ private ProviderUsage ParseJsonResponse(string json)
             {
                 ProviderId = ProviderId,
                 ProviderName = "Opencode Zen",
-                UsagePercentage = 0,
-                CostUsed = totalCost,
+                RequestsPercentage = 0,
+                RequestsUsed = totalCost,
                 UsageUnit = "USD",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased,
+                PlanType = PlanType.Usage,
                 IsAvailable = true,
                 Description = $"${totalCost.ToString("F2", CultureInfo.InvariantCulture)} used (7 days)"
             };
@@ -135,7 +135,7 @@ private ProviderUsage ParseJsonResponse(string json)
                 IsAvailable = false,
                 Description = "Invalid API response (not JSON)",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             };
         }
         catch (Exception ex)
@@ -148,7 +148,7 @@ private ProviderUsage ParseJsonResponse(string json)
                 IsAvailable = false,
                 Description = "Parse Error",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             };
         }
     }

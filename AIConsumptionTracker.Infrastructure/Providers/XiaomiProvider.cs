@@ -61,12 +61,12 @@ public class XiaomiProvider : IProviderService
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Xiaomi",
-                UsagePercentage = percentage,
-                CostUsed = quota > 0 ? quota - balance : 0,
-                CostLimit = quota > 0 ? quota : balance, 
+                RequestsPercentage = percentage,
+                RequestsUsed = quota > 0 ? quota - balance : 0,
+                RequestsAvailable = quota > 0 ? quota : balance, 
                 UsageUnit = "Points", // or CNY
                 IsQuotaBased = quota > 0,
-                PaymentType = quota > 0 ? PaymentType.Quota : PaymentType.UsageBased,
+                PlanType = quota > 0 ? PlanType.Coding : PlanType.Usage,
                 IsAvailable = true,
                 Description = quota > 0 
                     ? $"{balance} remaining / {quota} total" 

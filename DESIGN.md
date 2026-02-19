@@ -1074,3 +1074,80 @@ private async Task<int> GetAgentPortAsync()
 - `agent.port` and `agent.info` saved to user's LocalApplicationData
 - No admin privileges required
 - User must have write access to folder
+
+---
+
+## Sensitive Data Handling - MANDATORY
+
+**CRITICAL RULE: API keys and base URLs MUST NEVER be stored in the database.**
+
+### Design Principle
+
+The application follows a strict separation between:
+1. **Configuration storage** (`auth.json`) - Contains sensitive credentials
+2. **Database storage** (SQLite) - Contains only usage data and metadata
+
+### What Goes Where
+
+| Data | Storage Location | Reason |
+|------|------------------|--------|
+| API Keys | `auth.json` only | Sensitive credential |
+| Base URLs | `auth.json` only | May contain embedded credentials |
+| Provider ID/Name | SQLite database | Non-sensitive metadata |
+| Usage percentages | SQLite database | Non-sensitive metrics |
+| Cost data | SQLite database | Non-sensitive metrics |
+| Auth source | SQLite database | Non-sensitive metadata (e.g., "manual", "env") |
+
+### Database Schema (V2+)
+
+The `providers` table MUST NOT contain:
+- `api_key` column
+- `base_url` column
+
+Any migration or schema change that adds these columns is **prohibited**.
+
+### config_json Field
+
+The `config_json` field in the `providers` table MUST NOT contain:
+- API keys
+- Base URLs
+- Any other sensitive credentials
+
+When storing provider configuration, create a safe subset:
+```csharp
+var safeConfig = new
+{
+    config.ProviderId,
+    config.Type,
+    config.AuthSource
+};
+ConfigJson = JsonSerializer.Serialize(safeConfig)
+```
+
+### Code Review Checklist
+
+Before merging any database-related code, verify:
+- [ ] No API key stored in SQLite
+- [ ] No base URL stored in SQLite
+- [ ] `config_json` field excludes sensitive data
+- [ ] Migrations do not add sensitive columns
+- [ ] Logs do not expose API keys
+
+### Rationale
+
+1. **Security**: Database files may be copied, backed up, or accessed by other processes
+2. **Compliance**: Reduces attack surface for credential theft
+3. **Separation of concerns**: Credentials managed separately from usage data
+4. **Recovery**: Database can be shared/deleted without exposing credentials
+
+### Implementation
+
+**CRITICAL: This section defines rules that must never be violated.**
+
+### Rules for AI Assistants
+
+1. **NEVER store** API keys in the database
+2. **NEVER store** base URLs in the database
+3. **NEVER serialize** full `ProviderConfig` objects to `config_json` - always exclude sensitive fields
+4. **ALWAYS ask** the developer before adding any column that could contain sensitive data
+5. **ALWAYS** create a safe anonymous object when serializing config for database storage

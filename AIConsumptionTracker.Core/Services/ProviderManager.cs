@@ -123,91 +123,7 @@ public class ProviderManager : IDisposable
 
         var tasks = configs.Select(async config =>
         {
-            var provider = _providers.FirstOrDefault(p => 
-                p.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase) ||
-                (p.ProviderId == "minimax" && config.ProviderId.Contains("minimax", StringComparison.OrdinalIgnoreCase)) ||
-                (p.ProviderId == "xiaomi" && config.ProviderId.Contains("xiaomi", StringComparison.OrdinalIgnoreCase)) ||
-                (p.ProviderId == "opencode" && config.ProviderId.Contains("opencode", StringComparison.OrdinalIgnoreCase))
-            );
-            
-            if (provider == null && (config.Type == "pay-as-you-go" || config.Type == "api"))
-            {
-                provider = _providers.FirstOrDefault(p => p.ProviderId == "generic-pay-as-you-go");
-            }
-
-            if (provider != null)
-            {
-                await _httpSemaphore.WaitAsync();
-                try
-                {
-                    _logger.LogDebug($"Fetching usage for provider: {config.ProviderId}");
-                    var usages = await provider.GetUsageAsync(config, progressCallback);
-                    foreach(var u in usages) 
-                    {
-                        u.AuthSource = config.AuthSource;
-                        progressCallback?.Invoke(u);
-                    }
-
-                    _logger.LogDebug($"Success for {config.ProviderId}: {usages.Count()} items");
-                    return usages;
-                }
-                catch (ArgumentException ex)
-                {
-                    _logger.LogWarning($"Skipping {config.ProviderId}: {ex.Message}");
-                    var (isQuota, paymentType) = GetProviderPaymentType(config.ProviderId);
-                    var errorUsage = new ProviderUsage
-                    {
-                        ProviderId = config.ProviderId,
-                        ProviderName = config.ProviderId,
-                        Description = ex.Message,
-                        CostUsed = 0,
-                        UsagePercentage = 0,
-                        IsAvailable = false,
-                        IsQuotaBased = isQuota,
-                        PaymentType = paymentType
-                    };
-                    progressCallback?.Invoke(errorUsage);
-                    return new[] { errorUsage };
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, $"Failed to fetch usage for {config.ProviderId}");
-                    var (isQuota, paymentType) = GetProviderPaymentType(config.ProviderId);
-                    var errorUsage = new ProviderUsage
-                    {
-                        ProviderId = config.ProviderId,
-                        ProviderName = config.ProviderId,
-                        Description = $"[Error] {ex.Message}",
-                        CostUsed = 0,
-                        UsagePercentage = 0,
-                        IsAvailable = true,
-                        IsQuotaBased = isQuota,
-                        PaymentType = paymentType
-                    };
-                    progressCallback?.Invoke(errorUsage);
-                    return new[] { errorUsage };
-                }
-                finally
-                {
-                    _httpSemaphore.Release();
-                }
-            }
-            
-            // Generic fallback for any provider found in config
-            var (isQuotaFallback, paymentTypeFallback) = GetProviderPaymentType(config.ProviderId);
-            var genericUsage = new ProviderUsage 
-            { 
-                ProviderId = config.ProviderId, 
-                ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
-                Description = "Connected (Generic)",
-                CostUsed = 0,
-                UsagePercentage = 0,
-                UsageUnit = "USD",
-                IsQuotaBased = isQuotaFallback,
-                PaymentType = paymentTypeFallback
-            };
-            progressCallback?.Invoke(genericUsage);
-            return new[] { genericUsage };
+            return await FetchSingleProviderUsageAsync(config, progressCallback);
         });
 
         var nestedResults = await Task.WhenAll(tasks);
@@ -216,18 +132,128 @@ public class ProviderManager : IDisposable
         return results;
     }
 
+    public async Task<List<ProviderUsage>> GetUsageAsync(string providerId)
+    {
+        var configs = await GetConfigsAsync(forceRefresh: false);
+        var config = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+        
+        if (config == null)
+        {
+            // Try to create a temporary config if it's a known system provider
+             if (providerId == "antigravity" || providerId == "gemini-cli" || providerId == "opencode-zen" || providerId == "claude-code")
+             {
+                 config = new ProviderConfig { ProviderId = providerId, ApiKey = "" };
+             }
+             else
+             {
+                 throw new ArgumentException($"Provider '{providerId}' not found in configuration.");
+             }
+        }
 
-    private static (bool IsQuota, PaymentType PaymentType) GetProviderPaymentType(string providerId)
+        return await FetchSingleProviderUsageAsync(config, null);
+    }
+
+    private async Task<List<ProviderUsage>> FetchSingleProviderUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback)
+    {
+        var provider = _providers.FirstOrDefault(p => 
+            p.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase) ||
+            (p.ProviderId == "minimax" && config.ProviderId.Contains("minimax", StringComparison.OrdinalIgnoreCase)) ||
+            (p.ProviderId == "xiaomi" && config.ProviderId.Contains("xiaomi", StringComparison.OrdinalIgnoreCase)) ||
+            (p.ProviderId == "opencode" && config.ProviderId.Contains("opencode", StringComparison.OrdinalIgnoreCase))
+        );
+        
+        if (provider == null && (config.Type == "pay-as-you-go" || config.Type == "api"))
+        {
+            provider = _providers.FirstOrDefault(p => p.ProviderId == "generic-pay-as-you-go");
+        }
+
+        if (provider != null)
+        {
+            await _httpSemaphore.WaitAsync();
+            try
+            {
+                _logger.LogDebug($"Fetching usage for provider: {config.ProviderId}");
+                var usages = (await provider.GetUsageAsync(config, progressCallback)).ToList();
+                foreach(var u in usages) 
+                {
+                    u.AuthSource = config.AuthSource;
+                    progressCallback?.Invoke(u);
+                }
+
+                _logger.LogDebug($"Success for {config.ProviderId}: {usages.Count()} items");
+                return usages;
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning($"Skipping {config.ProviderId}: {ex.Message}");
+                var (isQuota, planType) = GetProviderPaymentType(config.ProviderId);
+                var errorUsage = new ProviderUsage
+                {
+                    ProviderId = config.ProviderId,
+                    ProviderName = config.ProviderId,
+                    Description = ex.Message,
+                    RequestsPercentage = 0,
+                    IsAvailable = false,
+                    IsQuotaBased = isQuota,
+                    PlanType = planType
+                };
+                progressCallback?.Invoke(errorUsage);
+                return new List<ProviderUsage> { errorUsage };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed to fetch usage for {config.ProviderId}");
+                var (isQuota, planType) = GetProviderPaymentType(config.ProviderId);
+                var errorUsage = new ProviderUsage
+                {
+                    ProviderId = config.ProviderId,
+                    ProviderName = config.ProviderId,
+                    Description = $"[Error] {ex.Message}",
+                    RequestsPercentage = 0,
+                    IsAvailable = true, // Still available, just failed to fetch
+                    IsQuotaBased = isQuota,
+                    PlanType = planType,
+                    HttpStatus = 500 // Mark as error
+                };
+                progressCallback?.Invoke(errorUsage);
+                // Throw exception here to let the caller know it failed (for Check command)
+                if (progressCallback == null) throw; 
+                return new List<ProviderUsage> { errorUsage };
+            }
+            finally
+            {
+                _httpSemaphore.Release();
+            }
+        }
+        
+        // Generic fallback for any provider found in config
+        var (isQuotaFallback, planTypeFallback) = GetProviderPaymentType(config.ProviderId);
+        var genericUsage = new ProviderUsage 
+        { 
+            ProviderId = config.ProviderId, 
+            ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
+            Description = "Connected (Generic)",
+            RequestsPercentage = 0,
+            UsageUnit = "USD",
+            IsQuotaBased = isQuotaFallback,
+            PlanType = planTypeFallback
+        };
+        progressCallback?.Invoke(genericUsage);
+        return new List<ProviderUsage> { genericUsage };
+    }
+
+
+    private static (bool IsQuota, PlanType PlanType) GetProviderPaymentType(string providerId)
     {
         // Known quota-based providers that might fall through to generic fallback
         var quotaProviders = new[] { "zai-coding-plan", "antigravity", "github-copilot", "gemini-cli" };
         
         if (quotaProviders.Any(id => providerId.Equals(id, StringComparison.OrdinalIgnoreCase)))
         {
-            return (true, PaymentType.Quota);
+            return (true, PlanType.Coding);
         }
         
-        return (false, PaymentType.UsageBased);
+        return (false, PlanType.Usage);
     }
 
     public void Dispose()

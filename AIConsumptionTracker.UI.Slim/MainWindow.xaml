@@ -87,25 +87,31 @@
                                   Checked="AlwaysOnTop_Checked"
                                   Unchecked="AlwaysOnTop_Checked"/>
                         
-                        <CheckBox x:Name="CompactCheck" 
-                                  Content="Cmp" 
-                                  IsChecked="True"
-                                  Foreground="{DynamicResource SecondaryText}" 
-                                  VerticalAlignment="Center"
-                                  FontSize="11"
-                                  Margin="0,0,8,0"
-                                  Checked="Compact_Checked"
-                                  Unchecked="Compact_Checked"/>
-                        
-<Button x:Name="RefreshBtn" Click="RefreshBtn_Click" Margin="0,0,8,0" ToolTip="Refresh (Ctrl+R)" Width="32" Height="28">
-                             <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
-                         </Button>
-                         <Button x:Name="WebBtn" Click="WebBtn_Click" Margin="0,0,8,0" ToolTip="Open Web UI" Width="32" Height="28">
-                             <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
-                         </Button>
-                         <Button x:Name="SettingsBtn" Click="SettingsBtn_Click" ToolTip="Settings" Width="32" Height="28">
-                             <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
-                         </Button>
+
+                         
+                          <CheckBox x:Name="ShowUsedToggle" 
+                                    Content="Used%" 
+                                    IsChecked="False"
+                                    Foreground="{DynamicResource SecondaryText}" 
+                                    VerticalAlignment="Center"
+                                    FontSize="11"
+                                    Margin="0,0,8,0"
+                                    ToolTip="Toggle between Used% and Remaining%"
+                                    Checked="ShowUsedToggle_Checked"
+                                    Unchecked="ShowUsedToggle_Checked"/>
+                         
+                          <Button x:Name="RefreshBtn" Click="RefreshBtn_Click" Margin="0,0,8,0" ToolTip="Refresh (Ctrl+R)" Width="32" Height="28">
+                              <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+                          </Button>
+                          <Button x:Name="WebBtn" Click="WebBtn_Click" Margin="0,0,8,0" ToolTip="Open Web UI" Width="32" Height="28">
+                              <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+                          </Button>
+                          <Button x:Name="AgentToggleBtn" Click="AgentToggleBtn_Click" ToolTip="Start/Stop Agent" Width="32" Height="28">
+                              <TextBlock x:Name="AgentToggleIcon" Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+                          </Button>
+                          <Button x:Name="SettingsBtn" Click="SettingsBtn_Click" Margin="8,0,0,0" ToolTip="Settings" Width="32" Height="28">
+                              <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
+                          </Button>
                     </StackPanel>
                 </DockPanel>
             </Border>

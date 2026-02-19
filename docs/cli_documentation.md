@@ -1,6 +1,6 @@
 # AIConsumptionTracker CLI Documentation
 
-The AIConsumptionTracker CLI allows you to monitor API usage and balance for various AI providers directly from your terminal.
+The AIConsumptionTracker CLI allows you to monitor API usage and balance for various AI providers directly from your terminal. It includes privacy features to mask sensitive information in logs and UI.
 
 ## Basic Usage
 
@@ -74,4 +74,11 @@ You can also configure specific providers securely using environment variables. 
 - **Standard**: OpenCode, OpenRouter, Anthropic, Gemini, OpenAI (Generic)
 - **Chinese LLMs**: Minimax, Xiaomi (MiMo), Kimi (Moonshot)
 - **Generic**: Any provider interacting via standard HTTP headers can be configured manually.
+
+## Privacy & Security
+
+The application now includes enhanced privacy features:
+- **PII Masking**: Email addresses and sensitive user information are automatically masked in debug logs (e.g., `t*****t@example.com`).
+- **Locale Independence**: Usage data is consistently formatted regardless of system locale settings.
+- **Provider Consistency**: Correct handling of quota-based (Z.AI, Copilot) vs. usage-based (OpenAI, DeepSeek) providers.
 

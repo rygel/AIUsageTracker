@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Management;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -9,6 +10,8 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
+
+using AIConsumptionTracker.Infrastructure.Helpers;
 
 namespace AIConsumptionTracker.Infrastructure.Providers;
 
@@ -81,14 +84,14 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                                 ProviderId = ProviderId,
                                 ProviderName = "Antigravity",
                                 IsAvailable = true,
-                                UsagePercentage = 0,
-                                CostUsed = 0,
-                                CostLimit = _cachedUsage.CostLimit,
+                                RequestsPercentage = 0,
+                                RequestsUsed = 0,
+                                RequestsAvailable = _cachedUsage.RequestsAvailable,
                                 Details = refilledDetails,
                                 AccountName = _cachedUsage.AccountName,
                                 Description = description,
                                 IsQuotaBased = true,
-                                PaymentType = PaymentType.Quota
+                                PlanType = PlanType.Coding
                             }};
                         }
 
@@ -111,14 +114,14 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                         ProviderId = ProviderId,
                         ProviderName = "Antigravity",
                         IsAvailable = true,
-                        UsagePercentage = _cachedUsage.UsagePercentage,
-                        CostUsed = _cachedUsage.CostUsed,
-                        CostLimit = _cachedUsage.CostLimit,
+                        RequestsPercentage = _cachedUsage.RequestsPercentage,
+                        RequestsUsed = _cachedUsage.RequestsUsed,
+                        RequestsAvailable = _cachedUsage.RequestsAvailable,
                         Details = _cachedUsage.Details,
                         AccountName = _cachedUsage.AccountName,
                         Description = description,
                         IsQuotaBased = true,
-                        PaymentType = PaymentType.Quota
+                        PlanType = PlanType.Coding
                     }};
                 }
                 else
@@ -128,12 +131,12 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                         ProviderId = ProviderId,
                         ProviderName = "Antigravity",
                         IsAvailable = true,
-                        UsagePercentage = 0,
-                        CostUsed = 0,
-                        CostLimit = 0,
+                        RequestsPercentage = 0,
+                        RequestsUsed = 0,
+                        RequestsAvailable = 0,
                         Description = "Application not running",
                         IsQuotaBased = true,
-                        PaymentType = PaymentType.Quota
+                        PlanType = PlanType.Coding
                     }};
                 }
             }
@@ -149,15 +152,18 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                     var port = FindListeningPort(pid);
 
                     // 3. Request
-                    var usage = await FetchUsage(port, csrfToken);
+                    var usageItems = await FetchUsage(port, csrfToken, config);
 
-                    // Check for duplicates based on AccountName (Email)
-                    if (results.Any(r => r.AccountName == usage.AccountName))
+                    // Check for duplicates based on AccountName (Email) for the MAIN item
+                    // Assuming the first item is the summary
+                    var mainItem = usageItems.FirstOrDefault(u => u.ProviderId == ProviderId);
+                    
+                    if (mainItem != null && results.Any(r => r.ProviderId == ProviderId && r.AccountName == mainItem.AccountName))
                     {
                         continue;
                     }
 
-                    results.Add(usage);
+                    results.AddRange(usageItems);
                 }
                 catch (Exception ex)
                 {
@@ -172,12 +178,12 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                      ProviderId = ProviderId,
                      ProviderName = "Antigravity",
                      IsAvailable = true,
-                     UsagePercentage = 0,
-                     CostUsed = 0,
-                     CostLimit = 0,
+                     RequestsPercentage = 0,
+                     RequestsUsed = 0,
+                     RequestsAvailable = 0,
                      Description = "Not running",
                      IsQuotaBased = true,
-                     PaymentType = PaymentType.Quota
+                     PlanType = PlanType.Coding
                  }};
             }
 
@@ -188,6 +194,25 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                 _cacheTimestamp = DateTime.Now;
             }
 
+            // Start with just the summary
+            // But we can't just return results list here because we build it differently now
+            // The loop above adds to 'results'
+            
+            // Wait, previous logic was:
+            // 1. Find processes
+            // 2. Add to results
+            // 3. Return results
+            
+            // New logic inside FetchUsage returns a list (or we need to change FetchUsage signature)
+            // Let's change FetchUsage to return IEnumerable<ProviderUsage>
+            
+            // For now, let's keep FetchUsage returning single and split it here?
+            // No, FetchUsage has the context (details list). 
+            
+            // Refactoring FetchUsage to return List<ProviderUsage>
+            
+            // ... (See below for FetchUsage refactor)
+            
             return results;
         }
         catch (Exception ex)
@@ -198,12 +223,12 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                 ProviderId = ProviderId,
                 ProviderName = "Antigravity",
                 IsAvailable = true,
-                UsagePercentage = 0,
-                CostUsed = 0,
-                CostLimit = 0,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
                 Description = "Application not running",
                 IsQuotaBased = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }};
         }
     }
@@ -277,8 +302,9 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
         throw new Exception($"No listening port found for PID {pid}");
     }
 
-    private async Task<ProviderUsage> FetchUsage(int port, string csrfToken)
+    private async Task<List<ProviderUsage>> FetchUsage(int port, string csrfToken, ProviderConfig config)
     {
+        var results = new List<ProviderUsage>();
         var url = $"https://127.0.0.1:{port}/exa.language_server_pb.LanguageServerService/GetUserStatus";
         
         var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -292,9 +318,15 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
         response.EnsureSuccessStatusCode();
 
         var responseString = await response.Content.ReadAsStringAsync();
+        _logger.LogDebug("[Antigravity] Raw response from port {Port}: {Response}", port, responseString[..Math.Min(500, responseString.Length)]);
+        
         var data = JsonSerializer.Deserialize<AntigravityResponse>(responseString);
         
         if (data?.UserStatus == null) throw new Exception("Invalid Antigravity response");
+        
+        _logger.LogDebug("[Antigravity] Email: {Email}, Models: {ModelCount}", 
+            PrivacyHelper.MaskContent(data.UserStatus.Email ?? ""), 
+            data.UserStatus.CascadeModelConfigData?.ClientModelConfigs?.Count ?? 0);
 
         var modelConfigs = data.UserStatus.CascadeModelConfigData?.ClientModelConfigs ?? new List<ClientModelConfig>();
         var modelSorts = data.UserStatus.CascadeModelConfigData?.ClientModelSorts?.FirstOrDefault();
@@ -321,18 +353,28 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             double remainingPct = 0; // Assume exhausted (0% remaining) if missing
             DateTime? itemResetDt = null;
             
-            if (configMap.TryGetValue(label, out var config))
+            if (configMap.TryGetValue(label, out var modelConfig))
             {
-                if (config.QuotaInfo?.RemainingFraction.HasValue == true)
+                _logger.LogDebug("[Antigravity] Model {Label}: RemainingFraction={Rem}, TotalRequests={Total}, UsedRequests={Used}",
+                    label,
+                    modelConfig.QuotaInfo?.RemainingFraction?.ToString() ?? "null",
+                    modelConfig.QuotaInfo?.TotalRequests?.ToString() ?? "null",
+                    modelConfig.QuotaInfo?.UsedRequests?.ToString() ?? "null");
+                
+                if (modelConfig.QuotaInfo?.RemainingFraction.HasValue == true)
                 {
-                    remainingPct = config.QuotaInfo.RemainingFraction.Value * 100;
+                    remainingPct = modelConfig.QuotaInfo.RemainingFraction.Value * 100;
                 }
-                else if (config.QuotaInfo?.TotalRequests.HasValue == true && config.QuotaInfo.TotalRequests > 0)
+                else if (modelConfig.QuotaInfo?.TotalRequests.HasValue == true && modelConfig.QuotaInfo.TotalRequests > 0)
                 {
-                    var used = config.QuotaInfo.UsedRequests ?? 0;
-                    var remaining = Math.Max(0, config.QuotaInfo.TotalRequests.Value - used);
-                    remainingPct = (remaining / (double)config.QuotaInfo.TotalRequests.Value) * 100;
+                    var used = modelConfig.QuotaInfo.UsedRequests ?? 0;
+                    var remaining = Math.Max(0, modelConfig.QuotaInfo.TotalRequests.Value - used);
+                    remainingPct = (remaining / (double)modelConfig.QuotaInfo.TotalRequests.Value) * 100;
                 }
+            }
+            else
+            {
+                _logger.LogDebug("[Antigravity] Model {Label} not found in config map, defaulting to 0%", label);
             }
 
             // Store REMAINING percentage for display (consistent with other quota providers)
@@ -340,9 +382,9 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             var detailRemainingPct = remainingPct;
             
             string resetStr = "";
-            if (!string.IsNullOrEmpty(config?.QuotaInfo?.ResetTime))
+            if (!string.IsNullOrEmpty(modelConfig?.QuotaInfo?.ResetTime))
             {
-                        if (DateTime.TryParse(config.QuotaInfo.ResetTime, out var dt))
+                        if (DateTime.TryParse(modelConfig.QuotaInfo.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
                         {
                             var diff = dt.ToLocalTime() - DateTime.Now;
                     if (diff.TotalSeconds > 0)
@@ -356,7 +398,7 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             details.Add(new ProviderUsageDetail
             {
                 Name = label,
-                Used = $"{detailRemainingPct:F0}%",
+                Used = $"{detailRemainingPct.ToString("F0", CultureInfo.InvariantCulture)}%",
                 Description = resetStr,
                 NextResetTime = itemResetDt
             });
@@ -380,21 +422,150 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
         
         // Remove globalReset based on user feedback. Group-specific resets would be in Details.
 
-        return new ProviderUsage
+        // For quota-based providers: store remaining % in RequestsPercentage, used % in RequestsUsed
+        // This matches the pattern used by Z.AI and other quota providers
+        // For quota-based providers: store remaining % in RequestsPercentage, used % in RequestsUsed
+        // This matches the pattern used by Z.AI and other quota providers
+        var remainingPctTotal = minRemaining;
+        
+        var result = new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = "Antigravity",
-            UsagePercentage = usedPctTotal,
-            CostUsed = usedPctTotal,
-            CostLimit = 100,
+            RequestsPercentage = remainingPctTotal,  // Remaining % for quota-based display
+            RequestsUsed = 100 - remainingPctTotal,   // Default to percentage
+            RequestsAvailable = 100,
             UsageUnit = "Quota %",
             IsQuotaBased = true,
-            PaymentType = PaymentType.Quota,
-            Description = $"{minRemaining:F1}% Remaining",
+            PlanType = PlanType.Coding,
+            Description = $"{remainingPctTotal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
 
             Details = sortedDetails,
             AccountName = data.UserStatus?.Email ?? ""
         };
+        
+        // Try to find a total limit to expose raw numbers
+        // We act as if the sum of all model quotas is the total, OR we pick the largest one.
+        // Antigravity is tricky because it has per-model quotas.
+        // But usually there's a "global" or "main" quota.
+        // Let's check if we have any TotalRequests in the configMap.
+        
+        long totalLimit = 0;
+        long totalUsed = 0;
+        bool hasRawNumbers = false;
+
+        // Sum up total requests if available (heuristic)
+        foreach(var cfg in configMap.Values)
+        {
+            if (cfg.QuotaInfo?.TotalRequests.HasValue == true)
+            {
+                totalLimit += cfg.QuotaInfo.TotalRequests.Value;
+                totalUsed += cfg.QuotaInfo.UsedRequests ?? 0;
+                hasRawNumbers = true;
+            }
+        }
+        
+        if (hasRawNumbers && totalLimit > 0)
+        {
+            result.RequestsAvailable = totalLimit;
+            result.RequestsUsed = totalUsed;
+            result.UsageUnit = "Tokens";
+            result.DisplayAsFraction = true; // Explicitly request fraction display if we have real numbers
+            
+            // If we have raw numbers, update description to show it
+            // result.Description += $" ({totalUsed}/{totalLimit})";
+        }
+        
+        // Create individual items for each model (child providers)
+        foreach (var detail in sortedDetails)
+        {
+            // Parse percentage from "Used" string (e.g. "80%")
+            double detailRemaining = 0;
+            if (detail.Used.EndsWith("%") && double.TryParse(detail.Used.TrimEnd('%'), NumberStyles.Any, CultureInfo.InvariantCulture, out double parsed))
+            {
+                detailRemaining = parsed;
+            }
+
+            var childId = $"{ProviderId}.{detail.Name.ToLowerInvariant().Replace(" ", "-")}";
+            // Default name
+            var childName = "Antigravity " + detail.Name;
+            
+            // Check for alias match
+            if (config.Models != null && config.Models.Any())
+            {
+                var match = config.Models.FirstOrDefault(m => 
+                    m.Id.Equals(detail.Name, StringComparison.OrdinalIgnoreCase) ||
+                    m.Name.Equals(detail.Name, StringComparison.OrdinalIgnoreCase) ||
+                    m.Matches.Any(x => x.Equals(detail.Name, StringComparison.OrdinalIgnoreCase)));
+
+                if (match != null)
+                {
+                    // Use configured ID if possible, but we need to be careful about changing IDs if users have data.
+                    // The user wants "aliases we can use in the database", implying the ID SHOULD change to the alias.
+                    // BUT, if we change the ID, old history is lost (detached).
+                    // For now, let's keep the ID generation consistent with the old way UNLESS the user explicitly provides an ID in config.
+                    // Actually, the user asked for "alias for every provider... in the database".
+                    // So we should use match.Id as the suffix if it's a valid ID.
+                    
+                    if (!string.IsNullOrWhiteSpace(match.Id))
+                    {
+                        childId = $"{ProviderId}.{match.Id}";
+                    }
+                    
+                    if (!string.IsNullOrWhiteSpace(match.Name))
+                    {
+                        childName = match.Name;
+                    }
+                }
+            }
+            
+            // Attempt to find specific config for this model to get raw numbers
+            long? detailTotal = null;
+            long? detailUsed = null;
+            
+            if (configMap.TryGetValue(detail.Name, out var cfg) && cfg.QuotaInfo != null)
+            {
+                detailTotal = cfg.QuotaInfo.TotalRequests;
+                detailUsed = cfg.QuotaInfo.UsedRequests;
+            }
+
+            var childUsage = new ProviderUsage
+            {
+                ProviderId = childId,
+                ProviderName = childName,
+                RequestsPercentage = detailRemaining,
+                RequestsUsed = 100 - detailRemaining,
+                RequestsAvailable = 100,
+                UsageUnit = "Quota %",
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                Description = $"{detailRemaining.ToString("F0", CultureInfo.InvariantCulture)}% Remaining",
+                AccountName = data.UserStatus?.Email ?? "",
+                IsAvailable = true,
+                FetchedAt = DateTime.UtcNow,
+                AuthSource = "antigravity",
+                // Inherit raw numbers if available
+                DisplayAsFraction = detailTotal.HasValue && detailTotal > 0,
+                NextResetTime = detail.NextResetTime
+            };
+
+            if (detailTotal.HasValue && detailTotal > 0)
+            {
+                childUsage.RequestsAvailable = detailTotal.Value;
+                childUsage.RequestsUsed = detailUsed ?? 0;
+                childUsage.UsageUnit = "Tokens";
+            }
+
+            results.Add(childUsage);
+        }
+
+        results.Insert(0, result); // Add summary as first item
+        
+        // Cache the summary result for next refresh (children distinct)
+        _cachedUsage = result;
+        _cacheTimestamp = DateTime.Now;
+
+        return results;
     }
 
     private class AntigravityResponse

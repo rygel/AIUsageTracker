@@ -44,10 +44,10 @@ public class MockProviderService : IProviderService
             {
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
-                UsagePercentage = 25,
-                CostUsed = 2.5,
-                CostLimit = 10,
-                PaymentType = PaymentType.UsageBased,
+                RequestsPercentage = 25,
+                RequestsUsed = 2.5,
+                RequestsAvailable = 10,
+                PlanType = PlanType.Usage,
                 UsageUnit = "USD",
                 Description = "$2.50 / $10.00 used",
                 IsAvailable = true
@@ -64,10 +64,10 @@ public class MockProviderService : IProviderService
             {
                 ProviderId = "gemini",
                 ProviderName = "Gemini",
-                UsagePercentage = 10,
-                CostUsed = 150,
-                CostLimit = 1500,
-                PaymentType = PaymentType.Quota,
+                RequestsPercentage = 10,
+                RequestsUsed = 150,
+                RequestsAvailable = 1500,
+                PlanType = PlanType.Coding,
                 UsageUnit = "Requests",
                 Description = "150 / 1500 requests",
                 IsAvailable = true
@@ -84,10 +84,10 @@ public class MockProviderService : IProviderService
             {
                 ProviderId = "gemini-cli",
                 ProviderName = "Gemini CLI",
-                UsagePercentage = 5,
-                CostUsed = 500,
-                CostLimit = 10000,
-                PaymentType = PaymentType.Quota,
+                RequestsPercentage = 5,
+                RequestsUsed = 500,
+                RequestsAvailable = 10000,
+                PlanType = PlanType.Coding,
                 UsageUnit = "Tokens",
                 Description = "500 / 10,000 tokens",
                 IsAvailable = true
@@ -104,10 +104,10 @@ public class MockProviderService : IProviderService
             {
                 ProviderId = "antigravity",
                 ProviderName = "Antigravity",
-                UsagePercentage = 40,
-                CostUsed = 4,
-                CostLimit = 10,
-                PaymentType = PaymentType.Credits,
+                RequestsPercentage = 40,
+                RequestsUsed = 4,
+                RequestsAvailable = 10,
+                PlanType = PlanType.Usage,
                 UsageUnit = "USD",
                 Description = "$6.00 remaining",
                 IsAvailable = true
@@ -124,10 +124,10 @@ public class MockProviderService : IProviderService
             {
                 ProviderId = "opencode-zen",
                 ProviderName = "OpenCode Zen",
-                UsagePercentage = 20,
-                CostUsed = 1,
-                CostLimit = 5,
-                PaymentType = PaymentType.Quota,
+                RequestsPercentage = 20,
+                RequestsUsed = 1,
+                RequestsAvailable = 5,
+                PlanType = PlanType.Coding,
                 UsageUnit = "Requests",
                 Description = "1 / 5 requests",
                 IsAvailable = true
