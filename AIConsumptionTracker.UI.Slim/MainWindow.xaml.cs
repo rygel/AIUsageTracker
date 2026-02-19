@@ -121,24 +121,15 @@ public partial class MainWindow : Window
                                 return false;
                             }
                             
-                            Dispatcher.Invoke(() => {
-                                ShowStatus("Agent started", StatusType.Success);
-                                UpdateAgentStatusButton(true);
-                            });
                         }
                         else
                         {
                             Dispatcher.Invoke(() => {
                                 ShowStatus("Could not start agent", StatusType.Error);
                                 ShowErrorState("Could not start agent automatically.\n\nPlease start it manually:\n\ndotnet run --project AIConsumptionTracker.Agent");
-                                UpdateAgentStatusButton(false);
                             });
                             return false;
                         }
-                    }
-                    else
-                    {
-                        Dispatcher.Invoke(() => UpdateAgentStatusButton(true));
                     }
 
                     // Load preferences on background thread
@@ -173,7 +164,6 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ShowErrorState($"Initialization failed: {ex.Message}");
-            UpdateAgentStatusButton(false);
         }
         finally
         {
@@ -1028,7 +1018,9 @@ public partial class MainWindow : Window
         if (StatusText != null)
             StatusText.ToolTip = tooltipText;
         
-        Debug.WriteLine($"[{type}] {message}");
+        var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+        Debug.WriteLine($"[{timestamp}] [{type}] {message}");
+        Console.WriteLine($"[{timestamp}] [{type}] {message}");
     }
 
     private void ShowErrorState(string message)
@@ -1267,27 +1259,12 @@ public partial class MainWindow : Window
         });
     }
 
-    private void AgentStatusBtn_Click(object sender, RoutedEventArgs e)
-    {
-        // Show agent status menu or restart agent
-        var result = MessageBox.Show(
-            "Agent provides data to this UI.\n\nClick 'Yes' to restart the Agent.",
-            "Agent Status",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Information);
-        
-        if (result == MessageBoxResult.Yes)
-        {
-            _ = RestartAgentAsync();
-        }
-    }
 
     private async Task RestartAgentAsync()
     {
         try
         {
             ShowStatus("Restarting agent...", StatusType.Warning);
-            UpdateAgentStatusButton(false);
             
             // Try to start agent
             if (AgentLauncher.StartAgent())
@@ -1296,7 +1273,6 @@ public partial class MainWindow : Window
                 if (agentReady)
                 {
                     ShowStatus("Agent restarted", StatusType.Success);
-                    UpdateAgentStatusButton(true);
                     await RefreshDataAsync();
                 }
                 else
@@ -1311,15 +1287,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateAgentStatusButton(bool isConnected)
-    {
-        if (AgentStatusBtn != null)
-        {
-            AgentStatusBtn.Foreground = isConnected 
-                ? GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen)
-                : GetResourceBrush("ProgressBarRed", Brushes.Crimson);
-        }
-    }
 
     private async void AgentToggleBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -1333,7 +1300,6 @@ public partial class MainWindow : Window
             if (stopped)
             {
                 ShowStatus("Agent stopped", StatusType.Info);
-                UpdateAgentStatusButton(false);
                 UpdateAgentToggleButton(false);
             }
             else
@@ -1351,7 +1317,6 @@ public partial class MainWindow : Window
                 if (agentReady)
                 {
                     ShowStatus("Agent started", StatusType.Success);
-                    UpdateAgentStatusButton(true);
                     UpdateAgentToggleButton(true);
                     await RefreshDataAsync();
                 }

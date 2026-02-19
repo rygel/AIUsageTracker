@@ -19,7 +19,13 @@ public class ProviderRefreshService : BackgroundService
     private readonly ConfigService _configService;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
+    private static bool _debugMode = false;
     private ProviderManager? _providerManager;
+
+    public static void SetDebugMode(bool debug)
+    {
+        _debugMode = debug;
+    }
 
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
@@ -44,10 +50,18 @@ public class ProviderRefreshService : BackgroundService
         _notificationService.Initialize();
         InitializeProviders();
 
-        _logger.LogDebug("Waiting 30 seconds before first refresh...");
-        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-
-        await TriggerRefreshAsync();
+        var isEmpty = await _database.IsHistoryEmptyAsync();
+        if (isEmpty)
+        {
+            _logger.LogInformation("First-time startup detected. Scanning for keys and performing full refresh.");
+            await _configService.ScanForKeysAsync();
+            await TriggerRefreshAsync(forceAll: true);
+        }
+        else
+        {
+            _logger.LogInformation("Triggering initial refresh...");
+            await TriggerRefreshAsync();
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -120,7 +134,7 @@ public class ProviderRefreshService : BackgroundService
         _logger.LogInformation("Loaded {Count} providers", providers.Count);
     }
 
-    public async Task TriggerRefreshAsync()
+    public async Task TriggerRefreshAsync(bool forceAll = false)
     {
         if (_providerManager == null)
         {
@@ -147,10 +161,12 @@ public class ProviderRefreshService : BackgroundService
             }
 
             var activeConfigs = configs.Where(c => 
+                forceAll ||
                 c.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase) || 
                 c.ProviderId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) ||
                 !string.IsNullOrEmpty(c.ApiKey)).ToList();
             var skippedCount = configs.Count(c => 
+                !forceAll &&
                 !c.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase) && 
                 string.IsNullOrEmpty(c.ApiKey));
 
@@ -276,46 +292,66 @@ public class ProviderRefreshService : BackgroundService
     {
         _logger.LogDebug("Checking for reset events...");
 
+        // Batch load history for all relevant providers (latest 2 records for each)
+        var allHistory = await _database.GetRecentHistoryAsync(2);
+        var historyMap = allHistory.GroupBy(h => h.ProviderId).ToDictionary(g => g.Key, g => g.ToList());
+
         foreach (var usage in currentUsages)
         {
             try
             {
-                var history = await _database.GetHistoryByProviderAsync(usage.ProviderId, 2);
-
-                _logger.LogDebug("{ProviderId}: {Count} history entries", usage.ProviderId, history.Count);
-
-                if (history.Count < 2)
+                if (!historyMap.TryGetValue(usage.ProviderId, out var history) || history.Count < 2)
                 {
-                    _logger.LogDebug("{ProviderId}: Not enough history for reset detection", usage.ProviderId);
+                    // For sub-providers (models) or providers with explicit reset times, 
+                    // lack of history is expected and shouldn't be noisy.
+                    if (usage.ProviderId.Contains('.') || usage.NextResetTime != null)
+                    {
+                        _logger.LogTrace("{ProviderId}: Initial record stored, waiting for history", usage.ProviderId);
+                    }
+                    else
+                    {
+                        _logger.LogDebug("{ProviderId}: Not enough history for reset detection", usage.ProviderId);
+                    }
                     continue;
                 }
 
                 var current = history[0];
                 var previous = history[1];
 
-                _logger.LogDebug("{ProviderId}: prev={Prev}, curr={Curr}",
-                    usage.ProviderId, previous.RequestsUsed.ToString("F2"), current.RequestsUsed.ToString("F2"));
-
                 bool isReset = false;
                 string resetReason = "";
 
-                if (usage.IsQuotaBased)
+                // 1. Explicit Reset Detection (via NextResetTime moving forward)
+                if (current.NextResetTime.HasValue && previous.NextResetTime.HasValue)
                 {
-                    if (previous.RequestsPercentage > 50 && current.RequestsPercentage < previous.RequestsPercentage * 0.3)
+                    if (current.NextResetTime.Value > previous.NextResetTime.Value.AddMinutes(1)) // Use small buffer
                     {
                         isReset = true;
-                        resetReason = $"Quota reset: {previous.RequestsPercentage:F1}% -> {current.RequestsPercentage:F1}%";
+                        resetReason = $"Reset detected via schedule: {previous.NextResetTime:HH:mm} -> {current.NextResetTime:HH:mm}";
                     }
                 }
-                else
+
+                // 2. Heuristic Reset Detection (if not already detected)
+                if (!isReset)
                 {
-                    if (previous.RequestsUsed > current.RequestsUsed)
+                    if (usage.IsQuotaBased)
                     {
-                        var dropPercent = (previous.RequestsUsed - current.RequestsUsed) / previous.RequestsUsed * 100;
-                        if (dropPercent > 20)
+                        if (previous.RequestsPercentage > 50 && current.RequestsPercentage < previous.RequestsPercentage * 0.3)
                         {
                             isReset = true;
-                            resetReason = $"Usage reset: ${previous.RequestsUsed:F2} -> ${current.RequestsUsed:F2} ({dropPercent:F0}% drop)";
+                            resetReason = $"Quota reset: {previous.RequestsPercentage:F1}% -> {current.RequestsPercentage:F1}%";
+                        }
+                    }
+                    else
+                    {
+                        if (previous.RequestsUsed > current.RequestsUsed)
+                        {
+                            var dropPercent = (previous.RequestsUsed - current.RequestsUsed) / previous.RequestsUsed * 100;
+                            if (dropPercent > 20)
+                            {
+                                isReset = true;
+                                resetReason = $"Usage reset: ${previous.RequestsUsed:F2} -> ${current.RequestsUsed:F2} ({dropPercent:F0}% drop)";
+                            }
                         }
                     }
                 }
@@ -340,8 +376,7 @@ public class ProviderRefreshService : BackgroundService
                         _notificationService.ShowQuotaExceeded(usage.ProviderName, details);
                     }
 
-                    _logger.LogInformation("Reset: {Reason}", resetReason);
-                    _logger.LogDebug("{ProviderId}: {Reason}", usage.ProviderId, resetReason);
+                    _logger.LogInformation("{ProviderId} reset: {Reason}", usage.ProviderId, resetReason);
                 }
             }
             catch (Exception ex)

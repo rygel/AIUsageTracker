@@ -19,6 +19,8 @@ public class AgentService
     }
 
     public List<string> LastAgentErrors { get; private set; } = new();
+    private static readonly List<string> _diagnosticsLog = new();
+    public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
 
     public AgentService(HttpClient httpClient)
     {
@@ -33,19 +35,30 @@ public class AgentService
         // Discover actual port and errors from file
         _ = RefreshAgentInfoAsync();
     }
+
+    public static void LogDiagnostic(string message)
+    {
+        var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+        lock (_diagnosticsLog)
+        {
+            _diagnosticsLog.Add($"[{timestamp}] {message}");
+            if (_diagnosticsLog.Count > 100) _diagnosticsLog.RemoveAt(0);
+        }
+        System.Diagnostics.Debug.WriteLine($"[{timestamp}] [DIAG] {message}");
+        Console.WriteLine($"[{timestamp}] [DIAG] {message}");
+    }
     
     public async Task RefreshAgentInfoAsync()
     {
+        LogDiagnostic("Refreshing Agent Info from file...");
         try
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
             var jsonFile = Path.Combine(agentDir, "agent.json");
-            var infoFile = Path.Combine(agentDir, "agent.info");
             
             string? path = null;
             if (File.Exists(jsonFile)) path = jsonFile;
-            else if (File.Exists(infoFile)) path = infoFile;
 
             if (path != null)
             {
@@ -57,13 +70,17 @@ public class AgentService
                 
                 if (info != null)
                 {
-                    if (info.Port > 0) AgentUrl = $"http://localhost:{info.Port}";
+                    if (info.Port > 0) 
+                    {
+                        AgentUrl = $"http://localhost:{info.Port}";
+                        LogDiagnostic($"Found Agent running on port {info.Port} from agent.json");
+                    }
                     LastAgentErrors = info.Errors ?? new List<string>();
                     return;
                 }
             }
             
-            AgentUrl = "http://localhost:5000";
+            LogDiagnostic("agent.json not found or invalid, using default port 5000");
             LastAgentErrors = new List<string>();
         }
         catch (Exception ex)
@@ -74,14 +91,6 @@ public class AgentService
         }
     }
     
-    private class AgentInfo
-    {
-        public int Port { get; set; }
-        public string? StartedAt { get; set; }
-        public int ProcessId { get; set; }
-        public bool DebugMode { get; set; }
-        public List<string>? Errors { get; set; }
-    }
     
     public async Task RefreshPortAsync()
     {
@@ -96,10 +105,12 @@ public class AgentService
             var usage = await _httpClient.GetFromJsonAsync<List<ProviderUsage>>(
                 $"{AgentUrl}/api/usage", 
                 _jsonOptions);
+            LogDiagnostic($"Successfully fetched usage from {AgentUrl}");
             return usage ?? new List<ProviderUsage>();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            LogDiagnostic($"Failed to fetch usage from {AgentUrl}: {ex.Message}");
             return new List<ProviderUsage>();
         }
     }

@@ -22,6 +22,8 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
     private readonly ILogger<AntigravityProvider> _logger;
     private ProviderUsage? _cachedUsage;
     private DateTime _cacheTimestamp;
+    private List<(int Pid, string Token)>? _cachedProcessInfos;
+    private DateTime _lastProcessCheck = DateTime.MinValue;
 
     public AntigravityProvider(ILogger<AntigravityProvider> logger)
     {
@@ -235,6 +237,11 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
 
     private List<(int Pid, string Token)> FindProcessInfos()
     {
+        if (DateTime.Now - _lastProcessCheck < TimeSpan.FromSeconds(30) && _cachedProcessInfos != null)
+        {
+            return _cachedProcessInfos;
+        }
+
         var candidates = new List<(int Pid, string Token)>();
 
         if (OperatingSystem.IsWindows())
@@ -242,8 +249,10 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
              try 
              {
                 // Find all language server processes
-                var searcher = new ManagementObjectSearcher("SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE '%language_server_windows%'");
-                var collection = searcher.Get();
+                // Using a faster WMI query or just Process.GetProcessesByName if we can't get cmdline easily.
+                // But we NEED cmdline for the token.
+                using var searcher = new ManagementObjectSearcher("SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name = 'language_server_windows.exe'");
+                using var collection = searcher.Get();
 
                 foreach (var obj in collection)
                 {
@@ -266,6 +275,9 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                  _logger.LogError(ex, "Process discovery failed");
              }
         }
+        
+        _cachedProcessInfos = candidates;
+        _lastProcessCheck = DateTime.Now;
         return candidates;
     }
 
@@ -441,7 +453,8 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             Description = $"{remainingPctTotal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
 
             Details = sortedDetails,
-            AccountName = data.UserStatus?.Email ?? ""
+            AccountName = data.UserStatus?.Email ?? "",
+            NextResetTime = sortedDetails.Where(d => d.NextResetTime.HasValue).OrderBy(d => d.NextResetTime).FirstOrDefault()?.NextResetTime
         };
         
         // Try to find a total limit to expose raw numbers

@@ -5,6 +5,8 @@ using AIConsumptionTracker.Agent.Services;
 using AIConsumptionTracker.Core.Models;
 using System.Net;
 using System.Net.Sockets;
+using AIConsumptionTracker.Core.Interfaces;
+using AIConsumptionTracker.Infrastructure.Services;
 
 // Check for debug flag early
 bool isDebugMode = args.Contains("--debug");
@@ -12,7 +14,7 @@ bool isDebugMode = args.Contains("--debug");
 if (isDebugMode)
 {
     // Allocate a console window for debugging
-    AllocConsole();
+    Program.AllocConsole();
     Console.WriteLine("");
     Console.WriteLine("═══════════════════════════════════════════════════════════════");
     Console.WriteLine("  AIConsumptionTracker.Agent - DEBUG MODE");
@@ -22,6 +24,7 @@ if (isDebugMode)
     Console.WriteLine($"  Working Dir: {Directory.GetCurrentDirectory()}");
     Console.WriteLine($"  OS:         {Environment.OSVersion}");
     Console.WriteLine($"  Runtime:    {Environment.Version}");
+    Console.WriteLine($"  Command Line: {Environment.CommandLine}");
     Console.WriteLine("═══════════════════════════════════════════════════════════════");
     Console.WriteLine("");
 }
@@ -39,6 +42,7 @@ Program.SaveAgentInfo(port, isDebugMode);
 if (isDebugMode)
 {
     Console.WriteLine($"[DEBUG] Configuring web host on port {port}...");
+    Console.WriteLine($"[DEBUG] Base Directory: {AppDomain.CurrentDomain.BaseDirectory}");
 }
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,6 +76,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 
 if (isDebugMode) Console.WriteLine("[DEBUG] Registering services...");
 builder.Services.AddSingleton<UsageDatabase>();
+builder.Services.AddSingleton<IUsageDatabase>(sp => sp.GetRequiredService<UsageDatabase>());
+builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
 builder.Services.AddSingleton<ConfigService>();
 builder.Services.AddHostedService<ProviderRefreshService>();
 builder.Services.AddHttpClient();
@@ -107,6 +113,22 @@ app.MapGet("/api/health", () =>
         timestamp = DateTime.UtcNow,
         port = port,
         processId = Environment.ProcessId
+    });
+});
+
+// Diagnostics endpoint
+app.MapGet("/api/diagnostics", () => 
+{
+    if (isDebugMode) Console.WriteLine($"[API] GET /api/diagnostics - {DateTime.Now:HH:mm:ss}");
+    return Results.Ok(new {
+        port = port,
+        processId = Environment.ProcessId,
+        workingDir = Directory.GetCurrentDirectory(),
+        baseDir = AppDomain.CurrentDomain.BaseDirectory,
+        startedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+        os = Environment.OSVersion.ToString(),
+        runtime = Environment.Version.ToString(),
+        args = args
     });
 });
 
@@ -278,6 +300,64 @@ static int GetRandomAvailablePort()
     return port;
 }
 
-// P/Invoke to allocate console window
-[DllImport("kernel32.dll", SetLastError = true)]
-static extern bool AllocConsole();
+// Define partial Program class to hold static methods needed by other files
+public partial class Program 
+{
+    // P/Invoke to allocate console window
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool AllocConsole();
+
+    // Helper: Save agent info for UI to discover
+    public static void SaveAgentInfo(int port, bool debug)
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+            Directory.CreateDirectory(agentDir);
+            
+            var info = new AgentInfo
+            {
+                Port = port,
+                StartedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                ProcessId = Environment.ProcessId,
+                DebugMode = debug,
+                Errors = new List<string>(),
+                MachineName = Environment.MachineName,
+                UserName = Environment.UserName
+            };
+
+            var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(Path.Combine(agentDir, "agent.json"), json);
+        }
+        catch (Exception ex)
+        {
+            if (debug) Console.WriteLine($"[ERROR] Failed to save agent info: {ex.Message}");
+        }
+    }
+
+    // Helper: Report error to agent info
+    public static void ReportError(string message)
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+            var jsonFile = Path.Combine(agentDir, "agent.json");
+            
+            if (File.Exists(jsonFile))
+            {
+                var json = File.ReadAllText(jsonFile);
+                var info = JsonSerializer.Deserialize<AgentInfo>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (info != null)
+                {
+                    info.Errors ??= new List<string>();
+                    info.Errors.Add(message);
+                    var updatedJson = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(jsonFile, updatedJson);
+                }
+            }
+        }
+        catch { /* Ignore errors during error reporting */ }
+    }
+}

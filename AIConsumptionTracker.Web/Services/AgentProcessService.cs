@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AIConsumptionTracker.Core.Models;
 
 namespace AIConsumptionTracker.Web.Services;
 
@@ -11,7 +12,7 @@ public class AgentProcessService
     {
         _logger = logger;
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _infoFilePath = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.info");
+        _infoFilePath = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json");
     }
 
     public async Task<(bool isRunning, int port)> GetAgentStatusAsync()
@@ -131,9 +132,4 @@ public class AgentProcessService
         return null;
     }
 
-    private class AgentInfo
-    {
-        public int Port { get; set; }
-        public int ProcessId { get; set; }
-    }
 }

@@ -4,6 +4,8 @@ using Hardcodet.Wpf.TaskbarNotification;
 using System.Drawing;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.AgentClient;
+using System.Runtime.InteropServices;
+using System.Linq;
 
 namespace AIConsumptionTracker.UI.Slim;
 
@@ -26,6 +28,21 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Contains("--debug"))
+        {
+            AllocConsole();
+            Console.WriteLine("");
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine("  AIConsumptionTracker.UI.Slim - DEBUG MODE");
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine($"  Started:    {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine($"  Process ID: {Environment.ProcessId}");
+            Console.WriteLine("═══════════════════════════════════════════════════════════════");
+            Console.WriteLine("");
+            
+            AgentService.LogDiagnostic("Slim UI Debug Mode Enabled");
+        }
+
         base.OnStartup(e);
         
         // Load preferences from Agent
@@ -144,4 +161,10 @@ public class RelayCommand : System.Windows.Input.ICommand
     public bool CanExecute(object? parameter) => true;
 
     public void Execute(object? parameter) => _execute();
+}
+
+public partial class App
+{
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool AllocConsole();
 }

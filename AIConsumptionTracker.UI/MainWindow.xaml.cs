@@ -37,6 +37,9 @@ namespace AIConsumptionTracker.UI
         private readonly System.Windows.Threading.DispatcherTimer _autoRefreshTimer;
         private readonly System.Windows.Threading.DispatcherTimer _updateCheckTimer;
         private Dictionary<string, ImageSource> _iconCache = new();
+        private Dictionary<string, List<FrameworkElement>> _providerElementCache = new();
+        private readonly System.Collections.Concurrent.ConcurrentQueue<ProviderUsage> _usageUpdateQueue = new();
+        private readonly System.Windows.Threading.DispatcherTimer _queueTimer;
 
 
         private string GetRelativeTimeString(DateTime? nextReset)
@@ -102,6 +105,11 @@ namespace AIConsumptionTracker.UI
                 }
             };
             _resetTimer.Start();
+
+            _queueTimer = new System.Windows.Threading.DispatcherTimer();
+            _queueTimer.Interval = TimeSpan.FromMilliseconds(50);
+            _queueTimer.Tick += (s, e) => ProcessUsageQueue();
+            _queueTimer.Start();
 
             _autoRefreshTimer = new System.Windows.Threading.DispatcherTimer();
             _autoRefreshTimer.Tick += async (s, e) => {
@@ -521,10 +529,18 @@ namespace AIConsumptionTracker.UI
 
         private void OnProviderUsageUpdated(ProviderUsage usage)
         {
-            Dispatcher.Invoke(() =>
+            _usageUpdateQueue.Enqueue(usage);
+        }
+
+        private void ProcessUsageQueue()
+        {
+            const int maxPerTick = 10;
+            int count = 0;
+            while (count < maxPerTick && _usageUpdateQueue.TryDequeue(out var usage))
             {
                 UpdateProviderBar(usage);
-            });
+                count++;
+            }
         }
 
         private void UpdateProviderBar(ProviderUsage usage)
@@ -535,8 +551,11 @@ namespace AIConsumptionTracker.UI
                            (usage.IsAvailable && !usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase)) ||
                            (usage.IsQuotaBased || usage.PlanType == PlanType.Coding || usage.NextResetTime.HasValue || (usage.Details != null && usage.Details.Any(d => d.NextResetTime.HasValue)));
 
-            // Find existing bars for this provider group (search recursively in containers)
-            var existingBars = FindElementsByTagRecursive(ProvidersList, usage.ProviderId).ToList();
+            // Find existing bars for this provider group using cache
+            if (!_providerElementCache.TryGetValue(usage.ProviderId, out var existingBars))
+            {
+                existingBars = new List<FrameworkElement>();
+            }
 
             if (existingBars.Count > 0)
             {
@@ -573,6 +592,7 @@ namespace AIConsumptionTracker.UI
                 {
                     RemoveElementFromParent(bar);
                 }
+                _providerElementCache.Remove(usage.ProviderId);
             }
 
             // Only add if it should be shown
@@ -612,6 +632,8 @@ namespace AIConsumptionTracker.UI
             {
                 targetContainer.Children.Insert(insertIndex + i, newElements[i]);
             }
+            
+            _providerElementCache[usage.ProviderId] = newElements;
         }
 
         private IEnumerable<FrameworkElement> FindElementsByTagRecursive(Panel parent, string tag)
@@ -817,6 +839,7 @@ namespace AIConsumptionTracker.UI
         private void RenderUsages(List<ProviderUsage> usages)
         {
             ProvidersList.Children.Clear();
+            _providerElementCache.Clear();
             
             bool showAll = ShowAllToggle?.IsChecked ?? true;
             var filteredUsages = usages

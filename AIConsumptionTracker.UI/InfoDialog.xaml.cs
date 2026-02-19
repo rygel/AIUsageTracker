@@ -17,7 +17,8 @@ namespace AIConsumptionTracker.UI
     {
         private bool _isPrivacyMode = false;
         private string? _realUserName;
-        private string? _realConfigPath;
+        private string? _realConfigDir;
+        private string? _realDataDir;
         private readonly IConfigLoader? _configLoader;
 
         public InfoDialog()
@@ -153,8 +154,11 @@ namespace AIConsumptionTracker.UI
             // Current user
             _realUserName = Environment.UserName;
             
-            // Configuration File Path
-            _realConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "auth.json");
+            // Configuration Directory path (without auth.json)
+            _realConfigDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker");
+            
+            // Data Directory path
+            _realDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", "Agent");
             
             UpdatePrivacyUI();
         }
@@ -164,13 +168,15 @@ namespace AIConsumptionTracker.UI
             if (_isPrivacyMode)
             {
                 UserNameText.Text = AIConsumptionTracker.Infrastructure.Helpers.PrivacyHelper.MaskString(_realUserName ?? "User");
-                ConfigLinkText.Text = AIConsumptionTracker.Infrastructure.Helpers.PrivacyHelper.MaskPath(_realConfigPath ?? "Path");
+                ConfigDirText.Text = AIConsumptionTracker.Infrastructure.Helpers.PrivacyHelper.MaskPath(_realConfigDir ?? "Path");
+                DataDirText.Text = AIConsumptionTracker.Infrastructure.Helpers.PrivacyHelper.MaskPath(_realDataDir ?? "Path");
                 PrivacyBtn.Foreground = Brushes.Gold;
             }
             else
             {
                 UserNameText.Text = _realUserName;
-                ConfigLinkText.Text = _realConfigPath;
+                ConfigDirText.Text = _realConfigDir;
+                DataDirText.Text = _realDataDir;
                 PrivacyBtn.Foreground = Brushes.Gray;
             }
         }
@@ -204,30 +210,29 @@ namespace AIConsumptionTracker.UI
             }
         }
 
-        private void ConfigPath_Click(object sender, RoutedEventArgs e)
+        private void ConfigDir_Click(object sender, RoutedEventArgs e)
         {
-            var configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "auth.json");
-            if (File.Exists(configPath))
+            if (Directory.Exists(_realConfigDir))
             {
                 Process.Start(new ProcessStartInfo
                 {
                     FileName = "explorer.exe",
-                    Arguments = $"/select,\"{configPath}\"",
+                    Arguments = $"\"{_realConfigDir}\"",
                     UseShellExecute = true
                 });
             }
-            else
+        }
+
+        private void DataDir_Click(object sender, RoutedEventArgs e)
+        {
+            if (Directory.Exists(_realDataDir))
             {
-                var directory = Path.GetDirectoryName(configPath);
-                if (directory != null && Directory.Exists(directory))
+                Process.Start(new ProcessStartInfo
                 {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName = "explorer.exe",
-                        Arguments = $"\"{directory}\"",
-                        UseShellExecute = true
-                    });
-                }
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{_realDataDir}\"",
+                    UseShellExecute = true
+                });
             }
         }
     }

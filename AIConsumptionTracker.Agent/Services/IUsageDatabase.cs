@@ -13,5 +13,7 @@ public interface IUsageDatabase
     Task<List<ProviderUsage>> GetLatestHistoryAsync();
     Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100);
     Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100);
+    Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider);
     Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50);
+    Task<bool> IsHistoryEmptyAsync();
 }

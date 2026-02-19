@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System.Threading.Tasks;
 using AIConsumptionTracker.Core.Models;
+using AIConsumptionTracker.Core.AgentClient;
 
 namespace AIConsumptionTracker.UI.Slim
 {
@@ -15,7 +16,8 @@ namespace AIConsumptionTracker.UI.Slim
     {
         private bool _isPrivacyMode = false;
         private string? _realUserName;
-        private string? _realConfigPath;
+        private string? _realConfigDir;
+        private string? _realDataDir;
 
         public InfoDialog()
         {
@@ -63,10 +65,28 @@ namespace AIConsumptionTracker.UI.Slim
             // Current user
             _realUserName = Environment.UserName;
             
-            // Configuration File Path
-            _realConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "auth.json");
+            // Configuration Directory path (without auth.json)
+            _realConfigDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker");
+            
+            // Data Directory path
+            _realDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", "Agent");
             
             UpdatePrivacyUI();
+            LoadDiagnostics();
+        }
+
+        private void LoadDiagnostics()
+        {
+            try
+            {
+                var logs = AgentService.DiagnosticsLog;
+                DiagnosticsLogText.Text = string.Join(Environment.NewLine, logs);
+                DiagnosticsLogText.ScrollToEnd();
+            }
+            catch (Exception ex)
+            {
+                DiagnosticsLogText.Text = $"Error loading diagnostics: {ex.Message}";
+            }
         }
 
         private void UpdatePrivacyUI()
@@ -74,13 +94,15 @@ namespace AIConsumptionTracker.UI.Slim
             if (_isPrivacyMode)
             {
                 UserNameText.Text = MaskString(_realUserName ?? "User");
-                ConfigLinkText.Text = MaskPath(_realConfigPath ?? "Path");
+                ConfigDirText.Text = MaskPath(_realConfigDir ?? "Path");
+                DataDirText.Text = MaskPath(_realDataDir ?? "Path");
                 PrivacyBtn.Foreground = Brushes.Gold;
             }
             else
             {
                 UserNameText.Text = _realUserName;
-                ConfigLinkText.Text = _realConfigPath;
+                ConfigDirText.Text = _realConfigDir;
+                DataDirText.Text = _realDataDir;
                 PrivacyBtn.Foreground = Brushes.Gray;
             }
         }
@@ -124,44 +146,56 @@ namespace AIConsumptionTracker.UI.Slim
             }
         }
 
-        private void ConfigPath_Click(object sender, RoutedEventArgs e)
+        private void ConfigDir_Click(object sender, RoutedEventArgs e)
         {
-            var configPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "auth.json");
-            if (File.Exists(configPath))
+            if (Directory.Exists(_realConfigDir))
             {
                 try 
                 {
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = "explorer.exe",
-                        Arguments = $"/select,\"{configPath}\"",
+                        Arguments = $"\"{_realConfigDir}\"",
                         UseShellExecute = true
                     });
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to open config: {ex.Message}");
+                    Debug.WriteLine($"Failed to open config dir: {ex.Message}");
                 }
             }
-            else
+        }
+
+        private void DataDir_Click(object sender, RoutedEventArgs e)
+        {
+            if (Directory.Exists(_realDataDir))
             {
-                var directory = Path.GetDirectoryName(configPath);
-                if (directory != null && Directory.Exists(directory))
+                try
                 {
-                    try
+                    Process.Start(new ProcessStartInfo
                     {
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = "explorer.exe",
-                            Arguments = $"\"{directory}\"",
-                            UseShellExecute = true
-                        });
-                    }
-                    catch (Exception ex)
-                    {
-                         Debug.WriteLine($"Failed to open directory: {ex.Message}");
-                    }
+                        FileName = "explorer.exe",
+                        Arguments = $"\"{_realDataDir}\"",
+                        UseShellExecute = true
+                    });
                 }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Failed to open data dir: {ex.Message}");
+                }
+            }
+        }
+
+        private void CopyLog_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Clipboard.SetText(DiagnosticsLogText.Text);
+                MessageBox.Show("Diagnostics log copied to clipboard.", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to copy log: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
     }

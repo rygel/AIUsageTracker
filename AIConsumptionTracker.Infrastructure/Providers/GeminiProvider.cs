@@ -189,7 +189,7 @@ public class GeminiProvider : IProviderService
         var content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
             { "client_id", "GEMINI_CLI_OAUTH_CLIENT_ID_REMOVED" }, // Public CLI ID
-            { "client_secret", "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" },
+            { "client_secret", "" }, // Should be provided via configuration or not needed for public discovery
             { "refresh_token", refreshToken },
             { "grant_type", "refresh_token" }
         });

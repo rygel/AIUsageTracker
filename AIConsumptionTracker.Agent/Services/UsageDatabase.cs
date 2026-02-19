@@ -294,6 +294,40 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
+    public async Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var sql = $@"
+                WITH RankedHistory AS (
+                    SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
+                           h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
+                           h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                           h.status_message AS Description, h.fetched_at AS FetchedAt,
+                           h.next_reset_time AS NextResetTime,
+                           ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY h.fetched_at DESC) as pos
+                    FROM provider_history h
+                    JOIN providers p ON h.provider_id = p.provider_id
+                )
+                SELECT ProviderId, ProviderName, RequestsUsed, RequestsAvailable, 
+                       RequestsPercentage, IsAvailable, Description, FetchedAt, NextResetTime
+                FROM RankedHistory 
+                WHERE pos <= @Count
+                ORDER BY ProviderId, FetchedAt DESC";
+
+            var results = await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider });
+            return results.ToList();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
     public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
         await _semaphore.WaitAsync();
@@ -313,6 +347,22 @@ public class UsageDatabase : IUsageDatabase
 
             var results = await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId });
             return results.ToList();
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<bool> IsHistoryEmptyAsync()
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            using var connection = new SqliteConnection(_connectionString);
+            await connection.OpenAsync();
+            var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM provider_history");
+            return count == 0;
         }
         finally
         {

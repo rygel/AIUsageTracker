@@ -86,15 +86,37 @@
                             <TextBlock x:Name="UserNameText" Text="..." Foreground="{DynamicResource PrimaryText}"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                            <TextBlock Text="Configuration:" Width="100" Foreground="{DynamicResource TertiaryText}"/>
-                            <TextBlock x:Name="ConfigPathText" VerticalAlignment="Center" MaxWidth="280">
-                                <Hyperlink Click="ConfigPath_Click" Foreground="{DynamicResource LinkForeground}" TextDecorations="None">
-                                    <TextBlock x:Name="ConfigLinkText" Text="auth.json" TextWrapping="Wrap"/>
+                            <TextBlock Text="Config Dir:" Width="100" Foreground="{DynamicResource TertiaryText}"/>
+                            <TextBlock VerticalAlignment="Center" MaxWidth="280">
+                                <Hyperlink Click="ConfigDir_Click" Foreground="{DynamicResource LinkForeground}" TextDecorations="None">
+                                    <TextBlock x:Name="ConfigDirText" Text="..." TextWrapping="Wrap"/>
+                                </Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+                            <TextBlock Text="Data Dir:" Width="100" Foreground="{DynamicResource TertiaryText}"/>
+                            <TextBlock VerticalAlignment="Center" MaxWidth="280">
+                                <Hyperlink Click="DataDir_Click" Foreground="{DynamicResource LinkForeground}" TextDecorations="None">
+                                    <TextBlock x:Name="DataDirText" Text="..." TextWrapping="Wrap"/>
                                 </Hyperlink>
                             </TextBlock>
                         </StackPanel>
                     </StackPanel>
-
+                    <TextBlock Text="Diagnostics Log" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryText}" Margin="0,0,0,10"/>
+                    <Border BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Background="{DynamicResource CardBackground}" Margin="0,0,0,10" Height="200">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+                            <TextBox x:Name="DiagnosticsLogText" 
+                                     IsReadOnly="True" 
+                                     Background="Transparent" 
+                                     Foreground="{DynamicResource TertiaryText}" 
+                                     BorderThickness="0" 
+                                     TextWrapping="NoWrap" 
+                                     FontSize="10" 
+                                     Padding="5"
+                                     FontFamily="Consolas, Monospace"/>
+                        </ScrollViewer>
+                    </Border>
+                    <Button Content="Copy Log" HorizontalAlignment="Left" Click="CopyLog_Click" FontSize="10" Padding="8,2" Margin="0,0,0,10"/>
             </StackPanel>
 
             <!-- Footer -->

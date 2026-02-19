@@ -20,6 +20,7 @@ If you want to support me and are interested in different AI model providers, yo
 ### Documentation
 - [User Manual](docs/user_manual.md)
 - [CLI Reference](docs/cli_documentation.md)
+- [Architecture & Philosophy](ARCHITECTURE.md)
 - [Agent Guidelines](AGENTS.md)
 
 ### Community

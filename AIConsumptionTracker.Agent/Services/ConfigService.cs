@@ -112,7 +112,7 @@ public class ConfigService
     {
         try
         {
-            var discovered = _tokenDiscovery.DiscoverTokens();
+            var discovered = await _tokenDiscovery.DiscoverTokensAsync();
             var existing = await _configLoader.LoadConfigAsync();
             
             // Merge discovered with existing
