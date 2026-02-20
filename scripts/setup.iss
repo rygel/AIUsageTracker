@@ -79,7 +79,7 @@ CloseApplications=yes
 DisableDirPage=auto
 DirExistsWarning=no
 SetupIconFile=..\AIConsumptionTracker.UI\Assets\app_icon.ico
-UninstallDisplayIcon={app}\AIConsumptionTracker.UI.exe
+UninstallDisplayIcon={app}\app_icon.ico
 PrivilegesRequired=lowest
 
 #if MyAppArch == "x64"
@@ -93,19 +93,42 @@ ArchitecturesInstallIn64BitMode=arm64
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
+[Types]
+Name: "full"; Description: "Full installation"
+Name: "compact"; Description: "Compact installation"
+Name: "custom"; Description: "Custom installation"; Flags: iscustom
+
+[Components]
+Name: "apps\tracker"; Description: "Tracker (Slim UI)"; Types: full compact custom
+Name: "apps\ui"; Description: "Classic UI"; Types: full custom
+Name: "apps\agent"; Description: "Agent"; Types: full custom
+Name: "apps\web"; Description: "Web UI"; Types: full custom
+Name: "apps\cli"; Description: "CLI"; Types: full compact custom
+
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startup"; Description: "Run at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked
+Name: "desktopicontracker"; Description: "Create Tracker desktop icon"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; Components: apps\tracker
+Name: "startuptracker"; Description: "Run Tracker at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked; Components: apps\tracker
 
 [Files]
-Source: "{#SourcePath}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\AIConsumptionTracker.UI\Assets\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourcePath}\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#SourcePath}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#SourcePath}\Tracker\*"; DestDir: "{app}\Tracker"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\tracker
+Source: "{#SourcePath}\UI\*"; DestDir: "{app}\UI"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\ui
+Source: "{#SourcePath}\Agent\*"; DestDir: "{app}\Agent"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\agent
+Source: "{#SourcePath}\Web\*"; DestDir: "{app}\Web"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\web
+Source: "{#SourcePath}\CLI\*"; DestDir: "{app}\CLI"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\cli
 
 [Icons]
-Name: "{group}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.UI.exe"
+Name: "{group}\Tracker (Slim UI)"; Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Components: apps\tracker
+Name: "{group}\Classic UI"; Filename: "{app}\UI\AIConsumptionTracker.UI.exe"; Components: apps\ui
+Name: "{group}\Agent"; Filename: "{app}\Agent\AIConsumptionTracker.Agent.exe"; Components: apps\agent
+Name: "{group}\Web UI"; Filename: "{app}\Web\AIConsumptionTracker.Web.exe"; Components: apps\web
+Name: "{group}\CLI"; Filename: "{app}\CLI\AIConsumptionTracker.CLI.exe"; Components: apps\cli
 Name: "{group}\{cm:UninstallProgram,AI Consumption Tracker}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.UI.exe"; Tasks: desktopicon
-Name: "{userstartup}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.UI.exe"; Tasks: startup
+Name: "{autodesktop}\AI Consumption Tracker"; Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
+Name: "{userstartup}\AI Consumption Tracker"; Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Tasks: startuptracker; Components: apps\tracker
 
 [Run]
-Filename: "{app}\AIConsumptionTracker.UI.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker}"; Flags: nowait postinstall skipifsilent; Check: ShouldRunApplication
+Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
 

@@ -93,40 +93,74 @@ Write-Host "Cleaning dist folder for $Runtime..." -ForegroundColor Cyan
 if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
 New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 
-Write-Host "Publishing $projectName for $Runtime (Version: $Version)..." -ForegroundColor Cyan
+if ($isWinPlatform) {
+    $windowsProjects = @(
+        @{ Name = "Tracker"; ProjectPath = ".\AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj"; ExeName = "AIConsumptionTracker.exe" },
+        @{ Name = "UI"; ProjectPath = ".\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj"; ExeName = "AIConsumptionTracker.UI.exe" },
+        @{ Name = "Agent"; ProjectPath = ".\AIConsumptionTracker.Agent\AIConsumptionTracker.Agent.csproj"; ExeName = "AIConsumptionTracker.Agent.exe" },
+        @{ Name = "Web"; ProjectPath = ".\AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj"; ExeName = "AIConsumptionTracker.Web.exe" },
+        @{ Name = "CLI"; ProjectPath = ".\AIConsumptionTracker.CLI\AIConsumptionTracker.CLI.csproj"; ExeName = "AIConsumptionTracker.CLI.exe" }
+    )
 
-# For Linux/Mac (CLI), we want SingleFile but NOT AOT (cross-OS native compilation not supported)
-# For Windows (UI), we just use standard publish (installer handles the rest)
-$singleFileParam = if (-not $isWinPlatform) { "-p:PublishSingleFile=true" } else { "" }
-$selfContained = if (-not $isWinPlatform) { "true" } else { "false" }
+    foreach ($app in $windowsProjects) {
+        $componentDir = Join-Path $publishDir $app.Name
+        New-Item -ItemType Directory -Path $componentDir -Force | Out-Null
 
-# Explicitly disable AOT for cross-platform builds to avoid "Cross-OS native compilation is not supported" error
-$aotParam = if (-not $isWinPlatform) { "-p:PublishAot=false" } else { "" }
+        Write-Host "Publishing $($app.Name) for $Runtime (Version: $Version)..." -ForegroundColor Cyan
+        dotnet publish $app.ProjectPath `
+            -c Release `
+            -r $Runtime `
+            --self-contained false `
+            -o $componentDir `
+            -p:PublishReadyToRun=true `
+            -p:DebugType=None `
+            -p:Version=$Version `
+            -p:AssemblyVersion=$cleanVersion `
+            -p:FileVersion=$cleanVersion
 
-dotnet publish $projectPath `
-    -c Release `
-    -r $Runtime `
-    --self-contained $selfContained `
-    -o $publishDir `
-    $singleFileParam `
-    $aotParam `
-    -p:PublishReadyToRun=true `
-    -p:DebugType=None `
-    -p:Version=$Version `
-    -p:AssemblyVersion=$cleanVersion `
-    -p:FileVersion=$cleanVersion
+        $outputExe = Join-Path $componentDir $app.ExeName
+        if (Test-Path $outputExe) {
+            Write-Host "Build Successful: $($app.Name) ($($app.ExeName)) created." -ForegroundColor Green
+        } else {
+            Write-Host "Build Failed: $($app.ExeName) not found in $componentDir." -ForegroundColor Red
+            exit 1
+        }
+    }
+} else {
+    Write-Host "Publishing $projectName for $Runtime (Version: $Version)..." -ForegroundColor Cyan
+
+    # For Linux/Mac (CLI), we want SingleFile but NOT AOT (cross-OS native compilation not supported)
+    $singleFileParam = "-p:PublishSingleFile=true"
+    $selfContained = "true"
+    $aotParam = "-p:PublishAot=false"
+
+    dotnet publish $projectPath `
+        -c Release `
+        -r $Runtime `
+        --self-contained $selfContained `
+        -o $publishDir `
+        $singleFileParam `
+        $aotParam `
+        -p:PublishReadyToRun=true `
+        -p:DebugType=None `
+        -p:Version=$Version `
+        -p:AssemblyVersion=$cleanVersion `
+        -p:FileVersion=$cleanVersion
+}
 
 Write-Host "Copying documentation..." -ForegroundColor Cyan
 Copy-Item ".\README.md" -Destination $publishDir
 if (Test-Path ".\LICENSE") { Copy-Item ".\LICENSE" -Destination $publishDir }
 
 Write-Host "Verifying output..." -ForegroundColor Cyan
-$exeName = if ($isWinPlatform) { "$projectName.exe" } else { $projectName }
-if (Test-Path "$publishDir\$exeName") {
-    Write-Host "Build Successful: $exeName created." -ForegroundColor Green
-} else {
-    Write-Host "Build Failed: $exeName not found in $publishDir." -ForegroundColor Red
-    exit 1
+if (-not $isWinPlatform) {
+    $exeName = $projectName
+    if (Test-Path "$publishDir\$exeName") {
+        Write-Host "Build Successful: $exeName created." -ForegroundColor Green
+    } else {
+        Write-Host "Build Failed: $exeName not found in $publishDir." -ForegroundColor Red
+        exit 1
+    }
 }
 
 Write-Host "Creating Distribution ZIP..." -ForegroundColor Cyan
