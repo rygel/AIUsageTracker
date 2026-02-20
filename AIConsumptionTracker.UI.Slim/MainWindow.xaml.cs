@@ -796,7 +796,7 @@ public partial class MainWindow : Window
         return new ProviderUsage
         {
             ProviderId = $"antigravity.{detail.Name.ToLowerInvariant().Replace(" ", "-")}",
-            ProviderName = GetAntigravityModelDisplayName(detail),
+            ProviderName = $"{GetAntigravityModelDisplayName(detail)} [Antigravity]",
             RequestsPercentage = remainingPercent,
             RequestsUsed = 100.0 - remainingPercent,
             RequestsAvailable = 100,
