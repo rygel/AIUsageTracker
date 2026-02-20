@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-02-20
+
+### Changed
+- Windows installer now offers selectable components: Tracker (Slim UI), Classic UI, Agent, Web UI, and CLI.
+- Startup and desktop shortcut options now target Tracker (Slim UI) instead of the classic UI executable.
+
+### Fixed
+- Publish workflow `create-release` job now checks out repository files before appcast generation, preventing missing script failures.
+
 ## [2.0.1] - 2026-02-20
 
 ### Changed

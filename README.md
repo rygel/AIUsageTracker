@@ -1,6 +1,6 @@
 # <img src="AIConsumptionTracker.UI/Assets/app_icon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
-![Version](https://img.shields.io/badge/version-2.0.1-orange)
+![Version](https://img.shields.io/badge/version-2.0.2-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
