@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-02-20
+
+### Changed
+- Installer metadata now includes repository/support/update URLs, and interactive installs always show the component selection list.
+
+### Fixed
+- In-app updater no longer launches the installer with `/SILENT`, so users can review installer options during update.
+
 ## [2.0.2] - 2026-02-20
 
 ### Changed
