@@ -13,6 +13,7 @@
 - Slim UI is now the primary desktop UI, rebranded as **AI Consumption Tracker** with title-bar icons and improved tray/settings behavior.
 - Antigravity rendering now uses strict payload-defined model names/grouping with grouped model rows.
 - Release versioning is centralized in `Directory.Build.props`, with CI dry-run checks for release scripts.
+- Added docs architecture links that explicitly reference both the Agent and the Web UI components.
 
 ### Fixed
 - Agent refresh endpoint and DI wiring issues that blocked Slim UI from receiving live usage data.
