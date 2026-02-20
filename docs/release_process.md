@@ -34,6 +34,17 @@ By requiring manual tag creation:
 - All changes for the release must be merged to `main`
 - CHANGELOG.md must be updated with the new version
 - Version files must be updated (see step 1 below)
+- Inno Setup 6 must be installed locally if you want to validate installer compilation before tagging
+
+### Optional Local Installer Validation (Recommended)
+
+Before creating a release tag, run:
+
+```powershell
+.\scripts\validate-setup-build.ps1 -Version 1.8.7-alpha.2
+```
+
+This compiles `scripts/setup.iss` for `x64`, `x86`, and `arm64` using local fixture publish folders, so installer script errors are caught locally instead of only in publish CI.
 
 ## Release Steps
 
