@@ -2,7 +2,7 @@
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 
 # Start the application
-$process = Start-Process "c:\Develop\Claude\opencode-tracker\AIConsumptionTracker.UI\bin\Debug\net8.0-windows\AIConsumptionTracker.UI.exe" -PassThru
+$process = Start-Process "c:\Develop\Claude\opencode-tracker\AIConsumptionTracker.UI.Slim\bin\Debug\net8.0-windows10.0.17763.0\AIConsumptionTracker.exe" -PassThru
 Start-Sleep -Seconds 10 # Wait for load and refresh
 
 # Take screenshot of Dashboard

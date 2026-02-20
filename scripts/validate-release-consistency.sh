@@ -14,7 +14,6 @@ failed=0
 project_files=(
   "AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj"
   "AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj"
-  "AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj"
   "AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj"
   "AIConsumptionTracker.UI.Slim/AIConsumptionTracker.UI.Slim.csproj"
   "AIConsumptionTracker.Agent/AIConsumptionTracker.Agent.csproj"

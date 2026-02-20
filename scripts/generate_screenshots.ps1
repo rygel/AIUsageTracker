@@ -14,14 +14,14 @@ Write-Host ""
 
 # Determine the correct paths
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$binPath = Join-Path $projectRoot "AIConsumptionTracker.UI\bin\$Configuration\net8.0-windows10.0.17763.0"
-$exePath = Join-Path $binPath "AIConsumptionTracker.UI.exe"
+$binPath = Join-Path $projectRoot "AIConsumptionTracker.UI.Slim\bin\$Configuration\net8.0-windows10.0.17763.0"
+$exePath = Join-Path $binPath "AIConsumptionTracker.exe"
 
 # Check if executable exists
 if (-not (Test-Path $exePath)) {
     Write-Host "ERROR: Executable not found at: $exePath" -ForegroundColor Red
     Write-Host "Please build the project first with:" -ForegroundColor Yellow
-    Write-Host "  dotnet build AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj --configuration $Configuration" -ForegroundColor Yellow
+    Write-Host "  dotnet build AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj --configuration $Configuration" -ForegroundColor Yellow
     exit 1
 }
 
@@ -50,7 +50,7 @@ Write-Host "Privacy Mode: ENABLED (hardcoded for screenshots)" -ForegroundColor 
 Write-Host ""
 
 # Kill any existing instances
-$existingProcesses = Get-Process -Name "AIConsumptionTracker.UI" -ErrorAction SilentlyContinue
+$existingProcesses = Get-Process -Name "AIConsumptionTracker" -ErrorAction SilentlyContinue
 if ($existingProcesses) {
     Write-Host "Stopping existing instances..." -ForegroundColor Yellow
     $existingProcesses | Stop-Process -Force
@@ -59,7 +59,7 @@ if ($existingProcesses) {
 
 # Build if needed
 Write-Host "Building project..." -ForegroundColor Cyan
-$buildOutput = & dotnet build (Join-Path $projectRoot "AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj") --configuration $Configuration 2>&1
+$buildOutput = & dotnet build (Join-Path $projectRoot "AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj") --configuration $Configuration 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed!" -ForegroundColor Red
     $buildOutput | ForEach-Object { Write-Host $_ }

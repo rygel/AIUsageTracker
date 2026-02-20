@@ -1,4 +1,4 @@
-# <img src="AIConsumptionTracker.UI/Assets/app_icon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
+# <img src="Assets/icon_pixel_final_512.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
 ![Version](https://img.shields.io/badge/version-2.0.4-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)

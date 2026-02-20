@@ -124,8 +124,8 @@ public class AgentLauncher
                     {
                         FileName = "dotnet",
                         Arguments = $"run --project \"{agentProjectDir}\" --urls \"http://localhost:{port}\" -- --debug",
-                        UseShellExecute = true,
-                        CreateNoWindow = false,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
                         WorkingDirectory = agentProjectDir
                     };
                     Process.Start(psi);
@@ -141,8 +141,8 @@ public class AgentLauncher
             {
                 FileName = agentPath,
                 Arguments = $"--urls \"http://localhost:{port}\" --debug",
-                UseShellExecute = true,
-                CreateNoWindow = false,
+                UseShellExecute = false,
+                CreateNoWindow = true,
                 WorkingDirectory = Path.GetDirectoryName(agentPath)
             };
 

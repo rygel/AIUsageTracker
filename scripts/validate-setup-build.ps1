@@ -50,7 +50,6 @@ function New-PublishFixture {
 
     $componentFiles = @(
         "Tracker\AIConsumptionTracker.exe",
-        "UI\AIConsumptionTracker.UI.exe",
         "Agent\AIConsumptionTracker.Agent.exe",
         "Web\AIConsumptionTracker.Web.exe",
         "CLI\AIConsumptionTracker.CLI.exe"

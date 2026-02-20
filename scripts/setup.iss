@@ -60,8 +60,9 @@ end;
 
 function ShouldRunApplication(): Boolean;
 begin
-  // Run if /RESTARTAPPLICATIONS was passed OR if user checked the box (not in silent mode)
-  Result := RestartApplications;
+  // Always offer launch option for interactive installs.
+  // With postinstall + default checked, /RESTARTAPPLICATIONS flow still relaunches.
+  Result := True;
 end;
 
 [Setup]
@@ -82,7 +83,7 @@ SolidCompression=yes
 CloseApplications=yes
 DisableDirPage=auto
 DirExistsWarning=no
-SetupIconFile=..\AIConsumptionTracker.UI\Assets\app_icon.ico
+SetupIconFile=..\AIConsumptionTracker.UI.Slim\Assets\app_icon.ico
 UninstallDisplayIcon={app}\app_icon.ico
 PrivilegesRequired=lowest
 
@@ -104,35 +105,32 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 
 [Components]
 Name: "apps"; Description: "Applications"; Types: full compact custom; Flags: fixed
-Name: "apps\tracker"; Description: "Tracker (Slim UI)"; Types: full compact custom
-Name: "apps\ui"; Description: "Classic UI"; Types: full custom
-Name: "apps\agent"; Description: "Agent"; Types: full custom
+Name: "apps\tracker"; Description: "AI Consumption Tracker UI"; Types: full compact custom
+Name: "apps\agent"; Description: "AI Consumption Tracker Agent"; Types: full custom
 Name: "apps\web"; Description: "Web UI"; Types: full custom
 Name: "apps\cli"; Description: "CLI"; Types: full compact custom
 
 [Tasks]
-Name: "desktopicontracker"; Description: "Create Tracker desktop icon"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; Components: apps\tracker
-Name: "startuptracker"; Description: "Run Tracker at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked; Components: apps\tracker
+Name: "desktopicontracker"; Description: "Create AI Consumption Tracker UI desktop icon"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; Components: apps\tracker
+Name: "startupagent"; Description: "Run AI Consumption Tracker Agent at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked; Components: apps\agent
 
 [Files]
-Source: "..\AIConsumptionTracker.UI\Assets\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\AIConsumptionTracker.UI.Slim\Assets\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#SourcePath}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#SourcePath}\Tracker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\tracker
-Source: "{#SourcePath}\UI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\ui
 Source: "{#SourcePath}\Agent\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\agent
 Source: "{#SourcePath}\Web\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\web
 Source: "{#SourcePath}\CLI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\cli
 
 [Icons]
-Name: "{group}\Tracker (Slim UI)"; Filename: "{app}\AIConsumptionTracker.exe"; Components: apps\tracker
-Name: "{group}\Classic UI"; Filename: "{app}\AIConsumptionTracker.UI.exe"; Components: apps\ui
-Name: "{group}\Agent"; Filename: "{app}\AIConsumptionTracker.Agent.exe"; Components: apps\agent
+Name: "{group}\AI Consumption Tracker UI"; Filename: "{app}\AIConsumptionTracker.exe"; Components: apps\tracker
+Name: "{group}\AI Consumption Tracker Agent"; Filename: "{app}\AIConsumptionTracker.Agent.exe"; Components: apps\agent
 Name: "{group}\Web UI"; Filename: "{app}\AIConsumptionTracker.Web.exe"; Components: apps\web
 Name: "{group}\CLI"; Filename: "{app}\AIConsumptionTracker.CLI.exe"; Components: apps\cli
 Name: "{group}\{cm:UninstallProgram,AI Consumption Tracker}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
-Name: "{userstartup}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.exe"; Tasks: startuptracker; Components: apps\tracker
+Name: "{userstartup}\AI Consumption Tracker Agent"; Filename: "{app}\AIConsumptionTracker.Agent.exe"; Tasks: startupagent; Components: apps\agent
 
 [Run]
 Filename: "{app}\AIConsumptionTracker.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication

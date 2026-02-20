@@ -6,8 +6,6 @@
   <Project Path="AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj" />
   <Project Path="AIConsumptionTracker.Tests/AIConsumptionTracker.Tests.csproj" />
   <Project Path="AIConsumptionTracker.UI.Slim/AIConsumptionTracker.UI.Slim.csproj" />
-  <Project Path="AIConsumptionTracker.UI.Tests/AIConsumptionTracker.UI.Tests.csproj" />
-  <Project Path="AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj" />
   <Project Path="AIConsumptionTracker.Web.Tests/AIConsumptionTracker.Web.Tests.csproj" />
   <Project Path="AIConsumptionTracker.Web/AIConsumptionTracker.Web.csproj" />
 </Solution>

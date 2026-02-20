@@ -15,13 +15,11 @@ This document provides essential information for agentic coding assistants worki
 
 - **AIConsumptionTracker.Core**: Domain models, interfaces, and business logic (PCL)
 - **AIConsumptionTracker.Infrastructure**: External providers, data access, configuration
-- **AIConsumptionTracker.UI**: WPF desktop application (Windows-only)
 - **AIConsumptionTracker.UI.Slim**: Lightweight WPF desktop application with compact UI
 - **AIConsumptionTracker.Agent**: Background service that collects provider usage data via HTTP API
 - **AIConsumptionTracker.CLI**: Console interface (cross-platform)
 - **AIConsumptionTracker.Web**: ASP.NET Core Razor Pages web application for viewing data
 - **AIConsumptionTracker.Tests**: xUnit unit tests with Moq mocking
-- **AIConsumptionTracker.UI.Tests**: WPF-specific tests
 
 ## Build & Test Commands
 
@@ -31,7 +29,7 @@ This document provides essential information for agentic coding assistants worki
 dotnet build AIConsumptionTracker.slnx --configuration Debug
 
 # Build specific project
-dotnet build AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
+dotnet build AIConsumptionTracker.UI.Slim/AIConsumptionTracker.UI.Slim.csproj
 
 # Restore dependencies
 dotnet restore
@@ -41,9 +39,6 @@ dotnet restore
 ```bash
 # Run all unit tests
 dotnet test AIConsumptionTracker.Tests/AIConsumptionTracker.Tests.csproj --configuration Debug
-
-# Run UI tests
-dotnet test AIConsumptionTracker.UI.Tests/AIConsumptionTracker.UI.Tests.csproj --configuration Debug
 
 # Run all tests (no rebuild)
 dotnet test --no-build --verbosity normal
@@ -86,7 +81,7 @@ dotnet run --project AIConsumptionTracker.UI.Slim
 To generate updated screenshots for documentation (headless and in Privacy Mode):
 ```bash
 # Run from the UI bin directory or project root
-AIConsumptionTracker.UI.exe --test --screenshot
+AIConsumptionTracker.exe --test --screenshot
 ```
 > [!NOTE]
 > The `--test` flag enables explicit UI initialization required for headless rendering. This logic is gated to avoid performance overhead for normal users.
@@ -407,7 +402,7 @@ When preparing a new release (e.g., v1.5.0), ensure the following files are upda
 Update the `<Version>` tag in all project files:
 - `AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj`
 - `AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj`
-- `AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj`
+- `AIConsumptionTracker.UI.Slim/AIConsumptionTracker.UI.Slim.csproj`
 - `AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj`
 
 ### 2. Changelog

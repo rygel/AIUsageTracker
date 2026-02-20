@@ -82,10 +82,10 @@ Added two major new features to AI Consumption Tracker:
 
 ### Related Files:
 1. `AIConsumptionTracker.Core/Models/AppPreferences.cs` - Added AppTheme enum and StartWithWindows property
-2. `AIConsumptionTracker.UI/App.xaml.cs` - Modified OnStartup method to handle Windows Auto-Startup
-3. `AIConsumptionTracker.UI/SettingsWindow.xaml.cs` - Added checkbox in PopulateLayout() and event handlers
-4. `AIConsumptionTracker.UI/App.xaml.cs` - Added SetStartupTaskAsync() method for registry operations
-5. `AIConsumptionTracker.UI/App.xaml.cs` - Added Windows registry using statements and proper command quoting
+2. `AIConsumptionTracker.UI.Slim/App.xaml.cs` - Modified OnStartup method to handle Windows Auto-Startup
+3. `AIConsumptionTracker.UI.Slim/SettingsWindow.xaml.cs` - Added checkbox in PopulateLayout() and event handlers
+4. `AIConsumptionTracker.UI.Slim/App.xaml.cs` - Added SetStartupTaskAsync() method for registry operations
+5. `AIConsumptionTracker.UI.Slim/App.xaml.cs` - Added Windows registry using statements and proper command quoting
 
 ## Design Document Created: FEATURE_WINDOWS_STARTUP.md
 

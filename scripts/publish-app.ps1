@@ -7,8 +7,8 @@ param(
 # Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 2.0.4
 
 $isWinPlatform = $Runtime.StartsWith("win-")
-$projectName = if ($isWinPlatform) { "AIConsumptionTracker.UI" } else { "AIConsumptionTracker.CLI" }
-$projectPath = if ($isWinPlatform) { ".\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj" } else { ".\AIConsumptionTracker.CLI\AIConsumptionTracker.CLI.csproj" }
+$projectName = if ($isWinPlatform) { "AIConsumptionTracker" } else { "AIConsumptionTracker.CLI" }
+$projectPath = if ($isWinPlatform) { ".\AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj" } else { ".\AIConsumptionTracker.CLI\AIConsumptionTracker.CLI.csproj" }
 $publishDir = ".\dist\publish-$Runtime"
 
 # If Version passed, synchronize it across all files
@@ -96,7 +96,6 @@ New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 if ($isWinPlatform) {
     $windowsProjects = @(
         @{ Name = "Tracker"; ProjectPath = ".\AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj"; ExeName = "AIConsumptionTracker.exe" },
-        @{ Name = "UI"; ProjectPath = ".\AIConsumptionTracker.UI\AIConsumptionTracker.UI.csproj"; ExeName = "AIConsumptionTracker.UI.exe" },
         @{ Name = "Agent"; ProjectPath = ".\AIConsumptionTracker.Agent\AIConsumptionTracker.Agent.csproj"; ExeName = "AIConsumptionTracker.Agent.exe" },
         @{ Name = "Web"; ProjectPath = ".\AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj"; ExeName = "AIConsumptionTracker.Web.exe" },
         @{ Name = "CLI"; ProjectPath = ".\AIConsumptionTracker.CLI\AIConsumptionTracker.CLI.csproj"; ExeName = "AIConsumptionTracker.CLI.exe" }

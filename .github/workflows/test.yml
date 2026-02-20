@@ -57,6 +57,3 @@ jobs:
     - name: Run Unit Tests
       run: dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --verbosity normal
 
-    - name: Run UI Tests
-      run: dotnet test AIConsumptionTracker.UI.Tests\AIConsumptionTracker.UI.Tests.csproj --configuration Debug --verbosity normal
-      shell: pwsh
