@@ -16,7 +16,7 @@ public partial class SettingsWindow : Window
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
     private AppPreferences _preferences = new();
-    private bool _isPrivacyMode = false;
+    private bool _isPrivacyMode = App.IsPrivacyMode;
 
     public bool SettingsChanged { get; private set; }
 
@@ -24,7 +24,10 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         _agentService = new AgentService();
+        App.PrivacyChanged += OnPrivacyChanged;
+        Closed += SettingsWindow_Closed;
         Loaded += SettingsWindow_Loaded;
+        UpdatePrivacyButtonState();
     }
 
     private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
@@ -38,11 +41,45 @@ public partial class SettingsWindow : Window
         _usages = await _agentService.GetUsageAsync();
         _preferences = await _agentService.GetPreferencesAsync();
         _isPrivacyMode = _preferences.IsPrivacyMode;
+        App.SetPrivacyMode(_isPrivacyMode);
+        UpdatePrivacyButtonState();
 
         PopulateProviders();
         PopulateLayoutSettings();
         await LoadHistoryAsync();
         await UpdateAgentStatusAsync();
+    }
+
+    private void SettingsWindow_Closed(object? sender, EventArgs e)
+    {
+        App.PrivacyChanged -= OnPrivacyChanged;
+    }
+
+    private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => OnPrivacyChanged(sender, isPrivacyMode));
+            return;
+        }
+
+        _isPrivacyMode = isPrivacyMode;
+        _preferences.IsPrivacyMode = isPrivacyMode;
+        UpdatePrivacyButtonState();
+        PopulateProviders();
+    }
+
+    private void UpdatePrivacyButtonState()
+    {
+        if (PrivacyBtn == null)
+        {
+            return;
+        }
+
+        PrivacyBtn.Content = _isPrivacyMode ? "\uE72E" : "\uE785";
+        PrivacyBtn.Foreground = _isPrivacyMode
+            ? Brushes.Gold
+            : (TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
     }
 
     private async Task UpdateAgentStatusAsync()
@@ -602,10 +639,13 @@ public partial class SettingsWindow : Window
         UpdateFontPreview();
     }
 
-    private void PrivacyBtn_Click(object sender, RoutedEventArgs e)
+    private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
     {
-        _isPrivacyMode = !_isPrivacyMode;
-        PopulateProviders();
+        var newPrivacyMode = !_isPrivacyMode;
+        _preferences.IsPrivacyMode = newPrivacyMode;
+        App.SetPrivacyMode(newPrivacyMode);
+        await _agentService.SavePreferencesAsync(_preferences);
+        SettingsChanged = true;
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
@@ -733,6 +773,7 @@ public partial class SettingsWindow : Window
             _preferences.FontSize = size;
         _preferences.FontBold = FontBoldCheck.IsChecked ?? false;
         _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
+        _preferences.IsPrivacyMode = _isPrivacyMode;
         
         await _agentService.SavePreferencesAsync(_preferences);
         

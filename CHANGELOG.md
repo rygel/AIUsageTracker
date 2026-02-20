@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [2.0.6] - 2026-02-20
+
+### Changed
+- Privacy mode behavior is now documented as a single global UI state shared across MainWindow and SettingsWindow.
+
+### Fixed
+- Slim privacy toggles in MainWindow and SettingsWindow now stay synchronized and use consistent lock/unlock icons.
+- Antigravity model labels in Agent and Slim UI now use the provider `Name` field to avoid placeholder labels.
+- Codex is hidden when no key is configured, and unavailable OpenCode entries are hidden from the main usage view.
+- Agent start paths are hardened to avoid opening visible CLI windows when launched from Slim UI or Web UI flows.
+
 ## [2.0.5] - 2026-02-20
 
 ### Changed

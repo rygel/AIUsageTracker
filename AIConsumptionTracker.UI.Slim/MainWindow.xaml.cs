@@ -27,7 +27,7 @@ public partial class MainWindow : Window
     private readonly AgentService _agentService;
     private AppPreferences _preferences = new();
     private List<ProviderUsage> _usages = new();
-    private bool _isPrivacyMode = false;
+    private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isLoading = false;
     private readonly Dictionary<string, ImageSource> _iconCache = new();
     private DateTime _lastAgentUpdate = DateTime.MinValue;
@@ -37,6 +37,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _agentService = new AgentService();
+        App.PrivacyChanged += OnPrivacyChanged;
+        Closed += (s, e) => App.PrivacyChanged -= OnPrivacyChanged;
+        UpdatePrivacyButtonState();
 
         // Set version text
         var version = Assembly.GetEntryAssembly()?.GetName().Version;
@@ -137,6 +140,7 @@ public partial class MainWindow : Window
                     Dispatcher.Invoke(() => {
                         _preferences = prefs;
                         _isPrivacyMode = _preferences.IsPrivacyMode;
+                        App.SetPrivacyMode(_isPrivacyMode);
                         ApplyPreferences();
                     });
 
@@ -240,6 +244,38 @@ public partial class MainWindow : Window
         // Apply UI controls
         AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
         ShowUsedToggle.IsChecked = _preferences.InvertProgressBar;
+        UpdatePrivacyButtonState();
+    }
+
+    private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(() => OnPrivacyChanged(sender, isPrivacyMode));
+            return;
+        }
+
+        _isPrivacyMode = isPrivacyMode;
+        _preferences.IsPrivacyMode = isPrivacyMode;
+        UpdatePrivacyButtonState();
+
+        if (_usages.Count > 0)
+        {
+            RenderProviders();
+        }
+    }
+
+    private void UpdatePrivacyButtonState()
+    {
+        if (PrivacyBtn == null)
+        {
+            return;
+        }
+
+        PrivacyBtn.Content = _isPrivacyMode ? "\uE72E" : "\uE785";
+        PrivacyBtn.Foreground = _isPrivacyMode
+            ? Brushes.Gold
+            : (TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
     }
 
     private async Task RefreshDataAsync()
@@ -827,12 +863,12 @@ public partial class MainWindow : Window
 
     private static string GetAntigravityModelDisplayName(ProviderUsageDetail detail)
     {
-        return string.IsNullOrWhiteSpace(detail.ModelName) ? detail.Name : detail.ModelName;
+        return detail.Name;
     }
 
     private static string GetDetailDisplayName(ProviderUsageDetail detail)
     {
-        return string.IsNullOrWhiteSpace(detail.ModelName) ? detail.Name : detail.ModelName;
+        return detail.Name;
     }
 
     private void AddSubProviderCard(ProviderUsageDetail detail, StackPanel container)
@@ -1366,11 +1402,14 @@ public partial class MainWindow : Window
 
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
     {
-        _isPrivacyMode = !_isPrivacyMode;
-        _preferences.IsPrivacyMode = _isPrivacyMode;
+        var newPrivacyMode = !_isPrivacyMode;
+        _preferences.IsPrivacyMode = newPrivacyMode;
+        App.SetPrivacyMode(newPrivacyMode);
+
         if (_agentService != null)
+        {
             await _agentService.SavePreferencesAsync(_preferences);
-        RenderProviders();
+        }
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)

@@ -99,7 +99,7 @@ public class AntigravityProviderTests
         var mystery = Assert.Single(details, d => d.Name == "mystery-model");
 
         Assert.Equal("Anthropic", claude.GroupName);
-        Assert.Equal("claude-3-7-sonnet", claude.ModelName);
+        Assert.Equal("claude-3.7-sonnet", claude.ModelName);
         Assert.Equal("80%", claude.Used);
 
         Assert.Equal("OpenAI", gpt.GroupName);
@@ -190,6 +190,70 @@ public class AntigravityProviderTests
         Assert.Equal(0.0, gemini3Child.RequestsUsed);
         Assert.Equal(100.0, gemini31Child.RequestsPercentage);
         Assert.Equal(0.0, gemini31Child.RequestsUsed);
+    }
+
+    [Fact]
+    public async Task FetchUsage_UsesLabelAsModelName_WhenModelAliasIsPlaceholder()
+    {
+        // Arrange
+        var snapshotJson = """
+        {
+          "userStatus": {
+            "email": "snapshot@example.com",
+            "cascadeModelConfigData": {
+              "clientModelConfigs": [
+                {
+                  "label": "Claude Sonnet 4.6 (Thinking)",
+                  "modelOrAlias": {
+                    "model": "MODEL_PLACEHOLDER_M35"
+                  },
+                  "quotaInfo": {
+                    "remainingFraction": 0.6
+                  }
+                }
+              ],
+              "clientModelSorts": [
+                {
+                  "name": "Recommended",
+                  "groups": [
+                    {
+                      "name": "Tier 1",
+                      "modelLabels": [
+                        "Claude Sonnet 4.6 (Thinking)"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """;
+        var provider = CreateProviderWithHttpClient();
+        var config = new ProviderConfig { ProviderId = "antigravity" };
+
+        _messageHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(request =>
+                    request.Method == HttpMethod.Post &&
+                    request.RequestUri!.ToString().Contains("/GetUserStatus", StringComparison.Ordinal) &&
+                    request.Headers.Contains("X-Codeium-Csrf-Token")),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(snapshotJson)
+            });
+
+        // Act
+        var usages = await InvokeFetchUsageAsync(provider, 5109, "csrf-token", config);
+        var summary = usages.First();
+        var detail = Assert.Single(summary.Details!);
+
+        // Assert
+        Assert.Equal("Claude Sonnet 4.6 (Thinking)", detail.Name);
+        Assert.Equal("Claude Sonnet 4.6 (Thinking)", detail.ModelName);
     }
 
     private AntigravityProvider CreateProviderWithHttpClient()

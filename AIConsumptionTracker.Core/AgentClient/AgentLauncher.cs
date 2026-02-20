@@ -126,6 +126,7 @@ public class AgentLauncher
                         Arguments = $"run --project \"{agentProjectDir}\" --urls \"http://localhost:{port}\" -- --debug",
                         UseShellExecute = false,
                         CreateNoWindow = true,
+                        WindowStyle = ProcessWindowStyle.Hidden,
                         WorkingDirectory = agentProjectDir
                     };
                     Process.Start(psi);
@@ -143,6 +144,7 @@ public class AgentLauncher
                 Arguments = $"--urls \"http://localhost:{port}\" --debug",
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = Path.GetDirectoryName(agentPath)
             };
 

@@ -430,7 +430,7 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             configMap.TryGetValue(label, out var modelConfig);
             var remainingPct = ResolveRemainingPercentage(label, modelConfig);
             var (resetDescription, nextResetTime) = ResolveResetInfo(modelConfig);
-            var modelName = ResolveDisplayModelName(modelConfig, label);
+            var modelName = ResolveDisplayModelName(label);
 
             details.Add(new ProviderUsageDetail
             {
@@ -567,25 +567,9 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
         return ($" (Resets: ({localReset:MMM dd HH:mm}))", localReset);
     }
 
-    private static string ResolveDisplayModelName(ClientModelConfig? modelConfig, string label)
+    private static string ResolveDisplayModelName(string label)
     {
-        var displayModelName = modelConfig?.ModelOrAlias?.Model;
-        if (string.IsNullOrWhiteSpace(displayModelName))
-        {
-            displayModelName = modelConfig?.ModelOrAlias?.Alias;
-        }
-
-        if (string.IsNullOrWhiteSpace(displayModelName))
-        {
-            displayModelName = modelConfig?.ModelOrAlias?.Name;
-        }
-
-        if (string.IsNullOrWhiteSpace(displayModelName))
-        {
-            displayModelName = label;
-        }
-
-        return displayModelName;
+        return label;
     }
 
     private static List<ProviderUsageDetail> SortDetails(List<ProviderUsageDetail> details)

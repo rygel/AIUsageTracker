@@ -227,7 +227,7 @@
                     <TextBlock Text="Settings" FontSize="15" FontWeight="Bold" 
                                VerticalAlignment="Center" Foreground="{DynamicResource PrimaryText}"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button x:Name="PrivacyBtn" Content="&#xE72E;" Click="PrivacyBtn_Click" 
+                        <Button x:Name="PrivacyBtn" Content="&#xE785;" Click="PrivacyBtn_Click" 
                                 Background="Transparent" Foreground="{DynamicResource SecondaryText}" 
                                 Width="30" Margin="0,0,10,0" ToolTip="Toggle Privacy Mode" 
                                 FontFamily="Segoe MDL2 Assets" FontSize="14"

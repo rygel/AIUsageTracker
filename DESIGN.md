@@ -1138,6 +1138,7 @@ The application follows a strict separation between:
 - `account_name` (e.g., GitHub username, Antigravity email) is part of the Agent API contract and should be returned by `/api/usage` whenever available.
 - UI clients must show `account_name` in normal mode and mask it in privacy mode.
 - Privacy masking must only redact the account identifier (e.g., email local-part/username), not provider/status titles, and this rule applies consistently in main dashboards and Settings dialogs (including Antigravity and GitHub Copilot rows).
+- Privacy mode is a single global UI state: toggling it in MainWindow or SettingsWindow must update the other immediately via `App.SetPrivacyMode` / `App.PrivacyChanged`, and both toggles must use the same lock/unlock icon semantics.
 - Agent changes must not drop `account_name` from API responses unless the UI contract is updated in the same PR.
 
 ### Database Schema (V2+)

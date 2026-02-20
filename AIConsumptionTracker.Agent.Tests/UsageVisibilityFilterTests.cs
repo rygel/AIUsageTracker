@@ -118,4 +118,78 @@ public class UsageVisibilityFilterTests
 
         Assert.Empty(filtered);
     }
+
+    [Fact]
+    public void FilterForConfiguredProviders_ExcludesCodexWhenKeyMissing()
+    {
+        var usages = new List<ProviderUsage>
+        {
+            new() { ProviderId = "codex", ProviderName = "Codex", RequestsPercentage = 25, IsAvailable = true }
+        };
+
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "codex", ApiKey = "" }
+        };
+
+        var filtered = UsageVisibilityFilter.FilterForConfiguredProviders(usages, configs);
+
+        Assert.Empty(filtered);
+    }
+
+    [Fact]
+    public void FilterForConfiguredProviders_IncludesCodexWhenKeyPresent()
+    {
+        var usages = new List<ProviderUsage>
+        {
+            new() { ProviderId = "codex", ProviderName = "Codex", RequestsPercentage = 25, IsAvailable = true }
+        };
+
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "codex", ApiKey = "key" }
+        };
+
+        var filtered = UsageVisibilityFilter.FilterForConfiguredProviders(usages, configs);
+
+        Assert.Single(filtered);
+        Assert.Equal("codex", filtered[0].ProviderId);
+    }
+
+    [Fact]
+    public void FilterForConfiguredProviders_ExcludesOpenCodeWhenUnavailable()
+    {
+        var usages = new List<ProviderUsage>
+        {
+            new() { ProviderId = "opencode", ProviderName = "OpenCode", RequestsPercentage = 0, IsAvailable = false, Description = "Invalid API response (not JSON)" }
+        };
+
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "opencode", ApiKey = "key" }
+        };
+
+        var filtered = UsageVisibilityFilter.FilterForConfiguredProviders(usages, configs);
+
+        Assert.Empty(filtered);
+    }
+
+    [Fact]
+    public void FilterForConfiguredProviders_IncludesOpenCodeWhenAvailable()
+    {
+        var usages = new List<ProviderUsage>
+        {
+            new() { ProviderId = "opencode", ProviderName = "OpenCode", RequestsPercentage = 0, IsAvailable = true, Description = "$3.25 used (7 days)" }
+        };
+
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "opencode", ApiKey = "key" }
+        };
+
+        var filtered = UsageVisibilityFilter.FilterForConfiguredProviders(usages, configs);
+
+        Assert.Single(filtered);
+        Assert.Equal("opencode", filtered[0].ProviderId);
+    }
 }

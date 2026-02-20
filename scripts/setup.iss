@@ -1,7 +1,7 @@
 ; AI Consumption Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.0.5"
+  #define MyAppVersion "2.0.6"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
@@ -107,8 +107,8 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 Name: "apps"; Description: "Applications"; Types: full compact custom; Flags: fixed
 Name: "apps\tracker"; Description: "AI Consumption Tracker UI"; Types: full compact custom
 Name: "apps\agent"; Description: "AI Consumption Tracker Agent"; Types: full custom
-Name: "apps\web"; Description: "Web UI"; Types: full custom
-Name: "apps\cli"; Description: "CLI"; Types: full compact custom
+Name: "apps\web"; Description: "AI Consumption Tracker Web UI"; Types: full custom
+Name: "apps\cli"; Description: "AI Consumption Tracker CLI"; Types: full compact custom
 
 [Tasks]
 Name: "desktopicontracker"; Description: "Create AI Consumption Tracker UI desktop icon"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; Components: apps\tracker
@@ -126,12 +126,12 @@ Source: "{#SourcePath}\CLI\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 [Icons]
 Name: "{group}\AI Consumption Tracker UI"; Filename: "{app}\AIConsumptionTracker.exe"; Components: apps\tracker
 Name: "{group}\AI Consumption Tracker Agent"; Filename: "{app}\AIConsumptionTracker.Agent.exe"; Components: apps\agent
-Name: "{group}\Web UI"; Filename: "{app}\AIConsumptionTracker.Web.exe"; Components: apps\web
-Name: "{group}\CLI"; Filename: "{app}\AIConsumptionTracker.CLI.exe"; Components: apps\cli
+Name: "{group}\AI Consumption Tracker Web UI"; Filename: "{app}\AIConsumptionTracker.Web.exe"; Components: apps\web
+Name: "{group}\AI Consumption Tracker CLI"; Filename: "{app}\AIConsumptionTracker.CLI.exe"; Components: apps\cli
 Name: "{group}\{cm:UninstallProgram,AI Consumption Tracker}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
 Name: "{userstartup}\AI Consumption Tracker Agent"; Filename: "{app}\AIConsumptionTracker.Agent.exe"; Tasks: startupagent; Components: apps\agent
 
 [Run]
-Filename: "{app}\AIConsumptionTracker.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
+Filename: "{app}\AIConsumptionTracker.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker UI}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
 

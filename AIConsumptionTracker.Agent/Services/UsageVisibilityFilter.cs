@@ -10,8 +10,7 @@ public static class UsageVisibilityFilter
         "antigravity",
         "cloud-code",
         "opencode-zen",
-        "claude-code",
-        "codex"
+        "claude-code"
     };
 
     public static List<ProviderUsage> FilterForConfiguredProviders(
@@ -49,6 +48,18 @@ public static class UsageVisibilityFilter
         if (providerId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase))
         {
             return true;
+        }
+
+        if ((providerId.Equals("opencode", StringComparison.OrdinalIgnoreCase) ||
+             providerId.Equals("opencode-zen", StringComparison.OrdinalIgnoreCase)) &&
+            !usage.IsAvailable)
+        {
+            return false;
+        }
+
+        if (providerId.Equals("codex", StringComparison.OrdinalIgnoreCase))
+        {
+            return providersWithKeys.Contains(providerId);
         }
 
         return SystemProviders.Contains(providerId) || providersWithKeys.Contains(providerId);

@@ -34,7 +34,7 @@
                     <TextBlock Text="AI Consumption Tracker" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryText}" DockPanel.Dock="Left"/>
                     <TextBlock x:Name="VersionText" Text="v1.8.6" FontSize="10" Foreground="{DynamicResource TertiaryText}" VerticalAlignment="Center" Margin="6,1,0,0" DockPanel.Dock="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button x:Name="PrivacyBtn" Content="🔒" Click="PrivacyBtn_Click" Background="Transparent" Foreground="{DynamicResource SecondaryText}" Width="26" Margin="0,0,8,0" ToolTip="Toggle Privacy Mode (Ctrl+P)" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button x:Name="PrivacyBtn" Content="&#xE785;" Click="PrivacyBtn_Click" Background="Transparent" Foreground="{DynamicResource SecondaryText}" Width="26" Margin="0,0,8,0" ToolTip="Toggle Privacy Mode (Ctrl+P)" FontFamily="Segoe MDL2 Assets" FontSize="14" WindowChrome.IsHitTestVisibleInChrome="True"/>
                         <Button Content="X" Click="CloseBtn_Click" Background="Transparent" Foreground="{DynamicResource SecondaryText}" Width="18" FontSize="12" WindowChrome.IsHitTestVisibleInChrome="True"/>
                     </StackPanel>
                 </DockPanel>

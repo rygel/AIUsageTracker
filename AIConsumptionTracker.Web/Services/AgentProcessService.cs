@@ -53,8 +53,9 @@ public class AgentProcessService
             {
                 FileName = agentPath,
                 Arguments = $"--urls \"http://localhost:{port}\"",
-                UseShellExecute = true,
+                UseShellExecute = false,
                 CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = Path.GetDirectoryName(agentPath)
             };
             
