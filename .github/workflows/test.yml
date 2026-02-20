@@ -18,6 +18,14 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Install Inno Setup
+      run: choco install innosetup --yes
+      shell: pwsh
+
+    - name: Validate setup script compilation
+      run: .\scripts\validate-setup-build.ps1
+      shell: pwsh
+
     - name: Release script dry-run checks
       shell: bash
       run: |

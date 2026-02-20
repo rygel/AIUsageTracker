@@ -99,6 +99,7 @@ Name: "compact"; Description: "Compact installation"
 Name: "custom"; Description: "Custom installation"; Flags: iscustom
 
 [Components]
+Name: "apps"; Description: "Applications"; Types: full compact custom; Flags: fixed
 Name: "apps\tracker"; Description: "Tracker (Slim UI)"; Types: full compact custom
 Name: "apps\ui"; Description: "Classic UI"; Types: full custom
 Name: "apps\agent"; Description: "Agent"; Types: full custom
