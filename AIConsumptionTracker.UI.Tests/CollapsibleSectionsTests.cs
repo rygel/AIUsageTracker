@@ -46,6 +46,7 @@ public class CollapsibleSectionsTests
         services.AddSingleton(providerManager);
         services.AddSingleton(mockFontProvider.Object);
         services.AddSingleton(mockGithubAuth.Object);
+        services.AddSingleton<AIConsumptionTracker.Core.AgentClient.AgentService>();
         
         var mockUpdateChecker = new Mock<IUpdateCheckerService>();
         mockUpdateChecker.Setup(u => u.CheckForUpdatesAsync()).ReturnsAsync((UpdateInfo?)null);
