@@ -357,14 +357,14 @@ public partial class MainWindow : Window
 
             if (!_preferences.IsPlansAndQuotasCollapsed)
             {
-                // Add all quota providers with Antigravity model rows grouped by Antigravity groups
+                // Add all quota providers with Antigravity models listed individually
                 foreach (var usage in quotaProviders.OrderBy(u => u.ProviderName))
                 {
                     AddProviderCard(usage, plansContainer);
 
                     if (usage.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase))
                     {
-                        AddGroupedAntigravityModels(usage, plansContainer);
+                        AddAntigravityModels(usage, plansContainer);
                     }
                     else if (usage.Details?.Any() == true)
                     {
@@ -772,7 +772,7 @@ public partial class MainWindow : Window
         container.Children.Add(grid);
     }
 
-    private void AddGroupedAntigravityModels(ProviderUsage usage, StackPanel container)
+    private void AddAntigravityModels(ProviderUsage usage, StackPanel container)
     {
         if (usage.Details?.Any() != true)
         {
@@ -784,24 +784,9 @@ public partial class MainWindow : Window
             .GroupBy(GetAntigravityModelDisplayName, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First());
 
-        var groupedDetails = uniqueModelDetails
-            .GroupBy(ResolveAntigravityGroupHeader)
-            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var group in groupedDetails)
+        foreach (var detail in uniqueModelDetails.OrderBy(GetAntigravityModelDisplayName, StringComparer.OrdinalIgnoreCase))
         {
-            var groupHeader = CreateText(
-                group.Key!,
-                9.0,
-                GetResourceBrush("SecondaryText", Brushes.Gray),
-                FontWeights.SemiBold,
-                new Thickness(20, 4, 0, 2));
-            container.Children.Add(groupHeader);
-
-            foreach (var detail in group.OrderBy(GetAntigravityModelDisplayName, StringComparer.OrdinalIgnoreCase))
-            {
-                AddProviderCard(CreateAntigravityModelUsage(detail, usage), container, isChild: true);
-            }
+            AddProviderCard(CreateAntigravityModelUsage(detail, usage), container, isChild: true);
         }
     }
 
@@ -846,11 +831,6 @@ public partial class MainWindow : Window
     private static string GetDetailDisplayName(ProviderUsageDetail detail)
     {
         return string.IsNullOrWhiteSpace(detail.ModelName) ? detail.Name : detail.ModelName;
-    }
-
-    private static string ResolveAntigravityGroupHeader(ProviderUsageDetail detail)
-    {
-        return string.IsNullOrWhiteSpace(detail.GroupName) ? "Ungrouped Models" : detail.GroupName;
     }
 
     private void AddSubProviderCard(ProviderUsageDetail detail, StackPanel container)
