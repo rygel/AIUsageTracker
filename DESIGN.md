@@ -865,6 +865,11 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 - On startup: Fetches cached data immediately from `/api/usage`
 - Status shows last refresh time (e.g., "14:32:15")
 - Refresh button triggers `/api/refresh` and updates display
+- On startup (non-blocking): starts a NetSparkle (`NetSparkleUpdater.SparkleUpdater`) update check against architecture-specific appcast feeds
+- Periodic update check: re-checks for updates every 15 minutes while the app is running
+- When update is available: shows `UpdateNotificationBanner` with the target version
+- Download action uses framework-driven installer handoff (`DownloadAndInstallUpdateAsync`), then exits app after successful installer launch
+- If no framework update payload is available, update action may fall back to opening the GitHub releases page
 
 ### Testing Requirements
 
@@ -873,6 +878,8 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 - [ ] First refresh happens only after the configured interval
 - [ ] Manual refresh via `/api/refresh` works correctly
 - [ ] Database retains data across Agent restarts
+- [ ] Slim startup and periodic update checks do not block usage loading
+- [ ] Update banner appears only when newer version is detected
 
 ---
 

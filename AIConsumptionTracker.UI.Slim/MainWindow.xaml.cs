@@ -9,6 +9,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.AgentClient;
+using AIConsumptionTracker.Core.Interfaces;
+using AIConsumptionTracker.Infrastructure.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using SharpVectors.Renderers.Wpf;
 using SharpVectors.Converters;
 
@@ -25,6 +28,7 @@ public enum StatusType
 public partial class MainWindow : Window
 {
     private readonly AgentService _agentService;
+    private readonly IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
     private List<ProviderUsage> _usages = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
@@ -32,13 +36,26 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, ImageSource> _iconCache = new();
     private DateTime _lastAgentUpdate = DateTime.MinValue;
     private DispatcherTimer? _pollingTimer;
+    private readonly DispatcherTimer _updateCheckTimer;
+    private UpdateInfo? _latestUpdate;
 
     public MainWindow()
     {
         InitializeComponent();
         _agentService = new AgentService();
+        _updateChecker = new GitHubUpdateChecker(NullLogger<GitHubUpdateChecker>.Instance);
+        _updateCheckTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMinutes(15)
+        };
+        _updateCheckTimer.Tick += async (s, e) => await CheckForUpdatesAsync();
+        _updateCheckTimer.Start();
         App.PrivacyChanged += OnPrivacyChanged;
-        Closed += (s, e) => App.PrivacyChanged -= OnPrivacyChanged;
+        Closed += (s, e) =>
+        {
+            App.PrivacyChanged -= OnPrivacyChanged;
+            _updateCheckTimer.Stop();
+        };
         UpdatePrivacyButtonState();
 
         // Set version text
@@ -52,6 +69,7 @@ public partial class MainWindow : Window
         {
             PositionWindowNearTray();
             await InitializeAsync();
+            _ = CheckForUpdatesAsync();
         };
 
         // Track window position changes
@@ -1460,14 +1478,109 @@ public partial class MainWindow : Window
         });
     }
 
-    private void UpdateBtn_Click(object sender, RoutedEventArgs e)
+    private async Task CheckForUpdatesAsync()
     {
-        // Trigger update download
-        Process.Start(new ProcessStartInfo
+        try
         {
-            FileName = "https://github.com/rygel/AIConsumptionTracker/releases/latest",
-            UseShellExecute = true
-        });
+            _latestUpdate = await _updateChecker.CheckForUpdatesAsync();
+
+            if (_latestUpdate != null)
+            {
+                if (UpdateNotificationBanner != null && UpdateText != null)
+                {
+                    UpdateText.Text = $"New version available: {_latestUpdate.Version}";
+                    UpdateNotificationBanner.Visibility = Visibility.Visible;
+                }
+            }
+            else if (UpdateNotificationBanner != null)
+            {
+                UpdateNotificationBanner.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Update check failed: {ex.Message}");
+        }
+    }
+
+    private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (_latestUpdate == null)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://github.com/rygel/AIConsumptionTracker/releases/latest",
+                UseShellExecute = true
+            });
+            return;
+        }
+
+        var result = MessageBox.Show(
+            $"Download and install version {_latestUpdate.Version}?\n\nThe application will restart after installation.",
+            "Confirm Update",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        Window? progressWindow = null;
+
+        try
+        {
+            var progressBar = new ProgressBar
+            {
+                Height = 20,
+                Minimum = 0,
+                Maximum = 100
+            };
+
+            progressWindow = new Window
+            {
+                Title = "Downloading Update",
+                Width = 400,
+                Height = 150,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = this,
+                ResizeMode = ResizeMode.NoResize,
+                Content = new StackPanel
+                {
+                    Margin = new Thickness(20),
+                    Children =
+                    {
+                        new TextBlock { Text = $"Downloading version {_latestUpdate.Version}...", Margin = new Thickness(0, 0, 0, 10) },
+                        progressBar
+                    }
+                }
+            };
+
+            var progress = new Progress<double>(p => progressBar.Value = p);
+            progressWindow.Show();
+
+            var success = await _updateChecker.DownloadAndInstallUpdateAsync(_latestUpdate, progress);
+            progressWindow.Close();
+            progressWindow = null;
+
+            if (success)
+            {
+                Application.Current.Shutdown();
+            }
+            else
+            {
+                MessageBox.Show(
+                    "Failed to download or install the update. Please try again or download manually from the releases page.",
+                    "Update Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            progressWindow?.Close();
+            MessageBox.Show($"Update error: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
 

@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [2.0.7] - 2026-02-20
+
+### Added
+- Slim UI now uses NetSparkle-based automatic update checks on startup and every 15 minutes.
+
+### Changed
+- Slim update banner now surfaces detected target versions from the framework-backed update check.
+
+### Fixed
+- Slim update action now uses the framework installer flow (`DownloadAndInstallUpdateAsync`) with progress UI instead of only opening the releases page.
+
 ## [2.0.6] - 2026-02-20
 
 ### Changed
