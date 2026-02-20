@@ -1,7 +1,7 @@
 ; AI Consumption Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.0.3"
+  #define MyAppVersion "2.0.4"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
@@ -118,22 +118,22 @@ Name: "startuptracker"; Description: "Run Tracker at Windows Startup"; GroupDesc
 Source: "..\AIConsumptionTracker.UI\Assets\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#SourcePath}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-Source: "{#SourcePath}\Tracker\*"; DestDir: "{app}\Tracker"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\tracker
-Source: "{#SourcePath}\UI\*"; DestDir: "{app}\UI"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\ui
-Source: "{#SourcePath}\Agent\*"; DestDir: "{app}\Agent"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\agent
-Source: "{#SourcePath}\Web\*"; DestDir: "{app}\Web"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\web
-Source: "{#SourcePath}\CLI\*"; DestDir: "{app}\CLI"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\cli
+Source: "{#SourcePath}\Tracker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\tracker
+Source: "{#SourcePath}\UI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\ui
+Source: "{#SourcePath}\Agent\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\agent
+Source: "{#SourcePath}\Web\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\web
+Source: "{#SourcePath}\CLI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\cli
 
 [Icons]
-Name: "{group}\Tracker (Slim UI)"; Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Components: apps\tracker
-Name: "{group}\Classic UI"; Filename: "{app}\UI\AIConsumptionTracker.UI.exe"; Components: apps\ui
-Name: "{group}\Agent"; Filename: "{app}\Agent\AIConsumptionTracker.Agent.exe"; Components: apps\agent
-Name: "{group}\Web UI"; Filename: "{app}\Web\AIConsumptionTracker.Web.exe"; Components: apps\web
-Name: "{group}\CLI"; Filename: "{app}\CLI\AIConsumptionTracker.CLI.exe"; Components: apps\cli
+Name: "{group}\Tracker (Slim UI)"; Filename: "{app}\AIConsumptionTracker.exe"; Components: apps\tracker
+Name: "{group}\Classic UI"; Filename: "{app}\AIConsumptionTracker.UI.exe"; Components: apps\ui
+Name: "{group}\Agent"; Filename: "{app}\AIConsumptionTracker.Agent.exe"; Components: apps\agent
+Name: "{group}\Web UI"; Filename: "{app}\AIConsumptionTracker.Web.exe"; Components: apps\web
+Name: "{group}\CLI"; Filename: "{app}\AIConsumptionTracker.CLI.exe"; Components: apps\cli
 Name: "{group}\{cm:UninstallProgram,AI Consumption Tracker}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\AI Consumption Tracker"; Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
-Name: "{userstartup}\AI Consumption Tracker"; Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Tasks: startuptracker; Components: apps\tracker
+Name: "{autodesktop}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
+Name: "{userstartup}\AI Consumption Tracker"; Filename: "{app}\AIConsumptionTracker.exe"; Tasks: startuptracker; Components: apps\tracker
 
 [Run]
-Filename: "{app}\Tracker\AIConsumptionTracker.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
+Filename: "{app}\AIConsumptionTracker.exe"; Description: "{cm:LaunchProgram,AI Consumption Tracker}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
 

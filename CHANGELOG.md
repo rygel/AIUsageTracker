@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.0.4] - 2026-02-20
+
+### Changed
+- Installer now puts selected components into one shared install directory (`{app}`) instead of per-component subfolders.
+
+### Fixed
+- Aligned Agent/Web dependency versions to .NET 8 package lines and removed same-name DLL content conflicts across Windows component publishes.
+- Disabled Windows ReadyToRun publishing in the release packaging script to keep shared DLL outputs consistent across components.
+
 ## [2.0.3] - 2026-02-20
 
 ### Changed

@@ -4,6 +4,7 @@
     <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.0.4" />
     <PackageReference Include="NetSparkleUpdater.UI.WPF" Version="3.0.4" />
     <PackageReference Include="SharpVectors.Wpf" Version="1.8.5" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.8" />
     <ProjectReference Include="..\AIConsumptionTracker.Infrastructure\AIConsumptionTracker.Infrastructure.csproj" />
     <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="2.0.1" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
