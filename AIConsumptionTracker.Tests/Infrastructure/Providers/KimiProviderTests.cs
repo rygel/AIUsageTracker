@@ -34,7 +34,7 @@ public class KimiProviderTests
             ApiKey = "test-key"
         };
         
-        // 10 used, 100 limit, 90 remaining. Used% = 10%
+        // 10 used, 100 limit, 90 remaining. RequestsPercentage uses remaining semantics.
         var responseContent = JsonSerializer.Serialize(new
         {
             usage = new { limit = 100, used = 10, remaining = 90 },
@@ -61,7 +61,7 @@ public class KimiProviderTests
         // Assert
         var usage = result.Single();
         Assert.Equal("Kimi", usage.ProviderName);
-        Assert.Equal(10, usage.RequestsPercentage);
+        Assert.Equal(90, usage.RequestsPercentage);
         Assert.Equal(10, usage.RequestsUsed);
         Assert.Equal(100, usage.RequestsAvailable);
         Assert.True(usage.IsQuotaBased);

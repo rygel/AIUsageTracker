@@ -30,7 +30,7 @@ public class XiaomiProviderTests
         // Arrange
         var config = new ProviderConfig { ProviderId = "xiaomi", ApiKey = "test-key" };
         
-        // 200 quota, 150 balance (remaining). Used = 50. Used% = 25%
+        // 200 quota, 150 balance (remaining). RequestsPercentage uses remaining semantics.
         var responseContent = JsonSerializer.Serialize(new
         {
             code = 0,
@@ -55,7 +55,7 @@ public class XiaomiProviderTests
         // Assert
         var usage = result.Single();
         Assert.Equal("Xiaomi", usage.ProviderName);
-        Assert.Equal(25, usage.RequestsPercentage);
+        Assert.Equal(75, usage.RequestsPercentage);
         Assert.Equal(50, usage.RequestsUsed);
         Assert.Equal(200, usage.RequestsAvailable);
         Assert.True(usage.IsQuotaBased);
