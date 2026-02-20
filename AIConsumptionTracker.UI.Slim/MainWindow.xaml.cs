@@ -332,6 +332,12 @@ public partial class MainWindow : Window
             !u.ProviderId.StartsWith("antigravity.")
         ).ToList();
 
+        // Guard against duplicate provider entries returned by the Agent.
+        filteredUsages = filteredUsages
+            .GroupBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
         // Separate providers by type and order alphabetically
         var quotaProviders = filteredUsages.Where(u => u.IsQuotaBased || u.PlanType == PlanType.Coding).OrderBy(u => u.ProviderName).ToList();
         var paygProviders = filteredUsages.Where(u => !u.IsQuotaBased && u.PlanType != PlanType.Coding).OrderBy(u => u.ProviderName).ToList();
@@ -773,8 +779,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        var groupedDetails = usage.Details
+        var uniqueModelDetails = usage.Details
             .Where(d => !string.IsNullOrWhiteSpace(GetAntigravityModelDisplayName(d)) && !d.Name.StartsWith("[", StringComparison.Ordinal))
+            .GroupBy(GetAntigravityModelDisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First());
+
+        var groupedDetails = uniqueModelDetails
             .GroupBy(ResolveAntigravityGroupHeader)
             .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase);
 
