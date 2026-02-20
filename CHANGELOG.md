@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-02-20
+
+### Changed
+- Slim UI now renders Antigravity models as standalone provider cards (no subgroup/sub-model nesting), with explicit `[Antigravity]` labels and Antigravity logo mapping.
+
+### Fixed
+- Corrected Antigravity model usage math when quota metadata is missing: affected models now default to `100% remaining` (`0% used`), fixing Gemini 3 / 3.1 Pro displays.
+
 ## [2.0.0] - 2026-02-20
 
 ### Added
