@@ -113,6 +113,85 @@ public class AntigravityProviderTests
         Assert.DoesNotContain(details, d => d.GroupName == "Ungrouped Models");
     }
 
+    [Fact]
+    public async Task FetchUsage_MissingQuotaInfo_DefaultsToFullRemaining()
+    {
+        // Arrange
+        var snapshotJson = """
+        {
+          "userStatus": {
+            "email": "snapshot@example.com",
+            "cascadeModelConfigData": {
+              "clientModelConfigs": [
+                {
+                  "label": "gemini-3-pro",
+                  "modelOrAlias": {
+                    "model": "gemini-3-pro"
+                  },
+                  "quotaInfo": {}
+                },
+                {
+                  "label": "gemini-3.1-pro",
+                  "modelOrAlias": {
+                    "model": "gemini-3.1-pro"
+                  }
+                }
+              ],
+              "clientModelSorts": [
+                {
+                  "name": "Gemini",
+                  "groups": [
+                    {
+                      "name": "Google",
+                      "modelLabels": [
+                        "gemini-3-pro",
+                        "gemini-3.1-pro"
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """;
+        var provider = CreateProviderWithHttpClient();
+        var config = new ProviderConfig { ProviderId = "antigravity" };
+
+        _messageHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(request =>
+                    request.Method == HttpMethod.Post &&
+                    request.RequestUri!.ToString().Contains("/GetUserStatus", StringComparison.Ordinal) &&
+                    request.Headers.Contains("X-Codeium-Csrf-Token")),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(snapshotJson)
+            });
+
+        // Act
+        var usages = await InvokeFetchUsageAsync(provider, 5109, "csrf-token", config);
+        var summary = usages.First();
+
+        // Assert
+        Assert.Equal(100.0, summary.RequestsPercentage);
+        var details = summary.Details!;
+        var gemini3 = Assert.Single(details, d => d.Name == "gemini-3-pro");
+        var gemini31 = Assert.Single(details, d => d.Name == "gemini-3.1-pro");
+        Assert.Equal("100%", gemini3.Used);
+        Assert.Equal("100%", gemini31.Used);
+
+        var gemini3Child = Assert.Single(usages, u => u.ProviderId == "antigravity.gemini-3-pro");
+        var gemini31Child = Assert.Single(usages, u => u.ProviderId == "antigravity.gemini-3.1-pro");
+        Assert.Equal(100.0, gemini3Child.RequestsPercentage);
+        Assert.Equal(0.0, gemini3Child.RequestsUsed);
+        Assert.Equal(100.0, gemini31Child.RequestsPercentage);
+        Assert.Equal(0.0, gemini31Child.RequestsUsed);
+    }
+
     private AntigravityProvider CreateProviderWithHttpClient()
     {
         var ctor = typeof(AntigravityProvider).GetConstructor(

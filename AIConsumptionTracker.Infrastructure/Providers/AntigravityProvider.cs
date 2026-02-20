@@ -518,10 +518,10 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
 
     private double ResolveRemainingPercentage(string label, ClientModelConfig? modelConfig)
     {
-        var remainingPct = 0.0;
+        var remainingPct = 100.0;
         if (modelConfig == null)
         {
-            _logger.LogDebug("[Antigravity] Model {Label} not found in config map, defaulting to 0%", label);
+            _logger.LogDebug("[Antigravity] Model {Label} not found in config map, defaulting to 100%", label);
             return remainingPct;
         }
 
@@ -542,7 +542,7 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             remainingPct = (remaining / (double)modelConfig.QuotaInfo.TotalRequests.Value) * 100;
         }
 
-        return remainingPct;
+        return Math.Max(0, Math.Min(100, remainingPct));
     }
 
     private static (string Description, DateTime? NextResetTime) ResolveResetInfo(ClientModelConfig? modelConfig)
