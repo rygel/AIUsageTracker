@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-02-20
+
+### Changed
+- Removed the classic WPF UI and classic UI test projects; repository build/publish/setup/docs now target Slim UI only.
+- Installer component labels now use AI Consumption Tracker UI/Agent naming, and Windows startup option targets the Agent.
+
+### Fixed
+- Starting the Agent from Slim UI no longer opens a visible console window.
+
 ## [2.0.4] - 2026-02-20
 
 ### Changed

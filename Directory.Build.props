@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <TrackerVersion>2.0.4</TrackerVersion>
-    <TrackerAssemblyVersion>2.0.4</TrackerAssemblyVersion>
+    <TrackerVersion>2.0.5</TrackerVersion>
+    <TrackerAssemblyVersion>2.0.5</TrackerAssemblyVersion>
   </PropertyGroup>
 </Project>

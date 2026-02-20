@@ -1,6 +1,6 @@
 # <img src="Assets/icon_pixel_final_512.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
-![Version](https://img.shields.io/badge/version-2.0.4-orange)
+![Version](https://img.shields.io/badge/version-2.0.5-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
@@ -91,7 +91,7 @@ Right-click system tray icon for quick access:
 ## Installation
 
 ### Manual
-1. Download the latest `AIConsumptionTracker_Setup_v2.0.4.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
+1. Download the latest `AIConsumptionTracker_Setup_v2.0.5.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 
