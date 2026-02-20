@@ -1,7 +1,7 @@
 ; AI Consumption Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.0.2"
+  #define MyAppVersion "2.0.3"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
@@ -69,6 +69,10 @@ AppId={{D3B3E8A1-8E9D-4F6B-A2B3-7C8D9E0F1A2B}
 AppName=AI Consumption Tracker
 AppVersion={#MyAppVersion}
 AppPublisher=Alexander Brandt
+AppPublisherURL=https://github.com/rygel/AIConsumptionTracker
+AppSupportURL=https://github.com/rygel/AIConsumptionTracker
+AppUpdatesURL=https://github.com/rygel/AIConsumptionTracker/releases
+AlwaysShowComponentsList=yes
 DefaultDirName={autopf}\AIConsumptionTracker
 DefaultGroupName=AI Consumption Tracker
 OutputDir=..\dist

@@ -155,14 +155,14 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                 return false;
             }
 
-            // Run the installer silently
+            // Run the installer
             _logger.LogInformation("Starting installer...");
             var process = new System.Diagnostics.Process
             {
                 StartInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = downloadPath,
-                    Arguments = "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+                    Arguments = "/CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
                     UseShellExecute = true,
                     Verb = "runas" // Run as administrator
                 }
