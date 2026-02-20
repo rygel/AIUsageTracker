@@ -33,7 +33,7 @@ public class OpenCodeProvider : IProviderService
                 IsAvailable = false,
                 Description = "No API key configured",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }};
         }
 
@@ -55,13 +55,13 @@ public class OpenCodeProvider : IProviderService
                     IsAvailable = false,
                     Description = $"API Error: {response.StatusCode}",
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased
+                    PlanType = PlanType.Usage
                 }};
             }
 
             var responseString = await response.Content.ReadAsStringAsync();
             var result = ParseJsonResponse(responseString);
-            _logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.CostUsed);
+            _logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.RequestsUsed);
             
             return new[] { result };
         }
@@ -75,15 +75,33 @@ public class OpenCodeProvider : IProviderService
                 IsAvailable = false,
                 Description = $"API Call Failed: {ex.Message}",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
             }};
         }
     }
 
-    private ProviderUsage ParseJsonResponse(string json)
+private ProviderUsage ParseJsonResponse(string json)
     {
         try
         {
+            // Check if response is empty or not JSON
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                _logger.LogWarning("OpenCode API returned empty response");
+                return new ProviderUsage
+                {
+                    ProviderId = ProviderId,
+                    ProviderName = "Opencode Zen",
+                    IsAvailable = false,
+                    Description = "Empty API response",
+                    IsQuotaBased = false,
+                    PlanType = PlanType.Usage
+                };
+            }
+
+            // Log the raw response for debugging
+            _logger.LogDebug("OpenCode raw response: {Response}", json.Length > 200 ? json.Substring(0, 200) + "..." : json);
+
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var response = JsonSerializer.Deserialize<CreditsResponse>(json, options);
             
@@ -97,26 +115,40 @@ public class OpenCodeProvider : IProviderService
             {
                 ProviderId = ProviderId,
                 ProviderName = "Opencode Zen",
-                UsagePercentage = 0,
-                CostUsed = totalCost,
+                RequestsPercentage = 0,
+                RequestsUsed = totalCost,
                 UsageUnit = "USD",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased,
+                PlanType = PlanType.Usage,
                 IsAvailable = true,
                 Description = $"${totalCost.ToString("F2", CultureInfo.InvariantCulture)} used (7 days)"
             };
         }
-        catch (Exception ex)
+        catch (JsonException ex)
         {
-            _logger.LogError(ex, "Failed to parse OpenCode JSON response");
+            _logger.LogError(ex, "Failed to parse OpenCode JSON response. Response started with: {Start}", 
+                json.Length > 50 ? json.Substring(0, 50) : json);
             return new ProviderUsage
             {
                 ProviderId = ProviderId,
                 ProviderName = "Opencode Zen",
                 IsAvailable = false,
-                Description = "JSON Parse Error",
+                Description = "Invalid API response (not JSON)",
                 IsQuotaBased = false,
-                PaymentType = PaymentType.UsageBased
+                PlanType = PlanType.Usage
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to parse OpenCode response");
+            return new ProviderUsage
+            {
+                ProviderId = ProviderId,
+                ProviderName = "Opencode Zen",
+                IsAvailable = false,
+                Description = "Parse Error",
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage
             };
         }
     }

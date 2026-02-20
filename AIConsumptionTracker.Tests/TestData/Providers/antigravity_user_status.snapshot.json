@@ -1,0 +1,73 @@
+{
+  "userStatus": {
+    "email": "snapshot@example.com",
+    "cascadeModelConfigData": {
+      "clientModelConfigs": [
+        {
+          "label": "claude-3.7-sonnet",
+          "modelOrAlias": {
+            "model": "claude-3-7-sonnet"
+          },
+          "quotaInfo": {
+            "remainingFraction": 0.8,
+            "totalRequests": 100,
+            "usedRequests": 20,
+            "resetTime": "2099-12-31T23:59:59Z"
+          }
+        },
+        {
+          "label": "gpt-4.1",
+          "modelOrAlias": {
+            "model": "gpt-4.1"
+          },
+          "quotaInfo": {
+            "remainingFraction": 0.25,
+            "totalRequests": 200,
+            "usedRequests": 150,
+            "resetTime": "2099-12-31T23:59:59Z"
+          }
+        },
+        {
+          "label": "mystery-model",
+          "quotaInfo": {
+            "remainingFraction": 0.5,
+            "totalRequests": 40,
+            "usedRequests": 20
+          }
+        }
+      ],
+      "clientModelSorts": [
+        {
+          "name": "Premium",
+          "groups": [
+            {
+              "name": "Anthropic",
+              "modelLabels": [
+                "claude-3.7-sonnet"
+              ]
+            },
+            {
+              "title": "OpenAI",
+              "labels": [
+                "gpt-4.1"
+              ]
+            }
+          ]
+        },
+        {
+          "label": "Experimental Sort",
+          "groups": [
+            {
+              "group_name": "Experimental",
+              "models": [
+                {
+                  "label": "mystery-model"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

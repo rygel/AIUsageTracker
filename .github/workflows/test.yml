@@ -18,8 +18,21 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Release script dry-run checks
+      shell: bash
+      run: |
+        version=$(sed -n 's:.*<TrackerVersion>\(.*\)</TrackerVersion>.*:\1:p' Directory.Build.props | head -n 1)
+        if [[ -z "$version" ]]; then
+          echo "Unable to resolve TrackerVersion from Directory.Build.props"
+          exit 1
+        fi
+
+        bash scripts/validate-release-consistency.sh "$version"
+        bash scripts/generate-appcast.sh "$version"
+        rm -f appcast.xml appcast_x64.xml appcast_x86.xml appcast_arm64.xml
+
     - name: Restore dependencies
-      run: dotnet restore
+      run: dotnet restore AIConsumptionTracker.slnx
 
     - name: Build
       run: dotnet build AIConsumptionTracker.slnx --configuration Debug

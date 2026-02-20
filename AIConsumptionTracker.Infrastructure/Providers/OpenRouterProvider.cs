@@ -207,11 +207,11 @@ public class OpenRouterProvider : IProviderService
         // Calculate usage statistics
         var total = creditsData.Data.TotalCredits;
         var used = creditsData.Data.TotalUsage;
-        var utilization = total > 0 ? (used / total) * 100.0 : 0;
+        var remainingPercentage = UsageMath.CalculateRemainingPercent(used, total);
         var remaining = total - used;
         
-        _logger.LogInformation("OpenRouter usage calculated - Total: {Total}, Used: {Used}, Remaining: {Remaining}, Utilization: {Utilization}%",
-            total, used, remaining, utilization);
+        _logger.LogInformation("OpenRouter usage calculated - Total: {Total}, Used: {Used}, Remaining: {Remaining}, RemainingPercentage: {RemainingPercentage}%",
+            total, used, remaining, remainingPercentage);
         
         string mainReset = "";
         var spendingLimitDetail = details.FirstOrDefault(d => d.Name == "Spending Limit");
@@ -225,10 +225,10 @@ public class OpenRouterProvider : IProviderService
         {
             ProviderId = config.ProviderId,
             ProviderName = label,
-            UsagePercentage = Math.Min(utilization, 100),
-            CostUsed = used,
-            CostLimit = total,
-            PaymentType = PaymentType.Credits,
+            RequestsPercentage = remainingPercentage,
+            RequestsUsed = used,
+            RequestsAvailable = total,
+            PlanType = PlanType.Usage,
             UsageUnit = "Credits",
             IsQuotaBased = true,
             IsAvailable = true,

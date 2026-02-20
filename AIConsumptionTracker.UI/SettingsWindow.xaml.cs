@@ -5,8 +5,10 @@ using System.Windows.Media;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.Services;
+using AIConsumptionTracker.Core.AgentClient;
 using AIConsumptionTracker.Infrastructure.Helpers;
 using AIConsumptionTracker.UI.Services;
+using System.Windows.Input;
 
 namespace AIConsumptionTracker.UI
 {
@@ -17,6 +19,7 @@ namespace AIConsumptionTracker.UI
         private readonly IFontProvider _fontProvider;
         private readonly IUpdateCheckerService _updateChecker;
         private readonly IGitHubAuthService _githubAuthService;
+        private readonly AgentService _agentService;
         private List<ProviderConfig> _configs = new();
         private AppPreferences _prefs = new();
 
@@ -24,7 +27,7 @@ namespace AIConsumptionTracker.UI
         private bool _isScreenshotMode = false;
         private string? _githubUsername;
 
-        public SettingsWindow(IConfigLoader configLoader, ProviderManager providerManager, IFontProvider fontProvider, IUpdateCheckerService updateChecker, IGitHubAuthService githubAuthService)
+        public SettingsWindow(IConfigLoader configLoader, ProviderManager providerManager, IFontProvider fontProvider, IUpdateCheckerService updateChecker, IGitHubAuthService githubAuthService, AgentService agentService)
         {
             Debug.WriteLine("[DEBUG] SettingsWindow constructor started");
             try
@@ -37,6 +40,7 @@ namespace AIConsumptionTracker.UI
                 _fontProvider = fontProvider;
                 _updateChecker = updateChecker;
                 _githubAuthService = githubAuthService;
+                _agentService = agentService;
                 
                 Debug.WriteLine("[DEBUG] Dependencies assigned");
                 
@@ -125,7 +129,7 @@ namespace AIConsumptionTracker.UI
                 if (_providerManager.LastUsages.Count == 0)
                 {
                     Debug.WriteLine("[DEBUG] No usage data available, triggering refresh...");
-                    var usages = await _providerManager.GetAllUsageAsync(forceRefresh: true);
+                    var usages = await Task.Run(async () => await _providerManager.GetAllUsageAsync(forceRefresh: true));
                     Debug.WriteLine($"[DEBUG] Refresh completed, got {usages.Count} usages, repopulating list...");
                     PopulateList();
                 }
@@ -293,14 +297,24 @@ namespace AIConsumptionTracker.UI
                     // Special GitHub Login UI (no label)
                     var authBox = new StackPanel { Orientation = Orientation.Horizontal };
                     var displayUsername = _githubUsername;
-                    if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(displayUsername))
+                    
+                    string authStatusText;
+                    if (!_githubAuthService.IsAuthenticated)
                     {
-                        displayUsername = PrivacyHelper.MaskString(displayUsername);
+                        authStatusText = "Not Authenticated";
                     }
-
-                    var authStatusText = _githubAuthService.IsAuthenticated 
-                        ? (string.IsNullOrEmpty(displayUsername) ? "Authenticated" : $"Authenticated ({displayUsername})")
-                        : "Not Authenticated";
+                    else if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(displayUsername))
+                    {
+                        authStatusText = $"Authenticated ({PrivacyHelper.MaskContent(displayUsername, displayUsername)})";
+                    }
+                    else if (!string.IsNullOrEmpty(displayUsername))
+                    {
+                        authStatusText = $"Authenticated ({displayUsername})";
+                    }
+                    else
+                    {
+                        authStatusText = "Authenticated";
+                    }
 
                     var authStatus = new TextBlock 
                     { 
@@ -361,15 +375,13 @@ namespace AIConsumptionTracker.UI
                     
                     bool isConnected = usage != null && usage.IsAvailable;
                     string accountInfo = usage?.AccountName ?? "Unknown";
-
-                    if ((_prefs.IsPrivacyMode || _isScreenshotMode) && !string.IsNullOrEmpty(accountInfo) && accountInfo != "Unknown")
-                    {
-                        accountInfo = PrivacyHelper.MaskString(accountInfo);
-                    }
+                    string displayAccount = (_prefs.IsPrivacyMode || _isScreenshotMode)
+                        ? PrivacyHelper.MaskContent(accountInfo, accountInfo)
+                        : accountInfo;
 
                     var statusText = new TextBlock
                     {
-                        Text = isConnected ? $"Auto-Detected ({accountInfo})" : "Searching for local process...",
+                        Text = isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
                         Foreground = isConnected ? (SolidColorBrush)Application.Current.Resources["ProgressBarGreen"] : (SolidColorBrush)Application.Current.Resources["TertiaryText"],
                         VerticalAlignment = VerticalAlignment.Center,
                         FontSize = 11,
@@ -670,6 +682,38 @@ namespace AIConsumptionTracker.UI
               };
               LayoutStack.Children.Add(notifDesc);
 
+              var gridThreshold = new Grid { Margin = new Thickness(20, 0, 0, 0) };
+              gridThreshold.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+              gridThreshold.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+              gridThreshold.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+
+              var lblThreshold = new TextBlock { Text = "Usage Threshold (%)", Foreground = (SolidColorBrush)Application.Current.Resources["PrimaryText"], VerticalAlignment = VerticalAlignment.Center };
+              var sliderThreshold = new Slider
+              {
+                  Minimum = 50,
+                  Maximum = 100,
+                  Value = _prefs.NotificationThreshold,
+                  TickFrequency = 5,
+                  IsSnapToTickEnabled = true,
+                  VerticalAlignment = VerticalAlignment.Center,
+                  Margin = new Thickness(10, 0, 10, 0)
+              };
+              var valThreshold = new TextBlock { Text = $"{_prefs.NotificationThreshold}%", Foreground = (SolidColorBrush)Application.Current.Resources["SecondaryText"], VerticalAlignment = VerticalAlignment.Center, Width = 30 };
+
+              sliderThreshold.ValueChanged += (s, e) => {
+                  _prefs.NotificationThreshold = Math.Round(sliderThreshold.Value);
+                  valThreshold.Text = $"{_prefs.NotificationThreshold}%";
+                  SettingsChanged = true;
+              };
+
+              Grid.SetColumn(lblThreshold, 0);
+              Grid.SetColumn(sliderThreshold, 1);
+              Grid.SetColumn(valThreshold, 2);
+              gridThreshold.Children.Add(lblThreshold);
+              gridThreshold.Children.Add(sliderThreshold);
+              gridThreshold.Children.Add(valThreshold);
+              LayoutStack.Children.Add(gridThreshold);
+
               var separator = new Border { Height = 1, Background = (SolidColorBrush)Application.Current.Resources["Separator"], Margin = new Thickness(0, 30, 0, 10) };
               LayoutStack.Children.Add(separator);
 
@@ -805,6 +849,47 @@ namespace AIConsumptionTracker.UI
              // Since controls are created in code-behind without field references, we can clear and rebuild LayoutStack.
              LayoutStack.Children.Clear();
              PopulateLayout();
+             ApplyTheme();
+        }
+
+        private async void ExportBtn_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                FileName = $"usage_export_{DateTime.Now:yyyyMMdd}",
+                DefaultExt = ".csv",
+                Filter = "CSV Files (*.csv)|*.csv|JSON Files (*.json)|*.json"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                string format = System.IO.Path.GetExtension(dialog.FileName).TrimStart('.').ToLower();
+                if (format != "json") format = "csv";
+
+                try 
+                {
+                    Mouse.OverrideCursor = Cursors.Wait;
+                    var stream = await _agentService.ExportDataAsync(format, 30); // Default 30 days
+                    if (stream != null)
+                    {
+                        using var fileStream = System.IO.File.Create(dialog.FileName);
+                        await stream.CopyToAsync(fileStream);
+                        MessageBox.Show("Export complete!", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Failed to export data.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                catch (Exception ex)
+                {
+                     MessageBox.Show($"Export failed: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally
+                {
+                    Mouse.OverrideCursor = null;
+                }
+            }
         }
 
         private async void ScanBtn_Click(object sender, RoutedEventArgs e)
@@ -834,7 +919,7 @@ namespace AIConsumptionTracker.UI
                 }
 
                 // Force a fresh fetch of usage data from all providers
-                await _providerManager.GetAllUsageAsync(true);
+                await Task.Run(async () => await _providerManager.GetAllUsageAsync(true));
 
                 PopulateList();
             }

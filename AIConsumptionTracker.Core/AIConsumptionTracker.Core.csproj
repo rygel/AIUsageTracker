@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Version>1.8.6</Version>
-    <AssemblyVersion>1.8.6</AssemblyVersion>
-    <FileVersion>1.8.6</FileVersion>
+    <Version>$(TrackerVersion)</Version>
+    <AssemblyVersion>$(TrackerAssemblyVersion)</AssemblyVersion>
+    <FileVersion>$(TrackerAssemblyVersion)</FileVersion>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

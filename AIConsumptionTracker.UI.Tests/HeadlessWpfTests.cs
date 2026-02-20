@@ -34,6 +34,7 @@ public class HeadlessWpfTests
         services.AddSingleton(providerManager);
         services.AddSingleton(mockFontProvider.Object);
         services.AddSingleton(mockGithubAuth.Object);
+        services.AddSingleton<AIConsumptionTracker.Core.AgentClient.AgentService>();
          services.AddSingleton(mockUpdateChecker.Object);
          
          // Add mock notification service

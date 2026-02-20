@@ -32,7 +32,9 @@ public class OpenAIProvider : IProviderService
                  ProviderId = ProviderId,
                  ProviderName = "OpenAI",
                  IsAvailable = false,
-                 Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key."
+                 Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
+                 IsQuotaBased = false,
+                 PlanType = PlanType.Usage
              }};
         }
 
@@ -58,9 +60,9 @@ public class OpenAIProvider : IProviderService
                     ProviderId = ProviderId,
                     ProviderName = "OpenAI",
                     IsAvailable = true,
-                    UsagePercentage = 0,
+                    RequestsPercentage = 0,
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased,
+                    PlanType = PlanType.Usage,
                     Description = "Connected (Check Dashboard)",
 
                     UsageUnit = "Status"
@@ -73,7 +75,9 @@ public class OpenAIProvider : IProviderService
                     ProviderId = ProviderId,
                     ProviderName = "OpenAI",
                     IsAvailable = false,
-                    Description = $"Invalid Key ({response.StatusCode})"
+                    Description = $"Invalid Key ({response.StatusCode})",
+                    IsQuotaBased = false,
+                    PlanType = PlanType.Usage
                  }};
              }
         }
@@ -85,7 +89,9 @@ public class OpenAIProvider : IProviderService
                 ProviderId = ProviderId,
                 ProviderName = "OpenAI",
                 IsAvailable = false,
-                Description = "Connection Failed"
+                Description = "Connection Failed",
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage
              }};
         }
     }

@@ -16,7 +16,10 @@ This document provides essential information for agentic coding assistants worki
 - **AIConsumptionTracker.Core**: Domain models, interfaces, and business logic (PCL)
 - **AIConsumptionTracker.Infrastructure**: External providers, data access, configuration
 - **AIConsumptionTracker.UI**: WPF desktop application (Windows-only)
+- **AIConsumptionTracker.UI.Slim**: Lightweight WPF desktop application with compact UI
+- **AIConsumptionTracker.Agent**: Background service that collects provider usage data via HTTP API
 - **AIConsumptionTracker.CLI**: Console interface (cross-platform)
+- **AIConsumptionTracker.Web**: ASP.NET Core Razor Pages web application for viewing data
 - **AIConsumptionTracker.Tests**: xUnit unit tests with Moq mocking
 - **AIConsumptionTracker.UI.Tests**: WPF-specific tests
 
@@ -50,6 +53,33 @@ dotnet test --filter "FullyQualifiedName~GetAllUsageAsync_LoadsConfigAndFetchesU
 
 # Run tests by class
 dotnet test --filter "FullyQualifiedName~ProviderManagerTests"
+```
+
+### Running the Agent
+```bash
+# Run the Agent service
+dotnet run --project AIConsumptionTracker.Agent
+
+# Agent runs on port 5000 by default (auto-discovers available port 5000-5010)
+# Port is saved to %LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port
+```
+
+### Running the Web UI
+```bash
+# Run the Web application (requires Agent to be running)
+dotnet run --project AIConsumptionTracker.Web
+
+# Web UI runs on port 5100
+# Access at http://localhost:5100
+```
+
+### Running the Slim UI
+```bash
+# Run the Slim WPF application
+dotnet run --project AIConsumptionTracker.UI.Slim
+
+# Automatically discovers Agent port from agent.port file
+# Falls back to ports 5000-5010 if discovery fails
 ```
 
 ### Automated Screenshots
@@ -136,6 +166,92 @@ AIConsumptionTracker.UI.exe --test --screenshot
 - **Styles**: Define in Window.Resources, use `x:Key` for named styles
 - **Colors**: Use hex codes for dark theme (e.g., `#1E1E1E` background)
 - **Resource inclusion**: Images as `<Resource>`, SVG files as `<Content>` with `PreserveNewest`
+
+### Agent Architecture
+
+The Agent is a background HTTP service that collects and stores provider usage data:
+
+**Key Components:**
+- **UsageDatabase.cs**: SQLite database with four tables (providers, provider_history, raw_snapshots, reset_events)
+- **ProviderRefreshService.cs**: Scheduled refresh logic, filters providers without API keys
+- **ConfigService.cs**: Configuration and preferences management
+
+**Port Management:**
+- Default port: 5000
+- Auto-discovery: Tries ports 5000-5010, then random
+- Port saved to: `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+
+**Database Schema:**
+```
+providers - Static provider configuration
+provider_history - Time-series usage data (kept indefinitely)
+raw_snapshots - Raw JSON data (14-day TTL, auto-cleanup)
+reset_events - Quota/limit reset tracking (kept indefinitely)
+```
+
+### Web UI Architecture
+
+The Web UI is an ASP.NET Core Razor Pages application that reads from the Agent's database:
+
+**Features:**
+- **Dashboard**: Stats cards, provider usage with progress bars, 60s auto-refresh
+- **Providers**: Table view of all providers with status
+- **Provider Details**: Individual history + reset events
+- **History**: Complete usage history across all providers
+
+**Technology Stack:**
+- **Framework**: ASP.NET Core 8.0
+- **Pattern**: Razor Pages (server-rendered)
+- **Styling**: CSS variables for theming
+- **Database**: Read-only access to Agent's SQLite database
+
+**HTMX Integration:**
+- Auto-refresh via `hx-trigger="every 60s"`
+- Partial page updates without full reload
+- CDN loaded from unpkg.com
+
+**Theme System:**
+Seven built-in themes using CSS variables:
+- **Dark** (default): `#1e1e1e` background
+- **Light**: Clean white background
+- **High Contrast**: Pure black/white for accessibility
+- **Solarized Dark**: Blue-green palette
+- **Solarized Light**: Sepia-toned
+- **Dracula**: Purple/pink highlights
+- **Nord**: Frosty blue-gray tones
+
+Theme toggle in navbar with localStorage persistence.
+
+### Slim UI Port Discovery
+
+The Slim UI automatically discovers the Agent port:
+
+**Process:**
+1. Read from `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+2. If not found, try port 5000
+3. Try fallback ports 5001-5010
+4. Use discovered port for all API calls
+
+**Implementation:**
+- `AgentService.RefreshPortAsync()` - Updates port before API calls
+- `AgentLauncher.IsAgentRunningWithPortAsync()` - Returns (isRunning, port)
+- Port is cached but refreshed on initialization
+
+### Content Security Policy
+
+CSP is configured in `Program.cs` with different policies for Development vs Production:
+
+**Development:**
+```csharp
+script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com;
+```
+- Allows HTMX eval and Browser Link/Hot Reload
+
+**Production:**
+```csharp
+script-src 'self' https://unpkg.com;
+```
+- Strict policy - requires self-hosted HTMX
 
 ### Provider Philosophy
 - **No Essential Providers**: There are no hardcoded "essential" providers that the application depends on.

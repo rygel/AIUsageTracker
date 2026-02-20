@@ -4,7 +4,7 @@ param(
 )
 
 # AI Consumption Tracker - Distribution Packaging Script
-# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 1.8.6
+# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 2.0.0
 
 $isWinPlatform = $Runtime.StartsWith("win-")
 $projectName = if ($isWinPlatform) { "AIConsumptionTracker.UI" } else { "AIConsumptionTracker.CLI" }
@@ -15,27 +15,25 @@ $publishDir = ".\dist\publish-$Runtime"
 if (-not [string]::IsNullOrEmpty($Version)) {
     Write-Host "Synchronizing version $Version across all files..." -ForegroundColor Cyan
     
-    # 1. Update all .csproj files
-    # We find all .csproj files except for test projects (or just update all of them)
-    $csprojFiles = Get-ChildItem -Path "." -Filter "*.csproj" -Recurse | Where-Object { $_.FullName -notlike "*Tests*" }
-    foreach ($file in $csprojFiles) {
-        $content = Get-Content $file.FullName -Raw
-        if ($content -match "<Version>(.*?)</Version>") {
-            $newContent = $content -replace "<Version>.*?</Version>", "<Version>$Version</Version>"
-            # Also update AssemblyVersion and FileVersion if they exist
-            $newContent = $newContent -replace "<AssemblyVersion>.*?</AssemblyVersion>", "<AssemblyVersion>$Version</AssemblyVersion>"
-            $newContent = $newContent -replace "<FileVersion>.*?</FileVersion>", "<FileVersion>$Version</FileVersion>"
-            Set-Content $file.FullName $newContent -NoNewline
-            Write-Host "  Updated $($file.Name)" -ForegroundColor Gray
-        }
+    # Create a clean version (x.y.z) for AssemblyVersion/FileVersion which don't support semantic suffixes
+    $cleanVersion = $Version.Split('-')[0]
+    
+    # 1. Update shared version source
+    if (Test-Path "Directory.Build.props") {
+        $propsContent = Get-Content "Directory.Build.props" -Raw
+        $newProps = $propsContent -replace "<TrackerVersion>.*?</TrackerVersion>", "<TrackerVersion>$Version</TrackerVersion>"
+        $newProps = $newProps -replace "<TrackerAssemblyVersion>.*?</TrackerAssemblyVersion>", "<TrackerAssemblyVersion>$cleanVersion</TrackerAssemblyVersion>"
+        Set-Content "Directory.Build.props" $newProps -NoNewline
+        Write-Host "  Updated Directory.Build.props" -ForegroundColor Gray
     }
 
     # 2. Update README.md badge
     if (Test-Path "README.md") {
+        $escapedVersion = $Version -replace "-", "--"
         $readmeContent = Get-Content "README.md" -Raw
-        $newReadme = $readmeContent -replace "version-[0-9]+\.[0-9]+\.[0-9]+-blue", "version-$Version-blue"
+        $newReadme = [regex]::Replace($readmeContent, "!\[Version\]\(https://img\.shields\.io/badge/version-[^)]+\)", "![Version](https://img.shields.io/badge/version-$escapedVersion-orange)")
         # Update installation instructions version as well
-        $newReadme = $newReadme -replace "AIConsumptionTracker_Setup_v[0-9]+\.[0-9]+\.[0-9]+\.exe", "AIConsumptionTracker_Setup_v$($Version).exe"
+        $newReadme = $newReadme -replace "AIConsumptionTracker_Setup_v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?\.exe", "AIConsumptionTracker_Setup_v$($Version).exe"
         Set-Content "README.md" $newReadme -NoNewline
         Write-Host "  Updated README.md" -ForegroundColor Gray
     }
@@ -51,19 +49,43 @@ if (-not [string]::IsNullOrEmpty($Version)) {
     # 4. Update scripts/publish-app.ps1 (self)
     if (Test-Path "scripts\publish-app.ps1") {
         $selfContent = Get-Content "scripts\publish-app.ps1" -Raw
-        $newSelf = $selfContent -replace "-Version [0-9]+\.[0-9]+\.[0-9]+", "-Version $Version"
+        $newSelf = $selfContent -replace "-Version [0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?", "-Version $Version"
         Set-Content "scripts\publish-app.ps1" $newSelf -NoNewline
         Write-Host "  Updated scripts/publish-app.ps1" -ForegroundColor Gray
     }
 } else {
-    # If Version not passed, extract from project file
-    $projectContent = Get-Content $projectPath -Raw
-    if ($projectContent -match "<Version>(.*?)</Version>") {
-        $Version = $matches[1]
-    } else {
+    # If Version not passed, extract from shared version source
+    if (Test-Path "Directory.Build.props") {
+        $propsContent = Get-Content "Directory.Build.props" -Raw
+        if ($propsContent -match "<TrackerVersion>(.*?)</TrackerVersion>") {
+            $Version = $matches[1]
+        }
+    }
+
+    # Fallback to project file if shared source is missing
+    if ([string]::IsNullOrEmpty($Version)) {
+        $projectContent = Get-Content $projectPath -Raw
+        if ($projectContent -match "<Version>(.*?)</Version>") {
+            $Version = $matches[1]
+        }
+    }
+
+    if ([string]::IsNullOrEmpty($Version)) {
         $Version = "1.5.1"
     }
+
+    if ($Version -match "^\$\((.*?)\)$") {
+        $propertyName = $matches[1]
+        if (Test-Path "Directory.Build.props") {
+            $propsContent = Get-Content "Directory.Build.props" -Raw
+            if ($propsContent -match "<$propertyName>(.*?)</$propertyName>") {
+                $Version = $matches[1]
+            }
+        }
+    }
 }
+
+$cleanVersion = $Version.Split('-')[0]
 
 $zipPath = ".\dist\AIConsumptionTracker_v$Version`_$Runtime.zip"
 
@@ -91,8 +113,8 @@ dotnet publish $projectPath `
     -p:PublishReadyToRun=true `
     -p:DebugType=None `
     -p:Version=$Version `
-    -p:AssemblyVersion=$Version `
-    -p:FileVersion=$Version
+    -p:AssemblyVersion=$cleanVersion `
+    -p:FileVersion=$cleanVersion
 
 Write-Host "Copying documentation..." -ForegroundColor Cyan
 Copy-Item ".\README.md" -Destination $publishDir

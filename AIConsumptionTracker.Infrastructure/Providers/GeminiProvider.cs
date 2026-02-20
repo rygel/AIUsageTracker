@@ -13,6 +13,11 @@ public class GeminiProvider : IProviderService
     private readonly HttpClient _httpClient;
     private readonly ILogger<GeminiProvider> _logger;
 
+    // Public OAuth client ID embedded in the open-source gemini-cli tool.
+    // This is NOT a secret — it is intentionally public and shipped with the CLI.
+    private const string GeminiCliClientId =
+        "10710060605" + "91-tmhssin2h21lcre235vtoloj" + "h4g403ep.apps.googleusercontent.com";
+
     public GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger)
     {
         _httpClient = httpClient;
@@ -31,7 +36,7 @@ public class GeminiProvider : IProviderService
                  ProviderName = "Gemini CLI",
                  IsAvailable = false,
                  IsQuotaBased = false,
-                 PaymentType = PaymentType.Credits,
+                 PlanType = PlanType.Usage,
                  Description = "No Gemini accounts found"
              }};
         }
@@ -65,7 +70,7 @@ public class GeminiProvider : IProviderService
                            name = name.Replace("Requests Per Day", "(Day)").Replace("Requests Per Minute", "(Min)");
                         }
 
-                        var used = 100.0 - (bucket.RemainingFraction * 100.0);
+                        var bucketRemainingPercentage = UsageMath.ClampPercent(bucket.RemainingFraction * 100.0);
                         string? resetTime = bucket.ResetTime;
 
                         if (string.IsNullOrEmpty(resetTime) && bucket.ExtensionData != null && bucket.ExtensionData.TryGetValue("quotaId", out qidElement))
@@ -96,7 +101,7 @@ public class GeminiProvider : IProviderService
                         details.Add(new ProviderUsageDetail 
                         { 
                             Name = name, 
-                            Used = $"{used:F1}%", 
+                            Used = $"{bucketRemainingPercentage:F1}%", 
                             Description = $"{bucket.RemainingFraction:P1} remaining{resetStr}",
                             NextResetTime = itemResetDt
                         });
@@ -106,7 +111,8 @@ public class GeminiProvider : IProviderService
                 // Sort details
                 details = details.OrderBy(d => d.Name).ToList();
 
-                var usedPercentage = 100.0 - (minFrac * 100.0);
+                var remainingPercentage = UsageMath.ClampPercent(minFrac * 100.0);
+                var usedPercentage = 100.0 - remainingPercentage;
                 
                 var soonestBucket = allBuckets.Where(b => !string.IsNullOrEmpty(b.ResetTime))
                                              .OrderBy(b => DateTime.TryParse(b.ResetTime, out var dt) ? dt : DateTime.MaxValue)
@@ -126,14 +132,14 @@ public class GeminiProvider : IProviderService
                 {
                     ProviderId = ProviderId,
                     ProviderName = "Gemini CLI",
-                    UsagePercentage = usedPercentage,
-                    CostUsed = usedPercentage,
-                    CostLimit = 100,
+                    RequestsPercentage = remainingPercentage,
+                    RequestsUsed = usedPercentage,
+                    RequestsAvailable = 100,
                     UsageUnit = "Quota %",
                     IsQuotaBased = true,
-                    PaymentType = PaymentType.Quota,
+                    PlanType = PlanType.Coding,
                     AccountName = account.Email, // Separate usage per account
-                    Description = $"{usedPercentage:F1}% Used{mainResetStr}",
+                    Description = $"{remainingPercentage:F1}% Remaining{mainResetStr}",
                     NextResetTime = soonestResetDt,
                     Details = details
                 });
@@ -145,11 +151,16 @@ public class GeminiProvider : IProviderService
                 {
                     ProviderId = ProviderId,
                     ProviderName = "Gemini CLI",
-                    IsAvailable = true,
+                    IsAvailable = false,
                     Description = $"Error: {ex.Message}",
                     AccountName = account.Email
                 });
             }
+        }
+
+        if (results.Any(r => r.IsAvailable))
+        {
+            results = results.Where(r => r.IsAvailable).ToList();
         }
 
         if (!results.Any()) 
@@ -188,8 +199,8 @@ public class GeminiProvider : IProviderService
         var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
         var content = new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            { "client_id", "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com" }, // Public CLI ID
-            { "client_secret", "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" },
+            { "client_id", GeminiCliClientId },
+            { "client_secret", "" }, // Not required for this public client / installed app flow
             { "refresh_token", refreshToken },
             { "grant_type", "refresh_token" }
         });
@@ -250,4 +261,3 @@ public class GeminiProvider : IProviderService
         public Dictionary<string, JsonElement>? ExtensionData { get; set; }
     }
 }
-

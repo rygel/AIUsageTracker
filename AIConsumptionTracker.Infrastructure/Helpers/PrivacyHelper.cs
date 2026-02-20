@@ -23,8 +23,9 @@ public static class PrivacyHelper
 
                 var name = parts[0];
                 var domain = parts[1];
+                var maskedDomain = Regex.Replace(domain, @"[^.]", "*");
 
-                return $"{MaskString(name)}@{domain}";
+                return $"{MaskString(name)}@{maskedDomain}";
             });
         }
 

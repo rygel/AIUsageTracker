@@ -43,51 +43,46 @@ By requiring manual tag creation:
 
 Create a feature branch and update these files:
 
-#### 1.1 Project Files (.csproj)
-Update `Version`, `AssemblyVersion`, and `FileVersion` in all project files:
-- `AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj`
-- `AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj`
-- `AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj`
-- `AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj`
+#### 1.1 Shared Version Source
+Update `Directory.Build.props`:
 
 Example changes:
 ```xml
-<Version>1.7.14</Version>
-<AssemblyVersion>1.7.14</AssemblyVersion>
-<FileVersion>1.7.14</FileVersion>
+<TrackerVersion>1.8.7-alpha.2</TrackerVersion>
+<TrackerAssemblyVersion>1.8.7</TrackerAssemblyVersion>
 ```
 
 #### 1.2 README.md
 Update the version badge:
 ```markdown
-![Version](https://img.shields.io/badge/version-1.7.14-blue)
+![Version](https://img.shields.io/badge/version-1.8.7--alpha.2-orange)
 ```
 
 #### 1.3 Installer Script
 Update `scripts/setup.iss`:
 ```pascal
-#define MyAppVersion "1.7.14"
+#define MyAppVersion "1.8.7-alpha.2"
 ```
 
 #### 1.4 Publish Script
 Update `scripts/publish-app.ps1`:
 ```powershell
-# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 1.7.14
+# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 1.8.7-alpha.2
 ```
 
 #### 1.5 Create and Merge PR
 ```bash
 # Create branch
-git checkout -b feature/v1.7.14-version-update
+git checkout -b feature/v1.8.7-alpha.2-version-update
 
 # Stage and commit changes
 git add .
-git commit -m "chore(release): update version files to v1.7.14"
-git push -u origin feature/v1.7.14-version-update
+git commit -m "chore(release): update version files to v1.8.7-alpha.2"
+git push -u origin feature/v1.8.7-alpha.2-version-update
 
 # Create PR (or use GitHub UI)
-gh pr create --base main --head feature/v1.7.14-version-update \
-  --title "chore(release): update version files to v1.7.14"
+gh pr create --base main --head feature/v1.8.7-alpha.2-version-update \
+  --title "chore(release): update version files to v1.8.7-alpha.2"
 
 # Merge the PR
 ```
@@ -99,14 +94,14 @@ After the version update PR is merged to `main`, trigger the release workflow:
 **Via GitHub UI:**
 1. Go to Actions > Create Release
 2. Click "Run workflow"
-3. Enter version: `1.7.14`
+3. Enter version: `1.8.7-alpha.2`
 4. Check "Skip automatic file updates" (since files are already updated)
 5. Click "Run workflow"
 
 **Via CLI:**
 ```bash
 gh workflow run "Create Release" --repo rygel/AIConsumptionTracker \
-  -f version="1.7.14" \
+  -f version="1.8.7-alpha.2" \
   -f skip_file_updates="true"
 ```
 
@@ -120,8 +115,8 @@ git checkout main
 git pull origin main
 
 # Create and push the tag
-git tag v1.7.14
-git push origin v1.7.14
+git tag v1.8.7-alpha.2
+git push origin v1.8.7-alpha.2
 ```
 
 **Important**: Only repository admins can push tags due to protection rules.
@@ -129,11 +124,12 @@ git push origin v1.7.14
 ### Step 4: Automatic Build and Release
 
 Pushing the tag automatically triggers the `Publish & Distribute` workflow which will:
-1. Build the application for all architectures (x64, x86, ARM64)
-2. Create Inno Setup installers
-3. Generate `appcast.xml` for NetSparkle auto-updater
-4. Create GitHub release with all artifacts including `appcast.xml`
-5. Upload release notes from CHANGELOG.md
+1. Run **pre-publish validation** (version/changelog consistency checks via `scripts/validate-release-consistency.sh`)
+2. Build the application for all architectures (x64, x86, ARM64)
+3. Create Inno Setup installers
+4. Generate `appcast.xml` for NetSparkle auto-updater
+5. Create GitHub release with all artifacts including `appcast.xml`
+6. Upload release notes from CHANGELOG.md
 
 **No manual steps required** - the workflow handles everything including the appcast file!
 
@@ -164,6 +160,11 @@ The changelog doesn't have an entry for this version.
 
 **Fix**: Add a changelog entry via PR before triggering the release.
 
+### Publish workflow fails during pre-publish validation
+The tag version and repository version files are out of sync.
+
+**Fix**: Ensure `Directory.Build.props`, `README.md` badge, `scripts/setup.iss`, `scripts/publish-app.ps1`, and `CHANGELOG.md` all match the tag version, then push a corrected tag.
+
 ## Files Managed by Release Workflow
 
 The release workflow automatically generates:
@@ -172,7 +173,7 @@ The release workflow automatically generates:
 - `appcast.xml` for NetSparkle auto-updater
 
 The following must be updated manually before triggering:
-- All `.csproj` files (Version, AssemblyVersion, FileVersion)
+- `Directory.Build.props` (`TrackerVersion`, `TrackerAssemblyVersion`)
 - `README.md` (version badge)
 - `scripts/setup.iss` (MyAppVersion)
 - `scripts/publish-app.ps1` (example version)
@@ -180,12 +181,11 @@ The following must be updated manually before triggering:
 
 ## Version Numbering
 
-We follow [Semantic Versioning](https://semver.org/):
-- **MAJOR** (X.0.0): Breaking changes
-- **MINOR** (0.X.0): New features, backwards compatible
-- **PATCH** (0.0.X): Bug fixes, backwards compatible
+Use a consistent release string for `TrackerVersion` and use its base numeric part for `TrackerAssemblyVersion`.
 
-Example: `1.7.14` = Major 1, Minor 7, Patch 14
+Examples:
+- `1.8.7`
+- `1.8.7-alpha.2` (with `TrackerAssemblyVersion` set to `1.8.7`)
 
 ## Related Documentation
 

@@ -37,7 +37,7 @@ public class PrivacyTests
                 AccountName = "test@example.com",
                 Description = "Usage for test@example.com is 50",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }});
         
         var providers = new List<IProviderService> { _mockProvider.Object };
@@ -52,6 +52,7 @@ public class PrivacyTests
         services.AddSingleton(mockFontProvider.Object);
         services.AddSingleton(mockFontProvider.Object);
         services.AddSingleton(mockGithubAuth.Object);
+        services.AddSingleton<AIConsumptionTracker.Core.AgentClient.AgentService>();
         
         var mockUpdateChecker = new Mock<IUpdateCheckerService>();
          mockUpdateChecker.Setup(u => u.CheckForUpdatesAsync()).ReturnsAsync((UpdateInfo?)null);
@@ -86,7 +87,7 @@ public class PrivacyTests
                 AccountName = "test@example.com",
                 Description = "Usage for test@example.com is 50",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 IsQuotaBased = true
             }});
 
@@ -104,14 +105,15 @@ public class PrivacyTests
         
         bool foundMaskedAccount = false;
         bool foundMaskedDescription = false;
+        var expectedMasked = PrivacyHelper.MaskContent("test@example.com", "test@example.com");
         var sb = new System.Text.StringBuilder();
 
         // Search recursively through all UI elements
         foreach (var textBlock in FindAllTextBlocksRecursive(providersList))
         {
             sb.AppendLine($"Text: '{textBlock.Text}'");
-            if (textBlock.Text.Contains("[t**t@example.com]")) foundMaskedAccount = true;
-            if (textBlock.Text.Contains("Usage for t**t@example.com")) foundMaskedDescription = true;
+            if (textBlock.Text.Contains($"[{expectedMasked}]")) foundMaskedAccount = true;
+            if (textBlock.Text.Contains($"Usage for {expectedMasked}")) foundMaskedDescription = true;
         }
 
         Assert.True(foundMaskedAccount, $"Account name was not masked correctly in Standard Mode. Found items:\n{sb.ToString()}");
@@ -137,7 +139,7 @@ public class PrivacyTests
                 AccountName = "johndoe",
                 Description = "Logged in as johndoe",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 IsQuotaBased = true
             }});
 

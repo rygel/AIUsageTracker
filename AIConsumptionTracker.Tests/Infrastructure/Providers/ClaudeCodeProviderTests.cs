@@ -34,7 +34,7 @@ public class ClaudeCodeProviderTests
         Assert.False(usage.IsAvailable);
         Assert.Equal("No API key configured", usage.Description);
         Assert.False(usage.IsQuotaBased);
-        Assert.Equal(PaymentType.UsageBased, usage.PaymentType);
+        Assert.Equal(PlanType.Usage, usage.PlanType);
     }
 
     [Fact]
@@ -50,6 +50,6 @@ public class ClaudeCodeProviderTests
         var usage = result.Single();
         Assert.True(usage.IsAvailable, "Provider should be available when API key is configured");
         Assert.False(usage.IsQuotaBased);
-        Assert.Equal(PaymentType.UsageBased, usage.PaymentType);
+        Assert.Equal(PlanType.Usage, usage.PlanType);
     }
 }

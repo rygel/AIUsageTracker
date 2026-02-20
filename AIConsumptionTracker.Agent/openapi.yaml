@@ -1,0 +1,529 @@
+openapi: 3.0.3
+info:
+  title: AIConsumptionTracker Agent API
+  version: 1.0.0
+  description: |
+    HTTP API exposed by the Agent service.
+    This contract is consumed by the Slim UI, Desktop UI, Web UI, and CLI.
+servers:
+  - url: http://localhost:{port}
+    description: Local Agent endpoint
+    variables:
+      port:
+        default: "5000"
+        description: Port discovered from %LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.json
+
+paths:
+  /api/health:
+    get:
+      summary: Agent health status
+      operationId: getHealth
+      responses:
+        "200":
+          description: Agent is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/diagnostics:
+    get:
+      summary: Agent runtime diagnostics
+      operationId: getDiagnostics
+      responses:
+        "200":
+          description: Diagnostic snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticsResponse"
+
+  /api/usage:
+    get:
+      summary: Latest usage per provider
+      operationId: getUsage
+      responses:
+        "200":
+          description: Latest provider usage records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderUsage"
+
+  /api/usage/{providerId}:
+    get:
+      summary: Latest usage for a specific provider
+      operationId: getUsageByProvider
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Usage record found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderUsage"
+        "404":
+          description: Provider not found
+
+  /api/refresh:
+    post:
+      summary: Trigger provider refresh
+      operationId: triggerRefresh
+      responses:
+        "200":
+          description: Refresh accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /api/config:
+    get:
+      summary: List provider configuration
+      operationId: getConfig
+      responses:
+        "200":
+          description: Provider configuration list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderConfig"
+    post:
+      summary: Save provider configuration
+      operationId: saveConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProviderConfig"
+      responses:
+        "200":
+          description: Configuration saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /api/config/{providerId}:
+    delete:
+      summary: Remove provider configuration
+      operationId: removeConfig
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Configuration removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /api/preferences:
+    get:
+      summary: Get app preferences
+      operationId: getPreferences
+      responses:
+        "200":
+          description: Current preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppPreferences"
+    post:
+      summary: Save app preferences
+      operationId: savePreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppPreferences"
+      responses:
+        "200":
+          description: Preferences saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /api/scan-keys:
+    post:
+      summary: Scan environment/files for provider keys
+      operationId: scanKeys
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanKeysResponse"
+
+  /api/history:
+    get:
+      summary: Usage history across providers
+      operationId: getHistory
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 100
+      responses:
+        "200":
+          description: Usage history records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderUsage"
+
+  /api/history/{providerId}:
+    get:
+      summary: Usage history for a provider
+      operationId: getHistoryByProvider
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 100
+      responses:
+        "200":
+          description: Provider usage history records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderUsage"
+
+  /api/resets/{providerId}:
+    get:
+      summary: Reset events for a provider
+      operationId: getResetEvents
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 50
+      responses:
+        "200":
+          description: Provider reset events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResetEvent"
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, timestamp, port, process_id]
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        port:
+          type: integer
+        process_id:
+          type: integer
+
+    DiagnosticsResponse:
+      type: object
+      required: [port, process_id, working_dir, base_dir, started_at, os, runtime, args]
+      properties:
+        port:
+          type: integer
+        process_id:
+          type: integer
+        working_dir:
+          type: string
+        base_dir:
+          type: string
+        started_at:
+          type: string
+          description: Local timestamp formatted as yyyy-MM-dd HH:mm:ss
+        os:
+          type: string
+        runtime:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+
+    MessageResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    ScanKeysResponse:
+      type: object
+      required: [discovered, configs]
+      properties:
+        discovered:
+          type: integer
+        configs:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderConfig"
+
+    PlanType:
+      type: string
+      enum: [usage, coding]
+
+    AppTheme:
+      type: string
+      enum: [dark, light]
+
+    ProviderUsageDetail:
+      type: object
+      properties:
+        name:
+          type: string
+        model_name:
+          type: string
+        group_name:
+          type: string
+        used:
+          type: string
+        description:
+          type: string
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProviderUsage:
+      type: object
+      properties:
+        provider_id:
+          type: string
+        provider_name:
+          type: string
+        requests_used:
+          type: number
+          format: double
+        requests_available:
+          type: number
+          format: double
+        requests_percentage:
+          type: number
+          format: double
+        plan_type:
+          $ref: "#/components/schemas/PlanType"
+        usage_unit:
+          type: string
+        is_quota_based:
+          type: boolean
+        display_as_fraction:
+          type: boolean
+        is_available:
+          type: boolean
+        description:
+          type: string
+        auth_source:
+          type: string
+        details:
+          type: array
+          nullable: true
+          items:
+            $ref: "#/components/schemas/ProviderUsageDetail"
+        account_name:
+          type: string
+        config_key:
+          type: string
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        fetched_at:
+          type: string
+          format: date-time
+        raw_json:
+          type: string
+          nullable: true
+        http_status:
+          type: integer
+      required:
+        - provider_id
+        - provider_name
+        - requests_used
+        - requests_available
+        - requests_percentage
+        - plan_type
+        - is_available
+        - description
+
+    AIModelConfig:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        matches:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+          nullable: true
+      required: [id, name, matches]
+
+    ProviderConfig:
+      type: object
+      properties:
+        provider_id:
+          type: string
+        api_key:
+          type: string
+        type:
+          type: string
+        plan_type:
+          $ref: "#/components/schemas/PlanType"
+        limit:
+          type: number
+          format: double
+          nullable: true
+        base_url:
+          type: string
+          nullable: true
+        show_in_tray:
+          type: boolean
+        enable_notifications:
+          type: boolean
+        enabled_sub_trays:
+          type: array
+          items:
+            type: string
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/AIModelConfig"
+      required: [provider_id]
+
+    AppPreferences:
+      type: object
+      properties:
+        show_all:
+          type: boolean
+        window_width:
+          type: number
+          format: double
+        window_height:
+          type: number
+          format: double
+        window_left:
+          type: number
+          format: double
+          nullable: true
+        window_top:
+          type: number
+          format: double
+          nullable: true
+        stay_open:
+          type: boolean
+        always_on_top:
+          type: boolean
+        compact_mode:
+          type: boolean
+        color_threshold_yellow:
+          type: integer
+        color_threshold_red:
+          type: integer
+        invert_progress_bar:
+          type: boolean
+        invert_calculations:
+          type: boolean
+        font_family:
+          type: string
+        font_size:
+          type: integer
+        font_bold:
+          type: boolean
+        font_italic:
+          type: boolean
+        auto_refresh_interval:
+          type: integer
+        is_privacy_mode:
+          type: boolean
+        enable_notifications:
+          type: boolean
+        notification_threshold:
+          type: number
+          format: double
+        start_with_windows:
+          type: boolean
+        theme:
+          $ref: "#/components/schemas/AppTheme"
+        debug_mode:
+          type: boolean
+        is_plans_and_quotas_collapsed:
+          type: boolean
+        is_pay_as_you_go_collapsed:
+          type: boolean
+        is_antigravity_collapsed:
+          type: boolean
+
+    ResetEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        provider_id:
+          type: string
+        provider_name:
+          type: string
+        previous_usage:
+          type: number
+          format: double
+          nullable: true
+        new_usage:
+          type: number
+          format: double
+          nullable: true
+        reset_type:
+          type: string
+        timestamp:
+          type: string
+      required: [id, provider_id, provider_name, reset_type, timestamp]

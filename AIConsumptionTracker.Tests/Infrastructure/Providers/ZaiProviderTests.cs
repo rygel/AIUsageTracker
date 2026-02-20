@@ -78,7 +78,7 @@ public class ZaiProviderTests
         // Quota-based providers show REMAINING percentage (full bar = lots remaining)
         // CurrentValue = 0 (Used), Total = 100.
         // Expected Percentage = 100% remaining. (Full Bar = all quota available)
-        Assert.Equal(100, usage.UsagePercentage);
+        Assert.Equal(100, usage.RequestsPercentage);
 
         Assert.Contains("Remaining", usage.Description);
     }
@@ -132,7 +132,7 @@ public class ZaiProviderTests
         Assert.Equal("Z.AI Coding Plan (Ultra/Enterprise)", usage.ProviderName);
 
         // Quota-based providers show REMAINING percentage (80% remaining)
-        Assert.Equal(80, usage.UsagePercentage);
+        Assert.Equal(80, usage.RequestsPercentage);
 
         // Description should show "80.0% Remaining"
         Assert.Contains("80.0% Remaining", usage.Description);
@@ -181,7 +181,7 @@ public class ZaiProviderTests
 
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(100, usage.UsagePercentage); // 100% remaining when Total is null (treated as 0 limit)
+        Assert.Equal(100, usage.RequestsPercentage); // 100% remaining when Total is null (treated as 0 limit)
     }
 
     [Fact]
@@ -238,7 +238,7 @@ public class ZaiProviderTests
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("Z.AI Coding Plan (Ultra/Enterprise)", usage.ProviderName);
-        Assert.Equal(74.074, usage.UsagePercentage, 3); // ~74% remaining (100M/135M) with tolerance
+        Assert.Equal(74.074, usage.RequestsPercentage, 3); // ~74% remaining (100M/135M) with tolerance
         Assert.Contains("74.1% Remaining of 135M tokens limit", usage.Description);
         Assert.NotNull(usage.NextResetTime);
     }
@@ -359,5 +359,70 @@ public class ZaiProviderTests
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
         Assert.Contains("No usage data available", usage.Description);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_MultipleLimits_SelectsActiveOrLargest()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
+        
+        // Scenario: Two limits returned.
+        // 1. New/Active limit: 100% remaining.
+        // 2. Old/Exhausted limit: 0 remaining.
+        // The provider should ideally pick the active one, or at least the one that makes sense.
+        // If it picks the first one (Active), it's good. 
+        // But what if the order is swapped? Can we test robustness?
+
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            data = new
+            {
+                limits = new object[]
+                {
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        percentage = (double?)null,
+                        currentValue = 100000000L, // 100M Used -> 0 Remaining (Exhausted)
+                        usage = 100000000L, // 100M Total
+                        remaining = 0L, 
+                        nextResetTime = 1700000000L // Past
+                    },
+                    new
+                    {
+                        type = "TOKENS_LIMIT",
+                        percentage = (double?)null,
+                        currentValue = 0L, // 0 Used -> 100M Remaining (Active)
+                        usage = 100000000L, // 100M Total
+                        remaining = 100000000L, 
+                        nextResetTime = 4900000000L // Future
+                    }
+                }
+            }
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        
+        // We expect it to be smart enough to pick the ACTIVE limit (100% remaining)
+        // rather than the first exhausted limit it finds (0% remaining).
+        Assert.Equal(100, usage.RequestsPercentage); 
+        Assert.Contains("Remaining", usage.Description);
     }
 }

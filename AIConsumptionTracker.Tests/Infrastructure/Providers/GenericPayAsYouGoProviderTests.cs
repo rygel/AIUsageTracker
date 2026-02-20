@@ -61,14 +61,13 @@ public class GenericPayAsYouGoProviderTests
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("Synthetic", usage.ProviderName);
-        Assert.Equal(PaymentType.Quota, usage.PaymentType);
-        Assert.False(usage.IsQuotaBased); // Current implementation has this set to false
+        Assert.Equal(PlanType.Coding, usage.PlanType);
+        Assert.False(usage.IsQuotaBased);
         
-        // Quota-based: show remaining percentage (74.07% remaining)
-        Assert.Equal(74.074, usage.UsagePercentage, 3);
-        
-        // Description format is "{used:F2} / {total:F2} credits"
-        Assert.StartsWith("35000.00 / 135000.00 credits (Resets:", usage.Description);
+        // Description format for Synthetic is "{used} / {total} credits"
+        Assert.StartsWith("35000 / 135000 credits (Resets:", usage.Description);
+        Assert.Equal(35000, usage.RequestsUsed);
+        Assert.Equal(135000, usage.RequestsAvailable);
         
         Assert.NotNull(usage.NextResetTime);
     }
@@ -108,12 +107,11 @@ public class GenericPayAsYouGoProviderTests
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(PaymentType.Quota, usage.PaymentType);
+        Assert.Equal(PlanType.Coding, usage.PlanType);
         
-        // Quota-based: show remaining percentage (60% remaining)
-        Assert.Equal(60, usage.UsagePercentage);
-        
-        Assert.Equal("40000.00 / 100000.00 credits", usage.Description);
+        Assert.Equal("40000 / 100000 credits", usage.Description);
+        Assert.Equal(40000, usage.RequestsUsed);
+        Assert.Equal(100000, usage.RequestsAvailable);
     }
 
     [Fact]
@@ -152,10 +150,9 @@ public class GenericPayAsYouGoProviderTests
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         
-        // Quota-based: show remaining percentage (99% remaining)
-        Assert.Equal(99, usage.UsagePercentage);
-        
-        Assert.Equal("500.00 / 50000.00 credits", usage.Description);
+        Assert.Equal("500 / 50000 credits", usage.Description);
+        Assert.Equal(500, usage.RequestsUsed);
+        Assert.Equal(50000, usage.RequestsAvailable);
     }
 
     [Fact]
@@ -194,10 +191,9 @@ public class GenericPayAsYouGoProviderTests
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         
-        // Quota-based: show remaining percentage (10% remaining)
-        Assert.Equal(10, usage.UsagePercentage);
-        
-        Assert.Equal("90000.00 / 100000.00 credits", usage.Description);
+        Assert.Equal("90000 / 100000 credits", usage.Description);
+        Assert.Equal(90000, usage.RequestsUsed);
+        Assert.Equal(100000, usage.RequestsAvailable);
     }
 
     [Fact]
@@ -236,10 +232,9 @@ public class GenericPayAsYouGoProviderTests
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         
-        // Quota-based: show remaining percentage (0% remaining)
-        Assert.Equal(0, usage.UsagePercentage);
-        
-        Assert.Equal("50000.00 / 50000.00 credits", usage.Description);
+        Assert.Equal("50000 / 50000 credits", usage.Description);
+        Assert.Equal(50000, usage.RequestsUsed);
+        Assert.Equal(50000, usage.RequestsAvailable);
     }
 
     [Fact]
@@ -333,9 +328,9 @@ public class GenericPayAsYouGoProviderTests
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(50, usage.UsagePercentage);
+        Assert.Equal(50, usage.RequestsPercentage);
         Assert.Null(usage.NextResetTime); // Should not crash on invalid date
-        Assert.Equal("50000.00 / 100000.00 credits", usage.Description);
+        Assert.Equal("50000 / 100000 credits", usage.Description);
     }
 
     [Fact]
@@ -374,14 +369,13 @@ public class GenericPayAsYouGoProviderTests
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         
-        // Quota-based: show remaining percentage (75% remaining)
-        Assert.Equal(75, usage.UsagePercentage);
-        
-        Assert.Equal("250000.00 / 1000000.00 credits", usage.Description);
+        Assert.Equal("250000 / 1000000 credits", usage.Description);
+        Assert.Equal(250000, usage.RequestsUsed);
+        Assert.Equal(1000000, usage.RequestsAvailable);
     }
 
     [Fact]
-    public async Task GetUsageAsync_Synthetic_ApiError_ThrowsException()
+    public async Task GetUsageAsync_Synthetic_ApiError_ReturnsNotAvailable()
     {
         // Arrange
         var config = new ProviderConfig { ProviderId = "synthetic", ApiKey = "test-key" };
@@ -397,8 +391,13 @@ public class GenericPayAsYouGoProviderTests
                 StatusCode = HttpStatusCode.Unauthorized
             });
 
-        // Act & Assert - Should throw exception for API error
-        await Assert.ThrowsAsync<Exception>(async () => await _provider.GetUsageAsync(config));
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert - Returns error state instead of throwing
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("API Error", usage.Description);
     }
 
     [Fact]

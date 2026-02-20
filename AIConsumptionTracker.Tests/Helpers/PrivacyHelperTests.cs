@@ -6,8 +6,8 @@ namespace AIConsumptionTracker.Tests.Helpers;
 public class PrivacyHelperTests
 {
     [Theory]
-    [InlineData("test@example.com", null, "t**t@example.com")]
-    [InlineData("john.doe@example.com", null, "j*****e@example.com")]
+    [InlineData("test@example.com", null, "t**t@*******.***")]
+    [InlineData("john.doe@example.com", null, "j*****e@*******.***")]
     [InlineData("johndoe", "johndoe", "j*****e")]
     [InlineData("abc", "abc", "a*c")]
     [InlineData("ab", "ab", "**")]
@@ -33,6 +33,6 @@ public class PrivacyHelperTests
     {
         var input = "Usage for test@example.com is 50";
         var result = PrivacyHelper.MaskContent(input);
-        Assert.Equal("Usage for t**t@example.com is 50", result);
+        Assert.Equal("Usage for t**t@*******.*** is 50", result);
     }
 }

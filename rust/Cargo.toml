@@ -1,7 +1,0 @@
-[workspace]
-resolver = "2"
-members = [
-    "aic_core",
-    "aic_cli",
-    "aic_app"
-]

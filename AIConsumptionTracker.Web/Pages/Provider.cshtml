@@ -1,0 +1,78 @@
+@page "/provider/{id}"
+@model ProviderModel
+@{
+    ViewData["Title"] = Model.ProviderName ?? "Provider Details";
+}
+
+@if (Model.ProviderHistory == null || !Model.ProviderHistory.Any())
+{
+    <div class="alert alert-warning">
+        Provider not found or no history available.
+    </div>
+    <a href="/Providers" class="btn btn-secondary">Back to Providers</a>
+}
+else
+{
+    <h1 class="page-title">@Model.ProviderName</h1>
+    
+    <div class="mb-3">
+        <a href="/Providers" class="btn btn-secondary">Back to Providers</a>
+    </div>
+
+    <h2 class="mb-2">Usage History</h2>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Usage</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var usage in Model.ProviderHistory)
+                {
+                    <tr>
+                        <td>@usage.FetchedAt.ToString("g")</td>
+                        <td>@usage.RequestsPercentage.ToString("F1")%</td>
+                        <td>
+                            <span class="provider-status @(usage.IsAvailable ? "active" : "inactive")">
+                                @(usage.IsAvailable ? "Active" : "Inactive")
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (Model.ResetEvents?.Any() == true)
+    {
+        <h2 class="mb-2 mt-3">Reset Events</h2>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Previous</th>
+                        <th>New</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var reset in Model.ResetEvents)
+                    {
+                        <tr>
+                            <td>@reset.Timestamp</td>
+                            <td>@reset.ResetType</td>
+                            <td>@(reset.PreviousUsage?.ToString("F1") ?? "-")</td>
+                            <td>@(reset.NewUsage?.ToString("F1") ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}

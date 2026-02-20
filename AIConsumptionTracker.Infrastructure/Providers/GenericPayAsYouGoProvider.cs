@@ -113,13 +113,14 @@ public class GenericPayAsYouGoProvider : IProviderService
             {
                 ProviderId = config.ProviderId,
                 ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
-                UsagePercentage = 0,
-                CostUsed = 0,
-                CostLimit = 0,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
                 UsageUnit = "Credits",
                 IsQuotaBased = false,
                 IsAvailable = false, // Hide from default view if untracked
-                Description = "Configuration Required (Add 'base_url' to auth.json)"
+                Description = "Configuration Required (Add 'base_url' to auth.json)",
+                PlanType = PlanType.Usage
             }};
         }
 
@@ -149,7 +150,19 @@ public class GenericPayAsYouGoProvider : IProviderService
         
         if (!response.IsSuccessStatusCode)
         {
-            throw new Exception($"API returned {response.StatusCode} for {url}");
+            return new[] { new ProviderUsage
+            {
+                ProviderId = config.ProviderId,
+                ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ").Replace(".", " ")),
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                UsageUnit = "Credits",
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                IsAvailable = false,
+                Description = $"API Error: {response.StatusCode}"
+            }};
         }
 
         var responseString = await response.Content.ReadAsStringAsync();
@@ -160,11 +173,12 @@ public class GenericPayAsYouGoProvider : IProviderService
             {
                 ProviderId = config.ProviderId,
                 ProviderName = config.ProviderId,
-                UsagePercentage = 0,
-                CostUsed = 0,
-                CostLimit = 0,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
                 UsageUnit = "Credits",
                 IsQuotaBased = false,
+                PlanType = PlanType.Usage,
                 IsAvailable = true,
                 Description = "Not Found (Invalid Key/URL)"
             }};
@@ -172,7 +186,7 @@ public class GenericPayAsYouGoProvider : IProviderService
 
         double total = 0;
         double used = 0;
-        PaymentType paymentType = PaymentType.UsageBased;
+        PlanType paymentType = PlanType.Usage;
 
 
         try
@@ -183,7 +197,7 @@ public class GenericPayAsYouGoProvider : IProviderService
             {
                 total = data.Data.TotalCredits;
                 used = data.Data.UsedCredits;
-                paymentType = PaymentType.Credits;
+                paymentType = PlanType.Usage;
             }
             else
             {
@@ -193,7 +207,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                 {
                     total = synthetic.Subscription.Limit;
                     used = synthetic.Subscription.Requests;
-                    paymentType = PaymentType.Quota;
+                    paymentType = PlanType.Coding;
                 }
                 else
                 {
@@ -203,7 +217,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                     {
                         total = kimi.Data.AvailableBalance;
                         used = 0; 
-                        paymentType = PaymentType.Credits;
+                        paymentType = PlanType.Usage;
                     }
                     else
                     {
@@ -213,7 +227,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                         {
                             used = minimax.Usage.TokensUsed;
                             total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0; 
-                            paymentType = PaymentType.UsageBased;
+                            paymentType = PlanType.Usage;
                         }
                         else 
                         {
@@ -223,7 +237,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                             {
                                 total = xiaomi.Data.Balance;
                                 used = 0;
-                                paymentType = PaymentType.Credits;
+                                paymentType = PlanType.Usage;
                             }
                             else
                             {
@@ -233,7 +247,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                                 {
                                     total = kilo.Data.TotalCredits;
                                     used = kilo.Data.UsedCredits;
-                                    paymentType = PaymentType.Credits;
+                                    paymentType = PlanType.Usage;
                                 }
                                 else
                                 {
@@ -255,7 +269,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                 {
                     total = synthetic.Subscription.Limit;
                     used = synthetic.Subscription.Requests;
-                    paymentType = PaymentType.Quota;
+                    paymentType = PlanType.Coding;
                 }
                 else
                 {
@@ -265,7 +279,7 @@ public class GenericPayAsYouGoProvider : IProviderService
                      {
                         total = kimi.Data.AvailableBalance;
                         used = 0;
-                        paymentType = PaymentType.Credits;
+                        paymentType = PlanType.Usage;
                      }
                      else
                      {
@@ -291,7 +305,7 @@ public class GenericPayAsYouGoProvider : IProviderService
         
         // For quota-based providers, show remaining percentage (full bar = lots remaining, empty = depleted)
         // For other providers, show used percentage (full bar = high usage)
-        var utilization = paymentType == PaymentType.Quota
+        var utilization = paymentType == PlanType.Coding
             ? (total > 0 ? ((total - used) / total) * 100.0 : 100)  // Remaining % for quota (full = good)
             : (total > 0 ? (used / total) * 100.0 : 0);              // Used % for others
 
@@ -312,18 +326,21 @@ public class GenericPayAsYouGoProvider : IProviderService
             }
         } catch { /* Suppress if not synthetic or parse fails */ }
 
+        string usedStr = used == (int)used ? ((int)used).ToString(CultureInfo.InvariantCulture) : used.ToString("F2", CultureInfo.InvariantCulture);
+        string totalStr = total == (int)total ? ((int)total).ToString(CultureInfo.InvariantCulture) : total.ToString("F2", CultureInfo.InvariantCulture);
+
         return new[] { new ProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace("-", " ").Replace(".", " ")),
-            UsagePercentage = Math.Min(utilization, 100),
-            CostUsed = used,
-            CostLimit = total,
-            PaymentType = paymentType,
+            RequestsPercentage = Math.Min(utilization, 100),
+            RequestsUsed = used,
+            RequestsAvailable = total,
+            PlanType = paymentType,
             UsageUnit = "Credits",
 
             IsQuotaBased = false,
-            Description = $"{used.ToString("F2", CultureInfo.InvariantCulture)} / {total.ToString("F2", CultureInfo.InvariantCulture)} credits{resetStr}",
+            Description = $"{usedStr} / {totalStr} credits{resetStr}",
             NextResetTime = nextResetTime
         }};
     }

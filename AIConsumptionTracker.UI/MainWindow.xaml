@@ -7,6 +7,7 @@
         Title="AI Consumption Tracker" Height="500" Width="420"
         MinWidth="350" MinHeight="400"
         WindowStyle="None" ResizeMode="CanResize"
+        WindowStartupLocation="Manual"
         Background="{DynamicResource Background}"
         Foreground="{DynamicResource PrimaryText}"
         ShowInTaskbar="False"
@@ -69,6 +70,17 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button Content="View Changelog" HorizontalAlignment="Right" Click="ViewChangelogBtn_Click" Background="{DynamicResource UpdateButtonBackground}" Foreground="White" FontSize="11" Padding="8,2" Margin="10,0,5,0" Cursor="Hand" WindowChrome.IsHitTestVisibleInChrome="True"/>
                         <Button Content="Download" HorizontalAlignment="Right" Click="UpdateBtn_Click" Background="{DynamicResource UpdateButtonBackground}" Foreground="White" FontSize="11" Padding="8,2" Margin="5,0,0,0" Cursor="Hand" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Agent Error Banner -->
+            <Border x:Name="ErrorBanner" Grid.Row="1" Background="#FFE53935" Padding="12,8" Visibility="Collapsed">
+                <DockPanel>
+                    <TextBlock Text="⚠" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White"/>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Agent Error" FontWeight="Bold" Foreground="White" FontSize="12"/>
+                        <TextBlock x:Name="ErrorText" Text="Could not connect to background agent." Foreground="White" FontSize="11" TextWrapping="Wrap"/>
                     </StackPanel>
                 </DockPanel>
             </Border>

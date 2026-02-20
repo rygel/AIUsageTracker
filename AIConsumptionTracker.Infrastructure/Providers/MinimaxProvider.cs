@@ -58,7 +58,7 @@ public class MinimaxProvider : GenericPayAsYouGoProvider
         
         double used = 0;
         double total = 0;
-        PaymentType paymentType = PaymentType.UsageBased;
+        PlanType paymentType = PlanType.Usage;
 
         try
         {
@@ -67,7 +67,7 @@ public class MinimaxProvider : GenericPayAsYouGoProvider
             {
                 used = minimax.Usage.TokensUsed;
                 total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0; 
-                paymentType = PaymentType.UsageBased;
+                paymentType = PlanType.Usage;
             }
             else
             {
@@ -85,10 +85,10 @@ public class MinimaxProvider : GenericPayAsYouGoProvider
         {
             ProviderId = config.ProviderId,
             ProviderName = "Minimax",
-            UsagePercentage = Math.Min(utilization, 100),
-            CostUsed = used,
-            CostLimit = total,
-            PaymentType = paymentType,
+            RequestsPercentage = Math.Min(utilization, 100),
+            RequestsUsed = used,
+            RequestsAvailable = total,
+            PlanType = paymentType,
             UsageUnit = "Tokens", 
             IsQuotaBased = false,
             Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : "")

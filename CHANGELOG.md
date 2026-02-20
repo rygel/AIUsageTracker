@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-02-20
+
+### Added
+- Native Codex provider support using local auth and ChatGPT `wham/usage` parsing.
+- Snapshot-based provider contract tests for Antigravity and Codex parsing stability.
+- Shared release scripts for consistency validation and appcast generation.
+
+### Changed
+- Slim UI is now the primary desktop UI, rebranded as **AI Consumption Tracker** with title-bar icons and improved tray/settings behavior.
+- Antigravity rendering now uses strict payload-defined model names/grouping with grouped model rows.
+- Release versioning is centralized in `Directory.Build.props`, with CI dry-run checks for release scripts.
+
+### Fixed
+- Agent refresh endpoint and DI wiring issues that blocked Slim UI from receiving live usage data.
+- Remaining/used quota percentage semantics aligned across providers, UI display, and alert logic.
+- GitHub Copilot quota/reset handling now prefers Copilot internal quota snapshots with monthly reset behavior.
+
+## [1.8.7-alpha.2] - 2026-02-19
+
+### Added
+- **Codex Native Provider**: Added local Codex auth detection and native usage parsing from ChatGPT `wham/usage`.
+- **Antigravity Detail Metadata**: Added strict `group_name` and `model_name` metadata to provider detail payloads for grouped rendering.
+
+### Changed
+- **Slim Antigravity Layout**: Replaced sub-bars with grouped per-model rows and removed the synthetic parent percentage calculation.
+- **Slim Window Behavior**: Main close button now hides to tray, and settings now has its own taskbar entry.
+
+### Fixed
+- **Slim Agent Lifecycle**: Removed blocking start/stop paths that could hang the UI during restart flows.
+- **Settings Theme Consistency**: Dark theme now applies to font selection combo popups and settings history grid styling.
+
 ## [1.8.6] - 2026-02-12
 
 ### Added

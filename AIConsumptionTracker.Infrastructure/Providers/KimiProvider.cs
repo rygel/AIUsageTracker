@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -47,21 +48,11 @@ public class KimiProvider : IProviderService
             double limit = data.Usage.Limit;
             double remaining = data.Usage.Remaining;
             
-            double usedPercentage = 0;
-            if (limit > 0)
-            {
-                usedPercentage = (used / limit) * 100.0;
-            }
-            
-            // Correction: current API might return used/remaining/limit logic differently
-            // Based on script: USAGE_PCT_LEFT = REMAINING * 100 / LIMIT
-            // So used% = 100 - (REMAINING * 100 / LIMIT)
-            if (limit > 0)
-            {
-                usedPercentage = 100.0 - ((remaining / limit) * 100.0);
-            }
+            var remainingPercentage = limit > 0
+                ? UsageMath.CalculateRemainingPercent(used, limit)
+                : 100.0;
 
-            var description = $"{usedPercentage:F1}% Used ({remaining}/{limit})";
+            var description = $"{remainingPercentage.ToString("F1", CultureInfo.InvariantCulture)}% Remaining ({remaining}/{limit})";
             if (limit == 0) description = "Unlimited / Pay-as-you-go";
             
             // Limits Detail
@@ -82,11 +73,12 @@ public class KimiProvider : IProviderService
                     if (det.Limit <= 0) continue;
 
                     string name = $"{FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
-                    double itemPct = 100.0 - ((det.Remaining / (double)det.Limit) * 100.0);
+                    var itemUsed = det.Limit - det.Remaining;
+                    var itemRemainingPercentage = UsageMath.CalculateRemainingPercent(itemUsed, det.Limit);
                     
                     var resetDisplay = FormatResetTime(det.ResetTime ?? "");
                     DateTime? itemResetDt = null;
-                    if (DateTime.TryParse(det.ResetTime, out var dt))
+                    if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
                     {
                         itemResetDt = dt.ToLocalTime();
                         var diff = itemResetDt.Value - DateTime.Now;
@@ -101,7 +93,7 @@ public class KimiProvider : IProviderService
                     details.Add(new ProviderUsageDetail
                     {
                          Name = name,
-                         Used = $"{itemPct:F1}%",
+                         Used = $"{itemRemainingPercentage.ToString("F1", CultureInfo.InvariantCulture)}%",
                          Description = $"{det.Remaining} remaining (Resets: {resetDisplay})", // Kept original description for detail item
                          NextResetTime = itemResetDt
                     });
@@ -114,12 +106,12 @@ public class KimiProvider : IProviderService
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Kimi",
-                UsagePercentage = usedPercentage,
-                CostUsed = used,
-                CostLimit = limit,
+                RequestsPercentage = remainingPercentage,
+                RequestsUsed = used,
+                RequestsAvailable = limit,
                 UsageUnit = "Points", 
                 IsQuotaBased = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 IsAvailable = true,
                 Description = description,
 
@@ -150,7 +142,7 @@ public class KimiProvider : IProviderService
 
     private string FormatResetTime(string resetTime)
     {
-        if (DateTime.TryParse(resetTime, out var dt))
+        if (DateTime.TryParse(resetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {
             return $"({dt:MMM dd HH:mm})";
         }

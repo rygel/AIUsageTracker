@@ -1,0 +1,28 @@
+{
+  "plan_type": "pro",
+  "rate_limit": {
+    "primary_window": {
+      "used_percent": 62.5,
+      "reset_after_seconds": 1800
+    },
+    "secondary_window": {
+      "used_percent": 22,
+      "reset_after_seconds": 600
+    }
+  },
+  "additional_rate_limits": [
+    {
+      "limit_name": "spark_weekly",
+      "rate_limit": {
+        "primary_window": {
+          "used_percent": 40,
+          "reset_after_seconds": 7200
+        }
+      }
+    }
+  ],
+  "credits": {
+    "balance": 12.75,
+    "unlimited": false
+  }
+}

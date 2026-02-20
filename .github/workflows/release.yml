@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.7.5)'
+        description: 'Version to release (e.g., 1.7.5 or 1.7.5-alpha.2)'
         required: true
         type: string
       skip_file_updates:
@@ -27,38 +27,21 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update .csproj Files
+      - name: Update shared version source
         run: |
           version="${{ inputs.version }}"
-          echo "Updating all .csproj files to $version"
-
-          # Update AIConsumptionTracker.Core.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
-
-          # Update AIConsumptionTracker.Infrastructure.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
-
-          # Update AIConsumptionTracker.UI.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
-
-          # Update AIConsumptionTracker.CLI.csproj
-          sed -i "s|<Version>.*</Version>|<Version>$version</Version>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
-          sed -i "s|<AssemblyVersion>.*</AssemblyVersion>|<AssemblyVersion>$version</AssemblyVersion>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
-          sed -i "s|<FileVersion>.*</FileVersion>|<FileVersion>$version</FileVersion>|g" AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
-
-          echo "✓ Updated all .csproj files to $version"
+          clean_version="${version%%-*}"
+          echo "Updating shared version source to $version"
+          sed -i "s|<TrackerVersion>.*</TrackerVersion>|<TrackerVersion>$version</TrackerVersion>|g" Directory.Build.props
+          sed -i "s|<TrackerAssemblyVersion>.*</TrackerAssemblyVersion>|<TrackerAssemblyVersion>$clean_version</TrackerAssemblyVersion>|g" Directory.Build.props
+          echo "✓ Updated Directory.Build.props to $version (Assembly/FileVersion: $clean_version)"
 
       - name: Update README.md Badge
         run: |
           version="${{ inputs.version }}"
+          escaped_version="${version//-/--}"
           echo "Updating README.md version badge"
-          sed -i "s|version-[0-9]\+\.[0-9]\+\.[0-9]\+-blue|version-$version-blue|g" README.md
+          sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${escaped_version}-orange)|g" README.md
           echo "✓ Updated README.md badge to $version"
 
       - name: Update setup.iss
@@ -72,9 +55,9 @@ jobs:
         run: |
           version="${{ inputs.version }}"
           echo "Updating publish-app.ps1"
-          sed -i "s|Version [0-9]\+\.[0-9]\+\.[0-9]\+|Version $version|g" scripts/publish-app.ps1
+          sed -i -E "s|Version [0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?|Version $version|g" scripts/publish-app.ps1
           sed -i "s|# Usage: .* -Runtime|# Usage: .\\scripts\\publish-app.ps1 -Runtime|g" scripts/publish-app.ps1
-          sed -i "s|-Version [0-9]\+\.[0-9]\+\.[0-9]\+|-Version $version|g" scripts/publish-app.ps1
+          sed -i -E "s|-Version [0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?|-Version $version|g" scripts/publish-app.ps1
           echo "✓ Updated publish-app.ps1 to $version"
 
       - name: Create Branch and Commit Changes
@@ -86,10 +69,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
-          git add AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj
-          git add AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj
-          git add AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj
-          git add AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj
+          git add Directory.Build.props
           git add README.md
           git add scripts/setup.iss
           git add scripts/publish-app.ps1
@@ -148,7 +128,7 @@ jobs:
     needs: update-files
     if: always()  # Always run this job, even if update-files is skipped
     outputs:
-      all_valid: ${{ steps.set-all-valid.outputs.all_valid }}
+      all_valid: ${{ steps.run-validation.outputs.all_valid }}
 
     steps:
       - name: Checkout
@@ -162,176 +142,29 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Validate Version Format
-        id: validate-version
+      - name: Run release consistency validation
+        id: run-validation
         run: |
           version="${{ inputs.version }}"
-          echo "Validating version: $version"
-
-          if [[ "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-            echo "✓ Version format is valid: $version"
-            echo "version_valid=true" >> $GITHUB_OUTPUT
+          if bash scripts/validate-release-consistency.sh "$version"; then
+            echo "all_valid=true" >> $GITHUB_OUTPUT
           else
-            echo "ERROR: Invalid version format. Use semantic versioning (e.g., 1.7.5)"
-            echo "version_valid=false" >> $GITHUB_OUTPUT
-            exit 1
+            echo "all_valid=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: Check .csproj Files
-        id: check-csproj
-        run: |
-          version="${{ inputs.version }}"
-          version_valid=true
-          versions_match=true
-
-          for file in AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj \
-                     AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj \
-                     AIConsumptionTracker.UI/AIConsumptionTracker.UI.csproj \
-                     AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj; do
-            if [ ! -f "$file" ]; then
-              echo "WARNING: File not found: $file"
-              version_valid=false
-              continue
-            fi
-
-            if grep -q "<Version>$version</Version>" "$file" && \
-               grep -q "<AssemblyVersion>$version</AssemblyVersion>" "$file" && \
-               grep -q "<FileVersion>$version</FileVersion>" "$file"; then
-              echo "✓ $file: $version"
-            else
-              version_valid=false
-              versions_match=false
-              echo "ERROR: $file has wrong version (check Version, AssemblyVersion, and FileVersion)"
-            fi
-          done
-
-          echo "versions_match=$versions_match" >> $GITHUB_OUTPUT
-
-      - name: Check CHANGELOG.md
-        id: check-changelog
-        run: |
-          version="${{ inputs.version }}"
-          changelog_valid=true
-
-          if grep -q "## \[$version\]" CHANGELOG.md; then
-            echo "✓ CHANGELOG.md has version section for $version"
-            echo "changelog_valid=true" >> $GITHUB_OUTPUT
-          else
-            echo "ERROR: CHANGELOG.md missing version section for $version"
-            echo "Expected: '## [$version] - YYYY-MM-DD'"
-            echo "changelog_valid=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check README.md
-        id: check-readme
-        run: |
-          version="${{ inputs.version }}"
-          readme_valid=true
-
-          if grep -q "version-$version-blue" README.md; then
-            echo "✓ README.md has version badge for $version"
-            echo "readme_valid=true" >> $GITHUB_OUTPUT
-          else
-            echo "ERROR: README.md version badge does not match $version"
-            echo "Expected: 'version-$version-blue'"
-            echo "readme_valid=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check scripts
-        id: check-scripts
-        run: |
-          version="${{ inputs.version }}"
-          scripts_valid=true
-
-          if grep -q "MyAppVersion \"$version\"" scripts/setup.iss; then
-            echo "✓ setup.iss has version $version"
-          else
-            echo "ERROR: setup.iss version does not match $version"
-            scripts_valid=false
-          fi
-
-          if grep -q "Version $version" scripts/publish-app.ps1; then
-            echo "✓ publish-app.ps1 has version $version"
-          else
-            echo "ERROR: publish-app.ps1 version does not match $version"
-            scripts_valid=false
-          fi
-
-          echo "scripts_valid=$scripts_valid" >> $GITHUB_OUTPUT
-
-      - name: Set All Valid Status
-        id: set-all-valid
-        run: |
-          if [ "${{ steps.check-csproj.outputs.versions_match }}" == "true" ] && \
-             [ "${{ steps.check-changelog.outputs.changelog_valid }}" == "true" ] && \
-             [ "${{ steps.check-readme.outputs.readme_valid }}" == "true" ] && \
-             [ "${{ steps.check-scripts.outputs.scripts_valid }}" == "true" ]; then
-            all_valid=true
-          else
-            all_valid=false
-          fi
-
-          echo "all_valid=$all_valid" >> $GITHUB_OUTPUT
 
       - name: Validation Summary
         run: |
           echo "=== Validation Summary ==="
-          echo "Version Format: ${{ steps.validate-version.outputs.version_valid }}"
-          echo ".csproj Files: ${{ steps.check-csproj.outputs.versions_match }}"
-          echo "CHANGELOG.md: ${{ steps.check-changelog.outputs.changelog_valid }}"
-          echo "README.md: ${{ steps.check-readme.outputs.readme_valid }}"
-          echo "Scripts: ${{ steps.check-scripts.outputs.scripts_valid }}"
-          echo "All Valid: ${{ steps.set-all-valid.outputs.all_valid }}"
+          echo "All Valid: ${{ steps.run-validation.outputs.all_valid }}"
 
       - name: Generate Appcast Files
-        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
+        if: ${{ steps.run-validation.outputs.all_valid == 'true' }}
         run: |
           version="${{ inputs.version }}"
-          version_number="${version#v}"
-          pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z')
-          
-          # Function to generate appcast XML
-          generate_appcast() {
-            local arch_suffix="$1"
-            local filename="$2"
-            
-            echo '<?xml version="1.0" encoding="UTF-8"?>' > "$filename"
-            echo '<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">' >> "$filename"
-            echo '    <channel>' >> "$filename"
-            echo '        <title>AI Consumption Tracker</title>' >> "$filename"
-            echo '        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>' >> "$filename"
-            echo '        <description>Most recent changes with links to updates.</description>' >> "$filename"
-            echo '        <language>en</language>' >> "$filename"
-            echo '        <item>' >> "$filename"
-            echo "            <title>Version $version</title>" >> "$filename"
-            echo "            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v$version_number</sparkle:releaseNotesLink>" >> "$filename"
-            echo "            <pubDate>$pub_date</pubDate>" >> "$filename"
-            echo "            <enclosure url=\"https://github.com/rygel/AIConsumptionTracker/releases/download/v$version_number/AIConsumptionTracker_Setup_v${version_number}${arch_suffix}.exe\"" >> "$filename"
-            echo "                       sparkle:version=\"$version_number\"" >> "$filename"
-            echo '                       sparkle:os="windows"' >> "$filename"
-            echo '                       length="0"' >> "$filename"
-            echo '                       type="application/octet-stream" />' >> "$filename"
-            echo '        </item>' >> "$filename"
-            echo '    </channel>' >> "$filename"
-            echo '</rss>' >> "$filename"
-            echo "✓ Generated $filename"
-          }
-          
-          # Generate all appcast files
-          generate_appcast "_win-x64" "appcast.xml"
-          generate_appcast "_win-x64" "appcast_x64.xml"
-          generate_appcast "_win-arm64" "appcast_arm64.xml"
-          generate_appcast "_win-x86" "appcast_x86.xml"
-          
-          echo ""
-          echo "Generated 4 appcast files with architecture-specific URLs:"
-          echo "  - appcast.xml (x64)"
-          echo "  - appcast_x64.xml"
-          echo "  - appcast_arm64.xml"
-          echo "  - appcast_x86.xml"
+          bash scripts/generate-appcast.sh "$version"
 
       - name: Upload Appcast Artifacts
-        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
+        if: ${{ steps.run-validation.outputs.all_valid == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: appcast-files
@@ -342,7 +175,7 @@ jobs:
             appcast_x86.xml
 
       - name: Success
-        if: ${{ steps.set-all-valid.outputs.all_valid == 'true' }}
+        if: ${{ steps.run-validation.outputs.all_valid == 'true' }}
         run: |
           echo "✅ Validation passed for v${{ inputs.version }}"
           echo ""
@@ -364,7 +197,7 @@ jobs:
           echo "4. Upload all 4 appcast files to the release after it's created"
 
       - name: Failure
-        if: ${{ steps.set-all-valid.outputs.all_valid != 'true' }}
+        if: ${{ steps.run-validation.outputs.all_valid != 'true' }}
         run: |
           echo "❌ Validation failed"
           echo "Please check the error messages above and ensure all version files match ${{ inputs.version }}"

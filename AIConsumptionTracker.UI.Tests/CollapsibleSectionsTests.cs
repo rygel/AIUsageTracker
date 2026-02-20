@@ -46,6 +46,7 @@ public class CollapsibleSectionsTests
         services.AddSingleton(providerManager);
         services.AddSingleton(mockFontProvider.Object);
         services.AddSingleton(mockGithubAuth.Object);
+        services.AddSingleton<AIConsumptionTracker.Core.AgentClient.AgentService>();
         
         var mockUpdateChecker = new Mock<IUpdateCheckerService>();
         mockUpdateChecker.Setup(u => u.CheckForUpdatesAsync()).ReturnsAsync((UpdateInfo?)null);
@@ -78,7 +79,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }})
         };
 
@@ -122,7 +123,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }})
         };
 
@@ -157,7 +158,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Antigravity",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota,
+                PlanType = PlanType.Coding,
                 Details = new List<ProviderUsageDetail>
                 {
                     new ProviderUsageDetail { Name = "Sub-provider 1", Used = "50%" },
@@ -199,7 +200,7 @@ public class CollapsibleSectionsTests
                 ProviderName = "Synthetic",
                 Description = "Test",
                 IsAvailable = true,
-                PaymentType = PaymentType.Quota
+                PlanType = PlanType.Coding
             }})
         };
 

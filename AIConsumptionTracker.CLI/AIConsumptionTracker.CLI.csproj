@@ -13,9 +13,9 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <Version>1.8.6</Version>
-    <AssemblyVersion>1.8.6</AssemblyVersion>
-    <FileVersion>1.8.6</FileVersion>
+    <Version>$(TrackerVersion)</Version>
+    <AssemblyVersion>$(TrackerAssemblyVersion)</AssemblyVersion>
+    <FileVersion>$(TrackerAssemblyVersion)</FileVersion>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0-windows10.0.17763.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

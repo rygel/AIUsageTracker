@@ -48,9 +48,9 @@ public class MistralProvider : IProviderService
                     ProviderId = ProviderId,
                     ProviderName = "Mistral AI",
                     IsAvailable = true,
-                    UsagePercentage = 0,
+                    RequestsPercentage = 0,
                     IsQuotaBased = false,
-                    PaymentType = PaymentType.UsageBased,
+                    PlanType = PlanType.Usage,
                     Description = "Connected (Check Dashboard)",
                     UsageUnit = "Status"
                 }};

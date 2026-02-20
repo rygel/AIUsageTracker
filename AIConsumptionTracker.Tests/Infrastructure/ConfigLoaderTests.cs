@@ -7,7 +7,7 @@ namespace AIConsumptionTracker.Tests.Infrastructure;
 public class ConfigLoaderTests
 {
     [Fact]
-    public void JsonConfigLoader_ShouldDeserializePaymentTypeCorrecty()
+    public void JsonConfigLoader_ShouldDeserializePlanTypeCorrecty()
     {
         // Arrange
         var json = @"

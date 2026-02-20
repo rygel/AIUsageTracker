@@ -63,7 +63,7 @@ public class ZaiProvider : IProviderService
                  IsAvailable = false,
                  Description = "No usage data available",
                  IsQuotaBased = true,
-                 PaymentType = PaymentType.Quota
+                 PlanType = PlanType.Coding
              }};
         }
 
@@ -74,9 +74,31 @@ public class ZaiProvider : IProviderService
                 limit.Type, limit.Total, limit.CurrentValue, limit.Remaining, limit.Percentage, limit.NextResetTime);
         }
 
-        var tokenLimit = limits.FirstOrDefault(l =>
+        // Helper to check if a limit is in the future (or has no expiry)
+        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        
+        bool IsFuture(long? resetTime) 
+        {
+            if (!resetTime.HasValue || resetTime.Value == 0) return true; // No reset time = always active
+            var ts = resetTime.Value;
+            // Heuristic to detect milliseconds vs seconds (similar to logic below)
+            if (ts > 10000000000) return ts > nowMs; 
+            return ts > nowSec;
+        }
+
+        var tokenLimits = limits.Where(l =>
             l.Type != null && (l.Type.Equals("TOKENS_LIMIT", StringComparison.OrdinalIgnoreCase) ||
-                               l.Type.Equals("Tokens", StringComparison.OrdinalIgnoreCase)));
+                               l.Type.Equals("Tokens", StringComparison.OrdinalIgnoreCase))).ToList();
+                               
+        // Prefer active limits (future reset time or no reset time)
+        // If multiple active limits exist, pick the specific one that is most restrictive (lowest remaining)
+        // If no active limits, fall back to any limit (historical)
+        var tokenLimit = tokenLimits.Where(l => IsFuture(l.NextResetTime))
+                                    .OrderBy(l => l.Remaining ?? long.MaxValue)
+                                    .FirstOrDefault() 
+                         ?? tokenLimits.FirstOrDefault();
+
         var mcpLimit = limits.FirstOrDefault(l =>
             l.Type != null && (l.Type.Equals("TIME_LIMIT", StringComparison.OrdinalIgnoreCase) ||
                                l.Type.Equals("Time", StringComparison.OrdinalIgnoreCase)));
@@ -86,6 +108,10 @@ public class ZaiProvider : IProviderService
 
         double remainingPercent = 100;
         string detailInfo = "";
+        
+        // Define variables to hold real values if available, otherwise default to percentage logic
+        double finalRequestsAvailable = 100;
+        double finalRequestsUsedReal = 0;
 
         if (tokenLimit != null)
         {
@@ -100,6 +126,8 @@ public class ZaiProvider : IProviderService
                 remainingPercent = Math.Min(remainingPercent, remainingPercentVal);
                 detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
                 _logger.LogDebug("[ZAI] Percentage-only mode: {Used}% used, {Remaining}% remaining", usedPercent, remainingPercentVal);
+                
+                finalRequestsUsedReal = 100 - remainingPercent;
             }
             else
             {
@@ -122,6 +150,17 @@ public class ZaiProvider : IProviderService
                      planDescription = "Coding Plan (Pro)";
                 }
 
+                if (totalVal > 0)
+                {
+                     // Expose raw values for UI to display "X / Y used"
+                     finalRequestsAvailable = totalVal;
+                     finalRequestsUsedReal = usedVal;
+                }
+                else
+                {
+                     finalRequestsUsedReal = 100 - remainingPercent;
+                }
+
                 detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit";
             }
         }
@@ -138,7 +177,7 @@ public class ZaiProvider : IProviderService
         string resetStr = "";
         var limitWithReset = limits
             .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
-            .OrderBy(l => l.NextResetTime.Value)
+            .OrderBy(l => l.NextResetTime!.Value)
             .FirstOrDefault();
         if (limitWithReset != null)
         {
@@ -164,23 +203,30 @@ public class ZaiProvider : IProviderService
             resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
         }
 
-        var finalUsagePercentage = Math.Min(remainingPercent, 100);
-        var finalCostUsed = 100 - remainingPercent;
+        var finalRequestsPercentage = Math.Min(remainingPercent, 100);
+        
+        // Final fallback if not set above (e.g. if tokenLimit was null)
+        if (tokenLimit == null)
+        {
+            finalRequestsUsedReal = 100 - finalRequestsPercentage;
+        }
+
         var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{remainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : detailInfo) + resetStr;
 
-        _logger.LogInformation("Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, UsagePercentage: {UsagePercentage}%, CostUsed: {CostUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
-            ProviderId, $"Z.AI {planDescription}", finalUsagePercentage, finalCostUsed, finalDescription, true);
+        _logger.LogInformation("Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, RequestsPercentage: {RequestsPercentage}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
+            ProviderId, $"Z.AI {planDescription}", finalRequestsPercentage, finalRequestsUsedReal, finalDescription, true);
         
         return new[] { new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = $"Z.AI {planDescription}",
-            UsagePercentage = finalUsagePercentage,
-            CostUsed = finalCostUsed,  // Store actual used percentage
-            CostLimit = 100,
-            UsageUnit = "Quota %",
+            RequestsPercentage = finalRequestsPercentage,
+            RequestsUsed = finalRequestsUsedReal,  // Store actual used count/percentage
+            RequestsAvailable = finalRequestsAvailable, // Store actual total limit
+            UsageUnit = finalRequestsAvailable > 100 ? "Tokens" : "Quota %",
             IsQuotaBased = true, 
-            PaymentType = PaymentType.Quota,
+            PlanType = PlanType.Coding,
+            DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
             Description = finalDescription,
             NextResetTime = nextResetTime,
             IsAvailable = true
