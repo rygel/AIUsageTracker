@@ -3,11 +3,21 @@ name: Run Tests
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  prepare:
     runs-on: windows-latest
 
     steps:
@@ -18,32 +28,27 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Install Inno Setup
-      run: choco install innosetup --yes
-      shell: pwsh
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~\.nuget\packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
 
-    - name: Validate setup script compilation
-      run: .\scripts\validate-setup-build.ps1
-      shell: pwsh
-
-    - name: Release script dry-run checks
-      shell: bash
+    - name: Restore test dependencies
       run: |
-        version=$(sed -n 's:.*<TrackerVersion>\(.*\)</TrackerVersion>.*:\1:p' Directory.Build.props | head -n 1)
-        if [[ -z "$version" ]]; then
-          echo "Unable to resolve TrackerVersion from Directory.Build.props"
-          exit 1
-        fi
+        dotnet restore AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj
+        dotnet restore AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj
 
-        bash scripts/validate-release-consistency.sh "$version"
-        bash scripts/generate-appcast.sh "$version"
-        rm -f appcast.xml appcast_x64.xml appcast_x86.xml appcast_arm64.xml
+    - name: Build test projects
+      run: |
+        dotnet build AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --no-restore
+        dotnet build AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj --configuration Debug --no-restore
 
-    - name: Restore dependencies
-      run: dotnet restore AIConsumptionTracker.slnx
-
-    - name: Build
-      run: dotnet build AIConsumptionTracker.slnx --configuration Debug
+    - name: Validate test quarantine entries
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
+      shell: pwsh
 
     - name: Verify Formatting
       # NOTE: .editorconfig configures Roslyn analyzers
@@ -54,6 +59,82 @@ jobs:
       # run: dotnet format AIConsumptionTracker.slnx --verify-no-changes --verbosity diagnostic
       run: echo "Formatting check temporarily disabled - will be fixed in separate PR"
 
-    - name: Run Unit Tests
-      run: dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --verbosity normal
+    - name: Upload built test binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-binaries-debug
+        path: |
+          AIConsumptionTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+          AIConsumptionTracker.Agent.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+          scripts/run-vstest-with-retry.ps1
+          .github/test-quarantine.txt
+
+  core-tests:
+    needs: prepare
+    runs-on: windows-latest
+
+    steps:
+    - name: Download built test binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: test-binaries-debug
+        path: .\_ci_test_binaries
+
+    - name: Run Core unit tests (retry once on failure)
+      shell: pwsh
+      run: >
+        powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+        -AssemblyPath .\_ci_test_binaries\AIConsumptionTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIConsumptionTracker.Tests.dll
+        -SuiteName core-tests
+        -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+
+    - name: Upload Core test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: core-test-results
+        path: TestResults/core-tests*.trx
+
+  agent-tests:
+    needs: prepare
+    runs-on: windows-latest
+
+    steps:
+    - name: Download built test binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: test-binaries-debug
+        path: .\_ci_test_binaries
+
+    - name: Run Agent unit tests (retry once on failure)
+      shell: pwsh
+      run: >
+        powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+        -AssemblyPath .\_ci_test_binaries\AIConsumptionTracker.Agent.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIConsumptionTracker.Agent.Tests.dll
+        -SuiteName agent-tests
+        -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+
+    - name: Upload Agent test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-test-results
+        path: TestResults/agent-tests*.trx
+
+  test:
+    needs: [prepare, core-tests, agent-tests]
+    if: always()
+    runs-on: windows-latest
+
+    steps:
+    - name: Verify parallel test jobs
+      shell: pwsh
+      run: |
+        $prepare = "${{ needs.prepare.result }}"
+        $core = "${{ needs.core-tests.result }}"
+        $agent = "${{ needs.agent-tests.result }}"
+        Write-Host "prepare=$prepare core-tests=$core agent-tests=$agent"
+        if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success") {
+          throw "One or more required jobs failed."
+        }
 

@@ -1,10 +1,12 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Hardcodet.Wpf.TaskbarNotification;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.AgentClient;
 using System.Runtime.InteropServices;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -16,6 +18,8 @@ public partial class App : Application
     public static AgentService AgentService { get; } = new();
     public static AppPreferences Preferences { get; set; } = new();
     public static bool IsPrivacyMode { get; set; } = false;
+    private const double ScreenshotScaleFactor = 2.0;
+    private const double ScreenshotDpi = 96.0 * ScreenshotScaleFactor;
     private TaskbarIcon? _trayIcon;
     private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new();
     private MainWindow? _mainWindow;
@@ -47,6 +51,14 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+
+        if (e.Args.Contains("--test", StringComparer.OrdinalIgnoreCase) &&
+            e.Args.Contains("--screenshot", StringComparer.OrdinalIgnoreCase))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            _ = RunHeadlessScreenshotCaptureAsync();
+            return;
+        }
         
         // Load UI preferences from local Slim storage
         _ = LoadPreferencesAsync();
@@ -57,6 +69,176 @@ public partial class App : Application
         // Create and show main window
         _mainWindow = new MainWindow();
         _mainWindow.Show();
+    }
+
+    private async Task RunHeadlessScreenshotCaptureAsync()
+    {
+        try
+        {
+            Preferences = new AppPreferences
+            {
+                AlwaysOnTop = true,
+                InvertProgressBar = true,
+                InvertCalculations = false,
+                ColorThresholdYellow = 60,
+                ColorThresholdRed = 80,
+                FontFamily = "Segoe UI",
+                FontSize = 12,
+                FontBold = false,
+                FontItalic = false,
+                IsPrivacyMode = true
+            };
+            SetPrivacyMode(true);
+
+            var screenshotsDir = ResolveScreenshotsDirectory();
+            Directory.CreateDirectory(screenshotsDir);
+
+            await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
+            await CaptureSettingsScreenshotsAsync(screenshotsDir);
+            CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
+        }
+        catch (Exception ex)
+        {
+            AgentService.LogDiagnostic($"Headless screenshot capture failed: {ex}");
+            Environment.ExitCode = 1;
+        }
+        finally
+        {
+            Shutdown();
+        }
+    }
+
+    private static string ResolveScreenshotsDirectory()
+    {
+        var currentDocs = Path.Combine(Environment.CurrentDirectory, "docs");
+        if (Directory.Exists(currentDocs))
+        {
+            return currentDocs;
+        }
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
+        {
+            var candidate = Path.Combine(directory.FullName, "docs");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return currentDocs;
+    }
+
+    internal static void RenderWindowContent(Window window, string outputPath)
+    {
+        if (window.Content is not FrameworkElement root)
+        {
+            throw new InvalidOperationException("Window content is not a FrameworkElement.");
+        }
+
+        var width = window.Width;
+        if (double.IsNaN(width) || width <= 0)
+        {
+            width = root.Width;
+        }
+        if (double.IsNaN(width) || width <= 0)
+        {
+            width = Math.Max(1, root.ActualWidth);
+        }
+        if (width <= 0)
+        {
+            width = 380;
+        }
+
+        var height = window.Height;
+        if (double.IsNaN(height) || height <= 0)
+        {
+            root.Measure(new Size(width, double.PositiveInfinity));
+            height = Math.Max(1, root.DesiredSize.Height);
+        }
+
+        root.Measure(new Size(width, height));
+        root.Arrange(new Rect(0, 0, width, height));
+        root.UpdateLayout();
+        root.SetValue(TextOptions.TextFormattingModeProperty, TextFormattingMode.Display);
+        root.SetValue(TextOptions.TextHintingModeProperty, TextHintingMode.Fixed);
+        root.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.ClearType);
+        root.SetValue(RenderOptions.ClearTypeHintProperty, ClearTypeHint.Enabled);
+
+        var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * ScreenshotScaleFactor));
+        var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * ScreenshotScaleFactor));
+        var backgroundBrush = window.Background is SolidColorBrush solidBackground
+            ? new SolidColorBrush(Color.FromRgb(solidBackground.Color.R, solidBackground.Color.G, solidBackground.Color.B))
+            : Brushes.Black;
+        backgroundBrush.Freeze();
+
+        var contentBitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
+        contentBitmap.Render(root);
+        contentBitmap.Freeze();
+
+        var composedVisual = new DrawingVisual();
+        using (var dc = composedVisual.RenderOpen())
+        {
+            dc.DrawRectangle(backgroundBrush, null, new Rect(0, 0, width, height));
+            dc.DrawImage(contentBitmap, new Rect(0, 0, width, height));
+        }
+
+        var bitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
+        bitmap.Render(composedVisual);
+        bitmap.Freeze();
+
+        var opaqueBitmap = new FormatConvertedBitmap(bitmap, PixelFormats.Bgr24, null, 0);
+        opaqueBitmap.Freeze();
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(opaqueBitmap));
+        using var stream = File.Create(outputPath);
+        encoder.Save(stream);
+    }
+
+    private async Task CaptureMainWindowScreenshotAsync(string outputPath)
+    {
+        var window = new MainWindow();
+        try
+        {
+            await window.PrepareForHeadlessScreenshotAsync(deterministic: true);
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            RenderWindowContent(window, outputPath);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
+    {
+        var window = new SettingsWindow();
+        try
+        {
+            await window.CaptureHeadlessTabScreenshotsAsync(outputDirectory);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static void CaptureInfoScreenshot(string outputPath)
+    {
+        var window = new InfoDialog();
+        try
+        {
+            window.PrepareForHeadlessScreenshot();
+            window.UpdateLayout();
+            RenderWindowContent(window, outputPath);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     private void InitializeTrayIcon()

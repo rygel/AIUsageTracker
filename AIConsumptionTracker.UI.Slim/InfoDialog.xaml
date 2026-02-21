@@ -102,21 +102,6 @@
                             </TextBlock>
                         </StackPanel>
                     </StackPanel>
-                    <TextBlock Text="Diagnostics Log" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryText}" Margin="0,0,0,10"/>
-                    <Border BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Background="{DynamicResource CardBackground}" Margin="0,0,0,10" Height="200">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
-                            <TextBox x:Name="DiagnosticsLogText" 
-                                     IsReadOnly="True" 
-                                     Background="Transparent" 
-                                     Foreground="{DynamicResource TertiaryText}" 
-                                     BorderThickness="0" 
-                                     TextWrapping="NoWrap" 
-                                     FontSize="10" 
-                                     Padding="5"
-                                     FontFamily="Consolas, Monospace"/>
-                        </ScrollViewer>
-                    </Border>
-                    <Button Content="Copy Log" HorizontalAlignment="Left" Click="CopyLog_Click" FontSize="10" Padding="8,2" Margin="0,0,0,10"/>
             </StackPanel>
 
             <!-- Footer -->

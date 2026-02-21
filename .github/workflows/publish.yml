@@ -72,17 +72,126 @@ jobs:
             dist/AIConsumptionTracker_Setup_v*_${{ matrix.runtime }}.exe
           retention-days: 7
 
-  create-release:
+  release-metadata:
+    needs: [validate-release, build]
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: AIConsumptionTracker-*
+          pattern: AIConsumptionTracker-v${{ needs.validate-release.outputs.version }}-win-*
+          merge-multiple: true
+
+      - name: Generate SHA256 checksums
+        run: |
+          cd artifacts
+          count=$(find . -type f \( -name "*.zip" -o -name "*.exe" \) | wc -l)
+          if [ "$count" -eq 0 ]; then
+            echo "No release artifacts found for checksum generation."
+            exit 1
+          fi
+
+          find . -type f \( -name "*.zip" -o -name "*.exe" \) -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > ../SHA256SUMS.txt
+
+      - name: Generate release SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: artifacts
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      - name: Validate metadata outputs
+        run: |
+          test -s SHA256SUMS.txt
+          test -s sbom.cdx.json
+
+      - name: Upload release security metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIConsumptionTracker-v${{ needs.validate-release.outputs.version }}-security-metadata
+          path: |
+            SHA256SUMS.txt
+            sbom.cdx.json
+          retention-days: 7
+
+  smoke-test-windows:
+    needs: [validate-release, build]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download x64 release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: AIConsumptionTracker-v${{ needs.validate-release.outputs.version }}-win-x64
+          path: artifacts
+          merge-multiple: true
+
+      - name: Resolve current x64 installer
+        run: |
+          $currentSetup = Get-ChildItem -Path .\artifacts -Recurse -File |
+            Where-Object { $_.Name -eq "AIConsumptionTracker_Setup_v${{ needs.validate-release.outputs.version }}_win-x64.exe" } |
+            Select-Object -First 1
+          if (-not $currentSetup) {
+            throw "Current x64 setup artifact not found."
+          }
+
+          "CURRENT_SETUP_PATH=$($currentSetup.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        shell: pwsh
+
+      - name: Run Windows installer smoke test
+        run: .\scripts\smoke-test-release.ps1 -ArtifactsPath .\artifacts -Version ${{ needs.validate-release.outputs.version }} -Runtime win-x64
+        shell: pwsh
+
+      - name: Download previous x64 installer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $headers = @{
+            Accept = "application/vnd.github+json"
+            "User-Agent" = "AIConsumptionTracker-CI"
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+          }
+
+          $repo = "${{ github.repository }}"
+          $currentTag = "v${{ needs.validate-release.outputs.version }}"
+          $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=30" -Headers $headers
+          $candidate = $releases |
+            Where-Object { -not $_.draft -and $_.tag_name -ne $currentTag } |
+            Select-Object -First 1
+
+          if (-not $candidate) {
+            throw "No previous release with assets found for upgrade smoke test."
+          }
+
+          $previousAsset = $candidate.assets |
+            Where-Object { $_.name -like "AIConsumptionTracker_Setup_v*_win-x64.exe" } |
+            Select-Object -First 1
+
+          if (-not $previousAsset) {
+            throw "Previous release does not contain a win-x64 setup asset."
+          }
+
+          $downloadPath = Join-Path (Resolve-Path .\artifacts).Path $previousAsset.name
+          Invoke-WebRequest -Uri $previousAsset.browser_download_url -OutFile $downloadPath -Headers $headers
+
+          "PREVIOUS_SETUP_PATH=$downloadPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+        shell: pwsh
+
+      - name: Run upgrade smoke test (old to new)
+        run: .\scripts\smoke-test-upgrade.ps1 -OldSetupPath "$env:PREVIOUS_SETUP_PATH" -NewSetupPath "$env:CURRENT_SETUP_PATH" -Runtime win-x64
+        shell: pwsh
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build, release-metadata, smoke-test-windows]
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Extract Version from Tag
         id: get_version
@@ -90,6 +199,26 @@ jobs:
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_number=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: AIConsumptionTracker-v${{ steps.get_version.outputs.version }}-win-*
+          merge-multiple: true
+
+      - name: Download release metadata
+        uses: actions/download-artifact@v4
+        with:
+          pattern: AIConsumptionTracker-v${{ steps.get_version.outputs.version }}-security-metadata
+          path: metadata
+          merge-multiple: true
+
+      - name: Verify release checksums and SBOM
+        run: |
+          test -s metadata/SHA256SUMS.txt
+          test -s metadata/sbom.cdx.json
+          (cd artifacts && sha256sum -c ../metadata/SHA256SUMS.txt)
 
       - name: Generate Appcast Files
         run: |
@@ -105,6 +234,8 @@ jobs:
             appcast_x64.xml
             appcast_x86.xml
             appcast_arm64.xml
+            metadata/SHA256SUMS.txt
+            metadata/sbom.cdx.json
           draft: false
           prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
           generate_release_notes: true

@@ -137,10 +137,15 @@ git push origin v1.8.7-alpha.2
 Pushing the tag automatically triggers the `Publish & Distribute` workflow which will:
 1. Run **pre-publish validation** (version/changelog consistency checks via `scripts/validate-release-consistency.sh`)
 2. Build the application for all architectures (x64, x86, ARM64)
-3. Create Inno Setup installers
-4. Generate `appcast.xml` for NetSparkle auto-updater
-5. Create GitHub release with all artifacts including `appcast.xml`
-6. Upload release notes from CHANGELOG.md
+3. Create Inno Setup installers and ZIP artifacts
+4. Run a Windows installer smoke test (fresh install + Agent `/api/health` check)
+5. Run an upgrade smoke test (previous release installer -> current installer) and verify key settings files are preserved
+6. Generate `SHA256SUMS.txt` for release binaries
+7. Generate CycloneDX SBOM (`sbom.cdx.json`)
+8. Verify checksums/SBOM before final release packaging
+9. Generate `appcast.xml` for NetSparkle auto-updater
+10. Create GitHub release with artifacts, checksums, SBOM, and appcast files
+11. Upload release notes from CHANGELOG.md
 
 **No manual steps required** - the workflow handles everything including the appcast file!
 
@@ -176,12 +181,29 @@ The tag version and repository version files are out of sync.
 
 **Fix**: Ensure `Directory.Build.props`, `README.md` badge, `scripts/setup.iss`, `scripts/publish-app.ps1`, and `CHANGELOG.md` all match the tag version, then push a corrected tag.
 
+### Publish workflow fails during Windows smoke test
+The packaged installer did not install cleanly or the bundled Agent did not report healthy status.
+
+**Fix**: Inspect the `smoke-test-windows` job logs, validate installer outputs locally (`scripts\publish-app.ps1` + `scripts\validate-setup-build.ps1`), and ensure Agent startup/health endpoints work in the packaged layout.
+
+### Publish workflow fails during upgrade smoke test
+The previous-version installer -> current-version installer flow did not preserve expected user settings.
+
+**Fix**: Reproduce locally with `scripts\smoke-test-upgrade.ps1`, inspect installer behavior for `%USERPROFILE%\.ai-consumption-tracker` and `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim`, and ensure setup/uninstall logic does not overwrite user data.
+
+### Publish workflow fails during checksum/SBOM verification
+Release metadata was not generated or does not match the packaged artifacts.
+
+**Fix**: Confirm all ZIP/Setup artifacts were uploaded by the build matrix, then rerun publish so checksum/SBOM generation can regenerate metadata from the same artifact set.
+
 ## Files Managed by Release Workflow
 
 The release workflow automatically generates:
 - Git tag (e.g., `v1.7.14`)
 - GitHub Release with release notes
 - `appcast.xml` for NetSparkle auto-updater
+- `SHA256SUMS.txt` checksum manifest for release binaries
+- `sbom.cdx.json` (CycloneDX SBOM for packaged release artifacts)
 
 The following must be updated manually before triggering:
 - `Directory.Build.props` (`TrackerVersion`, `TrackerAssemblyVersion`)

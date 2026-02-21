@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using AIConsumptionTracker.Core.Interfaces;
 using AIConsumptionTracker.Infrastructure.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 
 // Check for debug flag early
 bool isDebugMode = args.Contains("--debug");
@@ -119,9 +120,30 @@ app.MapGet("/api/health", () =>
 });
 
 // Diagnostics endpoint
-app.MapGet("/api/diagnostics", () => 
+app.MapGet("/api/diagnostics", (EndpointDataSource endpointDataSource, ProviderRefreshService refreshService) => 
 {
     if (isDebugMode) Console.WriteLine($"[API] GET /api/diagnostics - {DateTime.Now:HH:mm:ss}");
+
+    var apiEndpoints = endpointDataSource.Endpoints
+        .OfType<RouteEndpoint>()
+        .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) == true)
+        .GroupBy(endpoint => endpoint.RoutePattern.RawText!, StringComparer.OrdinalIgnoreCase)
+        .Select(group => new
+        {
+            route = group.Key,
+            methods = group
+                .SelectMany(endpoint => endpoint.Metadata
+                    .OfType<HttpMethodMetadata>()
+                    .SelectMany(metadata => metadata.HttpMethods))
+                .Where(method => !string.IsNullOrWhiteSpace(method))
+                .Select(method => method.ToUpperInvariant())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(method => method)
+                .ToArray()
+        })
+        .OrderBy(endpoint => endpoint.route)
+        .ToList();
+
     return Results.Ok(new {
         port = port,
         processId = Environment.ProcessId,
@@ -130,7 +152,9 @@ app.MapGet("/api/diagnostics", () =>
         startedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
         os = Environment.OSVersion.ToString(),
         runtime = Environment.Version.ToString(),
-        args = args
+        args = args,
+        endpoints = apiEndpoints,
+        refreshTelemetry = refreshService.GetRefreshTelemetrySnapshot()
     });
 });
 

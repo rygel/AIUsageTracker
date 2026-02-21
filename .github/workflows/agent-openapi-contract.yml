@@ -1,0 +1,50 @@
+name: Agent OpenAPI Contract Drift
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "AIConsumptionTracker.Agent/**"
+      - "scripts/verify-agent-openapi-contract.ps1"
+      - ".github/workflows/agent-openapi-contract.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "AIConsumptionTracker.Agent/**"
+      - "scripts/verify-agent-openapi-contract.ps1"
+      - ".github/workflows/agent-openapi-contract.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-openapi-contract:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore Agent dependencies
+        run: dotnet restore AIConsumptionTracker.Agent\AIConsumptionTracker.Agent.csproj
+
+      - name: Build Agent
+        run: dotnet build AIConsumptionTracker.Agent\AIConsumptionTracker.Agent.csproj --configuration Debug --no-restore
+
+      - name: Verify Agent OpenAPI contract drift
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-agent-openapi-contract.ps1
+        shell: pwsh

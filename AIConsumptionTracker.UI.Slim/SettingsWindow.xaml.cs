@@ -1,10 +1,12 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.AgentClient;
 
@@ -17,6 +19,7 @@ public partial class SettingsWindow : Window
     private List<ProviderUsage> _usages = new();
     private AppPreferences _preferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
+    private bool _isDeterministicScreenshotMode;
 
     public bool SettingsChanged { get; private set; }
 
@@ -37,6 +40,7 @@ public partial class SettingsWindow : Window
 
     private async Task LoadDataAsync()
     {
+        _isDeterministicScreenshotMode = false;
         _configs = await _agentService.GetConfigsAsync();
         _usages = await _agentService.GetUsageAsync();
         _preferences = await UiPreferencesStore.LoadAsync();
@@ -50,6 +54,218 @@ public partial class SettingsWindow : Window
         PopulateLayoutSettings();
         await LoadHistoryAsync();
         await UpdateAgentStatusAsync();
+        RefreshDiagnosticsLog();
+    }
+
+    internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
+    {
+        if (deterministic)
+        {
+            PrepareDeterministicScreenshotData();
+        }
+        else
+        {
+            await LoadDataAsync();
+        }
+
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        UpdateLayout();
+    }
+
+    internal async Task<IReadOnlyList<string>> CaptureHeadlessTabScreenshotsAsync(string outputDirectory)
+    {
+        await PrepareForHeadlessScreenshotAsync(deterministic: true);
+
+        var capturedFiles = new List<string>();
+        if (MainTabControl.Items.Count == 0)
+        {
+            const string fallbackName = "screenshot_settings_privacy.png";
+            App.RenderWindowContent(this, Path.Combine(outputDirectory, fallbackName));
+            capturedFiles.Add(fallbackName);
+            return capturedFiles;
+        }
+
+        for (var index = 0; index < MainTabControl.Items.Count; index++)
+        {
+            MainTabControl.SelectedIndex = index;
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            UpdateLayout();
+
+            var header = (MainTabControl.Items[index] as TabItem)?.Header?.ToString();
+            var tabSlug = BuildTabSlug(header, index);
+            var fileName = $"screenshot_settings_{tabSlug}_privacy.png";
+            App.RenderWindowContent(this, Path.Combine(outputDirectory, fileName));
+            capturedFiles.Add(fileName);
+        }
+
+        MainTabControl.SelectedIndex = 0;
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        UpdateLayout();
+
+        const string legacyName = "screenshot_settings_privacy.png";
+        App.RenderWindowContent(this, Path.Combine(outputDirectory, legacyName));
+        capturedFiles.Add(legacyName);
+
+        return capturedFiles;
+    }
+
+    private void PrepareDeterministicScreenshotData()
+    {
+        _isDeterministicScreenshotMode = true;
+        _preferences = new AppPreferences
+        {
+            AlwaysOnTop = true,
+            InvertProgressBar = true,
+            InvertCalculations = false,
+            ColorThresholdYellow = 60,
+            ColorThresholdRed = 80,
+            FontFamily = "Segoe UI",
+            FontSize = 12,
+            FontBold = false,
+            FontItalic = false,
+            IsPrivacyMode = true
+        };
+
+        App.Preferences = _preferences;
+        _isPrivacyMode = true;
+        App.SetPrivacyMode(true);
+        UpdatePrivacyButtonState();
+
+        _configs = new List<ProviderConfig>
+        {
+            new()
+            {
+                ProviderId = "github-copilot",
+                ApiKey = "ghp_demo_key",
+                ShowInTray = true,
+                EnableNotifications = true,
+                PlanType = PlanType.Coding,
+                Type = "quota-based"
+            },
+            new()
+            {
+                ProviderId = "openai",
+                ApiKey = "sk-demo-key",
+                ShowInTray = true,
+                EnableNotifications = false,
+                PlanType = PlanType.Usage,
+                Type = "pay-as-you-go"
+            },
+            new()
+            {
+                ProviderId = "antigravity",
+                ApiKey = "local-session",
+                ShowInTray = false,
+                EnableNotifications = false,
+                PlanType = PlanType.Coding,
+                Type = "quota-based"
+            }
+        };
+
+        _usages = new List<ProviderUsage>
+        {
+            new()
+            {
+                ProviderId = "github-copilot",
+                ProviderName = "GitHub Copilot",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 72.5,
+                Description = "72.5% Remaining",
+                AccountName = "dev@example.com"
+            },
+            new()
+            {
+                ProviderId = "openai",
+                ProviderName = "OpenAI",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 31.1,
+                Description = "$12.45 / $40.00",
+                AccountName = "project-team"
+            },
+            new()
+            {
+                ProviderId = "antigravity",
+                ProviderName = "Antigravity",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 55.0,
+                Description = "55.0% Remaining"
+            }
+        };
+
+        PopulateProviders();
+        PopulateLayoutSettings();
+
+        HistoryDataGrid.ItemsSource = new[]
+        {
+            new
+            {
+                ProviderName = "GitHub Copilot",
+                UsagePercentage = 27.5,
+                Used = 27.5,
+                Limit = 100.0,
+                PlanType = "Coding",
+                Description = "72.5% Remaining",
+                FetchedAt = new DateTime(2026, 2, 1, 12, 0, 0)
+            },
+            new
+            {
+                ProviderName = "OpenAI",
+                UsagePercentage = 31.1,
+                Used = 12.45,
+                Limit = 40.0,
+                PlanType = "Usage",
+                Description = "$12.45 / $40.00",
+                FetchedAt = new DateTime(2026, 2, 1, 12, 5, 0)
+            }
+        };
+
+        if (AgentStatusText != null)
+        {
+            AgentStatusText.Text = "Running";
+        }
+
+        if (AgentPortText != null)
+        {
+            AgentPortText.Text = "5000";
+        }
+
+        if (AgentLogsText != null)
+        {
+            AgentLogsText.Text = "Agent health check: OK" + Environment.NewLine +
+                                 "Diagnostics available in Settings > Agent.";
+        }
+    }
+
+    private static string BuildTabSlug(string? header, int index)
+    {
+        if (string.IsNullOrWhiteSpace(header))
+        {
+            return $"tab{index + 1}";
+        }
+
+        var builder = new StringBuilder();
+        foreach (var character in header.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(character);
+            }
+            else if ((character == ' ' || character == '-' || character == '_') &&
+                     builder.Length > 0 &&
+                     builder[^1] != '-')
+            {
+                builder.Append('-');
+            }
+        }
+
+        var normalized = builder.ToString().Trim('-');
+        return string.IsNullOrWhiteSpace(normalized) ? $"tab{index + 1}" : normalized;
     }
 
     private void SettingsWindow_Closed(object? sender, EventArgs e)
@@ -113,6 +329,47 @@ public partial class SettingsWindow : Window
                 AgentStatusText.Text = "Error";
             }
         }
+        finally
+        {
+            RefreshDiagnosticsLog();
+        }
+    }
+
+    private void RefreshDiagnosticsLog()
+    {
+        if (AgentLogsText == null)
+        {
+            return;
+        }
+
+        if (_isDeterministicScreenshotMode)
+        {
+            AgentLogsText.Text = "Agent health check: OK" + Environment.NewLine +
+                                 "Diagnostics available in Settings > Agent.";
+            AgentLogsText.ScrollToEnd();
+            return;
+        }
+
+        var logs = AgentService.DiagnosticsLog;
+        var lines = new List<string>();
+        if (logs.Count == 0)
+        {
+            lines.Add("No diagnostics captured yet.");
+        }
+        else
+        {
+            lines.AddRange(logs);
+        }
+
+        var telemetry = AgentService.GetTelemetrySnapshot();
+        lines.Add("---- Slim Telemetry ----");
+        lines.Add(
+            $"Usage: count={telemetry.UsageRequestCount}, avg={telemetry.UsageAverageLatencyMs:F1}ms, last={telemetry.UsageLastLatencyMs}ms, errors={telemetry.UsageErrorCount} ({telemetry.UsageErrorRatePercent:F1}%)");
+        lines.Add(
+            $"Refresh: count={telemetry.RefreshRequestCount}, avg={telemetry.RefreshAverageLatencyMs:F1}ms, last={telemetry.RefreshLastLatencyMs}ms, errors={telemetry.RefreshErrorCount} ({telemetry.RefreshErrorRatePercent:F1}%)");
+
+        AgentLogsText.Text = string.Join(Environment.NewLine, lines);
+        AgentLogsText.ScrollToEnd();
     }
 
     private async Task LoadHistoryAsync()
@@ -855,6 +1112,10 @@ public partial class SettingsWindow : Window
             MessageBox.Show($"Failed to restart Agent: {ex.Message}", "Restart Error", 
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
+        finally
+        {
+            RefreshDiagnosticsLog();
+        }
     }
 
     private async void CheckHealthBtn_Click(object sender, RoutedEventArgs e)
@@ -871,6 +1132,10 @@ public partial class SettingsWindow : Window
         {
             MessageBox.Show($"Failed to check health: {ex.Message}", "Health Check Error", 
                 MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            RefreshDiagnosticsLog();
         }
     }
 

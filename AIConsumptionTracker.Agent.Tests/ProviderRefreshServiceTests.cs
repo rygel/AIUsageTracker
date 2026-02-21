@@ -179,4 +179,30 @@ public class ProviderRefreshServiceTests
         // Assert
         _mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
     }
+
+    [Fact]
+    public void GetRefreshTelemetrySnapshot_InitialState_IsZeroed()
+    {
+        var telemetry = _service.GetRefreshTelemetrySnapshot();
+
+        Assert.Equal(0, telemetry.RefreshCount);
+        Assert.Equal(0, telemetry.RefreshSuccessCount);
+        Assert.Equal(0, telemetry.RefreshFailureCount);
+        Assert.Equal(0, telemetry.ErrorRatePercent);
+        Assert.Equal(0, telemetry.AverageLatencyMs);
+        Assert.Null(telemetry.LastError);
+    }
+
+    [Fact]
+    public async Task TriggerRefreshAsync_WhenProviderManagerMissing_RecordsFailureTelemetry()
+    {
+        await _service.TriggerRefreshAsync();
+        var telemetry = _service.GetRefreshTelemetrySnapshot();
+
+        Assert.Equal(1, telemetry.RefreshCount);
+        Assert.Equal(0, telemetry.RefreshSuccessCount);
+        Assert.Equal(1, telemetry.RefreshFailureCount);
+        Assert.True(telemetry.ErrorRatePercent > 0);
+        Assert.Equal("ProviderManager not ready", telemetry.LastError);
+    }
 }

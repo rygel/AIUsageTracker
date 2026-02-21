@@ -71,8 +71,20 @@ Download the latest installer or .zip file from the [Release](https://github.com
 **Dashboard**
 ![Dashboard](docs/screenshot_dashboard_privacy.png)
 
-**Settings**
+**Settings (Overview)**
 ![Settings](docs/screenshot_settings_privacy.png)
+
+**Settings - Providers Tab**
+![Settings Providers](docs/screenshot_settings_providers_privacy.png)
+
+**Settings - Layout Tab**
+![Settings Layout](docs/screenshot_settings_layout_privacy.png)
+
+**Settings - History Tab**
+![Settings History](docs/screenshot_settings_history_privacy.png)
+
+**Settings - Agent Tab**
+![Settings Agent](docs/screenshot_settings_agent_privacy.png)
 
 **Info Dialog**
 ![Info](docs/screenshot_info_privacy.png)

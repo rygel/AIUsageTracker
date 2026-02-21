@@ -83,6 +83,49 @@ public class AgentServiceTests
         VerifyPath("/api/export", "format=csv", "days=7");
     }
 
+    [Fact]
+    public async Task GetUsageAsync_RecordsUsageTelemetry()
+    {
+        // Arrange
+        var baseline = AgentService.GetTelemetrySnapshot();
+        var usage = new List<ProviderUsage>
+        {
+            new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true }
+        };
+        SetupMockResponse(HttpStatusCode.OK, usage);
+
+        // Act
+        var result = await _service.GetUsageAsync();
+        var telemetry = AgentService.GetTelemetrySnapshot();
+
+        // Assert
+        Assert.Single(result);
+        Assert.True(telemetry.UsageRequestCount >= baseline.UsageRequestCount + 1);
+        Assert.True(telemetry.UsageErrorCount >= baseline.UsageErrorCount);
+    }
+
+    [Fact]
+    public async Task TriggerRefreshAsync_RequestFails_RecordsRefreshErrorTelemetry()
+    {
+        // Arrange
+        var baseline = AgentService.GetTelemetrySnapshot();
+        _mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("network failure"));
+
+        // Act
+        var success = await _service.TriggerRefreshAsync();
+        var telemetry = AgentService.GetTelemetrySnapshot();
+
+        // Assert
+        Assert.False(success);
+        Assert.True(telemetry.RefreshRequestCount >= baseline.RefreshRequestCount + 1);
+        Assert.True(telemetry.RefreshErrorCount >= baseline.RefreshErrorCount + 1);
+    }
+
     private void SetupMockResponse(HttpStatusCode status, object body)
     {
         _mockHandler.Protected()

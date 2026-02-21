@@ -2,7 +2,8 @@
 # This script runs the application in headless mode and captures screenshots automatically
 
 param(
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+    [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,15 +18,19 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $binPath = Join-Path $projectRoot "AIConsumptionTracker.UI.Slim\bin\$Configuration\net8.0-windows10.0.17763.0"
 $exePath = Join-Path $binPath "AIConsumptionTracker.exe"
 
-# Check if executable exists
-if (-not (Test-Path $exePath)) {
+# Check if executable exists before optional build
+if (-not (Test-Path $exePath) -and $SkipBuild) {
     Write-Host "ERROR: Executable not found at: $exePath" -ForegroundColor Red
-    Write-Host "Please build the project first with:" -ForegroundColor Yellow
-    Write-Host "  dotnet build AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj --configuration $Configuration" -ForegroundColor Yellow
+    Write-Host "Build was skipped. Run build first or omit -SkipBuild." -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "Found executable: $exePath" -ForegroundColor Green
+if (Test-Path $exePath) {
+    Write-Host "Found executable: $exePath" -ForegroundColor Green
+}
+else {
+    Write-Host "Executable not found yet, building project..." -ForegroundColor Yellow
+}
 Write-Host ""
 
 # Create screenshots directory if it doesn't exist
@@ -57,16 +62,26 @@ if ($existingProcesses) {
     Start-Sleep -Seconds 2
 }
 
-# Build if needed
-Write-Host "Building project..." -ForegroundColor Cyan
-$buildOutput = & dotnet build (Join-Path $projectRoot "AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj") --configuration $Configuration 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Build failed!" -ForegroundColor Red
-    $buildOutput | ForEach-Object { Write-Host $_ }
+if (-not $SkipBuild) {
+    Write-Host "Building project..." -ForegroundColor Cyan
+    $buildOutput = & dotnet build (Join-Path $projectRoot "AIConsumptionTracker.UI.Slim\AIConsumptionTracker.UI.Slim.csproj") --configuration $Configuration 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Build failed!" -ForegroundColor Red
+        $buildOutput | ForEach-Object { Write-Host $_ }
+        exit 1
+    }
+    Write-Host "Build successful!" -ForegroundColor Green
+    Write-Host ""
+}
+else {
+    Write-Host "Skipping build (--SkipBuild)." -ForegroundColor Gray
+    Write-Host ""
+}
+
+if (-not (Test-Path $exePath)) {
+    Write-Host "ERROR: Executable not found after build at: $exePath" -ForegroundColor Red
     exit 1
 }
-Write-Host "Build successful!" -ForegroundColor Green
-Write-Host ""
 
 # Run the application with screenshot flags
 Write-Host "Capturing screenshots with PRIVACY MODE enabled..." -ForegroundColor Cyan
@@ -98,7 +113,11 @@ if (-not $process.HasExited) {
 # Check if screenshots were created
 $expectedScreenshots = @(
     "screenshot_dashboard_privacy.png",
-    "screenshot_settings_privacy.png", 
+    "screenshot_settings_privacy.png",
+    "screenshot_settings_providers_privacy.png",
+    "screenshot_settings_layout_privacy.png",
+    "screenshot_settings_history_privacy.png",
+    "screenshot_settings_agent_privacy.png",
     "screenshot_info_privacy.png",
     "screenshot_context_menu_privacy.png"
 )

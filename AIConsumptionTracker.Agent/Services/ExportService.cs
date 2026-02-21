@@ -1,4 +1,5 @@
 using AIConsumptionTracker.Core.Models;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -55,7 +56,7 @@ public class ExportService
                 }
                 else
                 {
-                    var used = item.RequestsUsed.ToString("F2");
+                    var used = item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
                     csv.AppendLine($"{time},{provider},(Total),{used},,{item.UsageUnit},{item.PlanType}");
                 }
             }

@@ -1,0 +1,80 @@
+name: Release Script Validation
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "setup.iss"
+      - "scripts/setup.iss"
+      - "scripts/validate-setup-build.ps1"
+      - "scripts/validate-release-consistency.sh"
+      - "scripts/generate-appcast.sh"
+      - "Directory.Build.props"
+      - ".github/workflows/release-script-validation.yml"
+      - ".github/workflows/publish.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "setup.iss"
+      - "scripts/setup.iss"
+      - "scripts/validate-setup-build.ps1"
+      - "scripts/validate-release-consistency.sh"
+      - "scripts/generate-appcast.sh"
+      - "Directory.Build.props"
+      - ".github/workflows/release-script-validation.yml"
+      - ".github/workflows/publish.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-script-checks:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Inno Setup
+        id: detect_inno
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          )
+
+          $iscc = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if ($iscc) {
+            "found=true" >> $env:GITHUB_OUTPUT
+            "path=$iscc" >> $env:GITHUB_OUTPUT
+            Write-Host "Found Inno Setup compiler at $iscc"
+          }
+          else {
+            "found=false" >> $env:GITHUB_OUTPUT
+            Write-Host "Inno Setup compiler not found."
+          }
+
+      - name: Install Inno Setup
+        if: steps.detect_inno.outputs.found != 'true'
+        run: choco install innosetup --yes
+        shell: pwsh
+
+      - name: Validate setup script compilation
+        run: .\scripts\validate-setup-build.ps1
+        shell: pwsh
+
+      - name: Release script dry-run checks
+        shell: bash
+        run: |
+          version=$(sed -n 's:.*<TrackerVersion>\(.*\)</TrackerVersion>.*:\1:p' Directory.Build.props | head -n 1)
+          if [[ -z "$version" ]]; then
+            echo "Unable to resolve TrackerVersion from Directory.Build.props"
+            exit 1
+          fi
+
+          bash scripts/validate-release-consistency.sh "$version"
+          bash scripts/generate-appcast.sh "$version"
+          rm -f appcast.xml appcast_x64.xml appcast_x86.xml appcast_arm64.xml

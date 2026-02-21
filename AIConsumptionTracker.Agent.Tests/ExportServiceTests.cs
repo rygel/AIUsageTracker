@@ -79,7 +79,7 @@ public class ExportServiceTests
         Assert.True(lines.Length >= 2);
         Assert.Contains("Time,Provider,Model,Used,Cost,Unit,PlanType", lines[0]);
         Assert.Contains("Test Provider", lines[1]);
-        Assert.Contains("10,00", lines[1]); // F2 format
+        Assert.Contains("10.00", lines[1]); // Invariant F2 format
         Assert.Contains("USD", lines[1]);
     }
 

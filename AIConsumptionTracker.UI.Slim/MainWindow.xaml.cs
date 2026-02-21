@@ -358,6 +358,87 @@ public partial class MainWindow : Window
         EnsureAlwaysOnTop();
     }
 
+    internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
+    {
+        if (deterministic)
+        {
+            _preferences = new AppPreferences
+            {
+                AlwaysOnTop = true,
+                InvertProgressBar = true,
+                InvertCalculations = false,
+                ColorThresholdYellow = 60,
+                ColorThresholdRed = 80,
+                FontFamily = "Segoe UI",
+                FontSize = 12,
+                FontBold = false,
+                FontItalic = false,
+                IsPrivacyMode = true
+            };
+
+            App.Preferences = _preferences;
+            _isPrivacyMode = true;
+            App.SetPrivacyMode(true);
+            _preferencesLoaded = true;
+            _lastAgentUpdate = new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Local);
+            ApplyPreferences();
+
+            _usages = new List<ProviderUsage>
+            {
+                new()
+                {
+                    ProviderId = "github-copilot",
+                    ProviderName = "GitHub Copilot",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    RequestsPercentage = 72.5,
+                    RequestsUsed = 27.5,
+                    RequestsAvailable = 100,
+                    Description = "72.5% Remaining",
+                    IsAvailable = true,
+                    AccountName = "dev@example.com",
+                    AuthSource = "oauth"
+                },
+                new()
+                {
+                    ProviderId = "antigravity.claude-sonnet-4",
+                    ProviderName = "Claude Sonnet 4 [Antigravity]",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    RequestsPercentage = 55.0,
+                    RequestsUsed = 45.0,
+                    RequestsAvailable = 100,
+                    Description = "55.0% Remaining",
+                    IsAvailable = true,
+                    AuthSource = "local app"
+                },
+                new()
+                {
+                    ProviderId = "openai",
+                    ProviderName = "OpenAI",
+                    IsQuotaBased = false,
+                    PlanType = PlanType.Usage,
+                    RequestsPercentage = 31.1,
+                    RequestsUsed = 12.45,
+                    RequestsAvailable = 40.00,
+                    Description = "$12.45 / $40.00",
+                    IsAvailable = true,
+                    AuthSource = "api key"
+                }
+            };
+
+            RenderProviders();
+            ShowStatus("Headless snapshot", StatusType.Success);
+        }
+        else
+        {
+            await InitializeAsync();
+        }
+
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        UpdateLayout();
+    }
+
     private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
     {
         if (!Dispatcher.CheckAccess())

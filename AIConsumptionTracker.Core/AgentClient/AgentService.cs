@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIConsumptionTracker.Core.Models;
@@ -21,6 +22,14 @@ public class AgentService
     public List<string> LastAgentErrors { get; private set; } = new();
     private static readonly List<string> _diagnosticsLog = new();
     public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
+    private static long _usageRequestCount;
+    private static long _usageErrorCount;
+    private static long _usageTotalLatencyMs;
+    private static long _usageLastLatencyMs;
+    private static long _refreshRequestCount;
+    private static long _refreshErrorCount;
+    private static long _refreshTotalLatencyMs;
+    private static long _refreshLastLatencyMs;
 
     public AgentService(HttpClient httpClient)
     {
@@ -46,6 +55,56 @@ public class AgentService
         }
         System.Diagnostics.Debug.WriteLine($"[{timestamp}] [DIAG] {message}");
         Console.WriteLine($"[{timestamp}] [DIAG] {message}");
+    }
+
+    public static AgentTelemetrySnapshot GetTelemetrySnapshot()
+    {
+        var usageRequestCount = Interlocked.Read(ref _usageRequestCount);
+        var usageErrorCount = Interlocked.Read(ref _usageErrorCount);
+        var usageTotalLatencyMs = Interlocked.Read(ref _usageTotalLatencyMs);
+        var usageLastLatencyMs = Interlocked.Read(ref _usageLastLatencyMs);
+        var refreshRequestCount = Interlocked.Read(ref _refreshRequestCount);
+        var refreshErrorCount = Interlocked.Read(ref _refreshErrorCount);
+        var refreshTotalLatencyMs = Interlocked.Read(ref _refreshTotalLatencyMs);
+        var refreshLastLatencyMs = Interlocked.Read(ref _refreshLastLatencyMs);
+
+        return new AgentTelemetrySnapshot
+        {
+            UsageRequestCount = usageRequestCount,
+            UsageErrorCount = usageErrorCount,
+            UsageAverageLatencyMs = usageRequestCount == 0 ? 0 : usageTotalLatencyMs / (double)usageRequestCount,
+            UsageLastLatencyMs = usageLastLatencyMs,
+            UsageErrorRatePercent = usageRequestCount == 0 ? 0 : (usageErrorCount / (double)usageRequestCount) * 100.0,
+            RefreshRequestCount = refreshRequestCount,
+            RefreshErrorCount = refreshErrorCount,
+            RefreshAverageLatencyMs = refreshRequestCount == 0 ? 0 : refreshTotalLatencyMs / (double)refreshRequestCount,
+            RefreshLastLatencyMs = refreshLastLatencyMs,
+            RefreshErrorRatePercent = refreshRequestCount == 0 ? 0 : (refreshErrorCount / (double)refreshRequestCount) * 100.0
+        };
+    }
+
+    private static void RecordUsageTelemetry(TimeSpan duration, bool success)
+    {
+        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
+        Interlocked.Increment(ref _usageRequestCount);
+        Interlocked.Add(ref _usageTotalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref _usageLastLatencyMs, latencyMs);
+        if (!success)
+        {
+            Interlocked.Increment(ref _usageErrorCount);
+        }
+    }
+
+    private static void RecordRefreshTelemetry(TimeSpan duration, bool success)
+    {
+        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
+        Interlocked.Increment(ref _refreshRequestCount);
+        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref _refreshLastLatencyMs, latencyMs);
+        if (!success)
+        {
+            Interlocked.Increment(ref _refreshErrorCount);
+        }
     }
     
     public async Task RefreshAgentInfoAsync()
@@ -100,16 +159,21 @@ public class AgentService
     // Provider usage endpoints
     public async Task<List<ProviderUsage>> GetUsageAsync()
     {
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             var usage = await _httpClient.GetFromJsonAsync<List<ProviderUsage>>(
                 $"{AgentUrl}/api/usage", 
                 _jsonOptions);
             LogDiagnostic($"Successfully fetched usage from {AgentUrl}");
+            stopwatch.Stop();
+            RecordUsageTelemetry(stopwatch.Elapsed, true);
             return usage ?? new List<ProviderUsage>();
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            RecordUsageTelemetry(stopwatch.Elapsed, false);
             LogDiagnostic($"Failed to fetch usage from {AgentUrl}: {ex.Message}");
             return new List<ProviderUsage>();
         }
@@ -161,13 +225,18 @@ public class AgentService
 
     public async Task<bool> TriggerRefreshAsync()
     {
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             var response = await _httpClient.PostAsync($"{AgentUrl}/api/refresh", null);
+            stopwatch.Stop();
+            RecordRefreshTelemetry(stopwatch.Elapsed, response.IsSuccessStatusCode);
             return response.IsSuccessStatusCode;
         }
         catch
         {
+            stopwatch.Stop();
+            RecordRefreshTelemetry(stopwatch.Elapsed, false);
             return false;
         }
     }
@@ -352,4 +421,18 @@ public class AgentService
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
     }
+}
+
+public sealed class AgentTelemetrySnapshot
+{
+    public long UsageRequestCount { get; init; }
+    public long UsageErrorCount { get; init; }
+    public double UsageAverageLatencyMs { get; init; }
+    public long UsageLastLatencyMs { get; init; }
+    public double UsageErrorRatePercent { get; init; }
+    public long RefreshRequestCount { get; init; }
+    public long RefreshErrorCount { get; init; }
+    public double RefreshAverageLatencyMs { get; init; }
+    public long RefreshLastLatencyMs { get; init; }
+    public double RefreshErrorRatePercent { get; init; }
 }

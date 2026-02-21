@@ -1,0 +1,35 @@
+name: Docs Image Integrity
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "README.md"
+      - "docs/**"
+      - "**/*.md"
+      - "scripts/verify-doc-images.ps1"
+      - ".github/workflows/docs-image-integrity.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "README.md"
+      - "docs/**"
+      - "**/*.md"
+      - "scripts/verify-doc-images.ps1"
+      - ".github/workflows/docs-image-integrity.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-doc-images:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify README/docs image references
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-doc-images.ps1
+        shell: pwsh
