@@ -474,7 +474,15 @@ public partial class MainWindow : Window
                 {
                     if (usage.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase))
                     {
-                        AddAntigravityModels(usage, plansContainer);
+                        if (usage.Details?.Any() == true)
+                        {
+                            AddAntigravityModels(usage, plansContainer);
+                        }
+                        else
+                        {
+                            AddProviderCard(usage, plansContainer);
+                        }
+
                         continue;
                     }
 

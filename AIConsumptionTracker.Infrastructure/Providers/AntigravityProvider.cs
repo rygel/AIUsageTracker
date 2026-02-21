@@ -97,18 +97,11 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                             }};
                         }
 
-                        // No reset passed, show countdown
-                        var nextReset = _cachedUsage.Details.FirstOrDefault(d => d.NextResetTime.HasValue)?.NextResetTime;
-                        if (nextReset.HasValue)
-                        {
-                            var timeUntilReset = nextReset.Value - DateTime.Now;
-                            if (timeUntilReset.TotalHours > 0)
-                            {
-                                var hoursUntil = (int)timeUntilReset.TotalHours;
-                                var minutesUntil = (int)timeUntilReset.TotalMinutes % 60;
-                                description += $" (Resets in {hoursUntil}h {minutesUntil}m)";
-                            }
-                        }
+                    }
+
+                    if (!description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
+                    {
+                        description += " (Usage unknown until next Antigravity refresh)";
                     }
 
                     return new[] { new ProviderUsage
@@ -116,10 +109,10 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                         ProviderId = ProviderId,
                         ProviderName = "Antigravity",
                         IsAvailable = true,
-                        RequestsPercentage = _cachedUsage.RequestsPercentage,
-                        RequestsUsed = _cachedUsage.RequestsUsed,
+                        RequestsPercentage = 0,
+                        RequestsUsed = 0,
                         RequestsAvailable = _cachedUsage.RequestsAvailable,
-                        Details = _cachedUsage.Details,
+                        Details = null,
                         AccountName = _cachedUsage.AccountName,
                         Description = description,
                         IsQuotaBased = true,
@@ -155,25 +148,48 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                     _logger.LogDebug("Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
                         pid, tokenPreview, commandLinePort?.ToString() ?? "none");
 
-                    // 2. Resolve port (prefer command-line hint, fallback to netstat)
-                    var port = commandLinePort ?? FindListeningPort(pid);
+                    // 2. Resolve candidate ports (extension port hint + all listening loopback ports)
+                    var candidatePorts = new List<int>();
+                    if (commandLinePort.HasValue && commandLinePort.Value > 0)
+                    {
+                        candidatePorts.Add(commandLinePort.Value);
+                    }
+
+                    foreach (var listeningPort in FindListeningPorts(pid))
+                    {
+                        if (!candidatePorts.Contains(listeningPort))
+                        {
+                            candidatePorts.Add(listeningPort);
+                        }
+                    }
+
+                    if (!candidatePorts.Any())
+                    {
+                        throw new Exception($"No candidate Antigravity ports discovered for PID {pid}");
+                    }
 
                     // 3. Request
-                    List<ProviderUsage> usageItems;
-                    try
+                    List<ProviderUsage>? usageItems = null;
+                    Exception? lastPortException = null;
+                    foreach (var candidatePort in candidatePorts)
                     {
-                        usageItems = await FetchUsage(port, csrfToken, config);
-                    }
-                    catch when (commandLinePort.HasValue)
-                    {
-                        var fallbackPort = FindListeningPort(pid);
-                        if (fallbackPort == port)
+                        try
                         {
-                            throw;
+                            usageItems = await FetchUsage(candidatePort, csrfToken, config);
+                            break;
                         }
+                        catch (Exception ex)
+                        {
+                            lastPortException = ex;
+                            _logger.LogDebug(ex, "Antigravity PID={Pid} probe failed on port {Port}", pid, candidatePort);
+                        }
+                    }
 
-                        _logger.LogDebug("Retrying Antigravity PID={Pid} on fallback port {Port}", pid, fallbackPort);
-                        usageItems = await FetchUsage(fallbackPort, csrfToken, config);
+                    if (usageItems == null)
+                    {
+                        throw new Exception(
+                            $"Failed to fetch Antigravity usage for PID {pid} on ports [{string.Join(", ", candidatePorts)}]",
+                            lastPortException);
                     }
 
                     // Check for duplicates based on AccountName (Email) for the MAIN item
@@ -350,9 +366,8 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
         }
     }
 
-    private int FindListeningPort(int pid)
+    private List<int> FindListeningPorts(int pid)
     {
-        // ... (existing netstat logic is fine, it uses the specific PID)
         var startInfo = new ProcessStartInfo
         {
             FileName = "netstat",
@@ -363,41 +378,71 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
         };
 
         using var process = Process.Start(startInfo);
-        if (process == null) return 0;
+        if (process == null)
+        {
+            return new List<int>();
+        }
 
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
 
         var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
         var regex = new Regex($@"\s+TCP\s+(?:127\.0\.0\.1|\[::1\]):(\d+)\s+.*LISTENING\s+{pid}");
-        
+        var ports = new List<int>();
+
         foreach (var line in lines)
         {
             var match = regex.Match(line);
-            if (match.Success)
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var parsedPort))
             {
-                return int.Parse(match.Groups[1].Value);
+                if (!ports.Contains(parsedPort))
+                {
+                    ports.Add(parsedPort);
+                }
             }
         }
-        
-        throw new Exception($"No listening port found for PID {pid}");
+
+        return ports;
     }
 
     private async Task<List<ProviderUsage>> FetchUsage(int port, string csrfToken, ProviderConfig config)
     {
-        var url = $"https://127.0.0.1:{port}/exa.language_server_pb.LanguageServerService/GetUserStatus";
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-        request.Headers.Add("X-Codeium-Csrf-Token", csrfToken);
-        request.Headers.Add("Connect-Protocol-Version", "1");
-
         var body = new { metadata = new { ideName = "antigravity", extensionName = "antigravity", ideVersion = "unknown", locale = "en" } };
-        request.Content = JsonContent.Create(body);
+        string? responseString = null;
+        Exception? lastRequestException = null;
 
-        var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        foreach (var scheme in new[] { "https", "http" })
+        {
+            var url = $"{scheme}://127.0.0.1:{port}/exa.language_server_pb.LanguageServerService/GetUserStatus";
+            using var request = new HttpRequestMessage(HttpMethod.Post, url);
+            request.Headers.Add("X-Codeium-Csrf-Token", csrfToken);
+            request.Headers.Add("Connect-Protocol-Version", "1");
+            request.Content = JsonContent.Create(body);
 
-        var responseString = await response.Content.ReadAsStringAsync();
-        _logger.LogDebug("[Antigravity] Raw response from port {Port}: {Response}", port, responseString[..Math.Min(500, responseString.Length)]);
+            try
+            {
+                var response = await _httpClient.SendAsync(request);
+                response.EnsureSuccessStatusCode();
+
+                responseString = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug(
+                    "[Antigravity] Raw response from {Scheme} port {Port}: {Response}",
+                    scheme.ToUpperInvariant(),
+                    port,
+                    responseString[..Math.Min(500, responseString.Length)]);
+                break;
+            }
+            catch (Exception ex)
+            {
+                lastRequestException = ex;
+                _logger.LogDebug(ex, "[Antigravity] Request failed for {Scheme}://127.0.0.1:{Port}", scheme, port);
+            }
+        }
+
+        if (responseString == null)
+        {
+            throw new HttpRequestException($"No successful Antigravity response on port {port}", lastRequestException);
+        }
         
         var data = JsonSerializer.Deserialize<AntigravityResponse>(responseString);
 

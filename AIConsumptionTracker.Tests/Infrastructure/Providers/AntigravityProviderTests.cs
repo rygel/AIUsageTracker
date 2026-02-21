@@ -293,6 +293,54 @@ public class AntigravityProviderTests
         Assert.Equal("Claude Sonnet 4.6 (Thinking)", detail.ModelName);
     }
 
+    [Fact]
+    public async Task GetUsageAsync_WhenCachedAndOffline_ReturnsUnknownWithoutModelDetails()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "antigravity", ApiKey = "" };
+        var cachedUsage = new ProviderUsage
+        {
+            ProviderId = "antigravity",
+            ProviderName = "Antigravity",
+            IsAvailable = true,
+            RequestsPercentage = 12,
+            RequestsUsed = 88,
+            RequestsAvailable = 100,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            Description = "12% Remaining",
+            Details = new List<ProviderUsageDetail>
+            {
+                new()
+                {
+                    Name = "claude-opus",
+                    Used = "12%",
+                    NextResetTime = DateTime.Now.AddMinutes(45)
+                }
+            }
+        };
+
+        typeof(AntigravityProvider).GetField("_cachedUsage", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, cachedUsage);
+        typeof(AntigravityProvider).GetField("_cacheTimestamp", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, DateTime.Now.AddMinutes(-8));
+        typeof(AntigravityProvider).GetField("_cachedProcessInfos", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, new List<(int Pid, string Token, int? Port)>());
+        typeof(AntigravityProvider).GetField("_lastProcessCheck", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, DateTime.Now);
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+        var usage = Assert.Single(result);
+
+        // Assert
+        Assert.Contains("Last refreshed", usage.Description);
+        Assert.Contains("Usage unknown", usage.Description);
+        Assert.Null(usage.Details);
+        Assert.Equal(0, usage.RequestsPercentage);
+        Assert.Equal(0, usage.RequestsUsed);
+    }
+
     private AntigravityProvider CreateProviderWithHttpClient()
     {
         var ctor = typeof(AntigravityProvider).GetConstructor(

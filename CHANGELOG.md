@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-02-21
+
+### Fixed
+- Antigravity provider now probes all loopback language-server ports for the process and supports both HTTPS and HTTP endpoint bindings for `GetUserStatus`.
+- Antigravity offline fallback now reports explicit unknown status without stale model details/percentages until the next successful refresh.
+- Slim UI now renders the Antigravity parent card when model details are unavailable instead of displaying stale model rows.
+
 ## [2.1.0] - 2026-02-21
 
 ### Added
