@@ -1,0 +1,43 @@
+name: Provider Contract Drift
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "AIConsumptionTracker.Infrastructure/Providers/**"
+      - "AIConsumptionTracker.Tests/Infrastructure/Providers/**"
+      - "AIConsumptionTracker.Tests/TestData/Providers/**"
+      - ".github/workflows/provider-contract-drift.yml"
+
+jobs:
+  provider-contract-tests:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore AIConsumptionTracker.slnx
+
+      - name: Run provider contract tests
+        run: >
+          dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj
+          --configuration Debug
+          --filter "FullyQualifiedName~Infrastructure.Providers"
+          --verbosity normal
+          --logger "trx;LogFileName=provider-contract-drift.trx"
+
+      - name: Upload provider fixture test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-contract-drift-results
+          path: AIConsumptionTracker.Tests\TestResults\**\provider-contract-drift.trx
