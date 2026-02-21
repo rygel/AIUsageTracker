@@ -214,33 +214,6 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task CleanupOldHistoryAsync(int retentionDays)
-    {
-        if (retentionDays <= 0)
-        {
-            return;
-        }
-
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
-
-            const string sql = "DELETE FROM provider_history WHERE fetched_at < datetime('now', '-' || @RetentionDays || ' days')";
-            var deletedCount = await connection.ExecuteAsync(sql, new { RetentionDays = retentionDays });
-
-            if (deletedCount > 0)
-            {
-                _logger.LogInformation("Cleaned {Count} provider history rows older than {RetentionDays} days", deletedCount, retentionDays);
-            }
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
-    }
-
     public async Task OptimizeAsync()
     {
         await _semaphore.WaitAsync();

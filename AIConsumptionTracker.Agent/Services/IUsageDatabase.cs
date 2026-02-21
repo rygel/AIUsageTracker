@@ -9,7 +9,6 @@ public interface IUsageDatabase
     Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages);
     Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus);
     Task CleanupOldSnapshotsAsync();
-    Task CleanupOldHistoryAsync(int retentionDays);
     Task OptimizeAsync();
     Task StoreResetEventAsync(string providerId, string providerName, double? previousUsage, double? newUsage, string resetType);
     Task<List<ProviderUsage>> GetLatestHistoryAsync();

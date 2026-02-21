@@ -29,13 +29,11 @@ public class ProviderRefreshService : BackgroundService
     private readonly object _telemetryLock = new();
     private readonly object _providerFailureLock = new();
     private readonly Dictionary<string, ProviderFailureState> _providerFailureStates = new(StringComparer.OrdinalIgnoreCase);
-    private readonly int _historyRetentionDays;
     private DateTime? _lastRefreshCompletedUtc;
     private string? _lastRefreshError;
     private const int CircuitBreakerFailureThreshold = 3;
     private static readonly TimeSpan CircuitBreakerBaseBackoff = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
-    private const string HistoryRetentionDaysEnvVar = "AI_TRACKER_HISTORY_RETENTION_DAYS";
 
     private sealed class ProviderFailureState
     {
@@ -63,7 +61,6 @@ public class ProviderRefreshService : BackgroundService
         _notificationService = notificationService;
         _httpClientFactory = httpClientFactory;
         _configService = configService;
-        _historyRetentionDays = ResolveHistoryRetentionDays();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -348,7 +345,6 @@ public class ProviderRefreshService : BackgroundService
             }
 
             await _database.CleanupOldSnapshotsAsync();
-            await _database.CleanupOldHistoryAsync(_historyRetentionDays);
             await _database.OptimizeAsync();
             _logger.LogInformation("Cleanup complete");
             refreshSucceeded = true;
@@ -365,27 +361,6 @@ public class ProviderRefreshService : BackgroundService
             RecordRefreshTelemetry(refreshStopwatch.Elapsed, refreshSucceeded, refreshError);
             _refreshSemaphore.Release();
         }
-    }
-
-    private int ResolveHistoryRetentionDays()
-    {
-        var rawValue = Environment.GetEnvironmentVariable(HistoryRetentionDaysEnvVar);
-        if (string.IsNullOrWhiteSpace(rawValue))
-        {
-            return 0;
-        }
-
-        if (int.TryParse(rawValue, out var retentionDays) && retentionDays > 0)
-        {
-            _logger.LogInformation("History retention enabled: {RetentionDays} days", retentionDays);
-            return retentionDays;
-        }
-
-        _logger.LogWarning(
-            "Invalid {EnvVar} value '{Value}'. History retention is disabled until a positive integer is provided.",
-            HistoryRetentionDaysEnvVar,
-            rawValue);
-        return 0;
     }
 
     public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
