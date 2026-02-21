@@ -22,6 +22,14 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~\.nuget\packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Install Inno Setup
       run: choco install innosetup --yes
       shell: pwsh
@@ -47,7 +55,7 @@ jobs:
       run: dotnet restore AIConsumptionTracker.slnx
 
     - name: Build
-      run: dotnet build AIConsumptionTracker.slnx --configuration Debug
+      run: dotnet build AIConsumptionTracker.slnx --configuration Debug --no-restore
 
     - name: Verify Agent OpenAPI contract drift
       run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-agent-openapi-contract.ps1
@@ -86,8 +94,8 @@ jobs:
       run: echo "Formatting check temporarily disabled - will be fixed in separate PR"
 
     - name: Run Unit Tests
-      run: dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --verbosity normal
+      run: dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --no-build --no-restore --verbosity normal
 
     - name: Run Agent Unit Tests
-      run: dotnet test AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj --configuration Debug --no-build --verbosity normal
+      run: dotnet test AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj --configuration Debug --no-build --no-restore --verbosity normal
 

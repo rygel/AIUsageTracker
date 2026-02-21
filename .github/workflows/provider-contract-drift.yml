@@ -24,6 +24,14 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore dependencies
         run: dotnet restore AIConsumptionTracker.slnx
 
@@ -31,6 +39,7 @@ jobs:
         run: >
           dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj
           --configuration Debug
+          --no-restore
           --filter "FullyQualifiedName~Infrastructure.Providers"
           --verbosity normal
           --logger "trx;LogFileName=provider-contract-drift.trx"
