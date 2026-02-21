@@ -13,6 +13,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Verify README/docs image references
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-doc-images.ps1
+      shell: pwsh
+
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
@@ -44,6 +48,10 @@ jobs:
 
     - name: Build
       run: dotnet build AIConsumptionTracker.slnx --configuration Debug
+
+    - name: Verify Agent OpenAPI contract drift
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-agent-openapi-contract.ps1
+      shell: pwsh
 
     - name: Generate Slim UI screenshots (headless)
       run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\capture_screenshot.ps1 -Configuration Debug
@@ -79,4 +87,7 @@ jobs:
 
     - name: Run Unit Tests
       run: dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --verbosity normal
+
+    - name: Run Agent Unit Tests
+      run: dotnet test AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj --configuration Debug --no-build --verbosity normal
 

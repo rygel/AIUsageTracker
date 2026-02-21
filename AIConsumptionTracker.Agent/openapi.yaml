@@ -271,7 +271,7 @@ components:
 
     DiagnosticsResponse:
       type: object
-      required: [port, process_id, working_dir, base_dir, started_at, os, runtime, args]
+      required: [port, process_id, working_dir, base_dir, started_at, os, runtime, args, endpoints, refresh_telemetry]
       properties:
         port:
           type: integer
@@ -292,6 +292,53 @@ components:
           type: array
           items:
             type: string
+        endpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/EndpointDescriptor"
+        refresh_telemetry:
+          $ref: "#/components/schemas/RefreshTelemetrySnapshot"
+
+    EndpointDescriptor:
+      type: object
+      required: [route, methods]
+      properties:
+        route:
+          type: string
+        methods:
+          type: array
+          items:
+            type: string
+
+    RefreshTelemetrySnapshot:
+      type: object
+      required: [refresh_count, refresh_success_count, refresh_failure_count, error_rate_percent, average_latency_ms, last_latency_ms]
+      properties:
+        refresh_count:
+          type: integer
+          format: int64
+        refresh_success_count:
+          type: integer
+          format: int64
+        refresh_failure_count:
+          type: integer
+          format: int64
+        error_rate_percent:
+          type: number
+          format: double
+        average_latency_ms:
+          type: number
+          format: double
+        last_latency_ms:
+          type: integer
+          format: int64
+        last_refresh_completed_utc:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+          nullable: true
 
     MessageResponse:
       type: object

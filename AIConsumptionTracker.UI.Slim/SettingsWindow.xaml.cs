@@ -340,9 +340,24 @@ public partial class SettingsWindow : Window
         }
 
         var logs = AgentService.DiagnosticsLog;
-        AgentLogsText.Text = logs.Count == 0
-            ? "No diagnostics captured yet."
-            : string.Join(Environment.NewLine, logs);
+        var lines = new List<string>();
+        if (logs.Count == 0)
+        {
+            lines.Add("No diagnostics captured yet.");
+        }
+        else
+        {
+            lines.AddRange(logs);
+        }
+
+        var telemetry = AgentService.GetTelemetrySnapshot();
+        lines.Add("---- Slim Telemetry ----");
+        lines.Add(
+            $"Usage: count={telemetry.UsageRequestCount}, avg={telemetry.UsageAverageLatencyMs:F1}ms, last={telemetry.UsageLastLatencyMs}ms, errors={telemetry.UsageErrorCount} ({telemetry.UsageErrorRatePercent:F1}%)");
+        lines.Add(
+            $"Refresh: count={telemetry.RefreshRequestCount}, avg={telemetry.RefreshAverageLatencyMs:F1}ms, last={telemetry.RefreshLastLatencyMs}ms, errors={telemetry.RefreshErrorCount} ({telemetry.RefreshErrorRatePercent:F1}%)");
+
+        AgentLogsText.Text = string.Join(Environment.NewLine, lines);
         AgentLogsText.ScrollToEnd();
     }
 

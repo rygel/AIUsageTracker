@@ -6,6 +6,7 @@ using AIConsumptionTracker.Infrastructure.Providers;
 using AIConsumptionTracker.Infrastructure.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace AIConsumptionTracker.Agent.Services;
 
@@ -21,6 +22,13 @@ public class ProviderRefreshService : BackgroundService
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private static bool _debugMode = false;
     private ProviderManager? _providerManager;
+    private long _refreshCount;
+    private long _refreshFailureCount;
+    private long _refreshTotalLatencyMs;
+    private long _lastRefreshLatencyMs;
+    private readonly object _telemetryLock = new();
+    private DateTime? _lastRefreshCompletedUtc;
+    private string? _lastRefreshError;
 
     public static void SetDebugMode(bool debug)
     {
@@ -152,9 +160,14 @@ public class ProviderRefreshService : BackgroundService
 
     public async Task TriggerRefreshAsync(bool forceAll = false)
     {
+        var refreshStopwatch = Stopwatch.StartNew();
+        var refreshSucceeded = false;
+        string? refreshError = null;
+
         if (_providerManager == null)
         {
             _logger.LogWarning("ProviderManager not ready");
+            RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
             return;
         }
 
@@ -304,15 +317,70 @@ public class ProviderRefreshService : BackgroundService
 
             await _database.CleanupOldSnapshotsAsync();
             _logger.LogInformation("Cleanup complete");
+            refreshSucceeded = true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
             Program.ReportError($"Refresh failed: {ex.Message}");
+            refreshError = ex.Message;
         }
         finally
         {
+            refreshStopwatch.Stop();
+            RecordRefreshTelemetry(refreshStopwatch.Elapsed, refreshSucceeded, refreshError);
             _refreshSemaphore.Release();
+        }
+    }
+
+    public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
+    {
+        var refreshCount = Interlocked.Read(ref _refreshCount);
+        var refreshFailureCount = Interlocked.Read(ref _refreshFailureCount);
+        var refreshTotalLatencyMs = Interlocked.Read(ref _refreshTotalLatencyMs);
+        var lastRefreshLatencyMs = Interlocked.Read(ref _lastRefreshLatencyMs);
+
+        DateTime? lastRefreshCompletedUtc;
+        string? lastRefreshError;
+        lock (_telemetryLock)
+        {
+            lastRefreshCompletedUtc = _lastRefreshCompletedUtc;
+            lastRefreshError = _lastRefreshError;
+        }
+
+        var refreshSuccessCount = Math.Max(0, refreshCount - refreshFailureCount);
+        var averageLatencyMs = refreshCount == 0 ? 0 : refreshTotalLatencyMs / (double)refreshCount;
+        var errorRatePercent = refreshCount == 0 ? 0 : (refreshFailureCount / (double)refreshCount) * 100.0;
+
+        return new RefreshTelemetrySnapshot
+        {
+            RefreshCount = refreshCount,
+            RefreshSuccessCount = refreshSuccessCount,
+            RefreshFailureCount = refreshFailureCount,
+            ErrorRatePercent = errorRatePercent,
+            AverageLatencyMs = averageLatencyMs,
+            LastLatencyMs = lastRefreshLatencyMs,
+            LastRefreshCompletedUtc = lastRefreshCompletedUtc,
+            LastError = lastRefreshError
+        };
+    }
+
+    private void RecordRefreshTelemetry(TimeSpan duration, bool success, string? errorMessage)
+    {
+        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
+        Interlocked.Increment(ref _refreshCount);
+        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref _lastRefreshLatencyMs, latencyMs);
+
+        if (!success)
+        {
+            Interlocked.Increment(ref _refreshFailureCount);
+        }
+
+        lock (_telemetryLock)
+        {
+            _lastRefreshCompletedUtc = DateTime.UtcNow;
+            _lastRefreshError = success ? null : errorMessage;
         }
     }
 
@@ -472,4 +540,16 @@ public class ProviderRefreshService : BackgroundService
             return (false, ex.Message, 500);
         }
     }
+}
+
+public sealed class RefreshTelemetrySnapshot
+{
+    public long RefreshCount { get; init; }
+    public long RefreshSuccessCount { get; init; }
+    public long RefreshFailureCount { get; init; }
+    public double ErrorRatePercent { get; init; }
+    public double AverageLatencyMs { get; init; }
+    public long LastLatencyMs { get; init; }
+    public DateTime? LastRefreshCompletedUtc { get; init; }
+    public string? LastError { get; init; }
 }
