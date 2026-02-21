@@ -13,6 +13,7 @@ public class AgentService
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
 
+    public const string ExpectedApiContractVersion = "1";
     public string AgentUrl { get; set; } = "http://localhost:5000";
 
     public AgentService() : this(new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
@@ -359,6 +360,98 @@ public class AgentService
         }
     }
 
+    public async Task<AgentContractHandshakeResult> CheckApiContractAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{AgentUrl}/api/health");
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AgentContractHandshakeResult
+                {
+                    IsReachable = false,
+                    IsCompatible = false,
+                    Message = $"Agent health check failed ({(int)response.StatusCode})."
+                };
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            using var document = await JsonDocument.ParseAsync(stream);
+            var root = document.RootElement;
+
+            var contractVersion =
+                TryGetJsonString(root, "apiContractVersion") ??
+                TryGetJsonString(root, "api_contract_version");
+
+            var reportedAgentVersion =
+                TryGetJsonString(root, "agentVersion") ??
+                TryGetJsonString(root, "agent_version") ??
+                TryGetJsonString(root, "version");
+
+            if (string.IsNullOrWhiteSpace(contractVersion))
+            {
+                return new AgentContractHandshakeResult
+                {
+                    IsReachable = true,
+                    IsCompatible = false,
+                    AgentVersion = reportedAgentVersion,
+                    Message = $"Agent API contract version is missing (expected {ExpectedApiContractVersion})."
+                };
+            }
+
+            if (string.Equals(contractVersion, ExpectedApiContractVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                return new AgentContractHandshakeResult
+                {
+                    IsReachable = true,
+                    IsCompatible = true,
+                    AgentContractVersion = contractVersion,
+                    AgentVersion = reportedAgentVersion,
+                    Message = "Agent API contract is compatible."
+                };
+            }
+
+            var versionSuffix = string.IsNullOrWhiteSpace(reportedAgentVersion)
+                ? string.Empty
+                : $" (agent {reportedAgentVersion})";
+
+            return new AgentContractHandshakeResult
+            {
+                IsReachable = true,
+                IsCompatible = false,
+                AgentContractVersion = contractVersion,
+                AgentVersion = reportedAgentVersion,
+                Message = $"Agent API contract mismatch: expected {ExpectedApiContractVersion}, got {contractVersion}{versionSuffix}."
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AgentContractHandshakeResult
+            {
+                IsReachable = false,
+                IsCompatible = false,
+                Message = $"Agent API handshake failed: {ex.Message}"
+            };
+        }
+    }
+
+    private static string? TryGetJsonString(JsonElement root, string propertyName)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.String => property.GetString(),
+            JsonValueKind.Number => property.GetRawText(),
+            JsonValueKind.True => bool.TrueString,
+            JsonValueKind.False => bool.FalseString,
+            _ => null
+        };
+    }
+
     private class ScanKeysResponse
     {
         [JsonPropertyName("discovered")]
@@ -435,4 +528,13 @@ public sealed class AgentTelemetrySnapshot
     public double RefreshAverageLatencyMs { get; init; }
     public long RefreshLastLatencyMs { get; init; }
     public double RefreshErrorRatePercent { get; init; }
+}
+
+public sealed class AgentContractHandshakeResult
+{
+    public bool IsReachable { get; init; }
+    public bool IsCompatible { get; init; }
+    public string? AgentContractVersion { get; init; }
+    public string? AgentVersion { get; init; }
+    public string Message { get; init; } = string.Empty;
 }

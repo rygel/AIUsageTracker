@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, ImageSource> _iconCache = new();
     private DateTime _lastAgentUpdate = DateTime.MinValue;
     private DispatcherTimer? _pollingTimer;
+    private string? _agentContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
     private UpdateInfo? _latestUpdate;
     private bool _preferencesLoaded;
@@ -219,6 +220,9 @@ public partial class MainWindow : Window
 
             if (success)
             {
+                var handshakeResult = await _agentService.CheckApiContractAsync();
+                ApplyAgentContractStatus(handshakeResult);
+
                 // Rapid polling at startup until data is available
                 await RapidPollUntilDataAvailableAsync();
 
@@ -1436,6 +1440,12 @@ public partial class MainWindow : Window
 
     private void ShowStatus(string message, StatusType type)
     {
+        if (type == StatusType.Success && !string.IsNullOrWhiteSpace(_agentContractWarningMessage))
+        {
+            message = _agentContractWarningMessage;
+            type = StatusType.Warning;
+        }
+
         if (StatusText != null)
         {
             StatusText.Text = message;
@@ -1466,6 +1476,18 @@ public partial class MainWindow : Window
         var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
         Debug.WriteLine($"[{timestamp}] [{type}] {message}");
         Console.WriteLine($"[{timestamp}] [{type}] {message}");
+    }
+
+    private void ApplyAgentContractStatus(AgentContractHandshakeResult handshakeResult)
+    {
+        if (handshakeResult.IsCompatible)
+        {
+            _agentContractWarningMessage = null;
+            return;
+        }
+
+        _agentContractWarningMessage = handshakeResult.Message;
+        ShowStatus(handshakeResult.Message, StatusType.Warning);
     }
 
     private void ShowErrorState(string message)

@@ -126,6 +126,70 @@ public class AgentServiceTests
         Assert.True(telemetry.RefreshErrorCount >= baseline.RefreshErrorCount + 1);
     }
 
+    [Fact]
+    public async Task CheckApiContractAsync_Compatible_ReturnsCompatibleResult()
+    {
+        // Arrange
+        var responseObj = new
+        {
+            status = "healthy",
+            apiContractVersion = AgentService.ExpectedApiContractVersion,
+            agentVersion = "2.1.3"
+        };
+        SetupMockResponse(HttpStatusCode.OK, responseObj);
+
+        // Act
+        var result = await _service.CheckApiContractAsync();
+
+        // Assert
+        Assert.True(result.IsReachable);
+        Assert.True(result.IsCompatible);
+        Assert.Equal(AgentService.ExpectedApiContractVersion, result.AgentContractVersion);
+        VerifyPath("/api/health");
+    }
+
+    [Fact]
+    public async Task CheckApiContractAsync_Mismatch_ReturnsWarningResult()
+    {
+        // Arrange
+        var responseObj = new
+        {
+            status = "healthy",
+            apiContractVersion = "999",
+            agentVersion = "2.1.3"
+        };
+        SetupMockResponse(HttpStatusCode.OK, responseObj);
+
+        // Act
+        var result = await _service.CheckApiContractAsync();
+
+        // Assert
+        Assert.True(result.IsReachable);
+        Assert.False(result.IsCompatible);
+        Assert.Equal("999", result.AgentContractVersion);
+        Assert.True(result.Message.Contains("mismatch", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task CheckApiContractAsync_RequestFails_ReturnsUnreachableResult()
+    {
+        // Arrange
+        _mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("connection refused"));
+
+        // Act
+        var result = await _service.CheckApiContractAsync();
+
+        // Assert
+        Assert.False(result.IsReachable);
+        Assert.False(result.IsCompatible);
+        Assert.True(result.Message.Contains("failed", StringComparison.OrdinalIgnoreCase));
+    }
+
     private void SetupMockResponse(HttpStatusCode status, object body)
     {
         _mockHandler.Protected()

@@ -107,6 +107,9 @@ if (isDebugMode)
     Console.WriteLine("[DEBUG] Registering API endpoints...");
 }
 
+const string apiContractVersion = "1";
+var agentVersion = typeof(UsageDatabase).Assembly.GetName().Version?.ToString() ?? "unknown";
+
 // Health endpoint (check if agent is running)
 app.MapGet("/api/health", () => 
 {
@@ -115,7 +118,9 @@ app.MapGet("/api/health", () =>
         status = "healthy", 
         timestamp = DateTime.UtcNow,
         port = port,
-        processId = Environment.ProcessId
+        processId = Environment.ProcessId,
+        agentVersion = agentVersion,
+        apiContractVersion = apiContractVersion
     });
 });
 
