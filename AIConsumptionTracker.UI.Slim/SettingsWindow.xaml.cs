@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.AgentClient;
+using Microsoft.Win32;
 
 namespace AIConsumptionTracker.UI.Slim;
 
@@ -1136,6 +1137,119 @@ public partial class SettingsWindow : Window
         finally
         {
             RefreshDiagnosticsLog();
+        }
+    }
+
+    private async void ExportDiagnosticsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await _agentService.RefreshPortAsync();
+            await _agentService.RefreshAgentInfoAsync();
+
+            var (isRunning, port) = await AgentLauncher.IsAgentRunningWithPortAsync();
+            var healthDetails = await _agentService.GetHealthDetailsAsync();
+            var diagnosticsDetails = await _agentService.GetDiagnosticsDetailsAsync();
+
+            var saveDialog = new SaveFileDialog
+            {
+                FileName = $"ai-consumption-tracker-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                DefaultExt = ".txt",
+                AddExtension = true
+            };
+
+            if (saveDialog.ShowDialog(this) != true)
+            {
+                return;
+            }
+
+            var telemetry = AgentService.GetTelemetrySnapshot();
+            var bundle = new StringBuilder();
+            bundle.AppendLine("AI Consumption Tracker - Diagnostics Bundle");
+            bundle.AppendLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");
+            bundle.AppendLine($"SlimVersion: {typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "unknown"}");
+            bundle.AppendLine($"AgentUrl: {_agentService.AgentUrl}");
+            bundle.AppendLine($"AgentRunning: {isRunning}");
+            bundle.AppendLine($"AgentPort: {port}");
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Agent Health ===");
+            bundle.AppendLine(FormatJsonForBundle(healthDetails));
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Agent Diagnostics ===");
+            bundle.AppendLine(FormatJsonForBundle(diagnosticsDetails));
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Agent Errors (agent.json) ===");
+            if (_agentService.LastAgentErrors.Count == 0)
+            {
+                bundle.AppendLine("None");
+            }
+            else
+            {
+                foreach (var error in _agentService.LastAgentErrors)
+                {
+                    bundle.AppendLine($"- {error}");
+                }
+            }
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Slim Telemetry ===");
+            bundle.AppendLine(
+                $"Usage: count={telemetry.UsageRequestCount}, avg={telemetry.UsageAverageLatencyMs:F1}ms, last={telemetry.UsageLastLatencyMs}ms, errors={telemetry.UsageErrorCount} ({telemetry.UsageErrorRatePercent:F1}%)");
+            bundle.AppendLine(
+                $"Refresh: count={telemetry.RefreshRequestCount}, avg={telemetry.RefreshAverageLatencyMs:F1}ms, last={telemetry.RefreshLastLatencyMs}ms, errors={telemetry.RefreshErrorCount} ({telemetry.RefreshErrorRatePercent:F1}%)");
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Slim Diagnostics Log ===");
+            var diagnosticsLog = AgentService.DiagnosticsLog;
+            if (diagnosticsLog.Count == 0)
+            {
+                bundle.AppendLine("No diagnostics captured yet.");
+            }
+            else
+            {
+                foreach (var line in diagnosticsLog)
+                {
+                    bundle.AppendLine(line);
+                }
+            }
+
+            await File.WriteAllTextAsync(saveDialog.FileName, bundle.ToString());
+            MessageBox.Show($"Diagnostics bundle saved to:\n{saveDialog.FileName}", "Export Complete",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to export diagnostics bundle: {ex.Message}", "Export Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            RefreshDiagnosticsLog();
+        }
+    }
+
+    private static string FormatJsonForBundle(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return "(empty)";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(content);
+            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+        }
+        catch
+        {
+            return content;
         }
     }
 
