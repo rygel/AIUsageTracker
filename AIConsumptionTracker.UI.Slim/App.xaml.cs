@@ -18,6 +18,8 @@ public partial class App : Application
     public static AgentService AgentService { get; } = new();
     public static AppPreferences Preferences { get; set; } = new();
     public static bool IsPrivacyMode { get; set; } = false;
+    private const double ScreenshotScaleFactor = 2.0;
+    private const double ScreenshotDpi = 96.0 * ScreenshotScaleFactor;
     private TaskbarIcon? _trayIcon;
     private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new();
     private MainWindow? _mainWindow;
@@ -160,23 +162,31 @@ public partial class App : Application
         root.Measure(new Size(width, height));
         root.Arrange(new Rect(0, 0, width, height));
         root.UpdateLayout();
+        root.SetValue(TextOptions.TextFormattingModeProperty, TextFormattingMode.Display);
+        root.SetValue(TextOptions.TextHintingModeProperty, TextHintingMode.Fixed);
+        root.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.ClearType);
+        root.SetValue(RenderOptions.ClearTypeHintProperty, ClearTypeHint.Enabled);
 
-        var pixelWidth = Math.Max(1, (int)Math.Ceiling(width));
-        var pixelHeight = Math.Max(1, (int)Math.Ceiling(height));
+        var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * ScreenshotScaleFactor));
+        var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * ScreenshotScaleFactor));
         var backgroundBrush = window.Background is SolidColorBrush solidBackground
             ? new SolidColorBrush(Color.FromRgb(solidBackground.Color.R, solidBackground.Color.G, solidBackground.Color.B))
             : Brushes.Black;
         backgroundBrush.Freeze();
 
-        var visual = new DrawingVisual();
-        using (var dc = visual.RenderOpen())
+        var contentBitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
+        contentBitmap.Render(root);
+        contentBitmap.Freeze();
+
+        var composedVisual = new DrawingVisual();
+        using (var dc = composedVisual.RenderOpen())
         {
             dc.DrawRectangle(backgroundBrush, null, new Rect(0, 0, width, height));
-            dc.DrawRectangle(new VisualBrush(root), null, new Rect(0, 0, width, height));
+            dc.DrawImage(contentBitmap, new Rect(0, 0, width, height));
         }
 
-        var bitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, 96, 96, PixelFormats.Pbgra32);
-        bitmap.Render(visual);
+        var bitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
+        bitmap.Render(composedVisual);
         bitmap.Freeze();
 
         var opaqueBitmap = new FormatConvertedBitmap(bitmap, PixelFormats.Bgr24, null, 0);
