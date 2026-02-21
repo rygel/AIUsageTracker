@@ -111,7 +111,7 @@ public partial class MainWindow : Window
 
     private async Task SaveWindowPositionAsync()
     {
-        if (!IsLoaded || _agentService == null || !_preferencesLoaded) return;
+        if (!IsLoaded || !_preferencesLoaded) return;
 
         // Only save if position has changed meaningfully
         if (Math.Abs(_preferences.WindowLeft.GetValueOrDefault() - Left) > 1 ||
@@ -119,7 +119,7 @@ public partial class MainWindow : Window
         {
             _preferences.WindowLeft = Left;
             _preferences.WindowTop = Top;
-            await _agentService.SavePreferencesAsync(_preferences);
+            await SaveUiPreferencesAsync();
         }
     }
 
@@ -131,6 +131,17 @@ public partial class MainWindow : Window
         try
         {
             _isLoading = true;
+
+            if (!_preferencesLoaded)
+            {
+                _preferences = await UiPreferencesStore.LoadAsync();
+                App.Preferences = _preferences;
+                _isPrivacyMode = _preferences.IsPrivacyMode;
+                App.SetPrivacyMode(_isPrivacyMode);
+                _preferencesLoaded = true;
+                ApplyPreferences();
+            }
+
             ShowStatus("Checking agent status...", StatusType.Info);
 
             // Offload the expensive discovery/startup logic to a background thread
@@ -169,16 +180,6 @@ public partial class MainWindow : Window
                             return false;
                         }
                     }
-
-                    // Load preferences on background thread
-                    var prefs = await _agentService.GetPreferencesAsync();
-                    Dispatcher.Invoke(() => {
-                        _preferences = prefs;
-                        _isPrivacyMode = _preferences.IsPrivacyMode;
-                        App.SetPrivacyMode(_isPrivacyMode);
-                        _preferencesLoaded = true;
-                        ApplyPreferences();
-                    });
 
                     // Update agent toggle button state
                     await UpdateAgentToggleButtonStateAsync();
@@ -284,6 +285,16 @@ public partial class MainWindow : Window
         ShowUsedToggle.IsChecked = _preferences.InvertProgressBar;
         UpdatePrivacyButtonState();
         EnsureAlwaysOnTop();
+    }
+
+    private async Task SaveUiPreferencesAsync()
+    {
+        App.Preferences = _preferences;
+        var saved = await UiPreferencesStore.SaveAsync(_preferences);
+        if (!saved)
+        {
+            Debug.WriteLine("Failed to save Slim UI preferences.");
+        }
     }
 
     private void EnsureAlwaysOnTop()
@@ -614,8 +625,7 @@ public partial class MainWindow : Window
             setCollapsed(newState);
             container.Visibility = newState ? Visibility.Collapsed : Visibility.Visible;
             toggleText.Text = newState ? "▶" : "▼";
-            if (_agentService != null)
-                await _agentService.SavePreferencesAsync(_preferences);
+            await SaveUiPreferencesAsync();
         };
 
         Grid.SetColumn(toggleText, 0);
@@ -649,6 +659,7 @@ public partial class MainWindow : Window
         bool isMissing = usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase);
         bool isConsoleCheck = usage.Description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
         bool isError = usage.Description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
+        bool isUnknown = usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
         bool isAntigravityParent = usage.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase);
 
         // Main Grid Container - single row layout
@@ -660,7 +671,12 @@ public partial class MainWindow : Window
             Tag = usage.ProviderId
         };
 
-        bool shouldHaveProgress = !isAntigravityParent && (usage.RequestsPercentage > 0 || usage.IsQuotaBased) && !isMissing && !isError;
+        bool shouldHaveProgress = usage.IsAvailable &&
+            !isUnknown &&
+            !isAntigravityParent &&
+            (usage.RequestsPercentage > 0 || usage.IsQuotaBased) &&
+            !isMissing &&
+            !isError;
 
         // Background Progress Bar
         var pGrid = new Grid();
@@ -747,7 +763,7 @@ public partial class MainWindow : Window
                     ? "Per-model quotas"
                     : usage.Description;
             }
-            else if (usage.PlanType == PlanType.Coding)
+            else if (!isUnknown && usage.PlanType == PlanType.Coding)
             {
                 var displayUsed = ShowUsedToggle?.IsChecked ?? false;
 
@@ -778,7 +794,7 @@ public partial class MainWindow : Window
                     }
                 }
             }
-            else if (usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
+            else if (!isUnknown && usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
             {
                 var showUsedPercent = ShowUsedToggle?.IsChecked ?? false;
                 var usedPercent = UsageMath.ClampPercent(usage.RequestsPercentage);
@@ -786,7 +802,7 @@ public partial class MainWindow : Window
                     ? $"{usedPercent:F0}% used"
                     : $"{(100.0 - usedPercent):F0}% remaining";
             }
-            else if (usage.IsQuotaBased || usage.PlanType == PlanType.Coding)
+            else if (!isUnknown && (usage.IsQuotaBased || usage.PlanType == PlanType.Coding))
             {
                 // Show used% or remaining% based on toggle
                 // Show used% or remaining% based on toggle (variable renamed to avoid conflict)
@@ -896,34 +912,36 @@ public partial class MainWindow : Window
     private static ProviderUsage CreateAntigravityModelUsage(ProviderUsageDetail detail, ProviderUsage parentUsage)
     {
         var remainingPercent = ParsePercent(detail.Used);
+        var hasRemainingPercent = remainingPercent.HasValue;
+        var effectiveRemaining = remainingPercent ?? 0;
         return new ProviderUsage
         {
             ProviderId = $"antigravity.{detail.Name.ToLowerInvariant().Replace(" ", "-")}",
             ProviderName = $"{GetAntigravityModelDisplayName(detail)} [Antigravity]",
-            RequestsPercentage = remainingPercent,
-            RequestsUsed = 100.0 - remainingPercent,
+            RequestsPercentage = effectiveRemaining,
+            RequestsUsed = 100.0 - effectiveRemaining,
             RequestsAvailable = 100,
             UsageUnit = "Quota %",
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
-            Description = $"{remainingPercent:F0}% Remaining",
+            Description = hasRemainingPercent ? $"{effectiveRemaining:F0}% Remaining" : "Usage unknown",
             NextResetTime = detail.NextResetTime,
             IsAvailable = parentUsage.IsAvailable,
             AuthSource = parentUsage.AuthSource
         };
     }
 
-    private static double ParsePercent(string? value)
+    private static double? ParsePercent(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return 0;
+            return null;
         }
 
         var parsedValue = value.Replace("%", "").Trim();
         return double.TryParse(parsedValue, out var parsed)
             ? Math.Max(0, Math.Min(100, parsed))
-            : 0;
+            : null;
     }
 
     private static string GetAntigravityModelDisplayName(ProviderUsageDetail detail)
@@ -950,11 +968,13 @@ public partial class MainWindow : Window
         // Antigravity detail.Used comes as "80%" which represents REMAINING percentage
         double pctRemaining = 0;
         double pctUsed = 0;
+        var hasPercent = false;
 
         // Try parse percentage
         var valueText = detail.Used?.Replace("%", "").Trim();
         if (double.TryParse(valueText, out double val))
         {
+            hasPercent = true;
             pctRemaining = val; // Antigravity sends Remaining % in this field
             pctUsed = Math.Max(0, 100 - pctRemaining);
         }
@@ -962,7 +982,9 @@ public partial class MainWindow : Window
         // Determine display values based on toggle
         bool showUsed = ShowUsedToggle?.IsChecked ?? false;
         double displayPct = showUsed ? pctUsed : pctRemaining;
-        string displayStr = $"{displayPct:F0}%";
+        string displayStr = hasPercent
+            ? $"{displayPct:F0}%"
+            : (string.IsNullOrWhiteSpace(detail.Used) ? "Unknown" : detail.Used);
 
         // Calculate Bar Width (normalized to 0-100)
         double indicatorWidth = Math.Max(0, Math.Min(100, displayPct));
@@ -979,7 +1001,10 @@ public partial class MainWindow : Window
             CornerRadius = new CornerRadius(0)
         };
         pGrid.Children.Add(fill);
-        grid.Children.Add(pGrid);
+        if (hasPercent)
+        {
+            grid.Children.Add(pGrid);
+        }
 
         // Content Overlay
         var bulletPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
@@ -1482,11 +1507,7 @@ public partial class MainWindow : Window
         var newPrivacyMode = !_isPrivacyMode;
         _preferences.IsPrivacyMode = newPrivacyMode;
         App.SetPrivacyMode(newPrivacyMode);
-
-        if (_agentService != null)
-        {
-            await _agentService.SavePreferencesAsync(_preferences);
-        }
+        await SaveUiPreferencesAsync();
     }
 
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
@@ -1504,8 +1525,7 @@ public partial class MainWindow : Window
         {
             EnsureAlwaysOnTop();
         }
-        if (_agentService != null)
-            await _agentService.SavePreferencesAsync(_preferences);
+        await SaveUiPreferencesAsync();
     }
 
     private async void Compact_Checked(object sender, RoutedEventArgs e)
@@ -1519,8 +1539,7 @@ public partial class MainWindow : Window
         if (!IsLoaded) return;
 
         _preferences.InvertProgressBar = ShowUsedToggle.IsChecked ?? false;
-        if (_agentService != null)
-            await _agentService.SavePreferencesAsync(_preferences);
+        await SaveUiPreferencesAsync();
 
         // Refresh the display to show used% vs remaining%
         RenderProviders();

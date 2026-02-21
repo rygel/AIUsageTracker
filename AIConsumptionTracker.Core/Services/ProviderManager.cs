@@ -254,9 +254,10 @@ public class ProviderManager : IDisposable
         { 
             ProviderId = config.ProviderId, 
             ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(config.ProviderId.Replace("-", " ")),
-            Description = "Connected (Generic)",
+            Description = "Usage unknown (provider integration missing)",
             RequestsPercentage = 0,
-            UsageUnit = "USD",
+            IsAvailable = false,
+            UsageUnit = "Status",
             IsQuotaBased = isQuotaFallback,
             PlanType = planTypeFallback
         };

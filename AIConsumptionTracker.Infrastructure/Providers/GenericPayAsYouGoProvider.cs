@@ -293,6 +293,29 @@ public class GenericPayAsYouGoProvider : IProviderService
              }
         }
 
+        var name = config.ProviderId;
+        if (name == "generic-pay-as-you-go") name = new Uri(url).Host;
+
+        if (total <= 0)
+        {
+            return new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = config.ProviderId,
+                    ProviderName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace("-", " ").Replace(".", " ")),
+                    RequestsPercentage = 0,
+                    RequestsUsed = used,
+                    RequestsAvailable = total,
+                    PlanType = paymentType,
+                    UsageUnit = "Credits",
+                    IsQuotaBased = paymentType == PlanType.Coding,
+                    IsAvailable = false,
+                    Description = "Usage unknown (missing quota totals)"
+                }
+            };
+        }
+
         // ===================================================================
         // ⚠️  AI ASSISTANTS: DO NOT MODIFY THIS LOGIC WITHOUT DEVELOPER APPROVAL
         // ===================================================================
@@ -306,11 +329,8 @@ public class GenericPayAsYouGoProvider : IProviderService
         // For quota-based providers, show remaining percentage (full bar = lots remaining, empty = depleted)
         // For other providers, show used percentage (full bar = high usage)
         var utilization = paymentType == PlanType.Coding
-            ? (total > 0 ? ((total - used) / total) * 100.0 : 100)  // Remaining % for quota (full = good)
-            : (total > 0 ? (used / total) * 100.0 : 0);              // Used % for others
-
-        var name = config.ProviderId;
-        if (name == "generic-pay-as-you-go") name = new Uri(url).Host;
+            ? ((total - used) / total) * 100.0
+            : (used / total) * 100.0;
 
         string resetStr = "";
         DateTime? nextResetTime = null;
@@ -456,4 +476,3 @@ public class GenericPayAsYouGoProvider : IProviderService
     // Basic map for generic/Anthropic style where 'cost' or 'amount' is top level or in data
     // For now we just return 0 if unknown format to enable "Connected" status at least if 200 OK.
 }
-

@@ -48,7 +48,7 @@ public partial class App : Application
 
         base.OnStartup(e);
         
-        // Load preferences from Agent
+        // Load UI preferences from local Slim storage
         _ = LoadPreferencesAsync();
         
         // Create tray icon
@@ -137,7 +137,9 @@ public partial class App : Application
                 continue;
             }
 
-            if (config.ShowInTray)
+            if (config.ShowInTray &&
+                usage.IsAvailable &&
+                !usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
             {
                 var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                 desiredIcons[config.ProviderId] = ($"{usage.ProviderName}: {usage.Description}", usage.RequestsPercentage, isQuota);
@@ -157,11 +159,16 @@ public partial class App : Application
                 }
 
                 var detailPercent = ParsePercent(detail.Used);
+                if (!detailPercent.HasValue)
+                {
+                    continue;
+                }
+
                 var key = $"{config.ProviderId}:{subName}";
                 var isQuotaSub = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                 desiredIcons[key] = (
                     $"{usage.ProviderName} - {subName}: {detail.Description} ({detail.Used})",
-                    detailPercent,
+                    detailPercent.Value,
                     isQuotaSub
                 );
             }
@@ -205,17 +212,17 @@ public partial class App : Application
         }
     }
 
-    private static double ParsePercent(string? value)
+    private static double? ParsePercent(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return 0;
+            return null;
         }
 
         var parsedValue = value.Replace("%", string.Empty).Trim();
         return double.TryParse(parsedValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
             ? Math.Max(0, Math.Min(100, parsed))
-            : 0;
+            : null;
     }
 
     private static ImageSource GenerateUsageIcon(double percentage, int yellowThreshold, int redThreshold, bool invert = false, bool isQuota = false)
@@ -272,7 +279,7 @@ public partial class App : Application
     {
         try
         {
-            Preferences = await AgentService.GetPreferencesAsync();
+            Preferences = await UiPreferencesStore.LoadAsync();
             IsPrivacyMode = Preferences.IsPrivacyMode;
         }
         catch

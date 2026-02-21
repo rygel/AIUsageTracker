@@ -421,9 +421,10 @@ Users can customize the visual thresholds via settings:
 5. **Inverted Flag**: Only affects visual bar direction, NEVER color determination
 
 6. **Use Real API Data**: 
-   - **NEVER** hardcode assumptions about provider behavior (e.g., reset times, billing cycles)
-   - **ALWAYS** use actual data returned by the provider's API
-   - If the API does not provide certain information (e.g., reset time), set `NextResetTime = null` and do not display it
+    - **NEVER** hardcode assumptions about provider behavior (e.g., reset times, billing cycles)
+    - **ALWAYS** use actual data returned by the provider's API
+    - If usage metrics are missing/invalid, return an explicit unknown/unavailable state instead of synthesizing `0%` or `100%`
+    - If the API does not provide certain information (e.g., reset time), set `NextResetTime = null` and do not display it
    - Examples of what NOT to do:
      - Do NOT assume all providers reset at UTC midnight
      - Do NOT assume fixed billing cycles (e.g., monthly from signup)
@@ -865,6 +866,8 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 - On startup: Fetches cached data immediately from `/api/usage`
 - Status shows last refresh time (e.g., "14:32:15")
 - Refresh button triggers `/api/refresh` and updates display
+- UI preferences are stored locally by Slim in `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim\preferences.json`
+- Agent is not the source of truth for Slim UI preferences (window position, topmost, fonts, privacy toggle, and UI layout options)
 - Window position persistence: stores `WindowLeft`/`WindowTop` on move/resize and restores/clamps position on startup after preferences are loaded
 - Always-on-top reliability: when enabled, Slim reasserts topmost state on activation/tray restore to avoid occasional z-order drops
 - On startup (non-blocking): starts a NetSparkle (`NetSparkleUpdater.SparkleUpdater`) update check against architecture-specific appcast feeds
@@ -880,6 +883,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 - [ ] First refresh happens only after the configured interval
 - [ ] Manual refresh via `/api/refresh` works correctly
 - [ ] Database retains data across Agent restarts
+- [ ] Slim UI preferences persist when Agent is unavailable
 - [ ] Window position restores correctly across restarts without being overwritten during initialization
 - [ ] Always-on-top remains effective after tray show/hide and focus transitions
 - [ ] Slim startup and periodic update checks do not block usage loading
@@ -983,6 +987,12 @@ The Agent HTTP API contract is defined in:
 - `AIConsumptionTracker.Agent/openapi.yaml`
 
 This OpenAPI document is the contract between the Agent and all consuming applications (Slim UI, Desktop UI, Web UI, and CLI).
+
+### Preferences Ownership Rule
+
+- Agent API is for provider/model data and related operations.
+- UI preferences (window location, topmost, fonts, privacy/UI toggles, layout state) are owned by each UI client and stored locally.
+- `GET/POST /api/preferences` are legacy endpoints and are deprecated for backward compatibility only; new UI work must not depend on them.
 
 ### Contract Maintenance Rule (MANDATORY)
 

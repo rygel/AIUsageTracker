@@ -182,20 +182,30 @@ app.MapDelete("/api/config/{providerId}", async (string providerId, ConfigServic
     return Results.Ok(new { message = "Config removed" });
 });
 
-// Preferences endpoints
-app.MapGet("/api/preferences", async (ConfigService configService) =>
+// Preferences endpoints (deprecated: legacy compatibility only)
+const string preferencesApiDeprecationMessage =
+    "/api/preferences is deprecated and reserved for legacy clients; UI preferences must be managed locally by each UI.";
+const string preferencesApiSunsetDate = "Wed, 31 Dec 2026 00:00:00 GMT";
+
+app.MapGet("/api/preferences", async (HttpContext httpContext, ConfigService configService) =>
 {
     if (isDebugMode) Console.WriteLine($"[API] GET /api/preferences - {DateTime.Now:HH:mm:ss}");
+    httpContext.Response.Headers.Append("Deprecation", "true");
+    httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
     var prefs = await configService.GetPreferencesAsync();
     return Results.Ok(prefs);
-});
+})
+.WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
 
-app.MapPost("/api/preferences", async (AppPreferences preferences, ConfigService configService) =>
+app.MapPost("/api/preferences", async (HttpContext httpContext, AppPreferences preferences, ConfigService configService) =>
 {
     if (isDebugMode) Console.WriteLine($"[API] POST /api/preferences - {DateTime.Now:HH:mm:ss}");
+    httpContext.Response.Headers.Append("Deprecation", "true");
+    httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
     await configService.SavePreferencesAsync(preferences);
     return Results.Ok(new { message = "Preferences saved" });
-});
+})
+.WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
 
 // Scan for keys endpoint
 app.MapPost("/api/scan-keys", async ([FromServices] ConfigService configService, [FromServices] ProviderRefreshService refreshService) =>

@@ -31,8 +31,7 @@ public class GitHubCopilotProvider : IProviderService
             IsAvailable = true,
             Description = "Authenticated",
             Username = "User",
-            PlanName = string.Empty,
-            ResetTime = GetNextCopilotMonthlyResetLocal()
+            PlanName = string.Empty
         };
 
         try
@@ -234,6 +233,13 @@ public class GitHubCopilotProvider : IProviderService
                 state.CostLimit = limit;
                 state.CostUsed = used;
                 state.Percentage = UsageMath.CalculateRemainingPercent(used, limit);
+
+                if (core.TryGetProperty("reset", out var resetProp) &&
+                    resetProp.ValueKind == System.Text.Json.JsonValueKind.Number &&
+                    resetProp.TryGetInt64(out var resetEpochSeconds))
+                {
+                    state.ResetTime = DateTimeOffset.FromUnixTimeSeconds(resetEpochSeconds).LocalDateTime;
+                }
             }
         }
         catch
@@ -300,13 +306,6 @@ public class GitHubCopilotProvider : IProviderService
             IsQuotaBased = true,
             PlanType = PlanType.Coding
         };
-    }
-
-    private static DateTime GetNextCopilotMonthlyResetLocal()
-    {
-        var utcNow = DateTime.UtcNow;
-        var nextResetUtc = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc).AddMonths(1);
-        return nextResetUtc.ToLocalTime();
     }
 
     private static string NormalizeCopilotPlanName(string plan)

@@ -78,19 +78,8 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
 
                         if (anyResetPassed)
                         {
-                            _logger.LogDebug("Antigravity reset time passed, showing full bar");
-                            // Keep cache but show 0% used (100% remaining) - quota refilled
-                            var refilledDetails = _cachedUsage.Details?
-                                .Select(d => new ProviderUsageDetail
-                                {
-                                    Name = d.Name,
-                                    Used = "0%",
-                                    Description = "Refilled",
-                                    NextResetTime = null // Clear reset time since it passed
-                                })
-                                .ToList();
-
-                            description += " (Quota refilled)";
+                            _logger.LogDebug("Antigravity reset time passed while offline; status is unknown until reconnect");
+                            description += " (Status unknown until next Antigravity refresh)";
 
                             return new[] { new ProviderUsage
                             {
@@ -100,7 +89,7 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                                 RequestsPercentage = 0,
                                 RequestsUsed = 0,
                                 RequestsAvailable = _cachedUsage.RequestsAvailable,
-                                Details = refilledDetails,
+                                Details = null,
                                 AccountName = _cachedUsage.AccountName,
                                 Description = description,
                                 IsQuotaBased = true,
@@ -424,11 +413,16 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
         var configMap = BuildConfigMap(modelConfigs);
 
         var details = new List<ProviderUsageDetail>();
-        var minRemaining = 100.0;
+        double? minRemaining = null;
         foreach (var label in masterModelLabels)
         {
             configMap.TryGetValue(label, out var modelConfig);
             var remainingPct = ResolveRemainingPercentage(label, modelConfig);
+            if (!remainingPct.HasValue)
+            {
+                continue;
+            }
+
             var (resetDescription, nextResetTime) = ResolveResetInfo(modelConfig);
             var modelName = ResolveDisplayModelName(label);
 
@@ -439,16 +433,41 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
                 GroupName = labelToGroup.TryGetValue(label, out var groupName)
                     ? groupName
                     : "Ungrouped Models",
-                Used = $"{remainingPct.ToString("F0", CultureInfo.InvariantCulture)}%",
+                Used = $"{remainingPct.Value.ToString("F0", CultureInfo.InvariantCulture)}%",
                 Description = resetDescription,
                 NextResetTime = nextResetTime
             });
 
-            minRemaining = Math.Min(minRemaining, remainingPct);
+            minRemaining = minRemaining.HasValue
+                ? Math.Min(minRemaining.Value, remainingPct.Value)
+                : remainingPct.Value;
+        }
+
+        if (!minRemaining.HasValue)
+        {
+            _cachedUsage = null;
+            _cacheTimestamp = DateTime.Now;
+            return new List<ProviderUsage>
+            {
+                new ProviderUsage
+                {
+                    ProviderId = ProviderId,
+                    ProviderName = "Antigravity",
+                    IsAvailable = true,
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    UsageUnit = "Quota %",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    Description = "Usage unknown (no model quota data)",
+                    AccountName = data.UserStatus.Email ?? string.Empty
+                }
+            };
         }
 
         var sortedDetails = SortDetails(details);
-        var summary = BuildSummaryUsage(data.UserStatus, sortedDetails, minRemaining);
+        var summary = BuildSummaryUsage(data.UserStatus, sortedDetails, minRemaining.Value);
         ApplySummaryRawNumbers(summary, configMap);
 
         var results = BuildChildUsages(sortedDetails, configMap, config, data.UserStatus.Email ?? string.Empty);
@@ -516,13 +535,12 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
             .ToDictionary(c => c.Label!, c => c);
     }
 
-    private double ResolveRemainingPercentage(string label, ClientModelConfig? modelConfig)
+    private double? ResolveRemainingPercentage(string label, ClientModelConfig? modelConfig)
     {
-        var remainingPct = 100.0;
         if (modelConfig == null)
         {
-            _logger.LogDebug("[Antigravity] Model {Label} not found in config map, defaulting to 100%", label);
-            return remainingPct;
+            _logger.LogDebug("[Antigravity] Model {Label} not found in config map, usage unknown", label);
+            return null;
         }
 
         _logger.LogDebug("[Antigravity] Model {Label}: RemainingFraction={Rem}, TotalRequests={Total}, UsedRequests={Used}",
@@ -533,16 +551,19 @@ namespace AIConsumptionTracker.Infrastructure.Providers;
 
         if (modelConfig.QuotaInfo?.RemainingFraction.HasValue == true)
         {
-            remainingPct = modelConfig.QuotaInfo.RemainingFraction.Value * 100;
+            return Math.Max(0, Math.Min(100, modelConfig.QuotaInfo.RemainingFraction.Value * 100));
         }
-        else if (modelConfig.QuotaInfo?.TotalRequests.HasValue == true && modelConfig.QuotaInfo.TotalRequests > 0)
+
+        if (modelConfig.QuotaInfo?.TotalRequests.HasValue == true && modelConfig.QuotaInfo.TotalRequests > 0)
         {
             var used = modelConfig.QuotaInfo.UsedRequests ?? 0;
             var remaining = Math.Max(0, modelConfig.QuotaInfo.TotalRequests.Value - used);
-            remainingPct = (remaining / (double)modelConfig.QuotaInfo.TotalRequests.Value) * 100;
+            var remainingPct = (remaining / (double)modelConfig.QuotaInfo.TotalRequests.Value) * 100;
+            return Math.Max(0, Math.Min(100, remainingPct));
         }
 
-        return Math.Max(0, Math.Min(100, remainingPct));
+        _logger.LogDebug("[Antigravity] Model {Label} missing quota fields, usage unknown", label);
+        return null;
     }
 
     private static (string Description, DateTime? NextResetTime) ResolveResetInfo(ClientModelConfig? modelConfig)

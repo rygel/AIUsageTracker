@@ -106,12 +106,13 @@ public class ZaiProvider : IProviderService
         _logger.LogDebug("[ZAI] Found token limit: {Found}, mcp limit: {McpFound}",
             tokenLimit != null, mcpLimit != null);
 
-        double remainingPercent = 100;
+        double? remainingPercent = null;
         string detailInfo = "";
         
         // Define variables to hold real values if available, otherwise default to percentage logic
         double finalRequestsAvailable = 100;
         double finalRequestsUsedReal = 0;
+        var hasRawLimitData = false;
 
         if (tokenLimit != null)
         {
@@ -123,26 +124,19 @@ public class ZaiProvider : IProviderService
             {
                 double usedPercent = tokenLimit.Percentage.Value;
                 double remainingPercentVal = 100 - usedPercent;
-                remainingPercent = Math.Min(remainingPercent, remainingPercentVal);
+                remainingPercent = remainingPercent.HasValue
+                    ? Math.Min(remainingPercent.Value, remainingPercentVal)
+                    : remainingPercentVal;
                 detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
                 _logger.LogDebug("[ZAI] Percentage-only mode: {Used}% used, {Remaining}% remaining", usedPercent, remainingPercentVal);
                 
-                finalRequestsUsedReal = 100 - remainingPercent;
+                finalRequestsUsedReal = 100 - remainingPercentVal;
             }
             else
             {
                 double totalVal = tokenLimit.Total ?? 0;
                 double usedVal = tokenLimit.CurrentValue ?? 0;
                 double remainingVal = tokenLimit.Remaining ?? (totalVal - usedVal);
-
-                double remainingPercentVal = (totalVal > 0
-                    ? (remainingVal / totalVal) * 100.0
-                    : 100);
-
-                _logger.LogDebug("[ZAI] Calculation: Remaining={RemainingVal} / Total={TotalVal} = {Percent}%",
-                    remainingVal, totalVal, remainingPercentVal);
-
-                remainingPercent = Math.Min(remainingPercent, remainingPercentVal);
 
                 if (tokenLimit.Total > 50000000) {
                      planDescription = "Coding Plan (Ultra/Enterprise)";
@@ -152,16 +146,35 @@ public class ZaiProvider : IProviderService
 
                 if (totalVal > 0)
                 {
-                     // Expose raw values for UI to display "X / Y used"
-                     finalRequestsAvailable = totalVal;
-                     finalRequestsUsedReal = usedVal;
+                    double remainingPercentVal = (remainingVal / totalVal) * 100.0;
+
+                    _logger.LogDebug("[ZAI] Calculation: Remaining={RemainingVal} / Total={TotalVal} = {Percent}%",
+                        remainingVal, totalVal, remainingPercentVal);
+
+                    remainingPercent = remainingPercent.HasValue
+                        ? Math.Min(remainingPercent.Value, remainingPercentVal)
+                        : remainingPercentVal;
+
+                    // Expose raw values for UI to display "X / Y used"
+                    finalRequestsAvailable = totalVal;
+                    finalRequestsUsedReal = usedVal;
+                    hasRawLimitData = true;
+                    detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit";
+                }
+                else if (tokenLimit.Percentage.HasValue)
+                {
+                    double usedPercent = tokenLimit.Percentage.Value;
+                    double remainingPercentVal = 100 - usedPercent;
+                    remainingPercent = remainingPercent.HasValue
+                        ? Math.Min(remainingPercent.Value, remainingPercentVal)
+                        : remainingPercentVal;
+                    detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
+                    finalRequestsUsedReal = 100 - remainingPercentVal;
                 }
                 else
                 {
-                     finalRequestsUsedReal = 100 - remainingPercent;
+                    _logger.LogDebug("[ZAI] Token limit missing usable quota metrics; usage unknown");
                 }
-
-                detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining of {(totalVal / 1000000.0).ToString("F0", CultureInfo.InvariantCulture)}M tokens limit";
             }
         }
 
@@ -169,7 +182,9 @@ public class ZaiProvider : IProviderService
         {
             _logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpLimit.Percentage);
             double mcpRemainingPercent = Math.Max(0, 100 - mcpLimit.Percentage.Value);
-            remainingPercent = Math.Min(remainingPercent, mcpRemainingPercent);
+            remainingPercent = remainingPercent.HasValue
+                ? Math.Min(remainingPercent.Value, mcpRemainingPercent)
+                : mcpRemainingPercent;
             _logger.LogDebug("[ZAI] MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
         }
 
@@ -203,15 +218,28 @@ public class ZaiProvider : IProviderService
             resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
         }
 
-        var finalRequestsPercentage = Math.Min(remainingPercent, 100);
-        
-        // Final fallback if not set above (e.g. if tokenLimit was null)
-        if (tokenLimit == null)
+        if (!remainingPercent.HasValue)
         {
-            finalRequestsUsedReal = 100 - finalRequestsPercentage;
+            return new[] { new ProviderUsage
+            {
+                ProviderId = ProviderId,
+                ProviderName = $"Z.AI {planDescription}",
+                IsAvailable = false,
+                Description = "Usage unknown (missing quota metrics)",
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding
+            }};
         }
 
-        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{remainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : detailInfo) + resetStr;
+        var finalRequestsPercentage = Math.Min(remainingPercent.Value, 100);
+
+        if (!hasRawLimitData)
+        {
+            finalRequestsAvailable = 100;
+            finalRequestsUsedReal = Math.Max(0, 100 - finalRequestsPercentage);
+        }
+
+        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{finalRequestsPercentage.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : detailInfo) + resetStr;
 
         _logger.LogInformation("Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, RequestsPercentage: {RequestsPercentage}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
             ProviderId, $"Z.AI {planDescription}", finalRequestsPercentage, finalRequestsUsedReal, finalDescription, true);
@@ -266,4 +294,3 @@ public class ZaiProvider : IProviderService
         public long? NextResetTime { get; set; }
     }
 }
-

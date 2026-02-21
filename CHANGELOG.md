@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-02-21
+
+### Added
+- Slim UI now persists window/layout/font/privacy preferences locally in `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim\preferences.json` (with legacy `auth.json` migration fallback).
+
+### Changed
+- Agent `/api/preferences` is now explicitly legacy/deprecated (OpenAPI `deprecated: true` + runtime `Deprecation`/`Sunset` headers).
+- Usage fallback behavior now prefers explicit unknown/unavailable states when real quota metrics are missing, instead of synthetic percentages.
+
+### Fixed
+- Antigravity reset/offline fallback now reports unknown status until next refresh instead of fabricated refill percentages.
+- Slim usage cards/tray icons now avoid rendering progress percentages for unknown/unavailable provider states.
+
 ## [2.0.9] - 2026-02-21
 
 ### Added

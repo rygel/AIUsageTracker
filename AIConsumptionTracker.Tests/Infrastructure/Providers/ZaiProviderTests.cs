@@ -139,7 +139,7 @@ public class ZaiProviderTests
     }
 
     [Fact]
-    public async Task GetUsageAsync_NullTotalValue_HandlesGracefully()
+    public async Task GetUsageAsync_NullTotalValue_ReturnsUnknownUsage()
     {
         // Arrange
         var config = new ProviderConfig { ProviderId = "zai-coding-plan", ApiKey = "test-key" };
@@ -176,12 +176,12 @@ public class ZaiProviderTests
                 Content = new StringContent(responseContent)
             });
 
-        // Act & Assert - Should not throw exception
+        // Act
         var result = await _provider.GetUsageAsync(config);
 
         var usage = result.Single();
-        Assert.True(usage.IsAvailable);
-        Assert.Equal(100, usage.RequestsPercentage); // 100% remaining when Total is null (treated as 0 limit)
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("Usage unknown", usage.Description);
     }
 
     [Fact]

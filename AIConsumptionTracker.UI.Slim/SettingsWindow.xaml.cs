@@ -39,7 +39,8 @@ public partial class SettingsWindow : Window
     {
         _configs = await _agentService.GetConfigsAsync();
         _usages = await _agentService.GetUsageAsync();
-        _preferences = await _agentService.GetPreferencesAsync();
+        _preferences = await UiPreferencesStore.LoadAsync();
+        App.Preferences = _preferences;
         _isPrivacyMode = _preferences.IsPrivacyMode;
         App.SetPrivacyMode(_isPrivacyMode);
         UpdatePrivacyButtonState();
@@ -496,6 +497,26 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private async Task<bool> SaveUiPreferencesAsync(bool showErrorDialog = false)
+    {
+        App.Preferences = _preferences;
+        var saved = await UiPreferencesStore.SaveAsync(_preferences);
+        if (!saved)
+        {
+            Debug.WriteLine("Failed to save Slim UI preferences.");
+            if (showErrorDialog)
+            {
+                MessageBox.Show(
+                    "Failed to save Slim UI preferences.",
+                    "Save Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+        }
+
+        return saved;
+    }
+
     private FrameworkElement CreateProviderIcon(string providerId)
     {
         // Map to SVG or create fallback
@@ -742,7 +763,7 @@ public partial class SettingsWindow : Window
         var newPrivacyMode = !_isPrivacyMode;
         _preferences.IsPrivacyMode = newPrivacyMode;
         App.SetPrivacyMode(newPrivacyMode);
-        await _agentService.SavePreferencesAsync(_preferences);
+        await SaveUiPreferencesAsync();
         SettingsChanged = true;
     }
 
@@ -873,6 +894,12 @@ public partial class SettingsWindow : Window
         _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
         _preferences.IsPrivacyMode = _isPrivacyMode;
 
+        var prefsSaved = await SaveUiPreferencesAsync(showErrorDialog: true);
+        if (!prefsSaved)
+        {
+            return;
+        }
+
         var failedConfigs = new List<string>();
         foreach (var config in _configs)
         {
@@ -887,17 +914,6 @@ public partial class SettingsWindow : Window
         {
             MessageBox.Show(
                 $"Failed to save provider settings for: {string.Join(", ", failedConfigs)}",
-                "Save Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            return;
-        }
-
-        var prefsSaved = await _agentService.SavePreferencesAsync(_preferences);
-        if (!prefsSaved)
-        {
-            MessageBox.Show(
-                "Failed to save preferences.",
                 "Save Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);

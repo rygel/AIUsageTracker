@@ -61,6 +61,53 @@ public class AntigravityProviderTests
     }
 
     [Fact]
+    public async Task GetUsageAsync_WhenCachedResetPassedAndOffline_ReturnsUnknownStatus()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "antigravity", ApiKey = "" };
+        var cachedUsage = new ProviderUsage
+        {
+            ProviderId = "antigravity",
+            ProviderName = "Antigravity",
+            IsAvailable = true,
+            RequestsPercentage = 35,
+            RequestsUsed = 65,
+            RequestsAvailable = 100,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            Description = "35% Remaining",
+            Details = new List<ProviderUsageDetail>
+            {
+                new()
+                {
+                    Name = "gpt-4.1",
+                    Used = "35%",
+                    NextResetTime = DateTime.Now.AddMinutes(-5)
+                }
+            }
+        };
+
+        typeof(AntigravityProvider).GetField("_cachedUsage", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, cachedUsage);
+        typeof(AntigravityProvider).GetField("_cacheTimestamp", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, DateTime.Now.AddMinutes(-10));
+        typeof(AntigravityProvider).GetField("_cachedProcessInfos", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, new List<(int Pid, string Token, int? Port)>());
+        typeof(AntigravityProvider).GetField("_lastProcessCheck", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(_provider, DateTime.Now);
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+        var usage = Assert.Single(result);
+
+        // Assert
+        Assert.Contains("Status unknown", usage.Description);
+        Assert.Null(usage.Details);
+        Assert.Equal(0, usage.RequestsPercentage);
+        Assert.Equal(0, usage.RequestsUsed);
+    }
+
+    [Fact]
     public async Task FetchUsage_SnapshotPayload_ParsesGroupsAndModelsConsistently()
     {
         // Arrange
@@ -114,7 +161,7 @@ public class AntigravityProviderTests
     }
 
     [Fact]
-    public async Task FetchUsage_MissingQuotaInfo_DefaultsToFullRemaining()
+    public async Task FetchUsage_MissingQuotaInfo_ReturnsUnknownUsage()
     {
         // Arrange
         var snapshotJson = """
@@ -177,19 +224,9 @@ public class AntigravityProviderTests
         var summary = usages.First();
 
         // Assert
-        Assert.Equal(100.0, summary.RequestsPercentage);
-        var details = summary.Details!;
-        var gemini3 = Assert.Single(details, d => d.Name == "gemini-3-pro");
-        var gemini31 = Assert.Single(details, d => d.Name == "gemini-3.1-pro");
-        Assert.Equal("100%", gemini3.Used);
-        Assert.Equal("100%", gemini31.Used);
-
-        var gemini3Child = Assert.Single(usages, u => u.ProviderId == "antigravity.gemini-3-pro");
-        var gemini31Child = Assert.Single(usages, u => u.ProviderId == "antigravity.gemini-3.1-pro");
-        Assert.Equal(100.0, gemini3Child.RequestsPercentage);
-        Assert.Equal(0.0, gemini3Child.RequestsUsed);
-        Assert.Equal(100.0, gemini31Child.RequestsPercentage);
-        Assert.Equal(0.0, gemini31Child.RequestsUsed);
+        Assert.Contains("Usage unknown", summary.Description);
+        Assert.True(summary.Details == null || !summary.Details.Any());
+        Assert.Single(usages);
     }
 
     [Fact]
