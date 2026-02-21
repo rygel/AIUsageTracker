@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.1.3] - 2026-02-21
+
+### Changed
+- CI workflows are now faster and more focused with parallelized test shards, path-scoped heavy checks, and a docs-only validation lane.
+- Screenshot and release validation lanes now avoid redundant setup/build work and upload heavy artifacts only on failures.
+
+### Fixed
+- Added retry + quarantine governance for flaky tests, including metadata/expiry validation and slow-test visibility in CI reports.
+
 ## [2.1.2] - 2026-02-21
 
 ### Fixed
