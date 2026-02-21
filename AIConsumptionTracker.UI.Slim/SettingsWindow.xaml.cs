@@ -19,6 +19,7 @@ public partial class SettingsWindow : Window
     private List<ProviderUsage> _usages = new();
     private AppPreferences _preferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
+    private bool _isDeterministicScreenshotMode;
 
     public bool SettingsChanged { get; private set; }
 
@@ -39,6 +40,7 @@ public partial class SettingsWindow : Window
 
     private async Task LoadDataAsync()
     {
+        _isDeterministicScreenshotMode = false;
         _configs = await _agentService.GetConfigsAsync();
         _usages = await _agentService.GetUsageAsync();
         _preferences = await UiPreferencesStore.LoadAsync();
@@ -109,6 +111,7 @@ public partial class SettingsWindow : Window
 
     private void PrepareDeterministicScreenshotData()
     {
+        _isDeterministicScreenshotMode = true;
         _preferences = new AppPreferences
         {
             AlwaysOnTop = true,
@@ -336,6 +339,14 @@ public partial class SettingsWindow : Window
     {
         if (AgentLogsText == null)
         {
+            return;
+        }
+
+        if (_isDeterministicScreenshotMode)
+        {
+            AgentLogsText.Text = "Agent health check: OK" + Environment.NewLine +
+                                 "Diagnostics available in Settings > Agent.";
+            AgentLogsText.ScrollToEnd();
             return;
         }
 
