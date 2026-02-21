@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-02-21
+
+### Fixed
+- Slim UI always-on-top handling is now reasserted with native window z-order updates (`SetWindowPos`) to prevent occasional backgrounding even when `Top` is enabled.
+- Slim window show/activation and visibility hooks now reapply topmost state more reliably after tray restore/focus transitions.
+- Slim Settings window is now opened as an owned centered window to keep stacking behavior consistent with the main Slim window.
+
 ## [2.1.1] - 2026-02-21
 
 ### Fixed

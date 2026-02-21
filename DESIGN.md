@@ -869,7 +869,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 - UI preferences are stored locally by Slim in `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim\preferences.json`
 - Agent is not the source of truth for Slim UI preferences (window position, topmost, fonts, privacy toggle, and UI layout options)
 - Window position persistence: stores `WindowLeft`/`WindowTop` on move/resize and restores/clamps position on startup after preferences are loaded
-- Always-on-top reliability: when enabled, Slim reasserts topmost state on activation/tray restore to avoid occasional z-order drops
+- Always-on-top reliability: when enabled, Slim reasserts native topmost z-order (`SetWindowPos`) on activation/tray restore/visibility changes to avoid occasional backgrounding
 - On startup (non-blocking): starts a NetSparkle (`NetSparkleUpdater.SparkleUpdater`) update check against architecture-specific appcast feeds
 - Periodic update check: re-checks for updates every 15 minutes while the app is running
 - When update is available: shows `UpdateNotificationBanner` with the target version

@@ -1,12 +1,14 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -47,6 +49,23 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _updateCheckTimer;
     private UpdateInfo? _latestUpdate;
     private bool _preferencesLoaded;
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private static readonly IntPtr HwndNoTopmost = new(-2);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoOwnerZOrder = 0x0200;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
 
     public MainWindow()
     {
@@ -88,6 +107,13 @@ public partial class MainWindow : Window
         StateChanged += (s, e) =>
         {
             if (WindowState == WindowState.Normal)
+            {
+                EnsureAlwaysOnTop();
+            }
+        };
+        IsVisibleChanged += (s, e) =>
+        {
+            if (IsVisible)
             {
                 EnsureAlwaysOnTop();
             }
@@ -304,22 +330,32 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (!Topmost)
+        ApplyTopmostState(true);
+    }
+
+    private void ApplyTopmostState(bool alwaysOnTop)
+    {
+        if (Topmost != alwaysOnTop)
         {
-            Topmost = true;
+            Topmost = alwaysOnTop;
         }
 
-        // Refresh Z-order to avoid occasional topmost drop after hide/show or focus transitions.
-        Topmost = false;
-        Topmost = true;
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var insertAfter = alwaysOnTop ? HwndTopmost : HwndNoTopmost;
+        _ = SetWindowPos(handle, insertAfter, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
     }
 
     public void ShowAndActivate()
     {
         Show();
         WindowState = WindowState.Normal;
-        EnsureAlwaysOnTop();
         Activate();
+        EnsureAlwaysOnTop();
     }
 
     private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
@@ -1379,6 +1415,8 @@ public partial class MainWindow : Window
     private void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {
         var settingsWindow = new SettingsWindow();
+        settingsWindow.Owner = this;
+        settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
         // Handle non-modal window closed event
         settingsWindow.Closed += async (s, args) =>
@@ -1528,10 +1566,13 @@ public partial class MainWindow : Window
         if (!IsLoaded) return;
 
         _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
-        this.Topmost = _preferences.AlwaysOnTop;
         if (_preferences.AlwaysOnTop)
         {
             EnsureAlwaysOnTop();
+        }
+        else
+        {
+            ApplyTopmostState(false);
         }
         await SaveUiPreferencesAsync();
     }
