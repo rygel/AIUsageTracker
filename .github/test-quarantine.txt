@@ -1,4 +1,5 @@
-# Fully qualified test names to exclude from CI runs temporarily.
-# One test per line.
+# Temporarily excluded tests for CI reliability.
+# Format:
+# Fully.Qualified.Test.Name|owner=<team-or-user>|expires=YYYY-MM-DD|reason=<short note>
 # Example:
-# AIConsumptionTracker.Tests.Infrastructure.SomeTests.FlakyCase_ShouldBeQuarantined
+# AIConsumptionTracker.Tests.Infrastructure.SomeTests.FlakyCase_ShouldBeQuarantined|owner=@dev-infra|expires=2026-03-31|reason=Intermittent timeout on windows-latest

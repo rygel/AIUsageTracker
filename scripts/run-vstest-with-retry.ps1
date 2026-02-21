@@ -34,6 +34,12 @@ if (Test-Path -LiteralPath $QuarantineFile) {
     $quarantinedTests = Get-Content -LiteralPath $QuarantineFile |
         ForEach-Object { $_.Trim() } |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and -not $_.StartsWith("#", [System.StringComparison]::Ordinal) }
+        ForEach-Object {
+            $parts = $_ -split "\|"
+            $parts[0].Trim()
+        } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -Unique
 
     if ($quarantinedTests.Count -gt 0) {
         $testCaseFilter = ($quarantinedTests | ForEach-Object { "FullyQualifiedName!=$_" }) -join "&"

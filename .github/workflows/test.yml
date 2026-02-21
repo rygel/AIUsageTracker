@@ -46,6 +46,10 @@ jobs:
         dotnet build AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --no-restore
         dotnet build AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj --configuration Debug --no-restore
 
+    - name: Validate test quarantine entries
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
+      shell: pwsh
+
     - name: Verify Formatting
       # NOTE: .editorconfig configures Roslyn analyzers
       # dotnet format --verify-no-changes checks formatting but only works if analyzers are enabled
@@ -70,11 +74,6 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-
     - name: Download built test binaries
       uses: actions/download-artifact@v4
       with:
@@ -101,11 +100,6 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
-
     - name: Download built test binaries
       uses: actions/download-artifact@v4
       with:
