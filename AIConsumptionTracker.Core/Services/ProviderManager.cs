@@ -57,7 +57,10 @@ public class ProviderManager : IDisposable
         }
     }
 
-    public async Task<List<ProviderUsage>> GetAllUsageAsync(bool forceRefresh = true, Action<ProviderUsage>? progressCallback = null)
+    public async Task<List<ProviderUsage>> GetAllUsageAsync(
+        bool forceRefresh = true,
+        Action<ProviderUsage>? progressCallback = null,
+        IReadOnlyCollection<string>? includeProviderIds = null)
     {
         await _refreshSemaphore.WaitAsync();
         var semaphoreReleased = false;
@@ -79,7 +82,7 @@ public class ProviderManager : IDisposable
                 return _lastUsages;
             }
 
-            _refreshTask = FetchAllUsageInternal(progressCallback);
+            _refreshTask = FetchAllUsageInternal(progressCallback, includeProviderIds);
             var currentTask = _refreshTask;
             _refreshSemaphore.Release();
             semaphoreReleased = true;
@@ -95,7 +98,9 @@ public class ProviderManager : IDisposable
         }
     }
 
-    private async Task<List<ProviderUsage>> FetchAllUsageInternal(Action<ProviderUsage>? progressCallback = null)
+    private async Task<List<ProviderUsage>> FetchAllUsageInternal(
+        Action<ProviderUsage>? progressCallback = null,
+        IReadOnlyCollection<string>? includeProviderIds = null)
     {
         _logger.LogDebug("Starting FetchAllUsageInternal...");
         var configs = (await GetConfigsAsync(forceRefresh: true)).ToList();
@@ -139,6 +144,14 @@ public class ProviderManager : IDisposable
                 Type = "quota-based",
                 PlanType = PlanType.Coding
             });
+        }
+
+        if (includeProviderIds != null && includeProviderIds.Count > 0)
+        {
+            var included = includeProviderIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            configs = configs
+                .Where(c => included.Contains(c.ProviderId))
+                .ToList();
         }
 
         var results = new List<ProviderUsage>();

@@ -79,4 +79,32 @@ public class ProviderManagerTests
         // Assert
         Assert.Contains(result, r => r.ProviderId == "unknown-api" && r.Description == "Generic Fallback");
     }
+
+    [Fact]
+    public async Task GetAllUsageAsync_WhenIncludeProviderIdsProvided_FetchesOnlyIncludedProviders()
+    {
+        // Arrange
+        var providers = new List<IProviderService>
+        {
+            MockProviderService.CreateOpenAIMock(),
+            MockProviderService.CreateGeminiMock()
+        };
+
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "openai" },
+            new ProviderConfig { ProviderId = "gemini" }
+        };
+
+        _mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(configs);
+        var manager = new ProviderManager(providers, _mockConfigLoader.Object, _mockLogger.Object);
+
+        // Act
+        var result = await manager.GetAllUsageAsync(
+            includeProviderIds: new[] { "openai" });
+
+        // Assert
+        Assert.Contains(result, r => r.ProviderId == "openai");
+        Assert.DoesNotContain(result, r => r.ProviderId == "gemini");
+    }
 }
