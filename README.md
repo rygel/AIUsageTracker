@@ -133,6 +133,7 @@ Access the **Settings** menu by right-clicking the tray icon or using the gear i
 Configuration is stored in `auth.json` in the application data directory.
 - **Automatic Backup**: Your previous configuration is preserved during updates.
 - **Secure**: API keys are stored locally.
+- **Optional History Retention**: Set `AI_TRACKER_HISTORY_RETENTION_DAYS` (positive integer) to prune old `provider_history` rows during Agent maintenance; unset/`0` keeps full history.
 
 ## License
 MIT
