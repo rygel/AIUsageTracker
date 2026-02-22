@@ -385,6 +385,7 @@ public partial class MainWindow : Window
             App.SetPrivacyMode(true);
             _preferencesLoaded = true;
             _lastAgentUpdate = new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Local);
+            var deterministicNow = DateTime.Now;
             ApplyPreferences();
             Width = 460;
             Height = 860;
@@ -412,7 +413,8 @@ public partial class MainWindow : Window
                             ModelName = "Claude Opus 4.6 (Thinking)",
                             GroupName = "Recommended Group 1",
                             Used = "60%",
-                            Description = "60% remaining"
+                            Description = "60% remaining",
+                            NextResetTime = deterministicNow.AddHours(10)
                         },
                         new()
                         {
@@ -420,7 +422,8 @@ public partial class MainWindow : Window
                             ModelName = "Claude Sonnet 4.6 (Thinking)",
                             GroupName = "Recommended Group 1",
                             Used = "60%",
-                            Description = "60% remaining"
+                            Description = "60% remaining",
+                            NextResetTime = deterministicNow.AddHours(10)
                         },
                         new()
                         {
@@ -428,7 +431,8 @@ public partial class MainWindow : Window
                             ModelName = "Gemini 3 Flash",
                             GroupName = "Recommended Group 1",
                             Used = "100%",
-                            Description = "100% remaining"
+                            Description = "100% remaining",
+                            NextResetTime = deterministicNow.AddHours(6)
                         },
                         new()
                         {
@@ -436,7 +440,8 @@ public partial class MainWindow : Window
                             ModelName = "Gemini 3.1 Pro (High)",
                             GroupName = "Recommended Group 1",
                             Used = "100%",
-                            Description = "100% remaining"
+                            Description = "100% remaining",
+                            NextResetTime = deterministicNow.AddHours(14)
                         },
                         new()
                         {
@@ -444,7 +449,8 @@ public partial class MainWindow : Window
                             ModelName = "Gemini 3.1 Pro (Low)",
                             GroupName = "Recommended Group 1",
                             Used = "100%",
-                            Description = "100% remaining"
+                            Description = "100% remaining",
+                            NextResetTime = deterministicNow.AddHours(14)
                         },
                         new()
                         {
@@ -452,7 +458,8 @@ public partial class MainWindow : Window
                             ModelName = "GPT-OSS 120B (Medium)",
                             GroupName = "Recommended Group 1",
                             Used = "60%",
-                            Description = "60% remaining"
+                            Description = "60% remaining",
+                            NextResetTime = deterministicNow.AddHours(8)
                         }
                     }
                 },
@@ -468,7 +475,8 @@ public partial class MainWindow : Window
                     RequestsAvailable = 400,
                     Description = "72.5% Remaining",
                     IsAvailable = true,
-                    AuthSource = "oauth"
+                    AuthSource = "oauth",
+                    NextResetTime = deterministicNow.AddHours(20)
                 },
                 new()
                 {
@@ -483,7 +491,7 @@ public partial class MainWindow : Window
                     Description = "82.0% Remaining",
                     IsAvailable = true,
                     AuthSource = "api key",
-                    NextResetTime = new DateTime(2026, 2, 5, 9, 0, 0, DateTimeKind.Local)
+                    NextResetTime = deterministicNow.AddHours(12)
                 },
                 new()
                 {
@@ -498,7 +506,7 @@ public partial class MainWindow : Window
                     Description = "58.0% Remaining",
                     IsAvailable = true,
                     AuthSource = "local credentials",
-                    NextResetTime = new DateTime(2026, 2, 3, 0, 0, 0, DateTimeKind.Local)
+                    NextResetTime = deterministicNow.AddHours(16)
                 },
                 new()
                 {
@@ -513,7 +521,7 @@ public partial class MainWindow : Window
                     Description = "91.0% Remaining",
                     IsAvailable = true,
                     AuthSource = "api key",
-                    NextResetTime = new DateTime(2026, 2, 2, 8, 0, 0, DateTimeKind.Local)
+                    NextResetTime = deterministicNow.AddHours(4)
                 },
                 new()
                 {
@@ -521,10 +529,10 @@ public partial class MainWindow : Window
                     ProviderName = "OpenAI",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    RequestsPercentage = 31.1,
-                    RequestsUsed = 12.45,
-                    RequestsAvailable = 40.00,
-                    Description = "$12.45 / $40.00",
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
                     IsAvailable = true,
                     AuthSource = "api key"
                 },
@@ -534,10 +542,10 @@ public partial class MainWindow : Window
                     ProviderName = "DeepSeek",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    RequestsPercentage = 24.0,
-                    RequestsUsed = 8.40,
-                    RequestsAvailable = 35.00,
-                    Description = "$8.40 / $35.00",
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
                     IsAvailable = true,
                     AuthSource = "api key"
                 },
@@ -547,10 +555,10 @@ public partial class MainWindow : Window
                     ProviderName = "Minimax (International)",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    RequestsPercentage = 43.2,
-                    RequestsUsed = 12.96,
-                    RequestsAvailable = 30.00,
-                    Description = "$12.96 / $30.00",
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
                     IsAvailable = true,
                     AuthSource = "api key"
                 },
@@ -560,10 +568,10 @@ public partial class MainWindow : Window
                     ProviderName = "OpenRouter",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    RequestsPercentage = 16.0,
-                    RequestsUsed = 4.80,
-                    RequestsAvailable = 30.00,
-                    Description = "$4.80 / $30.00",
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
                     IsAvailable = true,
                     AuthSource = "api key"
                 },
@@ -573,10 +581,10 @@ public partial class MainWindow : Window
                     ProviderName = "Mistral",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    RequestsPercentage = 6.7,
-                    RequestsUsed = 1.34,
-                    RequestsAvailable = 20.00,
-                    Description = "$1.34 / $20.00",
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
                     IsAvailable = true,
                     AuthSource = "api key"
                 }

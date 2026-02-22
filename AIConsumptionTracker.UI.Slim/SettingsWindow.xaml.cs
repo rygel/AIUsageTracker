@@ -196,6 +196,7 @@ public partial class SettingsWindow : Window
             CreateConfig("zai-coding-plan", "zai-demo-key", PlanType.Coding, "quota-based", showInTray: true)
         };
 
+        var deterministicNow = DateTime.Now;
         _usages = new List<ProviderUsage>
         {
             new()
@@ -215,7 +216,8 @@ public partial class SettingsWindow : Window
                         ModelName = "Claude Opus 4.6 (Thinking)",
                         GroupName = "Recommended Group 1",
                         Used = "60%",
-                        Description = "60% remaining"
+                        Description = "60% remaining",
+                        NextResetTime = deterministicNow.AddHours(10)
                     },
                     new()
                     {
@@ -223,7 +225,8 @@ public partial class SettingsWindow : Window
                         ModelName = "Claude Sonnet 4.6 (Thinking)",
                         GroupName = "Recommended Group 1",
                         Used = "60%",
-                        Description = "60% remaining"
+                        Description = "60% remaining",
+                        NextResetTime = deterministicNow.AddHours(10)
                     },
                     new()
                     {
@@ -231,7 +234,8 @@ public partial class SettingsWindow : Window
                         ModelName = "Gemini 3 Flash",
                         GroupName = "Recommended Group 1",
                         Used = "100%",
-                        Description = "100% remaining"
+                        Description = "100% remaining",
+                        NextResetTime = deterministicNow.AddHours(6)
                     },
                     new()
                     {
@@ -239,7 +243,8 @@ public partial class SettingsWindow : Window
                         ModelName = "Gemini 3.1 Pro (High)",
                         GroupName = "Recommended Group 1",
                         Used = "100%",
-                        Description = "100% remaining"
+                        Description = "100% remaining",
+                        NextResetTime = deterministicNow.AddHours(14)
                     },
                     new()
                     {
@@ -247,7 +252,8 @@ public partial class SettingsWindow : Window
                         ModelName = "Gemini 3.1 Pro (Low)",
                         GroupName = "Recommended Group 1",
                         Used = "100%",
-                        Description = "100% remaining"
+                        Description = "100% remaining",
+                        NextResetTime = deterministicNow.AddHours(14)
                     },
                     new()
                     {
@@ -255,9 +261,11 @@ public partial class SettingsWindow : Window
                         ModelName = "GPT-OSS 120B (Medium)",
                         GroupName = "Recommended Group 1",
                         Used = "60%",
-                        Description = "60% remaining"
+                        Description = "60% remaining",
+                        NextResetTime = deterministicNow.AddHours(8)
                     }
-                }
+                },
+                NextResetTime = deterministicNow.AddHours(6)
             },
             new()
             {
@@ -266,8 +274,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 20.1,
-                Description = "$18.10 / $90.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -276,8 +286,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 22.4,
-                Description = "$22.40 / $100.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -287,7 +299,8 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 63.0,
-                Description = "63.0% Remaining"
+                Description = "63.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(18)
             },
             new()
             {
@@ -296,8 +309,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 41.6,
-                Description = "$33.25 / $80.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -307,7 +322,8 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 84.0,
-                Description = "84.0% Remaining"
+                Description = "84.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(12)
             },
             new()
             {
@@ -317,7 +333,8 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 72.5,
-                Description = "72.5% Remaining"
+                Description = "72.5% Remaining",
+                NextResetTime = deterministicNow.AddHours(20)
             },
             new()
             {
@@ -327,7 +344,8 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 66.0,
-                Description = "66.0% Remaining"
+                Description = "66.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(9)
             },
             new()
             {
@@ -337,7 +355,8 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 61.0,
-                Description = "61.0% Remaining"
+                Description = "61.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(11)
             },
             new()
             {
@@ -346,8 +365,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 27.8,
-                Description = "$11.10 / $40.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -356,8 +377,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 18.0,
-                Description = "$6.80 / $38.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -366,8 +389,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 31.1,
-                Description = "$12.45 / $40.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -376,8 +401,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 24.0,
-                Description = "$14.00 / $58.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -386,8 +413,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 45.0,
-                Description = "$18.00 / $40.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -396,8 +425,10 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 36.0,
-                Description = "$21.60 / $60.00"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -407,7 +438,8 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 79.0,
-                Description = "79.0% Remaining"
+                Description = "79.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(4)
             },
             new()
             {
@@ -417,7 +449,8 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 88.0,
-                Description = "88.0% Remaining"
+                Description = "88.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(15)
             }
         };
 

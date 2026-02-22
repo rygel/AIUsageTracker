@@ -516,6 +516,10 @@ The reset time is displayed in two ways:
 2. **NextResetTime property**: Set for UI components to use (e.g., tray icon tooltips, detailed views)
 3. **UI relative countdown**: Reset indicators must show explicit time remaining (minutes/hours/days), never ambiguous labels like `"Ready"`
 
+**Deterministic Fixture Rule (Screenshots/Tests):**
+- All **Plans & Quotas** providers and quota submodels must include `NextResetTime` so countdown rendering is always visible.
+- For **Pay As You Go** fixture rows, if real spend values are not being shown from a verified source, display `"Connected"` and avoid synthetic spend/budget numbers.
+
 ---
 
 ### Provider Payment Type Requirements
