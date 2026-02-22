@@ -1,6 +1,6 @@
-# AIConsumptionTracker CLI Documentation
+# AIUsageTracker CLI Documentation
 
-The AIConsumptionTracker CLI allows you to monitor API usage and balance for various AI providers directly from your terminal. It includes privacy features to mask sensitive information in logs and UI.
+The AIUsageTracker CLI allows you to monitor API usage and balance for various AI providers directly from your terminal. It includes privacy features to mask sensitive information in logs and UI.
 
 ## Basic Usage
 

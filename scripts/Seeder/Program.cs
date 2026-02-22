@@ -10,7 +10,7 @@ class Program
     static void Main(string[] args)
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var dbDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+        var dbDir = Path.Combine(appData, "AIUsageTracker", "Agent");
         Directory.CreateDirectory(dbDir);
         var dbPath = Path.Combine(dbDir, "usage.db");
 

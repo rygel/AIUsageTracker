@@ -1,0 +1,56 @@
+@page "/providers"
+@model ProvidersModel
+@{
+    ViewData["Title"] = "Providers";
+}
+
+<h1 class="page-title">All Providers</h1>
+
+@if (!Model.IsDatabaseAvailable)
+{
+    <div class="alert alert-warning">
+        <strong>Database not found!</strong> The Monitor database is not available.
+    </div>
+}
+else if (Model.Providers?.Any() != true)
+{
+    <div class="alert alert-info">
+        No providers configured yet.
+    </div>
+}
+else
+{
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Provider</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Latest Usage</th>
+                    <th>Next Reset</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var provider in Model.Providers.Where(p => p.ProviderId != "antigravity"))
+                {
+                    <tr>
+                        <td>@provider.ProviderName</td>
+                        <td>@provider.PlanType</td>
+                        <td>
+                            <span class="provider-status @(provider.IsActive ? "active" : "inactive")">
+                                @(provider.IsActive ? "Active" : "Inactive")
+                            </span>
+                        </td>
+                        <td>@provider.LatestUsage.ToString("F1")%</td>
+                        <td>@(provider.NextResetTime.HasValue ? provider.NextResetTime.Value.ToString("g") : "-")</td>
+                        <td>
+                            <a href="/provider/@provider.ProviderId" class="btn btn-secondary btn-sm">View</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

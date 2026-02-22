@@ -1,4 +1,4 @@
-# AI Consumption Tracker - Agent Guidelines
+# AI Usage Tracker - Monitor Guidelines
 
 This document provides essential information for agentic coding assistants working on this .NET 8.0 WPF application.
 
@@ -13,23 +13,23 @@ This document provides essential information for agentic coding assistants worki
 
 ## Project Structure
 
-- **AIConsumptionTracker.Core**: Domain models, interfaces, and business logic (PCL)
-- **AIConsumptionTracker.Infrastructure**: External providers, data access, configuration
-- **AIConsumptionTracker.UI.Slim**: Lightweight WPF desktop application with compact UI
-- **AIConsumptionTracker.Agent**: Background service that collects provider usage data via HTTP API
-- **AIConsumptionTracker.CLI**: Console interface (cross-platform)
-- **AIConsumptionTracker.Web**: ASP.NET Core Razor Pages web application for viewing data
-- **AIConsumptionTracker.Tests**: xUnit unit tests with Moq mocking
+- **AIUsageTracker.Core**: Domain models, interfaces, and business logic (PCL)
+- **AIUsageTracker.Infrastructure**: External providers, data access, configuration
+- **AIUsageTracker.UI.Slim**: Lightweight WPF desktop application with compact UI
+- **AIUsageTracker.Monitor**: Background service that collects provider usage data via HTTP API
+- **AIUsageTracker.CLI**: Console interface (cross-platform)
+- **AIUsageTracker.Web**: ASP.NET Core Razor Pages web application for viewing data
+- **AIUsageTracker.Tests**: xUnit unit tests with Moq mocking
 
 ## Build & Test Commands
 
 ### Building
 ```bash
 # Build entire solution
-dotnet build AIConsumptionTracker.slnx --configuration Debug
+dotnet build AIUsageTracker.slnx --configuration Debug
 
 # Build specific project
-dotnet build AIConsumptionTracker.UI.Slim/AIConsumptionTracker.UI.Slim.csproj
+dotnet build AIUsageTracker.UI.Slim/AIUsageTracker.UI.Slim.csproj
 
 # Restore dependencies
 dotnet restore
@@ -38,7 +38,7 @@ dotnet restore
 ### Testing
 ```bash
 # Run all unit tests
-dotnet test AIConsumptionTracker.Tests/AIConsumptionTracker.Tests.csproj --configuration Debug
+dotnet test AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug
 
 # Run all tests (no rebuild)
 dotnet test --no-build --verbosity normal
@@ -52,17 +52,17 @@ dotnet test --filter "FullyQualifiedName~ProviderManagerTests"
 
 ### Running the Agent
 ```bash
-# Run the Agent service
-dotnet run --project AIConsumptionTracker.Agent
+# Run the Monitor service
+dotnet run --project AIUsageTracker.Monitor
 
 # Agent runs on port 5000 by default (auto-discovers available port 5000-5010)
-# Port is saved to %LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port
+# Port is saved to %LOCALAPPDATA%\AIUsageTracker\Agent\agent.port
 ```
 
 ### Running the Web UI
 ```bash
 # Run the Web application (requires Agent to be running)
-dotnet run --project AIConsumptionTracker.Web
+dotnet run --project AIUsageTracker.Web
 
 # Web UI runs on port 5100
 # Access at http://localhost:5100
@@ -71,7 +71,7 @@ dotnet run --project AIConsumptionTracker.Web
 ### Running the Slim UI
 ```bash
 # Run the Slim WPF application
-dotnet run --project AIConsumptionTracker.UI.Slim
+dotnet run --project AIUsageTracker.UI.Slim
 
 # Automatically discovers Agent port from agent.port file
 # Falls back to ports 5000-5010 if discovery fails
@@ -81,7 +81,7 @@ dotnet run --project AIConsumptionTracker.UI.Slim
 To generate updated screenshots for documentation (headless and in Privacy Mode):
 ```bash
 # Run from the UI bin directory or project root
-AIConsumptionTracker.exe --test --screenshot
+AIUsageTracker.exe --test --screenshot
 ```
 > [!NOTE]
 > The `--test` flag enables explicit UI initialization required for headless rendering. This logic is gated to avoid performance overhead for normal users.
@@ -98,7 +98,7 @@ AIConsumptionTracker.exe --test --screenshot
 ## Code Style Guidelines
 
 ### Imports & Namespaces
-- Use **file-scoped namespace declarations**: `namespace AIConsumptionTracker.Core.Models;`
+- Use **file-scoped namespace declarations**: `namespace AIUsageTracker.Core.Models;`
 - Place using statements at the top, before namespace declaration
 - Group by: System → Third-party → Project references (separated by blank lines)
 - Explicitly type `using Microsoft.Extensions.Logging;` when needed to avoid ambiguity
@@ -175,7 +175,7 @@ The Agent is a background HTTP service that collects and stores provider usage d
 **Port Management:**
 - Default port: 5000
 - Auto-discovery: Tries ports 5000-5010, then random
-- Port saved to: `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+- Port saved to: `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
 
 **Database Schema:**
 ```
@@ -194,6 +194,7 @@ The Web UI is an ASP.NET Core Razor Pages application that reads from the Agent'
 - **Providers**: Table view of all providers with status
 - **Provider Details**: Individual history + reset events
 - **History**: Complete usage history across all providers
+- **Performance**: Output caching, chart downsampling, deferred reset-events loading
 
 **Technology Stack:**
 - **Framework**: ASP.NET Core 8.0
@@ -205,6 +206,11 @@ The Web UI is an ASP.NET Core Razor Pages application that reads from the Agent'
 - Auto-refresh via `hx-trigger="every 60s"`
 - Partial page updates without full reload
 - CDN loaded from unpkg.com
+
+**Web Performance Notes:**
+- Dashboard and Charts use short-lived output cache policies with query variance
+- Hot DB reads use short-lived in-memory caches and structured timing/row-count logs
+- Charts downsample server-side by time range and fetch reset events after initial render
 
 **Theme System:**
 Seven built-in themes using CSS variables:
@@ -223,7 +229,7 @@ Theme toggle in navbar with localStorage persistence.
 The Slim UI automatically discovers the Agent port:
 
 **Process:**
-1. Read from `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+1. Read from `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
 2. If not found, try port 5000
 3. Try fallback ports 5001-5010
 4. Use discovered port for all API calls
@@ -401,10 +407,10 @@ When preparing a new release (e.g., v1.5.0), ensure the following files are upda
 
 ### 1. Project Files (.csproj)
 Update the `<Version>` tag in all project files:
-- `AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj`
-- `AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj`
-- `AIConsumptionTracker.UI.Slim/AIConsumptionTracker.UI.Slim.csproj`
-- `AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj`
+- `AIUsageTracker.Core/AIUsageTracker.Core.csproj`
+- `AIUsageTracker.Infrastructure/AIUsageTracker.Infrastructure.csproj`
+- `AIUsageTracker.UI.Slim/AIUsageTracker.UI.Slim.csproj`
+- `AIUsageTracker.CLI/AIUsageTracker.CLI.csproj`
 
 ### 2. Changelog
 - Update `CHANGELOG.md`: Move the `## Unreleased` section to a new version header with the current date (e.g., `## [1.5.0] - 2026-02-06`).
@@ -439,7 +445,7 @@ After the release workflow completes and assets are published, update the appcas
 gh release view v1.5.0 --json assets --jq '.assets[].name'
 ```
 
-**URL pattern:** `https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.5/AIConsumptionTracker_Setup_v1.5.5_win-x64.exe`
+**URL pattern:** `https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.5/AIUsageTracker_Setup_v1.5.5_win-x64.exe`
 
 Note: Release assets use `-win-x64`, `-win-arm64`, `-win-x86` suffixes (NOT `-x64`, `-arm64`, `-x86`).
 
@@ -449,7 +455,7 @@ Note: Release assets use `-win-x64`, `-win-arm64`, `-win-x86` suffixes (NOT `-x6
     <title>Version 1.5.0</title>
     <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v1.5.0</sparkle:releaseNotesLink>
     <pubDate>Wed, 11 Feb 2026 19:45:00 +0000</pubDate>
-    <enclosure url="https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.0/AIConsumptionTracker_Setup_v1.5.0_win-x64.exe"
+    <enclosure url="https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.0/AIUsageTracker_Setup_v1.5.0_win-x64.exe"
                sparkle:version="1.5.0"
                sparkle:os="windows"
                length="0"
@@ -463,3 +469,6 @@ Commit and push the appcast updates after the release assets are available.
 - GitHub Actions for testing on push/PR to main.
 - Release workflow creates installers for multiple platforms.
 - Winget submission for Windows packages.
+- `Run Tests` includes a web endpoint perf smoke guardrail for `/` and `/charts` in CI.
+
+

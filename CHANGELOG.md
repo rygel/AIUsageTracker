@@ -34,7 +34,7 @@
 ## [2.1.0] - 2026-02-21
 
 ### Added
-- Slim UI now persists window/layout/font/privacy preferences locally in `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim\preferences.json` (with legacy `auth.json` migration fallback).
+- Slim UI now persists window/layout/font/privacy preferences locally in `%LOCALAPPDATA%\AIUsageTracker\UI.Slim\preferences.json` (with legacy `auth.json` migration fallback).
 
 ### Changed
 - Agent `/api/preferences` is now explicitly legacy/deprecated (OpenAPI `deprecated: true` + runtime `Deprecation`/`Sunset` headers).

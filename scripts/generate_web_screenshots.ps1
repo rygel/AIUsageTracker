@@ -4,8 +4,8 @@
 $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$webProject = Join-Path $projectRoot "AIConsumptionTracker.Web"
-$testProject = Join-Path $projectRoot "AIConsumptionTracker.Web.Tests"
+$webProject = Join-Path $projectRoot "AIUsageTracker.Web"
+$testProject = Join-Path $projectRoot "AIUsageTracker.Web.Tests"
 
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host "Web UI Screenshot Generator" -ForegroundColor Cyan
@@ -74,3 +74,4 @@ try {
 }
 
 Write-Host "Done. Check docs/ folder for screenshots." -ForegroundColor Green
+

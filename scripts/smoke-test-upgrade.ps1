@@ -17,7 +17,7 @@ if (-not (Test-Path -LiteralPath $NewSetupPath)) {
 }
 
 $tempRoot = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { [System.IO.Path]::GetTempPath() } else { $env:RUNNER_TEMP }
-$installDir = Join-Path $tempRoot "AIConsumptionTracker-UpgradeSmoke-$Runtime"
+$installDir = Join-Path $tempRoot "AIUsageTracker-UpgradeSmoke-$Runtime"
 if (Test-Path -LiteralPath $installDir) {
     Remove-Item -LiteralPath $installDir -Recurse -Force
 }
@@ -34,15 +34,15 @@ $setupArgs = @(
 $userProfile = $env:USERPROFILE
 $localAppData = $env:LOCALAPPDATA
 $trackerConfigDir = Join-Path $userProfile ".ai-consumption-tracker"
-$agentDataDir = Join-Path $localAppData "AIConsumptionTracker\Agent"
-$slimDataDir = Join-Path $localAppData "AIConsumptionTracker\UI.Slim"
+$agentDataDir = Join-Path $localAppData "AIUsageTracker\Agent"
+$slimDataDir = Join-Path $localAppData "AIUsageTracker\UI.Slim"
 
 $authPath = Join-Path $trackerConfigDir "auth.json"
 $providersPath = Join-Path $trackerConfigDir "providers.json"
 $slimPrefsPath = Join-Path $slimDataDir "preferences.json"
 $managedFiles = @($authPath, $providersPath, $slimPrefsPath)
 
-$backupRoot = Join-Path $tempRoot "AIConsumptionTracker-UpgradeSmoke-Backup-$([Guid]::NewGuid().ToString('N'))"
+$backupRoot = Join-Path $tempRoot "AIUsageTracker-UpgradeSmoke-Backup-$([Guid]::NewGuid().ToString('N'))"
 New-Item -Path $backupRoot -ItemType Directory -Force | Out-Null
 
 $agentProcess = $null
@@ -60,8 +60,8 @@ try {
         throw "Old installer exited with code $($oldInstall.ExitCode)"
     }
 
-    if (-not (Test-Path -LiteralPath (Join-Path $installDir "AIConsumptionTracker.exe"))) {
-        throw "Old installation did not produce AIConsumptionTracker.exe"
+    if (-not (Test-Path -LiteralPath (Join-Path $installDir "AIUsageTracker.exe"))) {
+        throw "Old installation did not produce AIUsageTracker.exe"
     }
 
     New-Item -Path $trackerConfigDir -ItemType Directory -Force | Out-Null
@@ -124,7 +124,7 @@ try {
         }
     }
 
-    $agentExe = Join-Path $installDir "AIConsumptionTracker.Agent.exe"
+    $agentExe = Join-Path $installDir "AIUsageTracker.Monitor.exe"
     if (-not (Test-Path -LiteralPath $agentExe)) {
         throw "Upgraded installation missing agent executable: $agentExe"
     }

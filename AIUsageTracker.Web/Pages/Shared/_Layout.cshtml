@@ -1,0 +1,171 @@
+@{
+    var version = typeof(AIUsageTracker.Web.Services.WebDatabaseService)
+        .Assembly
+        .GetName()
+        .Version?
+        .ToString(3) ?? "dev";
+}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - AI Usage Tracker</title>
+    <link rel="icon" type="image/png" href="~/favicon.png" />
+    <link rel="stylesheet" href="~/css/site.css" />
+    <link rel="stylesheet" href="~/css/themes.css" />
+    <script src="https://unpkg.com/htmx.org@1.9.12" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span class="sidebar-brand">AI Tracker</span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item">
+                        <a href="/" class="nav-link @(Context.Request.Path == "/" ? "active" : "")">
+                            <span class="nav-text">Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/charts" class="nav-link @(Context.Request.Path.Value?.Contains("/charts") == true ? "active" : "")">
+                            <span class="nav-text">Charts</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/providers" class="nav-link @(Context.Request.Path.Value?.Contains("/providers") == true ? "active" : "")">
+                            <span class="nav-text">Providers</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/history" class="nav-link @(Context.Request.Path.Value?.Contains("/history") == true ? "active" : "")">
+                            <span class="nav-text">History</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/data/providers" class="nav-link @(Context.Request.Path.Value?.Contains("/data") == true ? "active" : "")">
+                            <span class="nav-text">Raw Data</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="agent-section">
+                    <div class="agent-status-row">
+                        <span id="agent-status" class="agent-status">Checking...</span>
+                        <button id="agent-toggle-btn" class="btn btn-sm btn-primary" onclick="toggleMonitor()">Start</button>
+                    </div>
+                </div>
+                
+                <div class="theme-section">
+                    <select id="theme-select" class="theme-select">
+                        <option value="dark">Dark</option>
+                        <option value="light">Light</option>
+                        <option value="corporate">Corporate</option>
+                        <option value="midnight">Midnight</option>
+                    </select>
+                </div>
+                <div class="sidebar-footer-text">&copy; @DateTime.Now.Year - v@version</div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Mobile Header -->
+            <header class="mobile-header">
+                <button class="menu-toggle" id="menu-toggle" aria-label="Menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <span class="mobile-title">AI Tracker</span>
+            </header>
+
+            <!-- Page Content -->
+            <main class="content-wrapper">
+                @RenderBody()
+            </main>
+        </div>
+    </div>
+
+    <!-- Overlay for mobile -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <script src="~/js/theme.js"></script>
+    <script src="~/js/sidebar.js"></script>
+    <script>
+        // Monitor status check
+        let isMonitorRunning = false;
+        
+        async function checkMonitorStatus() {
+            try {
+                const res = await fetch('/api/monitor/status');
+                const data = await res.json();
+                const statusEl = document.getElementById('agent-status');
+                const btn = document.getElementById('agent-toggle-btn');
+                
+                isMonitorRunning = data.isRunning;
+                
+                if (data.isRunning) {
+                    statusEl.textContent = 'Monitor: Running';
+                    statusEl.classList.add('running');
+                    btn.textContent = 'Stop';
+                    btn.classList.remove('btn-primary');
+                    btn.classList.add('btn-danger');
+                } else {
+                    statusEl.textContent = 'Monitor: Stopped';
+                    statusEl.classList.remove('running');
+                    btn.textContent = 'Start';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-primary');
+                }
+            } catch {
+                document.getElementById('agent-status').textContent = 'Monitor: Unknown';
+                isMonitorRunning = false;
+            }
+        }
+        
+        async function toggleMonitor() {
+            const btn = document.getElementById('agent-toggle-btn');
+            btn.disabled = true;
+            
+            if (isMonitorRunning) {
+                btn.textContent = 'Stopping...';
+                try {
+                    const res = await fetch('/api/monitor/stop', { method: 'POST' });
+                    if (res.ok) {
+                        setTimeout(checkMonitorStatus, 1000);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            } else {
+                btn.textContent = 'Starting...';
+                try {
+                    const res = await fetch('/api/monitor/start', { method: 'POST' });
+                    if (res.ok) {
+                        setTimeout(checkMonitorStatus, 2000);
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+            
+            setTimeout(() => {
+                btn.disabled = false;
+                checkMonitorStatus();
+            }, 3000);
+        }
+        
+        document.addEventListener('DOMContentLoaded', checkMonitorStatus);
+        setInterval(checkMonitorStatus, 30000);
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+

@@ -1,6 +1,6 @@
 name: Publish & Distribute
 
-# This workflow builds and releases ONLY the C# version of AIConsumptionTracker
+# This workflow builds and releases ONLY the C# version of AIUsageTracker
 # The Rust version is experimental and not included in releases
 
 on:
@@ -66,10 +66,10 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: AIConsumptionTracker-v${{ env.VERSION }}-${{ matrix.runtime }}
+          name: AIUsageTracker-v${{ env.VERSION }}-${{ matrix.runtime }}
           path: |
-            dist/AIConsumptionTracker_v*_${{ matrix.runtime }}.zip
-            dist/AIConsumptionTracker_Setup_v*_${{ matrix.runtime }}.exe
+            dist/AIUsageTracker_v*_${{ matrix.runtime }}.zip
+            dist/AIUsageTracker_Setup_v*_${{ matrix.runtime }}.exe
           retention-days: 7
 
   release-metadata:
@@ -82,7 +82,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: AIConsumptionTracker-v${{ needs.validate-release.outputs.version }}-win-*
+          pattern: AIUsageTracker-v${{ needs.validate-release.outputs.version }}-win-*
           merge-multiple: true
 
       - name: Generate SHA256 checksums
@@ -113,7 +113,7 @@ jobs:
       - name: Upload release security metadata
         uses: actions/upload-artifact@v4
         with:
-          name: AIConsumptionTracker-v${{ needs.validate-release.outputs.version }}-security-metadata
+          name: AIUsageTracker-v${{ needs.validate-release.outputs.version }}-security-metadata
           path: |
             SHA256SUMS.txt
             sbom.cdx.json
@@ -128,14 +128,14 @@ jobs:
       - name: Download x64 release artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: AIConsumptionTracker-v${{ needs.validate-release.outputs.version }}-win-x64
+          pattern: AIUsageTracker-v${{ needs.validate-release.outputs.version }}-win-x64
           path: artifacts
           merge-multiple: true
 
       - name: Resolve current x64 installer
         run: |
           $currentSetup = Get-ChildItem -Path .\artifacts -Recurse -File |
-            Where-Object { $_.Name -eq "AIConsumptionTracker_Setup_v${{ needs.validate-release.outputs.version }}_win-x64.exe" } |
+            Where-Object { $_.Name -eq "AIUsageTracker_Setup_v${{ needs.validate-release.outputs.version }}_win-x64.exe" } |
             Select-Object -First 1
           if (-not $currentSetup) {
             throw "Current x64 setup artifact not found."
@@ -154,7 +154,7 @@ jobs:
         run: |
           $headers = @{
             Accept = "application/vnd.github+json"
-            "User-Agent" = "AIConsumptionTracker-CI"
+            "User-Agent" = "AIUsageTracker-CI"
             Authorization = "Bearer $env:GITHUB_TOKEN"
           }
 
@@ -170,7 +170,7 @@ jobs:
           }
 
           $previousAsset = $candidate.assets |
-            Where-Object { $_.name -like "AIConsumptionTracker_Setup_v*_win-x64.exe" } |
+            Where-Object { $_.name -like "AIUsageTracker_Setup_v*_win-x64.exe" } |
             Select-Object -First 1
 
           if (-not $previousAsset) {
@@ -204,13 +204,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: AIConsumptionTracker-v${{ steps.get_version.outputs.version }}-win-*
+          pattern: AIUsageTracker-v${{ steps.get_version.outputs.version }}-win-*
           merge-multiple: true
 
       - name: Download release metadata
         uses: actions/download-artifact@v4
         with:
-          pattern: AIConsumptionTracker-v${{ steps.get_version.outputs.version }}-security-metadata
+          pattern: AIUsageTracker-v${{ steps.get_version.outputs.version }}-security-metadata
           path: metadata
           merge-multiple: true
 

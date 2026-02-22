@@ -1,8 +1,8 @@
-# AI Consumption Tracker - Database Schema
+# AI Usage Tracker - Database Schema
 
 ## Overview
 
-AI Consumption Tracker uses SQLite with a **four-table design**:
+AI Usage Tracker uses SQLite with a **four-table design**:
 
 1. **`providers`** - Static provider configuration
 2. **`provider_history`** - Time-series usage data (kept indefinitely)
@@ -13,9 +13,9 @@ AI Consumption Tracker uses SQLite with a **four-table design**:
 
 | Platform | Path |
 |----------|------|
-| Windows | `%LOCALAPPDATA%\AIConsumptionTracker\Agent\usage.db` |
-| Linux | `~/.local/share/AIConsumptionTracker/Agent/usage.db` |
-| macOS | `~/Library/Application Support/AIConsumptionTracker/Agent/usage.db` |
+| Windows | `%LOCALAPPDATA%\AIUsageTracker\Agent\usage.db` |
+| Linux | `~/.local/share/AIUsageTracker/Agent/usage.db` |
+| macOS | `~/Library/Application Support/AIUsageTracker/Agent/usage.db` |
 
 ## Table 1: providers
 
@@ -29,9 +29,7 @@ AI Consumption Tracker uses SQLite with a **four-table design**:
 |--------|------|-------------|-------------|
 | `provider_id` | TEXT | PRIMARY KEY | Unique identifier (e.g., "openai", "anthropic") |
 | `provider_name` | TEXT | NOT NULL | Display name (e.g., "OpenAI") |
-| `payment_type` | TEXT | NOT NULL | "usage_based", "credits", or "quota" |
-| `api_key` | TEXT | NULL | Encrypted API key (optional) |
-| `base_url` | TEXT | NULL | Custom API endpoint |
+| `plan_type` | TEXT | NULL | Plan classification (e.g., usage/coding) |
 | `auth_source` | TEXT | NOT NULL | "environment", "auth.json", "manual" |
 | `account_name` | TEXT | NULL | Username/email |
 | `created_at` | TEXT | NOT NULL | ISO 8601 timestamp |
@@ -51,13 +49,14 @@ AI Consumption Tracker uses SQLite with a **four-table design**:
 |--------|------|-------------|-------------|
 | `id` | INTEGER | PRIMARY KEY AUTOINCREMENT | Unique row ID |
 | `provider_id` | TEXT | NOT NULL, FK → providers | References providers table |
-| `usage_percentage` | REAL | NOT NULL | Usage % (0-100) |
-| `cost_used` | REAL | NOT NULL | Amount consumed |
-| `cost_limit` | REAL | NOT NULL | Total budget/limit |
+| `requests_percentage` | REAL | NOT NULL | Usage % (0-100) |
+| `requests_used` | REAL | NOT NULL | Amount consumed |
+| `requests_available` | REAL | NOT NULL | Total/remaining basis depending provider type |
 | `is_available` | INTEGER | NOT NULL | 1 = success, 0 = error |
 | `status_message` | TEXT | NOT NULL | Human-readable status |
 | `next_reset_time` | TEXT | NULL | When quota resets |
 | `fetched_at` | TEXT | NOT NULL | ISO 8601 timestamp |
+| `details_json` | TEXT | NULL | Optional model/sub-provider details |
 
 ### Indexes
 
@@ -67,6 +66,12 @@ ON provider_history(provider_id, fetched_at);
 
 CREATE INDEX idx_history_fetched 
 ON provider_history(fetched_at);
+
+CREATE INDEX idx_history_fetched_time
+ON provider_history(fetched_at DESC);
+
+CREATE INDEX idx_history_provider_id_desc
+ON provider_history(provider_id, id DESC);
 ```
 
 ## Table 3: raw_snapshots
@@ -121,6 +126,16 @@ VALUES ('zai', 'Z.AI', 95.5, 0.0, 'monthly', '2024-01-01T00:00:00Z');
 -- API-triggered reset
 INSERT INTO reset_events (provider_id, provider_name, previous_usage, new_usage, reset_type, timestamp)
 VALUES ('openai', 'OpenAI', 100.0, 0.0, 'api', '2024-01-15T12:30:00Z');
+```
+
+### Indexes
+
+```sql
+CREATE INDEX idx_reset_provider_time
+ON reset_events(provider_id, timestamp);
+
+CREATE INDEX idx_reset_timestamp_asc
+ON reset_events(timestamp ASC);
 ```
 
 ### Detect Resets
@@ -231,6 +246,18 @@ Returns processed history from `provider_history`.
 GET /api/raw/{providerId}?limit=50
 ```
 Returns raw JSON snapshots (last 14 days only).
+
+## Runtime Tuning (SQLite)
+
+The Monitor applies runtime SQLite pragmas at migration/startup:
+
+- `PRAGMA journal_mode=WAL`
+- `PRAGMA synchronous=NORMAL`
+- `PRAGMA busy_timeout=5000`
+- `PRAGMA temp_store=MEMORY`
+- `PRAGMA foreign_keys=ON`
+
+The Web UI uses pooled shared-cache connections for read-heavy queries and adds short-lived memory caches for hot reads.
 
 ## Configuration Files
 

@@ -92,7 +92,7 @@ $env:OPENAI_API_KEY = "sk-proj-abc123"
 $env:ANTHROPIC_API_KEY = "sk-ant-xyz789"
 
 # Start application
-.\AIConsumptionTracker.exe
+.\AIUsageTracker.exe
 ```
 
 ### Example Bash Script

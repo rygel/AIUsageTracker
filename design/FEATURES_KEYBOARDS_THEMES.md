@@ -52,25 +52,25 @@ Added a complete theme system with two modes:
 ## Files Modified
 
 ### Core Models
-- `AIConsumptionTracker.Core/Models/AppPreferences.cs`
+- `AIUsageTracker.Core/Models/AppPreferences.cs`
   - Added `AppTheme` enum
   - Added `Theme` property to `AppPreferences`
 
 ### UI Layer
-- `AIConsumptionTracker.UI.Slim/MainWindow.xaml`
+- `AIUsageTracker.UI.Slim/MainWindow.xaml`
   - Added ThemeBtn to header
   - Added x:Name attributes to HeaderBorder, FooterBorder
   - Updated RefreshBtn ToolTip to include keyboard shortcut
   - Added KeyDown handler binding
   
-- `AIConsumptionTracker.UI.Slim/MainWindow.xaml.cs`
+- `AIUsageTracker.UI.Slim/MainWindow.xaml.cs`
   - Added `using System.Windows.Input;`
   - Added `OnKeyDown` event handler (line ~238)
   - Added `ThemeBtn_Click` handler
   - Added `ApplyTheme()` method
   - Updated `ApplyPreferences()` to call `ApplyTheme()`
 
-- `AIConsumptionTracker.UI.Slim/App.xaml`
+- `AIUsageTracker.UI.Slim/App.xaml`
   - Simplified scrollbar styles (removed complex templates)
   - Added `LightScrollBar` style for light theme
   - Updated dark theme scrollbar style
@@ -156,3 +156,4 @@ Potential improvements for keyboard shortcuts:
 1. **Customizable shortcuts**: Allow users to remap keys
 2. **Shortcut reference**: Help dialog showing all shortcuts
 3. **Global hotkeys**: Work even when window is not focused
+

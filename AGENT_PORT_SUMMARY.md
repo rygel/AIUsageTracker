@@ -96,7 +96,7 @@ The UI now shows clear status messages:
 
 ### Start Agent manually:
 ```bash
-dotnet run --project AIConsumptionTracker.Agent
+dotnet run --project AIUsageTracker.Monitor
 ```
 
 ### Or let Slim UI auto-start it:
@@ -104,7 +104,7 @@ Just run the Slim UI - it will automatically start the Agent if not running.
 
 ### Start Slim UI:
 ```bash
-dotnet run --project AIConsumptionTracker.UI.Slim
+dotnet run --project AIUsageTracker.UI.Slim
 ```
 
 ## Architecture
@@ -129,15 +129,17 @@ dotnet run --project AIConsumptionTracker.UI.Slim
 ## Files Created/Modified
 
 ### New Files:
-- `AIConsumptionTracker.Agent/` - Complete Agent project
-- `AIConsumptionTracker.UI.Slim/` - Complete Slim UI project
-- `AIConsumptionTracker.Infrastructure/Providers/CloudCodeProvider.cs`
-- `AIConsumptionTracker.Infrastructure/Providers/AnthropicProvider.cs`
-- `AIConsumptionTracker.Infrastructure/Providers/OpenCodeZenProvider.cs`
-- `AIConsumptionTracker.Infrastructure/Providers/SimulatedProvider.cs`
+- `AIUsageTracker.Monitor/` - Complete Agent project
+- `AIUsageTracker.UI.Slim/` - Complete Slim UI project
+- `AIUsageTracker.Infrastructure/Providers/CloudCodeProvider.cs`
+- `AIUsageTracker.Infrastructure/Providers/AnthropicProvider.cs`
+- `AIUsageTracker.Infrastructure/Providers/OpenCodeZenProvider.cs`
+- `AIUsageTracker.Infrastructure/Providers/SimulatedProvider.cs`
 
 ### Modified:
-- `AIConsumptionTracker.Agent/Services/ProviderRefreshService.cs` - Added all 19 providers
+- `AIUsageTracker.Monitor/Services/ProviderRefreshService.cs` - Added all 19 providers
 
 ## Version
 All components use version **1.8.6** to match the main application.
+
+

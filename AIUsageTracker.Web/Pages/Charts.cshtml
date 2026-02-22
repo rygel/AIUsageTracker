@@ -1,0 +1,245 @@
+@page "/charts"
+@model ChartsModel
+@{
+    ViewData["Title"] = "Charts";
+}
+
+<h1 class="page-title">Usage Over Time</h1>
+
+@if (!Model.IsDatabaseAvailable)
+{
+    <div class="alert alert-warning">
+        Database not found. The Monitor must run first.
+    </div>
+}
+else
+{
+    <div class="chart-controls mb-2">
+        <select id="timeRange"
+                name="hours"
+                class="theme-select"
+                style="width: auto;"
+                hx-get="/charts?handler=ChartPayload"
+                hx-trigger="change"
+                hx-include="this"
+                hx-target="#chart-data-loader"
+                hx-swap="none">
+            <option value="6">Last 6 hours</option>
+            <option value="12">Last 12 hours</option>
+            <option value="24" selected>Last 24 hours</option>
+            <option value="48">Last 48 hours</option>
+            <option value="168">Last 7 days</option>
+        </select>
+    </div>
+    <div id="chart-data-loader"
+         hx-get="/charts?handler=ChartPayload&hours=24"
+         hx-trigger="load"
+         hx-swap="none"></div>
+    
+    <div class="chart-container">
+        <canvas id="usageChart"></canvas>
+    </div>
+    
+    @if (Model.ChartData?.Any() != true)
+    {
+        <div class="alert alert-info">
+            No historical data available yet.
+        </div>
+    }
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const chartData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartData ?? new List<AIUsageTracker.Web.Services.ChartDataPoint>()));
+        const providerColors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProviderColors ?? new Dictionary<string, string>()));
+        let currentChartData = chartData;
+        let currentResetEvents = [];
+        let usageChartInstance = null;
+        let chartState = {
+            allTimestamps: [],
+            filteredResets: [],
+            providers: [],
+            datasets: []
+        };
+        const colors = {
+            'Antigravity': '#ef4444', // Red
+            'Anthropic': '#ec4899', // Pink
+            'OpenAI': '#22c55e', // Green
+            'GitHub Copilot': '#3b82f6', // Blue
+            'OpenCode ': '#eab308' // Yellow
+        };
+        const defaultColors = ['#06b6d4', '#8b5cf6', '#f97316', '#64748b'];
+
+        function getColor(name, index) {
+            if (providerColors[name]) return providerColors[name];
+
+            for (const key in colors) {
+                if (name.includes(key)) return colors[key];
+            }
+
+            return defaultColors[index % defaultColors.length];
+        }
+        
+        function buildChartState(hours) {
+            const cutoff = new Date();
+            cutoff.setHours(cutoff.getHours() - hours);
+
+            const filteredData = currentChartData.filter(d => new Date(d.Timestamp) >= cutoff);
+            const filteredResets = currentResetEvents.filter(r => new Date(r.Timestamp) >= cutoff);
+
+            if (filteredData.length === 0) {
+                return null;
+            }
+
+            const providers = [...new Set(filteredData.map(d => d.ProviderName))].sort();
+            const allTimestamps = [...new Set([
+                ...filteredData.map(d => d.Timestamp),
+                ...filteredResets.map(r => r.Timestamp)
+            ])].sort();
+
+            const labels = allTimestamps.map(ts => {
+                const date = new Date(ts);
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            });
+
+            const datasets = providers.map((name, i) => {
+                const providerData = filteredData.filter(d => d.ProviderName === name);
+                const color = getColor(name, i);
+                const data = allTimestamps.map(ts => {
+                    const point = providerData.find(d => d.Timestamp === ts);
+                    return point ? point.RequestsPercentage : null;
+                });
+
+                return {
+                    label: name,
+                    data: data,
+                    borderColor: color,
+                    backgroundColor: color + '20',
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: data.filter(x => x !== null).length === 1 ? 4 : 2,
+                    pointHoverRadius: 6,
+                    spanGaps: true
+                };
+            });
+
+            return { labels, datasets, allTimestamps, filteredResets, providers };
+        }
+
+        function renderChart(hours) {
+            const ctx = document.getElementById('usageChart');
+            if (!ctx) return;
+
+            const nextState = buildChartState(hours);
+            if (!nextState) {
+                // No data to display
+                return;
+            }
+
+            chartState = {
+                allTimestamps: nextState.allTimestamps,
+                filteredResets: nextState.filteredResets,
+                providers: nextState.providers,
+                datasets: nextState.datasets
+            };
+            
+            const resetLinePlugin = {
+                id: 'resetLines',
+                afterDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const xAxis = chart.scales.x;
+                    const yAxis = chart.scales.y;
+
+                    chartState.filteredResets.forEach(reset => {
+                        const x = xAxis.getPixelForTick(chartState.allTimestamps.indexOf(reset.Timestamp));
+                        if (x < xAxis.left || x > xAxis.right) return; // Clip if out of view
+
+                        // Find provider color
+                        const providerIndex = chartState.providers.indexOf(reset.ProviderName);
+                        // If not found (provider has no data points but has reset), skip or use gray
+                        let color = '#999999';
+                        if (providerIndex !== -1) {
+                             color = chartState.datasets[providerIndex].borderColor;
+                             // Only draw if the dataset is visible
+                              if (chart.isDatasetVisible(providerIndex) === false) return;
+                        }
+
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(x, yAxis.top);
+                        ctx.lineTo(x, yAxis.bottom);
+                        ctx.lineWidth = 2;
+                        ctx.strokeStyle = color;
+                        ctx.setLineDash([5, 5]);
+                        ctx.stroke();
+                        ctx.restore();
+                    });
+                }
+            };
+
+            if (!usageChartInstance) {
+                usageChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: nextState.labels, datasets: nextState.datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { intersect: false, mode: 'index' },
+                        animation: false,
+                        scales: {
+                            x: {
+                                title: { display: false },
+                                ticks: { maxRotation: 45, minRotation: 45, maxTicksLimit: 20 }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                title: { display: true, text: 'Usage %' }
+                            }
+                        },
+                        plugins: {
+                            legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1) ?? '-'}%`
+                                }
+                            }
+                        }
+                    },
+                    plugins: [resetLinePlugin]
+                });
+                return;
+            }
+
+            usageChartInstance.data.labels = nextState.labels;
+            usageChartInstance.data.datasets = nextState.datasets;
+            usageChartInstance.update('none');
+        }
+        
+        document.body.addEventListener('htmx:afterRequest', event => {
+            const sourceId = event.detail?.elt?.id;
+            if (sourceId !== 'timeRange' && sourceId !== 'chart-data-loader') {
+                return;
+            }
+
+            if (!event.detail?.successful) {
+                return;
+            }
+
+            try {
+                const payload = JSON.parse(event.detail.xhr.responseText);
+                currentChartData = payload.chartData ?? [];
+                currentResetEvents = payload.resetEvents ?? [];
+                const hours = parseInt(document.getElementById('timeRange')?.value ?? '24');
+                renderChart(hours);
+            } catch {
+                // Keep existing chart if payload parsing fails.
+            }
+        });
+        
+        // Initialize with default 24 hours
+        renderChart(24);
+    </script>
+}
+

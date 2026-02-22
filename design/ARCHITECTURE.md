@@ -1,19 +1,21 @@
-# AI Consumption Tracker - Architecture Design Document
+# AI Usage Tracker - Architecture Design Document
 
 ## Overview
 
-AI Consumption Tracker is a .NET 8.0 WPF desktop application designed to monitor AI API usage, costs, and quotas across multiple providers. The architecture follows **Clean Architecture** principles with clear separation of concerns, dependency inversion, and extensibility through the provider pattern.
+AI Usage Tracker is a .NET 8.0 WPF desktop application designed to monitor AI API usage, costs, and quotas across multiple providers. The architecture follows **Clean Architecture** principles with clear separation of concerns, dependency inversion, and extensibility through the provider pattern.
 
 ## Project Structure
 
 ```
-AIConsumptionTracker/
-├── AIConsumptionTracker.Core/          # Domain layer
-├── AIConsumptionTracker.Infrastructure/ # Infrastructure layer
-├── AIConsumptionTracker.UI.Slim/       # Presentation layer (WPF)
-├── AIConsumptionTracker.CLI/           # Console interface
-├── AIConsumptionTracker.Tests/         # Unit tests
-└── AIConsumptionTracker.Web.Tests/     # Web tests
+AIUsageTracker/
+├── AIUsageTracker.Core/          # Domain layer
+├── AIUsageTracker.Infrastructure/ # Infrastructure layer
+├── AIUsageTracker.UI.Slim/       # Presentation layer (WPF)
+├── AIUsageTracker.CLI/           # Console interface
+├── AIUsageTracker.Monitor/       # Background monitor service
+├── AIUsageTracker.Web/           # ASP.NET Core Razor Pages UI
+├── AIUsageTracker.Tests/         # Unit tests
+└── AIUsageTracker.Web.Tests/     # Web tests
 ```
 
 ## Architectural Patterns
@@ -239,7 +241,7 @@ While not strict MVVM, the architecture separates concerns:
 
 3. Add logo to `Assets/ProviderLogos/`
 
-4. Add tests in `AIConsumptionTracker.Tests/`
+4. Add tests in `AIUsageTracker.Tests/`
 
 ### Adding a New Configuration Source
 
@@ -328,6 +330,16 @@ All providers are queried in parallel for performance, with semaphore limiting t
 - Lazy loading of provider data
 - Minimal UI updates (progress callbacks)
 
+### Web Runtime Optimizations
+
+- Response compression (Brotli/Gzip) enabled for HTML/JSON/CSS/JS
+- Static asset cache headers for css/js/images/icons
+- Output caching for Dashboard and Charts with short TTL and query variance
+- Chart query downsampling by time buckets (1m/5m/15m/60m based on range)
+- Hot-read memory caching for usage summary/latest usage/recent reset events
+- Deferred non-critical chart reset-event loading after initial chart render
+- DB read telemetry logs include elapsed milliseconds and row counts
+
 ## Future Extensibility
 
 The architecture supports:
@@ -337,3 +349,4 @@ The architecture supports:
 - Web dashboard
 - Mobile companion app
 - Additional notification channels
+

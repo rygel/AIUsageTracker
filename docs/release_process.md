@@ -1,6 +1,6 @@
 # Release Process Guide
 
-This document describes the complete release process for AI Consumption Tracker.
+This document describes the complete release process for AI Usage Tracker.
 
 ## Overview
 
@@ -138,7 +138,7 @@ Pushing the tag automatically triggers the `Publish & Distribute` workflow which
 1. Run **pre-publish validation** (version/changelog consistency checks via `scripts/validate-release-consistency.sh`)
 2. Build the application for all architectures (x64, x86, ARM64)
 3. Create Inno Setup installers and ZIP artifacts
-4. Run a Windows installer smoke test (fresh install + Agent `/api/health` check)
+4. Run a Windows installer smoke test (fresh install + Monitor `/api/health` check)
 5. Run an upgrade smoke test (previous release installer -> current installer) and verify key settings files are preserved
 6. Generate `SHA256SUMS.txt` for release binaries
 7. Generate CycloneDX SBOM (`sbom.cdx.json`)
@@ -182,14 +182,14 @@ The tag version and repository version files are out of sync.
 **Fix**: Ensure `Directory.Build.props`, `README.md` badge, `scripts/setup.iss`, `scripts/publish-app.ps1`, and `CHANGELOG.md` all match the tag version, then push a corrected tag.
 
 ### Publish workflow fails during Windows smoke test
-The packaged installer did not install cleanly or the bundled Agent did not report healthy status.
+The packaged installer did not install cleanly or the bundled Monitor did not report healthy status.
 
-**Fix**: Inspect the `smoke-test-windows` job logs, validate installer outputs locally (`scripts\publish-app.ps1` + `scripts\validate-setup-build.ps1`), and ensure Agent startup/health endpoints work in the packaged layout.
+**Fix**: Inspect the `smoke-test-windows` job logs, validate installer outputs locally (`scripts\publish-app.ps1` + `scripts\validate-setup-build.ps1`), and ensure Monitor startup/health endpoints work in the packaged layout.
 
 ### Publish workflow fails during upgrade smoke test
 The previous-version installer -> current-version installer flow did not preserve expected user settings.
 
-**Fix**: Reproduce locally with `scripts\smoke-test-upgrade.ps1`, inspect installer behavior for `%USERPROFILE%\.ai-consumption-tracker` and `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim`, and ensure setup/uninstall logic does not overwrite user data.
+**Fix**: Reproduce locally with `scripts\smoke-test-upgrade.ps1`, inspect installer behavior for `%USERPROFILE%\.ai-consumption-tracker` and `%LOCALAPPDATA%\AIUsageTracker\UI.Slim`, and ensure setup/uninstall logic does not overwrite user data.
 
 ### Publish workflow fails during checksum/SBOM verification
 Release metadata was not generated or does not match the packaged artifacts.

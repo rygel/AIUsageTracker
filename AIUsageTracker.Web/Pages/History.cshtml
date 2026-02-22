@@ -1,0 +1,50 @@
+@page "/history"
+@model HistoryModel
+@{
+    ViewData["Title"] = "History";
+}
+
+<h1 class="page-title">Usage History</h1>
+
+@if (!Model.IsDatabaseAvailable)
+{
+    <div class="alert alert-warning">
+        <strong>Database not found!</strong> The Monitor database is not available.
+    </div>
+}
+else if (Model.History?.Any() != true)
+{
+    <div class="alert alert-info">
+        No history data available yet.
+    </div>
+}
+else
+{
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Provider</th>
+                    <th>Usage</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var usage in Model.History)
+                {
+                    <tr>
+                        <td>@usage.FetchedAt.ToString("g")</td>
+                        <td>@usage.ProviderName</td>
+                        <td>@usage.RequestsPercentage.ToString("F1")%</td>
+                        <td>
+                            <span class="provider-status @(usage.IsAvailable ? "active" : "inactive")">
+                                @(usage.IsAvailable ? "Active" : "Inactive")
+                            </span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

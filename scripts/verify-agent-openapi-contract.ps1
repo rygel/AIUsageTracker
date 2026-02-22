@@ -1,6 +1,6 @@
 param(
     [string]$AgentExecutablePath = "",
-    [string]$OpenApiPath = "AIConsumptionTracker.Agent\openapi.yaml",
+    [string]$OpenApiPath = "AIUsageTracker.Monitor\openapi.yaml",
     [int]$StartupTimeoutSeconds = 45
 )
 
@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
 if ([string]::IsNullOrWhiteSpace($AgentExecutablePath)) {
-    $defaultExe = Join-Path $projectRoot "AIConsumptionTracker.Agent\bin\Debug\net8.0-windows10.0.17763.0\AIConsumptionTracker.Agent.exe"
+    $defaultExe = Join-Path $projectRoot "AIUsageTracker.Monitor\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.exe"
     if (-not (Test-Path -LiteralPath $defaultExe)) {
         throw "Agent executable not found at $defaultExe. Build the solution before running this check."
     }
@@ -61,19 +61,24 @@ function Wait-ForAgentPort {
         [int]$TimeoutSeconds
     )
 
-    $agentInfoPath = Join-Path $env:LOCALAPPDATA "AIConsumptionTracker\Agent\agent.json"
+    $agentInfoPaths = @(
+        (Join-Path $env:LOCALAPPDATA "AIUsageTracker\Agent\agent.json"),
+        (Join-Path $env:LOCALAPPDATA "AIConsumptionTracker\Agent\agent.json")
+    )
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
     while ((Get-Date) -lt $deadline) {
-        if (Test-Path -LiteralPath $agentInfoPath) {
-            try {
-                $agentInfo = Get-Content -LiteralPath $agentInfoPath -Raw | ConvertFrom-Json
-                if ($agentInfo -and [int]$agentInfo.processId -eq $ProcessId -and [int]$agentInfo.port -gt 0) {
-                    return [int]$agentInfo.port
+        foreach ($agentInfoPath in $agentInfoPaths) {
+            if (Test-Path -LiteralPath $agentInfoPath) {
+                try {
+                    $agentInfo = Get-Content -LiteralPath $agentInfoPath -Raw | ConvertFrom-Json
+                    if ($agentInfo -and [int]$agentInfo.processId -eq $ProcessId -and [int]$agentInfo.port -gt 0) {
+                        return [int]$agentInfo.port
+                    }
                 }
-            }
-            catch {
-                # Keep polling while agent writes startup file.
+                catch {
+                    # Keep polling while agent writes startup file.
+                }
             }
         }
 
@@ -161,3 +166,5 @@ finally {
         Stop-Process -Id $agentProcess.Id
     }
 }
+
+

@@ -7,9 +7,9 @@ on:
   pull_request:
     branches: [ main ]
     paths:
-      - "AIConsumptionTracker.Infrastructure/Providers/**"
-      - "AIConsumptionTracker.Tests/Infrastructure/Providers/**"
-      - "AIConsumptionTracker.Tests/TestData/Providers/**"
+      - "AIUsageTracker.Infrastructure/Providers/**"
+      - "AIUsageTracker.Tests/Infrastructure/Providers/**"
+      - "AIUsageTracker.Tests/TestData/Providers/**"
       - ".github/workflows/provider-contract-drift.yml"
 
 concurrency:
@@ -37,11 +37,11 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore dependencies
-        run: dotnet restore AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj
+        run: dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
 
       - name: Run provider contract tests
         run: >
-          dotnet test AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj
+          dotnet test AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
           --configuration Debug
           --no-restore
           --filter "FullyQualifiedName~Infrastructure.Providers"
@@ -53,4 +53,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: provider-contract-drift-results
-          path: AIConsumptionTracker.Tests\TestResults\**\provider-contract-drift.trx
+          path: AIUsageTracker.Tests\TestResults\**\provider-contract-drift.trx
+

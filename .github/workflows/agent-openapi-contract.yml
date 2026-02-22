@@ -4,13 +4,13 @@ on:
   push:
     branches: [ main ]
     paths:
-      - "AIConsumptionTracker.Agent/**"
+      - "AIUsageTracker.Monitor/**"
       - "scripts/verify-agent-openapi-contract.ps1"
       - ".github/workflows/agent-openapi-contract.yml"
   pull_request:
     branches: [ main ]
     paths:
-      - "AIConsumptionTracker.Agent/**"
+      - "AIUsageTracker.Monitor/**"
       - "scripts/verify-agent-openapi-contract.ps1"
       - ".github/workflows/agent-openapi-contract.yml"
   workflow_dispatch:
@@ -40,11 +40,13 @@ jobs:
             ${{ runner.os }}-nuget-
 
       - name: Restore Agent dependencies
-        run: dotnet restore AIConsumptionTracker.Agent\AIConsumptionTracker.Agent.csproj
+        run: dotnet restore AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj
 
       - name: Build Agent
-        run: dotnet build AIConsumptionTracker.Agent\AIConsumptionTracker.Agent.csproj --configuration Debug --no-restore
+        run: dotnet build AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj --configuration Debug --no-restore
 
       - name: Verify Agent OpenAPI contract drift
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-agent-openapi-contract.ps1
         shell: pwsh
+
+

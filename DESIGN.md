@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document describes the design and implementation of progress bars in the AI Consumption Tracker application.
+This document describes the design and implementation of progress bars in the AI Usage Tracker application.
 
 ## Payment Type-Based Progress Bar Behavior
 
@@ -355,9 +355,9 @@ Provider classification drives Slim/Desktop grouping and Antigravity sub-provide
 
 Source-of-truth implementation points:
 
-- `AIConsumptionTracker.Core/Models/ProviderPlanClassifier.cs`
-- `AIConsumptionTracker.Infrastructure/Configuration/TokenDiscoveryService.cs` (default config classification)
-- `AIConsumptionTracker.Agent/Services/UsageDatabase.cs` (`/api/usage` response normalization)
+- `AIUsageTracker.Core/Models/ProviderPlanClassifier.cs`
+- `AIUsageTracker.Infrastructure/Configuration/TokenDiscoveryService.cs` (default config classification)
+- `AIUsageTracker.Monitor/Services/UsageDatabase.cs` (`/api/usage` response normalization)
 
 When classification changes for any provider, all three locations must be updated in the same PR.
 
@@ -569,6 +569,26 @@ return new[] { new ProviderUsage
 - [ ] "Not running" / unavailable states set correct PaymentType
 - [ ] All return statements in the method set PaymentType
 - [ ] Unit test verifies PaymentType in all scenarios
+
+### Error Visibility Rule
+
+UI and Agent behavior must never silently fall back when required provider data is missing.
+
+- If model-level quota details are unavailable, the UI must show a clear actionable error/warning message.
+- Do not silently replace missing model-level data with a provider summary card that looks healthy.
+- Startup or refresh flows that can serve stale cached data must trigger an immediate provider refresh when live model data is required (Antigravity is mandatory).
+- Error text should tell the user what happened and what to do next (for example: refresh now, verify provider app is running).
+
+### Web Performance and Observability Rules
+
+The Web UI must prioritize fast first render, bounded data payloads, and measurable query latency.
+
+- Dashboard and Charts responses use short-lived output caching with query-key variance.
+- Charts data must be downsampled server-side by time bucket to avoid unbounded point counts.
+- Charts page should render usage series first; reset events are non-critical and can load asynchronously after initial paint.
+- Hot DB reads (`latest usage`, `summary`, `recent reset events`) should use short-lived in-memory caches to reduce repeated SQLite reads.
+- Web database reads must emit telemetry logs including elapsed milliseconds and row counts for key query paths.
+- CI must include a lightweight web perf smoke guardrail for dashboard/charts endpoint latency.
 
 ---
 
@@ -818,20 +838,22 @@ protected override void OnClosed(EventArgs e)
 
 ## Agent Refresh Behavior
 
-**CRITICAL RULE: The Agent MUST NOT perform an immediate refresh on startup. It should only refresh on the configured interval.**
+**CRITICAL RULE: The Monitor should not perform full provider refresh on startup, except explicit low-risk mandatory providers (Antigravity).**
 
 ### Design Rationale
 
-The Agent uses a **cached data model** where:
-1. **On startup**: Agent serves cached data from the database immediately
-2. **On interval**: Agent refreshes provider data every 5 minutes (configurable)
-3. **On manual refresh**: UI can trigger refresh via `/api/refresh` endpoint
+The Monitor uses a **cached data model** where:
+1. **On startup**: Monitor serves cached data from the database immediately
+2. **On startup exception**: Monitor triggers immediate Antigravity refresh to fetch live model quota details
+3. **On interval**: Monitor refreshes provider data every 5 minutes (configurable)
+4. **On manual refresh**: UI can trigger refresh via `/api/refresh` endpoint
 
 This design ensures:
-- **Fast startup**: No waiting for API calls on Agent restart
+- **Fast startup**: No full refresh wait on Monitor restart
 - **Reduced API load**: Providers are only queried on the configured interval
 - **Consistent behavior**: Restarting the Agent doesn't cause unnecessary API hits
 - **Offline capability**: Cached data is available even if providers are temporarily unreachable
+- **Antigravity correctness**: model-level quotas are refreshed immediately so UI avoids stale parent-only fallback
 
 ### Implementation Details
 
@@ -880,7 +902,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 - On startup: Fetches cached data immediately from `/api/usage`
 - Status shows last refresh time (e.g., "14:32:15")
 - Refresh button triggers `/api/refresh` and updates display
-- UI preferences are stored locally by Slim in `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim\preferences.json`
+- UI preferences are stored locally by Slim in `%LOCALAPPDATA%\AIUsageTracker\UI.Slim\preferences.json`
 - Agent is not the source of truth for Slim UI preferences (window position, topmost, fonts, privacy toggle, and UI layout options)
 - Window position persistence: stores `WindowLeft`/`WindowTop` on move/resize and restores/clamps position on startup after preferences are loaded
 - Always-on-top reliability: when enabled, Slim reasserts native topmost z-order (`SetWindowPos`) on activation/tray restore/visibility changes to avoid occasional backgrounding
@@ -998,7 +1020,7 @@ if (activeConfigs.Count > 0)
 
 The Agent HTTP API contract is defined in:
 
-- `AIConsumptionTracker.Agent/openapi.yaml`
+- `AIUsageTracker.Monitor/openapi.yaml`
 
 This OpenAPI document is the contract between the Agent and all consuming applications (Slim UI, Desktop UI, Web UI, and CLI).
 
@@ -1010,7 +1032,7 @@ This OpenAPI document is the contract between the Agent and all consuming applic
 
 ### Contract Maintenance Rule (MANDATORY)
 
-Whenever any Agent API change is made, the same PR **must** update `AIConsumptionTracker.Agent/openapi.yaml`, including:
+Whenever any Agent API change is made, the same PR **must** update `AIUsageTracker.Monitor/openapi.yaml`, including:
 
 1. Endpoint paths and HTTP methods
 2. Request parameters and request bodies
@@ -1033,7 +1055,7 @@ The Agent supports dynamic port allocation to handle conflicts:
 3. If all in use, use random available port
 
 **Port Persistence:**
-- Port saved to `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+- Port saved to `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
 - JSON info saved to `agent.info`:
   ```json
   {
@@ -1082,7 +1104,7 @@ private async Task<int> GetAgentPortAsync()
     // Try to read port from agent info file
     var portFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AIConsumptionTracker", "Agent", "agent.port"
+        "AIUsageTracker", "Agent", "agent.port"
     );
     
     if (File.Exists(portFile))
@@ -1229,3 +1251,5 @@ Before merging any database-related code, verify:
 3. **NEVER serialize** full `ProviderConfig` objects to `config_json` - always exclude sensitive fields
 4. **ALWAYS ask** the developer before adding any column that could contain sensitive data
 5. **ALWAYS** create a safe anonymous object when serializing config for database storage
+
+

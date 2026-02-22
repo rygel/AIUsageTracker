@@ -49,10 +49,10 @@ function New-PublishFixture {
     Set-Content (Join-Path $SourceDir "LICENSE") "Fixture LICENSE" -NoNewline
 
     $componentFiles = @(
-        "Tracker\AIConsumptionTracker.exe",
-        "Agent\AIConsumptionTracker.Agent.exe",
-        "Web\AIConsumptionTracker.Web.exe",
-        "CLI\AIConsumptionTracker.CLI.exe"
+        "Tracker\AIUsageTracker.exe",
+        "Monitor\AIUsageTracker.Monitor.exe",
+        "Web\AIUsageTracker.Web.exe",
+        "CLI\AIUsageTracker.CLI.exe"
     )
 
     foreach ($relativePath in $componentFiles) {
@@ -91,7 +91,7 @@ try {
         }
     }
 
-    $generated = Get-ChildItem (Join-Path $outputDir "AIConsumptionTracker_Setup_v$resolvedVersion`_*.exe") -ErrorAction SilentlyContinue
+    $generated = Get-ChildItem (Join-Path $outputDir "AIUsageTracker_Setup_v$resolvedVersion`_*.exe") -ErrorAction SilentlyContinue
     if (($generated | Measure-Object).Count -lt 3) {
         throw "Expected setup executables for x64/x86/arm64 were not generated."
     }

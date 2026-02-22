@@ -38,13 +38,13 @@ jobs:
 
     - name: Restore test dependencies
       run: |
-        dotnet restore AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj
-        dotnet restore AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj
+        dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+        dotnet restore AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj
 
     - name: Build test projects
       run: |
-        dotnet build AIConsumptionTracker.Tests\AIConsumptionTracker.Tests.csproj --configuration Debug --no-restore
-        dotnet build AIConsumptionTracker.Agent.Tests\AIConsumptionTracker.Agent.Tests.csproj --configuration Debug --no-restore
+        dotnet build AIUsageTracker.Tests\AIUsageTracker.Tests.csproj --configuration Debug --no-restore
+        dotnet build AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-restore
 
     - name: Validate test quarantine entries
       run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
@@ -56,7 +56,7 @@ jobs:
       # Unlike Java/Maven, .NET analyzers don't run automatically during build
       # Developers can run locally: dotnet format . or dotnet format --verify-no-changes
       # TEMPORARILY DISABLED: Codebase has whitespace formatting issues to be fixed separately
-      # run: dotnet format AIConsumptionTracker.slnx --verify-no-changes --verbosity diagnostic
+      # run: dotnet format AIUsageTracker.slnx --verify-no-changes --verbosity diagnostic
       run: echo "Formatting check temporarily disabled - will be fixed in separate PR"
 
     - name: Upload built test binaries
@@ -64,8 +64,8 @@ jobs:
       with:
         name: test-binaries-debug
         path: |
-          AIConsumptionTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-          AIConsumptionTracker.Agent.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+          AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+          AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
           scripts/run-vstest-with-retry.ps1
           .github/test-quarantine.txt
 
@@ -84,7 +84,7 @@ jobs:
       shell: pwsh
       run: >
         powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
-        -AssemblyPath .\_ci_test_binaries\AIConsumptionTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIConsumptionTracker.Tests.dll
+        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Tests.dll
         -SuiteName core-tests
         -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
 
@@ -110,7 +110,7 @@ jobs:
       shell: pwsh
       run: >
         powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
-        -AssemblyPath .\_ci_test_binaries\AIConsumptionTracker.Agent.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIConsumptionTracker.Agent.Tests.dll
+        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Monitor.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.Tests.dll
         -SuiteName agent-tests
         -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
 
@@ -137,8 +137,8 @@ jobs:
 
     - name: Install Playwright Browsers
       run: |
-        dotnet build AIConsumptionTracker.Web.Tests\AIConsumptionTracker.Web.Tests.csproj --configuration Debug
-        pwsh AIConsumptionTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1 install
+        dotnet build AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj --configuration Debug
+        pwsh AIUsageTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1 install
       shell: pwsh
 
     - name: Seed Test Database
@@ -149,11 +149,11 @@ jobs:
     - name: Run Web UI Tests
       run: |
         # Build the Web project first to avoid build time in the background process
-        dotnet build AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug
+        dotnet build AIUsageTracker.Web\AIUsageTracker.Web.csproj --configuration Debug
         
         # Start the Web server in the background and bind to 127.0.0.1
         # Removing quotes from --urls to avoid literal quote passing issues in Start-Process
-        $process = Start-Process -FilePath "dotnet" -ArgumentList "run --project AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug --no-build --urls http://127.0.0.1:5100" -PassThru -WindowStyle Hidden -RedirectStandardOutput "web_server.log" -RedirectStandardError "web_server_error.log"
+        $process = Start-Process -FilePath "dotnet" -ArgumentList "run --project AIUsageTracker.Web\AIUsageTracker.Web.csproj --configuration Debug --no-build --urls http://127.0.0.1:5100" -PassThru -WindowStyle Hidden -RedirectStandardOutput "web_server.log" -RedirectStandardError "web_server_error.log"
         
         # Wait for the server to be responsive
         $maxRetries = 60
@@ -191,9 +191,41 @@ jobs:
         
         # Give the server a few extra seconds to fully initialize razor pages and database connections
         Start-Sleep -Seconds 5
+
+        function Measure-EndpointLatency {
+            param(
+                [string]$Url,
+                [int]$Attempts = 3
+            )
+
+            $durations = @()
+            for ($i = 0; $i -lt $Attempts; $i++) {
+                $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 20 -ErrorAction Stop
+                $sw.Stop()
+
+                if ($resp.StatusCode -ne 200) {
+                    throw "Unexpected status $($resp.StatusCode) for $Url"
+                }
+
+                $durations += $sw.ElapsedMilliseconds
+                Start-Sleep -Milliseconds 200
+            }
+
+            $avg = [math]::Round((($durations | Measure-Object -Average).Average), 2)
+            Write-Host "Perf smoke: $Url avg=${avg}ms samples=$($durations -join ',')"
+            return [double]$avg
+        }
+
+        # CI perf smoke guardrail (kept generous to avoid flaky failures on hosted runners)
+        $dashboardAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/"
+        $chartsAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/charts"
+        if ($dashboardAvgMs -gt 3000 -or $chartsAvgMs -gt 3500) {
+            throw "Web perf smoke failed: dashboard=${dashboardAvgMs}ms charts=${chartsAvgMs}ms"
+        }
         
         try {
-            dotnet test AIConsumptionTracker.Web.Tests\AIConsumptionTracker.Web.Tests.csproj --configuration Debug
+            dotnet test AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj --configuration Debug
         } catch {
             Write-Host "Tests FAILED. Web server log dump:"
             if (Test-Path "web_server.log") { Get-Content "web_server.log" }
@@ -220,4 +252,6 @@ jobs:
         if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success" -or $web -ne "success") {
           throw "One or more required jobs failed."
         }
+
+
 

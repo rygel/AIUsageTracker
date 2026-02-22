@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "AIUsageTracker.Monitor": {
+      "commandName": "Project",
+      "commandLineArgs": "",
+      "launchBrowser": false,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "http://localhost:5000"
+    }
+  }
+}
+

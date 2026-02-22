@@ -1,0 +1,15 @@
+<Solution>
+  <Project Path="AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj" />
+  <Project Path="AIUsageTracker.Monitor/AIUsageTracker.Monitor.csproj" />
+  <Project Path="AIUsageTracker.CLI/AIUsageTracker.CLI.csproj" />
+  <Project Path="AIUsageTracker.Core/AIUsageTracker.Core.csproj" />
+  <Project Path="AIUsageTracker.Infrastructure/AIUsageTracker.Infrastructure.csproj" />
+  <Project Path="AIUsageTracker.Tests/AIUsageTracker.Tests.csproj" />
+  <Project Path="AIUsageTracker.UI.Slim/AIUsageTracker.UI.Slim.csproj" />
+  <Project Path="AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj" />
+  <Project Path="AIUsageTracker.Web/AIUsageTracker.Web.csproj" />
+</Solution>
+
+
+
+

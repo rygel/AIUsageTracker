@@ -7,14 +7,14 @@
 
 **Correct:**
 ```csharp
-namespace AIConsumptionTracker.Core.Models;
+namespace AIUsageTracker.Core.Models;
 
 public class ProviderUsage { }
 ```
 
 **Incorrect:**
 ```csharp
-namespace AIConsumptionTracker.Core.Models
+namespace AIUsageTracker.Core.Models
 {
     public class ProviderUsage { }
 }
@@ -34,8 +34,8 @@ using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
 
-using AIConsumptionTracker.Core.Interfaces;
-using AIConsumptionTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 ```
 
 ### 3. Nullable Reference Types
@@ -605,3 +605,4 @@ public void LoadData()
 3. Create PR
 4. Merge PR
 5. Tag the release
+

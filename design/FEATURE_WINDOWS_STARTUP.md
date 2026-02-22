@@ -81,11 +81,11 @@ Added two major new features to AI Consumption Tracker:
 - **Linux/Mac support**: Platform-specific startup (LaunchAgent on Linux/Mac)
 
 ### Related Files:
-1. `AIConsumptionTracker.Core/Models/AppPreferences.cs` - Added AppTheme enum and StartWithWindows property
-2. `AIConsumptionTracker.UI.Slim/App.xaml.cs` - Modified OnStartup method to handle Windows Auto-Startup
-3. `AIConsumptionTracker.UI.Slim/SettingsWindow.xaml.cs` - Added checkbox in PopulateLayout() and event handlers
-4. `AIConsumptionTracker.UI.Slim/App.xaml.cs` - Added SetStartupTaskAsync() method for registry operations
-5. `AIConsumptionTracker.UI.Slim/App.xaml.cs` - Added Windows registry using statements and proper command quoting
+1. `AIUsageTracker.Core/Models/AppPreferences.cs` - Added AppTheme enum and StartWithWindows property
+2. `AIUsageTracker.UI.Slim/App.xaml.cs` - Modified OnStartup method to handle Windows Auto-Startup
+3. `AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs` - Added checkbox in PopulateLayout() and event handlers
+4. `AIUsageTracker.UI.Slim/App.xaml.cs` - Added SetStartupTaskAsync() method for registry operations
+5. `AIUsageTracker.UI.Slim/App.xaml.cs` - Added Windows registry using statements and proper command quoting
 
 ## Design Document Created: FEATURE_WINDOWS_STARTUP.md
 
@@ -213,3 +213,4 @@ Potential improvements:
 - **Registry Value Name**: "AI Consumption Tracker" (app name)
 - **Registry Value**: Full path to executable
 - **Value Type**: String
+

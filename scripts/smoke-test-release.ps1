@@ -12,8 +12,8 @@ if (-not (Test-Path $ArtifactsPath)) {
     throw "Artifacts path not found: $ArtifactsPath"
 }
 
-$setupPattern = "AIConsumptionTracker_Setup_v${Version}_$Runtime.exe"
-$zipPattern = "AIConsumptionTracker_v${Version}_$Runtime.zip"
+$setupPattern = "AIUsageTracker_Setup_v${Version}_$Runtime.exe"
+$zipPattern = "AIUsageTracker_v${Version}_$Runtime.zip"
 
 $setupFile = Get-ChildItem -Path $ArtifactsPath -Recurse -File |
     Where-Object { $_.Name -eq $setupPattern } |
@@ -35,7 +35,7 @@ Write-Host "Found setup artifact: $($setupFile.FullName)" -ForegroundColor Green
 Write-Host "Found zip artifact: $($zipFile.FullName)" -ForegroundColor Green
 
 $tempRoot = if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { [System.IO.Path]::GetTempPath() } else { $env:RUNNER_TEMP }
-$installDir = Join-Path $tempRoot "AIConsumptionTracker-Smoke"
+$installDir = Join-Path $tempRoot "AIUsageTracker-Smoke"
 if (Test-Path $installDir) {
     Remove-Item -Path $installDir -Recurse -Force
 }
@@ -55,8 +55,8 @@ if ($installerProcess.ExitCode -ne 0) {
     throw "Installer exited with code $($installerProcess.ExitCode)"
 }
 
-$agentExe = Join-Path $installDir "AIConsumptionTracker.Agent.exe"
-$trackerExe = Join-Path $installDir "AIConsumptionTracker.exe"
+$agentExe = Join-Path $installDir "AIUsageTracker.Monitor.exe"
+$trackerExe = Join-Path $installDir "AIUsageTracker.exe"
 if (-not (Test-Path $agentExe)) {
     throw "Installed agent executable not found: $agentExe"
 }

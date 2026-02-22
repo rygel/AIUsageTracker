@@ -1,4 +1,4 @@
-# <img src="AIConsumptionTracker.Web/wwwroot/favicon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
+# <img src="AIUsageTracker.Web/wwwroot/favicon.png" width="32" height="32" valign="middle"> AI Usage Tracker
 
 ![Version](https://img.shields.io/badge/version-2.1.4-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -79,7 +79,7 @@ For the complete screenshot set (all settings tabs, info dialog, tray states, an
 ## Installation
 
 ### Manual
-1. Download the latest `AIConsumptionTracker_Setup_v2.1.4.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
+1. Download the latest `AIUsageTracker_Setup_v2.1.4.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 
@@ -112,5 +112,6 @@ Configuration is stored in `auth.json` in the application data directory.
 
 ## License
 MIT
+
 
 
