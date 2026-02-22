@@ -493,8 +493,8 @@ public partial class SettingsWindow : Window
 
         if (AgentLogsText != null)
         {
-            AgentLogsText.Text = "Agent health check: OK" + Environment.NewLine +
-                                 "Diagnostics available in Settings > Agent.";
+            AgentLogsText.Text = "Monitor health check: OK" + Environment.NewLine +
+                                 "Diagnostics available in Settings > Monitor.";
         }
     }
 
@@ -600,8 +600,8 @@ public partial class SettingsWindow : Window
 
         if (_isDeterministicScreenshotMode)
         {
-            AgentLogsText.Text = "Agent health check: OK" + Environment.NewLine +
-                                 "Diagnostics available in Settings > Agent.";
+            AgentLogsText.Text = "Monitor health check: OK" + Environment.NewLine +
+                                 "Diagnostics available in Settings > Monitor.";
             AgentLogsText.ScrollToEnd();
             return;
         }
@@ -1287,7 +1287,7 @@ public partial class SettingsWindow : Window
 
     private void ScanBtn_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show("API key scanning is not yet implemented in AI Consumption Tracker.", 
+        MessageBox.Show("API key scanning is not yet implemented in AI Usage Tracker.", 
             "Not Implemented", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
@@ -1354,18 +1354,18 @@ public partial class SettingsWindow : Window
             // Restart agent
             if (await AgentLauncher.StartAgentAsync())
             {
-                MessageBox.Show("Agent restarted successfully.", "Restart Complete", 
+                MessageBox.Show("Monitor restarted successfully.", "Restart Complete", 
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
             {
-                MessageBox.Show("Failed to restart Agent.", "Restart Error", 
+                MessageBox.Show("Failed to restart Monitor.", "Restart Error", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to restart Agent: {ex.Message}", "Restart Error", 
+            MessageBox.Show($"Failed to restart Monitor: {ex.Message}", "Restart Error", 
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -1381,7 +1381,7 @@ public partial class SettingsWindow : Window
             var (isRunning, port) = await AgentLauncher.IsAgentRunningWithPortAsync();
             var status = isRunning ? "Running" : "Not Running";
             
-            MessageBox.Show($"Agent Status: {status}\n\nPort: {port}", "Health Check", 
+            MessageBox.Show($"Monitor Status: {status}\n\nPort: {port}", "Health Check", 
                 MessageBoxButton.OK, isRunning ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
         catch (Exception ex)
@@ -1408,7 +1408,7 @@ public partial class SettingsWindow : Window
 
             var saveDialog = new SaveFileDialog
             {
-                FileName = $"ai-consumption-tracker-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+                FileName = $"ai-usage-tracker-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
                 Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
                 DefaultExt = ".txt",
                 AddExtension = true
@@ -1421,7 +1421,7 @@ public partial class SettingsWindow : Window
 
             var telemetry = AgentService.GetTelemetrySnapshot();
             var bundle = new StringBuilder();
-            bundle.AppendLine("AI Consumption Tracker - Diagnostics Bundle");
+            bundle.AppendLine("AI Usage Tracker - Diagnostics Bundle");
             bundle.AppendLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");
             bundle.AppendLine($"SlimVersion: {typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "unknown"}");
             bundle.AppendLine($"AgentUrl: {_agentService.AgentUrl}");
@@ -1429,15 +1429,15 @@ public partial class SettingsWindow : Window
             bundle.AppendLine($"AgentPort: {port}");
             bundle.AppendLine();
 
-            bundle.AppendLine("=== Agent Health ===");
+            bundle.AppendLine("=== Monitor Health ===");
             bundle.AppendLine(FormatJsonForBundle(healthDetails));
             bundle.AppendLine();
 
-            bundle.AppendLine("=== Agent Diagnostics ===");
+            bundle.AppendLine("=== Monitor Diagnostics ===");
             bundle.AppendLine(FormatJsonForBundle(diagnosticsDetails));
             bundle.AppendLine();
 
-            bundle.AppendLine("=== Agent Errors (agent.json) ===");
+            bundle.AppendLine("=== Monitor Errors (agent.json) ===");
             if (_agentService.LastAgentErrors.Count == 0)
             {
                 bundle.AppendLine("None");

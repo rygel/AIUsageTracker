@@ -1,7 +1,7 @@
 <Window x:Class="AIConsumptionTracker.UI.Slim.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AI Consumption Tracker" Height="400" Width="380"
+        Title="AI Usage Tracker" Height="400" Width="380"
         MinWidth="320" MinHeight="300"
         WindowStyle="None" ResizeMode="CanResize"
         Background="{DynamicResource Background}"
@@ -31,7 +31,7 @@
             <Border x:Name="HeaderBorder" Background="{DynamicResource HeaderBackground}" Padding="8,6" Grid.Row="0">
                 <DockPanel>
                     <Image Source="Assets/app_icon.ico" Width="16" Height="16" Margin="0,0,6,0" DockPanel.Dock="Left"/>
-                    <TextBlock Text="AI Consumption Tracker" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryText}" DockPanel.Dock="Left"/>
+                    <TextBlock Text="AI Usage Tracker" FontSize="13" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryText}" DockPanel.Dock="Left"/>
                     <TextBlock x:Name="VersionText" Text="v1.8.6" FontSize="10" Foreground="{DynamicResource TertiaryText}" VerticalAlignment="Center" Margin="6,1,0,0" DockPanel.Dock="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="PrivacyBtn" Content="&#xE785;" Click="PrivacyBtn_Click" Background="Transparent" Foreground="{DynamicResource SecondaryText}" Width="26" Margin="0,0,8,0" ToolTip="Toggle Privacy Mode (Ctrl+P)" FontFamily="Segoe MDL2 Assets" FontSize="14" WindowChrome.IsHitTestVisibleInChrome="True"/>
@@ -99,7 +99,7 @@
                           <Button x:Name="WebBtn" Click="WebBtn_Click" Margin="0,0,8,0" ToolTip="Open Web UI" Width="32" Height="28">
                               <TextBlock Text="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                           </Button>
-                          <Button x:Name="AgentToggleBtn" Click="AgentToggleBtn_Click" ToolTip="Start/Stop Agent" Width="32" Height="28">
+                          <Button x:Name="AgentToggleBtn" Click="AgentToggleBtn_Click" ToolTip="Start/Stop Monitor" Width="32" Height="28">
                               <TextBlock x:Name="AgentToggleIcon" Text="&#xE768;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center"/>
                           </Button>
                           <Button x:Name="SettingsBtn" Click="SettingsBtn_Click" Margin="8,0,0,0" ToolTip="Settings" Width="32" Height="28">

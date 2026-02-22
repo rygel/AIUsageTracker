@@ -181,7 +181,7 @@ public partial class MainWindow : Window
                     // Check if Agent is running, auto-start if needed
                     if (!await AgentLauncher.IsAgentRunningAsync())
                     {
-                        Dispatcher.Invoke(() => ShowStatus("Agent not running. Starting agent...", StatusType.Warning));
+                        Dispatcher.Invoke(() => ShowStatus("Monitor not running. Starting monitor...", StatusType.Warning));
 
                         if (await AgentLauncher.StartAgentAsync())
                         {
@@ -191,8 +191,8 @@ public partial class MainWindow : Window
                             if (!agentReady)
                             {
                                 Dispatcher.Invoke(() => {
-                                    ShowStatus("Agent failed to start", StatusType.Error);
-                                    ShowErrorState("Agent failed to start.\n\nPlease ensure AIConsumptionTracker.Agent is installed and try again.");
+                                    ShowStatus("Monitor failed to start", StatusType.Error);
+                                    ShowErrorState("Monitor failed to start.\n\nPlease ensure AIConsumptionTracker.Agent is installed and try again.");
                                 });
                                 return false;
                             }
@@ -202,7 +202,7 @@ public partial class MainWindow : Window
                         {
                             Dispatcher.Invoke(() => {
                                 ShowStatus("Could not start agent", StatusType.Error);
-                                ShowErrorState("Could not start agent automatically.\n\nPlease start it manually:\n\ndotnet run --project AIConsumptionTracker.Agent");
+                                ShowErrorState("Could not start monitor automatically.\n\nPlease start it manually:\n\ndotnet run --project AIConsumptionTracker.Agent");
                             });
                             return false;
                         }
@@ -286,7 +286,7 @@ public partial class MainWindow : Window
 
         // Max attempts reached - show error or empty state
         ShowStatus("No data available", StatusType.Error);
-        ShowErrorState("No provider data available.\n\nThe Agent may still be initializing.\nTry refreshing manually.");
+        ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually.");
     }
 
     private void ApplyPreferences()
@@ -2272,12 +2272,12 @@ public partial class MainWindow : Window
                 var agentReady = await AgentLauncher.WaitForAgentAsync();
                 if (agentReady)
                 {
-                    ShowStatus("Agent restarted", StatusType.Success);
+                    ShowStatus("Monitor restarted", StatusType.Success);
                     await RefreshDataAsync();
                 }
                 else
                 {
-                    ShowStatus("Agent restart failed", StatusType.Error);
+                    ShowStatus("Monitor restart failed", StatusType.Error);
                 }
             }
         }
@@ -2299,7 +2299,7 @@ public partial class MainWindow : Window
             var stopped = await AgentLauncher.StopAgentAsync();
             if (stopped)
             {
-                ShowStatus("Agent stopped", StatusType.Info);
+                ShowStatus("Monitor stopped", StatusType.Info);
                 UpdateAgentToggleButton(false);
             }
             else
@@ -2316,13 +2316,13 @@ public partial class MainWindow : Window
                 var agentReady = await AgentLauncher.WaitForAgentAsync();
                 if (agentReady)
                 {
-                    ShowStatus("Agent started", StatusType.Success);
+                    ShowStatus("Monitor started", StatusType.Success);
                     UpdateAgentToggleButton(true);
                     await RefreshDataAsync();
                 }
                 else
                 {
-                    ShowStatus("Agent failed to start", StatusType.Error);
+                    ShowStatus("Monitor failed to start", StatusType.Error);
                     UpdateAgentToggleButton(false);
                 }
             }
@@ -2340,7 +2340,7 @@ public partial class MainWindow : Window
         {
             // Update icon: Play (E768) when stopped, Stop (E71A) when running
             AgentToggleIcon.Text = isRunning ? "\uE71A" : "\uE768";
-            AgentToggleBtn.ToolTip = isRunning ? "Stop Agent" : "Start Agent";
+            AgentToggleBtn.ToolTip = isRunning ? "Stop Monitor" : "Start Monitor";
         }
     }
 

@@ -1,4 +1,4 @@
-# AI Consumption Tracker - Agent Guidelines
+# AI Usage Tracker - Monitor Guidelines
 
 This document provides essential information for agentic coding assistants working on this .NET 8.0 WPF application.
 

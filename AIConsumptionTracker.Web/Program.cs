@@ -87,26 +87,48 @@ try
 
     app.UseRouting();
 
+    app.MapGet("/api/monitor/status", async (AgentProcessService agentService) =>
+    {
+        var (isRunning, port) = await agentService.GetAgentStatusAsync();
+        return Results.Ok(new { isRunning, port });
+    });
+
     app.MapGet("/api/agent/status", async (AgentProcessService agentService) =>
     {
         var (isRunning, port) = await agentService.GetAgentStatusAsync();
         return Results.Ok(new { isRunning, port });
     });
 
+    app.MapPost("/api/monitor/start", async (AgentProcessService agentService) =>
+    {
+        var success = await agentService.StartAgentAsync();
+        return success
+            ? Results.Ok(new { message = "Monitor started" })
+            : Results.BadRequest(new { message = "Failed to start monitor" });
+    });
+
     app.MapPost("/api/agent/start", async (AgentProcessService agentService) =>
     {
         var success = await agentService.StartAgentAsync();
         return success
-            ? Results.Ok(new { message = "Agent started" })
-            : Results.BadRequest(new { message = "Failed to start agent" });
+            ? Results.Ok(new { message = "Monitor started" })
+            : Results.BadRequest(new { message = "Failed to start monitor" });
+    });
+
+    app.MapPost("/api/monitor/stop", async (AgentProcessService agentService) =>
+    {
+        var success = await agentService.StopAgentAsync();
+        return success
+            ? Results.Ok(new { message = "Monitor stopped" })
+            : Results.BadRequest(new { message = "Failed to stop monitor" });
     });
 
     app.MapPost("/api/agent/stop", async (AgentProcessService agentService) =>
     {
         var success = await agentService.StopAgentAsync();
         return success
-            ? Results.Ok(new { message = "Agent stopped" })
-            : Results.BadRequest(new { message = "Failed to stop agent" });
+            ? Results.Ok(new { message = "Monitor stopped" })
+            : Results.BadRequest(new { message = "Failed to stop monitor" });
     });
 
     app.MapRazorPages();
@@ -118,8 +140,8 @@ try
     }
     else
     {
-        Log.Warning("Agent database not found. Web UI will show empty data.");
-        Log.Warning("Ensure the Agent has run at least once to initialize the database.");
+        Log.Warning("Monitor database not found. Web UI will show empty data.");
+        Log.Warning("Ensure the Monitor has run at least once to initialize the database.");
     }
 
     app.Run();

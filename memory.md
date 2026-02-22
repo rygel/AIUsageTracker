@@ -1,4 +1,4 @@
-# AI Consumption Tracker - Memory State
+# AI Usage Tracker - Memory State
 
 ## Current Status
 

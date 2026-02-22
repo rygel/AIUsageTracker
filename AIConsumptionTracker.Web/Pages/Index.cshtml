@@ -11,8 +11,8 @@
         @if (!Model.IsDatabaseAvailable)
         {
             <div class="alert alert-warning">
-                <strong>Database not found!</strong> The Agent database is not available. 
-                Ensure the Agent has run at least once to initialize the database.
+                <strong>Database not found!</strong> The Monitor database is not available. 
+                Ensure the Monitor has run at least once to initialize the database.
             </div>
         }
         else if (Model.Summary != null)
@@ -43,7 +43,7 @@
         @if (Model.LatestUsage?.Any() != true)
         {
             <div class="alert alert-info">
-                No usage data available. The Agent may still be collecting data.
+                No usage data available. The Monitor may still be collecting data.
             </div>
         }
         else

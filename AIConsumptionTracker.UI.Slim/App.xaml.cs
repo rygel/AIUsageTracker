@@ -47,7 +47,7 @@ public partial class App : Application
             Console.WriteLine("═══════════════════════════════════════════════════════════════");
             Console.WriteLine("");
             
-            AgentService.LogDiagnostic("AI Consumption Tracker UI Debug Mode Enabled");
+            AgentService.LogDiagnostic("AI Usage Tracker UI Debug Mode Enabled");
         }
 
         base.OnStartup(e);
@@ -285,7 +285,7 @@ public partial class App : Application
         _trayIcon = new TaskbarIcon
         {
             Icon = new System.Drawing.Icon("Assets/app_icon.ico"),
-            ToolTipText = "AI Consumption Tracker",
+            ToolTipText = "AI Usage Tracker",
             ContextMenu = contextMenu,
             DoubleClickCommand = new RelayCommand(() =>
             {
