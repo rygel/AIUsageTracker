@@ -50,6 +50,16 @@ class Program
                 fetched_at TEXT,
                 details_json TEXT
             );
+
+            CREATE TABLE reset_events (
+                id TEXT PRIMARY KEY,
+                provider_id TEXT,
+                provider_name TEXT,
+                previous_usage REAL,
+                new_usage REAL,
+                reset_type TEXT,
+                timestamp TEXT
+            );
         ");
 
         // Helper
