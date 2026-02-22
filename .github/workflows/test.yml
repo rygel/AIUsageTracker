@@ -125,6 +125,8 @@ jobs:
     needs: prepare
     runs-on: windows-latest
 
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
     steps:
     - uses: actions/checkout@v4
 
@@ -150,7 +152,8 @@ jobs:
         dotnet build AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug
         
         # Start the Web server in the background and bind to 127.0.0.1
-        $process = Start-Process -FilePath "dotnet" -ArgumentList "run --project AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug --no-build --urls 'http://127.0.0.1:5100'" -PassThru -WindowStyle Hidden -RedirectStandardOutput "web_server.log" -RedirectStandardError "web_server_error.log"
+        # Removing quotes from --urls to avoid literal quote passing issues in Start-Process
+        $process = Start-Process -FilePath "dotnet" -ArgumentList "run --project AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug --no-build --urls http://127.0.0.1:5100" -PassThru -WindowStyle Hidden -RedirectStandardOutput "web_server.log" -RedirectStandardError "web_server_error.log"
         
         # Wait for the server to be responsive
         $maxRetries = 60
