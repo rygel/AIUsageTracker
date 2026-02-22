@@ -139,6 +139,11 @@ jobs:
         pwsh AIConsumptionTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1 install
       shell: pwsh
 
+    - name: Seed Test Database
+      run: |
+        dotnet run --project scripts\Seeder\Seeder.csproj
+      shell: pwsh
+
     - name: Run Web UI Tests
       run: |
         # Start the Web server in the background
