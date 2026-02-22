@@ -26,6 +26,94 @@ public partial class App : Application
 
     public static event EventHandler<bool>? PrivacyChanged;
 
+    public static void ApplyTheme(AppTheme theme)
+    {
+        Preferences.Theme = theme;
+        var resources = Current?.Resources;
+        if (resources == null)
+        {
+            return;
+        }
+
+        if (theme == AppTheme.Light)
+        {
+            SetBrushColor(resources, "Background", Color.FromRgb(247, 247, 247));
+            SetBrushColor(resources, "HeaderBackground", Color.FromRgb(237, 237, 237));
+            SetBrushColor(resources, "FooterBackground", Color.FromRgb(237, 237, 237));
+            SetBrushColor(resources, "BorderColor", Color.FromRgb(208, 208, 208));
+            SetBrushColor(resources, "PrimaryText", Color.FromRgb(32, 32, 32));
+            SetBrushColor(resources, "SecondaryText", Color.FromRgb(85, 85, 85));
+            SetBrushColor(resources, "TertiaryText", Color.FromRgb(120, 120, 120));
+            SetBrushColor(resources, "AccentColor", Color.FromRgb(0, 120, 212));
+            SetBrushColor(resources, "AccentForeground", Color.FromRgb(255, 255, 255));
+
+            SetBrushColor(resources, "ButtonBackground", Color.FromRgb(230, 230, 230));
+            SetBrushColor(resources, "ButtonHover", Color.FromRgb(218, 218, 218));
+            SetBrushColor(resources, "ButtonPressed", Color.FromRgb(0, 120, 212));
+            SetBrushColor(resources, "ControlBackground", Color.FromRgb(255, 255, 255));
+            SetBrushColor(resources, "ControlBorder", Color.FromRgb(196, 196, 196));
+            SetBrushColor(resources, "InputBackground", Color.FromRgb(255, 255, 255));
+            SetBrushColor(resources, "TabUnselected", Color.FromRgb(236, 236, 236));
+            SetBrushColor(resources, "ComboBoxBackground", Color.FromRgb(255, 255, 255));
+            SetBrushColor(resources, "ComboBoxItemHover", Color.FromRgb(232, 240, 254));
+
+            SetBrushColor(resources, "ProgressBarBackground", Color.FromRgb(230, 230, 230));
+            SetBrushColor(resources, "StatusTextWarning", Color.FromRgb(138, 109, 59));
+            SetBrushColor(resources, "GroupHeaderBackground", Color.FromRgb(240, 240, 240));
+            SetBrushColor(resources, "GroupHeaderBorder", Color.FromRgb(210, 210, 210));
+            SetBrushColor(resources, "CardBackground", Color.FromRgb(255, 255, 255));
+            SetBrushColor(resources, "CardBorder", Color.FromRgb(215, 215, 215));
+            SetBrushColor(resources, "ScrollBarBackground", Color.FromRgb(245, 245, 245));
+            SetBrushColor(resources, "ScrollBarForeground", Color.FromRgb(170, 170, 170));
+            SetBrushColor(resources, "ScrollBarHover", Color.FromRgb(140, 140, 140));
+            SetBrushColor(resources, "LinkForeground", Color.FromRgb(0, 95, 184));
+        }
+        else
+        {
+            SetBrushColor(resources, "Background", Color.FromRgb(30, 30, 30));
+            SetBrushColor(resources, "HeaderBackground", Color.FromRgb(37, 37, 38));
+            SetBrushColor(resources, "FooterBackground", Color.FromRgb(37, 37, 38));
+            SetBrushColor(resources, "BorderColor", Color.FromRgb(51, 51, 51));
+            SetBrushColor(resources, "PrimaryText", Color.FromRgb(255, 255, 255));
+            SetBrushColor(resources, "SecondaryText", Color.FromRgb(170, 170, 170));
+            SetBrushColor(resources, "TertiaryText", Color.FromRgb(136, 136, 136));
+            SetBrushColor(resources, "AccentColor", Color.FromRgb(0, 122, 204));
+            SetBrushColor(resources, "AccentForeground", Color.FromRgb(255, 255, 255));
+
+            SetBrushColor(resources, "ButtonBackground", Color.FromRgb(68, 68, 68));
+            SetBrushColor(resources, "ButtonHover", Color.FromRgb(85, 85, 85));
+            SetBrushColor(resources, "ButtonPressed", Color.FromRgb(0, 122, 204));
+            SetBrushColor(resources, "ControlBackground", Color.FromRgb(45, 45, 48));
+            SetBrushColor(resources, "ControlBorder", Color.FromRgb(67, 67, 70));
+            SetBrushColor(resources, "InputBackground", Color.FromRgb(45, 45, 48));
+            SetBrushColor(resources, "TabUnselected", Color.FromRgb(37, 37, 38));
+            SetBrushColor(resources, "ComboBoxBackground", Color.FromRgb(45, 45, 48));
+            SetBrushColor(resources, "ComboBoxItemHover", Color.FromRgb(62, 62, 66));
+
+            SetBrushColor(resources, "ProgressBarBackground", Color.FromRgb(45, 45, 48));
+            SetBrushColor(resources, "StatusTextWarning", Color.FromRgb(184, 134, 11));
+            SetBrushColor(resources, "GroupHeaderBackground", Color.FromRgb(37, 37, 38));
+            SetBrushColor(resources, "GroupHeaderBorder", Color.FromRgb(51, 51, 51));
+            SetBrushColor(resources, "CardBackground", Color.FromRgb(40, 40, 40));
+            SetBrushColor(resources, "CardBorder", Color.FromRgb(55, 55, 55));
+            SetBrushColor(resources, "ScrollBarBackground", Color.FromRgb(30, 30, 30));
+            SetBrushColor(resources, "ScrollBarForeground", Color.FromRgb(78, 78, 78));
+            SetBrushColor(resources, "ScrollBarHover", Color.FromRgb(110, 110, 110));
+            SetBrushColor(resources, "LinkForeground", Color.FromRgb(55, 148, 255));
+        }
+    }
+
+    private static void SetBrushColor(ResourceDictionary resources, string key, Color color)
+    {
+        if (resources[key] is SolidColorBrush brush)
+        {
+            brush.Color = color;
+            return;
+        }
+
+        resources[key] = new SolidColorBrush(color);
+    }
+
     public static void SetPrivacyMode(bool enabled)
     {
         IsPrivacyMode = enabled;
@@ -61,7 +149,7 @@ public partial class App : Application
         }
         
         // Load UI preferences from local Slim storage
-        _ = LoadPreferencesAsync();
+        LoadPreferencesAsync().GetAwaiter().GetResult();
         
         // Create tray icon
         InitializeTrayIcon();
@@ -86,8 +174,10 @@ public partial class App : Application
                 FontSize = 12,
                 FontBold = false,
                 FontItalic = false,
-                IsPrivacyMode = true
+                IsPrivacyMode = true,
+                Theme = AppTheme.Dark
             };
+            ApplyTheme(Preferences.Theme);
             SetPrivacyMode(true);
 
             var screenshotsDir = ResolveScreenshotsDirectory();
@@ -479,10 +569,12 @@ public partial class App : Application
         {
             Preferences = await UiPreferencesStore.LoadAsync();
             IsPrivacyMode = Preferences.IsPrivacyMode;
+            ApplyTheme(Preferences.Theme);
         }
         catch
         {
             // Use defaults
+            ApplyTheme(AppTheme.Dark);
         }
     }
 }

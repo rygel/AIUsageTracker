@@ -1460,6 +1460,8 @@ public partial class SettingsWindow : Window
         AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
         InvertProgressCheck.IsChecked = _preferences.InvertProgressBar;
         InvertCalculationsCheck.IsChecked = _preferences.InvertCalculations;
+        ThemeCombo.ItemsSource = Enum.GetNames<AppTheme>();
+        ThemeCombo.SelectedItem = _preferences.Theme.ToString();
         YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString();
         RedThreshold.Text = _preferences.ColorThresholdRed.ToString();
         
@@ -1876,6 +1878,11 @@ public partial class SettingsWindow : Window
         _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
         _preferences.InvertProgressBar = InvertProgressCheck.IsChecked ?? false;
         _preferences.InvertCalculations = InvertCalculationsCheck.IsChecked ?? false;
+        if (ThemeCombo.SelectedItem is string selectedTheme && Enum.TryParse<AppTheme>(selectedTheme, out var appTheme))
+        {
+            _preferences.Theme = appTheme;
+            App.ApplyTheme(appTheme);
+        }
         
         if (int.TryParse(YellowThreshold.Text, out int yellow))
             _preferences.ColorThresholdYellow = yellow;
@@ -1926,6 +1933,15 @@ public partial class SettingsWindow : Window
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
         this.Close();
+    }
+
+    private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ThemeCombo.SelectedItem is string selectedTheme && Enum.TryParse<AppTheme>(selectedTheme, out var appTheme))
+        {
+            _preferences.Theme = appTheme;
+            App.ApplyTheme(appTheme);
+        }
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
