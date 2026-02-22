@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>AI Usage Tracker</title>
+        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>
+        <description>Most recent changes with links to updates.</description>
+        <language>en</language>
+        <item>
+            <title>Version 2.2.3</title>
+            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v2.2.3</sparkle:releaseNotesLink>
+            <pubDate>Sun, 22 Feb 2026 20:42:12 +0000</pubDate>
+            <enclosure url="https://github.com/rygel/AIConsumptionTracker/releases/download/v2.2.3/AIUsageTracker_Setup_v2.2.3_win-x86.exe"
+                       sparkle:version="2.2.3"
+                       sparkle:os="windows"
+                       length="0"
+                       type="application/octet-stream" />
+        </item>
+    </channel>
+</rss>
