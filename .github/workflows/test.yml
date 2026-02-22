@@ -121,8 +121,61 @@ jobs:
         name: agent-test-results
         path: TestResults/agent-tests*.trx
 
+  web-tests:
+    needs: prepare
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Install Playwright Browsers
+      run: |
+        dotnet build AIConsumptionTracker.Web.Tests\AIConsumptionTracker.Web.Tests.csproj --configuration Debug
+        pwsh AIConsumptionTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1 install
+      shell: pwsh
+
+    - name: Run Web UI Tests
+      run: |
+        # Start the Web server in the background
+        $process = Start-Process -FilePath "dotnet" -ArgumentList "run --project AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug" -PassThru -WindowStyle Hidden
+        
+        # Wait for the server to be responsive
+        $maxRetries = 30
+        $retryCount = 0
+        $serverReady = $false
+        
+        while ($retryCount -lt $maxRetries) {
+            try {
+                $response = Invoke-WebRequest -Uri "http://localhost:5100" -UseBasicParsing -TimeoutSec 1 -ErrorAction Stop
+                if ($response.StatusCode -eq 200) {
+                    $serverReady = $true
+                    break
+                }
+            } catch {
+                # Server not ready yet
+            }
+            Start-Sleep -Seconds 1
+            $retryCount++
+        }
+        
+        if (-not $serverReady) {
+            Write-Error "Web server failed to start within the expected time."
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            exit 1
+        }
+        
+        dotnet test AIConsumptionTracker.Web.Tests\AIConsumptionTracker.Web.Tests.csproj --configuration Debug
+        
+        if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+      shell: pwsh
+
   test:
-    needs: [prepare, core-tests, agent-tests]
+    needs: [prepare, core-tests, agent-tests, web-tests]
     if: always()
     runs-on: windows-latest
 
@@ -133,8 +186,9 @@ jobs:
         $prepare = "${{ needs.prepare.result }}"
         $core = "${{ needs.core-tests.result }}"
         $agent = "${{ needs.agent-tests.result }}"
-        Write-Host "prepare=$prepare core-tests=$core agent-tests=$agent"
-        if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success") {
+        $web = "${{ needs.web-tests.result }}"
+        Write-Host "prepare=$prepare core-tests=$core agent-tests=$agent web-tests=$web"
+        if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success" -or $web -ne "success") {
           throw "One or more required jobs failed."
         }
 
