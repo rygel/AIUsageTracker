@@ -68,37 +68,13 @@ Download the latest installer or .zip file from the [Release](https://github.com
 
 ### Screenshots
 
-**Dashboard**
+**Dashboard (Main Interface)**
 <img src="docs/screenshot_dashboard_privacy.png" alt="Dashboard" width="50%" />
 
-**Settings (Overview)**
-<img src="docs/screenshot_settings_privacy.png" alt="Settings" width="50%" />
+**Providers**
+<img src="docs/screenshot_settings_providers_privacy.png" alt="Providers" width="50%" />
 
-**Settings - Providers Tab**
-<img src="docs/screenshot_settings_providers_privacy.png" alt="Settings Providers" width="50%" />
-
-**Settings - Layout Tab**
-<img src="docs/screenshot_settings_layout_privacy.png" alt="Settings Layout" width="50%" />
-
-**Settings - History Tab**
-<img src="docs/screenshot_settings_history_privacy.png" alt="Settings History" width="50%" />
-
-**Settings - Agent Tab**
-<img src="docs/screenshot_settings_agent_privacy.png" alt="Settings Agent" width="50%" />
-
-**Info Dialog**
-<img src="docs/screenshot_info_privacy.png" alt="Info" width="50%" />
-
-**Tray Icons**
-Provider usage reflected in real-time with dynamic progress bars:
-
-- <img src="docs/tray_icon_good.png" alt="Good Status" width="22" height="22" /> (Healthy/Good)
-- <img src="docs/tray_icon_warning.png" alt="Warning Status" width="22" height="22" /> (Warning)
-- <img src="docs/tray_icon_danger.png" alt="Danger Status" width="22" height="22" /> (Critical/Over Limit)
-
-**Context Menu**
-Right-click system tray icon for quick access:
-<img src="docs/screenshot_context_menu_privacy.png" alt="Context Menu" width="50%" />
+For the complete screenshot set (all settings tabs, info dialog, tray states, and context menu), see the [User Manual](docs/user_manual.md).
 
 ## Installation
 

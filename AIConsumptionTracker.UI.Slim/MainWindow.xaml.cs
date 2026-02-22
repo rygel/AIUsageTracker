@@ -1372,10 +1372,10 @@ public partial class MainWindow : Window
     {
         var diff = nextReset - DateTime.Now;
 
-        if (diff.TotalSeconds <= 0) return "Ready";
+        if (diff.TotalSeconds <= 0) return "0m";
         if (diff.TotalDays >= 1) return $"{diff.Days}d {diff.Hours}h";
         if (diff.TotalHours >= 1) return $"{diff.Hours}h {diff.Minutes}m";
-        return $"{diff.Minutes}m";
+        return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
     }
 
     private static string MaskAccountIdentifier(string name)

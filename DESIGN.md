@@ -514,6 +514,7 @@ if (limitWithReset != null)
 The reset time is displayed in two ways:
 1. **Description field**: Shows inline text like `"10.5% Used of 135M tokens limit (Resets: Feb 11 00:00)"`
 2. **NextResetTime property**: Set for UI components to use (e.g., tray icon tooltips, detailed views)
+3. **UI relative countdown**: Reset indicators must show explicit time remaining (minutes/hours/days), never ambiguous labels like `"Ready"`
 
 ---
 
