@@ -388,7 +388,7 @@ public partial class MainWindow : Window
             var deterministicNow = DateTime.Now;
             ApplyPreferences();
             Width = 460;
-            Height = 1180;
+            Height = 1000;
 
             _usages = new List<ProviderUsage>
             {
