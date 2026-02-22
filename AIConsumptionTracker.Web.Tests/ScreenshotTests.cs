@@ -27,6 +27,47 @@ public class ScreenshotTests : PageTest
     }
 
     [TestMethod]
+    public async Task Dashboard_StylesheetAssetsLoadAndStylesApply()
+    {
+        await Page.SetViewportSizeAsync(1280, 800);
+        await Page.GotoAsync(BaseUrl);
+        await Page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var siteCssStatus = await Page.EvaluateAsync<int>("""
+            async () => {
+                const res = await fetch('/css/site.css', { cache: 'no-store' });
+                return res.status;
+            }
+            """);
+        var themesCssStatus = await Page.EvaluateAsync<int>("""
+            async () => {
+                const res = await fetch('/css/themes.css', { cache: 'no-store' });
+                return res.status;
+            }
+            """);
+
+        Assert.AreEqual(200, siteCssStatus, "Expected /css/site.css to be served.");
+        Assert.AreEqual(200, themesCssStatus, "Expected /css/themes.css to be served.");
+
+        var sidebarPosition = await Page.EvaluateAsync<string>("""
+            () => getComputedStyle(document.querySelector('.sidebar')).position
+            """);
+        var sidebarWidth = await Page.EvaluateAsync<string>("""
+            () => getComputedStyle(document.querySelector('.sidebar')).width
+            """);
+        var appContainerDisplay = await Page.EvaluateAsync<string>("""
+            () => getComputedStyle(document.querySelector('.app-container')).display
+            """);
+        var footerText = await Page.TextContentAsync(".sidebar-footer-text");
+
+        Assert.AreEqual("fixed", sidebarPosition, "Sidebar CSS is not applied (expected fixed sidebar). ");
+        Assert.AreEqual("flex", appContainerDisplay, "Layout CSS is not applied (expected flex app container).");
+        Assert.AreEqual("200px", sidebarWidth, "Sidebar width does not match expected styled layout.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(footerText), "Footer text should be present.");
+        StringAssert.Contains(footerText, "v", "Footer should include Web UI version string.");
+    }
+
+    [TestMethod]
     public async Task CaptureWebScreenshots()
     {
         // Capture console logs for debugging CI
