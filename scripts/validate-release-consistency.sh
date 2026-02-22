@@ -12,11 +12,11 @@ escaped_version="${version//-/--}"
 failed=0
 
 project_files=(
-  "AIConsumptionTracker.Core/AIConsumptionTracker.Core.csproj"
-  "AIConsumptionTracker.Infrastructure/AIConsumptionTracker.Infrastructure.csproj"
-  "AIConsumptionTracker.CLI/AIConsumptionTracker.CLI.csproj"
-  "AIConsumptionTracker.UI.Slim/AIConsumptionTracker.UI.Slim.csproj"
-  "AIConsumptionTracker.Agent/AIConsumptionTracker.Agent.csproj"
+  "AIUsageTracker.Core/AIUsageTracker.Core.csproj"
+  "AIUsageTracker.Infrastructure/AIUsageTracker.Infrastructure.csproj"
+  "AIUsageTracker.CLI/AIUsageTracker.CLI.csproj"
+  "AIUsageTracker.UI.Slim/AIUsageTracker.UI.Slim.csproj"
+  "AIUsageTracker.Monitor/AIUsageTracker.Monitor.csproj"
 )
 
 if ! grep -Fq "<TrackerVersion>$version</TrackerVersion>" Directory.Build.props; then
