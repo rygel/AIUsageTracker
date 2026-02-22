@@ -7,7 +7,7 @@
 [![](https://dcbadge.limes.pink/api/server/AZtNQtWuJA?style=flat)](https://discord.gg/AZtNQtWuJA)
 ![Downloads](https://img.shields.io/github/downloads/rygel/AIConsumptionTracker/total)
 
-![Dashboard](docs/screenshot_dashboard_privacy.png)
+<img src="docs/screenshot_dashboard_privacy.png" alt="Dashboard" width="920" />
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
 
@@ -69,36 +69,36 @@ Download the latest installer or .zip file from the [Release](https://github.com
 ### Screenshots
 
 **Dashboard**
-![Dashboard](docs/screenshot_dashboard_privacy.png)
+<img src="docs/screenshot_dashboard_privacy.png" alt="Dashboard" width="920" />
 
 **Settings (Overview)**
-![Settings](docs/screenshot_settings_privacy.png)
+<img src="docs/screenshot_settings_privacy.png" alt="Settings" width="920" />
 
 **Settings - Providers Tab**
-![Settings Providers](docs/screenshot_settings_providers_privacy.png)
+<img src="docs/screenshot_settings_providers_privacy.png" alt="Settings Providers" width="920" />
 
 **Settings - Layout Tab**
-![Settings Layout](docs/screenshot_settings_layout_privacy.png)
+<img src="docs/screenshot_settings_layout_privacy.png" alt="Settings Layout" width="920" />
 
 **Settings - History Tab**
-![Settings History](docs/screenshot_settings_history_privacy.png)
+<img src="docs/screenshot_settings_history_privacy.png" alt="Settings History" width="920" />
 
 **Settings - Agent Tab**
-![Settings Agent](docs/screenshot_settings_agent_privacy.png)
+<img src="docs/screenshot_settings_agent_privacy.png" alt="Settings Agent" width="920" />
 
 **Info Dialog**
-![Info](docs/screenshot_info_privacy.png)
+<img src="docs/screenshot_info_privacy.png" alt="Info" width="760" />
 
 **Tray Icons**
 Provider usage reflected in real-time with dynamic progress bars:
 
-- ![Good Status](docs/tray_icon_good.png) (Healthy/Good)
-- ![Warning Status](docs/tray_icon_warning.png) (Warning)
-- ![Danger Status](docs/tray_icon_danger.png) (Critical/Over Limit)
+- <img src="docs/tray_icon_good.png" alt="Good Status" width="22" height="22" /> (Healthy/Good)
+- <img src="docs/tray_icon_warning.png" alt="Warning Status" width="22" height="22" /> (Warning)
+- <img src="docs/tray_icon_danger.png" alt="Danger Status" width="22" height="22" /> (Critical/Over Limit)
 
 **Context Menu**
 Right-click system tray icon for quick access:
-![Context Menu](docs/screenshot_context_menu_privacy.png)
+<img src="docs/screenshot_context_menu_privacy.png" alt="Context Menu" width="420" />
 
 ## Installation
 
