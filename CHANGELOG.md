@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [2.2.2] - 2026-02-22
+
+### Fixed
+- Publish workflow upgrade smoke test now accepts both `AIUsageTracker` and legacy `AIConsumptionTracker` installer asset names when downloading the previous x64 release installer.
+
 ## [2.2.1] - 2026-02-22
 
 ### Changed
