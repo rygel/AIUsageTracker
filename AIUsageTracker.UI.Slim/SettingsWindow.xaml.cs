@@ -136,6 +136,18 @@ public partial class SettingsWindow : Window
                     continue;
                 }
 
+                foreach (var claim in new[] { "email", "upn" })
+                {
+                    if (openai.TryGetProperty(claim, out var emailElement) && emailElement.ValueKind == JsonValueKind.String)
+                    {
+                        var emailValue = emailElement.GetString();
+                        if (IsEmailLike(emailValue))
+                        {
+                            return emailValue;
+                        }
+                    }
+                }
+
                 var explicitIdentity = FindIdentityInJson(openai);
                 if (!string.IsNullOrWhiteSpace(explicitIdentity))
                 {
@@ -190,8 +202,21 @@ public partial class SettingsWindow : Window
             var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
             using var doc = JsonDocument.Parse(json);
 
-            // Prefer explicit identity claims from OpenAI/OpenCode sessions.
-            foreach (var claim in new[] { "email", "upn", "preferred_username", "username", "login", "name" })
+            // Prefer explicit email-like identity claims from OpenAI/OpenCode sessions.
+            foreach (var claim in new[] { "email", "upn", "preferred_username" })
+            {
+                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
+                {
+                    var value = valueElement.GetString();
+                    if (IsEmailLike(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+
+            // Fallback to non-email identifiers only when email is unavailable.
+            foreach (var claim in new[] { "username", "login", "name" })
             {
                 if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
                 {
@@ -261,6 +286,11 @@ public partial class SettingsWindow : Window
         }
 
         return null;
+    }
+
+    private static bool IsEmailLike(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
     }
 
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)

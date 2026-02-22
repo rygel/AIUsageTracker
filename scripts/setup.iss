@@ -124,10 +124,10 @@ Source: "{#SourcePath}\Web\*"; DestDir: "{app}"; Flags: ignoreversion recursesub
 Source: "{#SourcePath}\CLI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\cli
 
 [Icons]
-Name: "{group}\AI Usage Tracker UI"; Filename: "{app}\AIUsageTracker.exe"; Components: apps\tracker
-Name: "{group}\AI Usage Tracker Monitor"; Filename: "{app}\AIUsageTracker.Monitor.exe"; Components: apps\monitor
-Name: "{group}\AI Usage Tracker Web UI"; Filename: "{app}\AIUsageTracker.Web.exe"; Components: apps\web
-Name: "{group}\AI Usage Tracker CLI"; Filename: "{app}\AIUsageTracker.CLI.exe"; Components: apps\cli
+Name: "{group}\Applications\AI Usage Tracker UI"; Filename: "{app}\AIUsageTracker.exe"; Components: apps\tracker
+Name: "{group}\Applications\AI Usage Tracker Monitor"; Filename: "{app}\AIUsageTracker.Monitor.exe"; Components: apps\monitor
+Name: "{group}\Applications\AI Usage Tracker Web UI"; Filename: "{app}\AIUsageTracker.Web.exe"; Components: apps\web
+Name: "{group}\Applications\AI Usage Tracker CLI"; Filename: "{app}\AIUsageTracker.CLI.exe"; Components: apps\cli
 Name: "{group}\{cm:UninstallProgram,AI Usage Tracker}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\AI Usage Tracker"; Filename: "{app}\AIUsageTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
 Name: "{userstartup}\AI Usage Tracker Monitor"; Filename: "{app}\AIUsageTracker.Monitor.exe"; Tasks: startupmonitor; Components: apps\monitor

@@ -1,10 +1,31 @@
 # AI Consumption Tracker - User Manual
 
-Welcome to the **AI Consumption Tracker** user manual. This guide will help you understand the features of the graphical user interface and the command-line interface (`act`) to manage your AI provider consumption effectively.
+Welcome to the **AI Consumption Tracker** user manual. This guide covers the Slim desktop UI pages, Web UI pages, and the command-line interface (`act`) so you can monitor and manage provider usage quickly.
+
+## Auto-Generated Screenshots
+
+The screenshots in this document are generated from the app's deterministic headless screenshot flow used by CI/CD, so the visuals stay aligned with current UI behavior.
+
+- Dashboard: `docs/screenshot_dashboard_privacy.png`
+- Settings (Overview): `docs/screenshot_settings_privacy.png`
+- Settings > Providers: `docs/screenshot_settings_providers_privacy.png`
+- Settings > Layout: `docs/screenshot_settings_layout_privacy.png`
+- Settings > History: `docs/screenshot_settings_history_privacy.png`
+- Settings > Agent: `docs/screenshot_settings_agent_privacy.png`
+- Settings > Monitor: `docs/screenshot_settings_monitor_privacy.png`
+- Info dialog: `docs/screenshot_info_privacy.png`
+- Tray context menu: `docs/screenshot_context_menu_privacy.png`
+- Web Dashboard: `docs/screenshot_web_dashboard.png`
+- Web Providers: `docs/screenshot_web_providers.png`
+- Web Charts: `docs/screenshot_web_charts.png`
 
 ---
 
-## 1. Dashboard Overview
+## 1. Slim UI Pages
+
+### Main Dashboard Page
+
+![Dashboard](screenshot_dashboard_privacy.png)
 
 The main dashboard provides a real-time overview of your AI usage across various providers. It is designed to be lightweight and stay out of your way.
 
@@ -20,31 +41,97 @@ The main dashboard provides a real-time overview of your AI usage across various
 - **Privacy Mode (🔒)**: Masks sensitive information like names and token counts.
 - **Refresh (🔄)**: Immediate update of all provider data.
 
+### Tray Context Menu
+
+![Tray Menu](screenshot_context_menu_privacy.png)
+
+Right-clicking the tray icon opens quick actions for:
+- show/hide dashboard
+- open settings
+- manual refresh
+- exit the app
+
+### Info Dialog
+
+![Info Dialog](screenshot_info_privacy.png)
+
+The Info dialog shows application/version details and helpful links for troubleshooting and configuration paths.
+
 ---
 
 ## 2. Settings & Configuration
 
 The **Settings** window (⚙️ icon) is where you manage your AI providers and application preferences.
 
+![Settings Overview](screenshot_settings_privacy.png)
+
 ### Providers Tab
+
+![Settings Providers](screenshot_settings_providers_privacy.png)
+
 Configure API keys for OpenAI, Anthropic, Gemini, etc.
 - **Tray**: Add a dedicated system tray icon for a specific provider.
 - **Notify**: Enable Windows notifications for that provider's quota events.
 - **Scan for Keys**: Automatically discover keys from environment variables and other apps (VS Code, GitHub, Claude Code, Roo Code).
 
 ### Layout Tab
+
+![Settings Layout](screenshot_settings_layout_privacy.png)
+
 - **Auto Refresh (Minutes)**: How often the app refreshes in the background (0 = Disabled).
 - **Invert Progress Bars**: represent **Remaining** capacity (Default) or **Used** capacity.
 - **Notifications**: Global toggle for Windows notifications.
 - **Usage Threshold (%)**: Slider to set when you want to be alerted (e.g., at 90% usage).
 - **Font Settings**: Customize font family, size, and style for the dashboard.
 
+### History Tab
+
+![Settings History](screenshot_settings_history_privacy.png)
+
+Shows recent usage snapshots and provider history in one place for quick troubleshooting and trend checks.
+
+### Agent Tab
+
+![Settings Agent](screenshot_settings_agent_privacy.png)
+
+Shows Agent status/connection details and controls related to local data collection service behavior.
+
+### Monitor Tab
+
+![Settings Monitor](screenshot_settings_monitor_privacy.png)
+
+Contains monitor-specific options for background refresh behavior and integration settings.
+
 ### Data Export
 Click the **"Export Data"** button in Settings to save your usage history as **CSV** or **JSON**.
 
 ---
 
-## 3. Command Line Interface (`act`)
+## 3. Web UI Pages
+
+The Web UI provides a browser-based view over Agent-collected data.
+
+### Web Dashboard
+
+![Web Dashboard](screenshot_web_dashboard.png)
+
+High-level provider status cards, quotas/usage summaries, and periodic auto-refresh.
+
+### Web Providers
+
+![Web Providers](screenshot_web_providers.png)
+
+Tabular provider listing with availability and current usage details.
+
+### Web Charts
+
+![Web Charts](screenshot_web_charts.png)
+
+Historical charts with server-side downsampling for fast rendering over longer date ranges.
+
+---
+
+## 4. Command Line Interface (`act`)
 
 The `act` command allows you to manage everything from your terminal. It communicates with the background Agent service.
 
@@ -76,7 +163,7 @@ act <command> [options]
 
 ---
 
-## 4. System Notifications
+## 5. System Notifications
 
 The application uses native Windows 11 notifications to alert you about critical usage changes.
 
@@ -92,7 +179,7 @@ The application uses native Windows 11 notifications to alert you about critical
 
 ---
 
-## 5. API Key Discovery
+## 6. API Key Discovery
 
 The application automatically searches multiple locations to save you time.
 
@@ -136,7 +223,7 @@ Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery fro
 
 ---
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 
 - **Agent not running**: The CLI will attempt to auto-start the Agent. If it fails, run `act agent start` or start the UI application.
 - **Missing Keys**: Use `act check` to see which providers are failing due to missing or invalid keys.
@@ -144,5 +231,5 @@ Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery fro
 
 ---
 
-*Version: 2.2.0 | Author: Alexander Brandt*
+*Version: 2.2.3 | Author: Alexander Brandt*
 

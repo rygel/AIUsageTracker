@@ -323,7 +323,31 @@ public class OpenAIProvider : IProviderService
 
     private static string? GetAccountIdentity(JsonElement root, string accessToken, string? accountId)
     {
-        foreach (var key in new[] { "email", "upn", "preferred_username", "username", "login", "name" })
+        foreach (var key in new[] { "email", "upn" })
+        {
+            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
+            {
+                var value = claimElement.GetString();
+                if (IsEmailLike(value))
+                {
+                    return value;
+                }
+            }
+        }
+
+        var profileEmail = ReadString(root, "https://api.openai.com/profile", "email");
+        if (IsEmailLike(profileEmail))
+        {
+            return profileEmail;
+        }
+
+        var claims = DecodeJwtClaims(accessToken);
+        if (!string.IsNullOrWhiteSpace(claims.Email))
+        {
+            return claims.Email;
+        }
+
+        foreach (var key in new[] { "preferred_username", "username", "login", "name" })
         {
             if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
             {
@@ -333,12 +357,6 @@ public class OpenAIProvider : IProviderService
                     return value;
                 }
             }
-        }
-
-        var claims = DecodeJwtClaims(accessToken);
-        if (!string.IsNullOrWhiteSpace(claims.Email))
-        {
-            return claims.Email;
         }
 
         if (!string.IsNullOrWhiteSpace(accountId))
@@ -370,12 +388,12 @@ public class OpenAIProvider : IProviderService
             using var doc = JsonDocument.Parse(json);
 
             string? email = null;
-            foreach (var claim in new[] { "email", "upn", "preferred_username", "username", "login", "name", "sub" })
+            foreach (var claim in new[] { "email", "upn" })
             {
                 if (doc.RootElement.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
                 {
                     var value = claimElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(value))
+                    if (IsEmailLike(value))
                     {
                         email = value;
                         break;
@@ -390,10 +408,26 @@ public class OpenAIProvider : IProviderService
                 foreach (var claim in new[] { "email", "username", "name" })
                 {
                     var profileValue = ReadString(profile, claim);
-                    if (!string.IsNullOrWhiteSpace(profileValue))
+                    if (IsEmailLike(profileValue))
                     {
                         email = profileValue;
                         break;
+                    }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                foreach (var claim in new[] { "preferred_username", "username", "login", "name", "sub" })
+                {
+                    if (doc.RootElement.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
+                    {
+                        var value = claimElement.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            email = value;
+                            break;
+                        }
                     }
                 }
             }
@@ -469,6 +503,11 @@ public class OpenAIProvider : IProviderService
             JsonValueKind.False => false,
             _ => null
         };
+    }
+
+    private static bool IsEmailLike(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
     }
 
     private sealed class OpenCodeOpenAiAuth
