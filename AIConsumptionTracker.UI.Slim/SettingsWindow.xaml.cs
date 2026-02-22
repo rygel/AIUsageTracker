@@ -211,10 +211,50 @@ public partial class SettingsWindow : Window
                 {
                     new()
                     {
+                        Name = "Claude Opus 4.6 (Thinking)",
+                        ModelName = "Claude Opus 4.6 (Thinking)",
+                        GroupName = "Recommended Group 1",
+                        Used = "60%",
+                        Description = "60% remaining"
+                    },
+                    new()
+                    {
                         Name = "Claude Sonnet 4.6 (Thinking)",
                         ModelName = "Claude Sonnet 4.6 (Thinking)",
-                        GroupName = "Tier 1",
-                        Used = "40%",
+                        GroupName = "Recommended Group 1",
+                        Used = "60%",
+                        Description = "60% remaining"
+                    },
+                    new()
+                    {
+                        Name = "Gemini 3 Flash",
+                        ModelName = "Gemini 3 Flash",
+                        GroupName = "Recommended Group 1",
+                        Used = "100%",
+                        Description = "100% remaining"
+                    },
+                    new()
+                    {
+                        Name = "Gemini 3.1 Pro (High)",
+                        ModelName = "Gemini 3.1 Pro (High)",
+                        GroupName = "Recommended Group 1",
+                        Used = "100%",
+                        Description = "100% remaining"
+                    },
+                    new()
+                    {
+                        Name = "Gemini 3.1 Pro (Low)",
+                        ModelName = "Gemini 3.1 Pro (Low)",
+                        GroupName = "Recommended Group 1",
+                        Used = "100%",
+                        Description = "100% remaining"
+                    },
+                    new()
+                    {
+                        Name = "GPT-OSS 120B (Medium)",
+                        ModelName = "GPT-OSS 120B (Medium)",
+                        GroupName = "Recommended Group 1",
+                        Used = "60%",
                         Description = "60% remaining"
                     }
                 }

@@ -28,13 +28,19 @@ This document defines how provider test fixtures and deterministic screenshot fi
 ## Current Antigravity Fixture Mapping
 
 - Screenshot fixtures (`MainWindow` + `SettingsWindow`) use:
-  - `Claude Sonnet 4.6 (Thinking)` with remaining/used values matching deterministic quota semantics.
+  - `Claude Opus 4.6 (Thinking)`
+  - `Claude Sonnet 4.6 (Thinking)`
+  - `Gemini 3 Flash`
+  - `Gemini 3.1 Pro (High)`
+  - `Gemini 3.1 Pro (Low)`
+  - `GPT-OSS 120B (Medium)`
 - Snapshot parser fixture (`antigravity_user_status.snapshot.json`) currently contains:
-  - `claude-3.7-sonnet`
-  - `gpt-4.1`
-  - `mystery-model`
-
-Both are retained intentionally: one for deterministic screenshot UX, one for parser coverage of grouped model labels.
+  - `Claude Opus 4.6 (Thinking)`
+  - `Claude Sonnet 4.6 (Thinking)`
+  - `Gemini 3 Flash`
+  - `Gemini 3.1 Pro (High)`
+  - `Gemini 3.1 Pro (Low)`
+  - `GPT-OSS 120B (Medium)`
 
 ## Update Workflow
 
