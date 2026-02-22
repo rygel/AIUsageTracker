@@ -86,6 +86,12 @@ AIUsageTracker.exe --test --screenshot
 > [!NOTE]
 > The `--test` flag enables explicit UI initialization required for headless rendering. This logic is gated to avoid performance overhead for normal users.
 
+#### Screenshot Baseline Policy (Slim UI)
+- CI screenshot baseline checks run on `windows-2025`; treat CI-rendered artifacts as the final baseline authority.
+- Keep deterministic screenshot fixture data stable (including fixed clock values) to avoid non-functional image drift.
+- If only screenshot baseline fails, download the `slim-ui-screenshots` artifact from the failing run and sync only the drifted files.
+- Do not add new screenshot files to baseline verification unless workflow and verification script are updated together.
+
 ### Publishing
 ```bash
 # Publish Windows UI
@@ -162,6 +168,7 @@ AIUsageTracker.exe --test --screenshot
 - **Styles**: Define in Window.Resources, use `x:Key` for named styles
 - **Colors**: Use hex codes for dark theme (e.g., `#1E1E1E` background)
 - **Resource inclusion**: Images as `<Resource>`, SVG files as `<Content>` with `PreserveNewest`
+- **Settings auth lookup**: Slim UI must not spawn GitHub CLI (`gh`) to resolve username; use local auth cache/files or provider API data.
 
 ### Agent Architecture
 

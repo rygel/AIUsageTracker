@@ -2,69 +2,58 @@
 
 ## Current Status
 
-- Branch: `feature/web-ui-dashboard-check`
-- PR: https://github.com/rygel/AIConsumptionTracker/pull/130
-- Working focus: naming migration (`AIConsumptionTracker` -> `AIUsageTracker`) plus Web performance hardening
+- Branch: `release/v2.2.0` (content targets release `2.2.1`)
+- PR: https://github.com/rygel/AIConsumptionTracker/pull/132
+- Working focus: Slim UI identity/ordering fixes, screenshot baseline stabilization, and release prep
 
 ## Current State Variant
 
-- Variant: **rename-complete-with-web-perf-hardening**
-- Naming policy:
-  - User-facing terminology is `Monitor` and `AI Usage`.
-  - Executable/artifact naming uses `AIUsageTracker*`.
-  - Compatibility fallbacks for legacy `AIConsumptionTracker` paths are preserved where needed.
+- Variant: **release-2.2.1-ui-identity-ordering-and-baseline-sync**
 - UI policy:
-  - Antigravity must not silently degrade to a healthy-looking parent fallback when model details are missing.
-  - Missing model-level data must show explicit actionable messaging.
-- Web policy:
-  - Inactive providers are hidden by default on dashboard (toggle available).
-  - Charts prioritize fast first paint; non-critical reset events can load after initial chart render.
+  - Provider cards are alphabetically ordered by display name in main groups and Settings.
+  - Non-actionable operational detail rows (for example `Primary Window` / `Credits`) are hidden from sub-provider lists and sub-tray selectors.
+  - GitHub username lookup in Slim Settings must not spawn GitHub CLI processes.
+- Screenshot policy:
+  - Headless screenshot checks are authoritative in CI (`windows-2025` runner).
+  - Deterministic screenshot mode uses a fixed clock for repeatable rendering.
+  - If baseline drift is CI-only, use the uploaded CI artifact as baseline source of truth.
 
 ## Recent Commits (Newest First)
 
-- `e4a4a6c` perf(web): add DB telemetry, hot read cache, and CI perf smoke
-- `155bcae` perf(sqlite): tune pragmas and shared-cache connection settings
-- `ba23d6b` perf(web): add output caching and chart downsampling
-- `017bffa` perf(web): add response compression and parallel dashboard queries
-- `5963aa0` perf(web): cache chart colors and filter active providers in SQL
-- `f195d3c` perf(web): speed up charts queries and default hide inactive
-- `e2f72e6` test(ui): sync screenshot baselines with CI renderer
-- `99e9e2f` fix(ci): update release checks and screenshot baselines
+- `3b941c0` test(ui): sync providers screenshot baseline
+- `73db1a1` test(ui): freeze deterministic screenshot clock
+- `9a9fccd` test(ui): align baselines with CI renderer
+- `4da8921` fix(ui): disable gh username lookup and refresh baselines
+- `a9c2745` fix(ui): improve codex/copilot identity and ordering
 
 ## What Was Updated in This Variant
 
-### Naming and Runtime Compatibility
+### Slim UI Identity and Ordering
 
-- Project folders and namespaces migrated to `AIUsageTracker.*`.
-- Solution/project filenames and published executable names migrated to `AIUsageTracker*`.
-- Runtime lookup and storage paths updated to new naming with legacy fallback reads/writes.
+- Copilot/OpenAI account identity display now accepts non-email identities and avoids placeholders (`User`, `Unknown`).
+- Main window Plans & Quotas and Pay As You Go groups are sorted alphabetically by friendly provider name.
+- Settings provider cards and detail rows are sorted alphabetically for stable scanning.
 
-### Agent/Monitor Behavior
+### Slim UI Detail Presentation
 
-- Monitor startup/migration logic now tolerates pre-existing legacy SQLite schemas.
-- Startup flow forces immediate Antigravity refresh to avoid stale model-quota presentation.
+- Operational details (`Primary Window`, `Credits`) are excluded from sub-provider render blocks.
+- Sub-tray options now include only actionable percentage-based detail rows.
 
-### Web Performance
+### Screenshot Baseline Stabilization
 
-- Response compression enabled (Brotli/Gzip).
-- Static assets served with cache headers.
-- Dashboard and Charts output caching added.
-- Chart data query made index-friendly and downsampled by time bucket.
-- Hot DB reads cached in-memory (short TTL).
-- DB telemetry added for key read paths (elapsed ms + row counts).
-- CI includes web endpoint perf smoke guardrail for `/` and `/charts`.
+- Deterministic screenshot mode uses a fixed local timestamp to reduce run-to-run drift.
+- CI screenshot artifacts were used to synchronize baselines where local and CI rendering differed.
+- Remaining known sensitivity: providers tab screenshot may drift if deterministic fixture data changes.
 
 ## Key Files Touched Recently
 
-- `AIUsageTracker.Web/Program.cs`
-- `AIUsageTracker.Web/Services/WebDatabaseService.cs`
-- `AIUsageTracker.Web/Pages/Index.cshtml`
-- `AIUsageTracker.Web/Pages/Index.cshtml.cs`
-- `AIUsageTracker.Web/Pages/Charts.cshtml`
-- `AIUsageTracker.Web/Pages/Charts.cshtml.cs`
-- `AIUsageTracker.Monitor/Services/DatabaseMigrationService.cs`
-- `AIUsageTracker.Monitor/Services/UsageDatabase.cs`
-- `.github/workflows/test.yml`
+- `AIUsageTracker.UI.Slim/MainWindow.xaml.cs`
+- `AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs`
+- `AIUsageTracker.UI.Slim/App.xaml.cs`
+- `AIUsageTracker.Infrastructure/Providers/GitHubCopilotProvider.cs`
+- `AIUsageTracker.Infrastructure/Providers/OpenAIProvider.cs`
+- `scripts/verify_screenshot_baseline.ps1`
+- `docs/screenshot_settings_providers_privacy.png`
 
 ## Known Workspace Note
 
