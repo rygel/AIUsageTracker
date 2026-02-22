@@ -110,7 +110,8 @@ else
                     backgroundColor: color + '20', // transparent fill
                     fill: false,
                     tension: 0.1,
-                    pointRadius: 2,
+                    pointRadius: data.filter(x => x !== null).length === 1 ? 4 : 2, // Larger radius if only 1 point exists
+                    pointHoverRadius: 6,
                     spanGaps: true
                 };
             });

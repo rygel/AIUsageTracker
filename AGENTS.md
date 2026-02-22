@@ -154,6 +154,7 @@ AIConsumptionTracker.exe --test --screenshot
 - Use descriptive test names: `GetAllUsageAsync_LoadsConfigAndFetchesUsageFromMocks`
 - Test both success and failure paths
 - Avoid implementation details - test behavior
+- **Fixture Synchronization Required**: Provider test/screenshot fixtures must be based on real provider responses (sanitized only), not invented values. Keep `docs/test_fixture_sync.md` and fixture data in sync in the same PR.
 
 ### WPF-Specific Guidelines
 - **XAML**: 4-space indentation, self-closing tags when no content

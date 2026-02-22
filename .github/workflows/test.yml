@@ -121,8 +121,90 @@ jobs:
         name: agent-test-results
         path: TestResults/agent-tests*.trx
 
+  web-tests:
+    needs: prepare
+    runs-on: windows-latest
+
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Install Playwright Browsers
+      run: |
+        dotnet build AIConsumptionTracker.Web.Tests\AIConsumptionTracker.Web.Tests.csproj --configuration Debug
+        pwsh AIConsumptionTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1 install
+      shell: pwsh
+
+    - name: Seed Test Database
+      run: |
+        dotnet run --project scripts\Seeder\Seeder.csproj
+      shell: pwsh
+
+    - name: Run Web UI Tests
+      run: |
+        # Build the Web project first to avoid build time in the background process
+        dotnet build AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug
+        
+        # Start the Web server in the background and bind to 127.0.0.1
+        # Removing quotes from --urls to avoid literal quote passing issues in Start-Process
+        $process = Start-Process -FilePath "dotnet" -ArgumentList "run --project AIConsumptionTracker.Web\AIConsumptionTracker.Web.csproj --configuration Debug --no-build --urls http://127.0.0.1:5100" -PassThru -WindowStyle Hidden -RedirectStandardOutput "web_server.log" -RedirectStandardError "web_server_error.log"
+        
+        # Wait for the server to be responsive
+        $maxRetries = 60
+        $retryCount = 0
+        $serverReady = $false
+        
+        Write-Host "Waiting for Web server to start at http://127.0.0.1:5100..."
+        while ($retryCount -lt $maxRetries) {
+            try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:5100" -UseBasicParsing -TimeoutSec 1 -ErrorAction Stop
+                if ($response.StatusCode -eq 200) {
+                    $serverReady = $true
+                    Write-Host "Web server is UP!"
+                    break
+                }
+            } catch {
+                # Server not ready yet
+            }
+            if ($retryCount -gt 0 -and $retryCount % 10 -eq 0) {
+                Write-Host "Still waiting ($retryCount/60)... Last few log lines:"
+                if (Test-Path "web_server.log") { Get-Content "web_server.log" -Tail 5 }
+            }
+            Start-Sleep -Seconds 1
+            $retryCount++
+        }
+        
+        if (-not $serverReady) {
+            Write-Host "--- Web Server StdOut ---"
+            if (Test-Path "web_server.log") { Get-Content "web_server.log" }
+            Write-Host "--- Web Server StdErr ---"
+            if (Test-Path "web_server_error.log") { Get-Content "web_server_error.log" }
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            throw "Web server failed to start within the expected time."
+        }
+        
+        # Give the server a few extra seconds to fully initialize razor pages and database connections
+        Start-Sleep -Seconds 5
+        
+        try {
+            dotnet test AIConsumptionTracker.Web.Tests\AIConsumptionTracker.Web.Tests.csproj --configuration Debug
+        } catch {
+            Write-Host "Tests FAILED. Web server log dump:"
+            if (Test-Path "web_server.log") { Get-Content "web_server.log" }
+            throw
+        }
+        
+        if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+      shell: pwsh
+
   test:
-    needs: [prepare, core-tests, agent-tests]
+    needs: [prepare, core-tests, agent-tests, web-tests]
     if: always()
     runs-on: windows-latest
 
@@ -133,8 +215,9 @@ jobs:
         $prepare = "${{ needs.prepare.result }}"
         $core = "${{ needs.core-tests.result }}"
         $agent = "${{ needs.agent-tests.result }}"
-        Write-Host "prepare=$prepare core-tests=$core agent-tests=$agent"
-        if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success") {
+        $web = "${{ needs.web-tests.result }}"
+        Write-Host "prepare=$prepare core-tests=$core agent-tests=$agent web-tests=$web"
+        if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success" -or $web -ne "success") {
           throw "One or more required jobs failed."
         }
 

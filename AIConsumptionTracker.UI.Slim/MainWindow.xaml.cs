@@ -385,54 +385,159 @@ public partial class MainWindow : Window
             App.SetPrivacyMode(true);
             _preferencesLoaded = true;
             _lastAgentUpdate = new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Local);
+            var deterministicNow = DateTime.Now;
             ApplyPreferences();
+            Width = 460;
+            Height = MinHeight;
 
             _usages = new List<ProviderUsage>
             {
+                new()
+                {
+                    ProviderId = "antigravity",
+                    ProviderName = "Antigravity",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    DisplayAsFraction = true,
+                    RequestsPercentage = 60.0,
+                    RequestsUsed = 40,
+                    RequestsAvailable = 100,
+                    Description = "60.0% Remaining",
+                    IsAvailable = true,
+                    AuthSource = "local app",
+                    Details = new List<ProviderUsageDetail>
+                    {
+                        new()
+                        {
+                            Name = "Claude Opus 4.6 (Thinking)",
+                            ModelName = "Claude Opus 4.6 (Thinking)",
+                            GroupName = "Recommended Group 1",
+                            Used = "60%",
+                            Description = "60% remaining",
+                            NextResetTime = deterministicNow.AddHours(10)
+                        },
+                        new()
+                        {
+                            Name = "Claude Sonnet 4.6 (Thinking)",
+                            ModelName = "Claude Sonnet 4.6 (Thinking)",
+                            GroupName = "Recommended Group 1",
+                            Used = "60%",
+                            Description = "60% remaining",
+                            NextResetTime = deterministicNow.AddHours(10)
+                        },
+                        new()
+                        {
+                            Name = "Gemini 3 Flash",
+                            ModelName = "Gemini 3 Flash",
+                            GroupName = "Recommended Group 1",
+                            Used = "100%",
+                            Description = "100% remaining",
+                            NextResetTime = deterministicNow.AddHours(6)
+                        },
+                        new()
+                        {
+                            Name = "Gemini 3.1 Pro (High)",
+                            ModelName = "Gemini 3.1 Pro (High)",
+                            GroupName = "Recommended Group 1",
+                            Used = "100%",
+                            Description = "100% remaining",
+                            NextResetTime = deterministicNow.AddHours(14)
+                        },
+                        new()
+                        {
+                            Name = "Gemini 3.1 Pro (Low)",
+                            ModelName = "Gemini 3.1 Pro (Low)",
+                            GroupName = "Recommended Group 1",
+                            Used = "100%",
+                            Description = "100% remaining",
+                            NextResetTime = deterministicNow.AddHours(14)
+                        },
+                        new()
+                        {
+                            Name = "GPT-OSS 120B (Medium)",
+                            ModelName = "GPT-OSS 120B (Medium)",
+                            GroupName = "Recommended Group 1",
+                            Used = "60%",
+                            Description = "60% remaining",
+                            NextResetTime = deterministicNow.AddHours(8)
+                        }
+                    }
+                },
                 new()
                 {
                     ProviderId = "github-copilot",
                     ProviderName = "GitHub Copilot",
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
+                    DisplayAsFraction = true,
                     RequestsPercentage = 72.5,
-                    RequestsUsed = 27.5,
-                    RequestsAvailable = 100,
+                    RequestsUsed = 110,
+                    RequestsAvailable = 400,
                     Description = "72.5% Remaining",
                     IsAvailable = true,
-                    AccountName = "dev@example.com",
-                    AuthSource = "oauth"
+                    AuthSource = "oauth",
+                    NextResetTime = deterministicNow.AddHours(20)
                 },
                 new()
                 {
-                    ProviderId = "antigravity.claude-sonnet-4",
-                    ProviderName = "Claude Sonnet 4 [Antigravity]",
+                    ProviderId = "zai-coding-plan",
+                    ProviderName = "Z.AI",
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
-                    RequestsPercentage = 55.0,
-                    RequestsUsed = 45.0,
-                    RequestsAvailable = 100,
-                    Description = "55.0% Remaining",
+                    DisplayAsFraction = true,
+                    RequestsPercentage = 82.0,
+                    RequestsUsed = 45,
+                    RequestsAvailable = 250,
+                    Description = "82.0% Remaining",
                     IsAvailable = true,
-                    AuthSource = "local app"
+                    AuthSource = "api key",
+                    NextResetTime = deterministicNow.AddHours(12)
                 },
                 new()
                 {
-                    ProviderId = "openai",
-                    ProviderName = "OpenAI",
+                    ProviderId = "claude-code",
+                    ProviderName = "Claude Code",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    RequestsPercentage = 31.1,
-                    RequestsUsed = 12.45,
-                    RequestsAvailable = 40.00,
-                    Description = "$12.45 / $40.00",
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
+                    IsAvailable = true,
+                    AuthSource = "local credentials"
+                },
+                new()
+                {
+                    ProviderId = "synthetic",
+                    ProviderName = "Synthetic",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                    DisplayAsFraction = true,
+                    RequestsPercentage = 91.0,
+                    RequestsUsed = 18,
+                    RequestsAvailable = 200,
+                    Description = "91.0% Remaining",
+                    IsAvailable = true,
+                    AuthSource = "api key",
+                    NextResetTime = deterministicNow.AddHours(4)
+                },
+                new()
+                {
+                    ProviderId = "mistral",
+                    ProviderName = "Mistral",
+                    IsQuotaBased = false,
+                    PlanType = PlanType.Usage,
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
                     IsAvailable = true,
                     AuthSource = "api key"
                 }
             };
 
             RenderProviders();
-            ShowStatus("Headless snapshot", StatusType.Success);
+            ShowStatus($"{_lastAgentUpdate:HH:mm:ss}", StatusType.Success);
         }
         else
         {
@@ -441,6 +546,45 @@ public partial class MainWindow : Window
 
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
         UpdateLayout();
+        if (deterministic)
+        {
+            FitWindowHeightForHeadlessScreenshot();
+        }
+    }
+
+    private void FitWindowHeightForHeadlessScreenshot()
+    {
+        if (Content is not FrameworkElement root)
+        {
+            return;
+        }
+
+        var width = Width;
+        if (double.IsNaN(width) || width <= 0)
+        {
+            width = ActualWidth > 0 ? ActualWidth : 460;
+        }
+
+        root.Measure(new Size(width, double.PositiveInfinity));
+        var desiredHeight = Math.Ceiling(root.DesiredSize.Height);
+        if (desiredHeight > 0)
+        {
+            Height = Math.Max(MinHeight, desiredHeight);
+        }
+
+        UpdateLayout();
+
+        if (ProvidersScrollViewer is null)
+        {
+            return;
+        }
+
+        var overflow = ProvidersScrollViewer.ExtentHeight - ProvidersScrollViewer.ViewportHeight;
+        if (overflow > 0.5)
+        {
+            Height += Math.Ceiling(overflow) + 2;
+            UpdateLayout();
+        }
     }
 
     private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
@@ -1221,10 +1365,10 @@ public partial class MainWindow : Window
     {
         var diff = nextReset - DateTime.Now;
 
-        if (diff.TotalSeconds <= 0) return "Ready";
+        if (diff.TotalSeconds <= 0) return "0m";
         if (diff.TotalDays >= 1) return $"{diff.Days}d {diff.Hours}h";
         if (diff.TotalHours >= 1) return $"{diff.Hours}h {diff.Minutes}m";
-        return $"{diff.Minutes}m";
+        return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
     }
 
     private static string MaskAccountIdentifier(string name)

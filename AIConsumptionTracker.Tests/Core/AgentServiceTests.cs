@@ -190,6 +190,43 @@ public class AgentServiceTests
         Assert.True(result.Message.Contains("failed", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Fact]
+    public async Task GetHealthDetailsAsync_Success_ReturnsPayload()
+    {
+        // Arrange
+        var responseObj = new
+        {
+            status = "healthy",
+            apiContractVersion = AgentService.ExpectedApiContractVersion
+        };
+        SetupMockResponse(HttpStatusCode.OK, responseObj);
+
+        // Act
+        var result = await _service.GetHealthDetailsAsync();
+
+        // Assert
+        Assert.Contains("healthy", result, StringComparison.OrdinalIgnoreCase);
+        VerifyPath("/api/health");
+    }
+
+    [Fact]
+    public async Task GetDiagnosticsDetailsAsync_RequestFails_ReturnsErrorMessage()
+    {
+        // Arrange
+        _mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("network failure"));
+
+        // Act
+        var result = await _service.GetDiagnosticsDetailsAsync();
+
+        // Assert
+        Assert.Contains("Request failed", result, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void SetupMockResponse(HttpStatusCode status, object body)
     {
         _mockHandler.Protected()

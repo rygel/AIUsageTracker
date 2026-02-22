@@ -27,8 +27,20 @@ public class ProviderRefreshService : BackgroundService
     private long _refreshTotalLatencyMs;
     private long _lastRefreshLatencyMs;
     private readonly object _telemetryLock = new();
+    private readonly object _providerFailureLock = new();
+    private readonly Dictionary<string, ProviderFailureState> _providerFailureStates = new(StringComparer.OrdinalIgnoreCase);
     private DateTime? _lastRefreshCompletedUtc;
     private string? _lastRefreshError;
+    private const int CircuitBreakerFailureThreshold = 3;
+    private static readonly TimeSpan CircuitBreakerBaseBackoff = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
+
+    private sealed class ProviderFailureState
+    {
+        public int ConsecutiveFailures { get; set; }
+        public DateTime? CircuitOpenUntilUtc { get; set; }
+        public string? LastError { get; set; }
+    }
 
     public static void SetDebugMode(bool debug)
     {
@@ -217,12 +229,20 @@ public class ProviderRefreshService : BackgroundService
                     PlanType = PlanType.Coding
                 });
 
+            // "antigravity", "gemini-cli", "cloud-code", "codex" are known system providers that do not require an API key to work.
+            // Other providers MUST have an API key to be considered active.
+            var systemProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
+            { 
+                "antigravity", "gemini-cli", "cloud-code", "codex" 
+            };
+
             var activeConfigs = configs.Where(c =>
                 forceAll ||
-                string.IsNullOrEmpty(c.ApiKey) ||   // System providers (antigravity, gemini-cli, etc.)
+                systemProviders.Contains(c.ProviderId) ||
                 c.ProviderId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) ||
                 !string.IsNullOrEmpty(c.ApiKey)).ToList();
-            var skippedCount = 0; // All configs are now included
+
+            var skippedCount = configs.Count - activeConfigs.Count;
 
 
             _logger.LogInformation("Providers: {Available} available, {Initialized} initialized", configs.Count, activeConfigs.Count);
@@ -237,21 +257,39 @@ public class ProviderRefreshService : BackgroundService
                 await _database.StoreProviderAsync(config);
             }
 
-            if (activeConfigs.Count > 0)
+            var refreshableConfigs = GetRefreshableConfigs(activeConfigs, forceAll);
+            var circuitSkippedCount = activeConfigs.Count - refreshableConfigs.Count;
+            if (circuitSkippedCount > 0)
             {
-                _logger.LogDebug("Querying {Count} providers with API keys...", activeConfigs.Count);
-                _logger.LogInformation("Querying {Count} providers", activeConfigs.Count);
+                _logger.LogInformation("Circuit breaker skipping {Count} provider(s) this cycle", circuitSkippedCount);
+            }
 
-                var usages = await _providerManager.GetAllUsageAsync(forceRefresh: true);
+            if (refreshableConfigs.Count > 0)
+            {
+                _logger.LogDebug("Querying {Count} providers with API keys...", refreshableConfigs.Count);
+                _logger.LogInformation("Querying {Count} providers", refreshableConfigs.Count);
+
+                var includeProviderIds = refreshableConfigs
+                    .Select(c => c.ProviderId)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                var usages = await _providerManager.GetAllUsageAsync(
+                    forceRefresh: true,
+                    progressCallback: _ => { },
+                    includeProviderIds: includeProviderIds);
 
                 _logger.LogDebug("Received {Count} total usage results", usages.Count());
 
-                var activeProviderIds = activeConfigs.Select(c => c.ProviderId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var activeProviderIds = refreshableConfigs.Select(c => c.ProviderId).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 
-                // Allow dynamic children (e.g. antigravity.claude-3-5-sonnet) through the filter even if not in config explicitly yet
+                // Allow dynamic children (e.g. antigravity.claude-3-5-sonnet) through the filter even if not in config explicitly yet.
+                // Filter out entries where the API Key was missing to prevent logging empty data over and over.
                 var filteredUsages = usages.Where(u => 
-                    activeProviderIds.Contains(u.ProviderId) || 
-                    (u.ProviderId.StartsWith("antigravity.") && activeProviderIds.Contains("antigravity"))
+                    (activeProviderIds.Contains(u.ProviderId) || 
+                    (u.ProviderId.StartsWith("antigravity.") && activeProviderIds.Contains("antigravity"))) &&
+                    // Drop unconfigured providers that returned no usage
+                    !(u.RequestsAvailable == 0 && u.RequestsUsed == 0 && u.RequestsPercentage == 0 && !u.IsAvailable && (u.Description?.Contains("API Key", StringComparison.OrdinalIgnoreCase) == true || u.Description?.Contains("configured", StringComparison.OrdinalIgnoreCase) == true))
                 ).ToList();
 
                 _logger.LogDebug("Provider query results:");
@@ -263,6 +301,8 @@ public class ProviderRefreshService : BackgroundService
                         : usage.Description;
                     _logger.LogDebug("  {ProviderId}: [{Status}] {Message}", usage.ProviderId, status, msg);
                 }
+
+                UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
 
                 // Auto-register any dynamic sub-providers (e.g. antigravity models) that aren't in config yet
                 // This ensures we have a provider record for foreign keys
@@ -311,11 +351,13 @@ public class ProviderRefreshService : BackgroundService
             }
             else
             {
-                _logger.LogDebug("No providers with API keys configured. Nothing to refresh.");
-                _logger.LogInformation("No providers configured");
+                _logger.LogDebug("No refreshable providers currently available.");
+                _logger.LogInformation("No providers configured or all providers are in backoff.");
             }
 
             await _database.CleanupOldSnapshotsAsync();
+            await _database.CleanupEmptyHistoryAsync();
+            await _database.OptimizeAsync();
             _logger.LogInformation("Cleanup complete");
             refreshSucceeded = true;
         }
@@ -382,6 +424,154 @@ public class ProviderRefreshService : BackgroundService
             _lastRefreshCompletedUtc = DateTime.UtcNow;
             _lastRefreshError = success ? null : errorMessage;
         }
+    }
+
+    private List<ProviderConfig> GetRefreshableConfigs(List<ProviderConfig> activeConfigs, bool forceAll)
+    {
+        if (forceAll || activeConfigs.Count == 0)
+        {
+            return activeConfigs;
+        }
+
+        var now = DateTime.UtcNow;
+        var refreshable = new List<ProviderConfig>(activeConfigs.Count);
+
+        lock (_providerFailureLock)
+        {
+            foreach (var config in activeConfigs)
+            {
+                if (!_providerFailureStates.TryGetValue(config.ProviderId, out var state))
+                {
+                    refreshable.Add(config);
+                    continue;
+                }
+
+                if (state.CircuitOpenUntilUtc.HasValue && state.CircuitOpenUntilUtc.Value > now)
+                {
+                    _logger.LogDebug(
+                        "Circuit open for {ProviderId}; skipping until {RetryUtc:HH:mm:ss} UTC",
+                        config.ProviderId,
+                        state.CircuitOpenUntilUtc.Value);
+                    continue;
+                }
+
+                state.CircuitOpenUntilUtc = null;
+                refreshable.Add(config);
+            }
+        }
+
+        return refreshable;
+    }
+
+    private void UpdateProviderFailureStates(IReadOnlyCollection<ProviderConfig> queriedConfigs, IReadOnlyCollection<ProviderUsage> usages)
+    {
+        if (queriedConfigs.Count == 0)
+        {
+            return;
+        }
+
+        lock (_providerFailureLock)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var config in queriedConfigs)
+            {
+                var providerUsages = usages
+                    .Where(u => IsUsageForProvider(config.ProviderId, u.ProviderId))
+                    .ToList();
+                var isSuccess = providerUsages.Any(IsSuccessfulUsage);
+
+                if (isSuccess)
+                {
+                    if (_providerFailureStates.Remove(config.ProviderId))
+                    {
+                        _logger.LogDebug("Circuit reset for {ProviderId}", config.ProviderId);
+                    }
+                    continue;
+                }
+
+                if (!_providerFailureStates.TryGetValue(config.ProviderId, out var state))
+                {
+                    state = new ProviderFailureState();
+                    _providerFailureStates[config.ProviderId] = state;
+                }
+
+                state.ConsecutiveFailures++;
+                state.LastError = GetFailureMessage(providerUsages);
+
+                if (state.ConsecutiveFailures >= CircuitBreakerFailureThreshold)
+                {
+                    var backoffDelay = GetCircuitBreakerDelay(state.ConsecutiveFailures);
+                    state.CircuitOpenUntilUtc = now.Add(backoffDelay);
+
+                    _logger.LogWarning(
+                        "Circuit opened for {ProviderId} after {Failures} failures; retry at {RetryUtc:HH:mm:ss} UTC ({DelayMinutes:F1} min). Last error: {Error}",
+                        config.ProviderId,
+                        state.ConsecutiveFailures,
+                        state.CircuitOpenUntilUtc.Value,
+                        backoffDelay.TotalMinutes,
+                        state.LastError);
+                }
+                else
+                {
+                    _logger.LogDebug(
+                        "Provider {ProviderId} failure {Failures}/{Threshold}: {Error}",
+                        config.ProviderId,
+                        state.ConsecutiveFailures,
+                        CircuitBreakerFailureThreshold,
+                        state.LastError);
+                }
+            }
+        }
+    }
+
+    private static bool IsUsageForProvider(string providerId, string usageProviderId)
+    {
+        if (usageProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsSuccessfulUsage(ProviderUsage usage)
+    {
+        if (!usage.IsAvailable)
+        {
+            return false;
+        }
+
+        if (usage.HttpStatus >= 400)
+        {
+            return false;
+        }
+
+        return string.IsNullOrWhiteSpace(usage.Description) ||
+               !usage.Description.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetFailureMessage(IReadOnlyCollection<ProviderUsage> providerUsages)
+    {
+        if (providerUsages.Count == 0)
+        {
+            return "No usage data returned";
+        }
+
+        var failedUsage = providerUsages.FirstOrDefault(u => !IsSuccessfulUsage(u));
+        if (failedUsage != null && !string.IsNullOrWhiteSpace(failedUsage.Description))
+        {
+            return failedUsage.Description;
+        }
+
+        return "Provider returned no successful usage entries";
+    }
+
+    private static TimeSpan GetCircuitBreakerDelay(int consecutiveFailures)
+    {
+        var backoffLevel = Math.Max(0, consecutiveFailures - CircuitBreakerFailureThreshold);
+        var exponent = Math.Min(backoffLevel, 6);
+        var seconds = CircuitBreakerBaseBackoff.TotalSeconds * Math.Pow(2, exponent);
+        return TimeSpan.FromSeconds(Math.Min(seconds, CircuitBreakerMaxBackoff.TotalSeconds));
     }
 
     public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)

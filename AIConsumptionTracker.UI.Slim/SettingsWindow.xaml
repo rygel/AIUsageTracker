@@ -522,6 +522,10 @@
                                         Margin="0,0,10,0"/>
                                 <Button Content="Check Health" Click="CheckHealthBtn_Click" 
                                         Padding="12,6" Background="{DynamicResource ButtonBackground}"
+                                        Foreground="{DynamicResource PrimaryText}"
+                                        Margin="0,0,10,0"/>
+                                <Button Content="Export Diagnostics" Click="ExportDiagnosticsBtn_Click"
+                                        Padding="12,6" Background="{DynamicResource ButtonBackground}"
                                         Foreground="{DynamicResource PrimaryText}"/>
                             </StackPanel>
 

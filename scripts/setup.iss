@@ -1,7 +1,7 @@
 ; AI Consumption Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.1.3"
+  #define MyAppVersion "2.1.4"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"

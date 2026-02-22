@@ -52,7 +52,7 @@ try
         {
             context.Response.Headers.Append("Content-Security-Policy",
                 "default-src 'self'; " +
-                "script-src 'self' https://unpkg.com https://cdn.jsdelivr.net; " +
+                "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; " +
                 "style-src 'self' 'unsafe-inline' https://unpkg.com; " +
                 "img-src 'self' data:; " +
                 "font-src 'self'; " +

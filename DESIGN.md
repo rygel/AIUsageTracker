@@ -420,16 +420,24 @@ Users can customize the visual thresholds via settings:
 
 5. **Inverted Flag**: Only affects visual bar direction, NEVER color determination
 
-6. **Use Real API Data**: 
+6. **Use Correct Source Data (MANDATORY)**:
     - **NEVER** hardcode assumptions about provider behavior (e.g., reset times, billing cycles)
-    - **ALWAYS** use actual data returned by the provider's API
+    - **ALWAYS** use verified real data from provider APIs, captured snapshots, or validated local telemetry
+    - This applies to runtime logic, tests, deterministic screenshot fixtures, and documentation examples
     - If usage metrics are missing/invalid, return an explicit unknown/unavailable state instead of synthesizing `0%` or `100%`
     - If the API does not provide certain information (e.g., reset time), set `NextResetTime = null` and do not display it
-   - Examples of what NOT to do:
-     - Do NOT assume all providers reset at UTC midnight
-     - Do NOT assume fixed billing cycles (e.g., monthly from signup)
-     - Do NOT make up data that the API doesn't provide
-   - When in doubt, ask the developer what the real API behavior is
+    - If correct data is unavailable, stale, or cannot be validated, **stop and ask** the developer/user before proceeding
+    - Examples of what NOT to do:
+      - Do NOT assume all providers reset at UTC midnight
+      - Do NOT assume fixed billing cycles (e.g., monthly from signup)
+      - Do NOT make up data that the API doesn't provide
+      - Do NOT invent model names, account identifiers, or quota values for fixtures/docs
+    - When in doubt, ask the developer what the real API behavior is
+
+7. **Do Not Store Empty Data (MANDATORY)**:
+    - **NEVER** log or persist usage history for unconfigured providers or providers that return completely empty usage data.
+    - The database should only store genuine usage values. If an API key is missing or usage cannot be determined, do not store a 0-usage placeholder record; simply omit it.
+    - This prevents cluttering the database and UI with meaningless empty values.
 
 ---
 
@@ -449,6 +457,7 @@ Users can customize the visual thresholds via settings:
    - Progress bar direction logic
    - Provider payment type classifications
    - Any logic documented in this file
+6. **NEVER fabricate data** in tests, fixtures, screenshots, or docs; if correct source data cannot be obtained or verified, ask the developer/user and wait for guidance
 
 ### Rules for Developers
 
@@ -510,6 +519,11 @@ if (limitWithReset != null)
 The reset time is displayed in two ways:
 1. **Description field**: Shows inline text like `"10.5% Used of 135M tokens limit (Resets: Feb 11 00:00)"`
 2. **NextResetTime property**: Set for UI components to use (e.g., tray icon tooltips, detailed views)
+3. **UI relative countdown**: Reset indicators must show explicit time remaining (minutes/hours/days), never ambiguous labels like `"Ready"`
+
+**Deterministic Fixture Rule (Screenshots/Tests):**
+- All **Plans & Quotas** providers and quota submodels must include `NextResetTime` so countdown rendering is always visible.
+- For **Pay As You Go** fixture rows, if real spend values are not being shown from a verified source, display `"Connected"` and avoid synthetic spend/budget numbers.
 
 ---
 

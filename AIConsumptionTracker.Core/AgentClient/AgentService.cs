@@ -360,6 +360,36 @@ public class AgentService
         }
     }
 
+    public Task<string> GetHealthDetailsAsync()
+    {
+        return GetEndpointDetailsAsync("/api/health");
+    }
+
+    public Task<string> GetDiagnosticsDetailsAsync()
+    {
+        return GetEndpointDetailsAsync("/api/diagnostics");
+    }
+
+    private async Task<string> GetEndpointDetailsAsync(string endpointPath)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"{AgentUrl}{endpointPath}");
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return $"HTTP {(int)response.StatusCode}: {body}";
+            }
+
+            return body;
+        }
+        catch (Exception ex)
+        {
+            return $"Request failed: {ex.Message}";
+        }
+    }
+
     public async Task<AgentContractHandshakeResult> CheckApiContractAsync()
     {
         try

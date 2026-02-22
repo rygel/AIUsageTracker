@@ -137,25 +137,42 @@ public class AntigravityProviderTests
         Assert.Equal("antigravity", summary.ProviderId);
         Assert.True(summary.IsQuotaBased);
         Assert.Equal(PlanType.Coding, summary.PlanType);
-        Assert.Equal(25.0, summary.RequestsPercentage);
+        Assert.Equal(60.0, summary.RequestsPercentage);
         Assert.NotNull(summary.Details);
 
         var details = summary.Details!;
-        var claude = Assert.Single(details, d => d.Name == "claude-3.7-sonnet");
-        var gpt = Assert.Single(details, d => d.Name == "gpt-4.1");
-        var mystery = Assert.Single(details, d => d.Name == "mystery-model");
+        Assert.Equal(6, details.Count);
 
-        Assert.Equal("Anthropic", claude.GroupName);
-        Assert.Equal("claude-3.7-sonnet", claude.ModelName);
-        Assert.Equal("80%", claude.Used);
+        var opus = Assert.Single(details, d => d.Name == "Claude Opus 4.6 (Thinking)");
+        var sonnet = Assert.Single(details, d => d.Name == "Claude Sonnet 4.6 (Thinking)");
+        var geminiFlash = Assert.Single(details, d => d.Name == "Gemini 3 Flash");
+        var geminiHigh = Assert.Single(details, d => d.Name == "Gemini 3.1 Pro (High)");
+        var geminiLow = Assert.Single(details, d => d.Name == "Gemini 3.1 Pro (Low)");
+        var gptOss = Assert.Single(details, d => d.Name == "GPT-OSS 120B (Medium)");
 
-        Assert.Equal("OpenAI", gpt.GroupName);
-        Assert.Equal("gpt-4.1", gpt.ModelName);
-        Assert.Equal("25%", gpt.Used);
+        Assert.Equal("Recommended Group 1", opus.GroupName);
+        Assert.Equal("Claude Opus 4.6 (Thinking)", opus.ModelName);
+        Assert.Equal("60%", opus.Used);
 
-        Assert.Equal("Experimental", mystery.GroupName);
-        Assert.Equal("mystery-model", mystery.ModelName);
-        Assert.Equal("50%", mystery.Used);
+        Assert.Equal("Recommended Group 1", sonnet.GroupName);
+        Assert.Equal("Claude Sonnet 4.6 (Thinking)", sonnet.ModelName);
+        Assert.Equal("60%", sonnet.Used);
+
+        Assert.Equal("Recommended Group 1", geminiFlash.GroupName);
+        Assert.Equal("Gemini 3 Flash", geminiFlash.ModelName);
+        Assert.Equal("100%", geminiFlash.Used);
+
+        Assert.Equal("Recommended Group 1", geminiHigh.GroupName);
+        Assert.Equal("Gemini 3.1 Pro (High)", geminiHigh.ModelName);
+        Assert.Equal("100%", geminiHigh.Used);
+
+        Assert.Equal("Recommended Group 1", geminiLow.GroupName);
+        Assert.Equal("Gemini 3.1 Pro (Low)", geminiLow.ModelName);
+        Assert.Equal("100%", geminiLow.Used);
+
+        Assert.Equal("Recommended Group 1", gptOss.GroupName);
+        Assert.Equal("GPT-OSS 120B (Medium)", gptOss.ModelName);
+        Assert.Equal("60%", gptOss.Used);
 
         Assert.DoesNotContain(details, d => d.GroupName == "Ungrouped Models");
     }

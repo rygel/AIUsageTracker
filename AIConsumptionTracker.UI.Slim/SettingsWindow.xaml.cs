@@ -9,6 +9,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using AIConsumptionTracker.Core.Models;
 using AIConsumptionTracker.Core.AgentClient;
+using Microsoft.Win32;
 
 namespace AIConsumptionTracker.UI.Slim;
 
@@ -89,9 +90,12 @@ public partial class SettingsWindow : Window
         {
             MainTabControl.SelectedIndex = index;
             await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            UpdateLayout();
 
             var header = (MainTabControl.Items[index] as TabItem)?.Header?.ToString();
+            ApplyHeadlessCaptureWindowSize(header);
+            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            UpdateLayout();
+
             var tabSlug = BuildTabSlug(header, index);
             var fileName = $"screenshot_settings_{tabSlug}_privacy.png";
             App.RenderWindowContent(this, Path.Combine(outputDirectory, fileName));
@@ -107,6 +111,27 @@ public partial class SettingsWindow : Window
         capturedFiles.Add(legacyName);
 
         return capturedFiles;
+    }
+
+    private void ApplyHeadlessCaptureWindowSize(string? tabHeader)
+    {
+        Width = 600;
+        Height = 600;
+
+        if (!_isDeterministicScreenshotMode)
+        {
+            return;
+        }
+
+        if (!string.Equals(tabHeader, "Providers", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        Width = 760;
+        ProvidersStack.Measure(new Size(Width - 80, double.PositiveInfinity));
+        var desiredContentHeight = ProvidersStack.DesiredSize.Height;
+        Height = Math.Max(900, Math.Min(3200, desiredContentHeight + 260));
     }
 
     private void PrepareDeterministicScreenshotData()
@@ -131,39 +156,175 @@ public partial class SettingsWindow : Window
         App.SetPrivacyMode(true);
         UpdatePrivacyButtonState();
 
+        ProviderConfig CreateConfig(
+            string providerId,
+            string apiKey,
+            PlanType planType,
+            string type,
+            bool showInTray = false,
+            bool enableNotifications = false)
+        {
+            return new ProviderConfig
+            {
+                ProviderId = providerId,
+                ApiKey = apiKey,
+                ShowInTray = showInTray,
+                EnableNotifications = enableNotifications,
+                PlanType = planType,
+                Type = type
+            };
+        }
+
         _configs = new List<ProviderConfig>
         {
-            new()
-            {
-                ProviderId = "github-copilot",
-                ApiKey = "ghp_demo_key",
-                ShowInTray = true,
-                EnableNotifications = true,
-                PlanType = PlanType.Coding,
-                Type = "quota-based"
-            },
-            new()
-            {
-                ProviderId = "openai",
-                ApiKey = "sk-demo-key",
-                ShowInTray = true,
-                EnableNotifications = false,
-                PlanType = PlanType.Usage,
-                Type = "pay-as-you-go"
-            },
+            CreateConfig("antigravity", "local-session", PlanType.Coding, "quota-based"),
+            CreateConfig("anthropic", "sk-ant-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
+            CreateConfig("claude-code", "cc-demo-key", PlanType.Usage, "pay-as-you-go"),
+            CreateConfig("codex", "codex-demo-key", PlanType.Coding, "quota-based", showInTray: true),
+            CreateConfig("deepseek", "sk-ds-demo", PlanType.Usage, "pay-as-you-go"),
+            CreateConfig("gemini-cli", "gemini-local-auth", PlanType.Coding, "quota-based"),
+            CreateConfig("github-copilot", "ghp_demo_key", PlanType.Coding, "quota-based", showInTray: true, enableNotifications: true),
+            CreateConfig("kimi", "kimi-demo-key", PlanType.Coding, "quota-based"),
+            CreateConfig("minimax", "mm-cn-demo", PlanType.Coding, "quota-based"),
+            CreateConfig("minimax-io", "mm-intl-demo", PlanType.Usage, "pay-as-you-go"),
+            CreateConfig("mistral", "mistral-demo-key", PlanType.Usage, "pay-as-you-go"),
+            CreateConfig("openai", "sk-openai-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
+            CreateConfig("opencode", "oc-demo-key", PlanType.Usage, "pay-as-you-go"),
+            CreateConfig("opencode-zen", "ocz-demo-key", PlanType.Usage, "pay-as-you-go"),
+            CreateConfig("openrouter", "or-demo-key", PlanType.Usage, "pay-as-you-go"),
+            CreateConfig("synthetic", "syn-demo-key", PlanType.Coding, "quota-based"),
+            CreateConfig("zai-coding-plan", "zai-demo-key", PlanType.Coding, "quota-based", showInTray: true)
+        };
+
+        var deterministicNow = DateTime.Now;
+        _usages = new List<ProviderUsage>
+        {
             new()
             {
                 ProviderId = "antigravity",
-                ApiKey = "local-session",
-                ShowInTray = false,
-                EnableNotifications = false,
+                ProviderName = "Antigravity",
+                IsAvailable = true,
+                IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                Type = "quota-based"
-            }
-        };
-
-        _usages = new List<ProviderUsage>
-        {
+                RequestsPercentage = 60.0,
+                Description = "60.0% Remaining",
+                Details = new List<ProviderUsageDetail>
+                {
+                    new()
+                    {
+                        Name = "Claude Opus 4.6 (Thinking)",
+                        ModelName = "Claude Opus 4.6 (Thinking)",
+                        GroupName = "Recommended Group 1",
+                        Used = "60%",
+                        Description = "60% remaining",
+                        NextResetTime = deterministicNow.AddHours(10)
+                    },
+                    new()
+                    {
+                        Name = "Claude Sonnet 4.6 (Thinking)",
+                        ModelName = "Claude Sonnet 4.6 (Thinking)",
+                        GroupName = "Recommended Group 1",
+                        Used = "60%",
+                        Description = "60% remaining",
+                        NextResetTime = deterministicNow.AddHours(10)
+                    },
+                    new()
+                    {
+                        Name = "Gemini 3 Flash",
+                        ModelName = "Gemini 3 Flash",
+                        GroupName = "Recommended Group 1",
+                        Used = "100%",
+                        Description = "100% remaining",
+                        NextResetTime = deterministicNow.AddHours(6)
+                    },
+                    new()
+                    {
+                        Name = "Gemini 3.1 Pro (High)",
+                        ModelName = "Gemini 3.1 Pro (High)",
+                        GroupName = "Recommended Group 1",
+                        Used = "100%",
+                        Description = "100% remaining",
+                        NextResetTime = deterministicNow.AddHours(14)
+                    },
+                    new()
+                    {
+                        Name = "Gemini 3.1 Pro (Low)",
+                        ModelName = "Gemini 3.1 Pro (Low)",
+                        GroupName = "Recommended Group 1",
+                        Used = "100%",
+                        Description = "100% remaining",
+                        NextResetTime = deterministicNow.AddHours(14)
+                    },
+                    new()
+                    {
+                        Name = "GPT-OSS 120B (Medium)",
+                        ModelName = "GPT-OSS 120B (Medium)",
+                        GroupName = "Recommended Group 1",
+                        Used = "60%",
+                        Description = "60% remaining",
+                        NextResetTime = deterministicNow.AddHours(8)
+                    }
+                },
+                NextResetTime = deterministicNow.AddHours(6)
+            },
+            new()
+            {
+                ProviderId = "anthropic",
+                ProviderName = "Anthropic",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
+            },
+            new()
+            {
+                ProviderId = "claude-code",
+                ProviderName = "Claude Code",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
+            },
+            new()
+            {
+                ProviderId = "codex",
+                ProviderName = "Codex",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 63.0,
+                Description = "63.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(18)
+            },
+            new()
+            {
+                ProviderId = "deepseek",
+                ProviderName = "DeepSeek",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
+            },
+            new()
+            {
+                ProviderId = "gemini-cli",
+                ProviderName = "Gemini CLI",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 84.0,
+                Description = "84.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(12)
+            },
             new()
             {
                 ProviderId = "github-copilot",
@@ -173,7 +334,53 @@ public partial class SettingsWindow : Window
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 72.5,
                 Description = "72.5% Remaining",
-                AccountName = "dev@example.com"
+                NextResetTime = deterministicNow.AddHours(20)
+            },
+            new()
+            {
+                ProviderId = "kimi",
+                ProviderName = "Kimi",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 66.0,
+                Description = "66.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(9)
+            },
+            new()
+            {
+                ProviderId = "minimax",
+                ProviderName = "Minimax",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 61.0,
+                Description = "61.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(11)
+            },
+            new()
+            {
+                ProviderId = "minimax-io",
+                ProviderName = "Minimax International",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
+            },
+            new()
+            {
+                ProviderId = "mistral",
+                ProviderName = "Mistral",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
@@ -182,19 +389,68 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
-                RequestsPercentage = 31.1,
-                Description = "$12.45 / $40.00",
-                AccountName = "project-team"
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
             },
             new()
             {
-                ProviderId = "antigravity",
-                ProviderName = "Antigravity",
+                ProviderId = "opencode",
+                ProviderName = "OpenCode",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
+            },
+            new()
+            {
+                ProviderId = "opencode-zen",
+                ProviderName = "Opencode Zen",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
+            },
+            new()
+            {
+                ProviderId = "openrouter",
+                ProviderName = "OpenRouter",
+                IsAvailable = true,
+                IsQuotaBased = false,
+                PlanType = PlanType.Usage,
+                RequestsPercentage = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 0,
+                Description = "Connected"
+            },
+            new()
+            {
+                ProviderId = "synthetic",
+                ProviderName = "Synthetic",
                 IsAvailable = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                RequestsPercentage = 55.0,
-                Description = "55.0% Remaining"
+                RequestsPercentage = 79.0,
+                Description = "79.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(4)
+            },
+            new()
+            {
+                ProviderId = "zai-coding-plan",
+                ProviderName = "Z.AI",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 88.0,
+                Description = "88.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(15)
             }
         };
 
@@ -1136,6 +1392,119 @@ public partial class SettingsWindow : Window
         finally
         {
             RefreshDiagnosticsLog();
+        }
+    }
+
+    private async void ExportDiagnosticsBtn_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await _agentService.RefreshPortAsync();
+            await _agentService.RefreshAgentInfoAsync();
+
+            var (isRunning, port) = await AgentLauncher.IsAgentRunningWithPortAsync();
+            var healthDetails = await _agentService.GetHealthDetailsAsync();
+            var diagnosticsDetails = await _agentService.GetDiagnosticsDetailsAsync();
+
+            var saveDialog = new SaveFileDialog
+            {
+                FileName = $"ai-consumption-tracker-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
+                Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                DefaultExt = ".txt",
+                AddExtension = true
+            };
+
+            if (saveDialog.ShowDialog(this) != true)
+            {
+                return;
+            }
+
+            var telemetry = AgentService.GetTelemetrySnapshot();
+            var bundle = new StringBuilder();
+            bundle.AppendLine("AI Consumption Tracker - Diagnostics Bundle");
+            bundle.AppendLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");
+            bundle.AppendLine($"SlimVersion: {typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "unknown"}");
+            bundle.AppendLine($"AgentUrl: {_agentService.AgentUrl}");
+            bundle.AppendLine($"AgentRunning: {isRunning}");
+            bundle.AppendLine($"AgentPort: {port}");
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Agent Health ===");
+            bundle.AppendLine(FormatJsonForBundle(healthDetails));
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Agent Diagnostics ===");
+            bundle.AppendLine(FormatJsonForBundle(diagnosticsDetails));
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Agent Errors (agent.json) ===");
+            if (_agentService.LastAgentErrors.Count == 0)
+            {
+                bundle.AppendLine("None");
+            }
+            else
+            {
+                foreach (var error in _agentService.LastAgentErrors)
+                {
+                    bundle.AppendLine($"- {error}");
+                }
+            }
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Slim Telemetry ===");
+            bundle.AppendLine(
+                $"Usage: count={telemetry.UsageRequestCount}, avg={telemetry.UsageAverageLatencyMs:F1}ms, last={telemetry.UsageLastLatencyMs}ms, errors={telemetry.UsageErrorCount} ({telemetry.UsageErrorRatePercent:F1}%)");
+            bundle.AppendLine(
+                $"Refresh: count={telemetry.RefreshRequestCount}, avg={telemetry.RefreshAverageLatencyMs:F1}ms, last={telemetry.RefreshLastLatencyMs}ms, errors={telemetry.RefreshErrorCount} ({telemetry.RefreshErrorRatePercent:F1}%)");
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Slim Diagnostics Log ===");
+            var diagnosticsLog = AgentService.DiagnosticsLog;
+            if (diagnosticsLog.Count == 0)
+            {
+                bundle.AppendLine("No diagnostics captured yet.");
+            }
+            else
+            {
+                foreach (var line in diagnosticsLog)
+                {
+                    bundle.AppendLine(line);
+                }
+            }
+
+            await File.WriteAllTextAsync(saveDialog.FileName, bundle.ToString());
+            MessageBox.Show($"Diagnostics bundle saved to:\n{saveDialog.FileName}", "Export Complete",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to export diagnostics bundle: {ex.Message}", "Export Error",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            RefreshDiagnosticsLog();
+        }
+    }
+
+    private static string FormatJsonForBundle(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return "(empty)";
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(content);
+            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
+            {
+                WriteIndented = true
+            });
+        }
+        catch
+        {
+            return content;
         }
     }
 

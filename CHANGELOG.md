@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.1.4] - 2026-02-22
+
+### Fixed
+- **Chart Rendering**: Resolved Content-Security-Policy blocking Chart.js scripts in the Web UI, and increased point radius to ensure single data points are visible for fresh provider history.
+- **Data Hygiene**: Stopped the Agent from logging zero-usage placeholder rows for unconfigured providers, preventing database clutter and blank chart series.
+
 ## [2.1.3] - 2026-02-21
 
 ### Changed

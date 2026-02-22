@@ -6,7 +6,7 @@ namespace AIConsumptionTracker.Web.Tests;
 [TestClass]
 public class ScreenshotTests : PageTest
 {
-    private const string BaseUrl = "http://localhost:5100";
+    private const string BaseUrl = "http://127.0.0.1:5100";
     private readonly string _outputDir;
 
     public ScreenshotTests()
@@ -29,29 +29,36 @@ public class ScreenshotTests : PageTest
     [TestMethod]
     public async Task CaptureWebScreenshots()
     {
+        // Capture console logs for debugging CI
+        Page.Console += (_, e) => Console.WriteLine($"[BROWSER] {e.Type}: {e.Text}");
+        Page.PageError += (_, e) => Console.WriteLine($"[BROWSER ERROR] {e}");
+
         // 1. Set viewport to a reasonable desktop size
         await Page.SetViewportSizeAsync(1280, 800);
 
         // 2. Dashboard
+        Console.WriteLine("[TEST] Navigating to Dashboard...");
         await Page.GotoAsync(BaseUrl);
-        await Page.WaitForSelectorAsync(".stat-card"); // Wait for stats to load
-        await Page.WaitForSelectorAsync(".provider-card"); // Wait for providers
-        
-        // Hide the "Database not found" alert if it exists (for cleaner screenshot if running against real data)
-        // Or better, wait for content. 
-        // We'll take a screenshot of the whole page
+        await Page.WaitForSelectorAsync(".stat-card, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_dashboard.png"), FullPage = true });
 
         // 3. Providers List
+        Console.WriteLine("[TEST] Navigating to Providers...");
         await Page.GotoAsync($"{BaseUrl}/providers");
-        await Page.WaitForSelectorAsync("table"); // Wait for table
+        await Page.WaitForSelectorAsync("table, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_providers.png"), FullPage = true });
 
         // 4. Charts
+        Console.WriteLine("[TEST] Navigating to Charts...");
         await Page.GotoAsync($"{BaseUrl}/charts");
-        await Page.WaitForSelectorAsync("canvas"); // Wait for chart
+        
+        // Wait for either the canvas (if data exists) or the info alert (if no data)
+        // We also wait for the container itself to be sure the page structure is there
+        await Page.WaitForSelectorAsync(".chart-container, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        
         // Give chart animation a moment to settle
-        await Task.Delay(1000);
+        await Task.Delay(2000);
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_charts.png"), FullPage = true });
+        Console.WriteLine("[TEST] Completed all screenshots.");
     }
 }

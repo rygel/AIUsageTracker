@@ -1,13 +1,13 @@
 # <img src="AIConsumptionTracker.Web/wwwroot/favicon.png" width="32" height="32" valign="middle"> AI Consumption Tracker
 
-![Version](https://img.shields.io/badge/version-2.1.3-orange)
+![Version](https://img.shields.io/badge/version-2.1.4-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
 [![](https://dcbadge.limes.pink/api/server/AZtNQtWuJA?style=flat)](https://discord.gg/AZtNQtWuJA)
 ![Downloads](https://img.shields.io/github/downloads/rygel/AIConsumptionTracker/total)
 
-![Dashboard](docs/screenshot_dashboard_privacy.png)
+<img src="docs/screenshot_dashboard_privacy.png" alt="Dashboard" width="50%" />
 
 A streamlined Windows dashboard and tray utility to monitor AI API usage, costs, and quotas across multiple providers.
 
@@ -68,42 +68,18 @@ Download the latest installer or .zip file from the [Release](https://github.com
 
 ### Screenshots
 
-**Dashboard**
-![Dashboard](docs/screenshot_dashboard_privacy.png)
+**Dashboard (Main Interface)**
+<img src="docs/screenshot_dashboard_privacy.png" alt="Dashboard" width="50%" />
 
-**Settings (Overview)**
-![Settings](docs/screenshot_settings_privacy.png)
+**Providers**
+<img src="docs/screenshot_settings_providers_privacy.png" alt="Providers" width="50%" />
 
-**Settings - Providers Tab**
-![Settings Providers](docs/screenshot_settings_providers_privacy.png)
-
-**Settings - Layout Tab**
-![Settings Layout](docs/screenshot_settings_layout_privacy.png)
-
-**Settings - History Tab**
-![Settings History](docs/screenshot_settings_history_privacy.png)
-
-**Settings - Agent Tab**
-![Settings Agent](docs/screenshot_settings_agent_privacy.png)
-
-**Info Dialog**
-![Info](docs/screenshot_info_privacy.png)
-
-**Tray Icons**
-Provider usage reflected in real-time with dynamic progress bars:
-
-- ![Good Status](docs/tray_icon_good.png) (Healthy/Good)
-- ![Warning Status](docs/tray_icon_warning.png) (Warning)
-- ![Danger Status](docs/tray_icon_danger.png) (Critical/Over Limit)
-
-**Context Menu**
-Right-click system tray icon for quick access:
-![Context Menu](docs/screenshot_context_menu_privacy.png)
+For the complete screenshot set (all settings tabs, info dialog, tray states, and context menu), see the [User Manual](docs/user_manual.md).
 
 ## Installation
 
 ### Manual
-1. Download the latest `AIConsumptionTracker_Setup_v2.1.3.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
+1. Download the latest `AIConsumptionTracker_Setup_v2.1.4.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 
