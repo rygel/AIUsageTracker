@@ -170,15 +170,14 @@ public class OpenAIProvider : IProviderService
 
         var planType = ReadString(doc.RootElement, "plan_type") ?? "chatgpt";
         var used = ReadDouble(doc.RootElement, "rate_limit", "primary_window", "used_percent") ?? 0.0;
-        var resetSeconds = ReadDouble(doc.RootElement, "rate_limit", "primary_window", "reset_after_seconds")
-                          ?? ReadDouble(doc.RootElement, "rate_limit", "secondary_window", "reset_after_seconds");
+        var nextResetTime = ResolveResetTime(doc.RootElement);
         var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
 
         return new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = "OpenAI (Codex)",
-            AccountName = GetAccountIdentity(doc.RootElement, accessToken),
+            AccountName = GetAccountIdentity(doc.RootElement, accessToken, accountId) ?? string.Empty,
             IsAvailable = true,
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
@@ -188,9 +187,7 @@ public class OpenAIProvider : IProviderService
             UsageUnit = "Quota %",
             Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}",
             AuthSource = "OpenCode Session",
-            NextResetTime = resetSeconds.HasValue && resetSeconds.Value > 0
-                ? DateTime.UtcNow.AddSeconds(resetSeconds.Value).ToLocalTime()
-                : null,
+            NextResetTime = nextResetTime,
             Details = BuildOpenAiSessionDetails(doc.RootElement)
         };
     }
@@ -291,19 +288,65 @@ public class OpenAIProvider : IProviderService
         return details;
     }
 
-    private static string? GetAccountIdentity(JsonElement root, string accessToken)
+    private static DateTime? ResolveResetTime(JsonElement root)
     {
-        if (root.TryGetProperty("email", out var emailElement) && emailElement.ValueKind == JsonValueKind.String)
+        var resetSeconds = ReadDouble(root, "rate_limit", "primary_window", "reset_after_seconds")
+                          ?? ReadDouble(root, "rate_limit", "secondary_window", "reset_after_seconds")
+                          ?? ReadDouble(root, "rate_limit", "primary_window", "reset_after")
+                          ?? ReadDouble(root, "rate_limit", "secondary_window", "reset_after");
+
+        if (resetSeconds.HasValue && resetSeconds.Value > 0)
         {
-            var email = emailElement.GetString();
-            if (!string.IsNullOrWhiteSpace(email))
+            return DateTime.UtcNow.AddSeconds(resetSeconds.Value).ToLocalTime();
+        }
+
+        var resetAtIso = ReadString(root, "rate_limit", "primary_window", "resets_at")
+                         ?? ReadString(root, "rate_limit", "secondary_window", "resets_at")
+                         ?? ReadString(root, "rate_limit", "primary_window", "reset_at")
+                         ?? ReadString(root, "rate_limit", "secondary_window", "reset_at");
+
+        if (!string.IsNullOrWhiteSpace(resetAtIso) &&
+            DateTime.TryParse(resetAtIso, out var parsedResetAt))
+        {
+            return parsedResetAt.ToLocalTime();
+        }
+
+        var resetAtEpoch = ReadDouble(root, "rate_limit", "primary_window", "reset_at_unix")
+                           ?? ReadDouble(root, "rate_limit", "secondary_window", "reset_at_unix");
+        if (resetAtEpoch.HasValue && resetAtEpoch.Value > 0)
+        {
+            return DateTimeOffset.FromUnixTimeSeconds((long)resetAtEpoch.Value).LocalDateTime;
+        }
+
+        return null;
+    }
+
+    private static string? GetAccountIdentity(JsonElement root, string accessToken, string? accountId)
+    {
+        foreach (var key in new[] { "email", "upn", "preferred_username", "username", "login", "name" })
+        {
+            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
             {
-                return email;
+                var value = claimElement.GetString();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
             }
         }
 
         var claims = DecodeJwtClaims(accessToken);
-        return claims.Email;
+        if (!string.IsNullOrWhiteSpace(claims.Email))
+        {
+            return claims.Email;
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountId))
+        {
+            return accountId;
+        }
+
+        return null;
     }
 
     private static (string? Email, string? PlanType) DecodeJwtClaims(string token)
@@ -327,14 +370,29 @@ public class OpenAIProvider : IProviderService
             using var doc = JsonDocument.Parse(json);
 
             string? email = null;
-            foreach (var claim in new[] { "email", "upn", "preferred_username" })
+            foreach (var claim in new[] { "email", "upn", "preferred_username", "username", "login", "name", "sub" })
             {
                 if (doc.RootElement.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
                 {
                     var value = claimElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(value) && value.Contains('@'))
+                    if (!string.IsNullOrWhiteSpace(value))
                     {
                         email = value;
+                        break;
+                    }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(email) &&
+                doc.RootElement.TryGetProperty("https://api.openai.com/profile", out var profile) &&
+                profile.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var claim in new[] { "email", "username", "name" })
+                {
+                    var profileValue = ReadString(profile, claim);
+                    if (!string.IsNullOrWhiteSpace(profileValue))
+                    {
+                        email = profileValue;
                         break;
                     }
                 }

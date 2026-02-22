@@ -719,10 +719,12 @@ public partial class MainWindow : Window
         var quotaProviders = filteredUsages
             .Where(u => u.IsQuotaBased || u.PlanType == PlanType.Coding)
             .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var paygProviders = filteredUsages
             .Where(u => !u.IsQuotaBased && u.PlanType != PlanType.Coding)
             .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         // Plans & Quotas Section
@@ -741,7 +743,7 @@ public partial class MainWindow : Window
             if (!_preferences.IsPlansAndQuotasCollapsed)
             {
                 // Add all quota providers with Antigravity models listed as standalone cards.
-                foreach (var usage in quotaProviders.OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase))
+                foreach (var usage in quotaProviders)
                 {
                     if (usage.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase))
                     {
@@ -782,7 +784,7 @@ public partial class MainWindow : Window
 
             if (!_preferences.IsPayAsYouGoCollapsed)
             {
-                foreach (var usage in paygProviders.OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase))
+                foreach (var usage in paygProviders)
                 {
                     AddProviderCard(usage, paygContainer);
                 }
@@ -1158,7 +1160,7 @@ public partial class MainWindow : Window
             }
             tooltipBuilder.AppendLine();
             tooltipBuilder.AppendLine("Rate Limits:");
-            foreach (var detail in usage.Details)
+            foreach (var detail in usage.Details.OrderBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
             {
                 tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detail.Used}");
             }
@@ -1271,6 +1273,17 @@ public partial class MainWindow : Window
     private static string GetDetailDisplayName(ProviderUsageDetail detail)
     {
         return detail.Name;
+    }
+
+    private static bool IsDisplayableSubProviderDetail(ProviderUsageDetail detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail.Name))
+        {
+            return false;
+        }
+
+        return !detail.Name.Contains("window", StringComparison.OrdinalIgnoreCase) &&
+               !detail.Name.Contains("credit", StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddSubProviderCard(ProviderUsageDetail detail, StackPanel container)
@@ -1387,6 +1400,17 @@ public partial class MainWindow : Window
     {
         if (usage.Details?.Any() != true) return;
 
+        var displayableDetails = usage.Details
+            .Where(IsDisplayableSubProviderDetail)
+            .OrderBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!displayableDetails.Any())
+        {
+            return;
+        }
+
         // Create collapsible section for sub-providers
         var (subHeader, subContainer) = CreateCollapsibleSubHeader(
             $"{usage.ProviderName} Details",
@@ -1400,7 +1424,7 @@ public partial class MainWindow : Window
         if (!_preferences.IsAntigravityCollapsed)
         {
             // Add sub-provider details
-            foreach (var detail in usage.Details)
+            foreach (var detail in displayableDetails)
             {
                 AddSubProviderCard(detail, subContainer);
             }

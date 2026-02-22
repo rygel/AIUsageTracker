@@ -30,7 +30,7 @@ public class GitHubCopilotProvider : IProviderService
         {
             IsAvailable = true,
             Description = "Authenticated",
-            Username = "User",
+            Username = string.Empty,
             PlanName = string.Empty
         };
 
@@ -53,6 +53,8 @@ public class GitHubCopilotProvider : IProviderService
             {
                 await PopulateRateLimitFallbackAsync(token, state);
             }
+
+            await PopulateUsernameFallbackAsync(state);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -112,7 +114,7 @@ public class GitHubCopilotProvider : IProviderService
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         if (doc.RootElement.TryGetProperty("login", out var loginElement))
         {
-            state.Username = loginElement.GetString() ?? "User";
+            state.Username = NormalizeUsername(loginElement.GetString());
         }
 
         await PopulatePlanNameAsync(token, state);
@@ -136,16 +138,30 @@ public class GitHubCopilotProvider : IProviderService
                 }
 
                 state.PlanName = NormalizeCopilotPlanName(sku);
-                state.Description = $"Authenticated as {state.Username} ({state.PlanName})";
+                state.Description = BuildAuthenticatedDescription(state.Username, state.PlanName);
             }
             else
             {
-                state.Description = $"Authenticated as {state.Username}";
+                state.Description = BuildAuthenticatedDescription(state.Username, null);
             }
         }
         catch
         {
-            state.Description = $"Authenticated as {state.Username}";
+            state.Description = BuildAuthenticatedDescription(state.Username, null);
+        }
+    }
+
+    private async Task PopulateUsernameFallbackAsync(CopilotUsageState state)
+    {
+        if (HasMeaningfulUsername(state.Username))
+        {
+            return;
+        }
+
+        var fallbackUsername = NormalizeUsername(await _authService.GetUsernameAsync());
+        if (!string.IsNullOrEmpty(fallbackUsername))
+        {
+            state.Username = fallbackUsername;
         }
     }
 
@@ -254,7 +270,7 @@ public class GitHubCopilotProvider : IProviderService
         {
             ProviderId = ProviderId,
             ProviderName = "GitHub Copilot",
-            AccountName = state.Username,
+            AccountName = HasMeaningfulUsername(state.Username) ? state.Username : string.Empty,
             IsAvailable = state.IsAvailable,
             Description = BuildFinalDescription(state),
             RequestsPercentage = state.Percentage,
@@ -293,6 +309,38 @@ public class GitHubCopilotProvider : IProviderService
         }
 
         return state.Description;
+    }
+
+    private static bool HasMeaningfulUsername(string? username)
+    {
+        return !string.IsNullOrWhiteSpace(username) &&
+               !username.Equals("User", StringComparison.OrdinalIgnoreCase) &&
+               !username.Equals("Unknown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeUsername(string? username)
+    {
+        return HasMeaningfulUsername(username) ? username! : string.Empty;
+    }
+
+    private static string BuildAuthenticatedDescription(string username, string? planName)
+    {
+        if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(planName))
+        {
+            return $"Authenticated as {username} ({planName})";
+        }
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            return $"Authenticated as {username}";
+        }
+
+        if (!string.IsNullOrEmpty(planName))
+        {
+            return $"Authenticated ({planName})";
+        }
+
+        return "Authenticated";
     }
 
     private ProviderUsage CreateUnavailableUsage(string description)

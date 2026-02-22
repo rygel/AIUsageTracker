@@ -6,7 +6,10 @@ $targets = @(
     "AIUsageTracker.UI",
     "AIUsageTracker.UI.Slim",
     # Legacy process name
-    "AIConsumptionTracker.Agent"
+    "AIConsumptionTracker.Agent",
+    # Build and runtime processes that can become zombies
+    "dotnet",
+    "MSBuild"
 )
 
 $killed = 0

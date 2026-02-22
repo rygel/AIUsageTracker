@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+## [2.2.1] - 2026-02-22
+
+### Changed
+- Slim UI provider lists are now alphabetically ordered by display name for Plans & Quotas, Pay As You Go, and provider cards in Settings.
+- Slim UI detail rows and detail tooltips now render in deterministic alphabetical order.
+
+### Fixed
+- GitHub Copilot and OpenAI (Codex/OpenCode session) now show account usernames more reliably, including non-email identities.
+- Slim UI no longer renders OpenAI/Codex operational details (for example, Primary Window/Credits) as sub-provider rows or sub-tray icon options.
+- Agent launcher fallback to `dotnet run` now disables MSBuild node reuse to prevent lingering background processes that can hold file locks.
+- `scripts/kill-all.ps1` now terminates lingering `dotnet` and `MSBuild` processes to clear stale lock situations faster.
+
 ## [2.2.0] - 2026-02-22
 
 ### Added

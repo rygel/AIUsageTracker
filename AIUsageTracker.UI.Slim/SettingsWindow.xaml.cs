@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -286,33 +287,20 @@ public partial class SettingsWindow : Window
             var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
             using var doc = JsonDocument.Parse(json);
 
-            // Prefer email-style identity for OpenAI/OpenCode sessions.
-            foreach (var claim in new[] { "email", "upn" })
+            // Prefer explicit identity claims from OpenAI/OpenCode sessions.
+            foreach (var claim in new[] { "email", "upn", "preferred_username", "username", "login", "name" })
             {
                 if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
                 {
                     var value = valueElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(value) && value.Contains('@'))
+                    if (!string.IsNullOrWhiteSpace(value))
                     {
                         return value;
                     }
                 }
             }
 
-            // Fallback to preferred username only if it looks like an email.
-            foreach (var claim in new[] { "preferred_username", "name" })
-            {
-                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
-                {
-                    var value = valueElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(value) && value.Contains('@'))
-                    {
-                        return value;
-                    }
-                }
-            }
-
-            // Last fallback: recursively scan JWT payload for first email-like value.
+            // Last fallback: recursively scan JWT payload for first identity-like value.
             var recursiveIdentity = FindIdentityInJson(doc.RootElement);
             if (!string.IsNullOrWhiteSpace(recursiveIdentity))
             {
@@ -343,8 +331,7 @@ public partial class SettingsWindow : Window
                         }
 
                         var key = prop.Name.ToLowerInvariant();
-                        if ((key.Contains("email") || key.Contains("username") || key.Contains("login") || key.Contains("user")) &&
-                            value.Contains('@'))
+                        if (key.Contains("email") || key.Contains("username") || key.Contains("login") || key.Contains("user"))
                         {
                             return value;
                         }
@@ -959,7 +946,10 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var groupedConfigs = _configs.OrderBy(c => c.ProviderId).ToList();
+        var groupedConfigs = _configs
+            .OrderBy(c => GetProviderDisplayName(c.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => c.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         foreach (var config in groupedConfigs)
         {
@@ -997,19 +987,7 @@ public partial class SettingsWindow : Window
         headerPanel.Children.Add(icon);
 
         // Display name
-        var displayName = config.ProviderId switch {
-            "antigravity" => "Google Antigravity",
-            "gemini-cli" => "Google Gemini",
-            "github-copilot" => "GitHub Copilot",
-            "openai" => "OpenAI (Codex)",
-            "minimax" => "Minimax (China)",
-            "minimax-io" => "Minimax (International)",
-            "opencode" => "OpenCode",
-            "claude-code" => "Claude Code",
-            "zai-coding-plan" => "Z.ai Coding Plan",
-            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
-                config.ProviderId.Replace("_", " ").Replace("-", " "))
-        };
+        var displayName = GetProviderDisplayName(config.ProviderId);
 
         var title = new TextBlock
         {
@@ -1167,7 +1145,7 @@ public partial class SettingsWindow : Window
             {
                 username = _gitHubAuthUsername;
             }
-            bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown";
+            bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown" && username != "User";
 
             bool isAuthenticated = !string.IsNullOrEmpty(config.ApiKey) || !string.IsNullOrWhiteSpace(_gitHubAuthUsername);
 
@@ -1212,7 +1190,7 @@ public partial class SettingsWindow : Window
                                   !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
             var isAuthenticated = hasSessionToken || (usage != null && usage.IsAvailable);
             var accountName = usage?.AccountName;
-            if (string.IsNullOrWhiteSpace(accountName) || accountName == "Unknown" || !accountName.Contains('@'))
+            if (string.IsNullOrWhiteSpace(accountName) || accountName == "Unknown" || accountName == "User")
             {
                 accountName = _openAiAuthUsername;
             }
@@ -1248,7 +1226,8 @@ public partial class SettingsWindow : Window
 
             statusPanel.Children.Add(statusText);
 
-            if (usage?.NextResetTime is DateTime nextReset)
+            var resolvedReset = usage?.NextResetTime ?? InferResetTimeFromDetails(usage);
+            if (resolvedReset is DateTime nextReset)
             {
                 var resetText = new TextBlock
                 {
@@ -1315,7 +1294,8 @@ public partial class SettingsWindow : Window
         var subTrayDetails = usage?.Details?
             .Where(d =>
                 !string.IsNullOrWhiteSpace(d.Name) &&
-                !d.Name.StartsWith("[", StringComparison.Ordinal))
+                !d.Name.StartsWith("[", StringComparison.Ordinal) &&
+                IsSubTrayEligibleDetail(d))
             .GroupBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
@@ -1892,6 +1872,70 @@ public partial class SettingsWindow : Window
         {
             return content;
         }
+    }
+
+    private static DateTime? InferResetTimeFromDetails(ProviderUsage? usage)
+    {
+        if (usage?.Details == null)
+        {
+            return null;
+        }
+
+        foreach (var detail in usage.Details)
+        {
+            if (string.IsNullOrWhiteSpace(detail.Description))
+            {
+                continue;
+            }
+
+            var match = Regex.Match(detail.Description, @"Resets in\s+(\d+)s", RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var seconds) && seconds > 0)
+            {
+                return DateTime.Now.AddSeconds(seconds);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail.Name))
+        {
+            return false;
+        }
+
+        if (detail.Name.Contains("window", StringComparison.OrdinalIgnoreCase) ||
+            detail.Name.Contains("credit", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var match = Regex.Match(detail.Used ?? string.Empty, @"(?<percent>\d+(\.\d+)?)\s*%", RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        return double.TryParse(match.Groups["percent"].Value, out _);
+    }
+
+    private static string GetProviderDisplayName(string providerId)
+    {
+        return providerId switch
+        {
+            "antigravity" => "Google Antigravity",
+            "gemini-cli" => "Google Gemini",
+            "github-copilot" => "GitHub Copilot",
+            "openai" => "OpenAI (Codex)",
+            "minimax" => "Minimax (China)",
+            "minimax-io" => "Minimax (International)",
+            "opencode" => "OpenCode",
+            "claude-code" => "Claude Code",
+            "zai-coding-plan" => "Z.ai Coding Plan",
+            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
+                providerId.Replace("_", " ").Replace("-", " "))
+        };
     }
 
     private async void SaveBtn_Click(object sender, RoutedEventArgs e)
