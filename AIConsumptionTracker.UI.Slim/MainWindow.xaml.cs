@@ -388,7 +388,7 @@ public partial class MainWindow : Window
             var deterministicNow = DateTime.Now;
             ApplyPreferences();
             Width = 460;
-            Height = 860;
+            Height = 1180;
 
             _usages = new List<ProviderUsage>
             {
@@ -522,58 +522,6 @@ public partial class MainWindow : Window
                     IsAvailable = true,
                     AuthSource = "api key",
                     NextResetTime = deterministicNow.AddHours(4)
-                },
-                new()
-                {
-                    ProviderId = "openai",
-                    ProviderName = "OpenAI",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    RequestsPercentage = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    Description = "Connected",
-                    IsAvailable = true,
-                    AuthSource = "api key"
-                },
-                new()
-                {
-                    ProviderId = "deepseek",
-                    ProviderName = "DeepSeek",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    RequestsPercentage = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    Description = "Connected",
-                    IsAvailable = true,
-                    AuthSource = "api key"
-                },
-                new()
-                {
-                    ProviderId = "minimax-io",
-                    ProviderName = "Minimax (International)",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    RequestsPercentage = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    Description = "Connected",
-                    IsAvailable = true,
-                    AuthSource = "api key"
-                },
-                new()
-                {
-                    ProviderId = "openrouter",
-                    ProviderName = "OpenRouter",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    RequestsPercentage = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    Description = "Connected",
-                    IsAvailable = true,
-                    AuthSource = "api key"
                 },
                 new()
                 {
