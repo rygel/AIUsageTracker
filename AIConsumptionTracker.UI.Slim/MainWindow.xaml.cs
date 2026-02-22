@@ -388,7 +388,7 @@ public partial class MainWindow : Window
             var deterministicNow = DateTime.Now;
             ApplyPreferences();
             Width = 460;
-            Height = 1000;
+            Height = MinHeight;
 
             _usages = new List<ProviderUsage>
             {
@@ -497,16 +497,14 @@ public partial class MainWindow : Window
                 {
                     ProviderId = "claude-code",
                     ProviderName = "Claude Code",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    DisplayAsFraction = true,
-                    RequestsPercentage = 58.0,
-                    RequestsUsed = 210,
-                    RequestsAvailable = 500,
-                    Description = "58.0% Remaining",
+                    IsQuotaBased = false,
+                    PlanType = PlanType.Usage,
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    Description = "Connected",
                     IsAvailable = true,
-                    AuthSource = "local credentials",
-                    NextResetTime = deterministicNow.AddHours(16)
+                    AuthSource = "local credentials"
                 },
                 new()
                 {
@@ -548,6 +546,45 @@ public partial class MainWindow : Window
 
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
         UpdateLayout();
+        if (deterministic)
+        {
+            FitWindowHeightForHeadlessScreenshot();
+        }
+    }
+
+    private void FitWindowHeightForHeadlessScreenshot()
+    {
+        if (Content is not FrameworkElement root)
+        {
+            return;
+        }
+
+        var width = Width;
+        if (double.IsNaN(width) || width <= 0)
+        {
+            width = ActualWidth > 0 ? ActualWidth : 460;
+        }
+
+        root.Measure(new Size(width, double.PositiveInfinity));
+        var desiredHeight = Math.Ceiling(root.DesiredSize.Height);
+        if (desiredHeight > 0)
+        {
+            Height = Math.Max(MinHeight, desiredHeight);
+        }
+
+        UpdateLayout();
+
+        if (ProvidersScrollViewer is null)
+        {
+            return;
+        }
+
+        var overflow = ProvidersScrollViewer.ExtentHeight - ProvidersScrollViewer.ViewportHeight;
+        if (overflow > 0.5)
+        {
+            Height += Math.Ceiling(overflow) + 2;
+            UpdateLayout();
+        }
     }
 
     private void OnPrivacyChanged(object? sender, bool isPrivacyMode)

@@ -52,7 +52,7 @@
             </Border>
 
             <!-- Provider List - No padding for compact view -->
-            <ScrollViewer Grid.Row="2" Padding="6,4" VerticalScrollBarVisibility="Auto">
+            <ScrollViewer x:Name="ProvidersScrollViewer" Grid.Row="2" Padding="6,4" VerticalScrollBarVisibility="Auto">
                 <StackPanel x:Name="ProvidersList">
                     <TextBlock Text="Loading..." Foreground="{DynamicResource TertiaryText}" HorizontalAlignment="Center" FontSize="11"/>
                 </StackPanel>
