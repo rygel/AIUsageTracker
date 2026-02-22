@@ -1,4 +1,5 @@
 using AIUsageTracker.Web.Services;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
@@ -27,6 +28,20 @@ try
 
     builder.Services.AddRazorPages();
     builder.Services.AddMemoryCache();
+    builder.Services.AddOutputCache(options =>
+    {
+        options.AddPolicy("DashboardCache", policy =>
+        {
+            policy.Expire(TimeSpan.FromSeconds(15));
+            policy.SetVaryByQuery("showUsed", "showInactive");
+        });
+
+        options.AddPolicy("ChartsCache", policy =>
+        {
+            policy.Expire(TimeSpan.FromSeconds(20));
+            policy.SetVaryByQuery("hours");
+        });
+    });
     builder.Services.AddResponseCompression(options =>
     {
         options.EnableForHttps = true;
@@ -89,6 +104,7 @@ try
 
     app.UseHttpsRedirection();
     app.UseResponseCompression();
+    app.UseOutputCache();
 
     var webRootCandidates = new[]
     {

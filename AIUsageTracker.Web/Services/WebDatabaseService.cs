@@ -50,11 +50,8 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new List<ProviderUsage>();
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
 
             const string activeSql = @"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -83,28 +80,23 @@ public class WebDatabaseService
                 )
                 ORDER BY p.provider_name";
 
-            var sql = includeInactive ? allSql : activeSql;
-            var results = await connection.QueryAsync<ProviderUsage>(sql);
+        var sql = includeInactive ? allSql : activeSql;
+        var results = await connection.QueryAsync<ProviderUsage>(sql);
             
-            // Deserialize details from JSON
-            foreach (var usage in results)
-            {
-                if (!string.IsNullOrEmpty(usage.DetailsJson))
-                {
-                    try
-                    {
-                        usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson);
-                    }
-                    catch { /* Ignore deserialization errors */ }
-                }
-            }
-            
-            return results.ToList();
-        }
-        finally
+        // Deserialize details from JSON
+        foreach (var usage in results)
         {
-            _semaphore.Release();
+            if (!string.IsNullOrEmpty(usage.DetailsJson))
+            {
+                try
+                {
+                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson);
+                }
+                catch { /* Ignore deserialization errors */ }
+            }
         }
+
+        return results.ToList();
     }
 
     public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
@@ -112,11 +104,8 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new List<ProviderUsage>();
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
 
             var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -129,13 +118,8 @@ public class WebDatabaseService
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-            var results = await connection.QueryAsync<ProviderUsage>(sql);
-            return results.ToList();
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        var results = await connection.QueryAsync<ProviderUsage>(sql);
+        return results.ToList();
     }
 
     public async Task<List<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
@@ -143,11 +127,8 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new List<ProviderUsage>();
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
 
             var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -161,13 +142,8 @@ public class WebDatabaseService
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-            var results = await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId });
-            return results.ToList();
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        var results = await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId });
+        return results.ToList();
     }
 
     public async Task<List<ProviderInfo>> GetProvidersAsync()
@@ -175,11 +151,8 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new List<ProviderInfo>();
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
 
             const string sql = @"
                 SELECT p.provider_id AS ProviderId, p.provider_name AS ProviderName,
@@ -195,13 +168,8 @@ public class WebDatabaseService
                 WHERE p.is_active = 1
                 ORDER BY p.provider_name";
 
-            var results = await connection.QueryAsync<ProviderInfo>(sql);
-            return results.ToList();
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        var results = await connection.QueryAsync<ProviderInfo>(sql);
+        return results.ToList();
     }
 
     public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
@@ -209,11 +177,8 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new List<ResetEvent>();
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
 
             var sql = $@"
                 SELECT id AS Id, provider_id AS ProviderId, provider_name AS ProviderName,
@@ -224,13 +189,8 @@ public class WebDatabaseService
                 ORDER BY timestamp DESC
                 LIMIT {limit}";
 
-            var results = await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId });
-            return results.ToList();
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        var results = await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId });
+        return results.ToList();
     }
 
     public async Task<UsageSummary> GetUsageSummaryAsync()
@@ -238,11 +198,8 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new UsageSummary();
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
 
             const string sql = @"
                 SELECT 
@@ -254,13 +211,8 @@ public class WebDatabaseService
                     SELECT MAX(id) FROM provider_history GROUP BY provider_id
                 )";
 
-            var result = await connection.QuerySingleOrDefaultAsync<UsageSummary>(sql);
-            return result ?? new UsageSummary();
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        var result = await connection.QuerySingleOrDefaultAsync<UsageSummary>(sql);
+        return result ?? new UsageSummary();
     }
 
     public async Task<List<ChartDataPoint>> GetChartDataAsync(int hours = 24)
@@ -268,34 +220,39 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new List<ChartDataPoint>();
 
-        await _semaphore.WaitAsync();
-        try
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await EnsureChartIndexesAsync(connection);
+
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var bucketMinutes = hours switch
         {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
-            await EnsureChartIndexesAsync(connection);
+            <= 24 => 1,
+            <= 72 => 5,
+            <= 168 => 15,
+            _ => 60
+        };
+        var bucketSeconds = bucketMinutes * 60;
 
-            var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        const string sql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
+                AVG(h.requests_percentage) AS RequestsPercentage,
+                MAX(h.requests_used) AS RequestsUsed
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+            GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
+            ORDER BY Timestamp ASC";
 
-            const string sql = @"
-                SELECT 
-                    h.provider_id AS ProviderId,
-                    p.provider_name AS ProviderName,
-                    h.fetched_at AS Timestamp,
-                    h.requests_percentage AS RequestsPercentage,
-                    h.requests_used AS RequestsUsed
-                FROM provider_history h
-                JOIN providers p ON h.provider_id = p.provider_id
-                WHERE h.fetched_at >= @CutoffUtc
-                ORDER BY h.fetched_at ASC";
-
-            var results = await connection.QueryAsync<ChartDataPoint>(sql, new { CutoffUtc = cutoffUtc });
-            return results.ToList();
-        }
-        finally
+        var results = await connection.QueryAsync<ChartDataPoint>(sql, new
         {
-            _semaphore.Release();
-        }
+            CutoffUtc = cutoffUtc,
+            BucketSeconds = bucketSeconds
+        });
+        return results.ToList();
     }
 
     public async Task<List<ResetEvent>> GetRecentResetEventsAsync(int hours = 24)
@@ -303,35 +260,27 @@ public class WebDatabaseService
         if (!IsDatabaseAvailable())
             return new List<ResetEvent>();
 
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection($"Data Source={_dbPath}");
-            await connection.OpenAsync();
-            await EnsureChartIndexesAsync(connection);
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        await connection.OpenAsync();
+        await EnsureChartIndexesAsync(connection);
 
-            var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
-            const string sql = @"
-                SELECT 
-                    id AS Id, 
-                    provider_id AS ProviderId, 
-                    provider_name AS ProviderName,
-                    previous_usage AS PreviousUsage, 
-                    new_usage AS NewUsage,
-                    reset_type AS ResetType, 
-                    timestamp AS Timestamp
-                FROM reset_events
-                WHERE timestamp >= @CutoffUtc
-                ORDER BY timestamp ASC";
+        const string sql = @"
+            SELECT 
+                id AS Id, 
+                provider_id AS ProviderId, 
+                provider_name AS ProviderName,
+                previous_usage AS PreviousUsage, 
+                new_usage AS NewUsage,
+                reset_type AS ResetType, 
+                timestamp AS Timestamp
+            FROM reset_events
+            WHERE timestamp >= @CutoffUtc
+            ORDER BY timestamp ASC";
 
-            var results = await connection.QueryAsync<ResetEvent>(sql, new { CutoffUtc = cutoffUtc });
-            return results.ToList();
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        var results = await connection.QueryAsync<ResetEvent>(sql, new { CutoffUtc = cutoffUtc });
+        return results.ToList();
     }
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)

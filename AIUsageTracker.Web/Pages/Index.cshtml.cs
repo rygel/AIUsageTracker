@@ -1,10 +1,12 @@
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AIUsageTracker.Web.Pages;
 
+[OutputCache(PolicyName = "DashboardCache")]
 public class IndexModel : PageModel
 {
     private readonly WebDatabaseService _dbService;

@@ -1,9 +1,11 @@
 using AIUsageTracker.Web.Services;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace AIUsageTracker.Web.Pages;
 
+[OutputCache(PolicyName = "ChartsCache")]
 public class ChartsModel : PageModel
 {
     private const string ProviderColorsCacheKey = "charts-provider-colors-v1";
