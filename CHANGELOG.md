@@ -17,6 +17,7 @@
 - **Modernized CI/CD**:
     - High-speed PowerShell-based database seeder (`seed_mock_database.ps1`) for deterministic testing.
     - Performance Smoke Tests in GitHub Actions to prevent dashboard latency regressions.
+- **Token-Based Authentication Discovery**: Introduced `CodexAuthService` for automatic discovery of session tokens and account IDs from local configuration files.
 
 ### Fixed
 - **Chart Rendering**: Resolved Content-Security-Policy blocking Chart.js scripts in the Web UI, and increased point radius for better visibility of single data points.
