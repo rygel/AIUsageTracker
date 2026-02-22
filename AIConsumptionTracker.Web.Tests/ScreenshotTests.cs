@@ -34,21 +34,20 @@ public class ScreenshotTests : PageTest
 
         // 2. Dashboard
         await Page.GotoAsync(BaseUrl);
-        await Page.Locator(".stat-card, .alert").First.WaitForAsync(); // Wait for stats or empty state alert
+        await Page.WaitForSelectorAsync(".stat-card, .alert", new() { State = WaitForSelectorState.Visible });
         
-        // Hide the "Database not found" alert if it exists (for cleaner screenshot if running against real data)
-        // Or better, wait for content. 
-        // We'll take a screenshot of the whole page
+        // Take a screenshot of the whole page
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_dashboard.png"), FullPage = true });
 
         // 3. Providers List
         await Page.GotoAsync($"{BaseUrl}/providers");
-        await Page.Locator("table, .alert").First.WaitForAsync(); // Wait for table or empty state alert
+        await Page.WaitForSelectorAsync("table, .alert", new() { State = WaitForSelectorState.Visible });
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_providers.png"), FullPage = true });
 
         // 4. Charts
         await Page.GotoAsync($"{BaseUrl}/charts");
-        await Page.Locator("canvas, .alert").First.WaitForAsync(); // Wait for chart or empty state alert
+        await Page.WaitForSelectorAsync("canvas, .alert", new() { State = WaitForSelectorState.Visible });
+        
         // Give chart animation a moment to settle
         await Task.Delay(1000);
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_charts.png"), FullPage = true });
