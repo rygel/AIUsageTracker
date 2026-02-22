@@ -57,11 +57,6 @@ public static class UsageVisibilityFilter
             return false;
         }
 
-        if (providerId.Equals("codex", StringComparison.OrdinalIgnoreCase))
-        {
-            return providersWithKeys.Contains(providerId);
-        }
-
         return SystemProviders.Contains(providerId) || providersWithKeys.Contains(providerId);
     }
 

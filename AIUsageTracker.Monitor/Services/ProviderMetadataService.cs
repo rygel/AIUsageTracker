@@ -16,7 +16,6 @@ public static class ProviderMetadataService
         ["gemini-cli"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         ["xiaomi"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         ["minimax"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
-        ["codex"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         ["evolve-migrations"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         ["simulated"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         ["synthetic"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },

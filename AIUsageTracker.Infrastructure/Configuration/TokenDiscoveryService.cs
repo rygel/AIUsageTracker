@@ -72,7 +72,81 @@ public class TokenDiscoveryService
         // 7. Discover from Claude Code
         await DiscoverClaudeCodeTokenAsync(discoveredConfigs);
 
+        // 8. Discover OpenAI session token from OpenCode/Codex auth files
+        await DiscoverOpenAiSessionTokenAsync(discoveredConfigs);
+
         return discoveredConfigs;
+    }
+
+    private async Task DiscoverOpenAiSessionTokenAsync(List<ProviderConfig> configs)
+    {
+        try
+        {
+            var candidates = new List<string>
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "auth.json"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
+            };
+
+            if (OperatingSystem.IsWindows())
+            {
+                candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "codex", "auth.json"));
+                candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"));
+                candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"));
+            }
+
+            foreach (var path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!File.Exists(path))
+                {
+                    continue;
+                }
+
+                var json = await File.ReadAllTextAsync(path);
+                using var doc = JsonDocument.Parse(json);
+
+                string? token = null;
+                if (doc.RootElement.TryGetProperty("tokens", out var tokensElement) &&
+                    tokensElement.ValueKind == JsonValueKind.Object &&
+                    tokensElement.TryGetProperty("access_token", out var accessTokenElement))
+                {
+                    token = accessTokenElement.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(token) &&
+                    doc.RootElement.TryGetProperty("openai", out var openaiElement) &&
+                    openaiElement.ValueKind == JsonValueKind.Object &&
+                    openaiElement.TryGetProperty("access", out var openaiAccessElement))
+                {
+                    token = openaiAccessElement.GetString();
+                }
+
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    continue;
+                }
+
+                AddOrUpdate(configs, "openai", token, "Discovered in OpenCode/Codex auth", $"Config: {path}");
+
+                // OpenCode/Codex session token represents coding-plan quota tracking.
+                if (!token.StartsWith("sk-", StringComparison.OrdinalIgnoreCase))
+                {
+                    var openAiConfig = configs.FirstOrDefault(c =>
+                        c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
+                    if (openAiConfig != null)
+                    {
+                        openAiConfig.PlanType = PlanType.Coding;
+                        openAiConfig.Type = "quota-based";
+                    }
+                }
+                return;
+            }
+        }
+        catch
+        {
+            // Codex/OpenCode auth may not be present or parsable
+        }
     }
 
     private async Task DiscoverGitHubCliTokenAsync(List<ProviderConfig> configs)
@@ -139,7 +213,7 @@ public class TokenDiscoveryService
         var wellKnown = new[] { 
             "openai", "gemini-cli", "github-copilot", 
             "minimax", "minimax-io", "xiaomi", "kimi", 
-            "deepseek", "openrouter", "antigravity", "opencode", "codex"
+            "deepseek", "openrouter", "antigravity", "opencode"
         };
         foreach (var id in wellKnown)
         {

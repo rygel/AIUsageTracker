@@ -135,17 +135,6 @@ public class ProviderManager : IDisposable
         {
             configs.Add(new ProviderConfig { ProviderId = "claude-code", ApiKey = "" });
         }
-        if (!configs.Any(c => c.ProviderId == "codex"))
-        {
-            configs.Add(new ProviderConfig
-            {
-                ProviderId = "codex",
-                ApiKey = "",
-                Type = "quota-based",
-                PlanType = PlanType.Coding
-            });
-        }
-
         if (includeProviderIds != null && includeProviderIds.Count > 0)
         {
             var included = includeProviderIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -175,7 +164,7 @@ public class ProviderManager : IDisposable
         if (config == null)
         {
             // Try to create a temporary config if it's a known system provider
-             if (providerId == "antigravity" || providerId == "gemini-cli" || providerId == "opencode-zen" || providerId == "claude-code" || providerId == "codex")
+             if (providerId == "antigravity" || providerId == "gemini-cli" || providerId == "opencode-zen" || providerId == "claude-code")
              {
                  config = new ProviderConfig { ProviderId = providerId, ApiKey = "" };
              }

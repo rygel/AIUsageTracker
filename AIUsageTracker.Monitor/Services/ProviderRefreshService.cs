@@ -164,7 +164,6 @@ public class ProviderRefreshService : BackgroundService
             new MinimaxProvider(httpClient, _loggerFactory.CreateLogger<MinimaxProvider>()),
             new MistralProvider(httpClient, _loggerFactory.CreateLogger<MistralProvider>()),
             new XiaomiProvider(httpClient, _loggerFactory.CreateLogger<XiaomiProvider>()),
-            new CodexProvider(httpClient, _loggerFactory.CreateLogger<CodexProvider>()),
             new GitHubCopilotProvider(
                 httpClient,
                 _loggerFactory.CreateLogger<GitHubCopilotProvider>(),
@@ -240,20 +239,11 @@ public class ProviderRefreshService : BackgroundService
                 });
             if (!configs.Any(c => c.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase)))
                 configs.Add(new ProviderConfig { ProviderId = "cloud-code", ApiKey = "" });
-            if (!configs.Any(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase)))
-                configs.Add(new ProviderConfig
-                {
-                    ProviderId = "codex",
-                    ApiKey = "",
-                    Type = "quota-based",
-                    PlanType = PlanType.Coding
-                });
-
-            // "antigravity", "gemini-cli", "cloud-code", "codex" are known system providers that do not require an API key to work.
+            // "antigravity", "gemini-cli", "cloud-code" are known system providers that do not require an API key to work.
             // Other providers MUST have an API key to be considered active.
             var systemProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
             { 
-                "antigravity", "gemini-cli", "cloud-code", "codex" 
+                "antigravity", "gemini-cli", "cloud-code" 
             };
 
             var activeConfigs = configs.Where(c =>

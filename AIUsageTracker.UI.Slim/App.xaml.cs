@@ -340,6 +340,11 @@ public partial class App : Application
                     continue;
                 }
 
+                if (!IsSubTrayEligibleDetail(detail))
+                {
+                    continue;
+                }
+
                 var detailPercent = ParsePercent(detail.Used);
                 if (!detailPercent.HasValue)
                 {
@@ -405,6 +410,17 @@ public partial class App : Application
         return double.TryParse(parsedValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
             ? Math.Max(0, Math.Min(100, parsed))
             : null;
+    }
+
+    private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail.Name))
+        {
+            return false;
+        }
+
+        return !detail.Name.Contains("window", StringComparison.OrdinalIgnoreCase) &&
+               !detail.Name.Contains("credit", StringComparison.OrdinalIgnoreCase);
     }
 
     private static ImageSource GenerateUsageIcon(double percentage, int yellowThreshold, int redThreshold, bool invert = false, bool isQuota = false)

@@ -15,13 +15,6 @@
       "description": "Claude Code CLI usage"
     },
     {
-      "id": "codex",
-      "name": "Codex",
-      "baseUrl": "https://api.openai.com",
-      "planType": "usage",
-      "description": "OpenAI Codex"
-    },
-    {
       "id": "deepseek",
       "name": "DeepSeek",
       "baseUrl": "https://api.deepseek.com",

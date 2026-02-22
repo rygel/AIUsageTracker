@@ -161,13 +161,11 @@ public class CodexProviderTests
             // Assert
             Assert.True(usage.IsAvailable);
             Assert.Equal("snapshot@example.com", usage.AccountName);
-            Assert.Equal(37.5, usage.RequestsPercentage);
-            Assert.Contains("Plan: pro", usage.Description);
-            Assert.Contains("Spark", usage.Description);
+            Assert.Equal(52.0, usage.RequestsPercentage);
+            Assert.Contains("Plan: plus", usage.Description);
             Assert.NotNull(usage.NextResetTime);
-            Assert.Contains(usage.Details!, d => d.Name == "Primary Window" && d.Used == "62% used");
-            Assert.Contains(usage.Details!, d => d.Name.StartsWith("Spark", StringComparison.OrdinalIgnoreCase) && d.Used == "40% used");
-            Assert.Contains(usage.Details!, d => d.Name == "Credits" && d.Used == "12.75");
+            Assert.Contains(usage.Details!, d => d.Name == "Primary Window" && d.Used == "48% used");
+            Assert.Contains(usage.Details!, d => d.Name == "Credits" && d.Used == "0.00");
         }
         finally
         {

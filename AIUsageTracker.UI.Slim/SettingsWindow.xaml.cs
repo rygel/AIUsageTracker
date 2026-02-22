@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -18,6 +19,8 @@ public partial class SettingsWindow : Window
     private readonly AgentService _agentService;
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
+    private string? _gitHubAuthUsername;
+    private string? _openAiAuthUsername;
     private AppPreferences _preferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isDeterministicScreenshotMode;
@@ -44,6 +47,8 @@ public partial class SettingsWindow : Window
         _isDeterministicScreenshotMode = false;
         _configs = await _agentService.GetConfigsAsync();
         _usages = await _agentService.GetUsageAsync();
+        _gitHubAuthUsername = await TryGetGitHubUsernameFromAuthAsync();
+        _openAiAuthUsername = await TryGetOpenAiUsernameFromAuthAsync();
         _preferences = await UiPreferencesStore.LoadAsync();
         App.Preferences = _preferences;
         _isPrivacyMode = _preferences.IsPrivacyMode;
@@ -56,6 +61,206 @@ public partial class SettingsWindow : Window
         await LoadHistoryAsync();
         await UpdateAgentStatusAsync();
         RefreshDiagnosticsLog();
+    }
+
+    private static async Task<string?> TryGetGitHubUsernameFromAuthAsync()
+    {
+        // UI intentionally avoids spawning GitHub CLI (`gh`) for username lookup.
+        return await TryGetGitHubUsernameFromHostsFileAsync();
+    }
+
+    private static async Task<string?> TryGetGitHubUsernameFromHostsFileAsync()
+    {
+        try
+        {
+            var candidates = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GitHub CLI", "hosts.yml"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "gh", "hosts.yml")
+            };
+
+            foreach (var path in candidates)
+            {
+                if (!File.Exists(path))
+                {
+                    continue;
+                }
+
+                var lines = await File.ReadAllLinesAsync(path);
+                foreach (var rawLine in lines)
+                {
+                    var line = rawLine.Trim();
+                    if (line.StartsWith("user:", StringComparison.OrdinalIgnoreCase) ||
+                        line.StartsWith("login:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var value = line[(line.IndexOf(':') + 1)..].Trim().Trim('\'', '"');
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            return value;
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // ignore file parse issues
+        }
+
+        return null;
+    }
+
+    private static async Task<string?> TryGetOpenAiUsernameFromAuthAsync()
+    {
+        try
+        {
+            var candidates = new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
+            };
+
+            foreach (var path in candidates)
+            {
+                if (!File.Exists(path))
+                {
+                    continue;
+                }
+
+                var json = await File.ReadAllTextAsync(path);
+                using var doc = JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("openai", out var openai) || openai.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
+                var explicitIdentity = FindIdentityInJson(openai);
+                if (!string.IsNullOrWhiteSpace(explicitIdentity))
+                {
+                    return explicitIdentity;
+                }
+
+                // Fallback: decode common claims from session access token.
+                if (openai.TryGetProperty("access", out var accessElement) && accessElement.ValueKind == JsonValueKind.String)
+                {
+                    var token = accessElement.GetString();
+                    var fromToken = TryGetUsernameFromJwt(token);
+                    if (!string.IsNullOrWhiteSpace(fromToken))
+                    {
+                        return fromToken;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // OpenAI/OpenCode auth may be unavailable.
+        }
+
+        return null;
+    }
+
+    private static string? TryGetUsernameFromJwt(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
+        var parts = token.Split('.');
+        if (parts.Length < 2)
+        {
+            return null;
+        }
+
+        try
+        {
+            var payload = parts[1]
+                .Replace('-', '+')
+                .Replace('_', '/');
+
+            switch (payload.Length % 4)
+            {
+                case 2: payload += "=="; break;
+                case 3: payload += "="; break;
+            }
+
+            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+            using var doc = JsonDocument.Parse(json);
+
+            // Prefer explicit identity claims from OpenAI/OpenCode sessions.
+            foreach (var claim in new[] { "email", "upn", "preferred_username", "username", "login", "name" })
+            {
+                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
+                {
+                    var value = valueElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+
+            // Last fallback: recursively scan JWT payload for first identity-like value.
+            var recursiveIdentity = FindIdentityInJson(doc.RootElement);
+            if (!string.IsNullOrWhiteSpace(recursiveIdentity))
+            {
+                return recursiveIdentity;
+            }
+        }
+        catch
+        {
+            // ignore malformed token payload
+        }
+
+        return null;
+    }
+
+    private static string? FindIdentityInJson(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var prop in element.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.String)
+                    {
+                        var value = prop.Value.GetString();
+                        if (string.IsNullOrWhiteSpace(value))
+                        {
+                            continue;
+                        }
+
+                        var key = prop.Name.ToLowerInvariant();
+                        if (key.Contains("email") || key.Contains("username") || key.Contains("login") || key.Contains("user"))
+                        {
+                            return value;
+                        }
+                    }
+
+                    var nested = FindIdentityInJson(prop.Value);
+                    if (!string.IsNullOrWhiteSpace(nested))
+                    {
+                        return nested;
+                    }
+                }
+                break;
+
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                {
+                    var nested = FindIdentityInJson(item);
+                    if (!string.IsNullOrWhiteSpace(nested))
+                    {
+                        return nested;
+                    }
+                }
+                break;
+        }
+
+        return null;
     }
 
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
@@ -180,7 +385,6 @@ public partial class SettingsWindow : Window
             CreateConfig("antigravity", "local-session", PlanType.Coding, "quota-based"),
             CreateConfig("anthropic", "sk-ant-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
             CreateConfig("claude-code", "cc-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("codex", "codex-demo-key", PlanType.Coding, "quota-based", showInTray: true),
             CreateConfig("deepseek", "sk-ds-demo", PlanType.Usage, "pay-as-you-go"),
             CreateConfig("gemini-cli", "gemini-local-auth", PlanType.Coding, "quota-based"),
             CreateConfig("github-copilot", "ghp_demo_key", PlanType.Coding, "quota-based", showInTray: true, enableNotifications: true),
@@ -196,7 +400,7 @@ public partial class SettingsWindow : Window
             CreateConfig("zai-coding-plan", "zai-demo-key", PlanType.Coding, "quota-based", showInTray: true)
         };
 
-        var deterministicNow = DateTime.Now;
+        var deterministicNow = new DateTime(2026, 02, 01, 12, 00, 00, DateTimeKind.Local);
         _usages = new List<ProviderUsage>
         {
             new()
@@ -293,17 +497,6 @@ public partial class SettingsWindow : Window
             },
             new()
             {
-                ProviderId = "codex",
-                ProviderName = "Codex",
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 63.0,
-                Description = "63.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(18)
-            },
-            new()
-            {
                 ProviderId = "deepseek",
                 ProviderName = "DeepSeek",
                 IsAvailable = true,
@@ -385,14 +578,13 @@ public partial class SettingsWindow : Window
             new()
             {
                 ProviderId = "openai",
-                ProviderName = "OpenAI",
+                ProviderName = "OpenAI (Codex)",
                 IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                RequestsPercentage = 63.0,
+                Description = "63.0% Remaining",
+                NextResetTime = deterministicNow.AddHours(18)
             },
             new()
             {
@@ -657,7 +849,10 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var groupedConfigs = _configs.OrderBy(c => c.ProviderId).ToList();
+        var groupedConfigs = _configs
+            .OrderBy(c => GetProviderDisplayName(c.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(c => c.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         foreach (var config in groupedConfigs)
         {
@@ -695,19 +890,7 @@ public partial class SettingsWindow : Window
         headerPanel.Children.Add(icon);
 
         // Display name
-        var displayName = config.ProviderId switch {
-            "antigravity" => "Google Antigravity",
-            "gemini-cli" => "Google Gemini",
-            "github-copilot" => "GitHub Copilot",
-            "openai" => "OpenAI (Codex)",
-            "minimax" => "Minimax (China)",
-            "minimax-io" => "Minimax (International)",
-            "opencode" => "OpenCode",
-            "claude-code" => "Claude Code",
-            "zai-coding-plan" => "Z.ai Coding Plan",
-            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
-                config.ProviderId.Replace("_", " ").Replace("-", " "))
-        };
+        var displayName = GetProviderDisplayName(config.ProviderId);
 
         var title = new TextBlock
         {
@@ -773,6 +956,12 @@ public partial class SettingsWindow : Window
         if (config.ProviderId == "antigravity")
         {
             isInactive = usage == null || !usage.IsAvailable;
+        }
+        else if (config.ProviderId == "openai")
+        {
+            var hasApiKey = !string.IsNullOrWhiteSpace(config.ApiKey);
+            var hasSessionUsage = usage != null && usage.IsAvailable && usage.PlanType == PlanType.Coding;
+            isInactive = !hasApiKey && !hasSessionUsage;
         }
 
         if (isInactive)
@@ -855,9 +1044,13 @@ public partial class SettingsWindow : Window
             // GitHub Copilot: Show username (if available) - privacy mode only shows masked username
             var statusPanel = new StackPanel { Orientation = Orientation.Horizontal };
             string? username = usage?.AccountName;
-            bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown";
+            if (string.IsNullOrWhiteSpace(username) || username == "Unknown")
+            {
+                username = _gitHubAuthUsername;
+            }
+            bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown" && username != "User";
 
-            bool isAuthenticated = !string.IsNullOrEmpty(config.ApiKey);
+            bool isAuthenticated = !string.IsNullOrEmpty(config.ApiKey) || !string.IsNullOrWhiteSpace(_gitHubAuthUsername);
 
             string displayText;
             if (!isAuthenticated)
@@ -866,7 +1059,7 @@ public partial class SettingsWindow : Window
             }
             else if (!hasUsername)
             {
-                displayText = "Authenticated (click Refresh to load username)";
+                displayText = "Authenticated";
             }
             else if (_isPrivacyMode && username != null)
             {
@@ -888,6 +1081,80 @@ public partial class SettingsWindow : Window
                 isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
 
             statusPanel.Children.Add(statusText);
+            Grid.SetColumn(statusPanel, 0);
+            keyPanel.Children.Add(statusPanel);
+        }
+        else if (config.ProviderId == "openai" &&
+                 (usage?.PlanType == PlanType.Coding ||
+                  (!string.IsNullOrWhiteSpace(config.ApiKey) && !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase))))
+        {
+            var statusPanel = new StackPanel { Orientation = Orientation.Vertical };
+            var hasSessionToken = !string.IsNullOrWhiteSpace(config.ApiKey) &&
+                                  !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
+            var isAuthenticated = hasSessionToken || (usage != null && usage.IsAvailable);
+            var accountName = usage?.AccountName;
+            if (string.IsNullOrWhiteSpace(accountName) || accountName == "Unknown" || accountName == "User")
+            {
+                accountName = _openAiAuthUsername;
+            }
+
+            string displayText;
+            if (!isAuthenticated)
+            {
+                displayText = "Not Authenticated";
+            }
+            else if (!string.IsNullOrWhiteSpace(accountName))
+            {
+                displayText = _isPrivacyMode
+                    ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
+                    : $"Authenticated ({accountName})";
+            }
+            else if (hasSessionToken && (usage == null || !usage.IsAvailable))
+            {
+                displayText = "Authenticated via OpenCode (Codex) - refresh to load quota";
+            }
+            else
+            {
+                displayText = "Authenticated via OpenCode (Codex)";
+            }
+
+            var statusText = new TextBlock
+            {
+                Text = displayText,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 11
+            };
+            statusText.SetResourceReference(TextBlock.ForegroundProperty,
+                isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
+
+            statusPanel.Children.Add(statusText);
+
+            var resolvedReset = usage?.NextResetTime ?? InferResetTimeFromDetails(usage);
+            if (resolvedReset is DateTime nextReset)
+            {
+                var resetText = new TextBlock
+                {
+                    Text = $"Next reset: {nextReset:g}",
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontSize = 10,
+                    Margin = new Thickness(0, 3, 0, 0)
+                };
+                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+                statusPanel.Children.Add(resetText);
+            }
+            else if (isAuthenticated)
+            {
+                var resetText = new TextBlock
+                {
+                    Text = "Next reset: loading...",
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontSize = 10,
+                    Margin = new Thickness(0, 3, 0, 0)
+                };
+                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+                statusPanel.Children.Add(resetText);
+            }
+
             Grid.SetColumn(statusPanel, 0);
             keyPanel.Children.Add(statusPanel);
         }
@@ -930,7 +1197,8 @@ public partial class SettingsWindow : Window
         var subTrayDetails = usage?.Details?
             .Where(d =>
                 !string.IsNullOrWhiteSpace(d.Name) &&
-                !d.Name.StartsWith("[", StringComparison.Ordinal))
+                !d.Name.StartsWith("[", StringComparison.Ordinal) &&
+                IsSubTrayEligibleDetail(d))
             .GroupBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.First())
             .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
@@ -1507,6 +1775,70 @@ public partial class SettingsWindow : Window
         {
             return content;
         }
+    }
+
+    private static DateTime? InferResetTimeFromDetails(ProviderUsage? usage)
+    {
+        if (usage?.Details == null)
+        {
+            return null;
+        }
+
+        foreach (var detail in usage.Details)
+        {
+            if (string.IsNullOrWhiteSpace(detail.Description))
+            {
+                continue;
+            }
+
+            var match = Regex.Match(detail.Description, @"Resets in\s+(\d+)s", RegexOptions.IgnoreCase);
+            if (match.Success && int.TryParse(match.Groups[1].Value, out var seconds) && seconds > 0)
+            {
+                return DateTime.Now.AddSeconds(seconds);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail.Name))
+        {
+            return false;
+        }
+
+        if (detail.Name.Contains("window", StringComparison.OrdinalIgnoreCase) ||
+            detail.Name.Contains("credit", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var match = Regex.Match(detail.Used ?? string.Empty, @"(?<percent>\d+(\.\d+)?)\s*%", RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        return double.TryParse(match.Groups["percent"].Value, out _);
+    }
+
+    private static string GetProviderDisplayName(string providerId)
+    {
+        return providerId switch
+        {
+            "antigravity" => "Google Antigravity",
+            "gemini-cli" => "Google Gemini",
+            "github-copilot" => "GitHub Copilot",
+            "openai" => "OpenAI (Codex)",
+            "minimax" => "Minimax (China)",
+            "minimax-io" => "Minimax (International)",
+            "opencode" => "OpenCode",
+            "claude-code" => "Claude Code",
+            "zai-coding-plan" => "Z.ai Coding Plan",
+            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
+                providerId.Replace("_", " ").Replace("-", " "))
+        };
     }
 
     private async void SaveBtn_Click(object sender, RoutedEventArgs e)

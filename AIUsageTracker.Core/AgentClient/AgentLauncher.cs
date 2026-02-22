@@ -130,6 +130,11 @@ public class AgentLauncher
                         WindowStyle = ProcessWindowStyle.Hidden,
                         WorkingDirectory = agentProjectDir
                     };
+                    
+                    // Prevent MSBuild from leaving zombie processes that hold file locks
+                    psi.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+                    psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+
                     Process.Start(psi);
                     return true;
                 }

@@ -1198,6 +1198,24 @@ The application follows a strict separation between:
 - Privacy mode is a single global UI state: toggling it in MainWindow or SettingsWindow must update the other immediately via `App.SetPrivacyMode` / `App.PrivacyChanged`, and both toggles must use the same lock/unlock icon semantics.
 - Agent changes must not drop `account_name` from API responses unless the UI contract is updated in the same PR.
 
+### Username and Identity Resolution Decisions (2026-02)
+
+- Slim Settings must not spawn GitHub CLI (`gh`) to resolve account identity. Username lookup should use local auth cache/files and provider API responses.
+- Placeholder identities (`User`, `Unknown`) are non-display values and must not be treated as valid usernames.
+- OpenAI/Codex identity resolution should accept non-email claims (for example `username`, `login`, `name`) in addition to email-based claims.
+
+### Slim UI Ordering and Details Decisions (2026-02)
+
+- Provider groups in Main window (`Plans & Quotas`, `Pay As You Go`) must be alphabetically ordered by friendly display name, with stable tie-break by provider ID.
+- Settings provider cards and detail rows should be alphabetically ordered for deterministic scanning and screenshots.
+- Non-actionable operational detail entries (for example `Primary Window`, `Credits`) must not be rendered as sub-provider cards or offered as sub-tray toggles.
+
+### Headless Screenshot Determinism Decisions (2026-02)
+
+- Deterministic screenshot fixture data must use fixed timestamps/clock values to avoid baseline drift across runs.
+- CI-rendered screenshots on `windows-2025` are the baseline authority when local and CI rendering differ.
+- When drift is CI-only, sync only the drifted screenshot files from CI artifacts rather than re-baselining all images.
+
 ### Database Schema (V2+)
 
 The `providers` table MUST NOT contain:

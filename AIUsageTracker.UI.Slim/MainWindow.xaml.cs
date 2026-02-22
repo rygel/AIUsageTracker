@@ -716,8 +716,16 @@ public partial class MainWindow : Window
             .ToList();
 
         // Separate providers by type and order alphabetically
-        var quotaProviders = filteredUsages.Where(u => u.IsQuotaBased || u.PlanType == PlanType.Coding).OrderBy(u => u.ProviderName).ToList();
-        var paygProviders = filteredUsages.Where(u => !u.IsQuotaBased && u.PlanType != PlanType.Coding).OrderBy(u => u.ProviderName).ToList();
+        var quotaProviders = filteredUsages
+            .Where(u => u.IsQuotaBased || u.PlanType == PlanType.Coding)
+            .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var paygProviders = filteredUsages
+            .Where(u => !u.IsQuotaBased && u.PlanType != PlanType.Coding)
+            .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         // Plans & Quotas Section
         if (quotaProviders.Any())
@@ -735,7 +743,7 @@ public partial class MainWindow : Window
             if (!_preferences.IsPlansAndQuotasCollapsed)
             {
                 // Add all quota providers with Antigravity models listed as standalone cards.
-                foreach (var usage in quotaProviders.OrderBy(u => u.ProviderName))
+                foreach (var usage in quotaProviders)
                 {
                     if (usage.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase))
                     {
@@ -776,7 +784,7 @@ public partial class MainWindow : Window
 
             if (!_preferences.IsPayAsYouGoCollapsed)
             {
-                foreach (var usage in paygProviders.OrderBy(u => u.ProviderName))
+                foreach (var usage in paygProviders)
                 {
                     AddProviderCard(usage, paygContainer);
                 }
@@ -928,6 +936,8 @@ public partial class MainWindow : Window
 
     private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
     {
+        var friendlyName = GetFriendlyProviderName(usage);
+
         // Compact horizontal bar similar to non-slim UI
         bool isMissing = usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase);
         bool isConsoleCheck = usage.Description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
@@ -1126,7 +1136,7 @@ public partial class MainWindow : Window
         var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{(_isPrivacyMode ? MaskAccountIdentifier(usage.AccountName) : usage.AccountName)}]";
         var nameBlock = new TextBlock
         {
-            Text = $"{usage.ProviderName}{accountPart}",
+            Text = $"{friendlyName}{accountPart}",
             FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold,
             FontSize = 11,
             Foreground = isMissing ? GetResourceBrush("TertiaryText", Brushes.Gray) : GetResourceBrush("PrimaryText", Brushes.White),
@@ -1142,7 +1152,7 @@ public partial class MainWindow : Window
         if (usage.Details != null && usage.Details.Any())
         {
             var tooltipBuilder = new System.Text.StringBuilder();
-            tooltipBuilder.AppendLine($"{usage.ProviderName}");
+            tooltipBuilder.AppendLine($"{friendlyName}");
             tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
             if (!string.IsNullOrEmpty(usage.Description))
             {
@@ -1150,7 +1160,7 @@ public partial class MainWindow : Window
             }
             tooltipBuilder.AppendLine();
             tooltipBuilder.AppendLine("Rate Limits:");
-            foreach (var detail in usage.Details)
+            foreach (var detail in usage.Details.OrderBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
             {
                 tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detail.Used}");
             }
@@ -1158,10 +1168,35 @@ public partial class MainWindow : Window
         }
         else if (!string.IsNullOrEmpty(usage.AuthSource))
         {
-            grid.ToolTip = $"{usage.ProviderName}\nSource: {usage.AuthSource}";
+            grid.ToolTip = $"{friendlyName}\nSource: {usage.AuthSource}";
         }
 
         container.Children.Add(grid);
+    }
+
+    private static string GetFriendlyProviderName(ProviderUsage usage)
+    {
+        var fromPayload = usage.ProviderName;
+        if (!string.IsNullOrWhiteSpace(fromPayload) &&
+            !string.Equals(fromPayload, usage.ProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            return fromPayload;
+        }
+
+        return usage.ProviderId.ToLowerInvariant() switch
+        {
+            "antigravity" => "Google Antigravity",
+            "gemini-cli" => "Google Gemini",
+            "github-copilot" => "GitHub Copilot",
+            "openai" => "OpenAI (Codex)",
+            "minimax" => "Minimax (China)",
+            "minimax-io" => "Minimax (International)",
+            "opencode" => "OpenCode",
+            "claude-code" => "Claude Code",
+            "zai-coding-plan" => "Z.ai Coding Plan",
+            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
+                usage.ProviderId.Replace("_", " ").Replace("-", " "))
+        };
     }
 
     private void AddAntigravityModels(ProviderUsage usage, StackPanel container)
@@ -1238,6 +1273,17 @@ public partial class MainWindow : Window
     private static string GetDetailDisplayName(ProviderUsageDetail detail)
     {
         return detail.Name;
+    }
+
+    private static bool IsDisplayableSubProviderDetail(ProviderUsageDetail detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail.Name))
+        {
+            return false;
+        }
+
+        return !detail.Name.Contains("window", StringComparison.OrdinalIgnoreCase) &&
+               !detail.Name.Contains("credit", StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddSubProviderCard(ProviderUsageDetail detail, StackPanel container)
@@ -1354,6 +1400,17 @@ public partial class MainWindow : Window
     {
         if (usage.Details?.Any() != true) return;
 
+        var displayableDetails = usage.Details
+            .Where(IsDisplayableSubProviderDetail)
+            .OrderBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (!displayableDetails.Any())
+        {
+            return;
+        }
+
         // Create collapsible section for sub-providers
         var (subHeader, subContainer) = CreateCollapsibleSubHeader(
             $"{usage.ProviderName} Details",
@@ -1367,7 +1424,7 @@ public partial class MainWindow : Window
         if (!_preferences.IsAntigravityCollapsed)
         {
             // Add sub-provider details
-            foreach (var detail in usage.Details)
+            foreach (var detail in displayableDetails)
             {
                 AddSubProviderCard(detail, subContainer);
             }
@@ -2389,5 +2446,3 @@ public partial class MainWindow : Window
 
 
 }
-
-
