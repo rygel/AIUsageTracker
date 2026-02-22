@@ -175,24 +175,6 @@ public partial class SettingsWindow : Window
             };
         }
 
-        List<ProviderUsageDetail> CreateModels(params string[] modelNames)
-        {
-            var models = new List<ProviderUsageDetail>();
-            for (var i = 0; i < modelNames.Length; i++)
-            {
-                var usedPercent = Math.Min(95, 18 + (i * 9));
-                models.Add(new ProviderUsageDetail
-                {
-                    Name = modelNames[i],
-                    ModelName = modelNames[i],
-                    Used = $"{usedPercent}%",
-                    Description = $"{100 - usedPercent}% remaining"
-                });
-            }
-
-            return models;
-        }
-
         _configs = new List<ProviderConfig>
         {
             CreateConfig("antigravity", "local-session", PlanType.Coding, "quota-based"),
@@ -223,10 +205,19 @@ public partial class SettingsWindow : Window
                 IsAvailable = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                RequestsPercentage = 58.0,
-                Description = "58.0% Remaining",
-                AccountName = "workspace-team",
-                Details = CreateModels("claude-sonnet-4", "gemini-2.5-pro", "gpt-5-codex")
+                RequestsPercentage = 60.0,
+                Description = "60.0% Remaining",
+                Details = new List<ProviderUsageDetail>
+                {
+                    new()
+                    {
+                        Name = "Claude Sonnet 4.6 (Thinking)",
+                        ModelName = "Claude Sonnet 4.6 (Thinking)",
+                        GroupName = "Tier 1",
+                        Used = "40%",
+                        Description = "60% remaining"
+                    }
+                }
             },
             new()
             {
@@ -236,9 +227,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RequestsPercentage = 20.1,
-                Description = "$18.10 / $90.00",
-                AccountName = "project-team",
-                Details = CreateModels("claude-3-7-sonnet", "claude-3-5-haiku")
+                Description = "$18.10 / $90.00"
             },
             new()
             {
@@ -248,8 +237,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RequestsPercentage = 22.4,
-                Description = "$22.40 / $100.00",
-                AccountName = "engineer@example.com"
+                Description = "$22.40 / $100.00"
             },
             new()
             {
@@ -259,8 +247,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 63.0,
-                Description = "63.0% Remaining",
-                Details = CreateModels("gpt-5.2-codex", "gpt-5.1-codex")
+                Description = "63.0% Remaining"
             },
             new()
             {
@@ -270,8 +257,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RequestsPercentage = 41.6,
-                Description = "$33.25 / $80.00",
-                Details = CreateModels("deepseek-chat", "deepseek-reasoner")
+                Description = "$33.25 / $80.00"
             },
             new()
             {
@@ -281,9 +267,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 84.0,
-                Description = "84.0% Remaining",
-                AccountName = "workspace-team",
-                Details = CreateModels("gemini-2.5-pro", "gemini-2.5-flash")
+                Description = "84.0% Remaining"
             },
             new()
             {
@@ -293,9 +277,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 72.5,
-                Description = "72.5% Remaining",
-                AccountName = "dev@example.com",
-                Details = CreateModels("gpt-4.1", "o3-mini")
+                Description = "72.5% Remaining"
             },
             new()
             {
@@ -305,8 +287,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 66.0,
-                Description = "66.0% Remaining",
-                Details = CreateModels("kimi-k2.5", "kimi-k2")
+                Description = "66.0% Remaining"
             },
             new()
             {
@@ -316,8 +297,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 61.0,
-                Description = "61.0% Remaining",
-                Details = CreateModels("minimax-m2.1", "minimax-text")
+                Description = "61.0% Remaining"
             },
             new()
             {
@@ -337,8 +317,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RequestsPercentage = 18.0,
-                Description = "$6.80 / $38.00",
-                Details = CreateModels("mistral-large", "mistral-medium")
+                Description = "$6.80 / $38.00"
             },
             new()
             {
@@ -348,9 +327,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RequestsPercentage = 31.1,
-                Description = "$12.45 / $40.00",
-                AccountName = "project-team",
-                Details = CreateModels("gpt-5.1", "gpt-4.1-mini")
+                Description = "$12.45 / $40.00"
             },
             new()
             {
@@ -370,8 +347,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RequestsPercentage = 45.0,
-                Description = "$18.00 / $40.00",
-                Details = CreateModels("claude-sonnet-4", "gpt-4.1")
+                Description = "$18.00 / $40.00"
             },
             new()
             {
@@ -381,8 +357,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RequestsPercentage = 36.0,
-                Description = "$21.60 / $60.00",
-                Details = CreateModels("anthropic/claude-sonnet-4", "openai/gpt-4.1")
+                Description = "$21.60 / $60.00"
             },
             new()
             {
@@ -392,8 +367,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 79.0,
-                Description = "79.0% Remaining",
-                Details = CreateModels("kimi-k2.5", "glm-4.7")
+                Description = "79.0% Remaining"
             },
             new()
             {
@@ -403,8 +377,7 @@ public partial class SettingsWindow : Window
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RequestsPercentage = 88.0,
-                Description = "88.0% Remaining",
-                Details = CreateModels("glm-4.7", "glm-4.7-flash")
+                Description = "88.0% Remaining"
             }
         };
 

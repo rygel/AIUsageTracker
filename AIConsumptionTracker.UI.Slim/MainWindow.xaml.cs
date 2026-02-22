@@ -398,18 +398,22 @@ public partial class MainWindow : Window
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     DisplayAsFraction = true,
-                    RequestsPercentage = 64.0,
-                    RequestsUsed = 360,
-                    RequestsAvailable = 1000,
-                    Description = "64.0% Remaining",
+                    RequestsPercentage = 60.0,
+                    RequestsUsed = 40,
+                    RequestsAvailable = 100,
+                    Description = "60.0% Remaining",
                     IsAvailable = true,
                     AuthSource = "local app",
                     Details = new List<ProviderUsageDetail>
                     {
-                        new() { Name = "claude-sonnet-4", ModelName = "Claude Sonnet 4", Used = "34%", Description = "66% remaining" },
-                        new() { Name = "gpt-5.2", ModelName = "GPT-5.2", Used = "41%", Description = "59% remaining" },
-                        new() { Name = "gemini-2.5-pro", ModelName = "Gemini 2.5 Pro", Used = "48%", Description = "52% remaining" },
-                        new() { Name = "deepseek-r1", ModelName = "DeepSeek R1", Used = "29%", Description = "71% remaining" }
+                        new()
+                        {
+                            Name = "Claude Sonnet 4.6 (Thinking)",
+                            ModelName = "Claude Sonnet 4.6 (Thinking)",
+                            GroupName = "Tier 1",
+                            Used = "40%",
+                            Description = "60% remaining"
+                        }
                     }
                 },
                 new()
