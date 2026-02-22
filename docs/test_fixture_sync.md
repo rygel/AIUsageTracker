@@ -16,6 +16,7 @@ This document defines how provider test fixtures and deterministic screenshot fi
 - Checked-in snapshots:
   - `AIUsageTracker.Tests\TestData\Providers\antigravity_user_status.snapshot.json`
   - `AIUsageTracker.Tests\TestData\Providers\codex_wham_usage.snapshot.json`
+  - `AIUsageTracker.Tests\TestData\Providers\github_copilot_rate_limit.snapshot.json`
 
 ## Required Rules
 

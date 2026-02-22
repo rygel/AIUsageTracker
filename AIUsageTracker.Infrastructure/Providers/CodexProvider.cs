@@ -392,6 +392,12 @@ public class CodexProvider : IProviderService
             return number;
         }
 
+        if (current.ValueKind == JsonValueKind.String &&
+            double.TryParse(current.GetString(), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
         return null;
     }
 

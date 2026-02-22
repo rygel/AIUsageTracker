@@ -169,5 +169,72 @@ public class GitHubCopilotProviderTests
         Assert.True(usage.NextResetTime.HasValue);
         Assert.Equal(expectedResetUtc, usage.NextResetTime.Value.ToUniversalTime());
     }
+
+    [Fact]
+    public async Task GetUsageAsync_CopilotQuotaUnavailable_UsesRateLimitFixtureFallback()
+    {
+        // Arrange
+        _authService.Setup(x => x.GetCurrentToken()).Returns("valid-token");
+        var config = new ProviderConfig { ProviderId = "github-copilot" };
+        var rateLimitSnapshot = LoadFixture("github_copilot_rate_limit.snapshot.json");
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.ToString() == "https://api.github.com/user"),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(JsonSerializer.Serialize(new { login = "anonymized-user" }))
+            });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.ToString() == "https://api.github.com/copilot_internal/v2/token"),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.Forbidden
+            });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.ToString() == "https://api.github.com/copilot_internal/user"),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.Forbidden
+            });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri!.ToString() == "https://api.github.com/rate_limit"),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(rateLimitSnapshot)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Contains("API Rate Limit", usage.Description);
+        Assert.Equal(0.0, usage.RequestsPercentage);
+    }
+
+    private static string LoadFixture(string fileName)
+    {
+        var fixturePath = Path.Combine(AppContext.BaseDirectory, "TestData", "Providers", fileName);
+        Assert.True(File.Exists(fixturePath), $"Fixture file not found: {fixturePath}");
+        return File.ReadAllText(fixturePath);
+    }
 }
 
