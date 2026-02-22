@@ -1,0 +1,93 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using AIUsageTracker.Core.Interfaces;
+using Microsoft.Extensions.Logging;
+
+namespace AIUsageTracker.Infrastructure.Services;
+
+public class CodexAuthService : ICodexAuthService
+{
+    private readonly ILogger<CodexAuthService> _logger;
+    private readonly string? _authFilePath;
+
+    public CodexAuthService(ILogger<CodexAuthService> logger, string? authFilePath = null)
+    {
+        _logger = logger;
+        _authFilePath = authFilePath;
+    }
+
+    public string? GetAccessToken()
+    {
+        var auth = LoadAuth();
+        return auth?.Tokens.AccessToken;
+    }
+
+    public string? GetAccountId()
+    {
+        var auth = LoadAuth();
+        return auth?.Tokens.AccountId;
+    }
+
+    private CodexAuth? LoadAuth()
+    {
+        foreach (var path in GetAuthFileCandidates())
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var json = File.ReadAllText(path);
+                var auth = JsonSerializer.Deserialize<CodexAuth>(json);
+                if (auth?.Tokens != null)
+                {
+                    return auth;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to read Codex auth file at {Path}", path);
+            }
+        }
+
+        return null;
+    }
+
+    private IEnumerable<string> GetAuthFileCandidates()
+    {
+        if (!string.IsNullOrWhiteSpace(_authFilePath))
+        {
+            yield return _authFilePath;
+            yield break;
+        }
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        yield return Path.Combine(home, ".codex", "auth.json");
+
+        if (OperatingSystem.IsWindows())
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (!string.IsNullOrWhiteSpace(appData))
+            {
+                yield return Path.Combine(appData, "codex", "auth.json");
+            }
+        }
+    }
+
+    private sealed class CodexAuth
+    {
+        [JsonPropertyName("tokens")]
+        public CodexTokens Tokens { get; set; } = new();
+    }
+
+    private sealed class CodexTokens
+    {
+        [JsonPropertyName("access_token")]
+        public string? AccessToken { get; set; }
+
+        [JsonPropertyName("account_id")]
+        public string? AccountId { get; set; }
+    }
+}
