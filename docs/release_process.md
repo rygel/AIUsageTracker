@@ -189,7 +189,7 @@ The packaged installer did not install cleanly or the bundled Agent did not repo
 ### Publish workflow fails during upgrade smoke test
 The previous-version installer -> current-version installer flow did not preserve expected user settings.
 
-**Fix**: Reproduce locally with `scripts\smoke-test-upgrade.ps1`, inspect installer behavior for `%USERPROFILE%\.ai-consumption-tracker` and `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim`, and ensure setup/uninstall logic does not overwrite user data.
+**Fix**: Reproduce locally with `scripts\smoke-test-upgrade.ps1`, inspect installer behavior for `%USERPROFILE%\.ai-consumption-tracker` and `%LOCALAPPDATA%\AIUsageTracker\UI.Slim`, and ensure setup/uninstall logic does not overwrite user data.
 
 ### Publish workflow fails during checksum/SBOM verification
 Release metadata was not generated or does not match the packaged artifacts.

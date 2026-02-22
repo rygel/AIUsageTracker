@@ -7,7 +7,7 @@ AI Consumption Tracker is a .NET 8.0 WPF desktop application designed to monitor
 ## Project Structure
 
 ```
-AIConsumptionTracker/
+AIUsageTracker/
 ├── AIUsageTracker.Core/          # Domain layer
 ├── AIUsageTracker.Infrastructure/ # Infrastructure layer
 ├── AIUsageTracker.UI.Slim/       # Presentation layer (WPF)

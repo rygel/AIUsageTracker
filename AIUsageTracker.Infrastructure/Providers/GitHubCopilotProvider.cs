@@ -91,7 +91,7 @@ public class GitHubCopilotProvider : IProviderService
     {
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIConsumptionTracker", "1.0"));
+        request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIUsageTracker", "1.0"));
         return request;
     }
 
@@ -102,7 +102,7 @@ public class GitHubCopilotProvider : IProviderService
         request.Headers.TryAddWithoutValidation("Accept", "application/json");
         request.Headers.TryAddWithoutValidation("Editor-Version", "vscode/1.96.2");
         request.Headers.TryAddWithoutValidation("X-Github-Api-Version", "2025-04-01");
-        request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIConsumptionTracker", "1.0"));
+        request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIUsageTracker", "1.0"));
         return request;
     }
 

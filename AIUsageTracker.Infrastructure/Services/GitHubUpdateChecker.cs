@@ -116,7 +116,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             }
 
             // Create temp directory for download
-            var tempDir = Path.Combine(Path.GetTempPath(), "AIConsumptionTracker_Updates");
+            var tempDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker_Updates");
             Directory.CreateDirectory(tempDir);
             var downloadPath = Path.Combine(tempDir, $"AIUsageTracker_Setup_{updateInfo.Version}.exe");
 
@@ -191,7 +191,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         try
         {
             using var client = new System.Net.Http.HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "AIConsumptionTracker");
+            client.DefaultRequestHeaders.Add("User-Agent", "AIUsageTracker");
             
             var url = $"https://api.github.com/repos/rygel/AIConsumptionTracker/releases/tags/v{version}";
             _logger.LogDebug("Fetching release notes from: {Url}", url);

@@ -1,10 +1,12 @@
 # kill-all.ps1
-# Kills all running instances of AIConsumptionTracker Agent and UIs.
+# Kills all running instances of AIUsageTracker Monitor and UIs.
 
 $targets = @(
     "AIUsageTracker.Monitor",
     "AIUsageTracker.UI",
-    "AIUsageTracker.UI.Slim"
+    "AIUsageTracker.UI.Slim",
+    # Legacy process name
+    "AIConsumptionTracker.Agent"
 )
 
 $killed = 0
@@ -21,7 +23,7 @@ foreach ($name in $targets) {
 }
 
 if ($killed -eq 0) {
-    Write-Host "No AIConsumptionTracker processes found."
+    Write-Host "No AIUsageTracker processes found."
 } else {
     Write-Host "Done. Killed $killed process(es)."
 }

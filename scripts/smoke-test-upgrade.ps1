@@ -34,8 +34,8 @@ $setupArgs = @(
 $userProfile = $env:USERPROFILE
 $localAppData = $env:LOCALAPPDATA
 $trackerConfigDir = Join-Path $userProfile ".ai-consumption-tracker"
-$agentDataDir = Join-Path $localAppData "AIConsumptionTracker\Agent"
-$slimDataDir = Join-Path $localAppData "AIConsumptionTracker\UI.Slim"
+$agentDataDir = Join-Path $localAppData "AIUsageTracker\Agent"
+$slimDataDir = Join-Path $localAppData "AIUsageTracker\UI.Slim"
 
 $authPath = Join-Path $trackerConfigDir "auth.json"
 $providersPath = Join-Path $trackerConfigDir "providers.json"

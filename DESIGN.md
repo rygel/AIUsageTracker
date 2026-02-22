@@ -889,7 +889,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 - On startup: Fetches cached data immediately from `/api/usage`
 - Status shows last refresh time (e.g., "14:32:15")
 - Refresh button triggers `/api/refresh` and updates display
-- UI preferences are stored locally by Slim in `%LOCALAPPDATA%\AIConsumptionTracker\UI.Slim\preferences.json`
+- UI preferences are stored locally by Slim in `%LOCALAPPDATA%\AIUsageTracker\UI.Slim\preferences.json`
 - Agent is not the source of truth for Slim UI preferences (window position, topmost, fonts, privacy toggle, and UI layout options)
 - Window position persistence: stores `WindowLeft`/`WindowTop` on move/resize and restores/clamps position on startup after preferences are loaded
 - Always-on-top reliability: when enabled, Slim reasserts native topmost z-order (`SetWindowPos`) on activation/tray restore/visibility changes to avoid occasional backgrounding
@@ -1042,7 +1042,7 @@ The Agent supports dynamic port allocation to handle conflicts:
 3. If all in use, use random available port
 
 **Port Persistence:**
-- Port saved to `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+- Port saved to `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
 - JSON info saved to `agent.info`:
   ```json
   {
@@ -1091,7 +1091,7 @@ private async Task<int> GetAgentPortAsync()
     // Try to read port from agent info file
     var portFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AIConsumptionTracker", "Agent", "agent.port"
+        "AIUsageTracker", "Agent", "agent.port"
     );
     
     if (File.Exists(portFile))

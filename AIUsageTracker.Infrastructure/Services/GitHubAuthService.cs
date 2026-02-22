@@ -130,7 +130,7 @@ public class GitHubAuthService : IGitHubAuthService
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _currentToken);
-            request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIConsumptionTracker", "1.0"));
+            request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIUsageTracker", "1.0"));
 
             var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode) return null;

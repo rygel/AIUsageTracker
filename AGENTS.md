@@ -56,7 +56,7 @@ dotnet test --filter "FullyQualifiedName~ProviderManagerTests"
 dotnet run --project AIUsageTracker.Monitor
 
 # Agent runs on port 5000 by default (auto-discovers available port 5000-5010)
-# Port is saved to %LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port
+# Port is saved to %LOCALAPPDATA%\AIUsageTracker\Agent\agent.port
 ```
 
 ### Running the Web UI
@@ -175,7 +175,7 @@ The Agent is a background HTTP service that collects and stores provider usage d
 **Port Management:**
 - Default port: 5000
 - Auto-discovery: Tries ports 5000-5010, then random
-- Port saved to: `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+- Port saved to: `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
 
 **Database Schema:**
 ```
@@ -223,7 +223,7 @@ Theme toggle in navbar with localStorage persistence.
 The Slim UI automatically discovers the Agent port:
 
 **Process:**
-1. Read from `%LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.port`
+1. Read from `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
 2. If not found, try port 5000
 3. Try fallback ports 5001-5010
 4. Use discovered port for all API calls
@@ -439,7 +439,7 @@ After the release workflow completes and assets are published, update the appcas
 gh release view v1.5.0 --json assets --jq '.assets[].name'
 ```
 
-**URL pattern:** `https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.5/AIConsumptionTracker_Setup_v1.5.5_win-x64.exe`
+**URL pattern:** `https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.5/AIUsageTracker_Setup_v1.5.5_win-x64.exe`
 
 Note: Release assets use `-win-x64`, `-win-arm64`, `-win-x86` suffixes (NOT `-x64`, `-arm64`, `-x86`).
 
@@ -449,7 +449,7 @@ Note: Release assets use `-win-x64`, `-win-arm64`, `-win-x86` suffixes (NOT `-x6
     <title>Version 1.5.0</title>
     <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v1.5.0</sparkle:releaseNotesLink>
     <pubDate>Wed, 11 Feb 2026 19:45:00 +0000</pubDate>
-    <enclosure url="https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.0/AIConsumptionTracker_Setup_v1.5.0_win-x64.exe"
+    <enclosure url="https://github.com/rygel/AIConsumptionTracker/releases/download/v1.5.0/AIUsageTracker_Setup_v1.5.0_win-x64.exe"
                sparkle:version="1.5.0"
                sparkle:os="windows"
                length="0"

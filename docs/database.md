@@ -13,9 +13,9 @@ AI Consumption Tracker uses SQLite with a **four-table design**:
 
 | Platform | Path |
 |----------|------|
-| Windows | `%LOCALAPPDATA%\AIConsumptionTracker\Agent\usage.db` |
-| Linux | `~/.local/share/AIConsumptionTracker/Agent/usage.db` |
-| macOS | `~/Library/Application Support/AIConsumptionTracker/Agent/usage.db` |
+| Windows | `%LOCALAPPDATA%\AIUsageTracker\Agent\usage.db` |
+| Linux | `~/.local/share/AIUsageTracker/Agent/usage.db` |
+| macOS | `~/Library/Application Support/AIUsageTracker/Agent/usage.db` |
 
 ## Table 1: providers
 

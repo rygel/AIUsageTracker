@@ -61,19 +61,24 @@ function Wait-ForAgentPort {
         [int]$TimeoutSeconds
     )
 
-    $agentInfoPath = Join-Path $env:LOCALAPPDATA "AIConsumptionTracker\Agent\agent.json"
+    $agentInfoPaths = @(
+        (Join-Path $env:LOCALAPPDATA "AIUsageTracker\Agent\agent.json"),
+        (Join-Path $env:LOCALAPPDATA "AIConsumptionTracker\Agent\agent.json")
+    )
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
     while ((Get-Date) -lt $deadline) {
-        if (Test-Path -LiteralPath $agentInfoPath) {
-            try {
-                $agentInfo = Get-Content -LiteralPath $agentInfoPath -Raw | ConvertFrom-Json
-                if ($agentInfo -and [int]$agentInfo.processId -eq $ProcessId -and [int]$agentInfo.port -gt 0) {
-                    return [int]$agentInfo.port
+        foreach ($agentInfoPath in $agentInfoPaths) {
+            if (Test-Path -LiteralPath $agentInfoPath) {
+                try {
+                    $agentInfo = Get-Content -LiteralPath $agentInfoPath -Raw | ConvertFrom-Json
+                    if ($agentInfo -and [int]$agentInfo.processId -eq $ProcessId -and [int]$agentInfo.port -gt 0) {
+                        return [int]$agentInfo.port
+                    }
                 }
-            }
-            catch {
-                # Keep polling while agent writes startup file.
+                catch {
+                    # Keep polling while agent writes startup file.
+                }
             }
         }
 

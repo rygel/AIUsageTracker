@@ -157,7 +157,7 @@ if ($successCount -eq $expectedScreenshots.Count) {
 } else {
     Write-Host "WARNING: Some screenshots are missing." -ForegroundColor Yellow
     Write-Host "Check the application logs:" -ForegroundColor Gray
-    Write-Host "  %LOCALAPPDATA%\AIConsumptionTracker\logs\app_*.log" -ForegroundColor Gray
+    Write-Host "  %LOCALAPPDATA%\AIUsageTracker\logs\app_*.log" -ForegroundColor Gray
     exit 1
 }
 

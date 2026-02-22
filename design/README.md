@@ -48,7 +48,7 @@ Feature documentation for keyboard shortcuts and theme system:
 ### Architecture Overview
 ```
 ┌─────────────────────────────────────────────┐
-│              AIConsumptionTracker            │
+│                AIUsageTracker                │
 │                                             │
 │  ┌──────────────┐  ┌──────────────────┐    │
 │  │      UI      │  │       CLI        │    │

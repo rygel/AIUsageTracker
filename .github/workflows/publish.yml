@@ -1,6 +1,6 @@
 name: Publish & Distribute
 
-# This workflow builds and releases ONLY the C# version of AIConsumptionTracker
+# This workflow builds and releases ONLY the C# version of AIUsageTracker
 # The Rust version is experimental and not included in releases
 
 on:
@@ -154,7 +154,7 @@ jobs:
         run: |
           $headers = @{
             Accept = "application/vnd.github+json"
-            "User-Agent" = "AIConsumptionTracker-CI"
+            "User-Agent" = "AIUsageTracker-CI"
             Authorization = "Bearer $env:GITHUB_TOKEN"
           }
 
