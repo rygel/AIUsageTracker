@@ -194,6 +194,7 @@ The Web UI is an ASP.NET Core Razor Pages application that reads from the Agent'
 - **Providers**: Table view of all providers with status
 - **Provider Details**: Individual history + reset events
 - **History**: Complete usage history across all providers
+- **Performance**: Output caching, chart downsampling, deferred reset-events loading
 
 **Technology Stack:**
 - **Framework**: ASP.NET Core 8.0
@@ -205,6 +206,11 @@ The Web UI is an ASP.NET Core Razor Pages application that reads from the Agent'
 - Auto-refresh via `hx-trigger="every 60s"`
 - Partial page updates without full reload
 - CDN loaded from unpkg.com
+
+**Web Performance Notes:**
+- Dashboard and Charts use short-lived output cache policies with query variance
+- Hot DB reads use short-lived in-memory caches and structured timing/row-count logs
+- Charts downsample server-side by time range and fetch reset events after initial render
 
 **Theme System:**
 Seven built-in themes using CSS variables:
@@ -463,5 +469,6 @@ Commit and push the appcast updates after the release assets are available.
 - GitHub Actions for testing on push/PR to main.
 - Release workflow creates installers for multiple platforms.
 - Winget submission for Windows packages.
+- `Run Tests` includes a web endpoint perf smoke guardrail for `/` and `/charts` in CI.
 
 

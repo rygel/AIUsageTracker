@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document describes the design and implementation of progress bars in the AI Consumption Tracker application.
+This document describes the design and implementation of progress bars in the AI Usage Tracker application.
 
 ## Payment Type-Based Progress Bar Behavior
 
@@ -579,6 +579,17 @@ UI and Agent behavior must never silently fall back when required provider data 
 - Startup or refresh flows that can serve stale cached data must trigger an immediate provider refresh when live model data is required (Antigravity is mandatory).
 - Error text should tell the user what happened and what to do next (for example: refresh now, verify provider app is running).
 
+### Web Performance and Observability Rules
+
+The Web UI must prioritize fast first render, bounded data payloads, and measurable query latency.
+
+- Dashboard and Charts responses use short-lived output caching with query-key variance.
+- Charts data must be downsampled server-side by time bucket to avoid unbounded point counts.
+- Charts page should render usage series first; reset events are non-critical and can load asynchronously after initial paint.
+- Hot DB reads (`latest usage`, `summary`, `recent reset events`) should use short-lived in-memory caches to reduce repeated SQLite reads.
+- Web database reads must emit telemetry logs including elapsed milliseconds and row counts for key query paths.
+- CI must include a lightweight web perf smoke guardrail for dashboard/charts endpoint latency.
+
 ---
 
 ### API Key Discovery Requirements
@@ -827,20 +838,22 @@ protected override void OnClosed(EventArgs e)
 
 ## Agent Refresh Behavior
 
-**CRITICAL RULE: The Agent MUST NOT perform an immediate refresh on startup. It should only refresh on the configured interval.**
+**CRITICAL RULE: The Monitor should not perform full provider refresh on startup, except explicit low-risk mandatory providers (Antigravity).**
 
 ### Design Rationale
 
-The Agent uses a **cached data model** where:
-1. **On startup**: Agent serves cached data from the database immediately
-2. **On interval**: Agent refreshes provider data every 5 minutes (configurable)
-3. **On manual refresh**: UI can trigger refresh via `/api/refresh` endpoint
+The Monitor uses a **cached data model** where:
+1. **On startup**: Monitor serves cached data from the database immediately
+2. **On startup exception**: Monitor triggers immediate Antigravity refresh to fetch live model quota details
+3. **On interval**: Monitor refreshes provider data every 5 minutes (configurable)
+4. **On manual refresh**: UI can trigger refresh via `/api/refresh` endpoint
 
 This design ensures:
-- **Fast startup**: No waiting for API calls on Agent restart
+- **Fast startup**: No full refresh wait on Monitor restart
 - **Reduced API load**: Providers are only queried on the configured interval
 - **Consistent behavior**: Restarting the Agent doesn't cause unnecessary API hits
 - **Offline capability**: Cached data is available even if providers are temporarily unreachable
+- **Antigravity correctness**: model-level quotas are refreshed immediately so UI avoids stale parent-only fallback
 
 ### Implementation Details
 
