@@ -18,6 +18,7 @@ public class IndexModel : PageModel
     public UsageSummary? Summary { get; set; }
     public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
     public bool ShowUsedPercentage { get; set; }
+    public bool ShowInactiveProviders { get; set; }
 
     public async Task OnGetAsync([FromQuery] bool? showUsed)
     {
@@ -40,6 +41,27 @@ public class IndexModel : PageModel
         else
         {
             ShowUsedPercentage = false; // Default to showing remaining percentage
+        }
+
+        if (Request.Query.TryGetValue("showInactive", out var showInactiveQuery) &&
+            bool.TryParse(showInactiveQuery, out var showInactive))
+        {
+            ShowInactiveProviders = showInactive;
+            Response.Cookies.Append("showInactiveProviders", ShowInactiveProviders.ToString(), new CookieOptions
+            {
+                Expires = DateTimeOffset.UtcNow.AddYears(1),
+                HttpOnly = false,
+                SameSite = SameSiteMode.Strict
+            });
+        }
+        else if (Request.Cookies.TryGetValue("showInactiveProviders", out var inactiveCookieValue) &&
+                 bool.TryParse(inactiveCookieValue, out var inactiveCookiePref))
+        {
+            ShowInactiveProviders = inactiveCookiePref;
+        }
+        else
+        {
+            ShowInactiveProviders = false; // Default to hiding inactive providers
         }
 
         if (IsDatabaseAvailable)

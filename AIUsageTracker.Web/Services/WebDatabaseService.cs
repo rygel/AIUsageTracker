@@ -1,6 +1,7 @@
 using Dapper;
 using Microsoft.Data.Sqlite;
 using AIUsageTracker.Core.Models;
+using System.Globalization;
 using System.Text.Json;
 
 namespace AIUsageTracker.Web.Services;
@@ -9,6 +10,7 @@ public class WebDatabaseService
 {
     private readonly string _dbPath;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private static int _chartIndexesEnsured;
 
     public WebDatabaseService()
     {
@@ -256,6 +258,9 @@ public class WebDatabaseService
         {
             using var connection = new SqliteConnection($"Data Source={_dbPath}");
             await connection.OpenAsync();
+            await EnsureChartIndexesAsync(connection);
+
+            var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
             const string sql = @"
                 SELECT 
@@ -266,10 +271,10 @@ public class WebDatabaseService
                     h.requests_used AS RequestsUsed
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
-                WHERE datetime(h.fetched_at) >= datetime('now', '-' || @Hours || ' hours')
+                WHERE h.fetched_at >= @CutoffUtc
                 ORDER BY h.fetched_at ASC";
 
-            var results = await connection.QueryAsync<ChartDataPoint>(sql, new { Hours = hours });
+            var results = await connection.QueryAsync<ChartDataPoint>(sql, new { CutoffUtc = cutoffUtc });
             return results.ToList();
         }
         finally
@@ -288,6 +293,9 @@ public class WebDatabaseService
         {
             using var connection = new SqliteConnection($"Data Source={_dbPath}");
             await connection.OpenAsync();
+            await EnsureChartIndexesAsync(connection);
+
+            var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
             const string sql = @"
                 SELECT 
@@ -299,10 +307,10 @@ public class WebDatabaseService
                     reset_type AS ResetType, 
                     timestamp AS Timestamp
                 FROM reset_events
-                WHERE datetime(timestamp) >= datetime('now', '-' || @Hours || ' hours')
+                WHERE timestamp >= @CutoffUtc
                 ORDER BY timestamp ASC";
 
-            var results = await connection.QueryAsync<ResetEvent>(sql, new { Hours = hours });
+            var results = await connection.QueryAsync<ResetEvent>(sql, new { CutoffUtc = cutoffUtc });
             return results.ToList();
         }
         finally
@@ -371,6 +379,23 @@ public class WebDatabaseService
         {
             _semaphore.Release();
         }
+    }
+
+    private static async Task EnsureChartIndexesAsync(SqliteConnection connection)
+    {
+        if (Interlocked.CompareExchange(ref _chartIndexesEnsured, 1, 0) != 0)
+        {
+            return;
+        }
+
+        const string sql = @"
+            CREATE INDEX IF NOT EXISTS idx_history_fetched_at_asc ON provider_history(fetched_at ASC);
+            CREATE INDEX IF NOT EXISTS idx_reset_timestamp_asc ON reset_events(timestamp ASC);
+        ";
+
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync();
     }
 }
 
