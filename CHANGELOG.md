@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [2.2.3] - 2026-02-22
+
+### Fixed
+- Publish workflow upgrade smoke tests now support legacy executable naming by accepting both `AIUsageTracker.exe` and `AIConsumptionTracker.exe` when validating old installations.
+- Upgrade smoke path remains compatible with legacy installer assets from pre-rename releases.
+
 ## [2.2.2] - 2026-02-22
 
 ### Fixed
