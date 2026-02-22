@@ -358,9 +358,8 @@ public partial class Program
     {
         try
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
-            Directory.CreateDirectory(agentDir);
+            var primaryAgentDir = GetPrimaryAgentDir();
+            Directory.CreateDirectory(primaryAgentDir);
             
             var info = new AgentInfo
             {
@@ -374,7 +373,15 @@ public partial class Program
             };
 
             var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(Path.Combine(agentDir, "agent.json"), json);
+            File.WriteAllText(Path.Combine(primaryAgentDir, "agent.json"), json);
+
+            // Legacy compatibility for existing clients still on old location.
+            var legacyAgentDir = GetLegacyAgentDir();
+            if (!string.Equals(primaryAgentDir, legacyAgentDir, StringComparison.OrdinalIgnoreCase))
+            {
+                Directory.CreateDirectory(legacyAgentDir);
+                File.WriteAllText(Path.Combine(legacyAgentDir, "agent.json"), json);
+            }
         }
         catch (Exception ex)
         {
@@ -387,11 +394,9 @@ public partial class Program
     {
         try
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
-            var jsonFile = Path.Combine(agentDir, "agent.json");
+            var jsonFile = GetExistingAgentInfoPath();
             
-            if (File.Exists(jsonFile))
+            if (!string.IsNullOrWhiteSpace(jsonFile) && File.Exists(jsonFile))
             {
                 var json = File.ReadAllText(jsonFile);
                 var info = JsonSerializer.Deserialize<AgentInfo>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -405,6 +410,29 @@ public partial class Program
             }
         }
         catch { /* Ignore errors during error reporting */ }
+    }
+
+    private static string GetPrimaryAgentDir()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(appData, "AIUsageTracker", "Agent");
+    }
+
+    private static string GetLegacyAgentDir()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(appData, "AIConsumptionTracker", "Agent");
+    }
+
+    private static string? GetExistingAgentInfoPath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(GetPrimaryAgentDir(), "agent.json"),
+            Path.Combine(GetLegacyAgentDir(), "agent.json")
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
     }
 }
 

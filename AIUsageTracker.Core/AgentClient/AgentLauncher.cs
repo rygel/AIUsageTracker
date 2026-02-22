@@ -17,12 +17,7 @@ public class AgentLauncher
     {
         try
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
-            var jsonFile = Path.Combine(agentDir, "agent.json");
-            
-            string? path = null;
-            if (File.Exists(jsonFile)) path = jsonFile;
+            var path = GetExistingAgentInfoPath();
 
             if (path != null)
             {
@@ -105,12 +100,14 @@ public class AgentLauncher
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0-windows10.0.17763.0", "AIUsageTracker.Monitor.exe"),
                 // Installed paths
                 Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Monitor.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIConsumptionTracker", "AIUsageTracker.Monitor.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", "AIUsageTracker.Monitor.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIUsageTracker", "AIUsageTracker.Monitor.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker", "AIUsageTracker.Monitor.exe"),
                 // Legacy compatibility
-                Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Monitor.exe"),
+                Path.Combine(AppContext.BaseDirectory, "AIConsumptionTracker.Agent.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIConsumptionTracker", "AIUsageTracker.Monitor.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", "AIUsageTracker.Monitor.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIConsumptionTracker", "AIConsumptionTracker.Agent.exe"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", "AIConsumptionTracker.Agent.exe"),
             };
 
             AgentService.LogDiagnostic($"Searching for Agent executable. Tried {possiblePaths.Length} paths.");
@@ -185,7 +182,7 @@ public class AgentLauncher
             
             // Fallback: try to find and kill by process name
             var processes = Process.GetProcessesByName("AIUsageTracker.Monitor")
-                .Concat(Process.GetProcessesByName("AIUsageTracker.Monitor"))
+                .Concat(Process.GetProcessesByName("AIConsumptionTracker.Agent"))
                 .ToArray();
             var stoppedAny = false;
             foreach (var process in processes)
@@ -321,6 +318,18 @@ public class AgentLauncher
         }
 
         return null;
+    }
+
+    private static string? GetExistingAgentInfoPath()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var candidates = new[]
+        {
+            Path.Combine(appData, "AIUsageTracker", "Agent", "agent.json"),
+            Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json")
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
     }
 }
 

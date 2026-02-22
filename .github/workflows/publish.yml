@@ -204,13 +204,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: AIConsumptionTracker-v${{ steps.get_version.outputs.version }}-win-*
+          pattern: AIUsageTracker-v${{ steps.get_version.outputs.version }}-win-*
           merge-multiple: true
 
       - name: Download release metadata
         uses: actions/download-artifact@v4
         with:
-          pattern: AIConsumptionTracker-v${{ steps.get_version.outputs.version }}-security-metadata
+          pattern: AIUsageTracker-v${{ steps.get_version.outputs.version }}-security-metadata
           path: metadata
           merge-multiple: true
 

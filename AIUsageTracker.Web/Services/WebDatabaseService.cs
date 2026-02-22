@@ -13,8 +13,29 @@ public class WebDatabaseService
     public WebDatabaseService()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var dbDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+        var dbDir = ResolveDatabaseDirectory(appData);
         _dbPath = Path.Combine(dbDir, "usage.db");
+    }
+
+    private static string ResolveDatabaseDirectory(string appData)
+    {
+        var primaryDir = Path.Combine(appData, "AIUsageTracker", "Agent");
+        var legacyDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+
+        var primaryDb = Path.Combine(primaryDir, "usage.db");
+        var legacyDb = Path.Combine(legacyDir, "usage.db");
+
+        if (File.Exists(primaryDb))
+        {
+            return primaryDir;
+        }
+
+        if (File.Exists(legacyDb))
+        {
+            return legacyDir;
+        }
+
+        return primaryDir;
     }
 
     public bool IsDatabaseAvailable()

@@ -17,10 +17,31 @@ public class UsageDatabase : IUsageDatabase
     {
         _logger = logger;
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var dbDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+        var dbDir = ResolveDatabaseDirectory(appData);
         Directory.CreateDirectory(dbDir);
         _dbPath = Path.Combine(dbDir, "usage.db");
         _connectionString = $"Data Source={_dbPath}";
+    }
+
+    private static string ResolveDatabaseDirectory(string appData)
+    {
+        var primaryDir = Path.Combine(appData, "AIUsageTracker", "Agent");
+        var legacyDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+
+        var primaryDb = Path.Combine(primaryDir, "usage.db");
+        var legacyDb = Path.Combine(legacyDir, "usage.db");
+
+        if (File.Exists(primaryDb))
+        {
+            return primaryDir;
+        }
+
+        if (File.Exists(legacyDb))
+        {
+            return legacyDir;
+        }
+
+        return primaryDir;
     }
 
     public async Task InitializeAsync()

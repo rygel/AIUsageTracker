@@ -12,7 +12,7 @@ public class AgentProcessService
     {
         _logger = logger;
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _infoFilePath = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json");
+        _infoFilePath = ResolveAgentInfoPath(appData);
     }
 
     public async Task<(bool isRunning, int port)> GetAgentStatusAsync()
@@ -108,9 +108,9 @@ public class AgentProcessService
             Path.Combine(baseDir, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0", "AIUsageTracker.Monitor.exe"),
             Path.Combine(baseDir, "AIUsageTracker.Monitor.exe"),
             // Legacy compatibility
-            Path.Combine(baseDir, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0", "AIUsageTracker.Monitor.exe"),
-            Path.Combine(baseDir, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0", "AIUsageTracker.Monitor.exe"),
-            Path.Combine(baseDir, "AIUsageTracker.Monitor.exe"),
+            Path.Combine(baseDir, "..", "..", "..", "..", "AIConsumptionTracker.Agent", "bin", "Debug", "net8.0", "AIConsumptionTracker.Agent.exe"),
+            Path.Combine(baseDir, "..", "..", "..", "..", "AIConsumptionTracker.Agent", "bin", "Release", "net8.0", "AIConsumptionTracker.Agent.exe"),
+            Path.Combine(baseDir, "AIConsumptionTracker.Agent.exe"),
         };
         
         return paths.FirstOrDefault(File.Exists);
@@ -135,6 +135,24 @@ public class AgentProcessService
             _logger.LogWarning(ex, "Failed to read agent.info");
         }
         return null;
+    }
+
+    private static string ResolveAgentInfoPath(string appData)
+    {
+        var primaryPath = Path.Combine(appData, "AIUsageTracker", "Agent", "agent.json");
+        var legacyPath = Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json");
+
+        if (File.Exists(primaryPath))
+        {
+            return primaryPath;
+        }
+
+        if (File.Exists(legacyPath))
+        {
+            return legacyPath;
+        }
+
+        return primaryPath;
     }
 
 }

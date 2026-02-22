@@ -3,7 +3,7 @@ using Microsoft.Extensions.FileProviders;
 using Serilog;
 
 var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-var logDir = Path.Combine(appData, "AIConsumptionTracker", "Web", "logs");
+var logDir = Path.Combine(appData, "AIUsageTracker", "Web", "logs");
 Directory.CreateDirectory(logDir);
 
 Log.Logger = new LoggerConfiguration()

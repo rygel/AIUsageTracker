@@ -113,12 +113,7 @@ public class AgentService
         LogDiagnostic("Refreshing Agent Info from file...");
         try
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var agentDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
-            var jsonFile = Path.Combine(agentDir, "agent.json");
-            
-            string? path = null;
-            if (File.Exists(jsonFile)) path = jsonFile;
+            var path = GetExistingAgentInfoPath();
 
             if (path != null)
             {
@@ -149,6 +144,18 @@ public class AgentService
             AgentUrl = "http://localhost:5000";
             LastAgentErrors = new List<string>();
         }
+    }
+
+    private static string? GetExistingAgentInfoPath()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var candidates = new[]
+        {
+            Path.Combine(appData, "AIUsageTracker", "Agent", "agent.json"),
+            Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json")
+        };
+
+        return candidates.FirstOrDefault(File.Exists);
     }
     
     

@@ -14,11 +14,21 @@ internal static class UiPreferencesStore
 
     private static string GetPreferencesPath()
     {
-        var basePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "AIConsumptionTracker",
-            "UI.Slim");
-        return Path.Combine(basePath, "preferences.json");
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var primaryPath = Path.Combine(appData, "AIUsageTracker", "UI.Slim", "preferences.json");
+        var legacyPath = Path.Combine(appData, "AIConsumptionTracker", "UI.Slim", "preferences.json");
+
+        if (File.Exists(primaryPath))
+        {
+            return primaryPath;
+        }
+
+        if (File.Exists(legacyPath))
+        {
+            return legacyPath;
+        }
+
+        return primaryPath;
     }
 
     public static async Task<AppPreferences> LoadAsync()
