@@ -438,13 +438,13 @@ git push origin v2.2.0
 ```
 
 ### 6. Appcast Files (Updater)
-After the release workflow completes and assets are published, update the appcast files in the repository root to point to the new release assets:
+After the release workflow completes and assets are published, update the appcast files in `appcast/` to point to the new release assets:
 
 **Appcast files to update:**
-- `appcast.xml` - Default (x64)
-- `appcast_x64.xml` - x64 architecture
-- `appcast_arm64.xml` - ARM64 architecture
-- `appcast_x86.xml` - x86 architecture
+- `appcast/appcast.xml` - Default (x64)
+- `appcast/appcast_x64.xml` - x64 architecture
+- `appcast/appcast_arm64.xml` - ARM64 architecture
+- `appcast/appcast_x86.xml` - x86 architecture
 
 **Important: Match the exact asset filenames from the release:**
 ```bash

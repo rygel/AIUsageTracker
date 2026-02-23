@@ -11,6 +11,9 @@ version_number="${version#v}"
 pub_date=$(date -u '+%a, %d %b %Y %H:%M:%S %z')
 release_base_url="https://github.com/rygel/AIConsumptionTracker/releases"
 download_base_url="$release_base_url/download/v$version_number"
+output_dir="appcast"
+
+mkdir -p "$output_dir"
 
 generate_appcast() {
   local arch_suffix="$1"
@@ -38,10 +41,10 @@ generate_appcast() {
   echo "✓ Generated $filename"
 }
 
-generate_appcast "_win-x64" "appcast.xml"
-generate_appcast "_win-x64" "appcast_x64.xml"
-generate_appcast "_win-arm64" "appcast_arm64.xml"
-generate_appcast "_win-x86" "appcast_x86.xml"
+generate_appcast "_win-x64" "$output_dir/appcast.xml"
+generate_appcast "_win-x64" "$output_dir/appcast_x64.xml"
+generate_appcast "_win-arm64" "$output_dir/appcast_arm64.xml"
+generate_appcast "_win-x86" "$output_dir/appcast_x86.xml"
 
 echo ""
 echo "Generated 4 appcast files for version $version"

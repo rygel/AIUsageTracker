@@ -77,4 +77,4 @@ jobs:
 
           bash scripts/validate-release-consistency.sh "$version"
           bash scripts/generate-appcast.sh "$version"
-          rm -f appcast.xml appcast_x64.xml appcast_x86.xml appcast_arm64.xml
+          rm -f appcast/appcast.xml appcast/appcast_x64.xml appcast/appcast_x86.xml appcast/appcast_arm64.xml

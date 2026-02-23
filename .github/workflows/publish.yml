@@ -233,10 +233,10 @@ jobs:
         with:
           files: |
             artifacts/**/*
-            appcast.xml
-            appcast_x64.xml
-            appcast_x86.xml
-            appcast_arm64.xml
+            appcast/appcast.xml
+            appcast/appcast_x64.xml
+            appcast/appcast_x86.xml
+            appcast/appcast_arm64.xml
             metadata/SHA256SUMS.txt
             metadata/sbom.cdx.json
           draft: false

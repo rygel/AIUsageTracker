@@ -143,7 +143,7 @@ Pushing the tag automatically triggers the `Publish & Distribute` workflow which
 6. Generate `SHA256SUMS.txt` for release binaries
 7. Generate CycloneDX SBOM (`sbom.cdx.json`)
 8. Verify checksums/SBOM before final release packaging
-9. Generate `appcast.xml` for NetSparkle auto-updater
+9. Generate `appcast/appcast.xml` for NetSparkle auto-updater
 10. Create GitHub release with artifacts, checksums, SBOM, and appcast files
 11. Upload release notes from CHANGELOG.md
 
@@ -201,7 +201,7 @@ Release metadata was not generated or does not match the packaged artifacts.
 The release workflow automatically generates:
 - Git tag (e.g., `v1.7.14`)
 - GitHub Release with release notes
-- `appcast.xml` for NetSparkle auto-updater
+- `appcast/appcast.xml` for NetSparkle auto-updater
 - `SHA256SUMS.txt` checksum manifest for release binaries
 - `sbom.cdx.json` (CycloneDX SBOM for packaged release artifacts)
 
