@@ -118,7 +118,7 @@ public class AgentService
             if (path != null)
             {
                 var json = await File.ReadAllTextAsync(path);
-                var info = JsonSerializer.Deserialize<AgentInfo>(json, new JsonSerializerOptions
+                var info = JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
@@ -128,14 +128,14 @@ public class AgentService
                     if (info.Port > 0) 
                     {
                         AgentUrl = $"http://localhost:{info.Port}";
-                        LogDiagnostic($"Found Agent running on port {info.Port} from agent.json");
+                        LogDiagnostic($"Found Agent running on port {info.Port} from monitor.json");
                     }
                     LastAgentErrors = info.Errors ?? new List<string>();
                     return;
                 }
             }
             
-            LogDiagnostic("agent.json not found or invalid, using default port 5000");
+            LogDiagnostic("monitor.json not found or invalid, using default port 5000");
             LastAgentErrors = new List<string>();
         }
         catch (Exception ex)
@@ -151,7 +151,9 @@ public class AgentService
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var candidates = new[]
         {
+            Path.Combine(appData, "AIUsageTracker", "Agent", "monitor.json"),
             Path.Combine(appData, "AIUsageTracker", "Agent", "agent.json"),
+            Path.Combine(appData, "AIConsumptionTracker", "Agent", "monitor.json"),
             Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json")
         };
 

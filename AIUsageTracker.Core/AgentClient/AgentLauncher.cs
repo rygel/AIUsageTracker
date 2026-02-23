@@ -13,7 +13,7 @@ public class AgentLauncher
     private const int StopWaitSeconds = 5;
 
 
-    private static async Task<AgentInfo?> GetAgentInfoAsync()
+    private static async Task<MonitorInfo?> GetAgentInfoAsync()
     {
         try
         {
@@ -22,7 +22,7 @@ public class AgentLauncher
             if (path != null)
             {
                 var json = await File.ReadAllTextAsync(path);
-                return JsonSerializer.Deserialize<AgentInfo>(json, new JsonSerializerOptions
+                return JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
@@ -330,7 +330,9 @@ public class AgentLauncher
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var candidates = new[]
         {
+            Path.Combine(appData, "AIUsageTracker", "Agent", "monitor.json"),
             Path.Combine(appData, "AIUsageTracker", "Agent", "agent.json"),
+            Path.Combine(appData, "AIConsumptionTracker", "Agent", "monitor.json"),
             Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json")
         };
 

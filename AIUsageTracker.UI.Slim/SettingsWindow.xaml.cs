@@ -1820,7 +1820,7 @@ public partial class SettingsWindow : Window
             bundle.AppendLine(FormatJsonForBundle(diagnosticsDetails));
             bundle.AppendLine();
 
-            bundle.AppendLine("=== Monitor Errors (agent.json) ===");
+            bundle.AppendLine("=== Monitor Errors (monitor.json) ===");
             if (_agentService.LastAgentErrors.Count == 0)
             {
                 bundle.AppendLine("None");

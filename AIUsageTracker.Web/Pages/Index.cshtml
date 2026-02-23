@@ -64,7 +64,12 @@
             <div class="provider-grid">
                 @foreach (var usage in visibleUsage)
                 {
-                    var isStatusOnly = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
+                    var isStatusOnlyProvider =
+                        usage.ProviderId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
+                        usage.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase);
+                    var isStatusOnly =
+                        isStatusOnlyProvider ||
+                        string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
                     var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
 
                     var displayPercentage = usage.IsQuotaBased

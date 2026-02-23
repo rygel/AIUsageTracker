@@ -62,7 +62,9 @@ function Wait-ForAgentPort {
     )
 
     $agentInfoPaths = @(
+        (Join-Path $env:LOCALAPPDATA "AIUsageTracker\Agent\monitor.json"),
         (Join-Path $env:LOCALAPPDATA "AIUsageTracker\Agent\agent.json"),
+        (Join-Path $env:LOCALAPPDATA "AIConsumptionTracker\Agent\monitor.json"),
         (Join-Path $env:LOCALAPPDATA "AIConsumptionTracker\Agent\agent.json")
     )
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)

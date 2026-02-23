@@ -327,6 +327,18 @@
     color: var(--accent-success);
 }
 
+.agent-status-detail {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.25;
+    margin-bottom: 0.5rem;
+    min-height: 1.75em;
+}
+
+.agent-status-detail.error {
+    color: var(--accent-danger);
+}
+
 .theme-select {
     width: 100%;
     padding: 0.4rem 0.5rem;
