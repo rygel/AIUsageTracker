@@ -50,6 +50,10 @@ jobs:
       run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
       shell: pwsh
 
+    - name: Verify theme contract parity (Slim + Web)
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-contract.ps1
+      shell: pwsh
+
     - name: Verify Formatting
       # NOTE: .editorconfig configures Roslyn analyzers
       # dotnet format --verify-no-changes checks formatting but only works if analyzers are enabled

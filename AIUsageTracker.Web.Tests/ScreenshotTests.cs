@@ -7,6 +7,23 @@ namespace AIUsageTracker.Web.Tests;
 public class ScreenshotTests : PageTest
 {
     private const string BaseUrl = "http://127.0.0.1:5100";
+    private static readonly string[] ExpectedThemes =
+    {
+        "dark",
+        "light",
+        "corporate",
+        "midnight",
+        "dracula",
+        "nord",
+        "monokai",
+        "one-dark",
+        "solarized-dark",
+        "solarized-light",
+        "catppuccin-frappe",
+        "catppuccin-macchiato",
+        "catppuccin-mocha",
+        "catppuccin-latte"
+    };
     private readonly string _outputDir;
 
     public ScreenshotTests()
@@ -101,6 +118,45 @@ public class ScreenshotTests : PageTest
         await Task.Delay(2000);
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_charts.png"), FullPage = true });
         Console.WriteLine("[TEST] Completed all screenshots.");
+    }
+
+    [TestMethod]
+    public async Task ThemeSelector_AppliesAllThemes()
+    {
+        await Page.SetViewportSizeAsync(1280, 800);
+        await Page.GotoAsync(BaseUrl);
+        await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var availableThemes = await Page.EvaluateAsync<string[]>("""
+            () => Array.from(document.querySelectorAll('#theme-select option')).map(o => o.value)
+            """);
+
+        CollectionAssert.AreEquivalent(ExpectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
+
+        foreach (var theme in ExpectedThemes)
+        {
+            await Page.EvaluateAsync("""
+                (theme) => {
+                    const select = document.getElementById('theme-select');
+                    if (!select) {
+                        throw new Error('theme-select not found');
+                    }
+
+                    select.value = theme;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                """, theme);
+
+            var appliedTheme = await Page.EvaluateAsync<string>("""
+                () => document.documentElement.getAttribute('data-theme') || ''
+                """);
+            var bgPrimary = await Page.EvaluateAsync<string>("""
+                () => getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim()
+                """);
+
+            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied to data-theme.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(bgPrimary), $"Theme '{theme}' did not resolve --bg-primary.");
+        }
     }
 }
 
