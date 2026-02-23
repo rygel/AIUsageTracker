@@ -1064,21 +1064,38 @@ public partial class MainWindow : Window
 
         // Determine which width to show based on toggle
         bool showUsed = ShowUsedToggle?.IsChecked ?? false;
-        double indicatorWidth = showUsed ? pctUsed : pctRemaining;
 
-        // Clamp to 0-100
-        indicatorWidth = Math.Max(0, Math.Min(100, indicatorWidth));
-
-        pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
-        pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
-
-        var fill = new Border
+        if (TryGetDualWindowUsedPercentages(usage, out var hourlyUsed, out var weeklyUsed))
         {
-            Background = GetProgressBarColor(pctUsed),
-            Opacity = 0.45,
-            CornerRadius = new CornerRadius(0)
-        };
-        pGrid.Children.Add(fill);
+            pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+            var hourlyRow = CreateProgressLayer(hourlyUsed, showUsed, opacity: 0.55);
+            var weeklyRow = CreateProgressLayer(weeklyUsed, showUsed, opacity: 0.35);
+            Grid.SetRow(hourlyRow, 0);
+            Grid.SetRow(weeklyRow, 1);
+            pGrid.Children.Add(hourlyRow);
+            pGrid.Children.Add(weeklyRow);
+        }
+        else
+        {
+            var indicatorWidth = showUsed ? pctUsed : pctRemaining;
+
+            // Clamp to 0-100
+            indicatorWidth = Math.Max(0, Math.Min(100, indicatorWidth));
+
+            pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
+            pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
+
+            var fill = new Border
+            {
+                Background = GetProgressBarColor(pctUsed),
+                Opacity = 0.45,
+                CornerRadius = new CornerRadius(0)
+            };
+            pGrid.Children.Add(fill);
+        }
+
         pGrid.Visibility = shouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
         grid.Children.Add(pGrid);
 
@@ -1358,6 +1375,82 @@ public partial class MainWindow : Window
         return double.TryParse(parsedValue, out var parsed)
             ? Math.Max(0, Math.Min(100, parsed))
             : null;
+    }
+
+    private static bool TryGetDualWindowUsedPercentages(ProviderUsage usage, out double hourlyUsed, out double weeklyUsed)
+    {
+        hourlyUsed = 0;
+        weeklyUsed = 0;
+
+        if (usage.Details?.Any() != true)
+        {
+            return false;
+        }
+
+        var hourlyDetail = usage.Details.FirstOrDefault(d => d.Name.Equals("5-hour quota", StringComparison.OrdinalIgnoreCase));
+        var weeklyDetail = usage.Details.FirstOrDefault(d => d.Name.Equals("Weekly quota", StringComparison.OrdinalIgnoreCase));
+
+        if (hourlyDetail == null || weeklyDetail == null)
+        {
+            return false;
+        }
+
+        var parsedHourly = ParseUsedPercentFromDetail(hourlyDetail.Used);
+        var parsedWeekly = ParseUsedPercentFromDetail(weeklyDetail.Used);
+        if (!parsedHourly.HasValue || !parsedWeekly.HasValue)
+        {
+            return false;
+        }
+
+        hourlyUsed = parsedHourly.Value;
+        weeklyUsed = parsedWeekly.Value;
+        return true;
+    }
+
+    private static double? ParseUsedPercentFromDetail(string? used)
+    {
+        if (string.IsNullOrWhiteSpace(used))
+        {
+            return null;
+        }
+
+        var match = Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%", RegexOptions.CultureInvariant);
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        if (!double.TryParse(
+                match.Groups["percent"].Value,
+                System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var percent))
+        {
+            return null;
+        }
+
+        return Math.Clamp(percent, 0, 100);
+    }
+
+    private Grid CreateProgressLayer(double usedPercent, bool showUsed, double opacity)
+    {
+        var remainingPercent = Math.Max(0, 100 - usedPercent);
+        var indicatorWidth = showUsed ? usedPercent : remainingPercent;
+        indicatorWidth = Math.Clamp(indicatorWidth, 0, 100);
+
+        var layer = new Grid();
+        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
+        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
+
+        var fill = new Border
+        {
+            Background = GetProgressBarColor(usedPercent),
+            Opacity = opacity,
+            CornerRadius = new CornerRadius(0)
+        };
+
+        layer.Children.Add(fill);
+        return layer;
     }
 
     private static string GetAntigravityModelDisplayName(ProviderUsageDetail detail)

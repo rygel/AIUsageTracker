@@ -263,6 +263,7 @@ public class OpenAIProvider : IProviderService
         var details = new List<ProviderUsageDetail>();
         var used = ReadDouble(root, "rate_limit", "primary_window", "used_percent");
         var reset = ReadDouble(root, "rate_limit", "primary_window", "reset_after_seconds");
+        var primaryResetTime = ResolveWindowResetTime(root, "primary_window");
 
         if (used.HasValue)
         {
@@ -270,19 +271,22 @@ public class OpenAIProvider : IProviderService
             {
                 Name = "5-hour quota",
                 Used = $"{used.Value:F0}% used",
-                Description = reset.HasValue && reset.Value > 0 ? $"Resets in {(int)reset.Value}s" : string.Empty
+                Description = reset.HasValue && reset.Value > 0 ? $"Resets in {(int)reset.Value}s" : string.Empty,
+                NextResetTime = primaryResetTime
             });
         }
 
         var weeklyUsed = ReadDouble(root, "rate_limit", "secondary_window", "used_percent");
         var weeklyReset = ReadDouble(root, "rate_limit", "secondary_window", "reset_after_seconds");
+        var weeklyResetTime = ResolveWindowResetTime(root, "secondary_window");
         if (weeklyUsed.HasValue)
         {
             details.Add(new ProviderUsageDetail
             {
                 Name = "Weekly quota",
                 Used = $"{weeklyUsed.Value:F0}% used",
-                Description = weeklyReset.HasValue && weeklyReset.Value > 0 ? $"Resets in {(int)weeklyReset.Value}s" : string.Empty
+                Description = weeklyReset.HasValue && weeklyReset.Value > 0 ? $"Resets in {(int)weeklyReset.Value}s" : string.Empty,
+                NextResetTime = weeklyResetTime
             });
         }
 
@@ -302,20 +306,27 @@ public class OpenAIProvider : IProviderService
 
     private static DateTime? ResolveResetTime(JsonElement root)
     {
-        var resetSeconds = ReadDouble(root, "rate_limit", "primary_window", "reset_after_seconds")
-                          ?? ReadDouble(root, "rate_limit", "secondary_window", "reset_after_seconds")
-                          ?? ReadDouble(root, "rate_limit", "primary_window", "reset_after")
-                          ?? ReadDouble(root, "rate_limit", "secondary_window", "reset_after");
+        var primaryReset = ResolveWindowResetTime(root, "primary_window");
+        if (primaryReset.HasValue)
+        {
+            return primaryReset;
+        }
+
+        return ResolveWindowResetTime(root, "secondary_window");
+    }
+
+    private static DateTime? ResolveWindowResetTime(JsonElement root, string windowName)
+    {
+        var resetSeconds = ReadDouble(root, "rate_limit", windowName, "reset_after_seconds")
+                          ?? ReadDouble(root, "rate_limit", windowName, "reset_after");
 
         if (resetSeconds.HasValue && resetSeconds.Value > 0)
         {
             return DateTime.UtcNow.AddSeconds(resetSeconds.Value).ToLocalTime();
         }
 
-        var resetAtIso = ReadString(root, "rate_limit", "primary_window", "resets_at")
-                         ?? ReadString(root, "rate_limit", "secondary_window", "resets_at")
-                         ?? ReadString(root, "rate_limit", "primary_window", "reset_at")
-                         ?? ReadString(root, "rate_limit", "secondary_window", "reset_at");
+        var resetAtIso = ReadString(root, "rate_limit", windowName, "resets_at")
+                         ?? ReadString(root, "rate_limit", windowName, "reset_at");
 
         if (!string.IsNullOrWhiteSpace(resetAtIso) &&
             DateTime.TryParse(resetAtIso, out var parsedResetAt))
@@ -323,8 +334,7 @@ public class OpenAIProvider : IProviderService
             return parsedResetAt.ToLocalTime();
         }
 
-        var resetAtEpoch = ReadDouble(root, "rate_limit", "primary_window", "reset_at_unix")
-                           ?? ReadDouble(root, "rate_limit", "secondary_window", "reset_at_unix");
+        var resetAtEpoch = ReadDouble(root, "rate_limit", windowName, "reset_at_unix");
         if (resetAtEpoch.HasValue && resetAtEpoch.Value > 0)
         {
             return DateTimeOffset.FromUnixTimeSeconds((long)resetAtEpoch.Value).LocalDateTime;

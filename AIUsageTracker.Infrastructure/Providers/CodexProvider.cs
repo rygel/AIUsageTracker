@@ -261,7 +261,8 @@ public class CodexProvider : IProviderService
             {
                 Name = "5-hour quota",
                 Used = $"{primaryUsedPercent:F0}% used",
-                Description = FormatResetDescription(primaryResetSeconds)
+                Description = FormatResetDescription(primaryResetSeconds),
+                NextResetTime = ResolveDetailResetTime(primaryResetSeconds)
             }
         };
 
@@ -271,7 +272,8 @@ public class CodexProvider : IProviderService
             {
                 Name = "Weekly quota",
                 Used = $"{secondaryUsedPercent.Value:F0}% used",
-                Description = FormatResetDescription(secondaryResetSeconds)
+                Description = FormatResetDescription(secondaryResetSeconds),
+                NextResetTime = ResolveDetailResetTime(secondaryResetSeconds)
             });
         }
 
@@ -281,7 +283,8 @@ public class CodexProvider : IProviderService
             {
                 Name = $"Spark ({sparkWindow.Label ?? "window"})",
                 Used = $"{sparkWindow.UsedPercent.Value:F0}% used",
-                Description = FormatResetDescription(sparkWindow.ResetAfterSeconds)
+                Description = FormatResetDescription(sparkWindow.ResetAfterSeconds),
+                NextResetTime = ResolveDetailResetTime(sparkWindow.ResetAfterSeconds)
             });
         }
 
@@ -311,6 +314,16 @@ public class CodexProvider : IProviderService
         }
 
         return $"Resets in {(int)resetAfterSeconds.Value}s";
+    }
+
+    private static DateTime? ResolveDetailResetTime(double? resetAfterSeconds)
+    {
+        if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
+        {
+            return null;
+        }
+
+        return DateTime.UtcNow.AddSeconds(resetAfterSeconds.Value).ToLocalTime();
     }
 
     private static (string? Label, double? UsedPercent, double? ResetAfterSeconds) ExtractSparkWindow(JsonElement root)

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [2.2.7] - 2026-02-23
+
+### Added
+- Slim provider cards now support a dual-layer progress bar for Codex/OpenAI session quotas, showing 5-hour and weekly windows simultaneously.
+
+### Changed
+- OpenAI and Codex provider detail payloads now include per-window reset timestamps so hourly and weekly reset schedules are persisted in `provider_history.details_json`.
+
+### Fixed
+- OpenAI reset resolution now prefers the primary (5-hour) window before falling back to secondary, improving reset indicator consistency.
+
 ## [2.2.6] - 2026-02-23
 
 ### Added
