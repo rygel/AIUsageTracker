@@ -28,8 +28,13 @@ public partial class SettingsWindow : Window
     private string? _gitHubAuthUsername;
     private string? _openAiAuthUsername;
     private AppPreferences _preferences = new();
+    private AppPreferences _agentPreferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isDeterministicScreenshotMode;
+    private bool _isLoadingSettings;
+    private bool _hasPendingAutoSave;
+    private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
+    private readonly DispatcherTimer _autoSaveTimer;
 
     public bool SettingsChanged { get; private set; }
 
@@ -37,6 +42,11 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         _agentService = new AgentService();
+        _autoSaveTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(600)
+        };
+        _autoSaveTimer.Tick += AutoSaveTimer_Tick;
         App.PrivacyChanged += OnPrivacyChanged;
         Closed += SettingsWindow_Closed;
         Loaded += SettingsWindow_Loaded;
@@ -50,12 +60,14 @@ public partial class SettingsWindow : Window
 
     private async Task LoadDataAsync()
     {
+        _isLoadingSettings = true;
         _isDeterministicScreenshotMode = false;
         _configs = await _agentService.GetConfigsAsync();
         _usages = await _agentService.GetUsageAsync();
         _gitHubAuthUsername = await TryGetGitHubUsernameFromAuthAsync();
         _openAiAuthUsername = await TryGetOpenAiUsernameFromAuthAsync();
         _preferences = await UiPreferencesStore.LoadAsync();
+        _agentPreferences = await _agentService.GetPreferencesAsync();
         App.Preferences = _preferences;
         _isPrivacyMode = _preferences.IsPrivacyMode;
         App.SetPrivacyMode(_isPrivacyMode);
@@ -67,6 +79,7 @@ public partial class SettingsWindow : Window
         await LoadHistoryAsync();
         await UpdateAgentStatusAsync();
         RefreshDiagnosticsLog();
+        _isLoadingSettings = false;
     }
 
     private static async Task<string?> TryGetGitHubUsernameFromAuthAsync()
@@ -754,7 +767,26 @@ public partial class SettingsWindow : Window
 
     private void SettingsWindow_Closed(object? sender, EventArgs e)
     {
+        _autoSaveTimer.Stop();
         App.PrivacyChanged -= OnPrivacyChanged;
+    }
+
+    private async void AutoSaveTimer_Tick(object? sender, EventArgs e)
+    {
+        _autoSaveTimer.Stop();
+        await PersistAllSettingsAsync(showErrorDialog: false);
+    }
+
+    private void ScheduleAutoSave()
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        _hasPendingAutoSave = true;
+        _autoSaveTimer.Stop();
+        _autoSaveTimer.Start();
     }
 
     private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
@@ -955,12 +987,14 @@ public partial class SettingsWindow : Window
             config.ShowInTray = true;
             SettingsChanged = true;
             RefreshTrayIcons();
+            ScheduleAutoSave();
         };
         trayCheckBox.Unchecked += (s, e) =>
         {
             config.ShowInTray = false;
             SettingsChanged = true;
             RefreshTrayIcons();
+            ScheduleAutoSave();
         };
         headerPanel.Children.Add(trayCheckBox);
 
@@ -979,11 +1013,13 @@ public partial class SettingsWindow : Window
         {
             config.EnableNotifications = true;
             SettingsChanged = true;
+            ScheduleAutoSave();
         };
         notifyCheckBox.Unchecked += (s, e) =>
         {
             config.EnableNotifications = false;
             SettingsChanged = true;
+            ScheduleAutoSave();
         };
         headerPanel.Children.Add(notifyCheckBox);
 
@@ -1220,6 +1256,7 @@ public partial class SettingsWindow : Window
                 keyBox.TextChanged += (s, e) => {
                     config.ApiKey = keyBox.Text;
                     SettingsChanged = true;
+                    ScheduleAutoSave();
                 };
             }
 
@@ -1288,12 +1325,14 @@ public partial class SettingsWindow : Window
 
                     SettingsChanged = true;
                     RefreshTrayIcons();
+                    ScheduleAutoSave();
                 };
                 subTrayCheckbox.Unchecked += (s, e) =>
                 {
                     config.EnabledSubTrays.RemoveAll(name => name.Equals(detail.Name, StringComparison.OrdinalIgnoreCase));
                     SettingsChanged = true;
                     RefreshTrayIcons();
+                    ScheduleAutoSave();
                 };
                 subTrayPanel.Children.Add(subTrayCheckbox);
             }
@@ -1470,6 +1509,15 @@ public partial class SettingsWindow : Window
         ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
         ThemeCombo.ItemsSource = GetThemeOptions();
         ThemeCombo.SelectedValue = _preferences.Theme;
+        EnableWindowsNotificationsCheck.IsChecked = _agentPreferences.EnableNotifications;
+        NotificationThresholdBox.Text = _agentPreferences.NotificationThreshold.ToString("0.#");
+        NotifyUsageThresholdCheck.IsChecked = _agentPreferences.NotifyOnUsageThreshold;
+        NotifyQuotaExceededCheck.IsChecked = _agentPreferences.NotifyOnQuotaExceeded;
+        NotifyProviderErrorsCheck.IsChecked = _agentPreferences.NotifyOnProviderErrors;
+        EnableQuietHoursCheck.IsChecked = _agentPreferences.EnableQuietHours;
+        QuietHoursStartBox.Text = string.IsNullOrWhiteSpace(_agentPreferences.QuietHoursStart) ? "22:00" : _agentPreferences.QuietHoursStart;
+        QuietHoursEndBox.Text = string.IsNullOrWhiteSpace(_agentPreferences.QuietHoursEnd) ? "07:00" : _agentPreferences.QuietHoursEnd;
+        ApplyNotificationControlsState();
         YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString();
         RedThreshold.Text = _preferences.ColorThresholdRed.ToString();
         
@@ -1568,6 +1616,7 @@ public partial class SettingsWindow : Window
         FontBoldCheck.IsChecked = _preferences.FontBold;
         FontItalicCheck.IsChecked = _preferences.FontItalic;
         UpdateFontPreview();
+        ScheduleAutoSave();
     }
 
     private void FontFamilyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1576,6 +1625,7 @@ public partial class SettingsWindow : Window
         {
             _preferences.FontFamily = font;
             UpdateFontPreview();
+            ScheduleAutoSave();
         }
     }
 
@@ -1585,6 +1635,7 @@ public partial class SettingsWindow : Window
         {
             _preferences.FontSize = size;
             UpdateFontPreview();
+            ScheduleAutoSave();
         }
     }
 
@@ -1592,12 +1643,14 @@ public partial class SettingsWindow : Window
     {
         _preferences.FontBold = FontBoldCheck.IsChecked ?? false;
         UpdateFontPreview();
+        ScheduleAutoSave();
     }
 
     private void FontItalicCheck_CheckedChanged(object sender, RoutedEventArgs e)
     {
         _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
         UpdateFontPreview();
+        ScheduleAutoSave();
     }
 
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
@@ -1902,75 +1955,224 @@ public partial class SettingsWindow : Window
         };
     }
 
-    private async void SaveBtn_Click(object sender, RoutedEventArgs e)
+    private async Task PersistAllSettingsAsync(bool showErrorDialog)
     {
-        _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
-        _preferences.InvertProgressBar = InvertProgressCheck.IsChecked ?? false;
-        _preferences.InvertCalculations = InvertCalculationsCheck.IsChecked ?? false;
-        if (ThemeCombo.SelectedValue is AppTheme appTheme)
-        {
-            _preferences.Theme = appTheme;
-            App.ApplyTheme(appTheme);
-        }
-        
-        if (int.TryParse(YellowThreshold.Text, out int yellow))
-            _preferences.ColorThresholdYellow = yellow;
-        if (int.TryParse(RedThreshold.Text, out int red))
-            _preferences.ColorThresholdRed = red;
-        
-        // Ensure font settings are saved
-        if (FontFamilyCombo.SelectedItem is string font)
-            _preferences.FontFamily = font;
-        if (int.TryParse(FontSizeBox.Text, out int size) && size > 0 && size <= 72)
-            _preferences.FontSize = size;
-        _preferences.FontBold = FontBoldCheck.IsChecked ?? false;
-        _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
-        _preferences.IsPrivacyMode = _isPrivacyMode;
-
-        var prefsSaved = await SaveUiPreferencesAsync(showErrorDialog: true);
-        if (!prefsSaved)
+        if (_isLoadingSettings)
         {
             return;
         }
 
-        var failedConfigs = new List<string>();
-        foreach (var config in _configs)
+        await _autoSaveSemaphore.WaitAsync();
+        try
         {
-            var saved = await _agentService.SaveConfigAsync(config);
-            if (!saved)
+            if (!_hasPendingAutoSave && !showErrorDialog)
             {
-                failedConfigs.Add(config.ProviderId);
+                return;
             }
-        }
 
-        if (failedConfigs.Count > 0)
+            _hasPendingAutoSave = false;
+            _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
+            _preferences.InvertProgressBar = InvertProgressCheck.IsChecked ?? false;
+            _preferences.InvertCalculations = InvertCalculationsCheck.IsChecked ?? false;
+            if (ThemeCombo.SelectedValue is AppTheme appTheme)
+            {
+                _preferences.Theme = appTheme;
+                App.ApplyTheme(appTheme);
+            }
+
+            if (int.TryParse(YellowThreshold.Text, out var yellow))
+            {
+                _preferences.ColorThresholdYellow = yellow;
+            }
+
+            if (int.TryParse(RedThreshold.Text, out var red))
+            {
+                _preferences.ColorThresholdRed = red;
+            }
+
+            if (FontFamilyCombo.SelectedItem is string font)
+            {
+                _preferences.FontFamily = font;
+            }
+
+            if (int.TryParse(FontSizeBox.Text, out var size) && size > 0 && size <= 72)
+            {
+                _preferences.FontSize = size;
+            }
+
+            _preferences.FontBold = FontBoldCheck.IsChecked ?? false;
+            _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
+            _preferences.IsPrivacyMode = _isPrivacyMode;
+
+            _agentPreferences.EnableNotifications = EnableWindowsNotificationsCheck.IsChecked ?? false;
+            if (double.TryParse(NotificationThresholdBox.Text, out var notifyThreshold))
+            {
+                _agentPreferences.NotificationThreshold = Math.Clamp(notifyThreshold, 0, 100);
+            }
+
+            _agentPreferences.NotifyOnUsageThreshold = NotifyUsageThresholdCheck.IsChecked ?? true;
+            _agentPreferences.NotifyOnQuotaExceeded = NotifyQuotaExceededCheck.IsChecked ?? true;
+            _agentPreferences.NotifyOnProviderErrors = NotifyProviderErrorsCheck.IsChecked ?? false;
+            _agentPreferences.EnableQuietHours = EnableQuietHoursCheck.IsChecked ?? false;
+            _agentPreferences.QuietHoursStart = NormalizeQuietHour(QuietHoursStartBox.Text, "22:00");
+            _agentPreferences.QuietHoursEnd = NormalizeQuietHour(QuietHoursEndBox.Text, "07:00");
+
+            var prefsSaved = await SaveUiPreferencesAsync(showErrorDialog);
+            if (!prefsSaved)
+            {
+                return;
+            }
+
+            var agentPrefsSaved = await _agentService.SavePreferencesAsync(_agentPreferences);
+            if (!agentPrefsSaved)
+            {
+                if (showErrorDialog)
+                {
+                    MessageBox.Show(
+                        "Failed to save monitor notification preferences.",
+                        "Save Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+
+                return;
+            }
+
+            var failedConfigs = new List<string>();
+            foreach (var config in _configs)
+            {
+                var saved = await _agentService.SaveConfigAsync(config);
+                if (!saved)
+                {
+                    failedConfigs.Add(config.ProviderId);
+                }
+            }
+
+            if (failedConfigs.Count > 0)
+            {
+                if (showErrorDialog)
+                {
+                    MessageBox.Show(
+                        $"Failed to save provider settings for: {string.Join(", ", failedConfigs)}",
+                        "Save Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+
+                return;
+            }
+
+            RefreshTrayIcons();
+            SettingsChanged = true;
+        }
+        finally
         {
-            MessageBox.Show(
-                $"Failed to save provider settings for: {string.Join(", ", failedConfigs)}",
-                "Save Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            return;
+            _autoSaveSemaphore.Release();
         }
-
-        RefreshTrayIcons();
-        
-        SettingsChanged = true;
-        this.Close();
     }
 
-    private void CancelBtn_Click(object sender, RoutedEventArgs e)
+    private async void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
+        _autoSaveTimer.Stop();
+        await PersistAllSettingsAsync(showErrorDialog: false);
         this.Close();
     }
 
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
         if (ThemeCombo.SelectedValue is AppTheme appTheme)
         {
             _preferences.Theme = appTheme;
             App.ApplyTheme(appTheme);
+            ScheduleAutoSave();
         }
+    }
+
+    private void LayoutSetting_Changed(object sender, RoutedEventArgs e)
+    {
+        ApplyNotificationControlsState();
+        ScheduleAutoSave();
+    }
+
+    private void LayoutSetting_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        ScheduleAutoSave();
+    }
+
+    private void EnableWindowsNotificationsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        ApplyNotificationControlsState();
+        ScheduleAutoSave();
+    }
+
+    private void ApplyNotificationControlsState()
+    {
+        var enabled = EnableWindowsNotificationsCheck.IsChecked ?? false;
+        if (NotificationThresholdBox != null)
+        {
+            NotificationThresholdBox.IsEnabled = enabled;
+        }
+
+        if (NotifyUsageThresholdCheck != null)
+        {
+            NotifyUsageThresholdCheck.IsEnabled = enabled;
+        }
+
+        if (NotifyQuotaExceededCheck != null)
+        {
+            NotifyQuotaExceededCheck.IsEnabled = enabled;
+        }
+
+        if (NotifyProviderErrorsCheck != null)
+        {
+            NotifyProviderErrorsCheck.IsEnabled = enabled;
+        }
+
+        if (EnableQuietHoursCheck != null)
+        {
+            EnableQuietHoursCheck.IsEnabled = enabled;
+        }
+
+        var quietHoursEnabled = enabled && (EnableQuietHoursCheck?.IsChecked ?? false);
+        if (QuietHoursStartBox != null)
+        {
+            QuietHoursStartBox.IsEnabled = quietHoursEnabled;
+        }
+
+        if (QuietHoursEndBox != null)
+        {
+            QuietHoursEndBox.IsEnabled = quietHoursEnabled;
+        }
+    }
+
+    private static string NormalizeQuietHour(string value, string fallback)
+    {
+        if (TimeSpan.TryParse(value, out var parsed))
+        {
+            var normalized = new TimeSpan(parsed.Hours, parsed.Minutes, 0);
+            return normalized.ToString("hh\\:mm");
+        }
+
+        return fallback;
+    }
+
+    private async void SendTestNotificationBtn_Click(object sender, RoutedEventArgs e)
+    {
+        NotificationTestStatusText.Text = "Sending...";
+
+        if (!(EnableWindowsNotificationsCheck.IsChecked ?? false))
+        {
+            NotificationTestStatusText.Text = "Enable notifications first.";
+            return;
+        }
+
+        var result = await _agentService.SendTestNotificationDetailedAsync();
+        NotificationTestStatusText.Text = result.Message;
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)

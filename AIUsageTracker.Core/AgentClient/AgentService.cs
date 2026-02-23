@@ -331,6 +331,38 @@ public class AgentService
         }
     }
 
+    public async Task<bool> SendTestNotificationAsync()
+    {
+        var result = await SendTestNotificationDetailedAsync();
+        return result.Success;
+    }
+
+    public async Task<(bool Success, string Message)> SendTestNotificationDetailedAsync()
+    {
+        try
+        {
+            await RefreshPortAsync();
+            var response = await _httpClient.PostAsync($"{AgentUrl}/api/notifications/test", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return (true, "Test sent. Check Windows notifications.");
+            }
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return (false, "Monitor endpoint not available. Restart Monitor and try again.");
+            }
+
+            return (false, $"Monitor returned {(int)response.StatusCode} ({response.ReasonPhrase}).");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"SendTestNotificationAsync error: {ex.Message}");
+            return (false, "Could not reach Monitor. Ensure it is running and try again.");
+        }
+    }
+
     // Scan for keys endpoint
     public async Task<(int count, List<ProviderConfig> configs)> ScanForKeysAsync()
     {

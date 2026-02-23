@@ -71,14 +71,17 @@ Web-generated lists are synced from this manifest via `scripts/sync-theme-catalo
 **Data Persistence:**
 - Added `Theme` property to `AppPreferences` model
 - Default value: `AppTheme.Dark`
-- Automatically saved to preferences.json
-- Applied on startup and when toggled
+- Slim UI theme is persisted in `%LOCALAPPDATA%\AIUsageTracker\UI.Slim\preferences.json`
+- Theme selection in Slim settings is saved immediately on change and also on Save
+- Applied on startup (safe default first, then persisted preference)
+- Web UI theme is persisted separately in browser `localStorage` (`theme` key)
 
 **Runtime Behavior:**
 - Startup applies a safe default theme first, then loads saved preferences asynchronously.
 - Theme changes are applied through shared dynamic resources.
 - Slim selector uses user-friendly labels (for example `One Dark`, `Catppuccin Macchiato`).
 - Web selector and JS allowlist use matching theme keys.
+- Slim Settings now includes a dedicated **Notifications** tab for Windows notification preferences (global enable, threshold, quiet hours, and event toggles).
 
 ## Files Modified
 
@@ -112,6 +115,7 @@ Web-generated lists are synced from this manifest via `scripts/sync-theme-catalo
 
 - `AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs`
   - Friendly theme labels with enum-backed selection
+  - Notification preference loading/saving via monitor preferences API
 
 - `AIUsageTracker.Web/wwwroot/css/themes.css`
   - Matching theme tokens for the full catalog

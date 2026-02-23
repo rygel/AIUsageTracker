@@ -293,7 +293,8 @@
                                        Margin="0,0,0,15" Foreground="{DynamicResource PrimaryText}"/>
                             
                             <CheckBox x:Name="AlwaysOnTopCheck" Content="Always On Top" IsChecked="True"
-                                      Margin="0,8" Foreground="{DynamicResource SecondaryText}"/>
+                                      Margin="0,8" Foreground="{DynamicResource SecondaryText}"
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
                             <Grid Margin="0,8">
                                 <Grid.ColumnDefinitions>
@@ -306,8 +307,8 @@
                                           SelectionChanged="ThemeCombo_SelectionChanged"
                                           Background="{DynamicResource ControlBackground}"
                                           Foreground="{DynamicResource PrimaryText}"
-                                          BorderBrush="{DynamicResource ControlBorder}"
-                                          Height="24"/>
+                                           BorderBrush="{DynamicResource ControlBorder}"
+                                           Height="24"/>
                             </Grid>
 
                             <!-- Color Thresholds -->
@@ -325,7 +326,8 @@
                                          Background="{DynamicResource ControlBackground}"
                                          Foreground="{DynamicResource PrimaryText}" 
                                          BorderBrush="{DynamicResource ControlBorder}"
-                                         Padding="8,5"/>
+                                         Padding="8,5"
+                                         TextChanged="LayoutSetting_TextChanged"/>
                             </Grid>
                             
                             <Grid Margin="0,8">
@@ -339,15 +341,18 @@
                                          Background="{DynamicResource ControlBackground}"
                                          Foreground="{DynamicResource PrimaryText}" 
                                          BorderBrush="{DynamicResource ControlBorder}"
-                                         Padding="8,5"/>
+                                         Padding="8,5"
+                                         TextChanged="LayoutSetting_TextChanged"/>
                             </Grid>
 
                             <CheckBox x:Name="InvertProgressCheck" Content="Invert Progress Bar" 
-                                      Margin="0,15,0,8" Foreground="{DynamicResource SecondaryText}"/>
+                                      Margin="0,15,0,8" Foreground="{DynamicResource SecondaryText}"
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
                             
                             <CheckBox x:Name="InvertCalculationsCheck" Content="Invert Calculations" 
                                       Margin="0,8,0,20" Foreground="{DynamicResource SecondaryText}"
-                                      ToolTip="Invert the calculation logic for remaining vs used percentages"/>
+                                      ToolTip="Invert the calculation logic for remaining vs used percentages"
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
                             <!-- Font Settings -->
                             <TextBlock Text="Font Settings" FontWeight="Bold" FontSize="14" 
@@ -415,6 +420,115 @@
                                      Padding="10,5" Background="{DynamicResource ButtonBackground}"
                                      Foreground="{DynamicResource PrimaryText}"
                                      HorizontalAlignment="Left" Margin="0,5,0,0"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <!-- Notifications Tab -->
+                <TabItem Header="Notifications">
+                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="20">
+                            <TextBlock Text="Windows Notifications" FontWeight="Bold" FontSize="14"
+                                       Margin="0,0,0,15" Foreground="{DynamicResource PrimaryText}"/>
+
+                            <CheckBox x:Name="EnableWindowsNotificationsCheck"
+                                      Content="Enable Windows notifications"
+                                      Margin="0,8"
+                                      Foreground="{DynamicResource SecondaryText}"
+                                      Checked="EnableWindowsNotificationsCheck_Changed"
+                                      Unchecked="EnableWindowsNotificationsCheck_Changed"/>
+
+                            <Grid Margin="0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Notify at (%)" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
+                                <TextBox x:Name="NotificationThresholdBox" Grid.Column="1" Text="90"
+                                         Background="{DynamicResource ControlBackground}"
+                                         Foreground="{DynamicResource PrimaryText}"
+                                         BorderBrush="{DynamicResource ControlBorder}"
+                                         Padding="8,5"
+                                         TextChanged="LayoutSetting_TextChanged"/>
+                            </Grid>
+
+                            <TextBlock Text="Event Types" FontWeight="Bold" FontSize="14"
+                                       Margin="0,20,0,15" Foreground="{DynamicResource PrimaryText}"/>
+
+                            <CheckBox x:Name="NotifyUsageThresholdCheck"
+                                      Content="Usage threshold reached"
+                                      Margin="0,6"
+                                      Foreground="{DynamicResource SecondaryText}"
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                            <CheckBox x:Name="NotifyQuotaExceededCheck"
+                                      Content="Quota exceeded or reset detected"
+                                      Margin="0,6"
+                                      Foreground="{DynamicResource SecondaryText}"
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                            <CheckBox x:Name="NotifyProviderErrorsCheck"
+                                      Content="Provider unavailable or authentication errors (coming soon)"
+                                      Margin="0,6"
+                                      Foreground="{DynamicResource SecondaryText}"
+                                      IsEnabled="False"
+                                      ToolTip="Planned for a future update."/>
+
+                            <TextBlock Text="Quiet Hours" FontWeight="Bold" FontSize="14"
+                                       Margin="0,20,0,15" Foreground="{DynamicResource PrimaryText}"/>
+
+                            <CheckBox x:Name="EnableQuietHoursCheck"
+                                      Content="Enable quiet hours"
+                                      Margin="0,6"
+                                      Foreground="{DynamicResource SecondaryText}"
+                                      Checked="EnableWindowsNotificationsCheck_Changed"
+                                      Unchecked="EnableWindowsNotificationsCheck_Changed"/>
+
+                            <Grid Margin="0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Text="Start" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
+                                <TextBox x:Name="QuietHoursStartBox" Grid.Column="1" Text="22:00"
+                                         Background="{DynamicResource ControlBackground}"
+                                         Foreground="{DynamicResource PrimaryText}"
+                                         BorderBrush="{DynamicResource ControlBorder}"
+                                         Padding="8,5" Margin="0,0,10,0"
+                                         TextChanged="LayoutSetting_TextChanged"/>
+
+                                <TextBlock Text="End" Grid.Column="2" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
+                                <TextBox x:Name="QuietHoursEndBox" Grid.Column="3" Text="07:00"
+                                         Background="{DynamicResource ControlBackground}"
+                                         Foreground="{DynamicResource PrimaryText}"
+                                         BorderBrush="{DynamicResource ControlBorder}"
+                                         Padding="8,5"
+                                         TextChanged="LayoutSetting_TextChanged"/>
+                            </Grid>
+
+                            <TextBlock Text="Note: provider-level 'Notify' checkboxes in the Providers tab still apply."
+                                       FontSize="11"
+                                       Margin="0,14,0,0"
+                                       Foreground="{DynamicResource TertiaryText}"
+                                       TextWrapping="Wrap"/>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button Content="Send Test Notification"
+                                        Click="SendTestNotificationBtn_Click"
+                                        Padding="10,5"
+                                        Background="{DynamicResource ButtonBackground}"
+                                        Foreground="{DynamicResource PrimaryText}"
+                                        Margin="0,0,10,0"/>
+                                <TextBlock x:Name="NotificationTestStatusText"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TertiaryText}"
+                                           FontSize="11"/>
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
@@ -584,11 +698,7 @@
                     </StackPanel>
                     
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Button Content="Save Changes" Click="SaveBtn_Click" 
-                                Margin="0,0,10,0" Padding="10,5"
-                                Background="{DynamicResource AccentColor}"
-                                Foreground="{DynamicResource AccentForeground}"/>
-                        <Button Content="Cancel" Click="CancelBtn_Click" Padding="10,5"
+                        <Button Content="Close" Click="CancelBtn_Click" Padding="10,5"
                                 Background="{DynamicResource ButtonBackground}"
                                 Foreground="{DynamicResource PrimaryText}"/>
                     </StackPanel>

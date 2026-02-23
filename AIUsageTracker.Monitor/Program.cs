@@ -189,6 +189,17 @@ app.MapPost("/api/refresh", async ([FromServices] ProviderRefreshService refresh
     return Results.Ok(new { message = "Refresh triggered" });
 });
 
+app.MapPost("/api/notifications/test", ([FromServices] INotificationService notificationService) =>
+{
+    if (isDebugMode) Console.WriteLine($"[API] POST /api/notifications/test - {DateTime.Now:HH:mm:ss}");
+    notificationService.ShowNotification(
+        "AI Usage Tracker",
+        "This is a test notification from Slim Settings.",
+        "openSettings",
+        "notifications");
+    return Results.Ok(new { message = "Test notification sent" });
+});
+
 // Config endpoints
 app.MapGet("/api/config", async (ConfigService configService) =>
 {

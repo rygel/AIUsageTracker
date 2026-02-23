@@ -181,6 +181,73 @@ public class ProviderRefreshServiceTests
     }
 
     [Fact]
+    public void CheckUsageAlertsAsync_UsageThresholdNotificationsDisabled_DoesNotTrigger()
+    {
+        // Arrange
+        var prefs = new AppPreferences
+        {
+            EnableNotifications = true,
+            NotifyOnUsageThreshold = false,
+            NotificationThreshold = 90.0
+        };
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "test", EnableNotifications = true }
+        };
+        var usages = new List<ProviderUsage>
+        {
+            new ProviderUsage
+            {
+                ProviderId = "test",
+                ProviderName = "Test Provider",
+                RequestsPercentage = 95.0,
+                IsAvailable = true
+            }
+        };
+
+        // Act
+        _service.CheckUsageAlerts(usages, prefs, configs);
+
+        // Assert
+        _mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
+    }
+
+    [Fact]
+    public void CheckUsageAlertsAsync_QuietHoursAlwaysEnabled_DoesNotTrigger()
+    {
+        // Arrange
+        var prefs = new AppPreferences
+        {
+            EnableNotifications = true,
+            NotifyOnUsageThreshold = true,
+            NotificationThreshold = 90.0,
+            EnableQuietHours = true,
+            QuietHoursStart = "22:00",
+            QuietHoursEnd = "22:00"
+        };
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "test", EnableNotifications = true }
+        };
+        var usages = new List<ProviderUsage>
+        {
+            new ProviderUsage
+            {
+                ProviderId = "test",
+                ProviderName = "Test Provider",
+                RequestsPercentage = 95.0,
+                IsAvailable = true
+            }
+        };
+
+        // Act
+        _service.CheckUsageAlerts(usages, prefs, configs);
+
+        // Assert
+        _mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
+    }
+
+    [Fact]
     public void GetRefreshTelemetrySnapshot_InitialState_IsZeroed()
     {
         var telemetry = _service.GetRefreshTelemetrySnapshot();

@@ -596,9 +596,39 @@ public class ProviderRefreshService : BackgroundService
         return TimeSpan.FromSeconds(Math.Min(seconds, CircuitBreakerMaxBackoff.TotalSeconds));
     }
 
+    private static bool IsInQuietHours(AppPreferences prefs)
+    {
+        if (!prefs.EnableQuietHours)
+        {
+            return false;
+        }
+
+        if (!TimeSpan.TryParse(prefs.QuietHoursStart, out var start) ||
+            !TimeSpan.TryParse(prefs.QuietHoursEnd, out var end))
+        {
+            return false;
+        }
+
+        var now = DateTime.Now.TimeOfDay;
+        if (start == end)
+        {
+            return true;
+        }
+
+        if (start < end)
+        {
+            return now >= start && now < end;
+        }
+
+        return now >= start || now < end;
+    }
+
     public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)
     {
-        if (!prefs.EnableNotifications) return;
+        if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
+        {
+            return;
+        }
 
         foreach (var usage in usages)
         {
@@ -696,7 +726,11 @@ public class ProviderRefreshService : BackgroundService
                     var configs = await _configService.GetConfigsAsync();
                     var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
 
-                    if (prefs.EnableNotifications && config != null && config.EnableNotifications)
+                    if (prefs.EnableNotifications &&
+                        prefs.NotifyOnQuotaExceeded &&
+                        !IsInQuietHours(prefs) &&
+                        config != null &&
+                        config.EnableNotifications)
                     {
                         var details = usage.IsQuotaBased ? "Quota reset detected." : "Usage reset detected.";
                         _notificationService.ShowQuotaExceeded(usage.ProviderName, details);

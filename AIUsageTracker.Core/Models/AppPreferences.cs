@@ -40,6 +40,12 @@ public class AppPreferences
     public bool IsPrivacyMode { get; set; } = false;
     public bool EnableNotifications { get; set; } = false; // Global notification switch - disabled by default
     public double NotificationThreshold { get; set; } = 90.0; // Notify when usage exceeds this %
+    public bool NotifyOnUsageThreshold { get; set; } = true;
+    public bool NotifyOnQuotaExceeded { get; set; } = true;
+    public bool NotifyOnProviderErrors { get; set; } = false;
+    public bool EnableQuietHours { get; set; } = false;
+    public string QuietHoursStart { get; set; } = "22:00";
+    public string QuietHoursEnd { get; set; } = "07:00";
     public bool StartWithWindows { get; set; } = false;
     public AppTheme Theme { get; set; } = AppTheme.Dark;
     public bool DebugMode { get; set; } = false; // Enable detailed debug logging

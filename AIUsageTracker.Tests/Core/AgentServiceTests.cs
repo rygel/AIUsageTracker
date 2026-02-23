@@ -227,6 +227,55 @@ public class AgentServiceTests
         Assert.Contains("Request failed", result, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task SendTestNotificationDetailedAsync_Success_ReturnsSuccessMessage()
+    {
+        // Arrange
+        SetupMockResponse(HttpStatusCode.OK, new { message = "ok" });
+
+        // Act
+        var result = await _service.SendTestNotificationDetailedAsync();
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Contains("Test sent", result.Message, StringComparison.OrdinalIgnoreCase);
+        VerifyPath("/api/notifications/test");
+    }
+
+    [Fact]
+    public async Task SendTestNotificationDetailedAsync_NotFound_ReturnsRestartHint()
+    {
+        // Arrange
+        SetupMockResponse(HttpStatusCode.NotFound, new { message = "not found" });
+
+        // Act
+        var result = await _service.SendTestNotificationDetailedAsync();
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("Restart Monitor", result.Message, StringComparison.OrdinalIgnoreCase);
+        VerifyPath("/api/notifications/test");
+    }
+
+    [Fact]
+    public async Task SendTestNotificationDetailedAsync_RequestFails_ReturnsUnreachableHint()
+    {
+        // Arrange
+        _mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("connection refused"));
+
+        // Act
+        var result = await _service.SendTestNotificationDetailedAsync();
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Contains("Ensure it is running", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void SetupMockResponse(HttpStatusCode status, object body)
     {
         _mockHandler.Protected()
