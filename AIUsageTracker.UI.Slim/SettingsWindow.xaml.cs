@@ -16,6 +16,12 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
+    private sealed class ThemeOption
+    {
+        public AppTheme Value { get; init; }
+        public string Label { get; init; } = string.Empty;
+    }
+
     private readonly AgentService _agentService;
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
@@ -1460,8 +1466,10 @@ public partial class SettingsWindow : Window
         AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
         InvertProgressCheck.IsChecked = _preferences.InvertProgressBar;
         InvertCalculationsCheck.IsChecked = _preferences.InvertCalculations;
-        ThemeCombo.ItemsSource = Enum.GetNames<AppTheme>();
-        ThemeCombo.SelectedItem = _preferences.Theme.ToString();
+        ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
+        ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
+        ThemeCombo.ItemsSource = GetThemeOptions();
+        ThemeCombo.SelectedValue = _preferences.Theme;
         YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString();
         RedThreshold.Text = _preferences.ColorThresholdRed.ToString();
         
@@ -1472,6 +1480,27 @@ public partial class SettingsWindow : Window
         FontBoldCheck.IsChecked = _preferences.FontBold;
         FontItalicCheck.IsChecked = _preferences.FontItalic;
         UpdateFontPreview();
+    }
+
+    private static IReadOnlyList<ThemeOption> GetThemeOptions()
+    {
+        return new List<ThemeOption>
+        {
+            new() { Value = AppTheme.Dark, Label = "Dark" },
+            new() { Value = AppTheme.Light, Label = "Light" },
+            new() { Value = AppTheme.Corporate, Label = "Corporate" },
+            new() { Value = AppTheme.Midnight, Label = "Midnight" },
+            new() { Value = AppTheme.Dracula, Label = "Dracula" },
+            new() { Value = AppTheme.Nord, Label = "Nord" },
+            new() { Value = AppTheme.Monokai, Label = "Monokai" },
+            new() { Value = AppTheme.OneDark, Label = "One Dark" },
+            new() { Value = AppTheme.SolarizedDark, Label = "Solarized Dark" },
+            new() { Value = AppTheme.SolarizedLight, Label = "Solarized Light" },
+            new() { Value = AppTheme.CatppuccinFrappe, Label = "Catppuccin Frappe" },
+            new() { Value = AppTheme.CatppuccinMacchiato, Label = "Catppuccin Macchiato" },
+            new() { Value = AppTheme.CatppuccinMocha, Label = "Catppuccin Mocha" },
+            new() { Value = AppTheme.CatppuccinLatte, Label = "Catppuccin Latte" }
+        };
     }
 
     private void PopulateFontComboBox()
@@ -1878,7 +1907,7 @@ public partial class SettingsWindow : Window
         _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
         _preferences.InvertProgressBar = InvertProgressCheck.IsChecked ?? false;
         _preferences.InvertCalculations = InvertCalculationsCheck.IsChecked ?? false;
-        if (ThemeCombo.SelectedItem is string selectedTheme && Enum.TryParse<AppTheme>(selectedTheme, out var appTheme))
+        if (ThemeCombo.SelectedValue is AppTheme appTheme)
         {
             _preferences.Theme = appTheme;
             App.ApplyTheme(appTheme);
@@ -1937,7 +1966,7 @@ public partial class SettingsWindow : Window
 
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ThemeCombo.SelectedItem is string selectedTheme && Enum.TryParse<AppTheme>(selectedTheme, out var appTheme))
+        if (ThemeCombo.SelectedValue is AppTheme appTheme)
         {
             _preferences.Theme = appTheme;
             App.ApplyTheme(appTheme);

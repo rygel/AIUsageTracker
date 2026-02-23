@@ -1,4 +1,4 @@
-/* Business Themes */
+/* Theme tokens shared with Slim UI names */
 
 /* Dark (Default) */
 :root,
@@ -6,36 +6,36 @@
     --bg-primary: #1a1a1a;
     --bg-secondary: #242424;
     --bg-tertiary: #2e2e2e;
-    --bg-hover: #333;
+    --bg-hover: #333333;
     --text-primary: #e8e8e8;
     --text-secondary: #a0a0a0;
-    --text-muted: #666;
+    --text-muted: #666666;
     --accent-primary: #3b82f6;
     --accent-secondary: #60a5fa;
     --accent-success: #22c55e;
     --accent-warning: #eab308;
     --accent-danger: #ef4444;
-    --border-color: #333;
+    --border-color: #333333;
 }
 
 /* Light */
 [data-theme="light"] {
     --bg-primary: #f5f5f5;
-    --bg-secondary: #fff;
+    --bg-secondary: #ffffff;
     --bg-tertiary: #e5e5e5;
-    --bg-hover: #eee;
+    --bg-hover: #eeeeee;
     --text-primary: #1a1a1a;
     --text-secondary: #525252;
-    --text-muted: #888;
+    --text-muted: #888888;
     --accent-primary: #2563eb;
     --accent-secondary: #3b82f6;
     --accent-success: #16a34a;
     --accent-warning: #ca8a04;
     --accent-danger: #dc2626;
-    --border-color: #ddd;
+    --border-color: #dddddd;
 }
 
-/* Corporate Blue */
+/* Corporate */
 [data-theme="corporate"] {
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
@@ -59,14 +59,183 @@
     --bg-tertiary: #1f1f1f;
     --bg-hover: #2a2a2a;
     --text-primary: #fafafa;
-    --text-secondary: #888;
-    --text-muted: #555;
+    --text-secondary: #888888;
+    --text-muted: #555555;
     --accent-primary: #818cf8;
     --accent-secondary: #a5b4fc;
     --accent-success: #34d399;
     --accent-warning: #fbbf24;
     --accent-danger: #f87171;
     --border-color: #262626;
+}
+
+/* VS Code popular: Dracula */
+[data-theme="dracula"] {
+    --bg-primary: #282a36;
+    --bg-secondary: #343746;
+    --bg-tertiary: #44475a;
+    --bg-hover: #50546c;
+    --text-primary: #f8f8f2;
+    --text-secondary: #bd93f9;
+    --text-muted: #6272a4;
+    --accent-primary: #ff79c6;
+    --accent-secondary: #8be9fd;
+    --accent-success: #50fa7b;
+    --accent-warning: #ffb86c;
+    --accent-danger: #ff5555;
+    --border-color: #44475a;
+}
+
+/* VS Code popular: Nord */
+[data-theme="nord"] {
+    --bg-primary: #2e3440;
+    --bg-secondary: #3b4252;
+    --bg-tertiary: #434c5e;
+    --bg-hover: #4c566a;
+    --text-primary: #d8dee9;
+    --text-secondary: #81a1c1;
+    --text-muted: #88c0d0;
+    --accent-primary: #88c0d0;
+    --accent-secondary: #8fbcbb;
+    --accent-success: #a3be8c;
+    --accent-warning: #ebcb8b;
+    --accent-danger: #bf616a;
+    --border-color: #4c566a;
+}
+
+/* VS Code popular: Monokai */
+[data-theme="monokai"] {
+    --bg-primary: #272822;
+    --bg-secondary: #34352e;
+    --bg-tertiary: #49483e;
+    --bg-hover: #5c5a4c;
+    --text-primary: #f8f8f2;
+    --text-secondary: #a9b7c6;
+    --text-muted: #75715e;
+    --accent-primary: #a6e22e;
+    --accent-secondary: #66d9ef;
+    --accent-success: #a6e22e;
+    --accent-warning: #fd971f;
+    --accent-danger: #f92672;
+    --border-color: #49483e;
+}
+
+/* VS Code popular: One Dark */
+[data-theme="one-dark"] {
+    --bg-primary: #282c34;
+    --bg-secondary: #21252b;
+    --bg-tertiary: #3a3f49;
+    --bg-hover: #49505c;
+    --text-primary: #abb2bf;
+    --text-secondary: #828997;
+    --text-muted: #5c6370;
+    --accent-primary: #61afef;
+    --accent-secondary: #56b6c2;
+    --accent-success: #98c379;
+    --accent-warning: #e5c07b;
+    --accent-danger: #e06c75;
+    --border-color: #3a3f49;
+}
+
+/* VS Code popular: Solarized Dark */
+[data-theme="solarized-dark"] {
+    --bg-primary: #002b36;
+    --bg-secondary: #073642;
+    --bg-tertiary: #0f4655;
+    --bg-hover: #10424d;
+    --text-primary: #839496;
+    --text-secondary: #93a1a1;
+    --text-muted: #657b83;
+    --accent-primary: #268bd2;
+    --accent-secondary: #2aa198;
+    --accent-success: #859900;
+    --accent-warning: #b58900;
+    --accent-danger: #dc322f;
+    --border-color: #586e75;
+}
+
+/* Bright classic: Solarized Light */
+[data-theme="solarized-light"] {
+    --bg-primary: #fdf6e3;
+    --bg-secondary: #fffbec;
+    --bg-tertiary: #eee8d5;
+    --bg-hover: #f5efdc;
+    --text-primary: #586e75;
+    --text-secondary: #657b83;
+    --text-muted: #93a1a1;
+    --accent-primary: #268bd2;
+    --accent-secondary: #2aa198;
+    --accent-success: #859900;
+    --accent-warning: #b58900;
+    --accent-danger: #dc322f;
+    --border-color: #93a1a1;
+}
+
+/* Pastel: Catppuccin Mocha */
+[data-theme="catppuccin-frappe"] {
+    --bg-primary: #303446;
+    --bg-secondary: #292c3c;
+    --bg-tertiary: #414559;
+    --bg-hover: #51576d;
+    --text-primary: #c6d0f5;
+    --text-secondary: #a5adce;
+    --text-muted: #838ba7;
+    --accent-primary: #ca9ee6;
+    --accent-secondary: #8caaee;
+    --accent-success: #a6d189;
+    --accent-warning: #e5c890;
+    --accent-danger: #e78284;
+    --border-color: #51576d;
+}
+
+[data-theme="catppuccin-macchiato"] {
+    --bg-primary: #24273a;
+    --bg-secondary: #1e2030;
+    --bg-tertiary: #363a4f;
+    --bg-hover: #494d64;
+    --text-primary: #cad3f5;
+    --text-secondary: #a5adcb;
+    --text-muted: #8087a2;
+    --accent-primary: #c6a0f6;
+    --accent-secondary: #8aadf4;
+    --accent-success: #a6da95;
+    --accent-warning: #eed49f;
+    --accent-danger: #ed8796;
+    --border-color: #494d64;
+}
+
+/* Pastel: Catppuccin Mocha */
+[data-theme="catppuccin-mocha"] {
+    --bg-primary: #1e1e2e;
+    --bg-secondary: #181825;
+    --bg-tertiary: #313244;
+    --bg-hover: #585b70;
+    --text-primary: #cdd6f4;
+    --text-secondary: #a6adc8;
+    --text-muted: #7f849c;
+    --accent-primary: #cba6f7;
+    --accent-secondary: #89b4fa;
+    --accent-success: #a6e3a1;
+    --accent-warning: #f9e2af;
+    --accent-danger: #f38ba8;
+    --border-color: #45475a;
+}
+
+/* Pastel + bright: Catppuccin Latte */
+[data-theme="catppuccin-latte"] {
+    --bg-primary: #eff1f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e6e9ef;
+    --bg-hover: #ccd0da;
+    --text-primary: #4c4f69;
+    --text-secondary: #6c6f85;
+    --text-muted: #8c8fa1;
+    --accent-primary: #8839ef;
+    --accent-secondary: #1e66f5;
+    --accent-success: #40a02b;
+    --accent-warning: #df8e1d;
+    --accent-danger: #d20f39;
+    --border-color: #bcc0cc;
 }
 
 /* App Layout */
