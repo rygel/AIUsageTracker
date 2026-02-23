@@ -32,6 +32,7 @@ public class ClaudeCodeProvider : IProviderService
                 ProviderName = "Claude Code",
                 IsAvailable = false,
                 Description = "No API key configured",
+                UsageUnit = "Status",
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage
             }};
@@ -191,6 +192,7 @@ public class ClaudeCodeProvider : IProviderService
                         ProviderName = "Claude Code",
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
+                        UsageUnit = "Status",
                         IsQuotaBased = false,
                         PlanType = PlanType.Usage
                     }};
@@ -212,6 +214,7 @@ public class ClaudeCodeProvider : IProviderService
                         ProviderName = "Claude Code",
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
+                        UsageUnit = "Status",
                         IsQuotaBased = false,
                         PlanType = PlanType.Usage
                     }};
@@ -229,6 +232,7 @@ public class ClaudeCodeProvider : IProviderService
                     ProviderName = "Claude Code",
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
+                    UsageUnit = "Status",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage
                 }};

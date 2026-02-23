@@ -64,14 +64,19 @@
             <div class="provider-grid">
                 @foreach (var usage in visibleUsage)
                 {
-                    var hasUsableMetrics = usage.IsAvailable;
-                    var displayPercentage = Model.ShowUsedPercentage 
-                        ? (100 - usage.RequestsPercentage) 
-                        : usage.RequestsPercentage;
+                    var isStatusOnly = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
+                    var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
+
+                    var displayPercentage = usage.IsQuotaBased
+                        ? (Model.ShowUsedPercentage ? (100 - usage.RequestsPercentage) : usage.RequestsPercentage)
+                        : (Model.ShowUsedPercentage ? usage.RequestsPercentage : (100 - usage.RequestsPercentage));
+
                     if (!hasUsableMetrics)
                     {
                         displayPercentage = 0;
                     }
+
+                    displayPercentage = Math.Clamp(displayPercentage, 0, 100);
                     
                     var usageText = "";
                     if (usage.DisplayAsFraction)
@@ -94,8 +99,18 @@
                         }
                         else
                         {
-                            var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
-                            usageText = $"{displayPercentage:F1}% {modeText}";
+                            if (usage.IsQuotaBased)
+                            {
+                                var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
+                                usageText = $"{displayPercentage:F1}% {modeText}";
+                            }
+                            else
+                            {
+                                var usedPercent = Math.Clamp(usage.RequestsPercentage, 0, 100);
+                                usageText = Model.ShowUsedPercentage
+                                    ? $"{usedPercent:F1}% used"
+                                    : $"{(100 - usedPercent):F1}% remaining";
+                            }
                         }
                     }
                     
