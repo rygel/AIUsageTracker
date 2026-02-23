@@ -169,7 +169,6 @@ public class ProviderRefreshService : BackgroundService
                 _loggerFactory.CreateLogger<GitHubCopilotProvider>(),
                 gitHubAuthService),
             new ClaudeCodeProvider(_loggerFactory.CreateLogger<ClaudeCodeProvider>(), httpClient),
-            new CloudCodeProvider(_loggerFactory.CreateLogger<CloudCodeProvider>()),
             new OpenCodeZenProvider(_loggerFactory.CreateLogger<OpenCodeZenProvider>()),
             new EvolveMigrationProvider(_loggerFactory.CreateLogger<EvolveMigrationProvider>()),
             new GenericPayAsYouGoProvider(httpClient, _loggerFactory.CreateLogger<GenericPayAsYouGoProvider>()),
@@ -237,13 +236,11 @@ public class ProviderRefreshService : BackgroundService
                     Type = "quota-based",
                     PlanType = PlanType.Coding
                 });
-            if (!configs.Any(c => c.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase)))
-                configs.Add(new ProviderConfig { ProviderId = "cloud-code", ApiKey = "" });
-            // "antigravity", "gemini-cli", "cloud-code" are known system providers that do not require an API key to work.
+            // "antigravity" and "gemini-cli" are known system providers that do not require an API key to work.
             // Other providers MUST have an API key to be considered active.
             var systemProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
             { 
-                "antigravity", "gemini-cli", "cloud-code" 
+                "antigravity", "gemini-cli" 
             };
 
             var activeConfigs = configs.Where(c =>

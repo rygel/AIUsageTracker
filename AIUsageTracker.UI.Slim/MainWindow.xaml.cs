@@ -1039,6 +1039,10 @@ public partial class MainWindow : Window
         else
         {
             statusText = usage.Description;
+            var isStatusOnlyProvider =
+                usage.ProviderId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
+                usage.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
 
             if (isAntigravityParent)
             {
@@ -1046,7 +1050,7 @@ public partial class MainWindow : Window
                     ? "Per-model quotas"
                     : usage.Description;
             }
-            else if (!isUnknown && usage.PlanType == PlanType.Coding)
+            else if (!isUnknown && !isStatusOnlyProvider && usage.PlanType == PlanType.Coding)
             {
                 var displayUsed = ShowUsedToggle?.IsChecked ?? false;
 
@@ -1077,7 +1081,7 @@ public partial class MainWindow : Window
                     }
                 }
             }
-            else if (!isUnknown && usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
+            else if (!isUnknown && !isStatusOnlyProvider && usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
             {
                 var showUsedPercent = ShowUsedToggle?.IsChecked ?? false;
                 var usedPercent = UsageMath.ClampPercent(usage.RequestsPercentage);
@@ -1085,7 +1089,7 @@ public partial class MainWindow : Window
                     ? $"{usedPercent:F0}% used"
                     : $"{(100.0 - usedPercent):F0}% remaining";
             }
-            else if (!isUnknown && (usage.IsQuotaBased || usage.PlanType == PlanType.Coding))
+            else if (!isUnknown && !isStatusOnlyProvider && (usage.IsQuotaBased || usage.PlanType == PlanType.Coding))
             {
                 // Show used% or remaining% based on toggle
                 // Show used% or remaining% based on toggle (variable renamed to avoid conflict)

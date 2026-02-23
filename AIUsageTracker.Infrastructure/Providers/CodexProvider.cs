@@ -259,7 +259,7 @@ public class CodexProvider : IProviderService
         {
             new()
             {
-                Name = "Primary Window",
+                Name = "5-hour quota",
                 Used = $"{primaryUsedPercent:F0}% used",
                 Description = FormatResetDescription(primaryResetSeconds)
             }
@@ -269,7 +269,7 @@ public class CodexProvider : IProviderService
         {
             details.Add(new ProviderUsageDetail
             {
-                Name = "Secondary Window",
+                Name = "Weekly quota",
                 Used = $"{secondaryUsedPercent.Value:F0}% used",
                 Description = FormatResetDescription(secondaryResetSeconds)
             });

@@ -29,7 +29,6 @@ public static class ProviderMetadataService
         ["opencode"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
         ["opencode-zen"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
         ["claude-code"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
-        ["cloud-code"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
         ["generic-pay-as-you-go"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
     };
 

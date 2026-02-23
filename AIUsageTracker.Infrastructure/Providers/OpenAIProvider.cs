@@ -268,9 +268,21 @@ public class OpenAIProvider : IProviderService
         {
             details.Add(new ProviderUsageDetail
             {
-                Name = "Primary Window",
+                Name = "5-hour quota",
                 Used = $"{used.Value:F0}% used",
                 Description = reset.HasValue && reset.Value > 0 ? $"Resets in {(int)reset.Value}s" : string.Empty
+            });
+        }
+
+        var weeklyUsed = ReadDouble(root, "rate_limit", "secondary_window", "used_percent");
+        var weeklyReset = ReadDouble(root, "rate_limit", "secondary_window", "reset_after_seconds");
+        if (weeklyUsed.HasValue)
+        {
+            details.Add(new ProviderUsageDetail
+            {
+                Name = "Weekly quota",
+                Used = $"{weeklyUsed.Value:F0}% used",
+                Description = weeklyReset.HasValue && weeklyReset.Value > 0 ? $"Resets in {(int)weeklyReset.Value}s" : string.Empty
             });
         }
 

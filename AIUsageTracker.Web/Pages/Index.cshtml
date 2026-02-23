@@ -64,9 +64,24 @@
             <div class="provider-grid">
                 @foreach (var usage in visibleUsage)
                 {
-                    var displayPercentage = Model.ShowUsedPercentage 
-                        ? (100 - usage.RequestsPercentage) 
-                        : usage.RequestsPercentage;
+                    var isStatusOnlyProvider =
+                        usage.ProviderId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
+                        usage.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase);
+                    var isStatusOnly =
+                        isStatusOnlyProvider ||
+                        string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
+                    var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
+
+                    var displayPercentage = usage.IsQuotaBased
+                        ? (Model.ShowUsedPercentage ? (100 - usage.RequestsPercentage) : usage.RequestsPercentage)
+                        : (Model.ShowUsedPercentage ? usage.RequestsPercentage : (100 - usage.RequestsPercentage));
+
+                    if (!hasUsableMetrics)
+                    {
+                        displayPercentage = 0;
+                    }
+
+                    displayPercentage = Math.Clamp(displayPercentage, 0, 100);
                     
                     var usageText = "";
                     if (usage.DisplayAsFraction)
@@ -83,8 +98,25 @@
                     }
                     else
                     {
-                        var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
-                        usageText = $"{displayPercentage:F1}% {modeText}";
+                        if (!hasUsableMetrics)
+                        {
+                            usageText = "No usage data";
+                        }
+                        else
+                        {
+                            if (usage.IsQuotaBased)
+                            {
+                                var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
+                                usageText = $"{displayPercentage:F1}% {modeText}";
+                            }
+                            else
+                            {
+                                var usedPercent = Math.Clamp(usage.RequestsPercentage, 0, 100);
+                                usageText = Model.ShowUsedPercentage
+                                    ? $"{usedPercent:F1}% used"
+                                    : $"{(100 - usedPercent):F1}% remaining";
+                            }
+                        }
                     }
                     
                     <div class="provider-card">

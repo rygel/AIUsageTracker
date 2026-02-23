@@ -209,8 +209,18 @@ jobs:
         function Measure-EndpointLatency {
             param(
                 [string]$Url,
-                [int]$Attempts = 3
+                [int]$Attempts = 3,
+                [switch]$Warmup
             )
+
+            if ($Warmup) {
+                try {
+                    $null = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+                    Start-Sleep -Milliseconds 250
+                } catch {
+                    # Allow measured attempts to handle failures consistently.
+                }
+            }
 
             $durations = @()
             for ($i = 0; $i -lt $Attempts; $i++) {
@@ -232,8 +242,8 @@ jobs:
         }
 
         # CI perf smoke guardrail (kept generous to avoid flaky failures on hosted runners)
-        $dashboardAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/"
-        $chartsAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/charts"
+        $dashboardAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/" -Warmup
+        $chartsAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/charts" -Warmup
         if ($dashboardAvgMs -gt 3000 -or $chartsAvgMs -gt 3500) {
             throw "Web perf smoke failed: dashboard=${dashboardAvgMs}ms charts=${chartsAvgMs}ms"
         }

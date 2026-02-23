@@ -65,7 +65,7 @@ try
         options.Level = CompressionLevel.Fastest;
     });
     builder.Services.AddSingleton<WebDatabaseService>();
-    builder.Services.AddSingleton<AgentProcessService>();
+    builder.Services.AddSingleton<MonitorProcessService>();
     builder.Services.AddSingleton<AIUsageTracker.Core.Interfaces.IConfigLoader, AIUsageTracker.Infrastructure.Configuration.JsonConfigLoader>();
 
     var app = builder.Build();
@@ -143,48 +143,48 @@ try
 
     app.UseRouting();
 
-    app.MapGet("/api/monitor/status", async (AgentProcessService agentService) =>
+    app.MapGet("/api/monitor/status", async (MonitorProcessService agentService) =>
     {
-        var (isRunning, port) = await agentService.GetAgentStatusAsync();
-        return Results.Ok(new { isRunning, port });
+        var (isRunning, port, message, error) = await agentService.GetAgentStatusDetailedAsync();
+        return Results.Ok(new { isRunning, port, message, error });
     });
 
-    app.MapGet("/api/agent/status", async (AgentProcessService agentService) =>
+    app.MapGet("/api/agent/status", async (MonitorProcessService agentService) =>
     {
-        var (isRunning, port) = await agentService.GetAgentStatusAsync();
-        return Results.Ok(new { isRunning, port });
+        var (isRunning, port, message, error) = await agentService.GetAgentStatusDetailedAsync();
+        return Results.Ok(new { isRunning, port, message, error });
     });
 
-    app.MapPost("/api/monitor/start", async (AgentProcessService agentService) =>
+    app.MapPost("/api/monitor/start", async (MonitorProcessService agentService) =>
     {
-        var success = await agentService.StartAgentAsync();
+        var (success, message) = await agentService.StartAgentDetailedAsync();
         return success
-            ? Results.Ok(new { message = "Monitor started" })
-            : Results.BadRequest(new { message = "Failed to start monitor" });
+            ? Results.Ok(new { message })
+            : Results.BadRequest(new { message });
     });
 
-    app.MapPost("/api/agent/start", async (AgentProcessService agentService) =>
+    app.MapPost("/api/agent/start", async (MonitorProcessService agentService) =>
     {
-        var success = await agentService.StartAgentAsync();
+        var (success, message) = await agentService.StartAgentDetailedAsync();
         return success
-            ? Results.Ok(new { message = "Monitor started" })
-            : Results.BadRequest(new { message = "Failed to start monitor" });
+            ? Results.Ok(new { message })
+            : Results.BadRequest(new { message });
     });
 
-    app.MapPost("/api/monitor/stop", async (AgentProcessService agentService) =>
+    app.MapPost("/api/monitor/stop", async (MonitorProcessService agentService) =>
     {
-        var success = await agentService.StopAgentAsync();
+        var (success, message) = await agentService.StopAgentDetailedAsync();
         return success
-            ? Results.Ok(new { message = "Monitor stopped" })
-            : Results.BadRequest(new { message = "Failed to stop monitor" });
+            ? Results.Ok(new { message })
+            : Results.BadRequest(new { message });
     });
 
-    app.MapPost("/api/agent/stop", async (AgentProcessService agentService) =>
+    app.MapPost("/api/agent/stop", async (MonitorProcessService agentService) =>
     {
-        var success = await agentService.StopAgentAsync();
+        var (success, message) = await agentService.StopAgentDetailedAsync();
         return success
-            ? Results.Ok(new { message = "Monitor stopped" })
-            : Results.BadRequest(new { message = "Failed to stop monitor" });
+            ? Results.Ok(new { message })
+            : Results.BadRequest(new { message });
     });
 
     app.MapRazorPages();

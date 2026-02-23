@@ -8,7 +8,6 @@ public static class UsageVisibilityFilter
     private static readonly HashSet<string> SystemProviders = new(StringComparer.OrdinalIgnoreCase)
     {
         "antigravity",
-        "cloud-code",
         "opencode-zen",
         "claude-code"
     };

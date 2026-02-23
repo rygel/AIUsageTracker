@@ -106,7 +106,7 @@ public class CodexProviderTests
             Assert.Equal(75.0, usage.RequestsPercentage);
             Assert.Contains("Plan: plus", usage.Description);
             Assert.Contains("Spark", usage.Description);
-            Assert.Contains(usage.Details!, d => d.Name == "Primary Window");
+            Assert.Contains(usage.Details!, d => d.Name == "5-hour quota");
             Assert.Contains(usage.Details!, d => d.Name.StartsWith("Spark", StringComparison.OrdinalIgnoreCase));
             Assert.Contains(usage.Details!, d => d.Name == "Credits" && d.Used == "7.50");
         }
@@ -164,7 +164,7 @@ public class CodexProviderTests
             Assert.Equal(52.0, usage.RequestsPercentage);
             Assert.Contains("Plan: plus", usage.Description);
             Assert.NotNull(usage.NextResetTime);
-            Assert.Contains(usage.Details!, d => d.Name == "Primary Window" && d.Used == "48% used");
+            Assert.Contains(usage.Details!, d => d.Name == "5-hour quota" && d.Used == "48% used");
             Assert.Contains(usage.Details!, d => d.Name == "Credits" && d.Used == "0.00");
         }
         finally

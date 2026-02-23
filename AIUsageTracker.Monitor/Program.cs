@@ -39,7 +39,7 @@ if (port != 5000)
 }
 
 // Save port info for UI to discover
-Program.SaveAgentInfo(port, isDebugMode);
+Program.SaveMonitorInfo(port, isDebugMode);
 
 if (isDebugMode)
 {
@@ -364,15 +364,15 @@ public partial class Program
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool AllocConsole();
 
-    // Helper: Save agent info for UI to discover
-    public static void SaveAgentInfo(int port, bool debug)
+    // Helper: Save monitor info for UI to discover
+    public static void SaveMonitorInfo(int port, bool debug)
     {
         try
         {
             var primaryAgentDir = GetPrimaryAgentDir();
             Directory.CreateDirectory(primaryAgentDir);
             
-            var info = new AgentInfo
+            var info = new MonitorInfo
             {
                 Port = port,
                 StartedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -384,6 +384,9 @@ public partial class Program
             };
 
             var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(Path.Combine(primaryAgentDir, "monitor.json"), json);
+
+            // Backward compatibility for older clients still reading agent.json.
             File.WriteAllText(Path.Combine(primaryAgentDir, "agent.json"), json);
 
             // Legacy compatibility for existing clients still on old location.
@@ -391,6 +394,7 @@ public partial class Program
             if (!string.Equals(primaryAgentDir, legacyAgentDir, StringComparison.OrdinalIgnoreCase))
             {
                 Directory.CreateDirectory(legacyAgentDir);
+                File.WriteAllText(Path.Combine(legacyAgentDir, "monitor.json"), json);
                 File.WriteAllText(Path.Combine(legacyAgentDir, "agent.json"), json);
             }
         }
@@ -410,7 +414,7 @@ public partial class Program
             if (!string.IsNullOrWhiteSpace(jsonFile) && File.Exists(jsonFile))
             {
                 var json = File.ReadAllText(jsonFile);
-                var info = JsonSerializer.Deserialize<AgentInfo>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var info = JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (info != null)
                 {
                     info.Errors ??= new List<string>();
@@ -439,7 +443,9 @@ public partial class Program
     {
         var candidates = new[]
         {
+            Path.Combine(GetPrimaryAgentDir(), "monitor.json"),
             Path.Combine(GetPrimaryAgentDir(), "agent.json"),
+            Path.Combine(GetLegacyAgentDir(), "monitor.json"),
             Path.Combine(GetLegacyAgentDir(), "agent.json")
         };
 

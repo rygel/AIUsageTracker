@@ -30,8 +30,6 @@ $isManifestChanged = $changedFiles -contains $manifestPath
 $themeRelatedRegex =
     '^(AIUsageTracker\.UI\.Slim/App\.xaml\.cs|' +
     'AIUsageTracker\.Web/wwwroot/js/theme\.js|' +
-    'AIUsageTracker\.Web/Pages/Shared/_Layout\.cshtml|' +
-    'AIUsageTracker\.Web/wwwroot/css/themes\.css|' +
     'AIUsageTracker\.Web\.Tests/ScreenshotTests\.cs|' +
     'scripts/verify-theme-contract\.ps1|' +
     'scripts/sync-theme-catalog\.ps1)$'

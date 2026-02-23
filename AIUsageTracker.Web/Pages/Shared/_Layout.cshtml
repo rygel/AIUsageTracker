@@ -60,6 +60,7 @@
                         <span id="agent-status" class="agent-status">Checking...</span>
                         <button id="agent-toggle-btn" class="btn btn-sm btn-primary" onclick="toggleMonitor()">Start</button>
                     </div>
+                    <div id="agent-status-detail" class="agent-status-detail">Waiting for status...</div>
                 </div>
                 
                 <div class="theme-section">
@@ -113,6 +114,13 @@
     <script>
         // Monitor status check
         let isMonitorRunning = false;
+
+        function setStatusDetail(message, isError = false) {
+            const detailEl = document.getElementById('agent-status-detail');
+            if (!detailEl) return;
+            detailEl.textContent = message || '';
+            detailEl.classList.toggle('error', !!isError);
+        }
         
         async function checkMonitorStatus() {
             try {
@@ -126,18 +134,21 @@
                 if (data.isRunning) {
                     statusEl.textContent = 'Monitor: Running';
                     statusEl.classList.add('running');
+                    setStatusDetail(data.message || `Healthy on port ${data.port}.`, false);
                     btn.textContent = 'Stop';
                     btn.classList.remove('btn-primary');
                     btn.classList.add('btn-danger');
                 } else {
                     statusEl.textContent = 'Monitor: Stopped';
                     statusEl.classList.remove('running');
+                    setStatusDetail(data.message || 'Monitor is not running.', !!data.error);
                     btn.textContent = 'Start';
                     btn.classList.remove('btn-danger');
                     btn.classList.add('btn-primary');
                 }
             } catch {
                 document.getElementById('agent-status').textContent = 'Monitor: Unknown';
+                setStatusDetail('Could not contact Web monitor API.', true);
                 isMonitorRunning = false;
             }
         }
@@ -148,23 +159,31 @@
             
             if (isMonitorRunning) {
                 btn.textContent = 'Stopping...';
+                setStatusDetail('Stopping monitor process...', false);
                 try {
                     const res = await fetch('/api/monitor/stop', { method: 'POST' });
+                    const data = await res.json();
+                    setStatusDetail(data?.message || (res.ok ? 'Monitor stopped.' : 'Failed to stop monitor.'), !res.ok);
                     if (res.ok) {
                         setTimeout(checkMonitorStatus, 1000);
                     }
                 } catch (e) {
                     console.error(e);
+                    setStatusDetail('Stop request failed. See browser console.', true);
                 }
             } else {
                 btn.textContent = 'Starting...';
+                setStatusDetail('Starting monitor process...', false);
                 try {
                     const res = await fetch('/api/monitor/start', { method: 'POST' });
+                    const data = await res.json();
+                    setStatusDetail(data?.message || (res.ok ? 'Monitor started.' : 'Failed to start monitor.'), !res.ok);
                     if (res.ok) {
                         setTimeout(checkMonitorStatus, 2000);
                     }
                 } catch (e) {
                     console.error(e);
+                    setStatusDetail('Start request failed. See browser console.', true);
                 }
             }
             
