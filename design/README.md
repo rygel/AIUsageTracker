@@ -48,6 +48,7 @@ Single source of truth for Slim/Web theme metadata:
 - Theme enum names, display labels, and web keys
 - Representative token expectations for UI tests
 - Used by CI parity checks to prevent catalog drift
+- Synced into Web selectors/lists by `scripts/sync-theme-catalog.ps1`
 
 ## Quick Reference
 

@@ -1,5 +1,6 @@
 // Theme Management
 const ThemeManager = {
+    // GENERATED-THEME-LIST-START
     themes: [
         'dark',
         'light',
@@ -16,6 +17,7 @@ const ThemeManager = {
         'catppuccin-mocha',
         'catppuccin-latte'
     ],
+    // GENERATED-THEME-LIST-END
     
     init() {
         const saved = localStorage.getItem('theme');

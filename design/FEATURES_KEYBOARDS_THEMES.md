@@ -48,6 +48,7 @@ Catppuccin values are mapped from the official palette: `https://catppuccin.com/
 
 Theme metadata is centralized in `design/theme-catalog.json` (enum names, labels, web keys, representative token checks).
 CI contract validation uses this manifest to keep Slim and Web theme catalogs aligned.
+Web-generated lists are synced from this manifest via `scripts/sync-theme-catalog.ps1`.
 
 #### Dark Theme (Default)
 - Window background: `#1E1E1E` (dark gray)

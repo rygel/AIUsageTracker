@@ -95,6 +95,49 @@ public class ScreenshotTests : PageTest
         return catalog;
     }
 
+    private static double ContrastRatio(string hex1, string hex2)
+    {
+        static (double R, double G, double B) ParseHex(string hex)
+        {
+            var value = hex.Trim();
+            if (value.StartsWith('#'))
+            {
+                value = value[1..];
+            }
+
+            if (value.Length != 6)
+            {
+                throw new InvalidOperationException($"Expected 6-digit hex color, got '{hex}'.");
+            }
+
+            var r = Convert.ToInt32(value[..2], 16) / 255.0;
+            var g = Convert.ToInt32(value.Substring(2, 2), 16) / 255.0;
+            var b = Convert.ToInt32(value.Substring(4, 2), 16) / 255.0;
+            return (r, g, b);
+        }
+
+        static double ToLinear(double channel)
+        {
+            return channel <= 0.03928
+                ? channel / 12.92
+                : Math.Pow((channel + 0.055) / 1.055, 2.4);
+        }
+
+        static double Luminance((double R, double G, double B) rgb)
+        {
+            var r = ToLinear(rgb.R);
+            var g = ToLinear(rgb.G);
+            var b = ToLinear(rgb.B);
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+
+        var l1 = Luminance(ParseHex(hex1));
+        var l2 = Luminance(ParseHex(hex2));
+        var lighter = Math.Max(l1, l2);
+        var darker = Math.Min(l1, l2);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
     [TestMethod]
     public async Task Dashboard_StylesheetAssetsLoadAndStylesApply()
     {
@@ -294,14 +337,18 @@ public class ScreenshotTests : PageTest
                     const rootStyle = getComputedStyle(document.documentElement);
                     const bg = rootStyle.getPropertyValue('--bg-primary').trim().toLowerCase();
                     const accent = rootStyle.getPropertyValue('--accent-primary').trim().toLowerCase();
-                    return [bg, accent];
+                    const text = rootStyle.getPropertyValue('--text-primary').trim().toLowerCase();
+                    return [bg, accent, text];
                 }
                 """);
 
             Assert.IsNotNull(tokens, $"Theme '{theme}' token payload should not be null.");
-            Assert.AreEqual(2, tokens.Length, $"Theme '{theme}' should return two token values.");
+            Assert.AreEqual(3, tokens.Length, $"Theme '{theme}' should return three token values.");
             Assert.AreEqual(expectedTokens.BgPrimary, tokens[0], $"Theme '{theme}' unexpected --bg-primary.");
             Assert.AreEqual(expectedTokens.AccentPrimary, tokens[1], $"Theme '{theme}' unexpected --accent-primary.");
+
+            var contrast = ContrastRatio(tokens[2], tokens[0]);
+            Assert.IsTrue(contrast >= 4.5, $"Theme '{theme}' has insufficient text/background contrast ({contrast:F2}).");
         }
     }
 }

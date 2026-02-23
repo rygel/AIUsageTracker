@@ -1,11 +1,19 @@
 {
   "defaultTheme": "Dark",
+  "sourcePolicy": {
+    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests.",
+    "references": [
+      "https://catppuccin.com/palette/",
+      "https://code.visualstudio.com/docs/getstarted/themes"
+    ]
+  },
   "themes": [
     {
       "enumName": "Dark",
       "displayName": "Dark",
       "webKey": "dark",
       "category": "Core",
+      "notes": "Default fallback theme.",
       "representative": true,
       "tokens": {
         "bgPrimary": "#1a1a1a",
@@ -40,6 +48,7 @@
       "displayName": "Dracula",
       "webKey": "dracula",
       "category": "VS Code popular",
+      "source": "VS Code popular",
       "representative": true,
       "tokens": {
         "bgPrimary": "#282a36",
@@ -50,25 +59,29 @@
       "enumName": "Nord",
       "displayName": "Nord",
       "webKey": "nord",
-      "category": "VS Code popular"
+      "category": "VS Code popular",
+      "source": "VS Code popular"
     },
     {
       "enumName": "Monokai",
       "displayName": "Monokai",
       "webKey": "monokai",
-      "category": "VS Code popular"
+      "category": "VS Code popular",
+      "source": "VS Code popular"
     },
     {
       "enumName": "OneDark",
       "displayName": "One Dark",
       "webKey": "one-dark",
-      "category": "VS Code popular"
+      "category": "VS Code popular",
+      "source": "VS Code popular"
     },
     {
       "enumName": "SolarizedDark",
       "displayName": "Solarized Dark",
       "webKey": "solarized-dark",
-      "category": "VS Code popular"
+      "category": "VS Code popular",
+      "source": "VS Code popular"
     },
     {
       "enumName": "SolarizedLight",
@@ -80,25 +93,29 @@
       "enumName": "CatppuccinFrappe",
       "displayName": "Catppuccin Frappe",
       "webKey": "catppuccin-frappe",
-      "category": "Pastel"
+      "category": "Pastel",
+      "source": "https://catppuccin.com/palette/"
     },
     {
       "enumName": "CatppuccinMacchiato",
       "displayName": "Catppuccin Macchiato",
       "webKey": "catppuccin-macchiato",
-      "category": "Pastel"
+      "category": "Pastel",
+      "source": "https://catppuccin.com/palette/"
     },
     {
       "enumName": "CatppuccinMocha",
       "displayName": "Catppuccin Mocha",
       "webKey": "catppuccin-mocha",
-      "category": "Pastel"
+      "category": "Pastel",
+      "source": "https://catppuccin.com/palette/"
     },
     {
       "enumName": "CatppuccinLatte",
       "displayName": "Catppuccin Latte",
       "webKey": "catppuccin-latte",
       "category": "Pastel",
+      "source": "https://catppuccin.com/palette/",
       "representative": true,
       "tokens": {
         "bgPrimary": "#eff1f5",
