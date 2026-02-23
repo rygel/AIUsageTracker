@@ -1942,6 +1942,11 @@ public partial class SettingsWindow : Window
             return false;
         }
 
+        if (IsWindowQuotaDetail(detail.Name))
+        {
+            return false;
+        }
+
         if (detail.Name.Contains("window", StringComparison.OrdinalIgnoreCase) ||
             detail.Name.Contains("credit", StringComparison.OrdinalIgnoreCase))
         {
@@ -1955,6 +1960,12 @@ public partial class SettingsWindow : Window
         }
 
         return double.TryParse(match.Groups["percent"].Value, out _);
+    }
+
+    private static bool IsWindowQuotaDetail(string detailName)
+    {
+        return detailName.Equals("5-hour quota", StringComparison.OrdinalIgnoreCase) ||
+               detailName.Equals("Weekly quota", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string GetProviderDisplayName(string providerId)
