@@ -2,6 +2,15 @@
 
 Welcome to the **AI Consumption Tracker** user manual. This guide covers the Slim desktop UI pages, Web UI pages, and the command-line interface (`act`) so you can monitor and manage provider usage quickly.
 
+## Concise Feature List
+
+- Unified provider dashboard across Slim UI, Web UI, and CLI.
+- Real-time usage/quota refresh with tray-friendly compact monitoring.
+- Provider-level and global Windows notification controls (threshold + quiet hours + test action).
+- Theme system with shared Slim/Web catalog and persistent preferences.
+- Built-in key discovery from environment variables and common local auth/config files.
+- Historical charts, raw usage views, and export options for troubleshooting.
+
 ## Auto-Generated Screenshots
 
 The screenshots in this document are generated from the app's deterministic headless screenshot flow used by CI/CD, so the visuals stay aligned with current UI behavior.
@@ -80,9 +89,15 @@ Configure API keys for OpenAI, Anthropic, Gemini, etc.
 
 - **Auto Refresh (Minutes)**: How often the app refreshes in the background (0 = Disabled).
 - **Invert Progress Bars**: represent **Remaining** capacity (Default) or **Used** capacity.
-- **Notifications**: Global toggle for Windows notifications.
-- **Usage Threshold (%)**: Slider to set when you want to be alerted (e.g., at 90% usage).
 - **Font Settings**: Customize font family, size, and style for the dashboard.
+
+### Notifications Tab
+
+- **Enable Windows notifications**: Global on/off switch.
+- **Notify at (%)**: Threshold for usage alerts.
+- **Event toggles**: Usage threshold and quota reset/exceeded events.
+- **Quiet hours**: Suppress notifications in a configured time range.
+- **Send Test Notification**: Verify end-to-end notification delivery.
 
 ### History Tab
 
@@ -173,7 +188,7 @@ The application uses native Windows 11 notifications to alert you about critical
 - **Reset/Refill**: When a quota is reset (e.g., at the start of a new billing cycle).
 
 ### Configuration
-1. Enable **Notifications** globally in the **Layout** tab.
+1. Enable **Notifications** globally in the **Notifications** tab.
 2. Set your desired **Usage Threshold** (Default 90%).
 3. (Optional) Disable individual providers by unchecking **"Notify"** in the **Providers** tab.
 
@@ -231,5 +246,5 @@ Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery fro
 
 ---
 
-*Version: 2.2.3 | Author: Alexander Brandt*
+*Version: 2.2.5 | Author: Alexander Brandt*
 
