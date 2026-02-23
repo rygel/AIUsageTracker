@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [2.2.4] - 2026-02-23
+
+### Added
+- Unified theme catalog across Slim UI and Web UI with expanded options including popular VS Code themes and all four Catppuccin flavors.
+- Theme validation tooling and CI guardrails: fast theme-validation workflow, manifest-driven parity checks, Slim all-theme smoke checks, and representative Web theme snapshot/token assertions.
+- Centralized `design/theme-catalog.json` manifest as the source of truth for theme keys, labels, and representative test tokens.
+
+### Changed
+- Slim and Web theme selectors now use synchronized theme lists generated/validated from the shared theme catalog.
+- Screenshot baseline pipeline now uses CI-authoritative baselines and includes stronger theme-related verification coverage.
+
+### Fixed
+- Slim startup no longer blocks on preference loading; theme fallback is applied safely and preferences load asynchronously.
+- Resolved WPF theming crashes caused by frozen/read-only brush mutation during resource updates.
+- Improved light-theme control rendering and dark-theme scrollbar styling consistency.
+- OpenAI identity resolution and documentation coverage improvements for clearer account display behavior.
+
 ## [2.2.3] - 2026-02-22
 
 ### Fixed
