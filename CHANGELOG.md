@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## [2.2.5] - 2026-02-23
+
+### Added
+- Slim Settings now includes a dedicated **Notifications** tab with global Windows notification controls, threshold input, event toggles, quiet hours, and a test-notification action.
+- Added monitor API endpoint `POST /api/notifications/test` and client wiring to trigger an end-to-end Windows notification test from Settings.
+
+### Changed
+- Slim Settings now auto-saves provider, layout, font, and notification changes (debounced), reducing dependence on manual save flows.
+- Updated CI checks to keep theme-manifest guard and provider contract expectations aligned with current behavior.
+
+### Fixed
+- OpenAPI contract now includes the monitor test-notification endpoint used by Slim Settings.
+- Screenshot baseline drift for Slim dashboard has been synchronized with CI-rendered baseline output.
+
 ## [2.2.4] - 2026-02-23
 
 ### Added
