@@ -169,10 +169,10 @@ jobs:
         with:
           name: appcast-files
           path: |
-            appcast.xml
-            appcast_x64.xml
-            appcast_arm64.xml
-            appcast_x86.xml
+            appcast/appcast.xml
+            appcast/appcast_x64.xml
+            appcast/appcast_arm64.xml
+            appcast/appcast_x86.xml
 
       - name: Success
         if: ${{ steps.run-validation.outputs.all_valid == 'true' }}
@@ -182,10 +182,10 @@ jobs:
           echo "📋 NEXT STEPS:"
           echo ""
           echo "1. Download all appcast files from the workflow artifacts above:"
-          echo "   - appcast.xml (x64 - default)"
-          echo "   - appcast_x64.xml"
-          echo "   - appcast_arm64.xml"
-          echo "   - appcast_x86.xml"
+          echo "   - appcast/appcast.xml (x64 - default)"
+          echo "   - appcast/appcast_x64.xml"
+          echo "   - appcast/appcast_arm64.xml"
+          echo "   - appcast/appcast_x86.xml"
           echo ""
           echo "2. Create and push the git tag manually:"
           echo "   git checkout main"
