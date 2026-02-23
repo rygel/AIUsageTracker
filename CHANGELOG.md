@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [2.2.8] - 2026-02-23
+
+### Changed
+- Updated release/design documentation to require user-first changelog writing so release notes stay clear and readable for end users.
+
+### Fixed
+- Restored Slim UI always-on-top behavior to normal WPF handling by removing extra native z-order reassert logic that could interfere with other applications.
+
 ## [2.2.7] - 2026-02-23
 
 ### Added

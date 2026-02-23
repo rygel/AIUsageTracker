@@ -597,6 +597,15 @@ public void LoadData()
 - `scripts/setup.iss`
 - `scripts/publish-app.ps1`
 
+### Changelog Writing
+**Rule**: Write changelog entries for end users first, not just developers.
+
+- Prefer plain language over internal implementation details.
+- Lead with user-visible impact (what changed for users and why it matters).
+- Keep bullets short and scannable; avoid jargon and deep technical terms unless required.
+- Group items under clear `Added`, `Changed`, and `Fixed` sections.
+- If a change is internal-only, keep it brief and avoid making it the main headline.
+
 ### Release Process
 **Rule**: Always use PRs for version bumps, never direct commits to main.
 

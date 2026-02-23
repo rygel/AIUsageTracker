@@ -52,6 +52,16 @@ This compiles `scripts/setup.iss` for `x64`, `x86`, and `arm64` using local fixt
 
 **IMPORTANT**: Due to branch protection rules, version files cannot be updated directly by the workflow. You must create a PR manually first.
 
+#### Changelog readability requirement
+
+When updating `CHANGELOG.md`, write entries for end users first (not only for developers):
+
+- Use plain language and avoid unnecessary implementation details.
+- Start with user-visible outcomes and why they matter.
+- Keep bullets concise and easy to scan.
+- Organize items under clear `Added`, `Changed`, and `Fixed` sections.
+- Keep internal-only notes brief and secondary.
+
 Create a feature branch and update these files:
 
 #### 1.1 Shared Version Source

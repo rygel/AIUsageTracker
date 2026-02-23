@@ -9,7 +9,7 @@ namespace AIUsageTracker.Tests.UI;
 public class DialogOpenBehaviorTests
 {
     [Fact]
-    public Task OpenSettingsDialogAsync_ShowsOwnedDialog_AndRestoresTopmostState()
+    public Task OpenSettingsDialogAsync_ShowsOwnedDialog_WithoutTopmostToggle()
     {
         return RunInStaAsync(async () =>
         {
@@ -27,7 +27,7 @@ public class DialogOpenBehaviorTests
             mainWindow.ShowOwnedDialog = dialog =>
             {
                 shown++;
-                Assert.False(mainWindow.Topmost);
+                Assert.True(mainWindow.Topmost);
                 return true;
             };
 

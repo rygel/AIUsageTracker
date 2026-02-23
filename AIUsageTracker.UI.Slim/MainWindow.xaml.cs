@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -49,29 +48,10 @@ public partial class MainWindow : Window
     private DispatcherTimer? _pollingTimer;
     private string? _agentContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
-    private HwndSource? _windowSource;
     private UpdateInfo? _latestUpdate;
     private bool _preferencesLoaded;
-    private bool _suppressAlwaysOnTopReassert;
     internal Func<(Window Dialog, Func<bool> HasChanges)> SettingsDialogFactory { get; set; } = CreateDefaultSettingsDialog;
     internal Func<Window, bool?> ShowOwnedDialog { get; set; } = static dialog => dialog.ShowDialog();
-    private static readonly IntPtr HwndTopmost = new(-1);
-    private static readonly IntPtr HwndNoTopmost = new(-2);
-    private const uint SwpNoSize = 0x0001;
-    private const uint SwpNoMove = 0x0002;
-    private const uint SwpNoActivate = 0x0010;
-    private const uint SwpNoOwnerZOrder = 0x0200;
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetWindowPos(
-        IntPtr hWnd,
-        IntPtr hWndInsertAfter,
-        int x,
-        int y,
-        int cx,
-        int cy,
-        uint uFlags);
 
     public MainWindow()
         : this(skipUiInitialization: false)
@@ -100,23 +80,11 @@ public partial class MainWindow : Window
         _updateCheckTimer.Tick += async (s, e) => await CheckForUpdatesAsync();
         _updateCheckTimer.Start();
 
-        SourceInitialized += OnSourceInitialized;
-        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
-        SystemEvents.SessionSwitch += OnSessionSwitch;
-
         App.PrivacyChanged += OnPrivacyChanged;
         Closed += (s, e) =>
         {
             App.PrivacyChanged -= OnPrivacyChanged;
             _updateCheckTimer.Stop();
-            SourceInitialized -= OnSourceInitialized;
-            SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
-            SystemEvents.SessionSwitch -= OnSessionSwitch;
-            if (_windowSource is not null)
-            {
-                _windowSource.RemoveHook(WndProc);
-                _windowSource = null;
-            }
         };
         UpdatePrivacyButtonState();
 
@@ -362,58 +330,7 @@ public partial class MainWindow : Window
 
     private void EnsureAlwaysOnTop()
     {
-        if (_suppressAlwaysOnTopReassert || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
-        {
-            return;
-        }
-
-        ReassertTopmostState();
-    }
-
-    private void OnSourceInitialized(object? sender, EventArgs e)
-    {
-        _windowSource = PresentationSource.FromVisual(this) as HwndSource;
-        _windowSource?.AddHook(WndProc);
-        EnsureAlwaysOnTop();
-    }
-
-    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
-    {
-        Dispatcher.BeginInvoke(EnsureAlwaysOnTop, DispatcherPriority.Background);
-    }
-
-    private void OnSessionSwitch(object? sender, SessionSwitchEventArgs e)
-    {
-        if (e.Reason == SessionSwitchReason.SessionUnlock || e.Reason == SessionSwitchReason.ConsoleConnect)
-        {
-            Dispatcher.BeginInvoke(EnsureAlwaysOnTop, DispatcherPriority.Background);
-        }
-    }
-
-    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        const int WM_ACTIVATEAPP = 0x001C;
-        const int WM_WINDOWPOSCHANGED = 0x0047;
-        const int WM_DISPLAYCHANGE = 0x007E;
-        const int WM_EXITSIZEMOVE = 0x0232;
-
-        switch (msg)
-        {
-            case WM_ACTIVATEAPP:
-            case WM_WINDOWPOSCHANGED:
-            case WM_DISPLAYCHANGE:
-            case WM_EXITSIZEMOVE:
-                Dispatcher.BeginInvoke(EnsureAlwaysOnTop, DispatcherPriority.Background);
-                break;
-        }
-
-        return IntPtr.Zero;
-    }
-
-    private void ReassertTopmostState()
-    {
-        var handle = new WindowInteropHelper(this).Handle;
-        if (handle == IntPtr.Zero)
+        if (!_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
         {
             return;
         }
@@ -422,27 +339,11 @@ public partial class MainWindow : Window
         {
             Topmost = true;
         }
-
-        // Reassert z-order robustly in case other windows pulled us back.
-        _ = SetWindowPos(handle, HwndNoTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
-        _ = SetWindowPos(handle, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
     }
 
     private void ApplyTopmostState(bool alwaysOnTop)
     {
-        if (Topmost != alwaysOnTop)
-        {
-            Topmost = alwaysOnTop;
-        }
-
-        var handle = new WindowInteropHelper(this).Handle;
-        if (handle == IntPtr.Zero)
-        {
-            return;
-        }
-
-        var insertAfter = alwaysOnTop ? HwndTopmost : HwndNoTopmost;
-        _ = SetWindowPos(handle, insertAfter, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate | SwpNoOwnerZOrder);
+        Topmost = alwaysOnTop;
     }
 
     public void ShowAndActivate()
@@ -1943,26 +1844,12 @@ public partial class MainWindow : Window
             settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
         }
 
-        _suppressAlwaysOnTopReassert = true;
-        try
-        {
-            if (Topmost)
-            {
-                ApplyTopmostState(false);
-            }
+        _ = ShowOwnedDialog(settingsWindow);
 
-            _ = ShowOwnedDialog(settingsWindow);
-
-            if (settingsDialog.HasChanges())
-            {
-                // Reload preferences and refresh data
-                await InitializeAsync();
-            }
-        }
-        finally
+        if (settingsDialog.HasChanges())
         {
-            _suppressAlwaysOnTopReassert = false;
-            ApplyTopmostState(_preferences.AlwaysOnTop);
+            // Reload preferences and refresh data
+            await InitializeAsync();
         }
     }
 
