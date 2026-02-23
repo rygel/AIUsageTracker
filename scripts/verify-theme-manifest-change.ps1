@@ -28,18 +28,13 @@ $manifestPath = "design/theme-catalog.json"
 $isManifestChanged = $changedFiles -contains $manifestPath
 
 $themeRelatedRegex =
-    '^(AIUsageTracker\.Core/Models/AppPreferences\.cs|' +
-    'AIUsageTracker\.UI\.Slim/App\.xaml\.cs|' +
-    'AIUsageTracker\.UI\.Slim/SettingsWindow\.xaml\.cs|' +
+    '^(AIUsageTracker\.UI\.Slim/App\.xaml\.cs|' +
     'AIUsageTracker\.Web/wwwroot/js/theme\.js|' +
     'AIUsageTracker\.Web/Pages/Shared/_Layout\.cshtml|' +
     'AIUsageTracker\.Web/wwwroot/css/themes\.css|' +
     'AIUsageTracker\.Web\.Tests/ScreenshotTests\.cs|' +
     'scripts/verify-theme-contract\.ps1|' +
-    'scripts/sync-theme-catalog\.ps1|' +
-    'scripts/verify_slim_theme_smoke\.ps1|' +
-    'design/FEATURES_KEYBOARDS_THEMES\.md|' +
-    'design/README\.md)$'
+    'scripts/sync-theme-catalog\.ps1)$'
 
 $themeRelatedChanged = @($changedFiles | Where-Object { $_ -match $themeRelatedRegex })
 

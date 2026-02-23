@@ -84,6 +84,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /api/notifications/test:
+    post:
+      summary: Send a Windows test notification
+      operationId: sendTestNotification
+      responses:
+        "200":
+          description: Test notification sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
   /api/config:
     get:
       summary: List provider configuration
