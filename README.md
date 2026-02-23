@@ -31,7 +31,7 @@ Download the latest installer or .zip file from the [Release](https://github.com
 
 ## Key Features
 
-- **Multi-Provider Support**: Track usage for Anthropic, Gemini, OpenRouter, OpenCode, Kilo Code, DeepSeek, OpenAI, Google Cloud Code, GitHub Copilot, Codex, Mistral, and more.
+- **Multi-Provider Support**: Track usage for Anthropic, Gemini, OpenRouter, OpenCode, Kilo Code, DeepSeek, OpenAI, GitHub Copilot, Codex, Mistral, and more.
 - **Smart Discovery**: Automatically scans environment variables, Claude Code credentials, and standard configuration files for existing API keys.
 - **Auto-Updates**: Notifies you of new releases directly in the dashboard with a one-click download link.
 - **Minimalist Dashboard**: A compact, topmost window providing a quick overview of your current spend and token usage.
