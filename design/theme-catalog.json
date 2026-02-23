@@ -1,0 +1,109 @@
+{
+  "defaultTheme": "Dark",
+  "themes": [
+    {
+      "enumName": "Dark",
+      "displayName": "Dark",
+      "webKey": "dark",
+      "category": "Core",
+      "representative": true,
+      "tokens": {
+        "bgPrimary": "#1a1a1a",
+        "accentPrimary": "#3b82f6"
+      }
+    },
+    {
+      "enumName": "Light",
+      "displayName": "Light",
+      "webKey": "light",
+      "category": "Core",
+      "representative": true,
+      "tokens": {
+        "bgPrimary": "#f5f5f5",
+        "accentPrimary": "#2563eb"
+      }
+    },
+    {
+      "enumName": "Corporate",
+      "displayName": "Corporate",
+      "webKey": "corporate",
+      "category": "Core"
+    },
+    {
+      "enumName": "Midnight",
+      "displayName": "Midnight",
+      "webKey": "midnight",
+      "category": "Core"
+    },
+    {
+      "enumName": "Dracula",
+      "displayName": "Dracula",
+      "webKey": "dracula",
+      "category": "VS Code popular",
+      "representative": true,
+      "tokens": {
+        "bgPrimary": "#282a36",
+        "accentPrimary": "#ff79c6"
+      }
+    },
+    {
+      "enumName": "Nord",
+      "displayName": "Nord",
+      "webKey": "nord",
+      "category": "VS Code popular"
+    },
+    {
+      "enumName": "Monokai",
+      "displayName": "Monokai",
+      "webKey": "monokai",
+      "category": "VS Code popular"
+    },
+    {
+      "enumName": "OneDark",
+      "displayName": "One Dark",
+      "webKey": "one-dark",
+      "category": "VS Code popular"
+    },
+    {
+      "enumName": "SolarizedDark",
+      "displayName": "Solarized Dark",
+      "webKey": "solarized-dark",
+      "category": "VS Code popular"
+    },
+    {
+      "enumName": "SolarizedLight",
+      "displayName": "Solarized Light",
+      "webKey": "solarized-light",
+      "category": "Bright"
+    },
+    {
+      "enumName": "CatppuccinFrappe",
+      "displayName": "Catppuccin Frappe",
+      "webKey": "catppuccin-frappe",
+      "category": "Pastel"
+    },
+    {
+      "enumName": "CatppuccinMacchiato",
+      "displayName": "Catppuccin Macchiato",
+      "webKey": "catppuccin-macchiato",
+      "category": "Pastel"
+    },
+    {
+      "enumName": "CatppuccinMocha",
+      "displayName": "Catppuccin Mocha",
+      "webKey": "catppuccin-mocha",
+      "category": "Pastel"
+    },
+    {
+      "enumName": "CatppuccinLatte",
+      "displayName": "Catppuccin Latte",
+      "webKey": "catppuccin-latte",
+      "category": "Pastel",
+      "representative": true,
+      "tokens": {
+        "bgPrimary": "#eff1f5",
+        "accentPrimary": "#8839ef"
+      }
+    }
+  ]
+}

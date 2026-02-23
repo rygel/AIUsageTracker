@@ -4,12 +4,19 @@ $ErrorActionPreference = "Stop"
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
+$manifestPath = Join-Path $projectRoot "design/theme-catalog.json"
 $appPreferencesPath = Join-Path $projectRoot "AIUsageTracker.Core/Models/AppPreferences.cs"
 $slimSettingsPath = Join-Path $projectRoot "AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs"
 $slimAppPath = Join-Path $projectRoot "AIUsageTracker.UI.Slim/App.xaml.cs"
 $webThemesJsPath = Join-Path $projectRoot "AIUsageTracker.Web/wwwroot/js/theme.js"
 $webLayoutPath = Join-Path $projectRoot "AIUsageTracker.Web/Pages/Shared/_Layout.cshtml"
 $webThemesCssPath = Join-Path $projectRoot "AIUsageTracker.Web/wwwroot/css/themes.css"
+
+function Read-Json([string]$path)
+{
+    $content = Read-File $path
+    return ConvertFrom-Json -InputObject $content
+}
 
 function Read-File([string]$path)
 {
@@ -65,12 +72,6 @@ function Get-EnumThemes([string]$content)
     return $themes
 }
 
-function Convert-EnumToWebThemeKey([string]$enumName)
-{
-    $withDashes = [regex]::Replace($enumName, "([a-z0-9])([A-Z])", '$1-$2')
-    return $withDashes.ToLowerInvariant()
-}
-
 function Assert-SetsEqual([string]$name, $expectedSet, $actualSet)
 {
     $missing = @($expectedSet | Where-Object { -not $actualSet.Contains($_) } | Sort-Object)
@@ -96,8 +97,32 @@ function Assert-SetsEqual([string]$name, $expectedSet, $actualSet)
     $script:hadFailure = $true
 }
 
+function Assert-MapsEqual([string]$name, [hashtable]$expectedMap, [hashtable]$actualMap)
+{
+    $expectedKeys = To-UniqueSet $expectedMap.Keys
+    $actualKeys = To-UniqueSet $actualMap.Keys
+    Assert-SetsEqual "$name (keys)" $expectedKeys $actualKeys
+
+    foreach ($key in $expectedMap.Keys)
+    {
+        if (-not $actualMap.ContainsKey($key))
+        {
+            continue
+        }
+
+        if ($expectedMap[$key] -ne $actualMap[$key])
+        {
+            Write-Host "FAIL: $name value mismatch for '$key'" -ForegroundColor Red
+            Write-Host "  Expected: $($expectedMap[$key])" -ForegroundColor Yellow
+            Write-Host "  Actual:   $($actualMap[$key])" -ForegroundColor Yellow
+            $script:hadFailure = $true
+        }
+    }
+}
+
 $script:hadFailure = $false
 
+$manifest = Read-Json $manifestPath
 $appPreferences = Read-File $appPreferencesPath
 $slimSettings = Read-File $slimSettingsPath
 $slimApp = Read-File $slimAppPath
@@ -105,18 +130,40 @@ $webThemesJs = Read-File $webThemesJsPath
 $webLayout = Read-File $webLayoutPath
 $webThemesCss = Read-File $webThemesCssPath
 
+$manifestThemes = @($manifest.themes)
+if ($manifestThemes.Count -eq 0)
+{
+    throw "Theme manifest has no entries: $manifestPath"
+}
+
+$manifestEnumNames = @($manifestThemes | ForEach-Object { $_.enumName })
+$manifestWebKeys = @($manifestThemes | ForEach-Object { $_.webKey })
+$manifestDisplayNames = @{}
+foreach ($theme in $manifestThemes)
+{
+    $manifestDisplayNames[$theme.enumName] = $theme.displayName
+}
+
 $enumThemes = Get-EnumThemes $appPreferences
 $enumThemeSet = To-UniqueSet $enumThemes
+$manifestEnumSet = To-UniqueSet $manifestEnumNames
 
-$slimOptionThemes = [regex]::Matches($slimSettings, "Value\s*=\s*AppTheme\.(?<value>[A-Za-z0-9]+)") | ForEach-Object { $_.Groups["value"].Value }
+$slimOptionMatches = [regex]::Matches($slimSettings, 'Value\s*=\s*AppTheme\.(?<value>[A-Za-z0-9]+)\s*,\s*Label\s*=\s*"(?<label>[^"]+)"')
+$slimOptionThemes = $slimOptionMatches | ForEach-Object { $_.Groups["value"].Value }
 $slimOptionThemeSet = To-UniqueSet $slimOptionThemes
+
+$slimLabelMap = @{}
+foreach ($match in $slimOptionMatches)
+{
+    $slimLabelMap[$match.Groups["value"].Value] = $match.Groups["label"].Value
+}
 
 $slimCaseThemes = [regex]::Matches($slimApp, "case\s+AppTheme\.(?<value>[A-Za-z0-9]+)\s*:") | ForEach-Object { $_.Groups["value"].Value }
 $slimCaseThemeSet = To-UniqueSet $slimCaseThemes
 
 $expectedSlimCases = To-UniqueSet ($enumThemes | Where-Object { $_ -ne "Dark" })
 
-$webExpectedKeys = To-UniqueSet ($enumThemes | ForEach-Object { Convert-EnumToWebThemeKey $_ })
+$webExpectedKeys = To-UniqueSet $manifestWebKeys
 
 $themesArrayMatch = [regex]::Match($webThemesJs, "themes\s*:\s*\[(?<body>[\s\S]*?)\]")
 if (-not $themesArrayMatch.Success)
@@ -127,18 +174,34 @@ if (-not $themesArrayMatch.Success)
 $webJsKeys = [regex]::Matches($themesArrayMatch.Groups["body"].Value, "'(?<value>[^']+)'") | ForEach-Object { $_.Groups["value"].Value }
 $webJsKeySet = To-UniqueSet $webJsKeys
 
-$webLayoutKeys = [regex]::Matches($webLayout, '<option\s+value="(?<value>[^"]+)"') | ForEach-Object { $_.Groups["value"].Value }
+$webLayoutOptionMatches = [regex]::Matches($webLayout, '<option\s+value="(?<value>[^"]+)">(?<label>[^<]+)</option>')
+$webLayoutKeys = $webLayoutOptionMatches | ForEach-Object { $_.Groups["value"].Value }
 $webLayoutKeySet = To-UniqueSet $webLayoutKeys
+
+$manifestLabelByWebKey = @{}
+foreach ($theme in $manifestThemes)
+{
+    $manifestLabelByWebKey[$theme.webKey] = $theme.displayName
+}
+
+$webLayoutLabelMap = @{}
+foreach ($match in $webLayoutOptionMatches)
+{
+    $webLayoutLabelMap[$match.Groups["value"].Value] = $match.Groups["label"].Value
+}
 
 $webCssKeys = [regex]::Matches($webThemesCss, '\[data-theme="(?<value>[^"]+)"\]') | ForEach-Object { $_.Groups["value"].Value }
 $webCssKeySet = To-UniqueSet $webCssKeys
 
 Write-Host "Verifying theme contracts..."
-Assert-SetsEqual "Slim settings options match AppTheme enum" $enumThemeSet $slimOptionThemeSet
+Assert-SetsEqual "AppTheme enum matches theme manifest" $manifestEnumSet $enumThemeSet
+Assert-SetsEqual "Slim settings options match theme manifest" $manifestEnumSet $slimOptionThemeSet
 Assert-SetsEqual "Slim ApplyTheme switch cases cover enum (Dark can use default)" $expectedSlimCases $slimCaseThemeSet
-Assert-SetsEqual "Web JS theme list matches AppTheme enum" $webExpectedKeys $webJsKeySet
-Assert-SetsEqual "Web layout dropdown matches AppTheme enum" $webExpectedKeys $webLayoutKeySet
-Assert-SetsEqual "Web CSS selectors match AppTheme enum" $webExpectedKeys $webCssKeySet
+Assert-MapsEqual "Slim settings labels match manifest" $manifestDisplayNames $slimLabelMap
+Assert-SetsEqual "Web JS theme list matches manifest" $webExpectedKeys $webJsKeySet
+Assert-SetsEqual "Web layout dropdown matches manifest" $webExpectedKeys $webLayoutKeySet
+Assert-MapsEqual "Web layout labels match manifest" $manifestLabelByWebKey $webLayoutLabelMap
+Assert-SetsEqual "Web CSS selectors match manifest" $webExpectedKeys $webCssKeySet
 
 if ($script:hadFailure)
 {

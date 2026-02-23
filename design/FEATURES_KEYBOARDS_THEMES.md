@@ -46,6 +46,9 @@ Theme support is aligned across Slim UI and Web UI with a shared catalog.
 
 Catppuccin values are mapped from the official palette: `https://catppuccin.com/palette/`.
 
+Theme metadata is centralized in `design/theme-catalog.json` (enum names, labels, web keys, representative token checks).
+CI contract validation uses this manifest to keep Slim and Web theme catalogs aligned.
+
 #### Dark Theme (Default)
 - Window background: `#1E1E1E` (dark gray)
 - Header/Footer background: `#252526` (darker gray)

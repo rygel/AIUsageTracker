@@ -1,5 +1,7 @@
 using Microsoft.Playwright;
 using Microsoft.Playwright.MSTest;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AIUsageTracker.Web.Tests;
 
@@ -7,32 +9,36 @@ namespace AIUsageTracker.Web.Tests;
 public class ScreenshotTests : PageTest
 {
     private const string BaseUrl = "http://127.0.0.1:5100";
-    private static readonly string[] ExpectedThemes =
+    private sealed class ThemeCatalog
     {
-        "dark",
-        "light",
-        "corporate",
-        "midnight",
-        "dracula",
-        "nord",
-        "monokai",
-        "one-dark",
-        "solarized-dark",
-        "solarized-light",
-        "catppuccin-frappe",
-        "catppuccin-macchiato",
-        "catppuccin-mocha",
-        "catppuccin-latte"
-    };
+        [JsonPropertyName("themes")]
+        public List<ThemeCatalogEntry> Themes { get; set; } = [];
+    }
 
-    private static readonly Dictionary<string, (string BgPrimary, string AccentPrimary)> ExpectedRepresentativeThemeTokens =
-        new(StringComparer.Ordinal)
-        {
-            ["dark"] = ("#1a1a1a", "#3b82f6"),
-            ["light"] = ("#f5f5f5", "#2563eb"),
-            ["dracula"] = ("#282a36", "#ff79c6"),
-            ["catppuccin-latte"] = ("#eff1f5", "#8839ef")
-        };
+    private sealed class ThemeCatalogEntry
+    {
+        [JsonPropertyName("webKey")]
+        public string WebKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("representative")]
+        public bool Representative { get; set; }
+
+        [JsonPropertyName("tokens")]
+        public ThemeTokenEntry? Tokens { get; set; }
+    }
+
+    private sealed class ThemeTokenEntry
+    {
+        [JsonPropertyName("bgPrimary")]
+        public string BgPrimary { get; set; } = string.Empty;
+
+        [JsonPropertyName("accentPrimary")]
+        public string AccentPrimary { get; set; } = string.Empty;
+    }
+
+    private readonly string _projectRoot;
+    private readonly string[] _expectedThemes;
+    private readonly Dictionary<string, (string BgPrimary, string AccentPrimary)> _representativeThemeTokens;
     private readonly string _outputDir;
     private readonly string _themeOutputDir;
 
@@ -42,9 +48,21 @@ public class ScreenshotTests : PageTest
         var binPath = AppContext.BaseDirectory;
         // bin/Debug/net8.0 is 3 levels deep from Project. Project is 1 level deep from Solution.
         // So we need to go up 4 levels to get to Solution Root.
-        var projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../")); 
-        _outputDir = Path.Combine(projectRoot, "docs");
+        _projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../"));
+        _outputDir = Path.Combine(_projectRoot, "docs");
         _themeOutputDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "web-theme-smoke");
+
+        var catalog = LoadThemeCatalog(_projectRoot);
+        _expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
+        _representativeThemeTokens = catalog.Themes
+            .Where(t => t.Representative)
+            .Where(t => t.Tokens is not null)
+            .ToDictionary(
+                t => t.WebKey,
+                t => (
+                    t.Tokens!.BgPrimary.Trim().ToLowerInvariant(),
+                    t.Tokens!.AccentPrimary.Trim().ToLowerInvariant()),
+                StringComparer.Ordinal);
         
         Console.WriteLine($"[TEST] Output directory: {_outputDir}");
         
@@ -57,6 +75,24 @@ public class ScreenshotTests : PageTest
         {
             Directory.CreateDirectory(_themeOutputDir);
         }
+    }
+
+    private static ThemeCatalog LoadThemeCatalog(string projectRoot)
+    {
+        var manifestPath = Path.Combine(projectRoot, "design", "theme-catalog.json");
+        if (!File.Exists(manifestPath))
+        {
+            throw new FileNotFoundException("Theme catalog manifest not found.", manifestPath);
+        }
+
+        var json = File.ReadAllText(manifestPath);
+        var catalog = JsonSerializer.Deserialize<ThemeCatalog>(json);
+        if (catalog is null || catalog.Themes.Count == 0)
+        {
+            throw new InvalidOperationException("Theme catalog manifest is empty or invalid.");
+        }
+
+        return catalog;
     }
 
     [TestMethod]
@@ -147,9 +183,9 @@ public class ScreenshotTests : PageTest
             () => Array.from(document.querySelectorAll('#theme-select option')).map(o => o.value)
             """);
 
-        CollectionAssert.AreEquivalent(ExpectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
+        CollectionAssert.AreEquivalent(_expectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
 
-        foreach (var theme in ExpectedThemes)
+        foreach (var theme in _expectedThemes)
         {
             await Page.EvaluateAsync("""
                 (theme) => {
@@ -182,7 +218,7 @@ public class ScreenshotTests : PageTest
         await Page.GotoAsync(BaseUrl);
         await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
-        var representativeThemes = new[] { "dark", "light", "dracula", "catppuccin-latte" };
+        var representativeThemes = _representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
         var screenshotPaths = new List<string>();
 
         foreach (var theme in representativeThemes)
@@ -234,7 +270,7 @@ public class ScreenshotTests : PageTest
         await Page.GotoAsync(BaseUrl);
         await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
-        foreach (var (theme, expectedTokens) in ExpectedRepresentativeThemeTokens)
+        foreach (var (theme, expectedTokens) in _representativeThemeTokens)
         {
             await Page.EvaluateAsync("""
                 (theme) => {
