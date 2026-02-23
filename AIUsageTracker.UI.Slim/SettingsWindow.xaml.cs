@@ -16,6 +16,12 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
+    private sealed class ThemeOption
+    {
+        public AppTheme Value { get; init; }
+        public string Label { get; init; } = string.Empty;
+    }
+
     private readonly AgentService _agentService;
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
@@ -136,6 +142,18 @@ public partial class SettingsWindow : Window
                     continue;
                 }
 
+                foreach (var claim in new[] { "email", "upn" })
+                {
+                    if (openai.TryGetProperty(claim, out var emailElement) && emailElement.ValueKind == JsonValueKind.String)
+                    {
+                        var emailValue = emailElement.GetString();
+                        if (IsEmailLike(emailValue))
+                        {
+                            return emailValue;
+                        }
+                    }
+                }
+
                 var explicitIdentity = FindIdentityInJson(openai);
                 if (!string.IsNullOrWhiteSpace(explicitIdentity))
                 {
@@ -190,8 +208,21 @@ public partial class SettingsWindow : Window
             var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
             using var doc = JsonDocument.Parse(json);
 
-            // Prefer explicit identity claims from OpenAI/OpenCode sessions.
-            foreach (var claim in new[] { "email", "upn", "preferred_username", "username", "login", "name" })
+            // Prefer explicit email-like identity claims from OpenAI/OpenCode sessions.
+            foreach (var claim in new[] { "email", "upn", "preferred_username" })
+            {
+                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
+                {
+                    var value = valueElement.GetString();
+                    if (IsEmailLike(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+
+            // Fallback to non-email identifiers only when email is unavailable.
+            foreach (var claim in new[] { "username", "login", "name" })
             {
                 if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
                 {
@@ -261,6 +292,11 @@ public partial class SettingsWindow : Window
         }
 
         return null;
+    }
+
+    private static bool IsEmailLike(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
     }
 
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
@@ -1430,6 +1466,10 @@ public partial class SettingsWindow : Window
         AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
         InvertProgressCheck.IsChecked = _preferences.InvertProgressBar;
         InvertCalculationsCheck.IsChecked = _preferences.InvertCalculations;
+        ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
+        ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
+        ThemeCombo.ItemsSource = GetThemeOptions();
+        ThemeCombo.SelectedValue = _preferences.Theme;
         YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString();
         RedThreshold.Text = _preferences.ColorThresholdRed.ToString();
         
@@ -1440,6 +1480,27 @@ public partial class SettingsWindow : Window
         FontBoldCheck.IsChecked = _preferences.FontBold;
         FontItalicCheck.IsChecked = _preferences.FontItalic;
         UpdateFontPreview();
+    }
+
+    private static IReadOnlyList<ThemeOption> GetThemeOptions()
+    {
+        return new List<ThemeOption>
+        {
+            new() { Value = AppTheme.Dark, Label = "Dark" },
+            new() { Value = AppTheme.Light, Label = "Light" },
+            new() { Value = AppTheme.Corporate, Label = "Corporate" },
+            new() { Value = AppTheme.Midnight, Label = "Midnight" },
+            new() { Value = AppTheme.Dracula, Label = "Dracula" },
+            new() { Value = AppTheme.Nord, Label = "Nord" },
+            new() { Value = AppTheme.Monokai, Label = "Monokai" },
+            new() { Value = AppTheme.OneDark, Label = "One Dark" },
+            new() { Value = AppTheme.SolarizedDark, Label = "Solarized Dark" },
+            new() { Value = AppTheme.SolarizedLight, Label = "Solarized Light" },
+            new() { Value = AppTheme.CatppuccinFrappe, Label = "Catppuccin Frappe" },
+            new() { Value = AppTheme.CatppuccinMacchiato, Label = "Catppuccin Macchiato" },
+            new() { Value = AppTheme.CatppuccinMocha, Label = "Catppuccin Mocha" },
+            new() { Value = AppTheme.CatppuccinLatte, Label = "Catppuccin Latte" }
+        };
     }
 
     private void PopulateFontComboBox()
@@ -1846,6 +1907,11 @@ public partial class SettingsWindow : Window
         _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
         _preferences.InvertProgressBar = InvertProgressCheck.IsChecked ?? false;
         _preferences.InvertCalculations = InvertCalculationsCheck.IsChecked ?? false;
+        if (ThemeCombo.SelectedValue is AppTheme appTheme)
+        {
+            _preferences.Theme = appTheme;
+            App.ApplyTheme(appTheme);
+        }
         
         if (int.TryParse(YellowThreshold.Text, out int yellow))
             _preferences.ColorThresholdYellow = yellow;
@@ -1896,6 +1962,15 @@ public partial class SettingsWindow : Window
     private void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
         this.Close();
+    }
+
+    private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ThemeCombo.SelectedValue is AppTheme appTheme)
+        {
+            _preferences.Theme = appTheme;
+            App.ApplyTheme(appTheme);
+        }
     }
 
     private void Window_KeyDown(object sender, KeyEventArgs e)

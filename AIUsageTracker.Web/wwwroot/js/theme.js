@@ -1,6 +1,23 @@
-// Theme Management - Business Edition
+// Theme Management
 const ThemeManager = {
-    themes: ['dark', 'light', 'corporate', 'midnight'],
+    // GENERATED-THEME-LIST-START
+    themes: [
+        'dark',
+        'light',
+        'corporate',
+        'midnight',
+        'dracula',
+        'nord',
+        'monokai',
+        'one-dark',
+        'solarized-dark',
+        'solarized-light',
+        'catppuccin-frappe',
+        'catppuccin-macchiato',
+        'catppuccin-mocha',
+        'catppuccin-latte'
+    ],
+    // GENERATED-THEME-LIST-END
     
     init() {
         const saved = localStorage.getItem('theme');

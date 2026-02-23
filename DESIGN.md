@@ -1202,7 +1202,7 @@ The application follows a strict separation between:
 
 - Slim Settings must not spawn GitHub CLI (`gh`) to resolve account identity. Username lookup should use local auth cache/files and provider API responses.
 - Placeholder identities (`User`, `Unknown`) are non-display values and must not be treated as valid usernames.
-- OpenAI/Codex identity resolution should accept non-email claims (for example `username`, `login`, `name`) in addition to email-based claims.
+- OpenAI/Codex identity resolution should prefer email-like values (`email`, `upn`, profile email) for display quality; non-email claims (for example `username`, `login`, `name`) are fallback-only.
 
 ### Slim UI Ordering and Details Decisions (2026-02)
 
@@ -1215,6 +1215,18 @@ The application follows a strict separation between:
 - Deterministic screenshot fixture data must use fixed timestamps/clock values to avoid baseline drift across runs.
 - CI-rendered screenshots on `windows-2025` are the baseline authority when local and CI rendering differ.
 - When drift is CI-only, sync only the drifted screenshot files from CI artifacts rather than re-baselining all images.
+
+### Slim UI Theme Decisions (2026-02)
+
+- Slim UI supports `AppTheme.Dark` and `AppTheme.Light`, persisted via `AppPreferences.Theme`.
+- Theme changes are applied through shared dynamic resources so Main window, Settings, and dialogs update consistently.
+- Default remains Dark for backward compatibility with existing screenshots and user expectations.
+
+### Slim UI Tray Icon Resilience Decisions (2026-02)
+
+- Tray icon initialization must not depend on a single relative path.
+- Icon loading should resolve from multiple known paths (`AppContext.BaseDirectory`, current working directory, project-relative path) and fall back to a system icon if not found.
+- Missing icon path must not block app startup or tray context menu creation.
 
 ### Database Schema (V2+)
 

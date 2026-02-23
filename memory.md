@@ -2,17 +2,21 @@
 
 ## Current Status
 
-- Branch: `release/v2.2.0` (content targets release `2.2.1`)
-- PR: https://github.com/rygel/AIConsumptionTracker/pull/132
-- Working focus: Slim UI identity/ordering fixes, screenshot baseline stabilization, and release prep
+- Branch: `feature/slim-ui-theming`
+- PR: https://github.com/rygel/AIConsumptionTracker/pull/138
+- Working focus: Slim UI theming, OpenAI/Codex identity polish, installer Start Menu structure, and user manual screenshot coverage
 
 ## Current State Variant
 
-- Variant: **release-2.2.1-ui-identity-ordering-and-baseline-sync**
+- Variant: **post-release-2.2.3-slim-ui-theming-and-ux-polish**
 - UI policy:
   - Provider cards are alphabetically ordered by display name in main groups and Settings.
   - Non-actionable operational detail rows (for example `Primary Window` / `Credits`) are hidden from sub-provider lists and sub-tray selectors.
   - GitHub username lookup in Slim Settings must not spawn GitHub CLI processes.
+  - OpenAI/Codex identity display prefers email-like values when present, with non-email fallbacks.
+  - Slim Settings now includes a persisted light/dark theme selector (`AppTheme`).
+- Tray policy:
+  - Tray icon creation must tolerate varying working directories by resolving `app_icon.ico` from multiple candidate paths and falling back gracefully.
 - Screenshot policy:
   - Headless screenshot checks are authoritative in CI (`windows-2025` runner).
   - Deterministic screenshot mode uses a fixed clock for repeatable rendering.
@@ -20,19 +24,30 @@
 
 ## Recent Commits (Newest First)
 
-- `3b941c0` test(ui): sync providers screenshot baseline
-- `73db1a1` test(ui): freeze deterministic screenshot clock
-- `9a9fccd` test(ui): align baselines with CI renderer
-- `4da8921` fix(ui): disable gh username lookup and refresh baselines
-- `a9c2745` fix(ui): improve codex/copilot identity and ordering
+- `c23726e` feat(ui): add light/dark theme support in Slim settings
+- `2861018` fix(ui): improve identity display and update docs
+- `d00bfdf` chore(release): prepare v2.2.3 (#136)
+- `6cd4c86` fix(ci): accept legacy UI exe in upgrade smoke test (#135)
+- `88892bd` chore(release): prepare v2.2.2 (#134)
 
 ## What Was Updated in This Variant
 
 ### Slim UI Identity and Ordering
 
-- Copilot/OpenAI account identity display now accepts non-email identities and avoids placeholders (`User`, `Unknown`).
+- Copilot/OpenAI account identity display avoids placeholders (`User`, `Unknown`) and now prefers email-style identity for OpenAI/Codex when available.
 - Main window Plans & Quotas and Pay As You Go groups are sorted alphabetically by friendly provider name.
 - Settings provider cards and detail rows are sorted alphabetically for stable scanning.
+
+### Slim UI Theming
+
+- Added `Theme` selection in Settings (Layout tab) backed by `AppPreferences.Theme`.
+- Implemented runtime palette switching in `App.ApplyTheme(AppTheme)` for dark/light resource brushes.
+- Theme preference is loaded at startup and applied globally.
+
+### Installer and Documentation
+
+- Installer Start Menu entries now place app shortcuts in an `Applications` submenu while keeping uninstall at group root.
+- User manual now links/embeds auto-generated screenshots and documents Slim + Web pages.
 
 ### Slim UI Detail Presentation
 
@@ -50,11 +65,13 @@
 - `AIUsageTracker.UI.Slim/MainWindow.xaml.cs`
 - `AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs`
 - `AIUsageTracker.UI.Slim/App.xaml.cs`
+- `AIUsageTracker.UI.Slim/SettingsWindow.xaml`
 - `AIUsageTracker.Infrastructure/Providers/GitHubCopilotProvider.cs`
 - `AIUsageTracker.Infrastructure/Providers/OpenAIProvider.cs`
-- `scripts/verify_screenshot_baseline.ps1`
-- `docs/screenshot_settings_providers_privacy.png`
+- `scripts/setup.iss`
+- `docs/user_manual.md`
 
 ## Known Workspace Note
 
 - Untracked file `nul` exists at repo root. Avoid broad root operations that may touch it.
+- Current working tree includes an uncommitted tray icon resiliency update in `AIUsageTracker.UI.Slim/App.xaml.cs`.

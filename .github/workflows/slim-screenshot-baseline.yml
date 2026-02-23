@@ -8,6 +8,7 @@ on:
       - "scripts/capture_screenshot.ps1"
       - "scripts/generate_screenshots.ps1"
       - "scripts/verify_screenshot_baseline.ps1"
+      - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
   pull_request:
@@ -17,6 +18,7 @@ on:
       - "scripts/capture_screenshot.ps1"
       - "scripts/generate_screenshots.ps1"
       - "scripts/verify_screenshot_baseline.ps1"
+      - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
   workflow_dispatch:
@@ -27,7 +29,7 @@ concurrency:
 
 jobs:
   screenshot-baseline:
-    runs-on: windows-latest
+    runs-on: windows-2025
 
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +55,10 @@ jobs:
 
       - name: Generate Slim UI screenshots (headless)
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\capture_screenshot.ps1 -Configuration Debug -SkipBuild
+        shell: pwsh
+
+      - name: Verify Slim themes render in headless mode
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_slim_theme_smoke.ps1 -Configuration Debug -SkipBuild
         shell: pwsh
 
       - name: Verify screenshot baselines

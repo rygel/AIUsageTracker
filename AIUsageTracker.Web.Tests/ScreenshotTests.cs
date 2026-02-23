@@ -1,5 +1,7 @@
 using Microsoft.Playwright;
 using Microsoft.Playwright.MSTest;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace AIUsageTracker.Web.Tests;
 
@@ -7,7 +9,38 @@ namespace AIUsageTracker.Web.Tests;
 public class ScreenshotTests : PageTest
 {
     private const string BaseUrl = "http://127.0.0.1:5100";
+    private sealed class ThemeCatalog
+    {
+        [JsonPropertyName("themes")]
+        public List<ThemeCatalogEntry> Themes { get; set; } = [];
+    }
+
+    private sealed class ThemeCatalogEntry
+    {
+        [JsonPropertyName("webKey")]
+        public string WebKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("representative")]
+        public bool Representative { get; set; }
+
+        [JsonPropertyName("tokens")]
+        public ThemeTokenEntry? Tokens { get; set; }
+    }
+
+    private sealed class ThemeTokenEntry
+    {
+        [JsonPropertyName("bgPrimary")]
+        public string BgPrimary { get; set; } = string.Empty;
+
+        [JsonPropertyName("accentPrimary")]
+        public string AccentPrimary { get; set; } = string.Empty;
+    }
+
+    private readonly string _projectRoot;
+    private readonly string[] _expectedThemes;
+    private readonly Dictionary<string, (string BgPrimary, string AccentPrimary)> _representativeThemeTokens;
     private readonly string _outputDir;
+    private readonly string _themeOutputDir;
 
     public ScreenshotTests()
     {
@@ -15,8 +48,21 @@ public class ScreenshotTests : PageTest
         var binPath = AppContext.BaseDirectory;
         // bin/Debug/net8.0 is 3 levels deep from Project. Project is 1 level deep from Solution.
         // So we need to go up 4 levels to get to Solution Root.
-        var projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../")); 
-        _outputDir = Path.Combine(projectRoot, "docs");
+        _projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../"));
+        _outputDir = Path.Combine(_projectRoot, "docs");
+        _themeOutputDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "web-theme-smoke");
+
+        var catalog = LoadThemeCatalog(_projectRoot);
+        _expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
+        _representativeThemeTokens = catalog.Themes
+            .Where(t => t.Representative)
+            .Where(t => t.Tokens is not null)
+            .ToDictionary(
+                t => t.WebKey,
+                t => (
+                    t.Tokens!.BgPrimary.Trim().ToLowerInvariant(),
+                    t.Tokens!.AccentPrimary.Trim().ToLowerInvariant()),
+                StringComparer.Ordinal);
         
         Console.WriteLine($"[TEST] Output directory: {_outputDir}");
         
@@ -24,6 +70,72 @@ public class ScreenshotTests : PageTest
         {
             Directory.CreateDirectory(_outputDir);
         }
+
+        if (!Directory.Exists(_themeOutputDir))
+        {
+            Directory.CreateDirectory(_themeOutputDir);
+        }
+    }
+
+    private static ThemeCatalog LoadThemeCatalog(string projectRoot)
+    {
+        var manifestPath = Path.Combine(projectRoot, "design", "theme-catalog.json");
+        if (!File.Exists(manifestPath))
+        {
+            throw new FileNotFoundException("Theme catalog manifest not found.", manifestPath);
+        }
+
+        var json = File.ReadAllText(manifestPath);
+        var catalog = JsonSerializer.Deserialize<ThemeCatalog>(json);
+        if (catalog is null || catalog.Themes.Count == 0)
+        {
+            throw new InvalidOperationException("Theme catalog manifest is empty or invalid.");
+        }
+
+        return catalog;
+    }
+
+    private static double ContrastRatio(string hex1, string hex2)
+    {
+        static (double R, double G, double B) ParseHex(string hex)
+        {
+            var value = hex.Trim();
+            if (value.StartsWith('#'))
+            {
+                value = value[1..];
+            }
+
+            if (value.Length != 6)
+            {
+                throw new InvalidOperationException($"Expected 6-digit hex color, got '{hex}'.");
+            }
+
+            var r = Convert.ToInt32(value[..2], 16) / 255.0;
+            var g = Convert.ToInt32(value.Substring(2, 2), 16) / 255.0;
+            var b = Convert.ToInt32(value.Substring(4, 2), 16) / 255.0;
+            return (r, g, b);
+        }
+
+        static double ToLinear(double channel)
+        {
+            return channel <= 0.03928
+                ? channel / 12.92
+                : Math.Pow((channel + 0.055) / 1.055, 2.4);
+        }
+
+        static double Luminance((double R, double G, double B) rgb)
+        {
+            var r = ToLinear(rgb.R);
+            var g = ToLinear(rgb.G);
+            var b = ToLinear(rgb.B);
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        }
+
+        var l1 = Luminance(ParseHex(hex1));
+        var l2 = Luminance(ParseHex(hex2));
+        var lighter = Math.Max(l1, l2);
+        var darker = Math.Min(l1, l2);
+        return (lighter + 0.05) / (darker + 0.05);
     }
 
     [TestMethod]
@@ -101,6 +213,143 @@ public class ScreenshotTests : PageTest
         await Task.Delay(2000);
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_charts.png"), FullPage = true });
         Console.WriteLine("[TEST] Completed all screenshots.");
+    }
+
+    [TestMethod]
+    public async Task ThemeSelector_AppliesAllThemes()
+    {
+        await Page.SetViewportSizeAsync(1280, 800);
+        await Page.GotoAsync(BaseUrl);
+        await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var availableThemes = await Page.EvaluateAsync<string[]>("""
+            () => Array.from(document.querySelectorAll('#theme-select option')).map(o => o.value)
+            """);
+
+        CollectionAssert.AreEquivalent(_expectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
+
+        foreach (var theme in _expectedThemes)
+        {
+            await Page.EvaluateAsync("""
+                (theme) => {
+                    const select = document.getElementById('theme-select');
+                    if (!select) {
+                        throw new Error('theme-select not found');
+                    }
+
+                    select.value = theme;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                """, theme);
+
+            var appliedTheme = await Page.EvaluateAsync<string>("""
+                () => document.documentElement.getAttribute('data-theme') || ''
+                """);
+            var bgPrimary = await Page.EvaluateAsync<string>("""
+                () => getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim()
+                """);
+
+            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied to data-theme.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(bgPrimary), $"Theme '{theme}' did not resolve --bg-primary.");
+        }
+    }
+
+    [TestMethod]
+    public async Task RepresentativeThemes_RenderDistinctVisualSnapshots()
+    {
+        await Page.SetViewportSizeAsync(1280, 800);
+        await Page.GotoAsync(BaseUrl);
+        await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var representativeThemes = _representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
+        var screenshotPaths = new List<string>();
+
+        foreach (var theme in representativeThemes)
+        {
+            await Page.EvaluateAsync("""
+                (theme) => {
+                    const select = document.getElementById('theme-select');
+                    if (!select) {
+                        throw new Error('theme-select not found');
+                    }
+
+                    select.value = theme;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                """, theme);
+
+            await Task.Delay(300);
+
+            var appliedTheme = await Page.EvaluateAsync<string>("""
+                () => document.documentElement.getAttribute('data-theme') || ''
+                """);
+            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
+
+            var filePath = Path.Combine(_themeOutputDir, $"screenshot_web_theme_{theme}.png");
+            await Page.ScreenshotAsync(new() { Path = filePath, FullPage = true });
+            screenshotPaths.Add(filePath);
+
+            var fileInfo = new FileInfo(filePath);
+            Assert.IsTrue(fileInfo.Exists, $"Screenshot not created for theme '{theme}'.");
+            Assert.IsTrue(fileInfo.Length > 25_000, $"Screenshot too small for theme '{theme}', likely render failure.");
+        }
+
+        var distinctHashes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var path in screenshotPaths)
+        {
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            var bytes = await File.ReadAllBytesAsync(path);
+            var hash = Convert.ToHexString(sha.ComputeHash(bytes));
+            distinctHashes.Add(hash);
+        }
+
+        Assert.AreEqual(screenshotPaths.Count, distinctHashes.Count, "Representative theme screenshots should be visually distinct.");
+    }
+
+    [TestMethod]
+    public async Task RepresentativeThemes_ExposeExpectedCssTokens()
+    {
+        await Page.SetViewportSizeAsync(1280, 800);
+        await Page.GotoAsync(BaseUrl);
+        await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        foreach (var (theme, expectedTokens) in _representativeThemeTokens)
+        {
+            await Page.EvaluateAsync("""
+                (theme) => {
+                    const select = document.getElementById('theme-select');
+                    if (!select) {
+                        throw new Error('theme-select not found');
+                    }
+
+                    select.value = theme;
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                """, theme);
+
+            var appliedTheme = await Page.EvaluateAsync<string>("""
+                () => document.documentElement.getAttribute('data-theme') || ''
+                """);
+            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before CSS token assertions.");
+
+            var tokens = await Page.EvaluateAsync<string[]?>("""
+                () => {
+                    const rootStyle = getComputedStyle(document.documentElement);
+                    const bg = rootStyle.getPropertyValue('--bg-primary').trim().toLowerCase();
+                    const accent = rootStyle.getPropertyValue('--accent-primary').trim().toLowerCase();
+                    const text = rootStyle.getPropertyValue('--text-primary').trim().toLowerCase();
+                    return [bg, accent, text];
+                }
+                """);
+
+            Assert.IsNotNull(tokens, $"Theme '{theme}' token payload should not be null.");
+            Assert.AreEqual(3, tokens.Length, $"Theme '{theme}' should return three token values.");
+            Assert.AreEqual(expectedTokens.BgPrimary, tokens[0], $"Theme '{theme}' unexpected --bg-primary.");
+            Assert.AreEqual(expectedTokens.AccentPrimary, tokens[1], $"Theme '{theme}' unexpected --accent-primary.");
+
+            var contrast = ContrastRatio(tokens[2], tokens[0]);
+            Assert.IsTrue(contrast >= 4.5, $"Theme '{theme}' has insufficient text/background contrast ({contrast:F2}).");
+        }
     }
 }
 

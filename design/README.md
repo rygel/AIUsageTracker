@@ -43,6 +43,13 @@ Feature documentation for keyboard shortcuts and theme system:
 - Theme persistence and toggle
 - Color specifications for both themes
 
+### [theme-catalog.json](theme-catalog.json)
+Single source of truth for Slim/Web theme metadata:
+- Theme enum names, display labels, and web keys
+- Representative token expectations for UI tests
+- Used by CI parity checks to prevent catalog drift
+- Synced into Web selectors/lists by `scripts/sync-theme-catalog.ps1`
+
 ## Quick Reference
 
 ### Architecture Overview

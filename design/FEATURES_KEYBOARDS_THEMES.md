@@ -21,9 +21,34 @@ Added two new features to AI Consumption Tracker:
 - Escape and F2 work without modifiers (standard Windows patterns)
 - Each shortcut calls existing event handlers to maintain code reuse
 
-### 2. Theme System (Dark/Light)
+### 2. Theme System (Slim + Web parity)
 
-Added a complete theme system with two modes:
+Theme support is aligned across Slim UI and Web UI with a shared catalog.
+
+#### Available Themes
+
+| Theme | Category |
+|-------|----------|
+| Dark | Core |
+| Light | Core |
+| Corporate | Core |
+| Midnight | Core |
+| Dracula | VS Code popular |
+| Nord | VS Code popular |
+| Monokai | VS Code popular |
+| One Dark | VS Code popular |
+| Solarized Dark | VS Code popular |
+| Solarized Light | Bright |
+| Catppuccin Latte | Pastel (official) |
+| Catppuccin Frappe | Pastel (official) |
+| Catppuccin Macchiato | Pastel (official) |
+| Catppuccin Mocha | Pastel (official) |
+
+Catppuccin values are mapped from the official palette: `https://catppuccin.com/palette/`.
+
+Theme metadata is centralized in `design/theme-catalog.json` (enum names, labels, web keys, representative token checks).
+CI contract validation uses this manifest to keep Slim and Web theme catalogs aligned.
+Web-generated lists are synced from this manifest via `scripts/sync-theme-catalog.ps1`.
 
 #### Dark Theme (Default)
 - Window background: `#1E1E1E` (dark gray)
@@ -49,6 +74,12 @@ Added a complete theme system with two modes:
 - Automatically saved to preferences.json
 - Applied on startup and when toggled
 
+**Runtime Behavior:**
+- Startup applies a safe default theme first, then loads saved preferences asynchronously.
+- Theme changes are applied through shared dynamic resources.
+- Slim selector uses user-friendly labels (for example `One Dark`, `Catppuccin Macchiato`).
+- Web selector and JS allowlist use matching theme keys.
+
 ## Files Modified
 
 ### Core Models
@@ -71,9 +102,25 @@ Added a complete theme system with two modes:
   - Updated `ApplyPreferences()` to call `ApplyTheme()`
 
 - `AIUsageTracker.UI.Slim/App.xaml`
-  - Simplified scrollbar styles (removed complex templates)
-  - Added `LightScrollBar` style for light theme
-  - Updated dark theme scrollbar style
+  - Global themed scrollbar style using dynamic resources
+  - Improved button visuals for light themes (border + hover/pressed)
+
+- `AIUsageTracker.UI.Slim/App.xaml.cs`
+  - Central `ApplyTheme(AppTheme)` switch with full theme catalog
+  - Non-blocking preference load at startup with safe fallback
+  - Frozen-brush-safe resource updates
+
+- `AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs`
+  - Friendly theme labels with enum-backed selection
+
+- `AIUsageTracker.Web/wwwroot/css/themes.css`
+  - Matching theme tokens for the full catalog
+
+- `AIUsageTracker.Web/wwwroot/js/theme.js`
+  - Expanded supported theme key list
+
+- `AIUsageTracker.Web/Pages/Shared/_Layout.cshtml`
+  - Expanded theme dropdown options
 
 ## User Experience Improvements
 
@@ -139,7 +186,7 @@ ButtonBg = Color.FromRgb(187, 187, 187);  // #BBBBBB
 - Minimal code duplication
 
 ### Performance
-- Theme application is instantaneous (no async operations)
+- Theme application is instantaneous; preference loading is non-blocking at startup
 - Keyboard shortcuts use existing synchronous handlers
 - No performance impact on normal usage
 
@@ -147,10 +194,10 @@ ButtonBg = Color.FromRgb(187, 187, 187);  // #BBBBBB
 
 Potential improvements for theme system:
 1. **Auto theme detection**: Follow system theme (Windows settings)
-2. **Custom themes**: Allow user-defined accent colors
+2. **Shared theme manifest**: Single source-of-truth tokens for Slim + Web
 3. **High contrast mode**: Enhanced accessibility option
-4. **Color themes**: Blue, Green, Purple, etc. (beyond light/dark)
-5. **Theme per provider**: Individual provider theme preferences
+4. **Custom themes**: Allow user-defined accent colors
+5. **Theme previews**: Small live swatches in theme selectors
 
 Potential improvements for keyboard shortcuts:
 1. **Customizable shortcuts**: Allow users to remap keys

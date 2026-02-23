@@ -22,6 +22,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -48,6 +50,18 @@ jobs:
 
     - name: Validate test quarantine entries
       run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
+      shell: pwsh
+
+    - name: Verify theme contract parity (Slim + Web)
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-contract.ps1
+      shell: pwsh
+
+    - name: Verify generated Web theme files are in sync
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-theme-catalog.ps1 -Check
+      shell: pwsh
+
+    - name: Ensure theme manifest updated when theme files change
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-manifest-change.ps1
       shell: pwsh
 
     - name: Verify Formatting
@@ -235,6 +249,14 @@ jobs:
         if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
       shell: pwsh
 
+    - name: Upload Web representative theme screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: web-theme-snapshots
+        path: |
+          ${{ env.TEMP }}\AIUsageTracker\web-theme-smoke\*.png
+
   test:
     needs: [prepare, core-tests, agent-tests, web-tests]
     if: always()
@@ -252,6 +274,17 @@ jobs:
         if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success" -or $web -ne "success") {
           throw "One or more required jobs failed."
         }
+
+    - name: Post theme matrix status comment
+      if: always() && github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: theme-matrix
+        message: |
+          ## Theme Matrix Status
+          - Manifest parity + sync checks (`Run Tests`/prepare): `${{ needs.prepare.result == 'success' && 'passed' || 'failed' }}`
+          - Web theme runtime assertions (`Run Tests`/web-tests): `${{ needs.web-tests.result == 'success' && 'passed' || 'failed' }}`
+          - Slim all-theme smoke check: see `Slim Screenshot Baseline` workflow (`verify_slim_theme_smoke.ps1`).
 
 
 
