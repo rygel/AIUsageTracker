@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? _pollingTimer;
     private string? _agentContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
+    private readonly DispatcherTimer _alwaysOnTopTimer;
     private UpdateInfo? _latestUpdate;
     private bool _preferencesLoaded;
     internal Func<(Window Dialog, Func<bool> HasChanges)> SettingsDialogFactory { get; set; } = CreateDefaultSettingsDialog;
@@ -71,6 +72,10 @@ public partial class MainWindow : Window
         {
             Interval = TimeSpan.FromMinutes(15)
         };
+        _alwaysOnTopTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
 
         if (skipUiInitialization)
         {
@@ -79,12 +84,15 @@ public partial class MainWindow : Window
 
         _updateCheckTimer.Tick += async (s, e) => await CheckForUpdatesAsync();
         _updateCheckTimer.Start();
+        _alwaysOnTopTimer.Tick += (s, e) => EnsureAlwaysOnTop();
+        _alwaysOnTopTimer.Start();
 
         App.PrivacyChanged += OnPrivacyChanged;
         Closed += (s, e) =>
         {
             App.PrivacyChanged -= OnPrivacyChanged;
             _updateCheckTimer.Stop();
+            _alwaysOnTopTimer.Stop();
         };
         UpdatePrivacyButtonState();
 
