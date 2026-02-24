@@ -791,7 +791,7 @@ public partial class App : Application
             ? new System.Drawing.Icon(trayIconPath)
             : System.Drawing.SystemIcons.Application;
 
-        _trayIcon = new TaskbarIcon
+        var mainTrayIcon = new TaskbarIcon
         {
             Icon = trayIcon,
             ToolTipText = "AI Usage Tracker",
@@ -801,6 +801,10 @@ public partial class App : Application
                 ShowMainWindow();
             })
         };
+
+        mainTrayIcon.TrayLeftMouseDown += (s, e) => ShowMainWindow();
+        mainTrayIcon.TrayMouseDoubleClick += (s, e) => ShowMainWindow();
+        _trayIcon = mainTrayIcon;
 
         if (!File.Exists(trayIconPath))
         {

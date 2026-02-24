@@ -27,6 +27,8 @@ public class AppPreferences
     public double? WindowTop { get; set; }
     public bool StayOpen { get; set; } = false;
     public bool AlwaysOnTop { get; set; } = true;
+    public bool AggressiveAlwaysOnTop { get; set; } = false;
+    public bool ForceWin32Topmost { get; set; } = false;
     public bool CompactMode { get; set; } = true;
     public int ColorThresholdYellow { get; set; } = 60;
     public int ColorThresholdRed { get; set; } = 80;

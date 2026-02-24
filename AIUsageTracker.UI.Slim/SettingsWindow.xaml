@@ -296,6 +296,22 @@
                                       Margin="0,8" Foreground="{DynamicResource SecondaryText}"
                                       Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
+                            <CheckBox x:Name="AggressiveTopmostCheck"
+                                      Content="Aggressive keep-on-top (may steal focus)"
+                                      Margin="0,4,0,8"
+                                      Foreground="{DynamicResource SecondaryText}"
+                                      ToolTip="When enabled, the app can reassert topmost more aggressively after losing activation."
+                                      Checked="LayoutSetting_Changed"
+                                      Unchecked="LayoutSetting_Changed"/>
+
+                            <CheckBox x:Name="ForceWin32TopmostCheck"
+                                      Content="Force Win32 topmost (stronger, no focus)"
+                                      Margin="0,0,0,8"
+                                      Foreground="{DynamicResource SecondaryText}"
+                                      ToolTip="Uses native SetWindowPos topmost reassertion without activating the window."
+                                      Checked="LayoutSetting_Changed"
+                                      Unchecked="LayoutSetting_Changed"/>
+
                             <Grid Margin="0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto"/>

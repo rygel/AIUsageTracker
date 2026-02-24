@@ -1523,6 +1523,8 @@ public partial class SettingsWindow : Window
     private void PopulateLayoutSettings()
     {
         AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
+        AggressiveTopmostCheck.IsChecked = _preferences.AggressiveAlwaysOnTop;
+        ForceWin32TopmostCheck.IsChecked = _preferences.ForceWin32Topmost;
         InvertProgressCheck.IsChecked = _preferences.InvertProgressBar;
         InvertCalculationsCheck.IsChecked = _preferences.InvertCalculations;
         ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
@@ -2003,6 +2005,8 @@ public partial class SettingsWindow : Window
 
             _hasPendingAutoSave = false;
             _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
+            _preferences.AggressiveAlwaysOnTop = AggressiveTopmostCheck.IsChecked ?? false;
+            _preferences.ForceWin32Topmost = ForceWin32TopmostCheck.IsChecked ?? false;
             _preferences.InvertProgressBar = InvertProgressCheck.IsChecked ?? false;
             _preferences.InvertCalculations = InvertCalculationsCheck.IsChecked ?? false;
             if (ThemeCombo.SelectedValue is AppTheme appTheme)

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
@@ -49,10 +50,43 @@ public partial class MainWindow : Window
     private string? _agentContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
     private readonly DispatcherTimer _alwaysOnTopTimer;
+    private HwndSource? _windowSource;
     private UpdateInfo? _latestUpdate;
     private bool _preferencesLoaded;
+    private int _topmostRecoveryGeneration;
+    private bool _isSettingsDialogOpen;
     internal Func<(Window Dialog, Func<bool> HasChanges)> SettingsDialogFactory { get; set; } = CreateDefaultSettingsDialog;
     internal Func<Window, bool?> ShowOwnedDialog { get; set; } = static dialog => dialog.ShowDialog();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern int GetWindowTextLength(IntPtr hWnd);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int x,
+        int y,
+        int cx,
+        int cy,
+        uint uFlags);
+
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private static readonly IntPtr HwndNoTopmost = new(-2);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoOwnerZOrder = 0x0200;
 
     public MainWindow()
         : this(skipUiInitialization: false)
@@ -87,12 +121,20 @@ public partial class MainWindow : Window
         _alwaysOnTopTimer.Tick += (s, e) => EnsureAlwaysOnTop();
         _alwaysOnTopTimer.Start();
 
+        SourceInitialized += OnSourceInitialized;
         App.PrivacyChanged += OnPrivacyChanged;
         Closed += (s, e) =>
         {
             App.PrivacyChanged -= OnPrivacyChanged;
             _updateCheckTimer.Stop();
             _alwaysOnTopTimer.Stop();
+            SourceInitialized -= OnSourceInitialized;
+
+            if (_windowSource is not null)
+            {
+                _windowSource.RemoveHook(WndProc);
+                _windowSource = null;
+            }
         };
         UpdatePrivacyButtonState();
 
@@ -113,13 +155,33 @@ public partial class MainWindow : Window
         // Track window position changes
         LocationChanged += async (s, e) => await SaveWindowPositionAsync();
         SizeChanged += async (s, e) => await SaveWindowPositionAsync();
-        Activated += (s, e) => EnsureAlwaysOnTop();
+        Activated += (s, e) =>
+        {
+            _topmostRecoveryGeneration++;
+            EnsureAlwaysOnTop();
+            LogWindowFocusTransition("Activated");
+        };
+        Deactivated += (s, e) =>
+        {
+            if (_isSettingsDialogOpen)
+            {
+                LogWindowFocusTransition("Deactivated (settings open)");
+                return;
+            }
+
+            var generation = ++_topmostRecoveryGeneration;
+            ScheduleTopmostRecovery(generation, TimeSpan.FromMilliseconds(250));
+            ScheduleTopmostRecovery(generation, TimeSpan.FromSeconds(2));
+            LogWindowFocusTransition("Deactivated");
+        };
         StateChanged += (s, e) =>
         {
             if (WindowState == WindowState.Normal)
             {
                 EnsureAlwaysOnTop();
             }
+
+            LogWindowFocusTransition($"StateChanged -> {WindowState}");
         };
         IsVisibleChanged += (s, e) =>
         {
@@ -127,7 +189,81 @@ public partial class MainWindow : Window
             {
                 EnsureAlwaysOnTop();
             }
+
+            LogWindowFocusTransition($"IsVisibleChanged -> {IsVisible}");
         };
+    }
+
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        _windowSource = PresentationSource.FromVisual(this) as HwndSource;
+        _windowSource?.AddHook(WndProc);
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_ACTIVATEAPP = 0x001C;
+
+        if (msg == WM_ACTIVATEAPP)
+        {
+            var isActive = wParam != IntPtr.Zero;
+            LogWindowFocusTransition($"WM_ACTIVATEAPP -> {(isActive ? "active" : "inactive")}");
+        }
+
+        return IntPtr.Zero;
+    }
+
+    private void LogWindowFocusTransition(string eventName)
+    {
+        var foregroundSummary = GetForegroundWindowSummary();
+        var message = $"[WINDOW] evt={eventName} fg={foregroundSummary} vis={IsVisible} state={WindowState} top={Topmost}";
+        Debug.WriteLine(message);
+        Console.WriteLine(message);
+    }
+
+    private static string GetForegroundWindowSummary()
+    {
+        var hwnd = GetForegroundWindow();
+        if (hwnd == IntPtr.Zero)
+        {
+            return "none";
+        }
+
+        var titleLength = GetWindowTextLength(hwnd);
+        var builder = new StringBuilder(Math.Max(titleLength + 1, 1));
+        _ = GetWindowText(hwnd, builder, builder.Capacity);
+
+        _ = GetWindowThreadProcessId(hwnd, out var processId);
+        var processName = "unknown";
+        if (processId > 0)
+        {
+            try
+            {
+                processName = Process.GetProcessById((int)processId).ProcessName;
+            }
+            catch
+            {
+                processName = "unavailable";
+            }
+        }
+
+        var title = builder
+            .ToString()
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = "<no-title>";
+        }
+
+        if (title.Length > 80)
+        {
+            title = title[..80] + "...";
+        }
+
+        return $"pid={processId} proc={processName} title={title}";
     }
 
     private void PositionWindowNearTray()
@@ -338,7 +474,7 @@ public partial class MainWindow : Window
 
     private void EnsureAlwaysOnTop()
     {
-        if (!_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
+        if (_isSettingsDialogOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
         {
             return;
         }
@@ -347,11 +483,82 @@ public partial class MainWindow : Window
         {
             Topmost = true;
         }
+
+        ApplyWin32Topmost(noActivate: true);
     }
 
     private void ApplyTopmostState(bool alwaysOnTop)
     {
         Topmost = alwaysOnTop;
+
+        if (_preferences.ForceWin32Topmost)
+        {
+            ApplyWin32Topmost(noActivate: true, alwaysOnTop);
+        }
+    }
+
+    private void ScheduleTopmostRecovery(int generation, TimeSpan delay)
+    {
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(delay).ConfigureAwait(false);
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (generation != _topmostRecoveryGeneration)
+                {
+                    return;
+                }
+
+                ReassertTopmostWithoutFocus();
+                LogWindowFocusTransition($"TopmostRecovery +{delay.TotalMilliseconds:0}ms");
+            }, DispatcherPriority.Normal);
+        });
+    }
+
+    private void ReassertTopmostWithoutFocus()
+    {
+        if (_isSettingsDialogOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
+        if (!Topmost)
+        {
+            Topmost = true;
+            ApplyWin32Topmost(noActivate: true);
+            return;
+        }
+
+        if (_preferences.AggressiveAlwaysOnTop)
+        {
+            Topmost = false;
+            Topmost = true;
+        }
+
+        ApplyWin32Topmost(noActivate: true);
+    }
+
+    private void ApplyWin32Topmost(bool noActivate, bool alwaysOnTop = true)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var flags = SwpNoMove | SwpNoSize | SwpNoOwnerZOrder;
+        if (noActivate)
+        {
+            flags |= SwpNoActivate;
+        }
+
+        var insertAfter = alwaysOnTop ? HwndTopmost : HwndNoTopmost;
+        var applied = SetWindowPos(handle, insertAfter, 0, 0, 0, 0, flags);
+        if (!applied)
+        {
+            var win32Error = Marshal.GetLastWin32Error();
+            Debug.WriteLine($"[WINDOW] SetWindowPos failed err={win32Error} alwaysOnTop={alwaysOnTop} noActivate={noActivate}");
+        }
     }
 
     public void ShowAndActivate()
@@ -1852,7 +2059,17 @@ public partial class MainWindow : Window
             settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
         }
 
-        _ = ShowOwnedDialog(settingsWindow);
+        _isSettingsDialogOpen = true;
+
+        try
+        {
+            _ = ShowOwnedDialog(settingsWindow);
+        }
+        finally
+        {
+            _isSettingsDialogOpen = false;
+            EnsureAlwaysOnTop();
+        }
 
         if (settingsDialog.HasChanges())
         {
