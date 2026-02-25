@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## [2.2.10] - 2026-02-25
+## [2.2.11] - 2026-02-25
 
 ### Fixed
 - **Slim UI Tooltips**: Tooltips no longer disappear behind the main window when always-on-top mode is enabled.
