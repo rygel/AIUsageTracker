@@ -55,6 +55,7 @@ public partial class MainWindow : Window
     private bool _preferencesLoaded;
     private int _topmostRecoveryGeneration;
     private bool _isSettingsDialogOpen;
+    private bool _isTooltipOpen;
     internal Func<(Window Dialog, Func<bool> HasChanges)> SettingsDialogFactory { get; set; } = CreateDefaultSettingsDialog;
     internal Func<Window, bool?> ShowOwnedDialog { get; set; } = static dialog => dialog.ShowDialog();
 
@@ -474,7 +475,7 @@ public partial class MainWindow : Window
 
     private void EnsureAlwaysOnTop()
     {
-        if (_isSettingsDialogOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
+        if (_isSettingsDialogOpen || _isTooltipOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
         {
             return;
         }
@@ -517,7 +518,7 @@ public partial class MainWindow : Window
 
     private void ReassertTopmostWithoutFocus()
     {
-        if (_isSettingsDialogOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
+        if (_isSettingsDialogOpen || _isTooltipOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
         {
             return;
         }
@@ -1392,11 +1393,60 @@ public partial class MainWindow : Window
             {
                 tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detail.Used}");
             }
-            grid.ToolTip = tooltipBuilder.ToString().Trim();
+            
+            var toolTip = new ToolTip
+            {
+                Content = tooltipBuilder.ToString().Trim(),
+                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
+                PlacementTarget = grid
+            };
+            
+            // Hook into the tooltip opened event to ensure it stays on top
+            toolTip.Opened += (s, e) =>
+            {
+                _isTooltipOpen = true;
+                if (s is ToolTip tip && tip.PlacementTarget != null)
+                {
+                    // Force the tooltip window to be topmost when parent is topmost
+                    var tooltipWindow = Window.GetWindow(tip);
+                    if (tooltipWindow != null && this.Topmost)
+                    {
+                        tooltipWindow.Topmost = true;
+                    }
+                }
+            };
+            toolTip.Closed += (s, e) => _isTooltipOpen = false;
+            
+            grid.ToolTip = toolTip;
+            ToolTipService.SetInitialShowDelay(grid, 100);
+            ToolTipService.SetShowDuration(grid, 15000);
         }
         else if (!string.IsNullOrEmpty(usage.AuthSource))
         {
-            grid.ToolTip = $"{friendlyName}\nSource: {usage.AuthSource}";
+            var toolTip = new ToolTip
+            {
+                Content = $"{friendlyName}\nSource: {usage.AuthSource}",
+                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
+                PlacementTarget = grid
+            };
+            
+            toolTip.Opened += (s, e) =>
+            {
+                _isTooltipOpen = true;
+                if (s is ToolTip tip && tip.PlacementTarget != null)
+                {
+                    var tooltipWindow = Window.GetWindow(tip);
+                    if (tooltipWindow != null && this.Topmost)
+                    {
+                        tooltipWindow.Topmost = true;
+                    }
+                }
+            };
+            toolTip.Closed += (s, e) => _isTooltipOpen = false;
+            
+            grid.ToolTip = toolTip;
+            ToolTipService.SetInitialShowDelay(grid, 100);
+            ToolTipService.SetShowDuration(grid, 15000);
         }
 
         container.Children.Add(grid);
@@ -1998,9 +2048,51 @@ public partial class MainWindow : Window
             : $"Last update: {_lastAgentUpdate:HH:mm:ss}";
 
         if (StatusLed != null)
-            StatusLed.ToolTip = tooltipText;
+        {
+            var ledToolTip = new ToolTip
+            {
+                Content = tooltipText,
+                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
+                PlacementTarget = StatusLed
+            };
+            ledToolTip.Opened += (s, e) =>
+            {
+                _isTooltipOpen = true;
+                if (s is ToolTip tip && tip.PlacementTarget != null)
+                {
+                    var tooltipWindow = Window.GetWindow(tip);
+                    if (tooltipWindow != null && this.Topmost)
+                    {
+                        tooltipWindow.Topmost = true;
+                    }
+                }
+            };
+            ledToolTip.Closed += (s, e) => _isTooltipOpen = false;
+            StatusLed.ToolTip = ledToolTip;
+        }
         if (StatusText != null)
-            StatusText.ToolTip = tooltipText;
+        {
+            var textToolTip = new ToolTip
+            {
+                Content = tooltipText,
+                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
+                PlacementTarget = StatusText
+            };
+            textToolTip.Opened += (s, e) =>
+            {
+                _isTooltipOpen = true;
+                if (s is ToolTip tip && tip.PlacementTarget != null)
+                {
+                    var tooltipWindow = Window.GetWindow(tip);
+                    if (tooltipWindow != null && this.Topmost)
+                    {
+                        tooltipWindow.Topmost = true;
+                    }
+                }
+            };
+            textToolTip.Closed += (s, e) => _isTooltipOpen = false;
+            StatusText.ToolTip = textToolTip;
+        }
 
         var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
         Debug.WriteLine($"[{timestamp}] [{type}] {message}");

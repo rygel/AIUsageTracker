@@ -255,12 +255,13 @@ public class CodexProvider : IProviderService
         (string? Label, double? UsedPercent, double? ResetAfterSeconds) sparkWindow,
         JsonElement root)
     {
+        var primaryRemaining = Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0);
         var details = new List<ProviderUsageDetail>
         {
             new()
             {
                 Name = "5-hour quota",
-                Used = $"{primaryUsedPercent:F0}% used",
+                Used = $"{primaryRemaining:F0}% remaining ({primaryUsedPercent:F0}% used)",
                 Description = FormatResetDescription(primaryResetSeconds),
                 NextResetTime = ResolveDetailResetTime(primaryResetSeconds)
             }
@@ -268,10 +269,11 @@ public class CodexProvider : IProviderService
 
         if (secondaryUsedPercent.HasValue)
         {
+            var secondaryRemaining = Math.Clamp(100.0 - secondaryUsedPercent.Value, 0.0, 100.0);
             details.Add(new ProviderUsageDetail
             {
                 Name = "Weekly quota",
-                Used = $"{secondaryUsedPercent.Value:F0}% used",
+                Used = $"{secondaryRemaining:F0}% remaining ({secondaryUsedPercent.Value:F0}% used)",
                 Description = FormatResetDescription(secondaryResetSeconds),
                 NextResetTime = ResolveDetailResetTime(secondaryResetSeconds)
             });
@@ -279,10 +281,11 @@ public class CodexProvider : IProviderService
 
         if (sparkWindow.UsedPercent.HasValue)
         {
+            var sparkRemaining = Math.Clamp(100.0 - sparkWindow.UsedPercent.Value, 0.0, 100.0);
             details.Add(new ProviderUsageDetail
             {
                 Name = $"Spark ({sparkWindow.Label ?? "window"})",
-                Used = $"{sparkWindow.UsedPercent.Value:F0}% used",
+                Used = $"{sparkRemaining:F0}% remaining ({sparkWindow.UsedPercent.Value:F0}% used)",
                 Description = FormatResetDescription(sparkWindow.ResetAfterSeconds),
                 NextResetTime = ResolveDetailResetTime(sparkWindow.ResetAfterSeconds)
             });
