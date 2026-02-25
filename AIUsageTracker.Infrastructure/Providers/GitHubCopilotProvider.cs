@@ -49,11 +49,6 @@ public class GitHubCopilotProvider : IProviderService
                 await PopulateProfileAndCopilotDataAsync(token, response, state);
             }
 
-            if (!state.HasCopilotQuotaData)
-            {
-                await PopulateRateLimitFallbackAsync(token, state);
-            }
-
             await PopulateUsernameFallbackAsync(state);
 
             if (!response.IsSuccessStatusCode)
@@ -225,45 +220,6 @@ public class GitHubCopilotProvider : IProviderService
         }
     }
 
-    private async Task PopulateRateLimitFallbackAsync(string token, CopilotUsageState state)
-    {
-        try
-        {
-            using var rateRequest = CreateBearerRequest("https://api.github.com/rate_limit", token);
-            using var rateResponse = await _httpClient.SendAsync(rateRequest);
-            if (!rateResponse.IsSuccessStatusCode)
-            {
-                return;
-            }
-
-            var rateJson = await rateResponse.Content.ReadAsStringAsync();
-            using var rateDoc = System.Text.Json.JsonDocument.Parse(rateJson);
-            if (rateDoc.RootElement.TryGetProperty("resources", out var res) &&
-                res.TryGetProperty("core", out var core))
-            {
-                var limit = core.GetProperty("limit").GetInt32();
-                var remaining = core.GetProperty("remaining").GetInt32();
-                var used = Math.Max(0, limit - remaining);
-
-                state.HasRateLimitData = true;
-                state.CostLimit = limit;
-                state.CostUsed = used;
-                state.Percentage = UsageMath.CalculateRemainingPercent(used, limit);
-
-                if (core.TryGetProperty("reset", out var resetProp) &&
-                    resetProp.ValueKind == System.Text.Json.JsonValueKind.Number &&
-                    resetProp.TryGetInt64(out var resetEpochSeconds))
-                {
-                    state.ResetTime = DateTimeOffset.FromUnixTimeSeconds(resetEpochSeconds).LocalDateTime;
-                }
-            }
-        }
-        catch
-        {
-            // Ignore fallback rate limit fetch errors.
-        }
-    }
-
     private ProviderUsage BuildUsageResult(CopilotUsageState state)
     {
         return new ProviderUsage
@@ -289,17 +245,6 @@ public class GitHubCopilotProvider : IProviderService
         if (state.HasCopilotQuotaData)
         {
             var description = $"Premium Requests: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
-            if (!string.IsNullOrEmpty(state.PlanName))
-            {
-                description += $" ({state.PlanName})";
-            }
-
-            return description;
-        }
-
-        if (state.HasRateLimitData)
-        {
-            var description = $"API Rate Limit: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
             if (!string.IsNullOrEmpty(state.PlanName))
             {
                 description += $" ({state.PlanName})";
@@ -379,7 +324,6 @@ public class GitHubCopilotProvider : IProviderService
         public double CostUsed { get; set; }
         public double CostLimit { get; set; }
         public bool HasCopilotQuotaData { get; set; }
-        public bool HasRateLimitData { get; set; }
     }
 }
 
