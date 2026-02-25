@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## [2.2.9] - 2026-02-24
+
+### Added
+- Slim Settings now includes stronger always-on-top controls with optional aggressive reassertion and a native Win32 topmost mode for systems where standard WPF topmost is not enough.
+
+### Changed
+- Tray icon interactions are more convenient: left-click and double-click now both reopen the main dashboard window.
+
+### Fixed
+- Improved always-on-top recovery in Slim UI by reapplying native z-order after deactivation and by running the recovery path with higher UI priority.
+- Topmost recovery is now suppressed while the Settings dialog is open, preventing the dashboard from fighting the modal settings window.
+
 ## [2.2.8] - 2026-02-23
 
 ### Changed
