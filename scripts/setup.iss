@@ -84,7 +84,7 @@ CloseApplications=yes
 DisableDirPage=auto
 DirExistsWarning=no
 SetupIconFile=..\AIUsageTracker.UI.Slim\Assets\app_icon.ico
-UninstallDisplayIcon={app}\app_icon.ico
+UninstallDisplayIcon={app}\AIUsageTracker.exe
 PrivilegesRequired=lowest
 
 #if MyAppArch == "x64"

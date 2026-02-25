@@ -9,7 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon></ApplicationIcon>
+    <ApplicationIcon>Assets\app_icon.ico</ApplicationIcon>
     <AssemblyName>AIUsageTracker</AssemblyName>
     <RootNamespace>AIUsageTracker.UI.Slim</RootNamespace>
   </PropertyGroup>
