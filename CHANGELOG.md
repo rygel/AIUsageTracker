@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [2.2.10] - 2026-02-25
+
 ### Fixed
 - **Slim UI Tooltips**: Tooltips no longer disappear behind the main window when always-on-top mode is enabled.
 - **GitHub Copilot Reset Times**: Removed misleading fallback to API rate limits. Now displays only the accurate monthly quota reset date from Copilot's official endpoint.
