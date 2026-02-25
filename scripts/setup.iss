@@ -13,6 +13,7 @@
 [Code]
 var
   RestartApplications: Boolean;
+  DeleteDatabase: Boolean;
 
 function InitializeSetup(): Boolean;
 var
@@ -63,6 +64,51 @@ begin
   // Always offer launch option for interactive installs.
   // With postinstall + default checked, /RESTARTAPPLICATIONS flow still relaunches.
   Result := True;
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  DatabasePath: String;
+  DatabaseExists: Boolean;
+begin
+  Result := True;
+  DeleteDatabase := False;
+  
+  // Check if database exists
+  DatabasePath := ExpandConstant('{localappdata}\AIUsageTracker\Agent');
+  DatabaseExists := DirExists(DatabasePath);
+  
+  if DatabaseExists and not UninstallSilent then
+  begin
+    if MsgBox('Do you want to delete your AI Usage Tracker database? This contains all your usage history and settings.' + #13#10#13#10 + 
+              'Location: ' + DatabasePath + #13#10#13#10 + 
+              'Click Yes to delete the database, or No to keep it for future use.', 
+              mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      DeleteDatabase := True;
+    end;
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DatabasePath: String;
+begin
+  if (CurUninstallStep = usPostUninstall) and DeleteDatabase then
+  begin
+    DatabasePath := ExpandConstant('{localappdata}\AIUsageTracker\Agent');
+    if DirExists(DatabasePath) then
+    begin
+      DelTree(DatabasePath, True, True, True);
+    end;
+    
+    // Also try to remove the parent directory if empty
+    DatabasePath := ExpandConstant('{localappdata}\AIUsageTracker');
+    if DirExists(DatabasePath) then
+    begin
+      RemoveDir(DatabasePath);
+    end;
+  end;
 end;
 
 [Setup]
