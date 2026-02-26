@@ -1,6 +1,6 @@
 # <img src="AIUsageTracker.Web/wwwroot/favicon.png" width="32" height="32" valign="middle"> AI Usage Tracker
 
-![Version](https://img.shields.io/badge/version-2.2.13-orange)
+![Version](https://img.shields.io/badge/version-2.2.14-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
@@ -21,7 +21,7 @@ If you want to support me and are interested in different AI model providers, yo
 - [User Manual](docs/user_manual.md)
 - [CLI Reference](docs/cli_documentation.md)
 - [Architecture & Philosophy](ARCHITECTURE.md)
-- [Agent Guidelines](AGENTS.md)
+- [Monitor Guidelines](MONITORS.md)
 
 ### Community
 Join the discussion on our [Discord Server](https://discord.gg/AZtNQtWuJA).

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## [2.2.14] - 2026-02-26
+
+### Fixed
+- Synthetic usage refresh now uses the real quota payload (`subscription.limit` / `subscription.requests`) and correctly tracks live values instead of stale zero-usage snapshots.
+- Manual and key-scan refresh paths now bypass provider circuit-breaker backoff, so recovered providers (including Synthetic) refresh immediately.
+- Added per-provider timeout handling in refresh execution to prevent slow providers from stalling the full refresh cycle.
+
 ## [2.2.13] - 2026-02-26
 
 ### Fixed
@@ -26,14 +33,14 @@
 
 ### Changed
 - **Data Directory Structure**: Restructured data storage to use a flat directory layout. All data files (database, preferences, monitor info, logs) are now stored directly in `%LOCALAPPDATA%\AIUsageTracker\` instead of subdirectories. This makes backups and data management easier.
-- **Monitor Info File**: Removed deprecated `agent.json` file. Monitor information is now stored only in `monitor.json`. This simplifies the data structure by having a single source of truth.
+- **Monitor Info File**: Removed deprecated `monitor.json` file. Monitor information is now stored only in `monitor.json`. This simplifies the data structure by having a single source of truth.
 
 ### Added
 - **Uninstaller Database Option**: During uninstall, you can now choose whether to delete your AI Usage Tracker database (containing usage history and settings) or keep it for future use.
 
 ### Changed
-- **Data Directory Structure**: Restructured data storage to use a flat directory layout. All data files (database, preferences, agent info, logs) are now stored directly in `%LOCALAPPDATA%\AIUsageTracker\` instead of subdirectories. This makes backups and data management easier.
-- **Agent Info File**: Removed deprecated `agent.json` file. Agent information is now stored only in `monitor.json`. This simplifies the data structure by having a single source of truth.
+- **Data Directory Structure**: Restructured data storage to use a flat directory layout. All data files (database, preferences, monitor info, logs) are now stored directly in `%LOCALAPPDATA%\AIUsageTracker\` instead of subdirectories. This makes backups and data management easier.
+- **Monitor Info File**: Removed deprecated `monitor.json` file. Monitor information is now stored only in `monitor.json`. This simplifies the data structure by having a single source of truth.
 
 ### Fixed
 - **Slim UI Tooltips**: Tooltips no longer disappear behind the main window when always-on-top mode is enabled.
@@ -135,7 +142,7 @@
 ### Fixed
 - GitHub Copilot and OpenAI (Codex/OpenCode session) now show account usernames more reliably, including non-email identities.
 - Slim UI no longer renders OpenAI/Codex operational details (for example, Primary Window/Credits) as sub-provider rows or sub-tray icon options.
-- Agent launcher fallback to `dotnet run` now disables MSBuild node reuse to prevent lingering background processes that can hold file locks.
+- Monitor launcher fallback to `dotnet run` now disables MSBuild node reuse to prevent lingering background processes that can hold file locks.
 - `scripts/kill-all.ps1` now terminates lingering `dotnet` and `MSBuild` processes to clear stale lock situations faster.
 
 ## [2.2.0] - 2026-02-22
@@ -159,7 +166,7 @@
 
 ### Fixed
 - **Chart Rendering**: Resolved Content-Security-Policy blocking Chart.js scripts in the Web UI, and increased point radius for better visibility of single data points.
-- **Data Hygiene**: Stopped the Agent from logging zero-usage placeholder rows for unconfigured providers.
+- **Data Hygiene**: Stopped the Monitor from logging zero-usage placeholder rows for unconfigured providers.
 
 ## [2.1.4] - 2026-02-22
 
@@ -192,7 +199,7 @@
 - Slim UI now persists window/layout/font/privacy preferences locally in `%LOCALAPPDATA%\AIUsageTracker\UI.Slim\preferences.json` (with legacy `auth.json` migration fallback).
 
 ### Changed
-- Agent `/api/preferences` is now explicitly legacy/deprecated (OpenAPI `deprecated: true` + runtime `Deprecation`/`Sunset` headers).
+- Monitor `/api/preferences` is now explicitly legacy/deprecated (OpenAPI `deprecated: true` + runtime `Deprecation`/`Sunset` headers).
 - Usage fallback behavior now prefers explicit unknown/unavailable states when real quota metrics are missing, instead of synthetic percentages.
 
 ### Fixed
@@ -221,7 +228,7 @@
 - Dynamic tray icons now refresh from live usage polling and manual refresh paths.
 
 ### Fixed
-- Tray icon configuration changes are now persisted through Agent config saves, so tray selections survive app restarts.
+- Tray icon configuration changes are now persisted through Monitor config saves, so tray selections survive app restarts.
 - Tray icon visuals now use dynamic quota/remaining-aware color states and bar heights.
 
 ## [2.0.7] - 2026-02-20
@@ -242,18 +249,18 @@
 
 ### Fixed
 - Slim privacy toggles in MainWindow and SettingsWindow now stay synchronized and use consistent lock/unlock icons.
-- Antigravity model labels in Agent and Slim UI now use the provider `Name` field to avoid placeholder labels.
+- Antigravity model labels in Monitor and Slim UI now use the provider `Name` field to avoid placeholder labels.
 - Codex is hidden when no key is configured, and unavailable OpenCode entries are hidden from the main usage view.
-- Agent start paths are hardened to avoid opening visible CLI windows when launched from Slim UI or Web UI flows.
+- Monitor start paths are hardened to avoid opening visible CLI windows when launched from Slim UI or Web UI flows.
 
 ## [2.0.5] - 2026-02-20
 
 ### Changed
 - Removed the classic WPF UI and classic UI test projects; repository build/publish/setup/docs now target Slim UI only.
-- Installer component labels now use AI Consumption Tracker UI/Agent naming, and Windows startup option targets the Agent.
+- Installer component labels now use AI Consumption Tracker UI/Monitor naming, and Windows startup option targets the Monitor.
 
 ### Fixed
-- Starting the Agent from Slim UI no longer opens a visible console window.
+- Starting the Monitor from Slim UI no longer opens a visible console window.
 
 ## [2.0.4] - 2026-02-20
 
@@ -261,7 +268,7 @@
 - Installer now puts selected components into one shared install directory (`{app}`) instead of per-component subfolders.
 
 ### Fixed
-- Aligned Agent/Web dependency versions to .NET 8 package lines and removed same-name DLL content conflicts across Windows component publishes.
+- Aligned Monitor/Web dependency versions to .NET 8 package lines and removed same-name DLL content conflicts across Windows component publishes.
 - Disabled Windows ReadyToRun publishing in the release packaging script to keep shared DLL outputs consistent across components.
 
 ## [2.0.3] - 2026-02-20
@@ -275,7 +282,7 @@
 ## [2.0.2] - 2026-02-20
 
 ### Changed
-- Windows installer now offers selectable components: Tracker (Slim UI), Classic UI, Agent, Web UI, and CLI.
+- Windows installer now offers selectable components: Tracker (Slim UI), Classic UI, Monitor, Web UI, and CLI.
 - Startup and desktop shortcut options now target Tracker (Slim UI) instead of the classic UI executable.
 
 ### Fixed
@@ -300,10 +307,10 @@
 - Slim UI is now the primary desktop UI, rebranded as **AI Consumption Tracker** with title-bar icons and improved tray/settings behavior.
 - Antigravity rendering now uses strict payload-defined model names/grouping with grouped model rows.
 - Release versioning is centralized in `Directory.Build.props`, with CI dry-run checks for release scripts.
-- Added docs architecture links that explicitly reference both the Agent and the Web UI components.
+- Added docs architecture links that explicitly reference both the Monitor and the Web UI components.
 
 ### Fixed
-- Agent refresh endpoint and DI wiring issues that blocked Slim UI from receiving live usage data.
+- Monitor refresh endpoint and DI wiring issues that blocked Slim UI from receiving live usage data.
 - Remaining/used quota percentage semantics aligned across providers, UI display, and alert logic.
 - GitHub Copilot quota/reset handling now prefers Copilot internal quota snapshots with monthly reset behavior.
 
@@ -318,7 +325,7 @@
 - **Slim Window Behavior**: Main close button now hides to tray, and settings now has its own taskbar entry.
 
 ### Fixed
-- **Slim Agent Lifecycle**: Removed blocking start/stop paths that could hang the UI during restart flows.
+- **Slim Monitor Lifecycle**: Removed blocking start/stop paths that could hang the UI during restart flows.
 - **Settings Theme Consistency**: Dark theme now applies to font selection combo popups and settings history grid styling.
 
 ## [1.8.6] - 2026-02-12
@@ -449,7 +456,7 @@
   - Shows progress dialog during download
   - Automatically runs installer and restarts application
   - Falls back to browser if download fails
-- **Developer Documentation**: Added progress bar calculation guidelines to AGENTS.md
+- **Developer Documentation**: Added progress bar calculation guidelines to MONITORS.md
 
 ## [1.7.15] - 2026-02-09
 
@@ -528,7 +535,7 @@
 - **Provider Visibility**: Antigravity provider bar now always shows (even when not running)
 
 ### Changed
-- **Documentation**: Removed deprecated "Business Logic Rules" section from AGENTS.md
+- **Documentation**: Removed deprecated "Business Logic Rules" section from MONITORS.md
 
 ## [1.7.7] - 2026-02-08
 
