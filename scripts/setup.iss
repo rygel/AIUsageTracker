@@ -13,6 +13,7 @@
 [Code]
 var
   RestartApplications: Boolean;
+  DeleteDatabase: Boolean;
 
 function InitializeSetup(): Boolean;
 var
@@ -63,6 +64,45 @@ begin
   // Always offer launch option for interactive installs.
   // With postinstall + default checked, /RESTARTAPPLICATIONS flow still relaunches.
   Result := True;
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  DatabasePath: String;
+  DatabaseExists: Boolean;
+begin
+  Result := True;
+  DeleteDatabase := False;
+  
+  // Check if data directory exists (contains Agent database and UI.Slim preferences)
+  DatabasePath := ExpandConstant('{localappdata}\AIUsageTracker');
+  DatabaseExists := DirExists(DatabasePath);
+  
+  if DatabaseExists and not UninstallSilent then
+  begin
+    if MsgBox('Do you want to delete your AI Usage Tracker data? This includes your usage history, settings, and preferences.' + #13#10#13#10 + 
+              'Location: ' + DatabasePath + #13#10#13#10 + 
+              'Click Yes to delete all data, or No to keep it for future use.', 
+              mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      DeleteDatabase := True;
+    end;
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DataPath: String;
+begin
+  if (CurUninstallStep = usPostUninstall) and DeleteDatabase then
+  begin
+    // Delete the entire AIUsageTracker directory including Agent and UI.Slim subdirectories
+    DataPath := ExpandConstant('{localappdata}\AIUsageTracker');
+    if DirExists(DataPath) then
+    begin
+      DelTree(DataPath, True, True, True);
+    end;
+  end;
 end;
 
 [Setup]

@@ -11,6 +11,13 @@
 - **Data Directory Structure**: Restructured data storage to use a flat directory layout. All data files (database, preferences, monitor info, logs) are now stored directly in `%LOCALAPPDATA%\AIUsageTracker\` instead of subdirectories. This makes backups and data management easier.
 - **Monitor Info File**: Removed deprecated `agent.json` file. Monitor information is now stored only in `monitor.json`. This simplifies the data structure by having a single source of truth.
 
+### Added
+- **Uninstaller Database Option**: During uninstall, you can now choose whether to delete your AI Usage Tracker database (containing usage history and settings) or keep it for future use.
+
+### Changed
+- **Data Directory Structure**: Restructured data storage to use a flat directory layout. All data files (database, preferences, agent info, logs) are now stored directly in `%LOCALAPPDATA%\AIUsageTracker\` instead of subdirectories. This makes backups and data management easier.
+- **Agent Info File**: Removed deprecated `agent.json` file. Agent information is now stored only in `monitor.json`. This simplifies the data structure by having a single source of truth.
+
 ### Fixed
 - **Slim UI Tooltips**: Tooltips no longer disappear behind the main window when always-on-top mode is enabled.
 - **GitHub Copilot Reset Times**: Removed misleading fallback to API rate limits. Now displays only the accurate monthly quota reset date from Copilot's official endpoint.

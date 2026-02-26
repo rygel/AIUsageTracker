@@ -6,7 +6,7 @@ using Serilog;
 using System.IO.Compression;
 
 var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-var logDir = Path.Combine(appData, "AIUsageTracker", "Web", "logs");
+var logDir = Path.Combine(appData, "AIUsageTracker", "logs");
 Directory.CreateDirectory(logDir);
 
 Log.Logger = new LoggerConfiguration()

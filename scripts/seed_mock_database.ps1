@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $appData = [Environment]::GetFolderPath("LocalApplicationData")
-$dbDir = Join-Path $appData "AIConsumptionTracker\Agent"
+$dbDir = Join-Path $appData "AIConsumptionTracker"
 if (!(Test-Path $dbDir)) {
     New-Item -ItemType Directory -Force -Path $dbDir | Out-Null
 }

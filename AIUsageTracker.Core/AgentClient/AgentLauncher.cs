@@ -330,10 +330,8 @@ public class AgentLauncher
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var candidates = new[]
         {
-            Path.Combine(appData, "AIUsageTracker", "Agent", "monitor.json"),
-            Path.Combine(appData, "AIUsageTracker", "Agent", "agent.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Agent", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Agent", "agent.json")
+            Path.Combine(appData, "AIUsageTracker", "monitor.json"),
+            Path.Combine(appData, "AIConsumptionTracker", "monitor.json")
         };
 
         return candidates.FirstOrDefault(File.Exists);

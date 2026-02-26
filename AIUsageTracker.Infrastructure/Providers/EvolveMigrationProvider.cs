@@ -158,13 +158,13 @@ public class EvolveMigrationProvider : IProviderService
     {
         // Look for the Monitor database (with legacy fallback)
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var primaryDbPath = Path.Combine(appData, "AIUsageTracker", "Agent", "usage.db");
+        var primaryDbPath = Path.Combine(appData, "AIUsageTracker", "usage.db");
         if (File.Exists(primaryDbPath))
         {
             return primaryDbPath;
         }
 
-        var legacyDbPath = Path.Combine(appData, "AIConsumptionTracker", "Agent", "usage.db");
+        var legacyDbPath = Path.Combine(appData, "AIConsumptionTracker", "usage.db");
         return File.Exists(legacyDbPath) ? legacyDbPath : string.Empty;
     }
 

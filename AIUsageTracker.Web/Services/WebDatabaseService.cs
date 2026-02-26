@@ -37,8 +37,8 @@ public class WebDatabaseService
 
     private static string ResolveDatabaseDirectory(string appData)
     {
-        var primaryDir = Path.Combine(appData, "AIUsageTracker", "Agent");
-        var legacyDir = Path.Combine(appData, "AIConsumptionTracker", "Agent");
+        var primaryDir = Path.Combine(appData, "AIUsageTracker");
+        var legacyDir = Path.Combine(appData, "AIConsumptionTracker");
 
         var primaryDb = Path.Combine(primaryDir, "usage.db");
         var legacyDb = Path.Combine(legacyDir, "usage.db");

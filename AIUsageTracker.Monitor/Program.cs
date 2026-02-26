@@ -386,16 +386,12 @@ public partial class Program
             var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(Path.Combine(primaryAgentDir, "monitor.json"), json);
 
-            // Backward compatibility for older clients still reading agent.json.
-            File.WriteAllText(Path.Combine(primaryAgentDir, "agent.json"), json);
-
             // Legacy compatibility for existing clients still on old location.
             var legacyAgentDir = GetLegacyAgentDir();
             if (!string.Equals(primaryAgentDir, legacyAgentDir, StringComparison.OrdinalIgnoreCase))
             {
                 Directory.CreateDirectory(legacyAgentDir);
                 File.WriteAllText(Path.Combine(legacyAgentDir, "monitor.json"), json);
-                File.WriteAllText(Path.Combine(legacyAgentDir, "agent.json"), json);
             }
         }
         catch (Exception ex)
@@ -430,13 +426,13 @@ public partial class Program
     private static string GetPrimaryAgentDir()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(appData, "AIUsageTracker", "Agent");
+        return Path.Combine(appData, "AIUsageTracker");
     }
 
     private static string GetLegacyAgentDir()
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(appData, "AIConsumptionTracker", "Agent");
+        return Path.Combine(appData, "AIConsumptionTracker");
     }
 
     private static string? GetExistingAgentInfoPath()
@@ -444,9 +440,7 @@ public partial class Program
         var candidates = new[]
         {
             Path.Combine(GetPrimaryAgentDir(), "monitor.json"),
-            Path.Combine(GetPrimaryAgentDir(), "agent.json"),
-            Path.Combine(GetLegacyAgentDir(), "monitor.json"),
-            Path.Combine(GetLegacyAgentDir(), "agent.json")
+            Path.Combine(GetLegacyAgentDir(), "monitor.json")
         };
 
         return candidates.FirstOrDefault(File.Exists);

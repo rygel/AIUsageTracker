@@ -68,7 +68,7 @@ namespace AIUsageTracker.UI.Slim
             _realConfigDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker");
             
             // Data Directory path
-            _realDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker", "Agent");
+            _realDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker");
             
             UpdatePrivacyUI();
         }
@@ -118,7 +118,7 @@ namespace AIUsageTracker.UI.Slim
             MachineNameText.Text = "WORKSTATION";
             UserNameText.Text = "d***r";
             ConfigDirText.Text = @"C:\Users\***\...\ai-consumption-tracker";
-            DataDirText.Text = @"C:\Users\***\...\AIUsageTracker\Agent";
+            DataDirText.Text = @"C:\Users\***\...\AIUsageTracker";
             PrivacyBtn.Foreground = Brushes.Gold;
         }
 

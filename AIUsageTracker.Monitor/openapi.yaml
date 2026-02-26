@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: AIConsumptionTracker Agent API
+  title: AI Usage Tracker Monitor API
   version: 1.0.0
   description: |
     HTTP API exposed by the Agent service.
@@ -11,7 +11,7 @@ servers:
     variables:
       port:
         default: "5000"
-        description: Port discovered from %LOCALAPPDATA%\AIConsumptionTracker\Agent\agent.json
+        description: Port discovered from %LOCALAPPDATA%\AIUsageTracker\monitor.json
 
 paths:
   /api/health:
