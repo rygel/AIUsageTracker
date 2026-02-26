@@ -478,3 +478,6 @@ target/
 *.swp
 *.DS_Store
 nul
+
+# CI Artifacts
+ci_screenshots/

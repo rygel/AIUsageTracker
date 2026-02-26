@@ -1,18 +1,18 @@
-name: Agent OpenAPI Contract Drift
+name: Monitor OpenAPI Contract Drift
 
 on:
   push:
     branches: [ main ]
     paths:
       - "AIUsageTracker.Monitor/**"
-      - "scripts/verify-agent-openapi-contract.ps1"
-      - ".github/workflows/agent-openapi-contract.yml"
+      - "scripts/verify-monitor-openapi-contract.ps1"
+      - ".github/workflows/monitor-openapi-contract.yml"
   pull_request:
     branches: [ main ]
     paths:
       - "AIUsageTracker.Monitor/**"
-      - "scripts/verify-agent-openapi-contract.ps1"
-      - ".github/workflows/agent-openapi-contract.yml"
+      - "scripts/verify-monitor-openapi-contract.ps1"
+      - ".github/workflows/monitor-openapi-contract.yml"
   workflow_dispatch:
 
 concurrency:
@@ -39,14 +39,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Restore Agent dependencies
+      - name: Restore Monitor dependencies
         run: dotnet restore AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj
 
-      - name: Build Agent
+      - name: Build Monitor
         run: dotnet build AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj --configuration Debug --no-restore
 
-      - name: Verify Agent OpenAPI contract drift
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-agent-openapi-contract.ps1
+      - name: Verify Monitor OpenAPI contract drift
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-monitor-openapi-contract.ps1
         shell: pwsh
 
 

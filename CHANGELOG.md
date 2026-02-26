@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [2.2.15] - 2026-02-26
+
+### Fixed
+- Synthetic provider now correctly matches config provider IDs that contain "synthetic" (e.g., "synthetic.new"), resolving "Usage unknown (provider integration missing)" errors.
+
 ## [2.2.14] - 2026-02-26
 
 ### Fixed

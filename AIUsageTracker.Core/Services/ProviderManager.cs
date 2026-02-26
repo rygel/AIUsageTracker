@@ -29,6 +29,7 @@ public class ProviderManager : IDisposable
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly SemaphoreSlim _configSemaphore = new(1, 1);
     private readonly SemaphoreSlim _httpSemaphore = new(6); // Limit parallel HTTP requests to avoid congestion
+    private static readonly TimeSpan ProviderRequestTimeout = TimeSpan.FromSeconds(25);
 
     public async Task<List<ProviderConfig>> GetConfigsAsync(bool forceRefresh = false)
     {
@@ -61,7 +62,8 @@ public class ProviderManager : IDisposable
     public async Task<List<ProviderUsage>> GetAllUsageAsync(
         bool forceRefresh = true,
         Action<ProviderUsage>? progressCallback = null,
-        IReadOnlyCollection<string>? includeProviderIds = null)
+        IReadOnlyCollection<string>? includeProviderIds = null,
+        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
     {
         await _refreshSemaphore.WaitAsync();
         var semaphoreReleased = false;
@@ -83,7 +85,7 @@ public class ProviderManager : IDisposable
                 return _lastUsages;
             }
 
-            _refreshTask = FetchAllUsageInternal(progressCallback, includeProviderIds);
+            _refreshTask = FetchAllUsageInternal(progressCallback, includeProviderIds, overrideConfigs);
             var currentTask = _refreshTask;
             _refreshSemaphore.Release();
             semaphoreReleased = true;
@@ -101,40 +103,46 @@ public class ProviderManager : IDisposable
 
     private async Task<List<ProviderUsage>> FetchAllUsageInternal(
         Action<ProviderUsage>? progressCallback = null,
-        IReadOnlyCollection<string>? includeProviderIds = null)
+        IReadOnlyCollection<string>? includeProviderIds = null,
+        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
     {
         _logger.LogDebug("Starting FetchAllUsageInternal...");
-        var configs = (await GetConfigsAsync(forceRefresh: true)).ToList();
-        
-        // Auto-add system providers that don't need auth.json
-        // Check if they are already in config to avoid duplicates (though unlikely for these IDs)
-        if (!configs.Any(c => c.ProviderId == "antigravity"))
+        var configs = overrideConfigs != null
+            ? overrideConfigs.Select(CloneConfig).ToList()
+            : (await GetConfigsAsync(forceRefresh: true)).ToList();
+
+        if (overrideConfigs == null)
         {
-            configs.Add(new ProviderConfig
+            // Auto-add system providers that don't need auth.json
+            // Check if they are already in config to avoid duplicates (though unlikely for these IDs)
+            if (!configs.Any(c => c.ProviderId == "antigravity"))
             {
-                ProviderId = "antigravity",
-                ApiKey = "",
-                Type = "quota-based",
-                PlanType = PlanType.Coding
-            });
-        }
-        if (!configs.Any(c => c.ProviderId == "gemini-cli"))
-        {
-            configs.Add(new ProviderConfig
+                configs.Add(new ProviderConfig
+                {
+                    ProviderId = "antigravity",
+                    ApiKey = "",
+                    Type = "quota-based",
+                    PlanType = PlanType.Coding
+                });
+            }
+            if (!configs.Any(c => c.ProviderId == "gemini-cli"))
             {
-                ProviderId = "gemini-cli",
-                ApiKey = "",
-                Type = "quota-based",
-                PlanType = PlanType.Coding
-            });
-        }
-        if (!configs.Any(c => c.ProviderId.Equals("opencode", StringComparison.OrdinalIgnoreCase) || c.ProviderId.Equals("opencode-zen", StringComparison.OrdinalIgnoreCase)))
-        {
-            configs.Add(new ProviderConfig { ProviderId = "opencode-zen", ApiKey = "" });
-        }
-        if (!configs.Any(c => c.ProviderId == "claude-code"))
-        {
-            configs.Add(new ProviderConfig { ProviderId = "claude-code", ApiKey = "" });
+                configs.Add(new ProviderConfig
+                {
+                    ProviderId = "gemini-cli",
+                    ApiKey = "",
+                    Type = "quota-based",
+                    PlanType = PlanType.Coding
+                });
+            }
+            if (!configs.Any(c => c.ProviderId.Equals("opencode", StringComparison.OrdinalIgnoreCase) || c.ProviderId.Equals("opencode-zen", StringComparison.OrdinalIgnoreCase)))
+            {
+                configs.Add(new ProviderConfig { ProviderId = "opencode-zen", ApiKey = "" });
+            }
+            if (!configs.Any(c => c.ProviderId == "claude-code"))
+            {
+                configs.Add(new ProviderConfig { ProviderId = "claude-code", ApiKey = "" });
+            }
         }
         if (includeProviderIds != null && includeProviderIds.Count > 0)
         {
@@ -182,6 +190,7 @@ public class ProviderManager : IDisposable
     {
         var provider = _providers.FirstOrDefault(p => 
             p.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase) ||
+            (p.ProviderId == "synthetic" && config.ProviderId.Contains("synthetic", StringComparison.OrdinalIgnoreCase)) ||
             (p.ProviderId == "minimax" && config.ProviderId.Contains("minimax", StringComparison.OrdinalIgnoreCase)) ||
             (p.ProviderId == "xiaomi" && config.ProviderId.Contains("xiaomi", StringComparison.OrdinalIgnoreCase)) ||
             (p.ProviderId == "opencode" && config.ProviderId.Contains("opencode", StringComparison.OrdinalIgnoreCase))
@@ -199,7 +208,41 @@ public class ProviderManager : IDisposable
             try
             {
                 _logger.LogDebug($"Fetching usage for provider: {config.ProviderId}");
-                var usages = (await provider.GetUsageAsync(config, progressCallback)).ToList();
+                var usageTask = provider.GetUsageAsync(config, progressCallback);
+                var timeoutTask = Task.Delay(ProviderRequestTimeout);
+                var completedTask = await Task.WhenAny(usageTask, timeoutTask);
+
+                if (completedTask != usageTask)
+                {
+                    stopwatch.Stop();
+                    _logger.LogWarning(
+                        "Provider {ProviderId} timed out after {TimeoutSeconds}s",
+                        config.ProviderId,
+                        ProviderRequestTimeout.TotalSeconds);
+
+                    _ = usageTask.ContinueWith(
+                        static task => { _ = task.Exception; },
+                        TaskContinuationOptions.OnlyOnFaulted);
+
+                    var (isQuotaTimeout, planTypeTimeout) = GetProviderPaymentType(config.ProviderId);
+                    var timeoutUsage = new ProviderUsage
+                    {
+                        ProviderId = config.ProviderId,
+                        ProviderName = config.ProviderId,
+                        Description = $"[Error] Timeout after {ProviderRequestTimeout.TotalSeconds:F0}s",
+                        RequestsPercentage = 0,
+                        IsAvailable = false,
+                        IsQuotaBased = isQuotaTimeout,
+                        PlanType = planTypeTimeout,
+                        HttpStatus = 504,
+                        ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds
+                    };
+
+                    progressCallback?.Invoke(timeoutUsage);
+                    return new List<ProviderUsage> { timeoutUsage };
+                }
+
+                var usages = (await usageTask).ToList();
                 stopwatch.Stop();
                 foreach(var u in usages) 
                 {
@@ -278,7 +321,7 @@ public class ProviderManager : IDisposable
     private static (bool IsQuota, PlanType PlanType) GetProviderPaymentType(string providerId)
     {
         // Known quota-based providers that might fall through to generic fallback
-        var quotaProviders = new[] { "zai-coding-plan", "antigravity", "github-copilot", "gemini-cli" };
+        var quotaProviders = new[] { "zai-coding-plan", "antigravity", "github-copilot", "gemini-cli", "synthetic" };
         
         if (quotaProviders.Any(id => providerId.Equals(id, StringComparison.OrdinalIgnoreCase)))
         {
@@ -286,6 +329,24 @@ public class ProviderManager : IDisposable
         }
         
         return (false, PlanType.Usage);
+    }
+
+    private static ProviderConfig CloneConfig(ProviderConfig source)
+    {
+        return new ProviderConfig
+        {
+            ProviderId = source.ProviderId,
+            ApiKey = source.ApiKey,
+            Type = source.Type,
+            BaseUrl = source.BaseUrl,
+            ShowInTray = source.ShowInTray,
+            EnableNotifications = source.EnableNotifications,
+            EnabledSubTrays = source.EnabledSubTrays?.ToList() ?? new List<string>(),
+            Models = source.Models,
+            Description = source.Description,
+            AuthSource = source.AuthSource,
+            PlanType = source.PlanType
+        };
     }
 
     public void Dispose()
