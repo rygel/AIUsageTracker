@@ -205,8 +205,11 @@ public class GenericPayAsYouGoProvider : IProviderService
                 var synthetic = JsonSerializer.Deserialize<SyntheticResponse>(responseString);
                 if (synthetic?.Subscription != null)
                 {
-                    total = synthetic.Subscription.Limit;
-                    used = synthetic.Subscription.Requests;
+                    if (!TryResolveSyntheticUsage(synthetic.Subscription, out total, out used))
+                    {
+                        throw new Exception("Synthetic response missing expected usage fields");
+                    }
+
                     paymentType = PlanType.Coding;
                 }
                 else
@@ -267,8 +270,11 @@ public class GenericPayAsYouGoProvider : IProviderService
                 var synthetic = JsonSerializer.Deserialize<SyntheticResponse>(responseString);
                 if (synthetic?.Subscription != null)
                 {
-                    total = synthetic.Subscription.Limit;
-                    used = synthetic.Subscription.Requests;
+                    if (!TryResolveSyntheticUsage(synthetic.Subscription, out total, out used))
+                    {
+                        throw new Exception("Synthetic response missing expected usage fields");
+                    }
+
                     paymentType = PlanType.Coding;
                 }
                 else
@@ -338,7 +344,11 @@ public class GenericPayAsYouGoProvider : IProviderService
         {
             // Specifically handling Synthetic renewsAt if provided
             var synthetic = JsonSerializer.Deserialize<SyntheticResponse>(responseString);
-            if (synthetic?.Subscription?.RenewsAt != null && DateTime.TryParse(synthetic.Subscription.RenewsAt, out var dt))
+            var renewsAt = synthetic?.Subscription != null
+                ? ResolveSyntheticResetTime(synthetic.Subscription)
+                : null;
+
+            if (!string.IsNullOrWhiteSpace(renewsAt) && DateTime.TryParse(renewsAt, out var dt))
             {
                  var localDt = dt.ToLocalTime();
                  resetStr = $" (Resets: {localDt:MMM dd HH:mm})";
@@ -389,13 +399,28 @@ public class GenericPayAsYouGoProvider : IProviderService
     protected class SyntheticSubscription
     {
         [JsonPropertyName("limit")]
-        public double Limit { get; set; }
+        public double? Limit { get; set; }
+
+        [JsonPropertyName("quota")]
+        public double? Quota { get; set; }
 
         [JsonPropertyName("requests")]
-        public double Requests { get; set; }
+        public double? Requests { get; set; }
+
+        [JsonPropertyName("requests_used")]
+        public double? RequestsUsed { get; set; }
+
+        [JsonPropertyName("used_requests")]
+        public double? UsedRequests { get; set; }
+
+        [JsonPropertyName("usage")]
+        public double? Usage { get; set; }
 
         [JsonPropertyName("renewsAt")]
         public string? RenewsAt { get; set; }
+
+        [JsonPropertyName("renews_at")]
+        public string? RenewsAtSnakeCase { get; set; }
     }
 
     protected class KimiResponse
@@ -471,6 +496,28 @@ public class GenericPayAsYouGoProvider : IProviderService
 
         [JsonPropertyName("used_credits")]
         public double UsedCredits { get; set; }
+    }
+
+    private static bool TryResolveSyntheticUsage(SyntheticSubscription subscription, out double total, out double used)
+    {
+        total = subscription.Limit
+            ?? subscription.Quota
+            ?? 0;
+
+        used = subscription.Requests
+            ?? subscription.RequestsUsed
+            ?? subscription.UsedRequests
+            ?? subscription.Usage
+            ?? 0;
+
+        return total > 0;
+    }
+
+    private static string? ResolveSyntheticResetTime(SyntheticSubscription subscription)
+    {
+        return !string.IsNullOrWhiteSpace(subscription.RenewsAt)
+            ? subscription.RenewsAt
+            : subscription.RenewsAtSnakeCase;
     }
 
     // Basic map for generic/Anthropic style where 'cost' or 'amount' is top level or in data
