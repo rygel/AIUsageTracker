@@ -23,6 +23,7 @@
     <ProjectReference Include="..\AIUsageTracker.Infrastructure\AIUsageTracker.Infrastructure.csproj" />
     <ProjectReference Include="..\AIUsageTracker.Core\AIUsageTracker.Core.csproj" />
     <ProjectReference Include="..\AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj" />
+    <ProjectReference Include="..\AIUsageTracker.Web\AIUsageTracker.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

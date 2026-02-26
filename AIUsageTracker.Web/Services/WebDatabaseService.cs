@@ -262,6 +262,9 @@ public class WebDatabaseService
         int lookbackHours = 72,
         int maxSamplesPerProvider = 720)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(lookbackHours);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxSamplesPerProvider);
+
         if (!IsDatabaseAvailable())
         {
             return new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase);
@@ -291,7 +294,9 @@ public class WebDatabaseService
         using var connection = CreateReadConnection();
         await connection.OpenAsync();
 
-        var cutoffUtc = DateTime.UtcNow.AddHours(-lookbackHours).ToString("O", CultureInfo.InvariantCulture);
+        var cutoffUtc = DateTime.UtcNow
+            .AddHours(-lookbackHours)
+            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         const string sql = @"
             WITH ranked AS (
                 SELECT h.provider_id AS ProviderId,
@@ -302,7 +307,7 @@ public class WebDatabaseService
                        ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY h.fetched_at DESC) AS RowNum
                 FROM provider_history h
                 WHERE h.provider_id IN @ProviderIds
-                  AND h.fetched_at >= @CutoffUtc
+                  AND datetime(h.fetched_at) >= datetime(@CutoffUtc)
             )
             SELECT ProviderId, RequestsUsed, RequestsAvailable, IsAvailable, FetchedAt
             FROM ranked
