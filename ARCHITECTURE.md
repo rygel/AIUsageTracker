@@ -13,7 +13,7 @@ We separate **What** the application does (Core) from **How** it does it (Infras
 
 ### 2. Dependency Rule
 Dependencies always point inwards.
-- `UI`, `Agent`, and `CLI` depend on `Infrastructure` and `Core`.
+- `UI`, `Monitor`, and `CLI` depend on `Infrastructure` and `Core`.
 - `Infrastructure` depends on `Core`.
 - `Core` has **zero** dependencies on other project layers.
 
@@ -47,7 +47,7 @@ The **Background Engine**.
 The **Presentation Layer**.
 - **UI**: The full-featured management dashboard.
 - **UI.Slim**: A lightweight tray-based monitor for quick status checks.
-- Both communicate with the **Agent** via the local API.
+- Both communicate with the **Monitor** via the local API.
 
 ### [AIUsageTracker.CLI](file:///c:/Develop/Claude/opencode-tracker/AIUsageTracker.CLI)
 The **Management Tool**.
@@ -62,9 +62,9 @@ The **Alternative Dashboard**.
 
 ## Why This Matters
 
-1. **Robustness**: If the UI crashes, the Agent continues to track data.
-2. **Performance**: The UI stays responsive because heavy network/DB work is offloaded to the Agent.
-3. **Flexibility**: You can use the CLI, the Slim UI, or the Full UI interchangeably—they all talk to the same source of truth (the Agent).
+1. **Robustness**: If the UI crashes, the Monitor continues to track data.
+2. **Performance**: The UI stays responsive because heavy network/DB work is offloaded to the Monitor.
+3. **Flexibility**: You can use the CLI, the Slim UI, or the Full UI interchangeably—they all talk to the same source of truth (the Monitor).
 4. **Maintainability**: Adding a new AI provider only requires a new class in `Infrastructure`, without touching the UI logic.
 
 

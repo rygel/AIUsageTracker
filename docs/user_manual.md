@@ -20,7 +20,7 @@ The screenshots in this document are generated from the app's deterministic head
 - Settings > Providers: `docs/screenshot_settings_providers_privacy.png`
 - Settings > Layout: `docs/screenshot_settings_layout_privacy.png`
 - Settings > History: `docs/screenshot_settings_history_privacy.png`
-- Settings > Agent: `docs/screenshot_settings_agent_privacy.png`
+- Settings > Monitor: `docs/screenshot_settings_agent_privacy.png`
 - Settings > Monitor: `docs/screenshot_settings_monitor_privacy.png`
 - Info dialog: `docs/screenshot_info_privacy.png`
 - Tray context menu: `docs/screenshot_context_menu_privacy.png`
@@ -168,7 +168,7 @@ act <command> [options]
 | `set-key` | Add/Update an API key | `<provider-id> <api-key>` |
 | `remove-key` | Remove a provider key | `<provider-id>` |
 | `config` | Manage preferences | `[key] [value]` |
-| `agent` | Manage background service | `start`, `stop`, `restart`, `info` |
+| `monitor` | Manage background service | `start`, `stop`, `restart`, `info` |
 
 #### Examples
 - **Check connection** to all providers: `act check`
@@ -232,7 +232,7 @@ Keys are also discovered from these standard locations:
 For certain providers, the application provides a built-in login workflow that doesn't require discovery or manual key entry:
 
 - **GitHub Copilot**: You can log in directly via the **Settings > Providers** tab. Click **"Log in"** to initiate a standard GitHub device authentication flow. This is our recommended way to connect if you don't use the GitHub CLI.
-- **Google Antigravity**: Automatically detected if the agent is running on your machine. No configuration required.
+- **Google Antigravity**: Automatically detected if the monitor is running on your machine. No configuration required.
 
 Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery from external sources.
 
@@ -240,7 +240,7 @@ Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery fro
 
 ## 7. Troubleshooting
 
-- **Agent not running**: The CLI will attempt to auto-start the Agent. If it fails, run `act agent start` or start the UI application.
+- **Monitor not running**: The CLI will attempt to auto-start the monitor. If it fails, run `act monitor start` or start the UI application.
 - **Missing Keys**: Use `act check` to see which providers are failing due to missing or invalid keys.
 - **Data Refresh**: If the UI feels stale, check the **Auto Refresh** setting or click the 🔄 button.
 
