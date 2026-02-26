@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## [2.2.12] - 2026-02-26
+
+### Added
+- Web Dashboard now includes burn-rate forecasting per provider, including estimated time-to-exhaustion based on recent trend data.
+- Added a Provider Reliability panel on the Web Dashboard with success rate, failure rate, average latency, and last successful sync.
+- Added an experimental anomaly detection signal on Web provider cards to flag sudden usage spikes or drops.
+
+### Changed
+- Added provider latency telemetry capture/persistence so reliability metrics are calculated from real request timing data.
+- Web Dashboard anomaly detection is now exposed as an explicit enable/disable control and remains disabled by default until the user opts in.
+
 ## [2.2.11] - 2026-02-25
 
 ### Added
