@@ -1,7 +1,7 @@
 ; AI Usage Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.2.13"
+  #define MyAppVersion "2.2.14"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
@@ -74,7 +74,7 @@ begin
   Result := True;
   DeleteDatabase := False;
   
-  // Check if data directory exists (contains Agent database and UI.Slim preferences)
+  // Check if data directory exists (contains Monitor database and UI.Slim preferences)
   DatabasePath := ExpandConstant('{localappdata}\AIUsageTracker');
   DatabaseExists := DirExists(DatabasePath);
   
@@ -96,7 +96,7 @@ var
 begin
   if (CurUninstallStep = usPostUninstall) and DeleteDatabase then
   begin
-    // Delete the entire AIUsageTracker directory including Agent and UI.Slim subdirectories
+    // Delete the entire AIUsageTracker directory including Monitor and UI.Slim subdirectories
     DataPath := ExpandConstant('{localappdata}\AIUsageTracker');
     if DirExists(DataPath) then
     begin
