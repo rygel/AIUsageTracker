@@ -334,6 +334,47 @@ public class GenericPayAsYouGoProviderTests
     }
 
     [Fact]
+    public async Task GetUsageAsync_Synthetic_SnakeCaseFormat_ParsesCorrectly()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "synthetic", ApiKey = "test-key" };
+
+        var responseContent = JsonSerializer.Serialize(new
+        {
+            subscription = new
+            {
+                quota = 200000.0,
+                used_requests = 25000.0,
+                renews_at = "2026-03-15T00:00:00Z"
+            }
+        });
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>()
+            )
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent(responseContent)
+            });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal(PlanType.Coding, usage.PlanType);
+        Assert.Equal(25000, usage.RequestsUsed);
+        Assert.Equal(200000, usage.RequestsAvailable);
+        Assert.StartsWith("25000 / 200000 credits (Resets:", usage.Description);
+        Assert.NotNull(usage.NextResetTime);
+    }
+
+    [Fact]
     public async Task GetUsageAsync_Synthetic_LargeValues_HandlesCorrectly()
     {
         // Arrange
