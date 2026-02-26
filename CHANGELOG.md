@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## [2.2.16] - 2026-02-27
+
+### Fixed
+- Provider reliability card styling improved to match the rest of the UI.
+- Slim UI status messages now correctly refer to "monitor" instead of "agent".
+- Theme catalog updated and screenshot baselines synced.
+
+### Refactored
+- Renamed `AgentLauncher` to `MonitorLauncher` and `AgentService` to `MonitorService` for consistency.
+- Removed unused `SimulatedProvider`.
+
+### Test
+- Added monitor lifecycle tests for Slim UI / Web UI start/stop scenarios.
+
+### Installer
+- Added application icons to Monitor, Web, and CLI executables.
+
 ## [2.2.15] - 2026-02-26
 
 ### Fixed
