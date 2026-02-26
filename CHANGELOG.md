@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [2.2.13] - 2026-02-26
+
+### Fixed
+- Synthetic provider parsing is now resilient to JSON field-name variants (including snake_case payloads) so quota data continues to render after API shape changes.
+- Configured providers that temporarily return zero/unavailable error snapshots are no longer aggressively pruned from history, preventing cards like Synthetic from disappearing from the UI.
+
 ## [2.2.12] - 2026-02-26
 
 ### Added
