@@ -702,13 +702,13 @@
             <Border Grid.Row="2" Background="{DynamicResource FooterBackground}" Padding="12,8">
                 <DockPanel>
                     <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-                        <Button Content="Scan for Keys" Click="ScanBtn_Click" 
+                        <Button x:Name="ScanBtn" Content="Scan for Keys" Click="ScanBtn_Click" 
                                 ToolTip="Search common locations for API keys" 
                                 Padding="10,5" Background="{DynamicResource ButtonBackground}"
                                 Foreground="{DynamicResource PrimaryText}"
                                 Margin="0,0,10,0"/>
-                        <Button Content="Refresh Data" Click="RefreshBtn_Click" 
-                                ToolTip="Trigger data refresh from providers" 
+                        <Button x:Name="RefreshBtn" Content="Refresh Data" Click="RefreshBtn_Click" 
+                                ToolTip="Trigger data refresh from providers"
                                 Padding="10,5" Background="{DynamicResource ButtonBackground}"
                                 Foreground="{DynamicResource PrimaryText}"/>
                     </StackPanel>

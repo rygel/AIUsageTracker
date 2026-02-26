@@ -58,6 +58,8 @@ public partial class SettingsWindow : Window
     {
         try
         {
+            await _agentService.RefreshPortAsync();
+            await _agentService.RefreshAgentInfoAsync();
             await LoadDataAsync();
         }
         catch (Exception ex)
@@ -1689,10 +1691,37 @@ public partial class SettingsWindow : Window
         this.Close();
     }
 
-    private void ScanBtn_Click(object sender, RoutedEventArgs e)
+    private async void ScanBtn_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show("API key scanning is not yet implemented in AI Usage Tracker.", 
-            "Not Implemented", MessageBoxButton.OK, MessageBoxImage.Information);
+        try
+        {
+            ScanBtn.IsEnabled = false;
+            ScanBtn.Content = "Scanning...";
+            
+            var (count, configs) = await _agentService.ScanForKeysAsync();
+            
+            if (count > 0)
+            {
+                MessageBox.Show($"Found {count} new API key(s). They have been added to your configuration.", 
+                    "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                await LoadDataAsync();
+            }
+            else
+            {
+                MessageBox.Show("No new API keys found.", 
+                    "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to scan for keys: {ex.Message}", 
+                "Scan Error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            ScanBtn.IsEnabled = true;
+            ScanBtn.Content = "Scan for Keys";
+        }
     }
 
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
