@@ -50,18 +50,18 @@ dotnet test --filter "FullyQualifiedName~GetAllUsageAsync_LoadsConfigAndFetchesU
 dotnet test --filter "FullyQualifiedName~ProviderManagerTests"
 ```
 
-### Running the Agent
+### Running the Monitor
 ```bash
 # Run the Monitor service
 dotnet run --project AIUsageTracker.Monitor
 
-# Agent runs on port 5000 by default (auto-discovers available port 5000-5010)
-# Port is saved to %LOCALAPPDATA%\AIUsageTracker\Agent\agent.port
+# Monitor runs on port 5000 by default (auto-discovers available port 5000-5010)
+# Port is saved to %LOCALAPPDATA%\AIUsageTracker\monitor.json
 ```
 
 ### Running the Web UI
 ```bash
-# Run the Web application (requires Agent to be running)
+# Run the Web application (requires Monitor to be running)
 dotnet run --project AIUsageTracker.Web
 
 # Web UI runs on port 5100
@@ -73,7 +73,7 @@ dotnet run --project AIUsageTracker.Web
 # Run the Slim WPF application
 dotnet run --project AIUsageTracker.UI.Slim
 
-# Automatically discovers Agent port from agent.port file
+# Automatically discovers Monitor port from monitor.json file
 # Falls back to ports 5000-5010 if discovery fails
 ```
 
@@ -182,7 +182,7 @@ The Agent is a background HTTP service that collects and stores provider usage d
 **Port Management:**
 - Default port: 5000
 - Auto-discovery: Tries ports 5000-5010, then random
-- Port saved to: `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
+- Port saved to: `%LOCALAPPDATA%\AIUsageTracker\monitor.json`
 
 **Database Schema:**
 ```
@@ -194,7 +194,7 @@ reset_events - Quota/limit reset tracking (kept indefinitely)
 
 ### Web UI Architecture
 
-The Web UI is an ASP.NET Core Razor Pages application that reads from the Agent's database:
+The Web UI is an ASP.NET Core Razor Pages application that reads from the Monitor's database:
 
 **Features:**
 - **Dashboard**: Stats cards, provider usage with progress bars, 60s auto-refresh
@@ -207,7 +207,7 @@ The Web UI is an ASP.NET Core Razor Pages application that reads from the Agent'
 - **Framework**: ASP.NET Core 8.0
 - **Pattern**: Razor Pages (server-rendered)
 - **Styling**: CSS variables for theming
-- **Database**: Read-only access to Agent's SQLite database
+- **Database**: Read-only access to Monitor's SQLite database
 
 **HTMX Integration:**
 - Auto-refresh via `hx-trigger="every 60s"`
@@ -233,17 +233,17 @@ Theme toggle in navbar with localStorage persistence.
 
 ### Slim UI Port Discovery
 
-The Slim UI automatically discovers the Agent port:
+The Slim UI automatically discovers the Monitor port:
 
 **Process:**
-1. Read from `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
+1. Read from `%LOCALAPPDATA%\AIUsageTracker\monitor.json`
 2. If not found, try port 5000
 3. Try fallback ports 5001-5010
 4. Use discovered port for all API calls
 
 **Implementation:**
-- `AgentService.RefreshPortAsync()` - Updates port before API calls
-- `AgentLauncher.IsAgentRunningWithPortAsync()` - Returns (isRunning, port)
+- `MonitorService.RefreshPortAsync()` - Updates port before API calls
+- `MonitorLauncher.IsAgentRunningWithPortAsync()` - Returns (isRunning, port)
 - Port is cached but refreshed on initialization
 
 ### Slim UI Window Behavior

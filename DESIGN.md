@@ -1047,7 +1047,7 @@ Changes to Agent endpoints are considered incomplete unless this contract file i
 
 ### Port Configuration
 
-The Agent supports dynamic port allocation to handle conflicts:
+The Monitor supports dynamic port allocation to handle conflicts:
 
 **Port Selection Priority:**
 1. Try preferred port (5000)
@@ -1055,15 +1055,7 @@ The Agent supports dynamic port allocation to handle conflicts:
 3. If all in use, use random available port
 
 **Port Persistence:**
-- Port saved to `%LOCALAPPDATA%\AIUsageTracker\Agent\agent.port`
-- JSON info saved to `agent.info`:
-  ```json
-  {
-    "Port": 5000,
-    "StartedAt": "2024-01-15T10:30:00Z",
-    "ProcessId": 12345
-  }
-  ```
+- Port saved to `%LOCALAPPDATA%\AIUsageTracker\monitor.json`
 
 ### Status Checking
 
