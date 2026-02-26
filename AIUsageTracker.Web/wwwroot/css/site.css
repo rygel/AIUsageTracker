@@ -269,6 +269,25 @@ body {
     color: var(--text-tertiary);
 }
 
+.anomaly-time {
+    font-size: 0.75rem;
+    margin-top: 0.2rem;
+    text-align: right;
+}
+
+.anomaly-time.detected {
+    color: var(--accent-danger);
+    font-weight: 500;
+}
+
+.anomaly-time.stable {
+    color: var(--text-secondary);
+}
+
+.anomaly-time.unavailable {
+    color: var(--text-tertiary);
+}
+
 /* Table */
 .table-container {
     background-color: var(--bg-secondary);
@@ -324,6 +343,11 @@ tr:hover { background-color: var(--bg-hover); }
 }
 
 .btn-secondary:hover { background-color: var(--bg-hover); }
+
+.btn-experimental-on {
+    border-color: var(--accent-warning);
+    color: var(--accent-warning);
+}
 
 /* Alerts */
 .alert {

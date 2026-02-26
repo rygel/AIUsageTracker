@@ -82,17 +82,21 @@
             </div>
         }
 
-        <div class="section-header">
-            <h2 class="mb-2">Current Usage</h2>
-            <div class="d-flex gap-2">
-                <button id="display-mode-btn" class="btn btn-secondary btn-sm" data-show-used="@(Model.ShowUsedPercentage.ToString().ToLower())">
-                    @(Model.ShowUsedPercentage ? "Show Remaining %" : "Show Used %")
-                </button>
-                <a class="btn btn-secondary btn-sm" href="/?showInactive=@((!Model.ShowInactiveProviders).ToString().ToLower())&showUsed=@(Model.ShowUsedPercentage.ToString().ToLower())">
-                    @(Model.ShowInactiveProviders ? "Hide Inactive" : "Show Inactive")
-                </a>
+            <div class="section-header">
+                <h2 class="mb-2">Current Usage</h2>
+                <div class="d-flex gap-2">
+                    <button id="display-mode-btn" class="btn btn-secondary btn-sm" data-show-used="@(Model.ShowUsedPercentage.ToString().ToLower())">
+                        @(Model.ShowUsedPercentage ? "Show Remaining %" : "Show Used %")
+                    </button>
+                    <a class="btn btn-secondary btn-sm" href="/?showInactive=@((!Model.ShowInactiveProviders).ToString().ToLower())&showUsed=@(Model.ShowUsedPercentage.ToString().ToLower())">
+                        @(Model.ShowInactiveProviders ? "Hide Inactive" : "Show Inactive")
+                    </a>
+                    <a class="btn btn-secondary btn-sm @(Model.EnableExperimentalAnomalyDetection ? "btn-experimental-on" : "")"
+                       href="/?showInactive=@(Model.ShowInactiveProviders.ToString().ToLower())&showUsed=@(Model.ShowUsedPercentage.ToString().ToLower())&expAnomaly=@((!Model.EnableExperimentalAnomalyDetection).ToString().ToLower())">
+                        @(Model.EnableExperimentalAnomalyDetection ? "Anomaly (Exp): On" : "Anomaly (Exp): Off")
+                    </a>
+                </div>
             </div>
-        </div>
 
         @if (visibleUsage.Count == 0)
         {
@@ -115,6 +119,10 @@
                         string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
                     var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
                     var hasForecast = Model.ForecastsByProvider.TryGetValue(usage.ProviderId, out var forecast);
+                    var hasAnomaly = Model.AnomaliesByProvider.TryGetValue(usage.ProviderId, out var anomalySnapshot);
+                    var anomaly = hasAnomaly && anomalySnapshot != null
+                        ? anomalySnapshot
+                        : AIUsageTracker.Core.Models.UsageAnomalySnapshot.Unavailable("Insufficient history");
 
                     var displayPercentage = usage.IsQuotaBased
                         ? (Model.ShowUsedPercentage ? (100 - usage.RequestsPercentage) : usage.RequestsPercentage)
@@ -191,6 +199,12 @@
                             {
                                 <div class="forecast-time @(forecast.IsAvailable ? "available" : "unavailable")">
                                     Forecast: @GetForecastText(forecast)
+                                </div>
+                            }
+                            @if (Model.EnableExperimentalAnomalyDetection && hasUsableMetrics)
+                            {
+                                <div class="anomaly-time @GetAnomalyClass(anomaly)">
+                                    Anomaly (exp): @GetAnomalyText(anomaly)
                                 </div>
                             }
                         </div>
@@ -431,5 +445,39 @@
         if (diff.TotalDays >= 1) return $"{(int)diff.TotalDays}d {(int)diff.Hours}h ago";
         if (diff.TotalHours >= 1) return $"{(int)diff.TotalHours}h {(int)diff.Minutes}m ago";
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m ago";
+    }
+
+    string GetAnomalyClass(AIUsageTracker.Core.Models.UsageAnomalySnapshot snapshot)
+    {
+        if (!snapshot.IsAvailable)
+        {
+            return "unavailable";
+        }
+
+        return snapshot.HasAnomaly ? "detected" : "stable";
+    }
+
+    string GetAnomalyText(AIUsageTracker.Core.Models.UsageAnomalySnapshot snapshot)
+    {
+        if (!snapshot.IsAvailable)
+        {
+            return "collecting baseline";
+        }
+
+        if (!snapshot.HasAnomaly)
+        {
+            return "none detected";
+        }
+
+        var latestText = snapshot.LatestRatePerDay >= 1
+            ? snapshot.LatestRatePerDay.ToString("F2")
+            : snapshot.LatestRatePerDay.ToString("F3");
+        var baselineText = snapshot.BaselineRatePerDay >= 1
+            ? snapshot.BaselineRatePerDay.ToString("F2")
+            : snapshot.BaselineRatePerDay.ToString("F3");
+        var direction = snapshot.Direction.Equals("Drop", StringComparison.OrdinalIgnoreCase) ? "drop" : "spike";
+        var severity = snapshot.Severity.ToLowerInvariant();
+
+        return $"{direction} ({severity}) {latestText}/day vs {baselineText}/day";
     }
 }

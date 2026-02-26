@@ -234,6 +234,76 @@ public class UsageMathTests
         Assert.Equal(0, snapshot.LastLatencyMs, 3);
     }
 
+    [Fact]
+    public void CalculateUsageAnomalySnapshot_WithSuddenSpike_ReturnsDetectedSpike()
+    {
+        // Arrange
+        var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
+        var history = new List<ProviderUsage>
+        {
+            CreateSample(start, used: 10, available: 200),
+            CreateSample(start.AddHours(12), used: 20, available: 200),
+            CreateSample(start.AddHours(24), used: 30, available: 200),
+            CreateSample(start.AddHours(36), used: 120, available: 200)
+        };
+
+        // Act
+        var snapshot = UsageMath.CalculateUsageAnomalySnapshot(history);
+
+        // Assert
+        Assert.True(snapshot.IsAvailable);
+        Assert.True(snapshot.HasAnomaly);
+        Assert.Equal("Spike", snapshot.Direction);
+        Assert.Equal("High", snapshot.Severity);
+        Assert.NotNull(snapshot.LastDetectedUtc);
+    }
+
+    [Fact]
+    public void CalculateUsageAnomalySnapshot_WithSuddenDrop_ReturnsDetectedDrop()
+    {
+        // Arrange
+        var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
+        var history = new List<ProviderUsage>
+        {
+            CreateSample(start, used: 40, available: 100),
+            CreateSample(start.AddHours(12), used: 52, available: 100),
+            CreateSample(start.AddHours(24), used: 64, available: 100),
+            CreateSample(start.AddHours(36), used: 56, available: 100)
+        };
+
+        // Act
+        var snapshot = UsageMath.CalculateUsageAnomalySnapshot(history);
+
+        // Assert
+        Assert.True(snapshot.IsAvailable);
+        Assert.True(snapshot.HasAnomaly);
+        Assert.Equal("Drop", snapshot.Direction);
+        Assert.Equal("High", snapshot.Severity);
+    }
+
+    [Fact]
+    public void CalculateUsageAnomalySnapshot_WithStableTrend_ReturnsNoAnomaly()
+    {
+        // Arrange
+        var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
+        var history = new List<ProviderUsage>
+        {
+            CreateSample(start, used: 10, available: 100),
+            CreateSample(start.AddHours(12), used: 20, available: 100),
+            CreateSample(start.AddHours(24), used: 31, available: 100),
+            CreateSample(start.AddHours(36), used: 41, available: 100)
+        };
+
+        // Act
+        var snapshot = UsageMath.CalculateUsageAnomalySnapshot(history);
+
+        // Assert
+        Assert.True(snapshot.IsAvailable);
+        Assert.False(snapshot.HasAnomaly);
+        Assert.Equal("None", snapshot.Severity);
+        Assert.Null(snapshot.LastDetectedUtc);
+    }
+
     private static ProviderUsage CreateSample(DateTime fetchedAt, double used, double available, double latencyMs = 0)
     {
         return new ProviderUsage

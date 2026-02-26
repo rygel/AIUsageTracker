@@ -74,6 +74,39 @@ public class WebDatabaseServiceBurnRateIntegrationTests
         }
     }
 
+    [Fact]
+    public async Task GetUsageAnomaliesAsync_WithSuddenSpike_ReturnsDetectedAnomaly()
+    {
+        var now = DateTime.UtcNow;
+        var rows = new[]
+        {
+            CreateRow("openai", 10, 200, true, now.AddHours(-4).ToString("O")),
+            CreateRow("openai", 20, 200, true, now.AddHours(-3).ToString("O")),
+            CreateRow("openai", 30, 200, true, now.AddHours(-2).ToString("O")),
+            CreateRow("openai", 120, 200, true, now.AddHours(-1).ToString("O"))
+        };
+
+        var dbPath = CreateTempDbPath();
+        try
+        {
+            await SeedHistoryAsync(dbPath, rows);
+            using var cache = new MemoryCache(new MemoryCacheOptions());
+            var service = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, dbPath);
+
+            var anomalies = await service.GetUsageAnomaliesAsync(new[] { "openai" }, lookbackHours: 24, maxSamplesPerProvider: 100);
+
+            Assert.True(anomalies.TryGetValue("openai", out var anomaly));
+            Assert.NotNull(anomaly);
+            Assert.True(anomaly!.IsAvailable);
+            Assert.True(anomaly.HasAnomaly);
+            Assert.Equal("Spike", anomaly.Direction);
+        }
+        finally
+        {
+            SafeDelete(dbPath);
+        }
+    }
+
     private static string CreateTempDbPath()
     {
         return Path.Combine(Path.GetTempPath(), $"ai-usage-tracker-tests-{Guid.NewGuid():N}.db");

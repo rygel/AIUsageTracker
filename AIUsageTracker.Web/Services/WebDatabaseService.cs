@@ -490,6 +490,102 @@ public class WebDatabaseService
         return snapshots;
     }
 
+    public async Task<Dictionary<string, UsageAnomalySnapshot>> GetUsageAnomaliesAsync(
+        IEnumerable<string> providerIds,
+        int lookbackHours = 72,
+        int maxSamplesPerProvider = 720)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(lookbackHours);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxSamplesPerProvider);
+
+        if (!IsDatabaseAvailable())
+        {
+            return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        ArgumentNullException.ThrowIfNull(providerIds);
+
+        var normalizedProviderIds = providerIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (normalizedProviderIds.Count == 0)
+        {
+            return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var cacheKey = $"db:anomaly:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedProviderIds)}";
+        if (_cache.TryGetValue<Dictionary<string, UsageAnomalySnapshot>>(cacheKey, out var cached) && cached != null)
+        {
+            _logger.LogDebug("WebDB cache hit for GetUsageAnomaliesAsync providers={Count}", normalizedProviderIds.Count);
+            return cached;
+        }
+
+        var sw = Stopwatch.StartNew();
+        using var connection = CreateReadConnection();
+        await connection.OpenAsync();
+
+        var cutoffUtc = DateTime.UtcNow
+            .AddHours(-lookbackHours)
+            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        const string sql = @"
+            WITH ranked AS (
+                SELECT h.provider_id AS ProviderId,
+                       h.requests_used AS RequestsUsed,
+                       h.requests_available AS RequestsAvailable,
+                       h.is_available AS IsAvailable,
+                       h.fetched_at AS FetchedAt,
+                       ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY datetime(h.fetched_at) DESC) AS RowNum
+                FROM provider_history h
+                WHERE h.provider_id IN @ProviderIds
+                  AND datetime(h.fetched_at) >= datetime(@CutoffUtc)
+            )
+            SELECT ProviderId, RequestsUsed, RequestsAvailable, IsAvailable, FetchedAt
+            FROM ranked
+            WHERE RowNum <= @MaxSamplesPerProvider
+            ORDER BY ProviderId, datetime(FetchedAt) ASC";
+
+        var rows = (await connection.QueryAsync<BurnRateSampleRow>(sql, new
+        {
+            ProviderIds = normalizedProviderIds,
+            CutoffUtc = cutoffUtc,
+            MaxSamplesPerProvider = maxSamplesPerProvider
+        })).ToList();
+
+        var snapshots = normalizedProviderIds.ToDictionary(
+            id => id,
+            _ => UsageAnomalySnapshot.Unavailable("Insufficient history"),
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in rows.GroupBy(r => r.ProviderId, StringComparer.OrdinalIgnoreCase))
+        {
+            var samples = group
+                .Where(x => x.IsAvailable)
+                .Select(x => new ProviderUsage
+                {
+                    ProviderId = x.ProviderId,
+                    RequestsUsed = x.RequestsUsed,
+                    RequestsAvailable = x.RequestsAvailable,
+                    IsAvailable = x.IsAvailable,
+                    FetchedAt = x.FetchedAt
+                })
+                .ToList();
+
+            snapshots[group.Key] = UsageMath.CalculateUsageAnomalySnapshot(samples);
+        }
+
+        _cache.Set(cacheKey, snapshots, TimeSpan.FromSeconds(30));
+        _logger.LogInformation(
+            "WebDB GetUsageAnomaliesAsync providers={ProviderCount} rows={RowCount} elapsedMs={ElapsedMs}",
+            normalizedProviderIds.Count,
+            rows.Count,
+            sw.ElapsedMilliseconds);
+
+        return snapshots;
+    }
+
     public async Task<List<ChartDataPoint>> GetChartDataAsync(int hours = 24)
     {
         if (!IsDatabaseAvailable())
