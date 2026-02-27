@@ -47,6 +47,8 @@ public partial class MainWindow : Window
     private bool _isLoading = false;
     private readonly Dictionary<string, ImageSource> _iconCache = new();
     private DateTime _lastAgentUpdate = DateTime.MinValue;
+    private DateTime _lastRefreshTrigger = DateTime.MinValue;
+    private const int RefreshCooldownSeconds = 120; // Only trigger refresh if 2 minutes since last attempt
     private DispatcherTimer? _pollingTimer;
     private string? _agentContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
@@ -425,11 +427,13 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                // No data available - trigger refresh on first attempt
+                // No data available - trigger refresh on first attempt if cooldown has passed
                 // This is needed for fresh installs where Monitor's background refresh hasn't completed yet
-                if (attempt == 0)
+                var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
+                if (attempt == 0 && secondsSinceLastRefresh >= RefreshCooldownSeconds)
                 {
                     Debug.WriteLine("No data on first poll, triggering provider refresh...");
+                    _lastRefreshTrigger = DateTime.Now;
                     try
                     {
                         await _agentService.TriggerRefreshAsync();
@@ -784,14 +788,24 @@ public partial class MainWindow : Window
         else
         {
             await InitializeAsync();
-        }
+                }
 
-        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-        UpdateLayout();
-        if (deterministic)
-        {
-            FitWindowHeightForHeadlessScreenshot();
-        }
+                // No data available - trigger refresh on first attempt if cooldown has passed
+                // This is needed for fresh installs where Monitor's background refresh hasn't completed yet
+                var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
+                if (attempt == 0 && secondsSinceLastRefresh >= RefreshCooldownSeconds)
+                {
+                    Debug.WriteLine("No data on first poll, triggering provider refresh...");
+                    _lastRefreshTrigger = DateTime.Now;
+                    try
+                    {
+                        await _agentService.TriggerRefreshAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
+                    }
+                }
     }
 
     private void FitWindowHeightForHeadlessScreenshot()
@@ -2047,14 +2061,33 @@ public partial class MainWindow : Window
                     _lastAgentUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
                 }
-                else if (_usages.Any())
+                else
                 {
-                    // We have previous data but now getting empty - Monitor may have restarted
-                    // Try refreshing the port and retry once
-                    Debug.WriteLine("Polling returned empty, attempting port refresh and retry...");
-                    await _agentService.RefreshPortAsync();
+                    // Empty data - try to trigger a refresh if cooldown has passed
+                    // This handles cases where Monitor restarted or hasn't completed its background refresh
+                    var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
+                    if (secondsSinceLastRefresh >= RefreshCooldownSeconds)
+                    {
+                        Debug.WriteLine("Polling returned empty, triggering refresh...");
+                        _lastRefreshTrigger = DateTime.Now;
+                        try
+                        {
+                            await _agentService.TriggerRefreshAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        Debug.WriteLine($"Polling returned empty, but refresh cooldown active ({secondsSinceLastRefresh:F0}s ago)");
+                    }
                     
+                    // Wait a moment and retry getting data
+                    await Task.Delay(1000);
                     var retryUsages = await _agentService.GetUsageAsync();
+                    
                     if (retryUsages.Any())
                     {
                         _usages = retryUsages.ToList();
@@ -2063,16 +2096,16 @@ public partial class MainWindow : Window
                         _lastAgentUpdate = DateTime.Now;
                         ShowStatus($"{DateTime.Now:HH:mm:ss} (refreshed)", StatusType.Success);
                     }
-                    else
+                    else if (_usages.Any())
                     {
                         // Keep showing old data, show yellow warning
                         ShowStatus("Last update: " + _lastAgentUpdate.ToString("HH:mm:ss") + " (stale)", StatusType.Warning);
                     }
-                }
-                else
-                {
-                    // No current data and no previous data - show warning
-                    ShowStatus("No data - waiting for Monitor", StatusType.Warning);
+                    else
+                    {
+                        // No current data and no previous data - show warning
+                        ShowStatus("No data - waiting for Monitor", StatusType.Warning);
+                    }
                 }
             }
             catch (Exception ex)

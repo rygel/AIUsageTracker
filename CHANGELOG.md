@@ -2,7 +2,21 @@
 
 ## Unreleased
 
-## [2.2.20] - 2026-02-27
+## [2.2.22] - 2026-02-27
+
+### Fixed
+- Trigger provider refresh on first empty poll during startup
+- Trigger refresh when polling timer gets empty data
+- Add 2-minute cooldown between refresh triggers to prevent excessive API calls
+
+### Changes
+- Simplify port discovery: read from monitor.json only, no port scanning
+- Add file logging to Monitor for diagnostics
+
+### Removed
+- Remove GitHub CLI token discovery for Copilot (use OAuth instead)
+
+## [2.2.21] - 2026-02-27
 
 ### Fixed
 - Implemented full port discovery scanning (5000-5010) as documented in AGENTS.md

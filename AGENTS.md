@@ -233,18 +233,16 @@ Theme toggle in navbar with localStorage persistence.
 
 ### Slim UI Port Discovery
 
-The Slim UI automatically discovers the Monitor port:
+The Slim UI reads the Monitor port directly from the configuration file:
 
 **Process:**
-1. Read from `%LOCALAPPDATA%\AIUsageTracker\monitor.json`
-2. If not found, try port 5000
-3. Try fallback ports 5001-5010
-4. Use discovered port for all API calls
+1. Read port from `%LOCALAPPDATA%\AIUsageTracker\monitor.json`
+2. Use that port for all API calls
 
 **Implementation:**
-- `MonitorService.RefreshPortAsync()` - Updates port before API calls
-- `MonitorLauncher.IsAgentRunningWithPortAsync()` - Returns (isRunning, port)
-- Port is cached but refreshed on initialization
+- `MonitorService.RefreshPortAsync()` - Reads port from monitor.json
+- `MonitorLauncher.GetAgentPortAsync()` - Returns port from the file
+- **NO port scanning** - the file is the authoritative source
 
 ### Slim UI Window Behavior
 
