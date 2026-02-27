@@ -423,6 +423,22 @@ public partial class MainWindow : Window
                     return;
                 }
 
+                // No data available - trigger a refresh on first attempt
+                // The Monitor doesn't refresh external providers on startup (only antigravity)
+                // so we need to explicitly trigger a refresh to get data
+                if (attempt == 0)
+                {
+                    ShowStatus("Triggering data refresh...", StatusType.Info);
+                    try
+                    {
+                        await _agentService.TriggerRefreshAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to trigger refresh: {ex.Message}");
+                    }
+                }
+
                 // No data yet - wait and try again
                 if (attempt < maxAttempts - 1)
                 {

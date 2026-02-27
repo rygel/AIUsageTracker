@@ -6,11 +6,11 @@
         <description>Most recent changes with links to updates.</description>
         <language>en</language>
         <item>
-            <title>Version 2.2.15</title>
-            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v2.2.15</sparkle:releaseNotesLink>
-            <pubDate>Wed, 26 Feb 2026 21:34:00 +0000</pubDate>
-            <enclosure url="https://github.com/rygel/AIConsumptionTracker/releases/download/v2.2.15/AIUsageTracker_Setup_v2.2.15_win-x64.exe"
-                       sparkle:version="2.2.15"
+            <title>Version 2.2.19</title>
+            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v2.2.19</sparkle:releaseNotesLink>
+            <pubDate>Fri, 27 Feb 2026 12:00:00 +0000</pubDate>
+            <enclosure url="https://github.com/rygel/AIConsumptionTracker/releases/download/v2.2.19/AIUsageTracker_Setup_v2.2.19_win-x64.exe"
+                       sparkle:version="2.2.19"
                        sparkle:os="windows"
                        length="0"
                        type="application/octet-stream" />
