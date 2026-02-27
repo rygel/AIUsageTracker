@@ -66,10 +66,7 @@ public class TokenDiscoveryService
         // 5. Discover from providers.json (to get IDs user might have added)
         await DiscoverFromProvidersFileAsync(discoveredConfigs);
 
-        // 6. Discover from GitHub CLI
-        await DiscoverGitHubCliTokenAsync(discoveredConfigs);
-
-        // 7. Discover from Claude Code
+        // 6. Discover from Claude Code
         await DiscoverClaudeCodeTokenAsync(discoveredConfigs);
 
         // 8. Discover OpenAI session token from OpenCode/Codex auth files
@@ -146,36 +143,6 @@ public class TokenDiscoveryService
         catch (Exception ex)
         {
             _logger.LogDebug("OpenCode session discovery failed: {Message}", ex.Message);
-        }
-    }
-
-    private async Task DiscoverGitHubCliTokenAsync(List<ProviderConfig> configs)
-    {
-        try
-        {
-            var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = "gh",
-                    Arguments = "auth token",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-            process.Start();
-            string token = (await process.StandardOutput.ReadToEndAsync()).Trim();
-            await process.WaitForExitAsync();
-
-            if (!string.IsNullOrEmpty(token) && process.ExitCode == 0)
-            {
-                AddOrUpdate(configs, "github-copilot", token, "Discovered via GitHub CLI", "GitHub CLI Safe Storage");
-            }
-        }
-        catch (Exception ex) 
-        { 
-            _logger.LogDebug("GitHub CLI discovery failed: {Message}", ex.Message);
         }
     }
 
