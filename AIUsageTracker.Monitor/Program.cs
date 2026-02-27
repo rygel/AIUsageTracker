@@ -168,7 +168,7 @@ app.MapGet("/api/usage", async (UsageDatabase db) =>
 {
     if (isDebugMode) Console.WriteLine($"[API] GET /api/usage - {DateTime.Now:HH:mm:ss}");
     var usage = await db.GetLatestHistoryAsync();
-    if (isDebugMode) Console.WriteLine($"[API] Returning {usage.Count} providers");
+    if (isDebugMode) Console.WriteLine($"[API] Returning {usage.Count} providers: {string.Join(", ", usage.Select(u => u.ProviderId))}");
     return Results.Ok(usage);
 });
 // IMPORTANT: Do NOT filter providers here. Per the Key-Driven Activation design principle,
