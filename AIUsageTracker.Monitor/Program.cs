@@ -17,6 +17,22 @@ bool isDebugMode = args.Contains("--debug");
 var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 var logDir = Path.Combine(appData, "AIUsageTracker", "logs");
 Directory.CreateDirectory(logDir);
+
+// Rotate logs: keep only last 7 days
+try
+{
+    var cutoffDate = DateTime.Now.AddDays(-7);
+    foreach (var log in Directory.GetFiles(logDir, "monitor_*.log"))
+    {
+        var fileInfo = new FileInfo(log);
+        if (fileInfo.LastWriteTime < cutoffDate)
+        {
+            fileInfo.Delete();
+        }
+    }
+}
+catch { /* Ignore rotation errors */ }
+
 var logFile = Path.Combine(logDir, $"monitor_{DateTime.Now:yyyy-MM-dd}.log");
 
 // Simple file logger
