@@ -2047,14 +2047,24 @@ public partial class MainWindow : Window
                     _lastAgentUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
                 }
-                else if (_usages.Any())
+                else
                 {
-                    // We have previous data but now getting empty - Monitor may have restarted
-                    // Try refreshing the port and retry once
-                    Debug.WriteLine("Polling returned empty, attempting port refresh and retry...");
-                    await _agentService.RefreshPortAsync();
+                    // Empty data - try to trigger a refresh
+                    // This handles cases where Monitor restarted or hasn't completed its background refresh
+                    Debug.WriteLine("Polling returned empty, triggering refresh...");
+                    try
+                    {
+                        await _agentService.TriggerRefreshAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
+                    }
                     
+                    // Wait a moment and retry getting data
+                    await Task.Delay(1000);
                     var retryUsages = await _agentService.GetUsageAsync();
+                    
                     if (retryUsages.Any())
                     {
                         _usages = retryUsages.ToList();
@@ -2063,16 +2073,16 @@ public partial class MainWindow : Window
                         _lastAgentUpdate = DateTime.Now;
                         ShowStatus($"{DateTime.Now:HH:mm:ss} (refreshed)", StatusType.Success);
                     }
-                    else
+                    else if (_usages.Any())
                     {
                         // Keep showing old data, show yellow warning
                         ShowStatus("Last update: " + _lastAgentUpdate.ToString("HH:mm:ss") + " (stale)", StatusType.Warning);
                     }
-                }
-                else
-                {
-                    // No current data and no previous data - show warning
-                    ShowStatus("No data - waiting for Monitor", StatusType.Warning);
+                    else
+                    {
+                        // No current data and no previous data - show warning
+                        ShowStatus("No data - waiting for Monitor", StatusType.Warning);
+                    }
                 }
             }
             catch (Exception ex)
