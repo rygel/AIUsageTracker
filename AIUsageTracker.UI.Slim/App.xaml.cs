@@ -554,15 +554,14 @@ public partial class App : Application
             return;
         }
         
-        // Load persisted preferences synchronously to avoid theme flicker/revert
-        LoadPreferencesAsync().GetAwaiter().GetResult();
-        
-        // Create tray icon
+        // Create tray icon first (needs to be available even if window is hidden)
         InitializeTrayIcon();
         
-        // Create and show main window
+        // Create main window but don't show it yet
         _mainWindow = new MainWindow();
-        _mainWindow.Show();
+        
+        // Load preferences asynchronously, then show window with correct theme
+        _ = LoadPreferencesAndShowWindowAsync();
     }
 
     private async Task RunHeadlessScreenshotCaptureAsync(string[] args)
@@ -1052,6 +1051,12 @@ public partial class App : Application
             Console.WriteLine($"[WARNING] Failed to load preferences: {ex.Message}");
             ApplyTheme(AppTheme.Dark);
         }
+    }
+
+    private async Task LoadPreferencesAndShowWindowAsync()
+    {
+        await LoadPreferencesAsync();
+        _mainWindow?.Show();
     }
 }
 
