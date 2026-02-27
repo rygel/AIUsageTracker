@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.2.20] - 2026-02-27
+
+### Fixed
+- Implemented full port discovery scanning (5000-5010) as documented in AGENTS.md
+- Fixed race condition in Monitor port discovery during startup
+- Fixed UI going blank when Monitor restarts - now shows stale data with warning
+- Added automatic port refresh retry when polling gets empty data
+- Show yellow warning LED when connection lost but stale data available
+
+### Changes
+- Port discovery now scans all ports 5000-5010 instead of just defaulting to 5000
+- Polling timer now handles connection errors gracefully with appropriate status messages
+
 ## [2.2.19] - 2026-02-27
 
 ### Fixed
