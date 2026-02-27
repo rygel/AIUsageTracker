@@ -42,8 +42,8 @@ public class MonitorService
             Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) }
         };
         
-        // Discover actual port and errors from file
-        _ = RefreshAgentInfoAsync();
+        // Note: Port discovery is now done explicitly via RefreshPortAsync()
+        // to avoid race conditions where the Monitor port changes
     }
 
     public static void LogDiagnostic(string message)
@@ -180,10 +180,28 @@ public class MonitorService
         }
         catch (HttpRequestException ex)
         {
-            stopwatch.Stop();
-            RecordUsageTelemetry(stopwatch.Elapsed, false);
-            LogDiagnostic($"Failed to fetch usage from {AgentUrl}: Connection error - {ex.Message}");
-            throw; // Re-throw connection errors so caller knows Monitor is unreachable
+            // Connection failed - Monitor may have moved to a different port
+            // Refresh port discovery and retry once
+            LogDiagnostic($"Connection failed to {AgentUrl}, refreshing port and retrying...");
+            await RefreshPortAsync();
+            
+            try
+            {
+                var usage = await _httpClient.GetFromJsonAsync<List<ProviderUsage>>(
+                    $"{AgentUrl}/api/usage", 
+                    _jsonOptions);
+                LogDiagnostic($"Successfully fetched usage from {AgentUrl} after port refresh");
+                stopwatch.Stop();
+                RecordUsageTelemetry(stopwatch.Elapsed, true);
+                return usage ?? new List<ProviderUsage>();
+            }
+            catch (HttpRequestException)
+            {
+                stopwatch.Stop();
+                RecordUsageTelemetry(stopwatch.Elapsed, false);
+                LogDiagnostic($"Failed to fetch usage from {AgentUrl} after port refresh: Connection error - {ex.Message}");
+                throw; // Re-throw connection errors so caller knows Monitor is unreachable
+            }
         }
         catch (Exception ex)
         {

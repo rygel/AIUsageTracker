@@ -322,11 +322,32 @@ public partial class MainWindow : Window
             // to prevent UI freezing during port scans or agent startup waits.
             var success = await Task.Run(async () => {
                 try {
-                    // Refresh port discovery
+                    // Refresh port discovery first
                     await _agentService.RefreshPortAsync();
-
-                    // Check if Agent is running, auto-start if needed
-                    if (!await MonitorLauncher.IsAgentRunningAsync())
+                    
+                    // Check if Monitor is running on the discovered port
+                    // Use _agentService.CheckHealthAsync() which uses the already-discovered port
+                    // instead of MonitorLauncher.IsAgentRunningAsync() which re-reads the file
+                    var isRunning = await _agentService.CheckHealthAsync();
+                    
+                    if (!isRunning)
+                    {
+                        // Try fallback ports in case Monitor is running on a different port
+                        // but the monitor.json file hasn't been updated yet
+                        var fallbackPorts = new[] { 5000, 5001, 5002, 5003, 5004, 5005 };
+                        foreach (var port in fallbackPorts)
+                        {
+                            _agentService.AgentUrl = $"http://localhost:{port}";
+                            if (await _agentService.CheckHealthAsync())
+                            {
+                                MonitorService.LogDiagnostic($"Found Monitor running on fallback port {port}");
+                                isRunning = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (!isRunning)
                     {
                         Dispatcher.Invoke(() => ShowStatus("Monitor not running. Starting monitor...", StatusType.Warning));
 
@@ -412,13 +433,6 @@ public partial class MainWindow : Window
                 // Try to get cached data from agent
                 var usages = await _agentService.GetUsageAsync();
 
-                // Debug logging to diagnose empty data issues
-                Debug.WriteLine($"[RapidPoll] Attempt {attempt + 1}: Got {usages.Count} providers from Monitor");
-                foreach (var usage in usages)
-                {
-                    Debug.WriteLine($"  - {usage.ProviderId}: IsAvailable={usage.IsAvailable}, Desc={usage.Description}");
-                }
-
                 if (usages.Any())
                 {
                     // Data is available - render and stop rapid polling
@@ -428,23 +442,6 @@ public partial class MainWindow : Window
                     _lastAgentUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
                     return;
-                }
-
-                // No data available - trigger a refresh on first attempt
-                // The Monitor doesn't refresh external providers on startup (only antigravity)
-                // so we need to explicitly trigger a refresh to get data
-                if (attempt == 0)
-                {
-                    Debug.WriteLine("[RapidPoll] No data available on first attempt, triggering refresh");
-                    ShowStatus("Triggering data refresh...", StatusType.Info);
-                    try
-                    {
-                        await _agentService.TriggerRefreshAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Failed to trigger refresh: {ex.Message}");
-                    }
                 }
 
                 // No data yet - wait and try again
