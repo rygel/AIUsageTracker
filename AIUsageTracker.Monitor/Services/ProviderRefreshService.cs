@@ -172,6 +172,7 @@ public class ProviderRefreshService : BackgroundService
             new ClaudeCodeProvider(_loggerFactory.CreateLogger<ClaudeCodeProvider>(), httpClient),
             new OpenCodeZenProvider(_loggerFactory.CreateLogger<OpenCodeZenProvider>()),
             new EvolveMigrationProvider(_loggerFactory.CreateLogger<EvolveMigrationProvider>()),
+            new SyntheticProvider(httpClient, _loggerFactory.CreateLogger<SyntheticProvider>()),
             new GenericPayAsYouGoProvider(httpClient, _loggerFactory.CreateLogger<GenericPayAsYouGoProvider>()),
         };
 
