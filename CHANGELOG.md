@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## [2.2.21] - 2026-02-27
+
+### Fixed
+- Trigger provider refresh on first empty poll during startup
+- Fixes issue where UI shows "No data available" on fresh installs
+
 ## [2.2.20] - 2026-02-27
 
 ### Fixed
