@@ -47,6 +47,8 @@ public partial class MainWindow : Window
     private bool _isLoading = false;
     private readonly Dictionary<string, ImageSource> _iconCache = new();
     private DateTime _lastAgentUpdate = DateTime.MinValue;
+    private DateTime _lastRefreshTrigger = DateTime.MinValue;
+    private const int RefreshCooldownSeconds = 120; // Only trigger refresh if 2 minutes since last attempt
     private DispatcherTimer? _pollingTimer;
     private string? _agentContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
@@ -425,11 +427,13 @@ public partial class MainWindow : Window
                     return;
                 }
 
-                // No data available - trigger refresh on first attempt
+                // No data available - trigger refresh on first attempt if cooldown has passed
                 // This is needed for fresh installs where Monitor's background refresh hasn't completed yet
-                if (attempt == 0)
+                var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
+                if (attempt == 0 && secondsSinceLastRefresh >= RefreshCooldownSeconds)
                 {
                     Debug.WriteLine("No data on first poll, triggering provider refresh...");
+                    _lastRefreshTrigger = DateTime.Now;
                     try
                     {
                         await _agentService.TriggerRefreshAsync();
@@ -2049,16 +2053,25 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    // Empty data - try to trigger a refresh
+                    // Empty data - try to trigger a refresh if cooldown has passed
                     // This handles cases where Monitor restarted or hasn't completed its background refresh
-                    Debug.WriteLine("Polling returned empty, triggering refresh...");
-                    try
+                    var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
+                    if (secondsSinceLastRefresh >= RefreshCooldownSeconds)
                     {
-                        await _agentService.TriggerRefreshAsync();
+                        Debug.WriteLine("Polling returned empty, triggering refresh...");
+                        _lastRefreshTrigger = DateTime.Now;
+                        try
+                        {
+                            await _agentService.TriggerRefreshAsync();
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
+                        Debug.WriteLine($"Polling returned empty, but refresh cooldown active ({secondsSinceLastRefresh:F0}s ago)");
                     }
                     
                     // Wait a moment and retry getting data
