@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## [2.2.18] - 2026-02-27
+
+### Fixed
+- **CRITICAL**: Restored dedicated SyntheticProvider class
+- Synthetic provider now properly queries https://api.synthetic.new/v2/quotas
+- Fixed "Usage unknown (provider integration missing)" error for Synthetic
+- Added proper response parsing for Synthetic subscription format
+
 ## [2.2.17] - 2026-02-27
 
 ### Fixed
