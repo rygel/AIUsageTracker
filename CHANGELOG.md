@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## [2.2.17] - 2026-02-27
+
+### Fixed
+- **CRITICAL**: Fixed provider data preservation - removed automatic cleanup that was deleting configured providers from database
+- Filter placeholder data at storage layer in `StoreHistoryAsync` instead of cleaning up later
+- Removed gemini-cli from system providers (was incorrectly added as a system provider)
+- Fixed `/api/usage` endpoint to return all providers from database without filtering
+- Added error logging to `JsonConfigLoader` to prevent silent failures
+
+### Documentation
+- Added comprehensive Data Preservation section to AGENTS.md
+- Documented Startup Refresh Behavior principles
+
 ## [2.2.16] - 2026-02-27
 
 ### Fixed

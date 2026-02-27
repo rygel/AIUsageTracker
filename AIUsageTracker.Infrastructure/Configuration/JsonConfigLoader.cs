@@ -110,7 +110,10 @@ public class JsonConfigLoader : IConfigLoader
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) 
+            { 
+                _logger.LogDebug("Failed to process config file {Path}: {Message}", path, ex.Message);
+            }
         }
 
         // Load Auth Files first

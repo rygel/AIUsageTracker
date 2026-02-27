@@ -178,6 +178,13 @@ public class MonitorService
             RecordUsageTelemetry(stopwatch.Elapsed, true);
             return usage ?? new List<ProviderUsage>();
         }
+        catch (HttpRequestException ex)
+        {
+            stopwatch.Stop();
+            RecordUsageTelemetry(stopwatch.Elapsed, false);
+            LogDiagnostic($"Failed to fetch usage from {AgentUrl}: Connection error - {ex.Message}");
+            throw; // Re-throw connection errors so caller knows Monitor is unreachable
+        }
         catch (Exception ex)
         {
             stopwatch.Stop();

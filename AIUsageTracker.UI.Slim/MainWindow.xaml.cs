@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -395,6 +396,15 @@ public partial class MainWindow : Window
 
         ShowStatus("Loading data...", StatusType.Info);
 
+        // First, check if Monitor is reachable
+        var isHealthy = await _agentService.CheckHealthAsync();
+        if (!isHealthy)
+        {
+            ShowStatus("Monitor not reachable", StatusType.Error);
+            ShowErrorState("Cannot connect to Monitor.\n\nPlease ensure:\n1. Monitor is running\n2. Port is correct (check monitor.json)\n3. Firewall is not blocking\n\nTry restarting the Monitor.");
+            return;
+        }
+
         for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
             try
@@ -420,6 +430,13 @@ public partial class MainWindow : Window
                     await Task.Delay(pollIntervalMs);
                 }
             }
+            catch (HttpRequestException ex)
+            {
+                Debug.WriteLine($"Connection error during rapid polling: {ex.Message}");
+                ShowStatus("Connection lost", StatusType.Error);
+                ShowErrorState($"Lost connection to Monitor:\n{ex.Message}\n\nTry refreshing or restarting the Monitor.");
+                return;
+            }
             catch (Exception ex)
             {
                 Debug.WriteLine($"Error during rapid polling: {ex.Message}");
@@ -432,7 +449,7 @@ public partial class MainWindow : Window
 
         // Max attempts reached - show error or empty state
         ShowStatus("No data available", StatusType.Error);
-        ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually.");
+        ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually or check Settings > Monitor.");
     }
 
     private void ApplyPreferences()

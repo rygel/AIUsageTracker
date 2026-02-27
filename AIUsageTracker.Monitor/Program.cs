@@ -164,15 +164,17 @@ app.MapGet("/api/diagnostics", (EndpointDataSource endpointDataSource, ProviderR
 });
 
 // Provider usage endpoints
-app.MapGet("/api/usage", async (UsageDatabase db, ConfigService configService) =>
+app.MapGet("/api/usage", async (UsageDatabase db) =>
 {
     if (isDebugMode) Console.WriteLine($"[API] GET /api/usage - {DateTime.Now:HH:mm:ss}");
     var usage = await db.GetLatestHistoryAsync();
-    var configs = await configService.GetConfigsAsync();
-    var filteredUsage = UsageVisibilityFilter.FilterForConfiguredProviders(usage, configs);
-    if (isDebugMode) Console.WriteLine($"[API] Returning {filteredUsage.Count} providers");
-    return Results.Ok(filteredUsage);
+    if (isDebugMode) Console.WriteLine($"[API] Returning {usage.Count} providers");
+    return Results.Ok(usage);
 });
+// IMPORTANT: Do NOT filter providers here. Per the Key-Driven Activation design principle,
+// filtering (only query providers with API keys) happens at REFRESH TIME in ProviderRefreshService.
+// This endpoint simply returns all providers from the database that were successfully queried.
+// Adding filters here will break provider visibility without affecting what gets queried.
 
 app.MapGet("/api/usage/{providerId}", async (string providerId, UsageDatabase db) =>
 {

@@ -293,6 +293,103 @@ script-src 'self' https://unpkg.com;
 - **Listing**: The UI pre-populates a list of supported providers to allow users to easily add keys, but their underlying presence is merely structural until configured.
 - **Equality**: All supported providers are treated equally in terms of system integration and display logic.
 
+### Startup Refresh Behavior (CRITICAL)
+
+**When the Monitor starts, it MUST serve existing data from the database immediately and MUST NOT hammer 3rd party APIs.**
+
+**Why**: Users should see their providers immediately from cached data, but the Monitor should not overwhelm external APIs with startup requests. API calls should only happen on the scheduled refresh interval.
+
+**Implementation in ProviderRefreshService.cs:**
+```csharp
+// On startup with existing cached data:
+// CORRECT: Serve from database, only refresh system providers (no external API)
+_ = Task.Run(async () =>
+{
+    await TriggerRefreshAsync(
+        forceAll: true,
+        includeProviderIds: new[] { "antigravity" });
+});
+
+// WRONG: Hammer all 3rd party APIs on startup
+_ = Task.Run(async () =>
+{
+    await TriggerRefreshAsync(forceAll: true); // DON'T DO THIS
+});
+```
+
+**Key Principles:**
+1. **Serve from database immediately** - The UI gets cached data right away
+2. **No external API calls on startup** - Only refresh system providers (antigravity)
+3. **Scheduled refresh updates data** - Normal 60s interval refreshes all providers
+4. **Database is the source of truth** - Between refreshes, serve what's stored
+
+**Consequence of wrong implementation**: Hammering APIs on startup causes rate limiting and poor user experience.
+
+### Data Preservation (CRITICAL)
+
+**NEVER delete customer data automatically. Do NOT implement cleanup logic that removes provider history.**
+
+**Why**: Customer data must be preserved. If placeholder data is being created, fix the SOURCE (don't write it) rather than cleaning it up later.
+
+**Implementation in UsageDatabase.cs:**
+```csharp
+// CORRECT: Filter placeholder data BEFORE storing
+public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
+{
+    var validUsages = usages.Where(u => 
+        !(u.RequestsAvailable == 0 && u.RequestsUsed == 0 && 
+          u.RequestsPercentage == 0 && !u.IsAvailable && 
+          (u.Description?.Contains("API Key") == true || 
+           u.Description?.Contains("configured") == true))
+    ).ToList();
+    
+    // Only store validUsages...
+}
+
+// WRONG: Store everything then clean up later
+public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
+{
+    // Store all usages including placeholders...
+}
+
+// Later...
+await CleanupEmptyHistoryAsync(); // DON'T DO THIS - deletes customer data
+```
+
+**Key Principles:**
+1. **Prevent placeholder data at the source** - Filter in StoreHistoryAsync, not after
+2. **NEVER delete provider history** - Once stored, data must be preserved
+3. **Raw snapshots can have TTL** - CleanupOldSnapshotsAsync with 14-day retention is OK
+4. **Customer data is sacred** - Storage layer must protect it
+
+**Consequence of wrong implementation**: Customer provider history is deleted, causing providers to disappear from the UI until next refresh.
+
+### Error Handling and Logging (CRITICAL)
+
+**NEVER use silent failures.** Every exception, error, or unexpected condition MUST be logged.
+
+**Rule**: All catch blocks must either:
+1. Re-throw the exception (if caller should handle it)
+2. Log the error with context
+
+**BAD:**
+```csharp
+catch 
+{
+    // Silent failure - user has no idea what went wrong
+}
+```
+
+**GOOD:**
+```csharp
+catch (Exception ex)
+{
+    _logger.LogDebug("GitHub CLI discovery failed: {Message}", ex.Message);
+}
+```
+
+**Why this matters**: Silent failures make debugging impossible. When users report "nothing works," we need logs to understand what failed.
+
 ### Provider Implementation Pattern
 ```csharp
 public class ExampleProvider : IProviderService

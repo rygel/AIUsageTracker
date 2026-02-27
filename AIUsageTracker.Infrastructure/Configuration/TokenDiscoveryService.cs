@@ -143,9 +143,9 @@ public class TokenDiscoveryService
                 return;
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Codex/OpenCode auth may not be present or parsable
+            _logger.LogDebug("OpenCode session discovery failed: {Message}", ex.Message);
         }
     }
 
@@ -173,9 +173,9 @@ public class TokenDiscoveryService
                 AddOrUpdate(configs, "github-copilot", token, "Discovered via GitHub CLI", "GitHub CLI Safe Storage");
             }
         }
-        catch 
+        catch (Exception ex) 
         { 
-            // GitHub CLI might not be installed or authenticated
+            _logger.LogDebug("GitHub CLI discovery failed: {Message}", ex.Message);
         }
     }
 
@@ -202,9 +202,9 @@ public class TokenDiscoveryService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Claude Code might not be installed or credentials file might be corrupted
+            _logger.LogDebug("Claude Code discovery failed: {Message}", ex.Message);
         }
     }
 
@@ -418,8 +418,9 @@ public class TokenDiscoveryService
                 return Path.Combine(configHome, "Code", "User", "globalStorage");
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogDebug("VS Code config path discovery failed: {Message}", ex.Message);
             return null;
         }
     }
