@@ -9,7 +9,6 @@ namespace AIUsageTracker.Core.MonitorClient;
 public class MonitorLauncher
 {
     private const int DefaultPort = 5000;
-    private const int MaxPort = 5010;
     private const int MaxWaitSeconds = 30;
     private const int StopWaitSeconds = 5;
 
@@ -41,33 +40,6 @@ public class MonitorLauncher
     {
         var info = await GetAgentInfoAsync();
         return info?.Port > 0 ? info.Port : DefaultPort;
-    }
-
-    public static async Task<int> DiscoverMonitorPortAsync()
-    {
-        // First, try the port from monitor.json
-        var port = await GetAgentPortAsync();
-        
-        if (await CheckHealthAsync(port))
-        {
-            MonitorService.LogDiagnostic($"Found Monitor on configured port {port}");
-            return port;
-        }
-        
-        // Port from file not available, scan fallback ports 5000-5010
-        MonitorService.LogDiagnostic($"Port {port} not available, scanning fallback ports {DefaultPort}-{MaxPort}...");
-        
-        for (int scanPort = DefaultPort; scanPort <= MaxPort; scanPort++)
-        {
-            if (await CheckHealthAsync(scanPort))
-            {
-                MonitorService.LogDiagnostic($"Found Monitor on fallback port {scanPort}");
-                return scanPort;
-            }
-        }
-        
-        MonitorService.LogDiagnostic($"No Monitor found on any port, returning default {DefaultPort}");
-        return DefaultPort;
     }
 
     public static async Task<bool> IsAgentRunningAsync()
