@@ -161,8 +161,16 @@ public class MonitorService
     
     public async Task RefreshPortAsync()
     {
-        // Use full port discovery: check monitor.json, then scan 5000-5010
-        var port = await MonitorLauncher.DiscoverMonitorPortAsync();
+        // Read port from monitor.json file - that's the authoritative source
+        var port = await MonitorLauncher.GetAgentPortAsync();
+        
+        // Verify the Monitor is actually running on that port
+        if (!await MonitorLauncher.IsAgentRunningAsync())
+        {
+            // Only as very last resort, try scanning - but this should rarely happen
+            MonitorService.LogDiagnostic($"Monitor not found on port {port}, this should not happen");
+        }
+        
         AgentUrl = $"http://localhost:{port}";
     }
 

@@ -13,6 +13,41 @@ using Microsoft.AspNetCore.Routing;
 // Check for debug flag early
 bool isDebugMode = args.Contains("--debug");
 
+// Set up file logging
+var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+var logDir = Path.Combine(appData, "AIUsageTracker", "logs");
+Directory.CreateDirectory(logDir);
+
+// Rotate logs: keep only last 7 days
+try
+{
+    var cutoffDate = DateTime.Now.AddDays(-7);
+    foreach (var log in Directory.GetFiles(logDir, "monitor_*.log"))
+    {
+        var fileInfo = new FileInfo(log);
+        if (fileInfo.LastWriteTime < cutoffDate)
+        {
+            fileInfo.Delete();
+        }
+    }
+}
+catch { /* Ignore rotation errors */ }
+
+var logFile = Path.Combine(logDir, $"monitor_{DateTime.Now:yyyy-MM-dd}.log");
+
+// Simple file logger
+void LogToFile(string message)
+{
+    try
+    {
+        var logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}";
+        File.AppendAllText(logFile, logEntry + Environment.NewLine);
+    }
+    catch { /* Ignore logging errors */ }
+}
+
+LogToFile("=== Monitor starting ===");
+
 if (isDebugMode)
 {
     // Allocate a console window for debugging
@@ -166,9 +201,17 @@ app.MapGet("/api/diagnostics", (EndpointDataSource endpointDataSource, ProviderR
 // Provider usage endpoints
 app.MapGet("/api/usage", async (UsageDatabase db) =>
 {
-    if (isDebugMode) Console.WriteLine($"[API] GET /api/usage - {DateTime.Now:HH:mm:ss}");
     var usage = await db.GetLatestHistoryAsync();
-    if (isDebugMode) Console.WriteLine($"[API] Returning {usage.Count} providers");
+    
+    // Log to file
+    try {
+        var logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker", "logs");
+        var logFile = Path.Combine(logDir, $"monitor_{DateTime.Now:yyyy-MM-dd}.log");
+        File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} API /api/usage returning {usage.Count} providers: {string.Join(", ", usage.Select(u => u.ProviderId))}{Environment.NewLine}");
+    } catch { /* Ignore */ }
+    
+    if (isDebugMode) Console.WriteLine($"[API] GET /api/usage - {DateTime.Now:HH:mm:ss}");
+    if (isDebugMode) Console.WriteLine($"[API] Returning {usage.Count} providers: {string.Join(", ", usage.Select(u => u.ProviderId))}");
     return Results.Ok(usage);
 });
 // IMPORTANT: Do NOT filter providers here. Per the Key-Driven Activation design principle,
