@@ -236,10 +236,8 @@ public class ProviderRefreshService : BackgroundService
                     Type = "quota-based",
                     PlanType = PlanType.Coding
                 });
-            // Only query providers with API keys configured - skip empty ones
-            var activeConfigs = configs.Where(c =>
-                forceAll ||
-                !string.IsNullOrEmpty(c.ApiKey)).ToList();
+            // Query ALL configured providers - no filtering
+            var activeConfigs = configs.ToList();
 
             if (includeProviderIds != null && includeProviderIds.Count > 0)
             {
@@ -251,15 +249,7 @@ public class ProviderRefreshService : BackgroundService
                     .ToList();
             }
 
-            var skippedCount = configs.Count - activeConfigs.Count;
-
-
-            _logger.LogInformation("Providers: {Total} configured, {Active} with keys for refresh", configs.Count, activeConfigs.Count);
-
-            if (skippedCount > 0)
-            {
-                _logger.LogDebug("Skipping {Count} providers without API keys", skippedCount);
-            }
+            _logger.LogInformation("Refreshing {Count} configured providers", activeConfigs.Count);
 
             foreach (var config in configs)
             {
