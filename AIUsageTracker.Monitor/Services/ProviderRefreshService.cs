@@ -93,24 +93,25 @@ public class ProviderRefreshService : BackgroundService
         }
         else
         {
-            // Database has existing data — serve it immediately.
-            // Do NOT refresh on startup; the scheduled interval will refresh on time.
+            // Database has existing data — serve it immediately WITHOUT refreshing.
+            // Do NOT hammer 3rd party APIs on startup. The scheduled interval will refresh on time.
             _logger.LogInformation("Startup: serving cached data from database (next refresh in {Minutes}m).", _refreshInterval.TotalMinutes);
-
+            
+            // Background task only refreshes antigravity (system provider, no external API)
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    _logger.LogInformation("Startup: forcing immediate Antigravity refresh for live model quotas.");
+                    _logger.LogInformation("Startup: refreshing antigravity quotas...");
                     await TriggerRefreshAsync(
                         forceAll: true,
                         includeProviderIds: new[] { "antigravity" },
                         bypassCircuitBreaker: true);
-                    _logger.LogInformation("Startup: Antigravity refresh complete.");
+                    _logger.LogInformation("Startup: antigravity refresh complete.");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Startup Antigravity refresh failed: {Message}", ex.Message);
+                    _logger.LogError(ex, "Startup antigravity refresh failed: {Message}", ex.Message);
                 }
             }, stoppingToken);
         }
@@ -208,14 +209,14 @@ public class ProviderRefreshService : BackgroundService
 
             _logger.LogInformation("Refreshing...");
 
-            _logger.LogDebug("Loading provider configurations...");
+            _logger.LogInformation("Loading provider configurations...");
             var configs = await _configService.GetConfigsAsync();
-            _logger.LogDebug("Found {Count} total configurations", configs.Count);
+            _logger.LogInformation("Found {Count} total configurations", configs.Count);
 
             foreach (var c in configs)
             {
                 var hasKey = !string.IsNullOrEmpty(c.ApiKey);
-                _logger.LogDebug("Provider {ProviderId}: {Status}",
+                _logger.LogInformation("Provider {ProviderId}: {Status}",
                     c.ProviderId, hasKey ? $"Has API key ({c.ApiKey?.Length ?? 0} chars)" : "NO API KEY");
             }
 
@@ -228,19 +229,11 @@ public class ProviderRefreshService : BackgroundService
                     Type = "quota-based",
                     PlanType = PlanType.Coding
                 });
-            if (!configs.Any(c => c.ProviderId.Equals("gemini-cli", StringComparison.OrdinalIgnoreCase)))
-                configs.Add(new ProviderConfig
-                {
-                    ProviderId = "gemini-cli",
-                    ApiKey = "",
-                    Type = "quota-based",
-                    PlanType = PlanType.Coding
-                });
-            // System providers (antigravity, gemini-cli) work without API keys
+            // System providers (antigravity) work without API keys
             // All other providers need an API key to be queried
             var systemProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
             { 
-                "antigravity", "gemini-cli" 
+                "antigravity"
             };
 
             var activeConfigs = configs.Where(c =>
@@ -260,6 +253,13 @@ public class ProviderRefreshService : BackgroundService
             }
 
             _logger.LogInformation("Refreshing {Count} configured providers", activeConfigs.Count);
+            
+            // Debug: log which providers we're about to refresh
+            foreach (var config in activeConfigs.OrderBy(c => c.ProviderId))
+            {
+                _logger.LogDebug("Active config: {ProviderId} (Key present: {HasKey})", 
+                    config.ProviderId, !string.IsNullOrEmpty(config.ApiKey));
+            }
 
             foreach (var config in configs)
             {
@@ -367,7 +367,6 @@ public class ProviderRefreshService : BackgroundService
             }
 
             await _database.CleanupOldSnapshotsAsync();
-            await _database.CleanupEmptyHistoryAsync();
             await _database.OptimizeAsync();
             _logger.LogInformation("Cleanup complete");
             refreshSucceeded = true;

@@ -116,6 +116,23 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
     {
+        // Filter out placeholder/unconfigured provider entries
+        // These represent providers that were queried but have no API key configured
+        var validUsages = usages.Where(u => 
+            !(u.RequestsAvailable == 0 && 
+              u.RequestsUsed == 0 && 
+              u.RequestsPercentage == 0 && 
+              !u.IsAvailable && 
+              (u.Description?.Contains("API Key", StringComparison.OrdinalIgnoreCase) == true || 
+               u.Description?.Contains("configured", StringComparison.OrdinalIgnoreCase) == true ||
+               u.Description?.Contains("Configuration Required", StringComparison.OrdinalIgnoreCase) == true))
+        ).ToList();
+        
+        if (!validUsages.Any())
+        {
+            return;
+        }
+        
         await _semaphore.WaitAsync();
         try
         {
@@ -163,7 +180,7 @@ public class UsageDatabase : IUsageDatabase
                     @DetailsJson, @ResponseLatencyMs
                 )";
 
-            var providerUpsertParameters = usages.Select(u => new
+            var providerUpsertParameters = validUsages.Select(u => new
             {
                 ProviderId = u.ProviderId,
                 ProviderName = u.ProviderName,
@@ -175,7 +192,7 @@ public class UsageDatabase : IUsageDatabase
 
             await connection.ExecuteAsync(providerUpsertSql, providerUpsertParameters);
 
-            var parameters = usages.Select(u => new
+            var parameters = validUsages.Select(u => new
             {
                 ProviderId = u.ProviderId,
                 RequestsUsed = u.RequestsUsed,
@@ -192,7 +209,7 @@ public class UsageDatabase : IUsageDatabase
             });
 
             await connection.ExecuteAsync(sql, parameters);
-            _logger.LogInformation("{Count} records stored", usages.Count());
+            _logger.LogInformation("{Count} records stored", validUsages.Count);
         }
         finally
         {
@@ -235,42 +252,6 @@ public class UsageDatabase : IUsageDatabase
             if (deletedCount > 0)
             {
                 _logger.LogInformation("Cleaned {Count} snapshots", deletedCount);
-            }
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
-    }
-
-    public async Task CleanupEmptyHistoryAsync()
-    {
-        await _semaphore.WaitAsync();
-        try
-        {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
-
-            // Delete history items that have 0 usage across the board, are unavailable,
-            // and clearly represent "not configured" placeholders.
-            // Keep API/network error rows so configured providers remain visible in the UI.
-            const string sql = @"
-                DELETE FROM provider_history 
-                WHERE requests_available = 0 
-                  AND requests_used = 0 
-                  AND requests_percentage = 0 
-                  AND is_available = 0
-                  AND (
-                        status_message LIKE '%API Key%'
-                        OR status_message LIKE '%configured%'
-                        OR status_message LIKE '%Configuration Required%'
-                      )";
-                  
-            var deletedCount = await connection.ExecuteAsync(sql);
-            
-            if (deletedCount > 0)
-            {
-                _logger.LogInformation("Cleaned up {Count} empty provider history entries", deletedCount);
             }
         }
         finally
