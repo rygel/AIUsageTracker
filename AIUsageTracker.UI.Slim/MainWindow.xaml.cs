@@ -427,7 +427,6 @@ public partial class MainWindow : Window
                     return;
                 }
 
-<<<<<<< HEAD
                 // No data available - trigger refresh on first attempt if cooldown has passed
                 // This is needed for fresh installs where Monitor's background refresh hasn't completed yet
                 var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
@@ -435,13 +434,6 @@ public partial class MainWindow : Window
                 {
                     Debug.WriteLine("No data on first poll, triggering provider refresh...");
                     _lastRefreshTrigger = DateTime.Now;
-=======
-                // No data available - trigger refresh on first attempt
-                // This is needed for fresh installs where Monitor's background refresh hasn't completed yet
-                if (attempt == 0)
-                {
-                    Debug.WriteLine("No data on first poll, triggering provider refresh...");
->>>>>>> 8249b0a (fix(startup): trigger refresh on first empty poll for fresh installs)
                     try
                     {
                         await _agentService.TriggerRefreshAsync();
