@@ -100,7 +100,8 @@ public class WebDatabaseService
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
-                       h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson
+                       h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson,
+                       CASE WHEN LOWER(p.plan_type) = 'coding' THEN 1 ELSE 0 END AS IsQuotaBased
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -114,7 +115,8 @@ public class WebDatabaseService
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
-                       h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson
+                       h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson,
+                       CASE WHEN LOWER(p.plan_type) = 'coding' THEN 1 ELSE 0 END AS IsQuotaBased
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
