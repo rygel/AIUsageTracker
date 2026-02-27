@@ -788,24 +788,7 @@ public partial class MainWindow : Window
         else
         {
             await InitializeAsync();
-                }
-
-                // No data available - trigger refresh on first attempt if cooldown has passed
-                // This is needed for fresh installs where Monitor's background refresh hasn't completed yet
-                var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
-                if (attempt == 0 && secondsSinceLastRefresh >= RefreshCooldownSeconds)
-                {
-                    Debug.WriteLine("No data on first poll, triggering provider refresh...");
-                    _lastRefreshTrigger = DateTime.Now;
-                    try
-                    {
-                        await _agentService.TriggerRefreshAsync();
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
-                    }
-                }
+        }
     }
 
     private void FitWindowHeightForHeadlessScreenshot()
