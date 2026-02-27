@@ -27,9 +27,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
-
 jobs:
   screenshot-baseline:
     runs-on: windows-2025
@@ -67,30 +64,11 @@ jobs:
         shell: pwsh
 
       - name: Verify screenshot baselines
-        id: verify-baselines
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_screenshot_baseline.ps1
         shell: pwsh
 
-      - name: Auto-sync screenshot baselines on release branches
-        if: failure() && steps.verify-baselines.outcome == 'failure' && startsWith(github.head_ref, 'feature/v')
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git fetch origin ${{ github.head_ref }}
-          git add docs/screenshot_*_privacy.png
-          $stagedFiles = git diff --staged --name-only
-          if ($stagedFiles -eq $null -or $stagedFiles -eq "") {
-            Write-Host "No screenshot changes to commit"
-          } else {
-            git commit -m "chore: sync screenshot baselines from CI (windows-2025 runner)"
-            git pull origin ${{ github.head_ref }} --rebase
-            git push origin HEAD:${{ github.head_ref }}
-            Write-Host "Screenshot baselines synced successfully to ${{ github.head_ref }}"
-          }
-        shell: pwsh
-
       - name: Upload Slim UI screenshots
-        if: failure() && !startsWith(github.head_ref, 'feature/v')
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: slim-ui-screenshots
@@ -103,4 +81,3 @@ jobs:
             docs/screenshot_settings_agent_privacy.png
             docs/screenshot_info_privacy.png
             docs/screenshot_context_menu_privacy.png
-
