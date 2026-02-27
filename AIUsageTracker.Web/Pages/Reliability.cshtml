@@ -155,20 +155,20 @@
                                 <span>@Model.GetLatencyText(snapshot)</span>
                             </div>
                             <div class="reliability-row">
-                                <span>Total Requests</span>
-                                <span>@snapshot.TotalRequests.ToString("N0")</span>
+                                <span>Total Samples</span>
+                                <span>@snapshot.SampleCount.ToString("N0")</span>
                             </div>
                             <div class="reliability-row">
-                                <span>Failed Requests</span>
-                                <span>@snapshot.FailedRequests.ToString("N0")</span>
+                                <span>Success</span>
+                                <span>@snapshot.SuccessCount.ToString("N0")</span>
                             </div>
                             <div class="reliability-row">
-                                <span>Last Success</span>
-                                <span>@Model.GetLastSuccessText(snapshot)</span>
+                                <span>Failures</span>
+                                <span>@snapshot.FailureCount.ToString("N0")</span>
                             </div>
                             <div class="reliability-row">
-                                <span>Last Failure</span>
-                                <span>@Model.GetLastFailureText(snapshot)</span>
+                                <span>Last Sync</span>
+                                <span>@Model.GetLastSyncText(snapshot)</span>
                             </div>
                         }
                         else
