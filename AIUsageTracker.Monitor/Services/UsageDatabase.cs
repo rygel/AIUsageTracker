@@ -21,6 +21,15 @@ public class UsageDatabase : IUsageDatabase
         Directory.CreateDirectory(dbDir);
         _dbPath = Path.Combine(dbDir, "usage.db");
         _logger.LogInformation("Database path: {DbPath}", _dbPath);
+        
+        // Also write to file log
+        try {
+            var logDir = Path.Combine(appData, "AIUsageTracker", "logs");
+            Directory.CreateDirectory(logDir);
+            var logFile = Path.Combine(logDir, $"monitor_{DateTime.Now:yyyy-MM-dd}.log");
+            File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} Database path: {_dbPath}{Environment.NewLine}");
+        } catch { /* Ignore */ }
+        
         _connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = _dbPath,
