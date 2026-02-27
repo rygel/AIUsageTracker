@@ -130,6 +130,11 @@
                         ? (Model.ShowUsedPercentage ? (100 - usage.RequestsPercentage) : usage.RequestsPercentage)
                         : (Model.ShowUsedPercentage ? usage.RequestsPercentage : (100 - usage.RequestsPercentage));
 
+                    // Calculate used percentage for color (always based on used, regardless of toggle)
+                    var usedPercentage = usage.IsQuotaBased
+                        ? Math.Max(0, 100 - usage.RequestsPercentage)
+                        : usage.RequestsPercentage;
+
                     if (!hasUsableMetrics)
                     {
                         displayPercentage = 0;
@@ -183,7 +188,7 @@
                         
                         <div class="progress-container">
                             <div class="progress-bar-bg">
-                                <div class="progress-bar-fill @GetProgressClass(displayPercentage, Model.ShowUsedPercentage, usage.IsQuotaBased)" 
+                                <div class="progress-bar-fill @GetProgressClass(usedPercentage)" 
                                      style="width: @displayPercentage%">
                                 </div>
                             </div>
@@ -315,32 +320,16 @@
         _ => "success"
     };
 
-    string GetProgressClass(double percentage, bool showUsed, bool isQuotaBased)
+    string GetProgressClass(double usedPercentage)
     {
-        // For quota-based: high remaining % = green (good), low = red (bad)
-        // For usage-based: high used % = red (bad), low = green (good)
-        // When showing used %: invert the logic
-        
-        if (showUsed)
+        // Color is ALWAYS based on used percentage, regardless of toggle
+        // Green: < 50% used, Yellow: 50-90% used, Red: >= 90% used
+        return usedPercentage switch
         {
-            // Showing "used %" - high is bad
-            return percentage switch
-            {
-                >= 80 => "high",
-                >= 50 => "medium",
-                _ => "low"
-            };
-        }
-        else
-        {
-            // Showing "remaining %" - low is bad
-            return percentage switch
-            {
-                <= 20 => "high",
-                <= 50 => "medium",
-                _ => "low"
-            };
-        }
+            >= 90 => "high",
+            >= 50 => "medium",
+            _ => "low"
+        };
     }
 
     string GetRelativeTimeString(DateTime nextReset)
