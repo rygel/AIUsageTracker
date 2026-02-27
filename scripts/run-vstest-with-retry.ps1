@@ -64,7 +64,7 @@ function Invoke-VsTestRun {
         $arguments += @("--TestCaseFilter", $testCaseFilter)
     }
 
-    & dotnet @arguments | Out-Host
+    & dotnet @arguments
     return [int]$LASTEXITCODE
 }
 

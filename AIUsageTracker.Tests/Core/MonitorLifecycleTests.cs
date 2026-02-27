@@ -41,29 +41,34 @@ public class MonitorLifecycleTests
     [Fact]
     public async Task MonitorLifecycle_StartFromSlim_StopFromWeb_RestartFromSlim_Works()
     {
-        var isRunningBefore = await MonitorLauncher.IsAgentRunningAsync();
-        
-        var canStart = await MonitorLauncher.StartAgentAsync();
-        
-        if (canStart)
+        try
         {
-            var waited = await MonitorLauncher.WaitForAgentAsync();
-            var isRunningAfterStart = await MonitorLauncher.IsAgentRunningAsync();
-            
-            if (isRunningAfterStart)
+            var canStart = await MonitorLauncher.StartAgentAsync();
+            if (!canStart)
             {
-                var stopped = await MonitorLauncher.StopAgentAsync();
-                var isRunningAfterStop = await MonitorLauncher.IsAgentRunningAsync();
-                
-                var restarted = await MonitorLauncher.StartAgentAsync();
-                
-                Assert.True(isRunningBefore == false || isRunningBefore == true, "Initial state check");
-                Assert.True(canStart == true || canStart == false, "Start attempt");
-                Assert.True(stopped == true || stopped == false, "Stop from Web UI");
-                Assert.True(restarted == true || restarted == false, "Restart from Slim UI");
+                return;
             }
+
+            var started = await MonitorLauncher.WaitForAgentAsync();
+            if (!started)
+            {
+                return;
+            }
+
+            await MonitorLauncher.StopAgentAsync();
+            var restarted = await MonitorLauncher.StartAgentAsync();
+            if (!restarted)
+            {
+                return;
+            }
+
+            var restartReady = await MonitorLauncher.WaitForAgentAsync();
+            Assert.True(restartReady, "Monitor should be reachable after restart.");
         }
-        
-        Assert.True(true, "Lifecycle test completed without exceptions");
+        finally
+        {
+            // Ensure the test never leaves a monitor process running in CI.
+            await MonitorLauncher.StopAgentAsync();
+        }
     }
 }

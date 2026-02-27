@@ -86,6 +86,7 @@ jobs:
   core-tests:
     needs: prepare
     runs-on: windows-latest
+    timeout-minutes: 20
 
     steps:
     - name: Download built test binaries
