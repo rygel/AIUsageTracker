@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## [2.2.19] - 2026-02-27
+
+### Fixed
+- Fixed UI startup deadlock that prevented window from appearing
+- Fixed theme flicker and revert issues on startup
+- Added System.Diagnostics using directive for error logging
+
+### Tests
+- Added comprehensive UI startup tests (AppStartupTests.cs)
+- Tests for async loading deadlock prevention
+- Tests for theme persistence and loading
+- Tests for preferences save/load cycles
+
+### Documentation
+- Updated AGENTS.md with UI startup testing guidelines
+
 ## [2.2.18] - 2026-02-27
 
 ### Fixed
