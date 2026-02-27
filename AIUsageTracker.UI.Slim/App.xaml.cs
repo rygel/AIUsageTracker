@@ -553,9 +553,8 @@ public partial class App : Application
             return;
         }
         
-        // Apply a safe default immediately; load persisted preferences without blocking startup.
-        ApplyTheme(AppTheme.Dark);
-        _ = LoadPreferencesAsync();
+        // Load persisted preferences synchronously to avoid theme flicker/revert
+        LoadPreferencesAsync().GetAwaiter().GetResult();
         
         // Create tray icon
         InitializeTrayIcon();
