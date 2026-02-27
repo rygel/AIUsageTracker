@@ -54,6 +54,7 @@
                     var successRate = snapshot.IsAvailable
                         ? Math.Clamp(100 - snapshot.FailureRatePercent, 0, 100)
                         : 0;
+                    var failureClass = snapshot.FailureRatePercent >= 20 ? "critical" : (snapshot.FailureRatePercent >= 5 ? "warning" : "success");
                     <div class="reliability-card">
                         <div class="reliability-header">
                             <span class="provider-name">@usage.ProviderName</span>
@@ -61,20 +62,33 @@
                                 @GetReliabilityLabel(snapshot)
                             </span>
                         </div>
+                        @if (snapshot.IsAvailable)
+                        {
+                            <div class="reliability-metric">
+                                <div class="reliability-row">
+                                    <span>Success Rate</span>
+                                    <span>@successRate:F1%</span>
+                                </div>
+                                <div class="reliability-progress">
+                                    <div class="reliability-progress-bar success" style="width: @successRate%"></div>
+                                </div>
+                            </div>
+                            <div class="reliability-metric">
+                                <div class="reliability-row">
+                                    <span>Failure Rate</span>
+                                    <span>@snapshot.FailureRatePercent:F1%</span>
+                                </div>
+                                <div class="reliability-progress">
+                                    <div class="reliability-progress-bar @failureClass" style="width: @snapshot.FailureRatePercent%"></div>
+                                </div>
+                            </div>
+                        }
                         <div class="reliability-row">
-                            <span>Success</span>
-                            <span>@(snapshot.IsAvailable ? $"{successRate:F1}%" : "n/a")</span>
-                        </div>
-                        <div class="reliability-row">
-                            <span>Failure</span>
-                            <span>@(snapshot.IsAvailable ? $"{snapshot.FailureRatePercent:F1}%" : "n/a")</span>
-                        </div>
-                        <div class="reliability-row">
-                            <span>Avg latency</span>
+                            <span>Avg Latency</span>
                             <span>@GetLatencyText(snapshot)</span>
                         </div>
                         <div class="reliability-row">
-                            <span>Last success</span>
+                            <span>Last Success</span>
                             <span>@GetLastSuccessText(snapshot)</span>
                         </div>
                     </div>

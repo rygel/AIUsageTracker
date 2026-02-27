@@ -75,31 +75,43 @@ body {
 
 .reliability-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 .reliability-card {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 0.75rem;
+    border-radius: 8px;
+    padding: 1rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reliability-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .reliability-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.4rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-color);
+}
+
+.reliability-header .provider-name {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-primary);
 }
 
 .reliability-badge {
     font-size: 0.7rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
     font-weight: 600;
     color: #fff;
     text-transform: uppercase;
@@ -127,9 +139,9 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--text-secondary);
-    padding: 0.25rem 0;
+    padding: 0.4rem 0;
 }
 
 .reliability-row span:first-child {
@@ -137,8 +149,34 @@ body {
 }
 
 .reliability-row span:last-child {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-primary);
+}
+
+.reliability-progress {
+    height: 6px;
+    background-color: var(--bg-primary);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.25rem;
+}
+
+.reliability-progress-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.reliability-progress-bar.success {
+    background-color: var(--accent-success);
+}
+
+.reliability-progress-bar.warning {
+    background-color: var(--accent-warning);
+}
+
+.reliability-progress-bar.critical {
+    background-color: var(--accent-danger);
 }
 
 .provider-card {
