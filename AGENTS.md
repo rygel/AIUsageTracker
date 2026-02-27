@@ -435,9 +435,9 @@ public class ExampleProvider : IProviderService
 
 ### Progress Bar Calculation for Payment Types
 
-The application uses different progress bar calculations depending on the payment type to provide intuitive visual feedback:
+The application uses different progress bar calculations depending on the payment type to provide intuitive visual feedback. Additionally, users can toggle between showing "used" or "remaining" percentages.
 
-#### Quota-Based Providers (e.g., Synthetic, Z.AI)
+#### Quota-Based Providers (e.g., Synthetic, Z.AI, GitHub Copilot)
 
 **Calculation:** Show **remaining percentage** (full bar = lots of credits remaining)
 ```csharp
@@ -445,8 +445,8 @@ var utilization = (total - used) / total * 100.0;
 ```
 
 **Visual Behavior:**
-- 0 used / 135 total = **100% full bar** (all credits available)
-- 67 used / 135 total = **50% bar** (half credits remaining)
+- 0 used / 135 total = **100% full bar** (all credits available used / 135 total = **50)
+- 67% bar** (half credits remaining)
 - 135 used / 135 total = **0% empty bar** (no credits remaining)
 
 **Color Logic:**
@@ -475,6 +475,40 @@ var utilization = used / total * 100.0;
 
 **Rationale:** For pay-as-you-go providers, users want to see spending accumulate. The bar fills up and turns red as they spend money, acting as a spending warning indicator.
 
+#### User Toggle: Show Used vs Remaining
+
+Users can toggle between viewing "used" or "remaining" percentages via the settings or UI toggle button. This affects only the **display text**, not the **progress bar color**.
+
+**Toggle Behavior:**
+- **Toggle OFF (default)**: Shows "remaining" percentage (e.g., "75% remaining")
+- **Toggle ON**: Shows "used" percentage (e.g., "25% used")
+
+**What the toggle changes:**
+- Display text: "X% remaining" ↔ "X% used"
+- Status messages in the UI
+
+**What the toggle does NOT change:**
+- Progress bar color: Always based on **used percentage** regardless of toggle state
+- The underlying data calculations
+
+**Implementation:**
+```csharp
+bool showUsed = ShowUsedToggle?.IsChecked ?? false;
+
+// Display text changes based on toggle
+var displayText = showUsed 
+    ? $"{usedPercent:F0}% used" 
+    : $"{(100.0 - usedPercent):F0}% remaining";
+
+// Color is ALWAYS based on used percentage
+var barColor = GetProgressBarColor(usedPercent);
+```
+
+**Why colors stay consistent:**
+- Even when showing "remaining" in text, the bar color reflects actual usage
+- This prevents confusion: green always means "healthy usage", red always means "high usage"
+- Users can quickly assess their usage status regardless of which percentage they prefer to see
+
 #### Implementation
 
 **Backend (Provider):**
@@ -488,15 +522,22 @@ var utilization = paymentType == PaymentType.Quota
 
 **Frontend (UI Color Logic):**
 ```csharp
-// For quota-based providers: high remaining % = green (good), low = red (bad)
-// For usage-based: high used % = red (bad), low = green (good)
-var isQuota = usage.IsQuotaBased || usage.PaymentType == PaymentType.Quota;
-var brush = isQuota
-    ? (usage.UsagePercentage < ColorThresholdRed ? Brushes.Crimson 
-        : (usage.UsagePercentage < ColorThresholdYellow ? Brushes.Gold : Brushes.MediumSeaGreen))
-    : (usage.UsagePercentage > ColorThresholdRed ? Brushes.Crimson 
-        : (usage.UsagePercentage > ColorThresholdYellow ? Brushes.Gold : Brushes.MediumSeaGreen));
+// Color is ALWAYS based on used percentage, regardless of toggle state
+double pctRemaining = isQuotaType ? usage.RequestsPercentage : Math.Max(0, 100 - usage.RequestsPercentage);
+double pctUsed = isQuotaType ? Math.Max(0, 100 - usage.RequestsPercentage) : usage.RequestsPercentage;
+
+// Toggle controls what user sees, NOT the color
+bool showUsed = ShowUsedToggle?.IsChecked ?? false;
+var displayText = showUsed ? $"{pctUsed:F0}% used" : $"{pctRemaining:F0}% remaining";
+
+// Progress bar always uses pctUsed for color calculation
+var barColor = GetProgressBarColor(pctUsed);
 ```
+
+**Color Thresholds:**
+- Red: >= 90% used
+- Yellow: >= 50% used
+- Green: < 50% used
 
 ### JSON Handling
 - Use `System.Text.Json` (not Newtonsoft)
