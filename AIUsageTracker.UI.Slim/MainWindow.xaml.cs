@@ -425,6 +425,21 @@ public partial class MainWindow : Window
                     return;
                 }
 
+                // No data available - trigger refresh on first attempt
+                // This is needed for fresh installs where Monitor's background refresh hasn't completed yet
+                if (attempt == 0)
+                {
+                    Debug.WriteLine("No data on first poll, triggering provider refresh...");
+                    try
+                    {
+                        await _agentService.TriggerRefreshAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
+                    }
+                }
+
                 // No data yet - wait and try again
                 if (attempt < maxAttempts - 1)
                 {
