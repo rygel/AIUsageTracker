@@ -39,7 +39,7 @@ public partial class MainWindow : Window
         RegexOptions.Compiled);
 
     private readonly MonitorService _agentService;
-    private readonly IUpdateCheckerService _updateChecker;
+    private IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
     private List<ProviderUsage> _usages = new();
     private List<ProviderConfig> _configs = new();
