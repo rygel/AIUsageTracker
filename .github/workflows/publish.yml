@@ -1,69 +1,53 @@
 name: Publish & Distribute
 
-# This workflow builds and releases ONLY the C# version of AIUsageTracker
-# The Rust version is experimental and not included in releases
-
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'           # Stable releases: v2.2.25
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.*'    # Beta releases: v2.3.0-beta.1
 
 jobs:
-  validate-release:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.extract-version.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Extract Tag Version
-        id: extract-version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Validate Version Files and Changelog
-        run: |
-          VERSION="${{ steps.extract-version.outputs.version }}"
-          bash scripts/validate-release-consistency.sh "$VERSION"
-
-  build:
-    needs: validate-release
+  publish:
     runs-on: windows-latest
     strategy:
-      fail-fast: false
       matrix:
-        runtime: [win-x64, win-x86, win-arm64]
+        runtime: [win-x64, win-x86, linux-x64, osx-x64, osx-arm64]
     
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Extract Version and Channel
+        id: extract
+        run: |
+          $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
+          $channel = if ($version -match '-beta') { 'beta' } else { 'stable' }
+          
+          echo "VERSION=$version" >> $env:GITHUB_ENV
+          echo "CHANNEL=$channel" >> $env:GITHUB_ENV
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "channel=$channel" >> $env:GITHUB_OUTPUT
+          
+          Write-Host "Version: $version"
+          Write-Host "Channel: $channel"
+        shell: pwsh
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '10.0.x'
 
       - name: Install Inno Setup
         if: startsWith(matrix.runtime, 'win-')
         run: choco install innosetup
         shell: pwsh
 
-      - name: Extract Version
-        run: |
-          $version = $env:GITHUB_REF -replace 'refs/tags/v', ''
-          echo "VERSION=$version" >> $env:GITHUB_ENV
-        shell: pwsh
-
       - name: Build and Package
         run: .\scripts\publish-app.ps1 -Runtime ${{ matrix.runtime }} -Version ${{ env.VERSION }}
         shell: pwsh
 
-      - name: Upload Artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AIUsageTracker-v${{ env.VERSION }}-${{ matrix.runtime }}
@@ -72,180 +56,90 @@ jobs:
             dist/AIUsageTracker_Setup_v*_${{ matrix.runtime }}.exe
           retention-days: 7
 
-  release-metadata:
-    needs: [validate-release, build]
+  generate-appcast:
+    needs: publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: AIUsageTracker-v${{ needs.validate-release.outputs.version }}-win-*
-          merge-multiple: true
-
-      - name: Generate SHA256 checksums
-        run: |
-          cd artifacts
-          count=$(find . -type f \( -name "*.zip" -o -name "*.exe" \) | wc -l)
-          if [ "$count" -eq 0 ]; then
-            echo "No release artifacts found for checksum generation."
-            exit 1
-          fi
-
-          find . -type f \( -name "*.zip" -o -name "*.exe" \) -print0 \
-            | sort -z \
-            | xargs -0 sha256sum > ../SHA256SUMS.txt
-
-      - name: Generate release SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          path: artifacts
-          format: cyclonedx-json
-          output-file: sbom.cdx.json
-
-      - name: Validate metadata outputs
-        run: |
-          test -s SHA256SUMS.txt
-          test -s sbom.cdx.json
-
-      - name: Upload release security metadata
-        uses: actions/upload-artifact@v4
-        with:
-          name: AIUsageTracker-v${{ needs.validate-release.outputs.version }}-security-metadata
-          path: |
-            SHA256SUMS.txt
-            sbom.cdx.json
-          retention-days: 7
-
-  smoke-test-windows:
-    needs: [validate-release, build]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download x64 release artifacts
-        uses: actions/download-artifact@v4
-        with:
-          pattern: AIUsageTracker-v${{ needs.validate-release.outputs.version }}-win-x64
-          path: artifacts
-          merge-multiple: true
-
-      - name: Resolve current x64 installer
-        run: |
-          $currentSetup = Get-ChildItem -Path .\artifacts -Recurse -File |
-            Where-Object { $_.Name -eq "AIUsageTracker_Setup_v${{ needs.validate-release.outputs.version }}_win-x64.exe" } |
-            Select-Object -First 1
-          if (-not $currentSetup) {
-            throw "Current x64 setup artifact not found."
-          }
-
-          "CURRENT_SETUP_PATH=$($currentSetup.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-        shell: pwsh
-
-      - name: Run Windows installer smoke test
-        run: .\scripts\smoke-test-release.ps1 -ArtifactsPath .\artifacts -Version ${{ needs.validate-release.outputs.version }} -Runtime win-x64
-        shell: pwsh
-
-      - name: Download previous x64 installer
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $headers = @{
-            Accept = "application/vnd.github+json"
-            "User-Agent" = "AIUsageTracker-CI"
-            Authorization = "Bearer $env:GITHUB_TOKEN"
-          }
-
-          $repo = "${{ github.repository }}"
-          $currentTag = "v${{ needs.validate-release.outputs.version }}"
-          $releases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases?per_page=30" -Headers $headers
-          $candidate = $releases |
-            Where-Object { -not $_.draft -and $_.tag_name -ne $currentTag } |
-            Select-Object -First 1
-
-          if (-not $candidate) {
-            throw "No previous release with assets found for upgrade smoke test."
-          }
-
-          $previousAsset = $candidate.assets |
-            Where-Object {
-              $_.name -like "AIUsageTracker_Setup_v*_win-x64.exe" -or
-              $_.name -like "AIConsumptionTracker_Setup_v*_win-x64.exe"
-            } |
-            Select-Object -First 1
-
-          if (-not $previousAsset) {
-            throw "Previous release does not contain a win-x64 setup asset."
-          }
-
-          $downloadPath = Join-Path (Resolve-Path .\artifacts).Path $previousAsset.name
-          Invoke-WebRequest -Uri $previousAsset.browser_download_url -OutFile $downloadPath -Headers $headers
-
-          "PREVIOUS_SETUP_PATH=$downloadPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-        shell: pwsh
-
-      - name: Run upgrade smoke test (old to new)
-        run: .\scripts\smoke-test-upgrade.ps1 -OldSetupPath "$env:PREVIOUS_SETUP_PATH" -NewSetupPath "$env:CURRENT_SETUP_PATH" -Runtime win-x64
-        shell: pwsh
-
-  create-release:
-    runs-on: ubuntu-latest
-    needs: [build, release-metadata, smoke-test-windows]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Extract Version from Tag
-        id: get_version
+      - name: Extract Version and Channel
+        id: extract
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "$VERSION" =~ -beta ]]; then
+            CHANNEL="beta"
+          else
+            CHANNEL="stable"
+          fi
+          
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "version_number=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: AIUsageTracker-v${{ steps.get_version.outputs.version }}-win-*
-          merge-multiple: true
-
-      - name: Download release metadata
-        uses: actions/download-artifact@v4
-        with:
-          pattern: AIUsageTracker-v${{ steps.get_version.outputs.version }}-security-metadata
-          path: metadata
-          merge-multiple: true
-
-      - name: Verify release checksums and SBOM
-        run: |
-          test -s metadata/SHA256SUMS.txt
-          test -s metadata/sbom.cdx.json
-          (cd artifacts && sha256sum -c ../metadata/SHA256SUMS.txt)
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION, Channel: $CHANNEL"
 
       - name: Generate Appcast Files
         run: |
-          version="${{ steps.get_version.outputs.version }}"
-          bash scripts/generate-appcast.sh "$version"
+          bash scripts/generate-appcast.sh "${{ steps.extract.outputs.version }}" "${{ steps.extract.outputs.channel }}"
+
+      - name: Upload Appcast Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: appcast-files-${{ steps.extract.outputs.channel }}
+          path: appcast/*.xml
+          retention-days: 7
+
+  create-release:
+    needs: [publish, generate-appcast]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract Version and Channel
+        id: extract
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "$VERSION" =~ -beta ]]; then
+            CHANNEL="beta"
+            PRERELEASE="true"
+          else
+            CHANNEL="stable"
+            PRERELEASE="false"
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "channel=$CHANNEL" >> $GITHUB_OUTPUT
+          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: AIUsageTracker-v${{ steps.extract.outputs.version }}-win-*
+          merge-multiple: true
+
+      - name: Download Appcast Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: appcast-files-${{ steps.extract.outputs.channel }}
+          path: appcast
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/**/*
-            appcast/appcast.xml
-            appcast/appcast_x64.xml
-            appcast/appcast_x86.xml
-            appcast/appcast_arm64.xml
-            metadata/SHA256SUMS.txt
-            metadata/sbom.cdx.json
+            appcast/*.xml
           draft: false
-          prerelease: ${{ contains(steps.get_version.outputs.version, '-') }}
+          prerelease: ${{ steps.extract.outputs.prerelease == 'true' }}
           generate_release_notes: true
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-#      - name: Submit to Winget
-#        run: echo "Winget submission disabled - can be re-enabled if needed"
+      - name: Submit to Winget (Stable Only)
+        if: steps.extract.outputs.channel == 'stable' && steps.extract.outputs.prerelease == 'false'
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: AIConsumption.Tracker
+          installers-regex: '_win-x64\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
 

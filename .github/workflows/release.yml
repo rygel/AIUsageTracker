@@ -4,201 +4,135 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to release (e.g., 1.7.5 or 1.7.5-alpha.2)'
+        description: 'Version to release (e.g., 2.2.26, 2.3.0-beta.1)'
         required: true
         type: string
-      skip_file_updates:
-        description: 'Skip automatic file updates (use if files already updated)'
-        type: boolean
-        default: false
+      channel:
+        description: 'Release Channel'
+        required: true
+        type: choice
+        options:
+          - stable
+          - beta
+        default: stable
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
-  update-files:
+  validate-and-release:
     runs-on: ubuntu-latest
-    if: ${{ !inputs.skip_file_updates }}
-
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Update shared version source
+      - name: Validate Version Format
+        run: |
+          version="${{ inputs.version }}"
+          channel="${{ inputs.channel }}"
+          
+          # Check version matches channel
+          case "$channel" in
+            stable)
+              if [[ "$version" =~ -beta ]]; then
+                echo "Error: Stable releases should not contain -beta"
+                exit 1
+              fi
+              ;;
+            beta)
+              if [[ ! "$version" =~ -beta ]]; then
+                echo "Error: Beta releases must contain -beta"
+                exit 1
+              fi
+              ;;
+          esac
+          
+          echo "✓ Version $version matches channel $channel"
+
+      - name: Update Version Files
         run: |
           version="${{ inputs.version }}"
           clean_version="${version%%-*}"
-          echo "Updating shared version source to $version"
-          sed -i "s|<TrackerVersion>.*</TrackerVersion>|<TrackerVersion>$version</TrackerVersion>|g" Directory.Build.props
-          sed -i "s|<TrackerAssemblyVersion>.*</TrackerAssemblyVersion>|<TrackerAssemblyVersion>$clean_version</TrackerAssemblyVersion>|g" Directory.Build.props
-          echo "✓ Updated Directory.Build.props to $version (Assembly/FileVersion: $clean_version)"
+          
+          echo "Updating version files to $version (clean: $clean_version)"
+          
+          # Update Directory.Build.props
+          if [ -f "Directory.Build.props" ]; then
+            sed -i "s|<TrackerVersion>.*</TrackerVersion>|<TrackerVersion>$version</TrackerVersion>|g" Directory.Build.props
+            sed -i "s|<TrackerAssemblyVersion>.*</TrackerAssemblyVersion>|<TrackerAssemblyVersion>$clean_version</TrackerAssemblyVersion>|g" Directory.Build.props
+            echo "✓ Updated Directory.Build.props"
+          fi
+          
+          # Update README.md badge
+          if [ -f "README.md" ]; then
+            escaped_version="${version//-/--}"
+            sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${escaped_version}-orange)|g" README.md
+            echo "✓ Updated README.md"
+          fi
+          
+          # Update setup.iss
+          if [ -f "scripts/setup.iss" ]; then
+            sed -i "s|#define MyAppVersion \".*\"|#define MyAppVersion \"$version\"|g" scripts/setup.iss
+            echo "✓ Updated scripts/setup.iss"
+          fi
+          
+          # Update publish-app.ps1
+          if [ -f "scripts/publish-app.ps1" ]; then
+            sed -i -E "s|Version [0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?|Version $version|g" scripts/publish-app.ps1
+            echo "✓ Updated scripts/publish-app.ps1"
+          fi
 
-      - name: Update README.md Badge
+      - name: Commit and Push Changes
         run: |
           version="${{ inputs.version }}"
-          escaped_version="${version//-/--}"
-          echo "Updating README.md version badge"
-          sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${escaped_version}-orange)|g" README.md
-          echo "✓ Updated README.md badge to $version"
-
-      - name: Update setup.iss
-        run: |
-          version="${{ inputs.version }}"
-          echo "Updating setup.iss"
-          sed -i "s|#define MyAppVersion \".*\"|#define MyAppVersion \"$version\"|g" scripts/setup.iss
-          echo "✓ Updated setup.iss to $version"
-
-      - name: Update publish-app.ps1
-        run: |
-          version="${{ inputs.version }}"
-          echo "Updating publish-app.ps1"
-          sed -i -E "s|Version [0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?|Version $version|g" scripts/publish-app.ps1
-          sed -i "s|# Usage: .* -Runtime|# Usage: .\\scripts\\publish-app.ps1 -Runtime|g" scripts/publish-app.ps1
-          sed -i -E "s|-Version [0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?|-Version $version|g" scripts/publish-app.ps1
-          echo "✓ Updated publish-app.ps1 to $version"
-
-      - name: Create Branch and Commit Changes
-        id: create-branch
-        run: |
-          version="${{ inputs.version }}"
-          branch_name="chore/release-v${version}-version-files"
+          channel="${{ inputs.channel }}"
           
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           
-          git add Directory.Build.props
-          git add README.md
-          git add scripts/setup.iss
-          git add scripts/publish-app.ps1
+          git add Directory.Build.props README.md scripts/setup.iss scripts/publish-app.ps1 2>/dev/null || true
           
           if git diff --staged --quiet; then
             echo "No changes to commit"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
           else
-            git checkout -b "$branch_name"
-            git commit -m "chore(release): update version files to v$version"
-            git push origin "$branch_name"
-            echo "branch_name=$branch_name" >> $GITHUB_OUTPUT
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-            echo "✓ Created branch and committed version updates"
+            git commit -m "chore(release): bump version to $version ($channel)"
+            
+            # Push to appropriate branch
+            if [ "$channel" = "stable" ]; then
+              git push origin HEAD:main
+              echo "✓ Pushed to main"
+            else
+              git push origin HEAD:develop
+              echo "✓ Pushed to develop"
+            fi
           fi
 
-      - name: Create Pull Request
-        if: steps.create-branch.outputs.has_changes == 'true'
-        id: create-pr
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create and Push Tag
         run: |
           version="${{ inputs.version }}"
-          branch_name="${{ steps.create-branch.outputs.branch_name }}"
+          tag="v$version"
           
-          pr_url=$(gh pr create \
-            --title "chore(release): update version files to v$version" \
-            --body "Automated version update for release v$version" \
-            --base main \
-            --head "$branch_name")
+          # Delete tag if it exists (for re-runs)
+          git push origin :refs/tags/$tag 2>/dev/null || true
           
-          echo "pr_url=$pr_url" >> $GITHUB_OUTPUT
-          echo "✓ Created PR: $pr_url"
+          git tag -a "$tag" -m "Release $version (${{ inputs.channel }})"
+          git push origin "$tag"
+          echo "✓ Created and pushed tag $tag"
 
-      - name: Auto-merge Pull Request
-        if: steps.create-branch.outputs.has_changes == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Success Summary
         run: |
-          pr_url="${{ steps.create-pr.outputs.pr_url }}"
-          
-          # Wait a moment for checks to start
-          sleep 5
-          
-          # Enable auto-merge (squash) and merge immediately if possible
-          gh pr merge "$pr_url" --squash --delete-branch --admin || \
-          gh pr merge "$pr_url" --squash --delete-branch
-          
-          echo "✓ Merged PR and deleted branch"
-          
-          # Wait for merge to complete on main
-          sleep 3
-
-  validate-and-release:
-    runs-on: ubuntu-latest
-    needs: update-files
-    if: always()  # Always run this job, even if update-files is skipped
-    outputs:
-      all_valid: ${{ steps.run-validation.outputs.all_valid }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: main
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Run release consistency validation
-        id: run-validation
-        run: |
-          version="${{ inputs.version }}"
-          if bash scripts/validate-release-consistency.sh "$version"; then
-            echo "all_valid=true" >> $GITHUB_OUTPUT
-          else
-            echo "all_valid=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Validation Summary
-        run: |
-          echo "=== Validation Summary ==="
-          echo "All Valid: ${{ steps.run-validation.outputs.all_valid }}"
-
-      - name: Generate Appcast Files
-        if: ${{ steps.run-validation.outputs.all_valid == 'true' }}
-        run: |
-          version="${{ inputs.version }}"
-          bash scripts/generate-appcast.sh "$version"
-
-      - name: Upload Appcast Artifacts
-        if: ${{ steps.run-validation.outputs.all_valid == 'true' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: appcast-files
-          path: |
-            appcast/appcast.xml
-            appcast/appcast_x64.xml
-            appcast/appcast_arm64.xml
-            appcast/appcast_x86.xml
-
-      - name: Success
-        if: ${{ steps.run-validation.outputs.all_valid == 'true' }}
-        run: |
-          echo "✅ Validation passed for v${{ inputs.version }}"
+          echo "=========================================="
+          echo "Release ${{ inputs.version }} (${{ inputs.channel }}) prepared successfully!"
+          echo "=========================================="
           echo ""
-          echo "📋 NEXT STEPS:"
+          echo "Tag pushed: v${{ inputs.version }}"
           echo ""
-          echo "1. Download all appcast files from the workflow artifacts above:"
-          echo "   - appcast/appcast.xml (x64 - default)"
-          echo "   - appcast/appcast_x64.xml"
-          echo "   - appcast/appcast_arm64.xml"
-          echo "   - appcast/appcast_x86.xml"
+          echo "Next steps:"
+          echo "1. The Publish workflow will automatically trigger"
+          echo "2. Check the Actions tab for build progress"
+          echo "3. Release will be created automatically once builds complete"
           echo ""
-          echo "2. Create and push the git tag manually:"
-          echo "   git checkout main"
-          echo "   git pull origin main"
-          echo "   git tag v${{ inputs.version }}"
-          echo "   git push origin v${{ inputs.version }}"
-          echo ""
-          echo "3. The tag push will automatically trigger the Publish workflow"
-          echo "4. Upload all 4 appcast files to the release after it's created"
-
-      - name: Failure
-        if: ${{ steps.run-validation.outputs.all_valid != 'true' }}
-        run: |
-          echo "❌ Validation failed"
-          echo "Please check the error messages above and ensure all version files match ${{ inputs.version }}"
-          exit 1

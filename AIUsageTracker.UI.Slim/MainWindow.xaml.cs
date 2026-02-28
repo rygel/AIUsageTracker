@@ -39,7 +39,7 @@ public partial class MainWindow : Window
         RegexOptions.Compiled);
 
     private readonly MonitorService _agentService;
-    private readonly IUpdateCheckerService _updateChecker;
+    private IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
     private List<ProviderUsage> _usages = new();
     private List<ProviderConfig> _configs = new();
@@ -105,7 +105,7 @@ public partial class MainWindow : Window
         }
 
         _agentService = new MonitorService();
-        _updateChecker = new GitHubUpdateChecker(NullLogger<GitHubUpdateChecker>.Instance);
+        _updateChecker = new GitHubUpdateChecker(NullLogger<GitHubUpdateChecker>.Instance, UpdateChannel.Stable);
         _updateCheckTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMinutes(15)
@@ -504,6 +504,17 @@ public partial class MainWindow : Window
         ShowUsedToggle.IsChecked = _preferences.InvertProgressBar;
         UpdatePrivacyButtonState();
         EnsureAlwaysOnTop();
+        
+        // Reinitialize update checker with correct channel
+        InitializeUpdateChecker();
+    }
+    
+    private void InitializeUpdateChecker()
+    {
+        if (_preferences == null) return;
+        
+        var channel = _preferences.UpdateChannel;
+        _updateChecker = new GitHubUpdateChecker(NullLogger<GitHubUpdateChecker>.Instance, channel);
     }
 
     private async Task SaveUiPreferencesAsync()

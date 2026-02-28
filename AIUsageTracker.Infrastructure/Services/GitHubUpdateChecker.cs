@@ -3,18 +3,28 @@ using NetSparkleUpdater;
 using NetSparkleUpdater.Enums;
 using NetSparkleUpdater.SignatureVerifiers;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
 public class GitHubUpdateChecker : IUpdateCheckerService
 {
     private readonly ILogger<GitHubUpdateChecker> _logger;
+    private readonly UpdateChannel _channel;
+    
     // Architecture-specific appcast URLs
-    private static readonly Dictionary<string, string> APPCAST_URLS = new()
+    private static readonly Dictionary<string, string> STABLE_APPCAST_URLS = new()
     {
         ["x64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_x64.xml",
         ["x86"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_x86.xml",
         ["arm64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_arm64.xml"
+    };
+    
+    private static readonly Dictionary<string, string> BETA_APPCAST_URLS = new()
+    {
+        ["x64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_beta_x64.xml",
+        ["x86"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_beta_x86.xml",
+        ["arm64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_beta_arm64.xml"
     };
 
     private string GetAppcastUrlForCurrentArchitecture()
@@ -32,20 +42,25 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         
         var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
         
-        if (APPCAST_URLS.TryGetValue(targetArch, out var url))
+        // Select URL based on channel
+        var appcastUrls = _channel == UpdateChannel.Beta ? BETA_APPCAST_URLS : STABLE_APPCAST_URLS;
+        var channelSuffix = _channel.ToAppcastSuffix();
+        
+        if (appcastUrls.TryGetValue(targetArch, out var url))
         {
-            _logger.LogDebug("Using appcast for architecture {Architecture}: {Url}", targetArch, url);
+            _logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, _channel, url);
             return url;
         }
         
         // Fallback to x64 if unknown
         _logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
-        return APPCAST_URLS["x64"];
+        return appcastUrls["x64"];
     }
 
-    public GitHubUpdateChecker(ILogger<GitHubUpdateChecker> logger)
+    public GitHubUpdateChecker(ILogger<GitHubUpdateChecker> logger, UpdateChannel channel = UpdateChannel.Stable)
     {
         _logger = logger;
+        _channel = channel;
     }
 
     public async Task<AIUsageTracker.Core.Interfaces.UpdateInfo?> CheckForUpdatesAsync()

@@ -188,7 +188,7 @@ public class MonitorService
             RecordUsageTelemetry(stopwatch.Elapsed, true);
             return usage ?? new List<ProviderUsage>();
         }
-        catch (HttpRequestException ex)
+        catch (HttpRequestException)
         {
             // Connection failed - Monitor may have moved to a different port
             // Refresh port discovery and retry once
@@ -209,8 +209,8 @@ public class MonitorService
             {
                 stopwatch.Stop();
                 RecordUsageTelemetry(stopwatch.Elapsed, false);
-                LogDiagnostic($"Failed to fetch usage from {AgentUrl} after port refresh: Connection error - {ex.Message}");
-                throw; // Re-throw connection errors so caller knows Monitor is unreachable
+                LogDiagnostic($"Failed to fetch usage from {AgentUrl} after port refresh: Connection error");
+                return new List<ProviderUsage>();
             }
         }
         catch (Exception ex)

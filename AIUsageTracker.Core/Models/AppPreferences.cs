@@ -56,6 +56,9 @@ public class AppPreferences
     public bool IsPlansAndQuotasCollapsed { get; set; } = false;
     public bool IsPayAsYouGoCollapsed { get; set; } = false;
     public bool IsAntigravityCollapsed { get; set; } = false;
+    
+    // Update channel (Stable or Beta)
+    public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 }
 
 
