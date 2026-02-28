@@ -24,6 +24,10 @@
     <ApplicationIcon>..\AIUsageTracker.UI.Slim\Assets\app_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\AIUsageTracker.UI.Slim\Assets\app_icon.ico" />
+  </ItemGroup>
+
 </Project>
 
 

@@ -36,5 +36,9 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\app_icon.ico" />
+  </ItemGroup>
+
 </Project>
 

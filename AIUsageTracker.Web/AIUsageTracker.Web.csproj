@@ -21,5 +21,9 @@
     <ProjectReference Include="..\AIUsageTracker.Infrastructure\AIUsageTracker.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="..\AIUsageTracker.UI.Slim\Assets\app_icon.ico" />
+  </ItemGroup>
+
 </Project>
 

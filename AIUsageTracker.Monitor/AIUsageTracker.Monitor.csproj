@@ -31,6 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\AIUsageTracker.UI.Slim\Assets\app_icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Update="providers.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

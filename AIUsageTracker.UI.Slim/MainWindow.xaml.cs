@@ -2293,6 +2293,11 @@ public partial class MainWindow : Window
         {
             // Reload preferences and refresh data
             await InitializeAsync();
+            // Reapply preferences to update channel selector
+            if (_preferencesLoaded)
+            {
+                ApplyPreferences();
+            }
         }
     }
 

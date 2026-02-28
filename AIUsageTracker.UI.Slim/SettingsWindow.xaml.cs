@@ -1567,6 +1567,16 @@ public partial class SettingsWindow : Window
         ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
         ThemeCombo.ItemsSource = GetThemeOptions();
         ThemeCombo.SelectedValue = _preferences.Theme;
+        
+        UpdateChannelCombo.ItemsSource = new[] 
+        { 
+            new { Label = "Stable", Value = UpdateChannel.Stable },
+            new { Label = "Beta", Value = UpdateChannel.Beta }
+        };
+        UpdateChannelCombo.DisplayMemberPath = "Label";
+        UpdateChannelCombo.SelectedValuePath = "Value";
+        UpdateChannelCombo.SelectedValue = _preferences.UpdateChannel;
+        
         EnableWindowsNotificationsCheck.IsChecked = _agentPreferences.EnableNotifications;
         NotificationThresholdBox.Text = _agentPreferences.NotificationThreshold.ToString("0.#");
         NotifyUsageThresholdCheck.IsChecked = _agentPreferences.NotifyOnUsageThreshold;
@@ -2078,6 +2088,11 @@ public partial class SettingsWindow : Window
                 App.ApplyTheme(appTheme);
             }
 
+            if (UpdateChannelCombo.SelectedValue is UpdateChannel channel)
+            {
+                _preferences.UpdateChannel = channel;
+            }
+
             if (int.TryParse(YellowThreshold.Text, out var yellow))
             {
                 _preferences.ColorThresholdYellow = yellow;
@@ -2187,6 +2202,20 @@ public partial class SettingsWindow : Window
         {
             _preferences.Theme = appTheme;
             App.ApplyTheme(appTheme);
+            ScheduleAutoSave();
+        }
+    }
+
+    private void UpdateChannelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_isLoadingSettings)
+        {
+            return;
+        }
+
+        if (UpdateChannelCombo.SelectedValue is UpdateChannel channel)
+        {
+            _preferences.UpdateChannel = channel;
             ScheduleAutoSave();
         }
     }
