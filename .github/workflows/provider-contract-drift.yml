@@ -1,0 +1,57 @@
+name: Provider Contract Drift
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "AIUsageTracker.Infrastructure/Providers/**"
+      - "AIUsageTracker.Tests/Infrastructure/Providers/**"
+      - "AIUsageTracker.Tests/TestData/Providers/**"
+      - ".github/workflows/provider-contract-drift.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  provider-contract-tests:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+
+      - name: Run provider contract tests
+        run: >
+          dotnet test AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+          --configuration Debug
+          --no-restore
+          --filter "FullyQualifiedName~Infrastructure.Providers"
+          --verbosity normal
+          --logger "trx;LogFileName=provider-contract-drift.trx"
+
+      - name: Upload provider fixture test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-contract-drift-results
+          path: AIUsageTracker.Tests\TestResults\**\provider-contract-drift.trx
+

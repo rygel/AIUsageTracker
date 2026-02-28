@@ -1,0 +1,52 @@
+name: Monitor OpenAPI Contract Drift
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "AIUsageTracker.Monitor/**"
+      - "scripts/verify-monitor-openapi-contract.ps1"
+      - ".github/workflows/monitor-openapi-contract.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "AIUsageTracker.Monitor/**"
+      - "scripts/verify-monitor-openapi-contract.ps1"
+      - ".github/workflows/monitor-openapi-contract.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-openapi-contract:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore Monitor dependencies
+        run: dotnet restore AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj
+
+      - name: Build Monitor
+        run: dotnet build AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj --configuration Debug --no-restore
+
+      - name: Verify Monitor OpenAPI contract drift
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-monitor-openapi-contract.ps1
+        shell: pwsh
+
+

@@ -1,0 +1,46 @@
+name: Theme Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "design/theme-catalog.json"
+      - "AIUsageTracker.Core/Models/AppPreferences.cs"
+      - "AIUsageTracker.UI.Slim/App.xaml.cs"
+      - "AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs"
+      - "AIUsageTracker.Web/wwwroot/js/theme.js"
+      - "AIUsageTracker.Web/Pages/Shared/_Layout.cshtml"
+      - "AIUsageTracker.Web/wwwroot/css/themes.css"
+      - "AIUsageTracker.Web.Tests/ScreenshotTests.cs"
+      - "scripts/verify-theme-contract.ps1"
+      - "scripts/sync-theme-catalog.ps1"
+      - "scripts/verify-theme-manifest-change.ps1"
+      - "scripts/verify_slim_theme_smoke.ps1"
+      - "design/FEATURES_KEYBOARDS_THEMES.md"
+      - "design/README.md"
+      - ".github/workflows/theme-validation.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  theme-validation:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify theme contract parity
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-contract.ps1
+        shell: pwsh
+
+      - name: Verify generated Web theme files are in sync
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-theme-catalog.ps1 -Check
+        shell: pwsh
+
+      - name: Ensure theme manifest updated when theme files change
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-manifest-change.ps1
+        shell: pwsh

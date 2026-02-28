@@ -453,3 +453,31 @@ Assets/icon_*.png
 !Assets/app_icon.png
 !Assets/usage_icon.png
 /dist/
+
+# Temporary build artifacts
+bin_unlocked/
+run-cli.bat
+
+bin_unlocked_ui/
+*log*.txt
+TempBin/
+target/
+**/target/
+# Strict Binary Exclusions
+*.exe
+*.dll
+*.pdb
+*.lib
+*.so
+*.dylib
+
+# Temporary and Log files
+*.log
+*.tmp
+*.bak
+*.swp
+*.DS_Store
+nul
+
+# CI Artifacts
+ci_screenshots/

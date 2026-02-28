@@ -3,26 +3,299 @@ name: Run Tests
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  prepare:
     runs-on: windows-latest
 
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~\.nuget\packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Restore test dependencies
+      run: |
+        dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+        dotnet restore AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj
+
+    - name: Build test projects
+      run: |
+        dotnet build AIUsageTracker.Tests\AIUsageTracker.Tests.csproj --configuration Debug --no-restore
+        dotnet build AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-restore
+
+    - name: Validate test quarantine entries
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
+      shell: pwsh
+
+    - name: Verify theme contract parity (Slim + Web)
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-contract.ps1
+      shell: pwsh
+
+    - name: Verify generated Web theme files are in sync
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync-theme-catalog.ps1 -Check
+      shell: pwsh
+
+    - name: Ensure theme manifest updated when theme files change
+      run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-manifest-change.ps1
+      shell: pwsh
+
+    - name: Verify Formatting
+      # NOTE: .editorconfig configures Roslyn analyzers
+      # dotnet format --verify-no-changes checks formatting but only works if analyzers are enabled
+      # Unlike Java/Maven, .NET analyzers don't run automatically during build
+      # Developers can run locally: dotnet format . or dotnet format --verify-no-changes
+      # TEMPORARILY DISABLED: Codebase has whitespace formatting issues to be fixed separately
+      # run: dotnet format AIUsageTracker.slnx --verify-no-changes --verbosity diagnostic
+      run: echo "Formatting check temporarily disabled - will be fixed in separate PR"
+
+    - name: Upload built test binaries
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-binaries-debug
+        path: |
+          AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+          AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+          scripts/run-vstest-with-retry.ps1
+          .github/test-quarantine.txt
+
+  core-tests:
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: Download built test binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: test-binaries-debug
+        path: .\_ci_test_binaries
+
+    - name: Run Core unit tests (retry once on failure)
+      shell: pwsh
+      run: >
+        powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Tests.dll
+        -SuiteName core-tests
+        -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+
+    - name: Upload Core test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: core-test-results
+        path: TestResults/core-tests*.trx
+
+  agent-tests:
+    needs: prepare
+    runs-on: windows-latest
+
+    steps:
+    - name: Download built test binaries
+      uses: actions/download-artifact@v4
+      with:
+        name: test-binaries-debug
+        path: .\_ci_test_binaries
+
+    - name: Run Agent unit tests (retry once on failure)
+      shell: pwsh
+      run: >
+        powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Monitor.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.Tests.dll
+        -SuiteName agent-tests
+        -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+
+    - name: Upload Agent test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: agent-test-results
+        path: TestResults/agent-tests*.trx
+
+  web-tests:
+    needs: prepare
+    runs-on: windows-latest
+
+    env:
+      ASPNETCORE_ENVIRONMENT: Development
     steps:
     - uses: actions/checkout@v4
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '10.0.x'
+        dotnet-version: '8.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore
+    - name: Install Playwright Browsers
+      run: |
+        dotnet build AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj --configuration Debug
+        pwsh AIUsageTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1 install
+      shell: pwsh
 
-    - name: Build
-      run: dotnet build --no-restore
+    - name: Seed Test Database
+      run: |
+        dotnet run --project scripts\Seeder\Seeder.csproj
+      shell: pwsh
 
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+    - name: Run Web UI Tests
+      run: |
+        # Build the Web project first to avoid build time in the background process
+        dotnet build AIUsageTracker.Web\AIUsageTracker.Web.csproj --configuration Debug
+        
+        # Start the Web server in the background and bind to 127.0.0.1
+        # Removing quotes from --urls to avoid literal quote passing issues in Start-Process
+        $process = Start-Process -FilePath "dotnet" -ArgumentList "run --project AIUsageTracker.Web\AIUsageTracker.Web.csproj --configuration Debug --no-build --urls http://127.0.0.1:5100" -PassThru -WindowStyle Hidden -RedirectStandardOutput "web_server.log" -RedirectStandardError "web_server_error.log"
+        
+        # Wait for the server to be responsive
+        $maxRetries = 60
+        $retryCount = 0
+        $serverReady = $false
+        
+        Write-Host "Waiting for Web server to start at http://127.0.0.1:5100..."
+        while ($retryCount -lt $maxRetries) {
+            try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:5100" -UseBasicParsing -TimeoutSec 1 -ErrorAction Stop
+                if ($response.StatusCode -eq 200) {
+                    $serverReady = $true
+                    Write-Host "Web server is UP!"
+                    break
+                }
+            } catch {
+                # Server not ready yet
+            }
+            if ($retryCount -gt 0 -and $retryCount % 10 -eq 0) {
+                Write-Host "Still waiting ($retryCount/60)... Last few log lines:"
+                if (Test-Path "web_server.log") { Get-Content "web_server.log" -Tail 5 }
+            }
+            Start-Sleep -Seconds 1
+            $retryCount++
+        }
+        
+        if (-not $serverReady) {
+            Write-Host "--- Web Server StdOut ---"
+            if (Test-Path "web_server.log") { Get-Content "web_server.log" }
+            Write-Host "--- Web Server StdErr ---"
+            if (Test-Path "web_server_error.log") { Get-Content "web_server_error.log" }
+            if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+            throw "Web server failed to start within the expected time."
+        }
+        
+        # Give the server a few extra seconds to fully initialize razor pages and database connections
+        Start-Sleep -Seconds 5
+
+        function Measure-EndpointLatency {
+            param(
+                [string]$Url,
+                [int]$Attempts = 3,
+                [switch]$Warmup
+            )
+
+            if ($Warmup) {
+                try {
+                    $null = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 30 -ErrorAction Stop
+                    Start-Sleep -Milliseconds 250
+                } catch {
+                    # Allow measured attempts to handle failures consistently.
+                }
+            }
+
+            $durations = @()
+            for ($i = 0; $i -lt $Attempts; $i++) {
+                $sw = [System.Diagnostics.Stopwatch]::StartNew()
+                $resp = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 20 -ErrorAction Stop
+                $sw.Stop()
+
+                if ($resp.StatusCode -ne 200) {
+                    throw "Unexpected status $($resp.StatusCode) for $Url"
+                }
+
+                $durations += $sw.ElapsedMilliseconds
+                Start-Sleep -Milliseconds 200
+            }
+
+            $avg = [math]::Round((($durations | Measure-Object -Average).Average), 2)
+            Write-Host "Perf smoke: $Url avg=${avg}ms samples=$($durations -join ',')"
+            return [double]$avg
+        }
+
+        # CI perf smoke guardrail (kept generous to avoid flaky failures on hosted runners)
+        $dashboardAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/" -Warmup
+        $chartsAvgMs = Measure-EndpointLatency -Url "http://127.0.0.1:5100/charts" -Warmup
+        if ($dashboardAvgMs -gt 3000 -or $chartsAvgMs -gt 3500) {
+            throw "Web perf smoke failed: dashboard=${dashboardAvgMs}ms charts=${chartsAvgMs}ms"
+        }
+        
+        try {
+            dotnet test AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj --configuration Debug
+        } catch {
+            Write-Host "Tests FAILED. Web server log dump:"
+            if (Test-Path "web_server.log") { Get-Content "web_server.log" }
+            throw
+        }
+        
+        if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+      shell: pwsh
+
+    - name: Upload Web representative theme screenshots
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: web-theme-snapshots
+        path: |
+          ${{ env.TEMP }}\AIUsageTracker\web-theme-smoke\*.png
+
+  test:
+    needs: [prepare, core-tests, agent-tests, web-tests]
+    if: always()
+    runs-on: windows-latest
+
+    steps:
+    - name: Verify parallel test jobs
+      shell: pwsh
+      run: |
+        $prepare = "${{ needs.prepare.result }}"
+        $core = "${{ needs.core-tests.result }}"
+        $agent = "${{ needs.agent-tests.result }}"
+        $web = "${{ needs.web-tests.result }}"
+        Write-Host "prepare=$prepare core-tests=$core agent-tests=$agent web-tests=$web"
+        if ($prepare -ne "success" -or $core -ne "success" -or $agent -ne "success" -or $web -ne "success") {
+          throw "One or more required jobs failed."
+        }
+
+    - name: Post theme matrix status comment
+      if: always() && github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: theme-matrix
+        message: |
+          ## Theme Matrix Status
+          - Manifest parity + sync checks (`Run Tests`/prepare): `${{ needs.prepare.result == 'success' && 'passed' || 'failed' }}`
+          - Web theme runtime assertions (`Run Tests`/web-tests): `${{ needs.web-tests.result == 'success' && 'passed' || 'failed' }}`
+          - Slim all-theme smoke check: see `Slim Screenshot Baseline` workflow (`verify_slim_theme_smoke.ps1`).
+
+
+

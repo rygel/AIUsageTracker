@@ -1,0 +1,83 @@
+name: Slim Screenshot Baseline
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "AIUsageTracker.UI.Slim/**"
+      - "scripts/capture_screenshot.ps1"
+      - "scripts/generate_screenshots.ps1"
+      - "scripts/verify_screenshot_baseline.ps1"
+      - "scripts/verify_slim_theme_smoke.ps1"
+      - "docs/screenshot_*_privacy.png"
+      - ".github/workflows/slim-screenshot-baseline.yml"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "AIUsageTracker.UI.Slim/**"
+      - "scripts/capture_screenshot.ps1"
+      - "scripts/generate_screenshots.ps1"
+      - "scripts/verify_screenshot_baseline.ps1"
+      - "scripts/verify_slim_theme_smoke.ps1"
+      - "docs/screenshot_*_privacy.png"
+      - ".github/workflows/slim-screenshot-baseline.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshot-baseline:
+    runs-on: windows-2025
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore Slim UI dependencies
+        run: dotnet restore AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj
+
+      - name: Build Slim UI
+        run: dotnet build AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj --configuration Debug --no-restore
+
+      - name: Generate Slim UI screenshots (headless)
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\capture_screenshot.ps1 -Configuration Debug -SkipBuild
+        shell: pwsh
+
+      - name: Verify Slim themes render in headless mode
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_slim_theme_smoke.ps1 -Configuration Debug -SkipBuild
+        shell: pwsh
+
+      - name: Verify screenshot baselines
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_screenshot_baseline.ps1
+        shell: pwsh
+
+      - name: Upload Slim UI screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: slim-ui-screenshots
+          path: |
+            docs/screenshot_dashboard_privacy.png
+            docs/screenshot_settings_privacy.png
+            docs/screenshot_settings_providers_privacy.png
+            docs/screenshot_settings_layout_privacy.png
+            docs/screenshot_settings_history_privacy.png
+            docs/screenshot_settings_agent_privacy.png
+            docs/screenshot_info_privacy.png
+            docs/screenshot_context_menu_privacy.png
