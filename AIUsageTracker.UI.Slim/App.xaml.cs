@@ -876,18 +876,24 @@ public partial class App : Application
 
         foreach (var config in configs)
         {
-            var usage = usages.FirstOrDefault(u => u.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
+            var usage = usages.FirstOrDefault(u =>
+                string.Equals(u.ProviderId, config.ProviderId, StringComparison.OrdinalIgnoreCase));
             if (usage == null)
             {
                 continue;
             }
 
+            var usageDescription = usage.Description ?? string.Empty;
+            var usageProviderName = string.IsNullOrWhiteSpace(usage.ProviderName)
+                ? usage.ProviderId
+                : usage.ProviderName;
+
             if (config.ShowInTray &&
                 usage.IsAvailable &&
-                !usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
+                !usageDescription.Contains("unknown", StringComparison.OrdinalIgnoreCase))
             {
                 var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
-                desiredIcons[config.ProviderId] = ($"{usage.ProviderName}: {usage.Description}", usage.RequestsPercentage, isQuota);
+                desiredIcons[config.ProviderId] = ($"{usageProviderName}: {usageDescription}", usage.RequestsPercentage, isQuota);
             }
 
             if (config.EnabledSubTrays == null || usage.Details == null)
@@ -897,7 +903,8 @@ public partial class App : Application
 
             foreach (var subName in config.EnabledSubTrays)
             {
-                var detail = usage.Details.FirstOrDefault(d => d.Name.Equals(subName, StringComparison.OrdinalIgnoreCase));
+                var detail = usage.Details.FirstOrDefault(d =>
+                    string.Equals(d.Name, subName, StringComparison.OrdinalIgnoreCase));
                 if (detail == null)
                 {
                     continue;
@@ -917,7 +924,7 @@ public partial class App : Application
                 var key = $"{config.ProviderId}:{subName}";
                 var isQuotaSub = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                 desiredIcons[key] = (
-                    $"{usage.ProviderName} - {subName}: {detail.Description} ({detail.Used})",
+                    $"{usageProviderName} - {subName}: {detail.Description} ({detail.Used})",
                     detailPercent.Value,
                     isQuotaSub
                 );

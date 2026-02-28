@@ -12,11 +12,13 @@ public class MonitorService
 {
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
+    private const int UsageRequestTimeoutSeconds = 8;
+    private const int ConfigRequestTimeoutSeconds = 3;
 
     public const string ExpectedApiContractVersion = "1";
     public string AgentUrl { get; set; } = "http://localhost:5000";
 
-    public MonitorService() : this(new HttpClient { Timeout = TimeSpan.FromSeconds(30) })
+    public MonitorService() : this(new HttpClient { Timeout = TimeSpan.FromSeconds(12) })
     {
     }
 
@@ -180,9 +182,11 @@ public class MonitorService
         var stopwatch = Stopwatch.StartNew();
         try
         {
+            using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
             var usage = await _httpClient.GetFromJsonAsync<List<ProviderUsage>>(
                 $"{AgentUrl}/api/usage", 
-                _jsonOptions);
+                _jsonOptions,
+                requestTimeout.Token);
             LogDiagnostic($"Successfully fetched usage from {AgentUrl}");
             stopwatch.Stop();
             RecordUsageTelemetry(stopwatch.Elapsed, true);
@@ -197,9 +201,11 @@ public class MonitorService
             
             try
             {
+                using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
                 var usage = await _httpClient.GetFromJsonAsync<List<ProviderUsage>>(
                     $"{AgentUrl}/api/usage", 
-                    _jsonOptions);
+                    _jsonOptions,
+                    requestTimeout.Token);
                 LogDiagnostic($"Successfully fetched usage from {AgentUrl} after port refresh");
                 stopwatch.Stop();
                 RecordUsageTelemetry(stopwatch.Elapsed, true);
@@ -212,6 +218,13 @@ public class MonitorService
                 LogDiagnostic($"Failed to fetch usage from {AgentUrl} after port refresh: Connection error");
                 return new List<ProviderUsage>();
             }
+        }
+        catch (TaskCanceledException)
+        {
+            stopwatch.Stop();
+            RecordUsageTelemetry(stopwatch.Elapsed, false);
+            LogDiagnostic($"Failed to fetch usage from {AgentUrl}: request timed out after {UsageRequestTimeoutSeconds}s");
+            return new List<ProviderUsage>();
         }
         catch (Exception ex)
         {
@@ -289,10 +302,18 @@ public class MonitorService
     {
         try
         {
+            using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(ConfigRequestTimeoutSeconds));
             var configs = await _httpClient.GetFromJsonAsync<List<ProviderConfig>>(
                 $"{AgentUrl}/api/config",
-                _jsonOptions);
+                _jsonOptions,
+                requestTimeout.Token);
             return configs ?? new List<ProviderConfig>();
+        }
+        catch (TaskCanceledException)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"GetConfigsAsync timeout after {ConfigRequestTimeoutSeconds}s at {AgentUrl}/api/config");
+            return new List<ProviderConfig>();
         }
         catch (Exception ex)
         {
@@ -642,4 +663,3 @@ public sealed class AgentContractHandshakeResult
     public string? AgentVersion { get; init; }
     public string Message { get; init; } = string.Empty;
 }
-

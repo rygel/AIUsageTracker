@@ -49,10 +49,13 @@ public partial class MainWindow : Window
     private DateTime _lastMonitorUpdate = DateTime.MinValue;
     private DateTime _lastRefreshTrigger = DateTime.MinValue;
     private const int RefreshCooldownSeconds = 120; // Only trigger refresh if 2 minutes since last attempt
-    private static readonly TimeSpan StartupPollingInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan StartupPollingInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan NormalPollingInterval = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan TrayConfigRefreshInterval = TimeSpan.FromMinutes(5);
     private bool _isPollingInProgress;
+    private bool _isTrayIconUpdateInProgress;
     private DispatcherTimer? _pollingTimer;
+    private DateTime _lastTrayConfigRefresh = DateTime.MinValue;
     private string? _monitorContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
     private readonly DispatcherTimer _alwaysOnTopTimer;
@@ -486,9 +489,9 @@ public partial class MainWindow : Window
                     // Data is available - render and stop rapid polling
                     _usages = usages;
                     RenderProviders();
-                    await UpdateTrayIconsAsync();
                     _lastMonitorUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
+                    _ = UpdateTrayIconsAsync();
                     Debug.WriteLine("[DIAGNOSTIC] Data rendered successfully");
                     return;
                 }
@@ -965,9 +968,9 @@ public partial class MainWindow : Window
             {
                 _usages = latestUsages;
                 RenderProviders();
-                await UpdateTrayIconsAsync();
                 _lastMonitorUpdate = DateTime.Now;
                 ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
+                _ = UpdateTrayIconsAsync();
                 return;
             }
 
@@ -1051,100 +1054,126 @@ public partial class MainWindow : Window
             return;
         }
 
-        Debug.WriteLine($"[DIAGNOSTIC] Rendering {_usages.Count} providers...");
-        
-        var filteredUsages = _usages.ToList();
-
-        // Filter out Antigravity completely if not available.
-        // Filter out antigravity.* items from API payload because model rows are rendered from Antigravity details.
-        filteredUsages = filteredUsages.Where(u =>
-            !(u.ProviderId == "antigravity" && !u.IsAvailable) &&
-            !u.ProviderId.StartsWith("antigravity.")
-        ).ToList();
-
-        // Guard against duplicate provider entries returned by the Agent.
-        filteredUsages = filteredUsages
-            .GroupBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .ToList();
-
-        // Separate providers by type and order alphabetically
-        var quotaProviders = filteredUsages
-            .Where(u => u.IsQuotaBased || u.PlanType == PlanType.Coding)
-            .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var paygProviders = filteredUsages
-            .Where(u => !u.IsQuotaBased && u.PlanType != PlanType.Coding)
-            .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // Plans & Quotas Section
-        if (quotaProviders.Any())
+        try
         {
-            var (plansHeader, plansContainer) = CreateCollapsibleGroupHeader(
-                "Plans & Quotas",
-                Brushes.DeepSkyBlue,
-                "PlansAndQuotas",
-                () => _preferences.IsPlansAndQuotasCollapsed,
-                v => _preferences.IsPlansAndQuotasCollapsed = v);
+            Debug.WriteLine($"[DIAGNOSTIC] Rendering {_usages.Count} providers...");
 
-            ProvidersList.Children.Add(plansHeader);
-            ProvidersList.Children.Add(plansContainer);
+            var filteredUsages = _usages.ToList();
+            var hasAntigravityParent = filteredUsages.Any(u =>
+                string.Equals(u.ProviderId, "antigravity", StringComparison.OrdinalIgnoreCase));
 
-            if (!_preferences.IsPlansAndQuotasCollapsed)
+            // Hide unavailable Antigravity parent, and hide antigravity.* rows only when parent exists
+            // because those rows are rendered from Antigravity details in that case.
+            filteredUsages = filteredUsages.Where(u =>
             {
-                // Add all quota providers with Antigravity models listed as standalone cards.
-                foreach (var usage in quotaProviders)
+                var providerId = u.ProviderId ?? string.Empty;
+                return !(string.Equals(providerId, "antigravity", StringComparison.OrdinalIgnoreCase) && !u.IsAvailable) &&
+                    (!providerId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) || !hasAntigravityParent);
+            }).ToList();
+
+            // Guard against duplicate provider entries returned by the Agent.
+            filteredUsages = filteredUsages
+                .GroupBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            Debug.WriteLine(
+                $"[DIAGNOSTIC] Provider render counts: raw={_usages.Count}, filtered={filteredUsages.Count}, hasAntigravityParent={hasAntigravityParent}");
+
+            if (!filteredUsages.Any())
+            {
+                ProvidersList.Children.Add(CreateInfoTextBlock("Data received, but no displayable providers were found."));
+                ApplyProviderListFontPreferences();
+                return;
+            }
+
+            // Separate providers by type and order alphabetically
+            var quotaProviders = filteredUsages
+                .Where(u => u.IsQuotaBased || u.PlanType == PlanType.Coding)
+                .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var paygProviders = filteredUsages
+                .Where(u => !u.IsQuotaBased && u.PlanType != PlanType.Coding)
+                .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            Debug.WriteLine($"[DIAGNOSTIC] Provider render groups: quota={quotaProviders.Count}, payg={paygProviders.Count}");
+
+            // Plans & Quotas Section
+            if (quotaProviders.Any())
+            {
+                var (plansHeader, plansContainer) = CreateCollapsibleGroupHeader(
+                    "Plans & Quotas",
+                    Brushes.DeepSkyBlue,
+                    "PlansAndQuotas",
+                    () => _preferences.IsPlansAndQuotasCollapsed,
+                    v => _preferences.IsPlansAndQuotasCollapsed = v);
+
+                ProvidersList.Children.Add(plansHeader);
+                ProvidersList.Children.Add(plansContainer);
+
+                if (!_preferences.IsPlansAndQuotasCollapsed)
                 {
-                    if (usage.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase))
+                    // Add all quota providers with Antigravity models listed as standalone cards.
+                    foreach (var usage in quotaProviders)
                     {
+                        if (string.Equals(usage.ProviderId, "antigravity", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (usage.Details?.Any() == true)
+                            {
+                                AddAntigravityModels(usage, plansContainer);
+                            }
+                            else
+                            {
+                                AddAntigravityUnavailableNotice(usage, plansContainer);
+                            }
+
+                            continue;
+                        }
+
+                        AddProviderCard(usage, plansContainer);
+
                         if (usage.Details?.Any() == true)
                         {
-                            AddAntigravityModels(usage, plansContainer);
+                            AddCollapsibleSubProviders(usage, plansContainer);
                         }
-                        else
-                        {
-                            AddAntigravityUnavailableNotice(usage, plansContainer);
-                        }
-
-                        continue;
-                    }
-
-                    AddProviderCard(usage, plansContainer);
-
-                    if (usage.Details?.Any() == true)
-                    {
-                        AddCollapsibleSubProviders(usage, plansContainer);
                     }
                 }
             }
-        }
 
-        // Pay As You Go Section
-        if (paygProviders.Any())
-        {
-            var (paygHeader, paygContainer) = CreateCollapsibleGroupHeader(
-                "Pay As You Go",
-                Brushes.MediumSeaGreen,
-                "PayAsYouGo",
-                () => _preferences.IsPayAsYouGoCollapsed,
-                v => _preferences.IsPayAsYouGoCollapsed = v);
-
-            ProvidersList.Children.Add(paygHeader);
-            ProvidersList.Children.Add(paygContainer);
-
-            if (!_preferences.IsPayAsYouGoCollapsed)
+            // Pay As You Go Section
+            if (paygProviders.Any())
             {
-                foreach (var usage in paygProviders)
+                var (paygHeader, paygContainer) = CreateCollapsibleGroupHeader(
+                    "Pay As You Go",
+                    Brushes.MediumSeaGreen,
+                    "PayAsYouGo",
+                    () => _preferences.IsPayAsYouGoCollapsed,
+                    v => _preferences.IsPayAsYouGoCollapsed = v);
+
+                ProvidersList.Children.Add(paygHeader);
+                ProvidersList.Children.Add(paygContainer);
+
+                if (!_preferences.IsPayAsYouGoCollapsed)
                 {
-                    AddProviderCard(usage, paygContainer);
+                    foreach (var usage in paygProviders)
+                    {
+                        AddProviderCard(usage, paygContainer);
+                    }
                 }
             }
-        }
 
-        ApplyProviderListFontPreferences();
+            ApplyProviderListFontPreferences();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[DIAGNOSTIC] RenderProviders failed: {ex}");
+            ProvidersList.Children.Clear();
+            ProvidersList.Children.Add(CreateInfoTextBlock("Failed to render provider cards. Check logs for details."));
+            ApplyProviderListFontPreferences();
+        }
     }
 
     private void ApplyProviderListFontPreferences()
@@ -1289,14 +1318,16 @@ public partial class MainWindow : Window
 
     private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
     {
+        var providerId = usage.ProviderId ?? string.Empty;
         var friendlyName = GetFriendlyProviderName(usage);
+        var description = usage.Description ?? string.Empty;
 
         // Compact horizontal bar similar to non-slim UI
-        bool isMissing = usage.Description.Contains("not found", StringComparison.OrdinalIgnoreCase);
-        bool isConsoleCheck = usage.Description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
-        bool isError = usage.Description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
-        bool isUnknown = usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
-        bool isAntigravityParent = usage.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase);
+        bool isMissing = description.Contains("not found", StringComparison.OrdinalIgnoreCase);
+        bool isConsoleCheck = description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
+        bool isError = description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
+        bool isUnknown = description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
+        bool isAntigravityParent = providerId.Equals("antigravity", StringComparison.OrdinalIgnoreCase);
 
         // Main Grid Container - single row layout
         var grid = new Grid
@@ -1304,7 +1335,7 @@ public partial class MainWindow : Window
             Margin = new Thickness(isChild ? 20 : 0, 0, 0, 2),
             Height = 24,
             Background = Brushes.Transparent,
-            Tag = usage.ProviderId
+            Tag = providerId
         };
 
         bool shouldHaveProgress = usage.IsAvailable &&
@@ -1390,7 +1421,7 @@ public partial class MainWindow : Window
         else
         {
             // Provider icon for parent items
-            var providerIcon = CreateProviderIcon(usage.ProviderId);
+            var providerIcon = CreateProviderIcon(providerId);
             providerIcon.Margin = new Thickness(0, 0, 6, 0); // Reduced margin for specific alignment
             providerIcon.Width = 14;
             providerIcon.Height = 14;
@@ -1408,17 +1439,17 @@ public partial class MainWindow : Window
         else if (isConsoleCheck) { statusText = "Check Console"; statusBrush = Brushes.Orange; }
         else
         {
-            statusText = usage.Description;
+            statusText = description;
             var isStatusOnlyProvider =
-                usage.ProviderId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
-                usage.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase) ||
+                providerId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
+                providerId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
 
             if (isAntigravityParent)
             {
-                statusText = string.IsNullOrWhiteSpace(usage.Description)
+                statusText = string.IsNullOrWhiteSpace(description)
                     ? "Per-model quotas"
-                    : usage.Description;
+                    : description;
             }
             else if (!isUnknown && !isStatusOnlyProvider && usage.PlanType == PlanType.Coding)
             {
@@ -1599,14 +1630,15 @@ public partial class MainWindow : Window
 
     private static string GetFriendlyProviderName(ProviderUsage usage)
     {
+        var providerId = usage.ProviderId ?? string.Empty;
         var fromPayload = usage.ProviderName;
         if (!string.IsNullOrWhiteSpace(fromPayload) &&
-            !string.Equals(fromPayload, usage.ProviderId, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(fromPayload, providerId, StringComparison.OrdinalIgnoreCase))
         {
             return fromPayload;
         }
 
-        return usage.ProviderId.ToLowerInvariant() switch
+        return providerId.ToLowerInvariant() switch
         {
             "antigravity" => "Google Antigravity",
             "gemini-cli" => "Google Gemini",
@@ -1618,7 +1650,7 @@ public partial class MainWindow : Window
             "claude-code" => "Claude Code",
             "zai-coding-plan" => "Z.ai Coding Plan",
             _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(
-                usage.ProviderId.Replace("_", " ").Replace("-", " "))
+                providerId.Replace("_", " ").Replace("-", " "))
         };
     }
 
@@ -2163,9 +2195,9 @@ public partial class MainWindow : Window
                     // Fresh data received - update UI
                     _usages = usages;
                     RenderProviders();
-                    await UpdateTrayIconsAsync();
                     _lastMonitorUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
+                    _ = UpdateTrayIconsAsync();
                     if (_pollingTimer != null && _pollingTimer.Interval != NormalPollingInterval)
                     {
                         _pollingTimer.Interval = NormalPollingInterval;
@@ -2202,9 +2234,9 @@ public partial class MainWindow : Window
                     {
                         _usages = retryUsages.ToList();
                         RenderProviders();
-                        await UpdateTrayIconsAsync();
                         _lastMonitorUpdate = DateTime.Now;
                         ShowStatus($"{DateTime.Now:HH:mm:ss} (refreshed)", StatusType.Success);
+                        _ = UpdateTrayIconsAsync();
                         if (_pollingTimer != null && _pollingTimer.Interval != NormalPollingInterval)
                         {
                             _pollingTimer.Interval = NormalPollingInterval;
@@ -2260,8 +2292,36 @@ public partial class MainWindow : Window
             return;
         }
 
-        _configs = await _monitorService.GetConfigsAsync();
-        app.UpdateProviderTrayIcons(_usages, _configs, _preferences);
+        if (_isTrayIconUpdateInProgress)
+        {
+            return;
+        }
+
+        _isTrayIconUpdateInProgress = true;
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            var shouldRefreshConfigs = !_configs.Any() ||
+                (DateTime.UtcNow - _lastTrayConfigRefresh) >= TrayConfigRefreshInterval;
+
+            if (shouldRefreshConfigs)
+            {
+                _configs = await _monitorService.GetConfigsAsync();
+                _lastTrayConfigRefresh = DateTime.UtcNow;
+            }
+
+            app.UpdateProviderTrayIcons(_usages, _configs, _preferences);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"[DIAGNOSTIC] UpdateTrayIconsAsync failed: {ex.Message}");
+        }
+        finally
+        {
+            stopwatch.Stop();
+            Debug.WriteLine($"[DIAGNOSTIC] UpdateTrayIconsAsync completed in {stopwatch.ElapsedMilliseconds}ms");
+            _isTrayIconUpdateInProgress = false;
+        }
     }
 
     private void ShowStatus(string message, StatusType type)
