@@ -465,18 +465,14 @@ public partial class MainWindow : Window
         {
             try
             {
-                // Try to get cached data from agent
+                // Try to get cached data from monitor
                 var usages = await _monitorService.GetUsageAsync();
 
-                // Filter out placeholder data (safety filter)
-                var usableUsages = usages.Where(u => 
-                    u.RequestsAvailable > 0 || u.RequestsUsed > 0 || u.IsAvailable
-                ).ToList();
-
-                if (usableUsages.Any())
+                // Show all providers from monitor (filtering already done in database)
+                if (usages.Any())
                 {
                     // Data is available - render and stop rapid polling
-                    _usages = usableUsages;
+                    _usages = usages;
                     RenderProviders();
                     await UpdateTrayIconsAsync();
                     _lastMonitorUpdate = DateTime.Now;
@@ -2104,16 +2100,11 @@ public partial class MainWindow : Window
             {
                 var usages = await _monitorService.GetUsageAsync();
                 
-                // Filter out placeholder data (safety filter - handles edge cases where bad data reaches UI)
-                // Placeholder = no usage data AND not available
-                var usableUsages = usages.Where(u => 
-                    u.RequestsAvailable > 0 || u.RequestsUsed > 0 || u.IsAvailable
-                ).ToList();
-                
-                if (usableUsages.Any())
+                // Show all providers from monitor (filtering already done in database)
+                if (usages.Any())
                 {
                     // Fresh data received - update UI
-                    _usages = usableUsages;
+                    _usages = usages;
                     RenderProviders();
                     await UpdateTrayIconsAsync();
                     _lastMonitorUpdate = DateTime.Now;
