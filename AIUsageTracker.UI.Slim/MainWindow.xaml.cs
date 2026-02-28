@@ -2495,17 +2495,17 @@ public partial class MainWindow : Window
         return (settingsWindow, () => settingsWindow.SettingsChanged);
     }
 
-    private void WebBtn_Click(object sender, RoutedEventArgs e)
+    private async void WebBtn_Click(object sender, RoutedEventArgs e)
     {
-        OpenWebUI();
+        await OpenWebUIAsync();
     }
 
-    private void OpenWebUI()
+    private async Task OpenWebUIAsync()
     {
         try
         {
             // Start the Web service if not running
-            StartWebService();
+            await StartWebServiceAsync();
 
             // Open browser to the Web UI
             var webUrl = "http://localhost:5100";
@@ -2523,7 +2523,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void StartWebService()
+    private async Task StartWebServiceAsync()
     {
         try
         {
@@ -2531,7 +2531,7 @@ public partial class MainWindow : Window
             using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(1) };
             try
             {
-                var response = client.GetAsync("http://localhost:5100").GetAwaiter().GetResult();
+                var response = await client.GetAsync("http://localhost:5100");
                 if (response.IsSuccessStatusCode)
                 {
                     Debug.WriteLine("Web service already running");

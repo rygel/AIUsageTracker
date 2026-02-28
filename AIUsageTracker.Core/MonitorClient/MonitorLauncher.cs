@@ -164,12 +164,6 @@ public class MonitorLauncher
             return false;
         }
     }
-    
-    // Backward compatibility - synchronous wrapper
-    public static bool StartAgent()
-    {
-        return StartAgentAsync().GetAwaiter().GetResult();
-    }
 
     public static async Task<bool> StopAgentAsync()
     {
@@ -260,12 +254,6 @@ public class MonitorLauncher
             MonitorService.LogDiagnostic($"Failed to stop process {process.Id}: {ex.Message}");
             return false;
         }
-    }
-    
-    // Backward compatibility - synchronous wrapper
-    public static bool StopAgent()
-    {
-        return StopAgentAsync().GetAwaiter().GetResult();
     }
 
     public static async Task<bool> WaitForAgentAsync(CancellationToken cancellationToken = default)
