@@ -49,6 +49,9 @@ public partial class MainWindow : Window
     private DateTime _lastMonitorUpdate = DateTime.MinValue;
     private DateTime _lastRefreshTrigger = DateTime.MinValue;
     private const int RefreshCooldownSeconds = 120; // Only trigger refresh if 2 minutes since last attempt
+    private static readonly TimeSpan StartupPollingInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan NormalPollingInterval = TimeSpan.FromMinutes(1);
+    private bool _isPollingInProgress;
     private DispatcherTimer? _pollingTimer;
     private string? _monitorContractWarningMessage;
     private readonly DispatcherTimer _updateCheckTimer;
@@ -447,7 +450,7 @@ public partial class MainWindow : Window
 
     private async Task RapidPollUntilDataAvailableAsync()
     {
-        const int maxAttempts = 5; // Reduced from 30 to 5 (10 seconds max)
+        const int maxAttempts = 15;
         const int pollIntervalMs = 2000; // 2 seconds between attempts
 
         Debug.WriteLine("[DIAGNOSTIC] RapidPollUntilDataAvailableAsync starting...");
@@ -493,7 +496,7 @@ public partial class MainWindow : Window
                 Debug.WriteLine("[DIAGNOSTIC] No data available");
                 
                 // No data yet - on first attempt, trigger a background refresh
-                // but don't wait for it - show UI immediately
+                // and keep polling so data appears as soon as refresh completes.
                 if (attempt == 0)
                 {
                     Debug.WriteLine("[DIAGNOSTIC] First attempt, no data - triggering background refresh...");
@@ -516,7 +519,6 @@ public partial class MainWindow : Window
                     Debug.WriteLine("[DIAGNOSTIC] About to call RenderProviders...");
                     RenderProviders(); // Will show empty or loading state
                     Debug.WriteLine("[DIAGNOSTIC] RenderProviders completed");
-                    return; // Exit rapid polling - data will arrive via polling timer
                 }
 
                 // No data yet - wait and try again
@@ -958,13 +960,24 @@ public partial class MainWindow : Window
             await _monitorService.TriggerRefreshAsync();
 
             // Get updated usage data
-            _usages = await _monitorService.GetUsageAsync();
+            var latestUsages = await _monitorService.GetUsageAsync();
+            if (latestUsages.Any())
+            {
+                _usages = latestUsages;
+                RenderProviders();
+                await UpdateTrayIconsAsync();
+                _lastMonitorUpdate = DateTime.Now;
+                ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
+                return;
+            }
 
-            // Render providers
-            RenderProviders();
-            await UpdateTrayIconsAsync();
+            if (_usages.Any())
+            {
+                ShowStatus("Refresh returned no data, keeping last snapshot", StatusType.Warning);
+                return;
+            }
 
-            ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
+            ShowErrorState("No provider data available.\n\nMonitor may still be initializing.");
         }
         catch (Exception ex)
         {
@@ -2124,13 +2137,21 @@ public partial class MainWindow : Window
 
     private void StartPollingTimer()
     {
+        _pollingTimer?.Stop();
+
         _pollingTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMinutes(1) // Poll every minute
+            Interval = _usages.Any() ? NormalPollingInterval : StartupPollingInterval
         };
 
         _pollingTimer.Tick += async (s, e) =>
         {
+            if (_isPollingInProgress)
+            {
+                return;
+            }
+
+            _isPollingInProgress = true;
             // Poll monitor every minute for fresh data
             try
             {
@@ -2145,6 +2166,10 @@ public partial class MainWindow : Window
                     await UpdateTrayIconsAsync();
                     _lastMonitorUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
+                    if (_pollingTimer != null && _pollingTimer.Interval != NormalPollingInterval)
+                    {
+                        _pollingTimer.Interval = NormalPollingInterval;
+                    }
                 }
                 else
                 {
@@ -2180,6 +2205,10 @@ public partial class MainWindow : Window
                         await UpdateTrayIconsAsync();
                         _lastMonitorUpdate = DateTime.Now;
                         ShowStatus($"{DateTime.Now:HH:mm:ss} (refreshed)", StatusType.Success);
+                        if (_pollingTimer != null && _pollingTimer.Interval != NormalPollingInterval)
+                        {
+                            _pollingTimer.Interval = NormalPollingInterval;
+                        }
                     }
                     else if (_usages.Any())
                     {
@@ -2190,6 +2219,10 @@ public partial class MainWindow : Window
                     {
                         // No current data and no previous data - show warning
                         ShowStatus("No data - waiting for Monitor", StatusType.Warning);
+                        if (_pollingTimer != null && _pollingTimer.Interval != StartupPollingInterval)
+                        {
+                            _pollingTimer.Interval = StartupPollingInterval;
+                        }
                     }
                 }
             }
@@ -2205,7 +2238,15 @@ public partial class MainWindow : Window
                 {
                     // No old data - show red error
                     ShowStatus("Connection error", StatusType.Error);
+                    if (_pollingTimer != null && _pollingTimer.Interval != StartupPollingInterval)
+                    {
+                        _pollingTimer.Interval = StartupPollingInterval;
+                    }
                 }
+            }
+            finally
+            {
+                _isPollingInProgress = false;
             }
         };
 
@@ -2319,6 +2360,13 @@ public partial class MainWindow : Window
 
     private void ShowErrorState(string message)
     {
+        if (_usages.Any())
+        {
+            // Preserve visible data and only surface status when we have a stale snapshot.
+            ShowStatus(message, StatusType.Warning);
+            return;
+        }
+
         ProvidersList.Children.Clear();
         ProvidersList.Children.Add(CreateInfoTextBlock(message));
         ShowStatus(message, StatusType.Error);
