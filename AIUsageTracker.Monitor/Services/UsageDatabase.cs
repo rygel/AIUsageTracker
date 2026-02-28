@@ -89,14 +89,24 @@ public class UsageDatabase : IUsageDatabase
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync();
 
+            // Important: do NOT use INSERT OR REPLACE here.
+            // REPLACE deletes then reinserts the parent row, which can cascade-delete
+            // provider_history/reset_events due FK ON DELETE CASCADE.
             const string sql = @"
-                INSERT OR REPLACE INTO providers (
-                    provider_id, provider_name, auth_source, 
+                INSERT INTO providers (
+                    provider_id, provider_name, auth_source,
                     account_name, updated_at, is_active, config_json
                 ) VALUES (
                     @ProviderId, @ProviderName, @AuthSource,
                     @AccountName, CURRENT_TIMESTAMP, @IsActive, @ConfigJson
-                )";
+                )
+                ON CONFLICT(provider_id) DO UPDATE SET
+                    provider_name = excluded.provider_name,
+                    auth_source = excluded.auth_source,
+                    account_name = excluded.account_name,
+                    updated_at = CURRENT_TIMESTAMP,
+                    is_active = excluded.is_active,
+                    config_json = excluded.config_json";
 
             var safeConfig = new
             {

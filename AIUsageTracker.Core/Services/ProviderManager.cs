@@ -321,7 +321,7 @@ public class ProviderManager : IDisposable
     private static (bool IsQuota, PlanType PlanType) GetProviderPaymentType(string providerId)
     {
         // Known quota-based providers that might fall through to generic fallback
-        var quotaProviders = new[] { "zai-coding-plan", "antigravity", "github-copilot", "gemini-cli", "synthetic" };
+        var quotaProviders = new[] { "zai-coding-plan", "antigravity", "github-copilot", "gemini-cli", "synthetic", "openai", "codex" };
         
         if (quotaProviders.Any(id => providerId.Equals(id, StringComparison.OrdinalIgnoreCase)))
         {

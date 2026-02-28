@@ -511,6 +511,22 @@ chore(release): bump version to 1.8.4
 - `test`: Adding or updating tests
 - `chore`: Build process, dependencies, etc.
 
+## Data Preservation Rules
+
+### Data Retention Is a Product Contract
+**Rule**: `providers`, `provider_history`, and `reset_events` data must be preserved by default.
+
+- Do not add runtime deletes for these tables without explicit developer approval.
+- Do not introduce `INSERT OR REPLACE` on parent tables that have foreign keys with `ON DELETE CASCADE`.
+- Use conflict-safe UPSERTs (`INSERT ... ON CONFLICT DO UPDATE`) instead of replace semantics.
+
+### Destructive Operations Require Explicit Approval
+**Rule**: Any destructive data change must be approved first.
+
+- Examples: `DELETE`, `DROP TABLE`, truncation-style cleanup, or schema changes that remove columns/data.
+- If a cleanup is needed, document scope, retention window, and rollback/back-up strategy first.
+- Ask the developer for confirmation before implementing or enabling the destructive path.
+
 ## Security Rules
 
 ### API Key Storage

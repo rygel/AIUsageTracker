@@ -9,6 +9,23 @@ AI Usage Tracker uses SQLite with a **four-table design**:
 3. **`raw_snapshots`** - Raw JSON data (auto-deleted after 14 days)
 4. **`reset_events`** - Quota/limit reset tracking
 
+## Data Preservation Contract
+
+The database design treats usage history as durable product data.
+
+- `providers`, `provider_history`, and `reset_events` are preserved by default.
+- Runtime code must not delete these tables' rows unless explicitly approved by the maintainer.
+- `raw_snapshots` is the only table with automatic runtime deletion (14-day TTL).
+- On tables that participate in foreign keys with `ON DELETE CASCADE`, do not use `INSERT OR REPLACE`; use `INSERT ... ON CONFLICT DO UPDATE` to avoid delete/reinsert side effects.
+
+### Destructive Change Approval Policy
+
+Before introducing any new destructive behavior (`DELETE`, `DROP`, truncation, or retention shrink), require explicit maintainer approval and document:
+
+1. Scope of deleted data
+2. Retention window and rationale
+3. Rollback/backup strategy
+
 ## Database Location
 
 | Platform | Path |

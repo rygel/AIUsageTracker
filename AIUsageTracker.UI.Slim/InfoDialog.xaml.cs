@@ -8,11 +8,13 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System.Threading.Tasks;
 using AIUsageTracker.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim
 {
     public partial class InfoDialog : Window
     {
+        private readonly ILogger<InfoDialog> _logger;
         private bool _isPrivacyMode = false;
         private string? _realUserName;
         private string? _realConfigDir;
@@ -21,6 +23,7 @@ namespace AIUsageTracker.UI.Slim
         public InfoDialog()
         {
             InitializeComponent();
+            _logger = App.CreateLogger<InfoDialog>();
             
             // In Slim UI, we rely on App.Preferences or direct theme resources
             // No need for complex theme loading or IConfigLoader here
@@ -135,7 +138,7 @@ namespace AIUsageTracker.UI.Slim
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[ERROR] PrivacyBtn_ClickAsync: {ex.Message}");
+                _logger.LogError(ex, "PrivacyBtn_ClickAsync failed");
             }
         }
 
@@ -167,7 +170,7 @@ namespace AIUsageTracker.UI.Slim
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to open config dir: {ex.Message}");
+                    _logger.LogWarning(ex, "Failed to open config directory");
                 }
             }
         }
@@ -187,7 +190,7 @@ namespace AIUsageTracker.UI.Slim
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"Failed to open data dir: {ex.Message}");
+                    _logger.LogWarning(ex, "Failed to open data directory");
                 }
             }
         }

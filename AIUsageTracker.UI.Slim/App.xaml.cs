@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -11,11 +10,15 @@ using System.IO;
 using System.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.UI.Slim;
 
 public partial class App : Application
 {
+    private static ILoggerFactory _loggerFactory = NullLoggerFactory.Instance;
+    private static ILogger<App> _logger = NullLogger<App>.Instance;
     public static MonitorService MonitorService { get; } = new();
     public static AppPreferences Preferences { get; set; } = new();
     public static bool IsPrivacyMode { get; set; } = false;
@@ -33,6 +36,33 @@ public partial class App : Application
     };
 
     public static event EventHandler<bool>? PrivacyChanged;
+
+    public static ILogger<T> CreateLogger<T>()
+    {
+        return _loggerFactory.CreateLogger<T>();
+    }
+
+    private static void ConfigureLogging(bool debugMode)
+    {
+        if (!ReferenceEquals(_loggerFactory, NullLoggerFactory.Instance))
+        {
+            _loggerFactory.Dispose();
+        }
+
+        _loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder =>
+        {
+            builder.ClearProviders();
+            builder.AddSimpleConsole(options =>
+            {
+                options.TimestampFormat = "HH:mm:ss.fff ";
+                options.SingleLine = true;
+            });
+            builder.AddDebug();
+            builder.SetMinimumLevel(debugMode ? LogLevel.Debug : LogLevel.Information);
+        });
+
+        _logger = _loggerFactory.CreateLogger<App>();
+    }
 
     public static void ApplyTheme(AppTheme theme)
     {
@@ -529,20 +559,14 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        if (e.Args.Contains("--debug"))
+        var isDebugMode = e.Args.Contains("--debug");
+        if (isDebugMode)
         {
             AllocConsole();
-            Console.WriteLine("");
-            Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine("  AIUsageTracker.UI - DEBUG MODE");
-            Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine($"  Started:    {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            Console.WriteLine($"  Process ID: {Environment.ProcessId}");
-            Console.WriteLine("═══════════════════════════════════════════════════════════════");
-            Console.WriteLine("");
-            
-            MonitorService.LogDiagnostic("AI Usage Tracker UI Debug Mode Enabled");
         }
+
+        ConfigureLogging(isDebugMode);
+        _logger.LogInformation("AI Usage Tracker UI starting (pid: {ProcessId}, debug: {DebugMode})", Environment.ProcessId, isDebugMode);
 
         base.OnStartup(e);
 
@@ -613,7 +637,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MonitorService.LogDiagnostic($"Headless screenshot capture failed: {ex}");
+            _logger.LogError(ex, "Headless screenshot capture failed");
             Environment.ExitCode = 1;
         }
         finally
@@ -803,7 +827,7 @@ public partial class App : Application
 
         if (!File.Exists(trayIconPath))
         {
-            MonitorService.LogDiagnostic($"Tray icon not found at expected paths. Falling back to system icon. Tried: {trayIconPath}");
+            _logger.LogWarning("Tray icon not found at expected paths. Falling back to system icon. Tried: {TrayIconPath}", trayIconPath);
         }
     }
 
@@ -1041,6 +1065,13 @@ public partial class App : Application
         }
         _providerTrayIcons.Clear();
         base.OnExit(e);
+
+        if (!ReferenceEquals(_loggerFactory, NullLoggerFactory.Instance))
+        {
+            _loggerFactory.Dispose();
+            _loggerFactory = NullLoggerFactory.Instance;
+            _logger = NullLogger<App>.Instance;
+        }
     }
 
     private static async Task LoadPreferencesAsync()
@@ -1053,9 +1084,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            // Log error before falling back to defaults
-            Debug.WriteLine($"Failed to load preferences: {ex.Message}");
-            Console.WriteLine($"[WARNING] Failed to load preferences: {ex.Message}");
+            CreateLogger<App>().LogWarning(ex, "Failed to load preferences; falling back to defaults");
             ApplyTheme(AppTheme.Dark);
         }
     }
