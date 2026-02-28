@@ -9,7 +9,9 @@ public static class ProviderPlanClassifier
         "zai-coding-plan",
         "github-copilot",
         "gemini-cli",
-        "kimi"
+        "kimi",
+        "openai",
+        "codex"
     };
 
     public static bool IsCodingPlanProvider(string providerId)
