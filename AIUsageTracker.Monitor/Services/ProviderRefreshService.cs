@@ -93,25 +93,35 @@ public class ProviderRefreshService : BackgroundService
         }
         else
         {
-            // Database has existing data — serve it immediately WITHOUT refreshing.
+            // Database has existing data — serve it immediately WITHOUT refreshing all providers.
             // Do NOT hammer 3rd party APIs on startup. The scheduled interval will refresh on time.
             _logger.LogInformation("Startup: serving cached data from database (next refresh in {Minutes}m).", _refreshInterval.TotalMinutes);
             
-            // Background task only refreshes antigravity (system provider, no external API)
+            // Background task refreshes ALL active providers with API keys on startup
+            // This ensures fresh data is available immediately when Slim UI connects
             _ = Task.Run(async () =>
             {
                 try
                 {
-                    _logger.LogInformation("Startup: refreshing antigravity quotas...");
-                    await TriggerRefreshAsync(
-                        forceAll: true,
-                        includeProviderIds: new[] { "antigravity" },
-                        bypassCircuitBreaker: true);
-                    _logger.LogInformation("Startup: antigravity refresh complete.");
+                    // Get all provider configs (those with API keys will be refreshed)
+                    var configs = await _configService.GetConfigsAsync();
+                    
+                    if (configs.Any())
+                    {
+                        _logger.LogInformation("Startup: refreshing {Count} providers...", configs.Count);
+                        await TriggerRefreshAsync(
+                            forceAll: true,
+                            bypassCircuitBreaker: true);
+                        _logger.LogInformation("Startup: provider refresh complete.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Startup: no providers configured, skipping refresh.");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Startup antigravity refresh failed: {Message}", ex.Message);
+                    _logger.LogError(ex, "Startup provider refresh failed: {Message}", ex.Message);
                 }
             }, stoppingToken);
         }
