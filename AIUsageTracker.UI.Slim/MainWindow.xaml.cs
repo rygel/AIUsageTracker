@@ -18,6 +18,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Services;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SharpVectors.Renderers.Wpf;
 using SharpVectors.Converters;
@@ -39,6 +40,7 @@ public partial class MainWindow : Window
         RegexOptions.Compiled);
 
     private readonly MonitorService _monitorService;
+    private readonly ILogger<MainWindow> _logger;
     private IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
     private List<ProviderUsage> _usages = new();
@@ -111,6 +113,7 @@ public partial class MainWindow : Window
             ApplyVersionDisplay();
         }
 
+        _logger = App.CreateLogger<MainWindow>();
         _monitorService = new MonitorService();
         _updateChecker = new GitHubUpdateChecker(NullLogger<GitHubUpdateChecker>.Instance, UpdateChannel.Stable);
         _updateCheckTimer = new DispatcherTimer
@@ -135,7 +138,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ERROR] UpdateCheckTimer_Tick: {ex.Message}");
+                _logger.LogError(ex, "UpdateCheckTimer_Tick failed");
             }
         };
         _updateCheckTimer.Start();
@@ -169,7 +172,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[ERROR] Window_Loaded: {ex.Message}");
+                _logger.LogError(ex, "Window_Loaded failed");
             }
         };
 
@@ -177,12 +180,12 @@ public partial class MainWindow : Window
         LocationChanged += async (s, e) =>
         {
             try { await SaveWindowPositionAsync(); }
-            catch (Exception ex) { Debug.WriteLine($"[ERROR] LocationChanged: {ex.Message}"); }
+            catch (Exception ex) { _logger.LogError(ex, "LocationChanged handler failed"); }
         };
         SizeChanged += async (s, e) =>
         {
             try { await SaveWindowPositionAsync(); }
-            catch (Exception ex) { Debug.WriteLine($"[ERROR] SizeChanged: {ex.Message}"); }
+            catch (Exception ex) { _logger.LogError(ex, "SizeChanged handler failed"); }
         };
         Activated += (s, e) =>
         {
@@ -304,8 +307,7 @@ public partial class MainWindow : Window
     {
         var foregroundSummary = GetForegroundWindowSummary();
         var message = $"[WINDOW] evt={eventName} fg={foregroundSummary} vis={IsVisible} state={WindowState} top={Topmost}";
-        Debug.WriteLine(message);
-        Console.WriteLine(message);
+        _logger.LogDebug("{WindowMessage}", message);
     }
 
     private static string GetForegroundWindowSummary()
@@ -447,7 +449,7 @@ public partial class MainWindow : Window
 
                     return true;
                 } catch (Exception ex) {
-                    Debug.WriteLine($"Error in background initialization: {ex.Message}");
+                    _logger.LogError(ex, "Background initialization failed");
                     return false;
                 }
             });
@@ -481,13 +483,13 @@ public partial class MainWindow : Window
         const int maxAttempts = 15;
         const int pollIntervalMs = 2000; // 2 seconds between attempts
 
-        Debug.WriteLine("[DIAGNOSTIC] RapidPollUntilDataAvailableAsync starting...");
+        LogDiagnostic("[DIAGNOSTIC] RapidPollUntilDataAvailableAsync starting...");
         ShowStatus("Loading data...", StatusType.Info);
 
         // First, check if Monitor is reachable
-        Debug.WriteLine("[DIAGNOSTIC] Checking Monitor health...");
+        LogDiagnostic("[DIAGNOSTIC] Checking Monitor health...");
         var isHealthy = await _monitorService.CheckHealthAsync();
-        Debug.WriteLine($"[DIAGNOSTIC] Monitor health: {isHealthy}");
+        LogDiagnostic($"[DIAGNOSTIC] Monitor health: {isHealthy}");
         
         if (!isHealthy)
         {
@@ -498,55 +500,55 @@ public partial class MainWindow : Window
 
         for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
-            Debug.WriteLine($"[DIAGNOSTIC] Poll attempt {attempt + 1}/{maxAttempts}");
+            LogDiagnostic($"[DIAGNOSTIC] Poll attempt {attempt + 1}/{maxAttempts}");
             
             try
             {
                 // Try to get cached data from monitor
-                Debug.WriteLine("[DIAGNOSTIC] Calling GetUsageAsync...");
+                LogDiagnostic("[DIAGNOSTIC] Calling GetUsageAsync...");
                 var usages = await _monitorService.GetUsageAsync();
-                Debug.WriteLine($"[DIAGNOSTIC] GetUsageAsync returned {usages.Count} providers");
+                LogDiagnostic($"[DIAGNOSTIC] GetUsageAsync returned {usages.Count} providers");
 
                 // Show all providers from monitor (filtering already done in database)
                 if (usages.Any())
                 {
-                    Debug.WriteLine("[DIAGNOSTIC] Data available, rendering...");
+                    LogDiagnostic("[DIAGNOSTIC] Data available, rendering...");
                     // Data is available - render and stop rapid polling
                     _usages = usages;
                     RenderProviders();
                     _lastMonitorUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
                     _ = UpdateTrayIconsAsync();
-                    Debug.WriteLine("[DIAGNOSTIC] Data rendered successfully");
+                    LogDiagnostic("[DIAGNOSTIC] Data rendered successfully");
                     return;
                 }
 
-                Debug.WriteLine("[DIAGNOSTIC] No data available");
+                LogDiagnostic("[DIAGNOSTIC] No data available");
                 
                 // No data yet - on first attempt, trigger a background refresh
                 // and keep polling so data appears as soon as refresh completes.
                 if (attempt == 0)
                 {
-                    Debug.WriteLine("[DIAGNOSTIC] First attempt, no data - triggering background refresh...");
+                    LogDiagnostic("[DIAGNOSTIC] First attempt, no data - triggering background refresh...");
                     _ = Task.Run(async () =>
                     {
                         try
                         {
                             await _monitorService.TriggerRefreshAsync();
-                            Debug.WriteLine("[DIAGNOSTIC] Background refresh triggered");
+                            LogDiagnostic("[DIAGNOSTIC] Background refresh triggered");
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"[DIAGNOSTIC] Background refresh failed: {ex.Message}");
+                            LogDiagnostic($"[DIAGNOSTIC] Background refresh failed: {ex.Message}");
                         }
                     });
                     
                     // Show UI immediately with empty state
-                    Debug.WriteLine("[DIAGNOSTIC] Showing empty state...");
+                    LogDiagnostic("[DIAGNOSTIC] Showing empty state...");
                     ShowStatus("Scanning for providers...", StatusType.Info);
-                    Debug.WriteLine("[DIAGNOSTIC] About to call RenderProviders...");
+                    LogDiagnostic("[DIAGNOSTIC] About to call RenderProviders...");
                     RenderProviders(); // Will show empty or loading state
-                    Debug.WriteLine("[DIAGNOSTIC] RenderProviders completed");
+                    LogDiagnostic("[DIAGNOSTIC] RenderProviders completed");
                 }
 
                 // No data yet - wait and try again
@@ -558,14 +560,14 @@ public partial class MainWindow : Window
             }
             catch (HttpRequestException ex)
             {
-                Debug.WriteLine($"[DIAGNOSTIC] Connection error: {ex.Message}");
+                LogDiagnostic($"[DIAGNOSTIC] Connection error: {ex.Message}");
                 ShowStatus("Connection lost", StatusType.Error);
                 ShowErrorState($"Lost connection to Monitor:\n{ex.Message}\n\nTry refreshing or restarting the Monitor.");
                 return;
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DIAGNOSTIC] Error: {ex.Message}");
+                LogDiagnostic($"[DIAGNOSTIC] Error: {ex.Message}");
                 if (attempt < maxAttempts - 1)
                 {
                     await Task.Delay(pollIntervalMs);
@@ -573,7 +575,7 @@ public partial class MainWindow : Window
             }
         }
         
-        Debug.WriteLine("[DIAGNOSTIC] Max attempts reached, no data available");
+        LogDiagnostic("[DIAGNOSTIC] Max attempts reached, no data available");
         ShowStatus("No data available", StatusType.Error);
         ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually or check Settings > Monitor.");
     }
@@ -624,7 +626,7 @@ public partial class MainWindow : Window
         var saved = await UiPreferencesStore.SaveAsync(_preferences);
         if (!saved)
         {
-            Debug.WriteLine("Failed to save Slim UI preferences.");
+            _logger.LogWarning("Failed to save Slim UI preferences");
         }
     }
 
@@ -713,7 +715,11 @@ public partial class MainWindow : Window
         if (!applied)
         {
             var win32Error = Marshal.GetLastWin32Error();
-            Debug.WriteLine($"[WINDOW] SetWindowPos failed err={win32Error} alwaysOnTop={alwaysOnTop} noActivate={noActivate}");
+            _logger.LogWarning(
+                "SetWindowPos failed err={Win32Error} alwaysOnTop={AlwaysOnTop} noActivate={NoActivate}",
+                win32Error,
+                alwaysOnTop,
+                noActivate);
         }
     }
 
@@ -1058,30 +1064,30 @@ public partial class MainWindow : Window
 
     private void RenderProviders()
     {
-        Debug.WriteLine("[DIAGNOSTIC] RenderProviders called");
+        LogDiagnostic("[DIAGNOSTIC] RenderProviders called");
         ProvidersList.Children.Clear();
-        Debug.WriteLine($"[DIAGNOSTIC] ProvidersList cleared, _usages count: {_usages?.Count ?? 0}");
+        LogDiagnostic($"[DIAGNOSTIC] ProvidersList cleared, _usages count: {_usages?.Count ?? 0}");
 
         if (!_usages.Any())
         {
-            Debug.WriteLine("[DIAGNOSTIC] No usages, creating 'No provider data available' message");
+            LogDiagnostic("[DIAGNOSTIC] No usages, creating 'No provider data available' message");
             try
             {
                 var messageBlock = CreateInfoTextBlock("No provider data available.");
                 ProvidersList.Children.Add(messageBlock);
                 ApplyProviderListFontPreferences();
-                Debug.WriteLine("[DIAGNOSTIC] 'No provider data available' message added");
+                LogDiagnostic("[DIAGNOSTIC] 'No provider data available' message added");
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"[DIAGNOSTIC] ERROR adding message: {ex.Message}");
+                _logger.LogError(ex, "Failed to add empty-state provider message");
             }
             return;
         }
 
         try
         {
-            Debug.WriteLine($"[DIAGNOSTIC] Rendering {_usages.Count} providers...");
+            LogDiagnostic($"[DIAGNOSTIC] Rendering {_usages.Count} providers...");
 
             var filteredUsages = _usages.ToList();
             var hasAntigravityParent = filteredUsages.Any(u =>
@@ -1102,7 +1108,7 @@ public partial class MainWindow : Window
                 .Select(g => g.First())
                 .ToList();
 
-            Debug.WriteLine(
+            LogDiagnostic(
                 $"[DIAGNOSTIC] Provider render counts: raw={_usages.Count}, filtered={filteredUsages.Count}, hasAntigravityParent={hasAntigravityParent}");
 
             if (!filteredUsages.Any())
@@ -1124,7 +1130,7 @@ public partial class MainWindow : Window
                 .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            Debug.WriteLine($"[DIAGNOSTIC] Provider render groups: quota={quotaProviders.Count}, payg={paygProviders.Count}");
+            LogDiagnostic($"[DIAGNOSTIC] Provider render groups: quota={quotaProviders.Count}, payg={paygProviders.Count}");
 
             // Plans & Quotas Section
             if (quotaProviders.Any())
@@ -1194,7 +1200,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[DIAGNOSTIC] RenderProviders failed: {ex}");
+            LogDiagnostic($"[DIAGNOSTIC] RenderProviders failed: {ex}");
             ProvidersList.Children.Clear();
             ProvidersList.Children.Add(CreateInfoTextBlock("Failed to render provider cards. Check logs for details."));
             ApplyProviderListFontPreferences();
@@ -2235,7 +2241,7 @@ public partial class MainWindow : Window
                     var secondsSinceLastRefresh = (DateTime.Now - _lastRefreshTrigger).TotalSeconds;
                     if (secondsSinceLastRefresh >= RefreshCooldownSeconds)
                     {
-                        Debug.WriteLine("Polling returned empty, triggering refresh...");
+                        _logger.LogDebug("Polling returned empty, triggering refresh");
                         _lastRefreshTrigger = DateTime.Now;
                         try
                         {
@@ -2243,12 +2249,14 @@ public partial class MainWindow : Window
                         }
                         catch (Exception ex)
                         {
-                            Debug.WriteLine($"Trigger refresh failed: {ex.Message}");
+                            _logger.LogWarning(ex, "TriggerRefreshAsync failed during polling retry");
                         }
                     }
                     else
                     {
-                        Debug.WriteLine($"Polling returned empty, but refresh cooldown active ({secondsSinceLastRefresh:F0}s ago)");
+                        _logger.LogDebug(
+                            "Polling returned empty, refresh cooldown active ({SecondsSinceLastRefresh:F0}s ago)",
+                            secondsSinceLastRefresh);
                     }
                     
                     // Wait a moment and retry getting data
@@ -2285,7 +2293,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Polling error: {ex.Message}");
+                _logger.LogWarning(ex, "Polling loop error");
                 if (_usages.Any())
                 {
                     // Has old data - show yellow warning, keep displaying stale data
@@ -2339,14 +2347,19 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[DIAGNOSTIC] UpdateTrayIconsAsync failed: {ex.Message}");
+            LogDiagnostic($"[DIAGNOSTIC] UpdateTrayIconsAsync failed: {ex.Message}");
         }
         finally
         {
             stopwatch.Stop();
-            Debug.WriteLine($"[DIAGNOSTIC] UpdateTrayIconsAsync completed in {stopwatch.ElapsedMilliseconds}ms");
+            LogDiagnostic($"[DIAGNOSTIC] UpdateTrayIconsAsync completed in {stopwatch.ElapsedMilliseconds}ms");
             _isTrayIconUpdateInProgress = false;
         }
+    }
+
+    private void LogDiagnostic(string message)
+    {
+        _logger.LogInformation("{DiagnosticMessage}", message);
     }
 
     private void ShowStatus(string message, StatusType type)
@@ -2426,9 +2439,13 @@ public partial class MainWindow : Window
             StatusText.ToolTip = textToolTip;
         }
 
-        var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
-        Debug.WriteLine($"[{timestamp}] [{type}] {message}");
-        Console.WriteLine($"[{timestamp}] [{type}] {message}");
+        var logLevel = type switch
+        {
+            StatusType.Error => LogLevel.Error,
+            StatusType.Warning => LogLevel.Warning,
+            _ => LogLevel.Information
+        };
+        _logger.Log(logLevel, "[{StatusType}] {StatusMessage}", type, message);
     }
 
     private void ApplyMonitorContractStatus(AgentContractHandshakeResult handshakeResult)
@@ -2478,7 +2495,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ERROR] RefreshBtn_Click: {ex.Message}");
+            _logger.LogError(ex, "RefreshBtn_Click failed");
             ShowStatus("Refresh failed", StatusType.Error);
         }
     }
@@ -2491,7 +2508,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ERROR] SettingsBtn_Click: {ex.Message}");
+            _logger.LogError(ex, "SettingsBtn_Click failed");
             ShowStatus("Settings failed", StatusType.Error);
         }
     }
@@ -2558,7 +2575,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to open Web UI: {ex.Message}");
+            _logger.LogError(ex, "Failed to open Web UI");
             MessageBox.Show($"Failed to open Web UI: {ex.Message}", "Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -2575,7 +2592,7 @@ public partial class MainWindow : Window
                 var response = await client.GetAsync("http://localhost:5100");
                 if (response.IsSuccessStatusCode)
                 {
-                    Debug.WriteLine("Web service already running");
+                    _logger.LogDebug("Web service already running");
                     return;
                 }
             }
@@ -2613,11 +2630,11 @@ public partial class MainWindow : Window
                         WorkingDirectory = webProjectDir
                     };
                     Process.Start(psi);
-                    Debug.WriteLine("Started Web service via dotnet run");
+                    _logger.LogInformation("Started Web service via dotnet run");
                     return;
                 }
 
-                Debug.WriteLine("Web executable not found");
+                _logger.LogWarning("Web executable not found");
                 return;
             }
 
@@ -2631,11 +2648,11 @@ public partial class MainWindow : Window
             };
 
             Process.Start(startInfo);
-            Debug.WriteLine($"Started Web service from: {webPath}");
+            _logger.LogInformation("Started Web service from: {WebPath}", webPath);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to start Web service: {ex.Message}");
+            _logger.LogError(ex, "Failed to start Web service");
         }
     }
 
@@ -2668,7 +2685,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ERROR] PrivacyBtn_Click: {ex.Message}");
+            _logger.LogError(ex, "PrivacyBtn_Click failed");
         }
     }
 
@@ -2696,7 +2713,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ERROR] AlwaysOnTop_Checked: {ex.Message}");
+            _logger.LogError(ex, "AlwaysOnTop_Checked failed");
         }
     }
 
@@ -2720,7 +2737,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ERROR] ShowUsedToggle_Checked: {ex.Message}");
+            _logger.LogError(ex, "ShowUsedToggle_Checked failed");
         }
     }
 
@@ -3045,7 +3062,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Update check failed: {ex.Message}");
+            _logger.LogWarning(ex, "Update check failed");
         }
     }
 
@@ -3207,7 +3224,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"[ERROR] MonitorToggleBtn_Click: {ex.Message}");
+            _logger.LogError(ex, "MonitorToggleBtn_Click failed");
             ShowStatus("Monitor toggle failed", StatusType.Error);
         }
     }

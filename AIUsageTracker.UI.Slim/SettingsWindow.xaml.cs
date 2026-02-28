@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
 namespace AIUsageTracker.UI.Slim;
@@ -24,6 +25,7 @@ public partial class SettingsWindow : Window
     }
 
     private readonly MonitorService _monitorService;
+    private readonly ILogger<SettingsWindow> _logger;
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
     private string? _gitHubAuthUsername;
@@ -48,6 +50,7 @@ public partial class SettingsWindow : Window
         _autoSaveTimer.Tick += AutoSaveTimer_Tick;
 
         InitializeComponent();
+        _logger = App.CreateLogger<SettingsWindow>();
         _monitorService = new MonitorService();
         App.PrivacyChanged += OnPrivacyChanged;
         Closed += SettingsWindow_Closed;
@@ -65,7 +68,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Settings load failed: {ex.Message}");
+            _logger.LogError(ex, "Settings load failed");
             MessageBox.Show(
                 $"Failed to load Settings: {ex.Message}",
                 "Settings Error",
@@ -831,7 +834,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[ERROR] AutoSaveTimer_Tick: {ex.Message}");
+            _logger.LogError(ex, "AutoSaveTimer_Tick failed");
         }
     }
 
@@ -897,7 +900,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to update agent status: {ex.Message}");
+            _logger.LogWarning(ex, "Failed to update monitor status");
             if (MonitorStatusText != null)
             {
                 MonitorStatusText.Text = "Error";
@@ -955,7 +958,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Failed to load history: {ex.Message}");
+            _logger.LogWarning(ex, "Failed to load history");
         }
     }
 
@@ -1417,7 +1420,7 @@ public partial class SettingsWindow : Window
         var saved = await UiPreferencesStore.SaveAsync(_preferences);
         if (!saved)
         {
-            Debug.WriteLine("Failed to save Slim UI preferences.");
+            _logger.LogWarning("Failed to save Slim UI preferences");
             if (showErrorDialog)
             {
                 MessageBox.Show(
@@ -1735,7 +1738,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[ERROR] PrivacyBtn_Click: {ex.Message}");
+            _logger.LogError(ex, "PrivacyBtn_Click failed");
             MessageBox.Show($"Failed to update privacy mode: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -2204,7 +2207,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[ERROR] CancelBtn_Click: {ex.Message}");
+            _logger.LogError(ex, "CancelBtn_Click failed");
             MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -2343,7 +2346,7 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[ERROR] SendTestNotificationBtn_Click: {ex.Message}");
+            _logger.LogError(ex, "SendTestNotificationBtn_Click failed");
             NotificationTestStatusText.Text = $"Error: {ex.Message}";
         }
     }
