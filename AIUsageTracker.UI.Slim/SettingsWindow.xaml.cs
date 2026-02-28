@@ -84,13 +84,8 @@ public partial class SettingsWindow : Window
         {
             _isDeterministicScreenshotMode = false;
             
-            var configsTask = _monitorService.GetConfigsAsync();
-            var usagesTask = _monitorService.GetUsageAsync();
-            
-            await Task.WhenAll(configsTask, usagesTask);
-            
-            _configs = configsTask.Result;
-            _usages = usagesTask.Result;
+            _configs = await _monitorService.GetConfigsAsync();
+            _usages = await _monitorService.GetUsageAsync();
             
             if (_configs.Count == 0)
             {
