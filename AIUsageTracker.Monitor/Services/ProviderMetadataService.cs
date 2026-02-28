@@ -19,8 +19,8 @@ public static class ProviderMetadataService
         ["evolve-migrations"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         ["synthetic"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         
-        // Pay-as-you-go providers (Usage plans)
-        ["openai"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
+        // Quota-based providers (Coding plans)
+        ["openai"] = new ProviderMetadata { PlanType = PlanType.Coding, IsQuotaBased = true },
         ["anthropic"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
         ["deepseek"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
         ["openrouter"] = new ProviderMetadata { PlanType = PlanType.Usage, IsQuotaBased = false },
