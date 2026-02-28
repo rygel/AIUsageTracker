@@ -710,4 +710,33 @@ dotnet test AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --filter "FullyQual
 - Winget submission for Windows packages.
 - `Run Tests` includes a web endpoint perf smoke guardrail for `/` and `/charts` in CI.
 
+## UI Polling Algorithm
+
+The Slim UI uses a dynamic polling strategy to ensure providers appear quickly while minimizing resource usage:
+
+### Startup Phase
+1. **Rapid Polling**: Poll every 5 seconds until data is available
+2. **Max Attempts**: 15 attempts (75 seconds max)
+3. **On No Data**: Trigger background refresh and continue polling
+4. **Display**: Show cached data immediately, update when fresh data arrives
+
+### Normal Operation
+1. **Standard Interval**: Poll every 1 minute
+2. **Concurrent Prevention**: Skip poll if previous still in progress
+3. **Data Preservation**: Never overwrite existing data with empty results
+
+### Error Handling
+- **Connection Error**: Switch to rapid polling (5s)
+- **Monitor Unavailable**: Show error but preserve cached data
+- **Refresh Failure**: Keep last successful snapshot
+
+### Key Principles
+- Always show something (cached data or loading state)
+- Never block waiting for data
+- Prefer stale data over empty UI
+- Aggressive polling only during startup or errors
+
+This algorithm ensures providers appear within 30 seconds while maintaining responsiveness.
+
+
 
