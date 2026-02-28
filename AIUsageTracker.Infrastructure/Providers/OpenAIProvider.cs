@@ -50,8 +50,8 @@ public class OpenAIProvider : IProviderService
                     ProviderName = "OpenAI",
                     IsAvailable = false,
                     Description = "OpenAI API key or OpenCode session not found.",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding
                 }
             };
         }
@@ -79,8 +79,8 @@ public class OpenAIProvider : IProviderService
                     ProviderName = "OpenAI",
                     IsAvailable = false,
                     Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding
                 }
             };
         }
@@ -101,8 +101,8 @@ public class OpenAIProvider : IProviderService
                         ProviderName = "OpenAI",
                         IsAvailable = true,
                         RequestsPercentage = 0,
-                        IsQuotaBased = false,
-                        PlanType = PlanType.Usage,
+                        IsQuotaBased = true,
+                        PlanType = PlanType.Coding,
                         Description = "Connected (API Key)",
                         UsageUnit = "Status"
                     }
@@ -117,8 +117,8 @@ public class OpenAIProvider : IProviderService
                     ProviderName = "OpenAI",
                     IsAvailable = false,
                     Description = $"Invalid Key ({response.StatusCode})",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding
                 }
             };
         }
@@ -133,8 +133,8 @@ public class OpenAIProvider : IProviderService
                     ProviderName = "OpenAI",
                     IsAvailable = false,
                     Description = "Connection Failed",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding
                 }
             };
         }
