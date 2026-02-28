@@ -21,7 +21,7 @@ public class MonitorLauncher
 
             if (path != null)
             {
-                var json = await File.ReadAllTextAsync(path);
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 return JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
@@ -38,16 +38,16 @@ public class MonitorLauncher
 
     public static async Task<int> GetAgentPortAsync()
     {
-        var info = await GetAgentInfoAsync();
+        var info = await GetAgentInfoAsync().ConfigureAwait(false);
         return info?.Port > 0 ? info.Port : DefaultPort;
     }
 
     public static async Task<bool> IsAgentRunningAsync()
     {
-        var port = await GetAgentPortAsync();
+        var port = await GetAgentPortAsync().ConfigureAwait(false);
         MonitorService.LogDiagnostic($"Checking Monitor status on port: {port}");
         
-        if (await CheckHealthAsync(port))
+        if (await CheckHealthAsync(port).ConfigureAwait(false))
         {
             MonitorService.LogDiagnostic($"Monitor is running on port {port}");
             return true;
@@ -59,10 +59,10 @@ public class MonitorLauncher
     
     public static async Task<(bool isRunning, int port)> IsAgentRunningWithPortAsync()
     {
-        var port = await GetAgentPortAsync();
+        var port = await GetAgentPortAsync().ConfigureAwait(false);
         MonitorService.LogDiagnostic($"Probing Monitor port: {port}");
         
-        if (await CheckHealthAsync(port))
+        if (await CheckHealthAsync(port).ConfigureAwait(false))
         {
             return (true, port);
         }
@@ -76,7 +76,7 @@ public class MonitorLauncher
         try
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
-            var response = await client.GetAsync($"http://localhost:{port}/api/health");
+            var response = await client.GetAsync($"http://localhost:{port}/api/health").ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch
@@ -90,7 +90,7 @@ public class MonitorLauncher
         try
         {
             // Get the port to use
-            var port = await GetAgentPortAsync();
+            var port = await GetAgentPortAsync().ConfigureAwait(false);
             
             // Try to find Agent executable
             var possiblePaths = new[]
@@ -169,11 +169,11 @@ public class MonitorLauncher
     {
         try
         {
-            var info = await GetAgentInfoAsync();
-            var targetPort = info?.Port > 0 ? info.Port : await GetAgentPortAsync();
+        var info = await GetAgentInfoAsync().ConfigureAwait(false);
+            var targetPort = info?.Port > 0 ? info.Port : await GetAgentPortAsync().ConfigureAwait(false);
             if (info?.ProcessId > 0)
             {
-                if (await TryStopProcessAsync(info.ProcessId))
+                if (await TryStopProcessAsync(info.ProcessId).ConfigureAwait(false))
                 {
                     return true;
                 }
@@ -188,7 +188,7 @@ public class MonitorLauncher
             {
                 using (process)
                 {
-                    if (await TryStopProcessAsync(process))
+                    if (await TryStopProcessAsync(process).ConfigureAwait(false))
                     {
                         stoppedAny = true;
                     }
@@ -200,7 +200,7 @@ public class MonitorLauncher
                 return true;
             }
 
-            return !await CheckHealthAsync(targetPort);
+            return !await CheckHealthAsync(targetPort).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -214,7 +214,7 @@ public class MonitorLauncher
         try
         {
             using var process = Process.GetProcessById(processId);
-            return await TryStopProcessAsync(process);
+            return await TryStopProcessAsync(process).ConfigureAwait(false);
         }
         catch (ArgumentException)
         {
@@ -237,7 +237,7 @@ public class MonitorLauncher
             }
 
             process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(StopWaitSeconds));
+            await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(StopWaitSeconds)).ConfigureAwait(false);
             return true;
         }
         catch (TimeoutException)
@@ -264,7 +264,7 @@ public class MonitorLauncher
         while ((DateTime.Now - startTime).TotalSeconds < MaxWaitSeconds)
         {
             attempt++;
-            var (isRunning, port) = await IsAgentRunningWithPortAsync();
+            var (isRunning, port) = await IsAgentRunningWithPortAsync().ConfigureAwait(false);
             if (isRunning)
             {
                 MonitorService.LogDiagnostic($"Monitor is ready on port {port} after {(DateTime.Now - startTime).TotalSeconds:F1}s.");
@@ -274,7 +274,7 @@ public class MonitorLauncher
             if (attempt % 5 == 0) // Log status every 1 second (5 * 200ms)
                 MonitorService.LogDiagnostic($"Still waiting for Monitor... (elapsed: {(DateTime.Now - startTime).TotalSeconds:F1}s)");
 
-            await Task.Delay(200, cancellationToken);
+            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
         }
         MonitorService.LogDiagnostic("Timed out waiting for Monitor.");
         return false;
