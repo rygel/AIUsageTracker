@@ -1,4 +1,6 @@
-name: CI Test
+name: CI
+
+# Test CI on develop branch
 
 on:
   push:
