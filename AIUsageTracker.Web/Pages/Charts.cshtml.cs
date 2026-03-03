@@ -61,7 +61,7 @@ public class ChartsModel : PageModel
         {
             return new JsonResult(new
             {
-                chartData = Array.Empty<ChartDataPoint>(),
+                chartData = Array.Empty<AIUsageTracker.Web.Models.ChartDataPoint>(),
                 resetEvents = Array.Empty<ResetEvent>()
             });
         }

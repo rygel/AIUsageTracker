@@ -44,7 +44,7 @@ jobs:
           dotnet test AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
           --configuration Debug
           --no-restore
-          --filter "FullyQualifiedName~Infrastructure.Providers"
+          --filter "FullyQualifiedName~Infrastructure.Providers|FullyQualifiedName~Core.Provider"
           --verbosity normal
           --logger "trx;LogFileName=provider-contract-drift.trx"
 
