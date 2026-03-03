@@ -84,14 +84,14 @@ public class DeepSeekProviderTests
     [Fact]
     public async Task GetUsageAsync_ShouldHandleApiError()
     {
-        // Arrange
+        // Arrange - Use a non-auth error to get IsAvailable = true
         var config = new ProviderConfig { ApiKey = "test-key" };
         _handlerMock.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(new HttpResponseMessage { StatusCode = HttpStatusCode.Unauthorized });
+            .ReturnsAsync(new HttpResponseMessage { StatusCode = HttpStatusCode.InternalServerError });
 
         // Act
         var result = await _provider.GetUsageAsync(config);
