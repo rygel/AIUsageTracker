@@ -10,6 +10,18 @@
   - OpenRouterProvider: Replaced Name == "Spending Limit" string matching with typed field filtering
 - **Test expectations**: Updated CodexProviderTests to match actual model name extraction behavior
 
+### Changed (CI/CD Architecture)
+- **Created reusable composite action** `.github/actions/setup-dotnet-cache` for .NET setup with caching
+  - Centralizes .NET SDK setup, NuGet caching, and global tools caching
+  - Eliminates duplication across 4+ workflows
+- **Optimized CI/CD workflow timeouts** to reduce flakiness:
+  - `test.yml`: Increased timeouts (prepare: 3→5min, core: 2→5min, monitor: 1→3min, web: 4→10min)
+  - Added missing timeouts to screenshot, contract drift, and openapi workflows
+- **Updated 4 workflows** to use composite action:
+  - `test.yml`, `slim-screenshot-baseline.yml`, `provider-contract-drift.yml`, `monitor-openapi-contract.yml`
+- **Added path triggers** for composite action changes to ensure workflows re-run when shared components update
+- **Added CI/CD architecture documentation** at `docs/CI_CD_ARCHITECTURE.md`
+
 ## [2.2.27-beta.7] - 2026-03-03
 
 ### Fixed
