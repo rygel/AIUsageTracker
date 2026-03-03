@@ -29,6 +29,7 @@ jobs:
   build-windows:
     name: Build Windows x64
     runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
     - uses: actions/checkout@v4

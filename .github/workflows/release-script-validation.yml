@@ -32,6 +32,7 @@ concurrency:
 jobs:
   release-script-checks:
     runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
