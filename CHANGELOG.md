@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Security
+- **Fixed CVE-2024-30105**: Updated System.Text.Json from 8.0.0 to 8.0.5
+  - HIGH severity vulnerability in `JsonSerializer.DeserializeAsyncEnumerable`
+  - CVE-2024-30105: Denial of Service when deserializing untrusted JSON
+  - Affected packages: GHSA-hh2w-p6rv-4g7w, GHSA-8g4q-xg66-9fp4
+  - Updated all 6 projects that had transitive dependencies on vulnerable version:
+    * AIUsageTracker.CLI, AIUsageTracker.Monitor, AIUsageTracker.Web
+    * AIUsageTracker.UI.Slim, AIUsageTracker.Tests, AIUsageTracker.Monitor.Tests
+  - Security scan now passes with no vulnerable packages
+
 ### Fixed
 - **Provider Detail Contract violations**: Fixed string-based heuristics and invalid DetailType/WindowKind combinations
   - KimiProvider: Changed WindowKind from None to Primary for QuotaWindow details
