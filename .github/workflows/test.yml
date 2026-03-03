@@ -85,8 +85,8 @@ jobs:
       with:
         name: test-binaries-debug
         path: |
-          AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0/**
-          AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0/**
+          AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+          AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
           scripts/run-vstest-with-retry.ps1
           .github/test-quarantine.txt
 
@@ -107,7 +107,7 @@ jobs:
       shell: pwsh
       run: >
         powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
-        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0\AIUsageTracker.Tests.dll
+        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Tests.dll
         -SuiteName core-tests
         -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
         -MaxRetries 0
@@ -138,7 +138,7 @@ jobs:
       shell: pwsh
       run: >
         powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
-        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Monitor.Tests\bin\Debug\net8.0-windows10.0\AIUsageTracker.Monitor.Tests.dll
+        -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Monitor.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.Tests.dll
         -SuiteName monitor-tests
         -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
         -MaxRetries 0
