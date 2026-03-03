@@ -462,7 +462,7 @@ public class ZaiProviderTests
         var usage = result.Single();
         
         Assert.False(usage.IsAvailable);
-        Assert.Contains("API Error (500)", usage.Description);
+        Assert.Contains("API Error: InternalServerError", usage.Description);
     }
 }
 
