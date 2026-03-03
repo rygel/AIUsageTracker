@@ -47,7 +47,11 @@
   - Parameterized test execution with configurable timeouts, retries, filters
   - Foundation for standardizing test patterns across workflows
 
-### Changed (CI/CD Timeout Safeguards)
+### Changed (CI/CD Phase 1 Fixes)
+- **Fixed security scan workflow** to run on Windows instead of Ubuntu
+  - Windows-specific projects (UI.Slim, Tests) target `net8.0-windows10.0.17763.0`
+  - Ubuntu runners cannot restore/build Windows-targeting projects
+  - Security scan now properly analyzes all projects including Windows-specific ones
 - **Added aggressive timeout safeguards** to prevent runaway CI jobs (default is 6 hours!)
   - All 12 workflows now have explicit timeout-minutes configuration
   - Theme validation: 5 min | Release script validation: 10 min | Docs integrity: 5 min
