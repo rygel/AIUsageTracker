@@ -41,6 +41,21 @@
   - Encourages smaller, more focused PRs for better code review
   - 2 minute timeout
 
+### Added (CI/CD Phase 3 Improvements)
+- **Cross-platform testing** workflow (.github/workflows/cross-platform-tests.yml)
+  - Runs tests on Windows and Ubuntu to catch OS-specific issues
+  - Tests Core and Infrastructure projects on both platforms
+  - Skips Windows-specific tests on Linux (target framework mismatch)
+  - Uses matrix strategy with fail-fast disabled for comprehensive testing
+  - 15 minute timeout per platform
+- **Automated dependency updates** workflow (.github/workflows/dependency-updates.yml)
+  - Runs weekly on Monday at 2 AM
+  - Checks for outdated NuGet packages using `dotnet list package --outdated`
+  - Automatically creates PR with dependency updates if changes found
+  - Labels PRs with 'dependencies' and 'automated'
+  - Only creates PR when there are actual changes (not empty)
+  - 10 minute timeout
+
 ### Changed (CI/CD Architecture)
 - **Created reusable composite action** `.github/actions/setup-dotnet-cache` for .NET setup with caching
   - Centralizes .NET SDK setup, NuGet caching, and global tools caching

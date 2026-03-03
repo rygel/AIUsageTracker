@@ -167,14 +167,17 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
 
 ### Phase 3 - Larger Projects
 
-- [ ] Matrix builds for cross-platform testing (Priority: P3, Effort: M): Run tests on Windows, Ubuntu, macOS
-  - Test matrix: OS × .NET version
-  - Focus on platform-specific code paths
+- [x] Matrix builds for cross-platform testing (Priority: P3, Effort: M): Run tests on Windows, Ubuntu
+  - Test matrix: OS × platform
+  - Tests Core and Infrastructure on both Windows and Linux
+  - Skips Windows-specific tests on Linux (target framework mismatch)
   - Benefit: Catch OS-specific bugs early
 
-- [ ] Automated dependency updates (Priority: P3, Effort: M): Weekly automated PRs for dependency updates
-  - Use `dotnet-outdated` or Dependabot
-  - Auto-merge if tests pass
+- [x] Automated dependency updates (Priority: P3, Effort: M): Weekly automated PRs for dependency updates
+  - Runs weekly on Monday at 2 AM
+  - Checks for outdated NuGet packages
+  - Creates PR with dependency updates automatically
+  - Labels PRs with 'dependencies' and 'automated'
   - Benefit: Keep dependencies current without manual work
 
 - [ ] Build performance monitoring (Priority: P3, Effort: M): Track and alert on build time regressions
