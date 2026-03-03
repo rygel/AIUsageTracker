@@ -55,6 +55,15 @@
   - Labels PRs with 'dependencies' and 'automated'
   - Only creates PR when there are actual changes (not empty)
   - 10 minute timeout
+- **Build performance monitoring** workflow (.github/workflows/build-performance-monitor.yml)
+  - GitHub-native solution (no external services)
+  - Tracks build times using GitHub's built-in APIs
+  - Compares PR build times against main branch baseline
+  - Posts performance report comments on PRs with visual indicators
+  - Shows build metrics in job summary for quick overview
+  - Alerts on >20% performance regression with warning comments
+  - Triggers on workflow_run from test workflows and PR events
+  - 5 minute timeout
 
 ### Changed (CI/CD Architecture)
 - **Created reusable composite action** `.github/actions/setup-dotnet-cache` for .NET setup with caching
