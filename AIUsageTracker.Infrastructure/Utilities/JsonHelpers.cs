@@ -119,7 +119,7 @@ public static class JsonHelpers
             }
         }
 
-        value = code = 0;
+        value = 0;
         return false;
     }
 }
