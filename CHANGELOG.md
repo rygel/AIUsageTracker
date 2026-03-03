@@ -64,6 +64,14 @@
   - Alerts on >20% performance regression with warning comments
   - Triggers on workflow_run from test workflows and PR events
   - 5 minute timeout
+- **Consolidated test workflows** (.github/workflows/tests.yml)
+  - Merged test.yml and cross-platform-tests.yml into single workflow
+  - Unified trigger conditions and job structure
+  - 5 parallel jobs: prepare, core-tests-windows, monitor-tests-windows, core-tests-cross-platform, test-summary
+  - Removed duplicate logic and redundant files
+  - Updated build-performance-monitor.yml to reference new workflow name
+  - Removed unused reusable-test.yml
+  - Benefit: Easier maintenance, clearer dependencies
 
 ### Changed (CI/CD Architecture)
 - **Created reusable composite action** `.github/actions/setup-dotnet-cache` for .NET setup with caching
