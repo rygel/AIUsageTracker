@@ -11,6 +11,7 @@ on:
       - "AIUsageTracker.Tests/Infrastructure/Providers/**"
       - "AIUsageTracker.Tests/TestData/Providers/**"
       - ".github/workflows/provider-contract-drift.yml"
+      - ".github/actions/setup-dotnet-cache/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -19,22 +20,16 @@ concurrency:
 jobs:
   provider-contract-tests:
     runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
         with:
           dotnet-version: "8.0.x"
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~\.nuget\packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+          cache-key-prefix: "provider-contract"
 
       - name: Restore dependencies
         run: dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
@@ -54,4 +49,3 @@ jobs:
         with:
           name: provider-contract-drift-results
           path: AIUsageTracker.Tests\TestResults\**\provider-contract-drift.trx
-

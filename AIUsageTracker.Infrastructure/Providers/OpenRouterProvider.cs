@@ -226,12 +226,15 @@ public class OpenRouterProvider : IProviderService
         _logger.LogInformation("OpenRouter usage calculated - Total: {Total}, Used: {Used}, Remaining: {Remaining}, RemainingPercentage: {RemainingPercentage}%",
             total, used, remaining, remainingPercentage);
         
+        // Find spending limit detail for reset time (use typed fields, not string matching)
         string mainReset = "";
-        var spendingLimitDetail = details.FirstOrDefault(d => d.Name == "Spending Limit");
+        DateTime? spendingLimitResetTime = null;
+        var spendingLimitDetail = details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.Other && d.NextResetTime.HasValue);
         if (spendingLimitDetail != null && spendingLimitDetail.Description.Contains("(Resets:"))
         {
             var idx = spendingLimitDetail.Description.IndexOf("(Resets:");
             if (idx >= 0) mainReset = " " + spendingLimitDetail.Description.Substring(idx);
+            spendingLimitResetTime = spendingLimitDetail.NextResetTime;
         }
 
         return new[] { new ProviderUsage
@@ -246,7 +249,7 @@ public class OpenRouterProvider : IProviderService
             IsQuotaBased = true,
             IsAvailable = true,
             Description = $"{remaining.ToString("F2", CultureInfo.InvariantCulture)} Credits Remaining{mainReset}",
-            NextResetTime = spendingLimitDetail?.NextResetTime,
+            NextResetTime = spendingLimitResetTime,
             Details = details
         }};
     }

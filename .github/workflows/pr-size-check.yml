@@ -1,0 +1,99 @@
+name: PR Size Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [ opened, synchronize, reopened ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check-pr-size:
+    name: Check PR Size
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate PR diff stats
+        id: stats
+        run: |
+          # Get the base and head commits
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          
+          # Calculate lines changed
+          git fetch origin $BASE_SHA $HEAD_SHA
+          
+          # Get diff stats (excluding binary files and lock files)
+          git diff --stat "$BASE_SHA..$HEAD_SHA" -- . \
+            ':!**/*.lock' ':!**/*.lock.json' ':!**/package-lock.json' ':!**/yarn.lock' \
+            ':!**/*.Designer.cs' ':!**/*.resx' \
+            > diff_stats.txt || true
+          
+          # Extract numbers from stats
+          FILES_CHANGED=$(grep -oP '\d+(?= file)' diff_stats.txt | head -1 || echo "0")
+          INSERTIONS=$(grep -oP '\d+(?= insertion)' diff_stats.txt | head -1 || echo "0")
+          DELETIONS=$(grep -oP '\d+(?= deletion)' diff_stats.txt | head -1 || echo "0")
+          
+          # Calculate total lines changed
+          TOTAL_LINES=$((INSERTIONS + DELETIONS))
+          
+          echo "files_changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
+          echo "insertions=$INSERTIONS" >> $GITHUB_OUTPUT
+          echo "deletions=$DELETIONS" >> $GITHUB_OUTPUT
+          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
+          
+          echo "Files changed: $FILES_CHANGED"
+          echo "Insertions: $INSERTIONS"
+          echo "Deletions: $DELETIONS"
+          echo "Total lines: $TOTAL_LINES"
+
+      - name: Comment on large PR
+        if: steps.stats.outputs.total_lines > 1000
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const totalLines = ${{ steps.stats.outputs.total_lines }};
+            const filesChanged = ${{ steps.stats.outputs.files_changed }};
+            const insertions = ${{ steps.stats.outputs.insertions }};
+            const deletions = ${{ steps.stats.outputs.deletions }};
+            const body = "⚠️ **Large PR Detected**\n\nThis PR contains **" + totalLines + " lines** changed across **" + filesChanged + " files**.\n\n**Details:**\n- 📁 Files changed: " + filesChanged + "\n- ➕ Insertions: " + insertions + "\n- ➖ Deletions: " + deletions + "\n- 📊 Total: " + totalLines + " lines\n\n**Recommendation:**\nConsider splitting this PR into smaller, focused changes to make review easier and faster. PRs under 500 lines are ideal for thorough code review.\n\n---\n*This is an automated message. Feel free to ignore if this PR is intentionally large.*";
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Add size label
+        if: steps.stats.outputs.total_lines > 1000
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const totalLines = ${{ steps.stats.outputs.total_lines }};
+            
+            // Determine size label
+            let sizeLabel = '';
+            if (totalLines > 2000) {
+              sizeLabel = 'size: xlarge';
+            } else if (totalLines > 1000) {
+              sizeLabel = 'size: large';
+            } else if (totalLines > 500) {
+              sizeLabel = 'size: medium';
+            } else {
+              sizeLabel = 'size: small';
+            }
+            
+            // Add label to PR
+            github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: [sizeLabel]
+            });

@@ -9,6 +9,7 @@ on:
 jobs:
   publish:
     runs-on: windows-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         runtime: [win-x64, win-x86, linux-x64, osx-x64, osx-arm64]
@@ -59,6 +60,7 @@ jobs:
   generate-appcast:
     needs: publish
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
 
@@ -90,6 +92,7 @@ jobs:
   create-release:
     needs: [publish, generate-appcast]
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 

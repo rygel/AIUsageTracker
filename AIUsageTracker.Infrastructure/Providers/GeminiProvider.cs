@@ -116,7 +116,7 @@ public class GeminiProvider : IProviderService
                             Description = $"{bucket.RemainingFraction:P1} remaining{resetStr}",
                             NextResetTime = itemResetDt,
                             DetailType = ProviderUsageDetailType.QuotaWindow,
-                            WindowKind = WindowKind.None
+                            WindowKind = WindowKind.Primary
                         });
                     }
                 }

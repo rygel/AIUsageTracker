@@ -701,18 +701,15 @@ public class CodexProvider : IProviderService
 
     private static SparkWindow ExtractSparkWindow(JsonElement root)
     {
+        // Look in additional_rate_limits array - these are spark windows by structure
         if (root.TryGetProperty("additional_rate_limits", out var additionalRateLimits) &&
             additionalRateLimits.ValueKind == JsonValueKind.Array)
         {
             foreach (var item in additionalRateLimits.EnumerateArray())
             {
-                var limitName = ReadString(item, "limit_name");
-                if (string.IsNullOrWhiteSpace(limitName) ||
-                    !limitName.Contains("spark", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
+                // Spark windows have a model_name or model field and rate_limit data
+                var modelName = ReadString(item, "model_name") ?? ReadString(item, "model");
+                
                 if (!item.TryGetProperty("rate_limit", out var sparkRateLimit))
                 {
                     continue;
@@ -722,21 +719,17 @@ public class CodexProvider : IProviderService
                 var resetAfterSeconds = ReadDouble(sparkRateLimit, "primary_window", "reset_after_seconds");
                 if (usedPercent.HasValue || resetAfterSeconds.HasValue)
                 {
-                    var modelName = ReadString(item, "model_name") ?? ReadString(item, "model");
+                    var limitName = ReadString(item, "limit_name");
                     return new SparkWindow(limitName, modelName, usedPercent, resetAfterSeconds);
                 }
             }
         }
 
+        // Look in rate_limit object properties
         if (root.TryGetProperty("rate_limit", out var rateLimit) && rateLimit.ValueKind == JsonValueKind.Object)
         {
             foreach (var property in rateLimit.EnumerateObject())
             {
-                if (!property.Name.Contains("spark", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 var usedPercent = ReadDouble(property.Value, "primary_window", "used_percent");
                 var resetAfterSeconds = ReadDouble(property.Value, "primary_window", "reset_after_seconds");
                 if (usedPercent.HasValue || resetAfterSeconds.HasValue)
