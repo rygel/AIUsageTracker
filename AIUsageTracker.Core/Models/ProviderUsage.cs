@@ -26,9 +26,13 @@ public class ProviderUsage
     public double RequestsPercentage { get; set; }
     public PlanType PlanType { get; set; } = PlanType.Usage;
 
-    public string UsageUnit { get; set; } = "USD";
-    public bool IsQuotaBased { get; set; }
-    public bool DisplayAsFraction { get; set; } // Explicitly request "X / Y" display format
+    /// <summary>
+    /// Whether the provider is available and functioning correctly.
+    /// 
+    /// Semantics:
+    /// - true = Successfully fetched data OR soft failure with valid credentials
+    /// - false = Authentication failure, invalid key, or complete unavailability
+    /// </summary>
     public bool IsAvailable { get; set; } = true;
     public string Description { get; set; } = string.Empty;
     public string AuthSource { get; set; } = string.Empty;

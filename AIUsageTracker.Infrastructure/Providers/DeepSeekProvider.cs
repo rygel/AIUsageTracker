@@ -56,13 +56,15 @@ public class DeepSeekProvider : IProviderService
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
+                var isAuthError = response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
+                
                 _logger.LogWarning($"DeepSeek API error: {response.StatusCode} - {errorContent}");
                 
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
                     ProviderName = "DeepSeek",
-                    IsAvailable = true, // Key exists, just failed request
+                    IsAvailable = !isAuthError, // Key valid but request failed (temporary API issue)
                     Description = $"API Error ({response.StatusCode})",
                     RequestsPercentage = 0,
                     IsQuotaBased = false,
