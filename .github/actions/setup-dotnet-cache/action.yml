@@ -1,0 +1,37 @@
+name: 'Setup .NET with Cache'
+description: 'Sets up .NET SDK with optimized NuGet package caching'
+
+inputs:
+  dotnet-version:
+    description: '.NET SDK version to install'
+    required: false
+    default: '8.0.x'
+  cache-key-prefix:
+    description: 'Prefix for cache key to allow workflow-specific invalidation'
+    required: false
+    default: 'nuget'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ inputs.dotnet-version }}
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-${{ inputs.cache-key-prefix }}-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ inputs.cache-key-prefix }}-
+          ${{ runner.os }}-nuget-
+
+    - name: Cache global tools
+      uses: actions/cache@v4
+      with:
+        path: ~/.dotnet/tools
+        key: ${{ runner.os }}-dotnet-tools-${{ hashFiles('**/dotnet-tools.json') }}
+        restore-keys: |
+          ${{ runner.os }}-dotnet-tools-

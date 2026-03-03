@@ -11,6 +11,7 @@ on:
       - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
+      - ".github/actions/setup-dotnet-cache/**"
   pull_request:
     branches: [ main, develop ]
     paths:
@@ -21,6 +22,7 @@ on:
       - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
+      - ".github/actions/setup-dotnet-cache/**"
   workflow_dispatch:
 
 concurrency:
@@ -30,24 +32,18 @@ concurrency:
 jobs:
   screenshot-baseline:
     runs-on: windows-2025
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
         with:
           dotnet-version: "8.0.x"
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~\.nuget\packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
+          cache-key-prefix: "slim-screenshot"
 
       - name: Restore Slim UI dependencies
         run: dotnet restore AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj

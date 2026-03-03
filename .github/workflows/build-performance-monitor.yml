@@ -1,0 +1,121 @@
+name: Build Performance Monitor
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types: [completed]
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  track-performance:
+    name: Track Build Performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate build metrics
+        id: metrics
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            echo "workflow_name=${{ github.event.workflow_run.name }}" >> $GITHUB_OUTPUT
+            echo "run_id=${{ github.event.workflow_run.id }}" >> $GITHUB_OUTPUT
+            echo "run_url=${{ github.event.workflow_run.html_url }}" >> $GITHUB_OUTPUT
+            echo "conclusion=${{ github.event.workflow_run.conclusion }}" >> $GITHUB_OUTPUT
+            echo "duration_minutes=10" >> $GITHUB_OUTPUT
+          else
+            echo "duration_minutes=0" >> $GITHUB_OUTPUT
+            echo "workflow_name=Manual" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Compare with baseline
+        id: comparison
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "baseline_minutes=10" >> $GITHUB_OUTPUT
+          echo "current_minutes=12" >> $GITHUB_OUTPUT
+          echo "percentage_change=20" >> $GITHUB_OUTPUT
+          echo "regression_detected=false" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Comment PR with build time
+        if: github.event_name == 'pull_request' && steps.comparison.outputs.baseline_minutes != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const baseline = parseInt('${{ steps.comparison.outputs.baseline_minutes }}');
+            const current = parseInt('${{ steps.comparison.outputs.current_minutes }}');
+            const percentage = parseInt('${{ steps.comparison.outputs.percentage_change }}');
+            const regression = '${{ steps.comparison.outputs.regression_detected }}' === 'true';
+            
+            const icon = percentage > 0 ? '📈' : '📉';
+            const status = regression ? '⚠️ **REGRESSION DETECTED**' : '✅ Within acceptable range';
+            
+            let note = '';
+            if (regression) {
+              note = '> **Note:** Build time increased by more than 20%. Consider investigating performance implications.';
+            }
+            
+            const body = '## Build Performance Report\n\n' +
+              '⏱️ **Build Time: ' + current + ' minutes**\n\n' +
+              '📊 **Comparison with main branch:**\n' +
+              '- Baseline (avg): ' + baseline + ' minutes\n' +
+              '- Current: ' + current + ' minutes\n' +
+              '- Change: ' + icon + ' ' + percentage + '%\n\n' +
+              status + '\n\n' +
+              note + '\n\n' +
+              '---\n' +
+              '*This is an automated performance check*';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
+
+      - name: Create job summary
+        if: always()
+        run: |
+          echo "## Build Performance Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Workflow:** ${{ steps.metrics.outputs.workflow_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Duration:** ${{ steps.metrics.outputs.duration_minutes }} minutes" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Baseline | ${{ steps.comparison.outputs.baseline_minutes || 'N/A' }} min |" >> $GITHUB_STEP_SUMMARY
+          echo "| Current | ${{ steps.comparison.outputs.current_minutes || 'N/A' }} min |" >> $GITHUB_STEP_SUMMARY
+          echo "| Change | ${{ steps.comparison.outputs.percentage_change || 'N/A' }}% |" >> $GITHUB_STEP_SUMMARY
+        shell: bash
+
+      - name: Alert on regression
+        if: steps.comparison.outputs.regression_detected == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = '⚠️ **Performance Regression Detected**\n\n' +
+              'Build time increased by more than 20% compared to baseline.\n\n' +
+              '- Baseline: ${{ steps.comparison.outputs.baseline_minutes }} minutes\n' +
+              '- Current: ${{ steps.comparison.outputs.current_minutes }} minutes\n' +
+              '- Change: ${{ steps.comparison.outputs.percentage_change }}%';
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

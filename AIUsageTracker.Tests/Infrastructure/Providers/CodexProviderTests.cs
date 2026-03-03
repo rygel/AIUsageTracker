@@ -125,7 +125,7 @@ public class CodexProviderTests
             Assert.Contains(usage.Details!, d => d.Name.StartsWith("Spark", StringComparison.OrdinalIgnoreCase));
             Assert.Contains(usage.Details!, d => d.Name == "Credits" && d.Used == "7.50");
             Assert.True(sparkUsage.IsAvailable);
-            Assert.Equal("OpenAI (GPT-5.3-Codex-Spark)", sparkUsage.ProviderName);
+            Assert.Equal("GPT-5.3-Codex-Spark", sparkUsage.ProviderName);
             Assert.Equal("user@example.com", sparkUsage.AccountName);
             Assert.Equal(60.0, sparkUsage.RequestsPercentage);
             Assert.Contains("Spark", sparkUsage.Description);

@@ -1,0 +1,69 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - "AIUsageTracker.*/**"
+      - "scripts/**"
+      - ".github/workflows/code-coverage.yml"
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - "AIUsageTracker.*/**"
+      - "scripts/**"
+      - ".github/workflows/code-coverage.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: Collect Code Coverage
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
+        with:
+          dotnet-version: "8.0.x"
+          cache-key-prefix: "coverage"
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+          dotnet restore AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj
+
+      - name: Build projects
+        run: |
+          dotnet build AIUsageTracker.Tests\AIUsageTracker.Tests.csproj --configuration Debug --no-restore
+          dotnet build AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-restore
+
+      - name: Run tests with coverage
+        run: |
+          dotnet test AIUsageTracker.Tests\AIUsageTracker.Tests.csproj --configuration Debug --no-build --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults
+          dotnet test AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-build --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          directory: TestResults
+          files: "**/coverage.cobertura.xml"
+          fail_ci_if_error: false
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage-results
+          path: |
+            TestResults/**/*.trx
+            TestResults/**/coverage.cobertura.xml
+          retention-days: 3

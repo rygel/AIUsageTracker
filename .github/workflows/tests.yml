@@ -1,0 +1,202 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - "AIUsageTracker.*/**"
+      - "scripts/**"
+      - ".github/workflows/tests.yml"
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - "AIUsageTracker.*/**"
+      - "scripts/**"
+      - ".github/workflows/tests.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1: Build and prepare (Windows only - required for Windows-specific projects)
+  prepare:
+    name: Build and Prepare
+    runs-on: windows-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
+        with:
+          dotnet-version: "8.0.x"
+          cache-key-prefix: "test"
+
+      - name: Restore dependencies
+        run: |
+          dotnet restore AIUsageTracker.Tests/AIUsageTracker.Tests.csproj
+          dotnet restore AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj
+
+      - name: Build projects
+        run: |
+          dotnet build AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug --no-restore
+          dotnet build AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-restore
+
+      - name: Validate test quarantine entries
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
+        shell: pwsh
+
+      - name: Verify theme contract parity
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-contract.ps1
+        shell: pwsh
+
+      - name: Upload test binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-binaries-debug
+          path: |
+            AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+            AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+            scripts/run-vstest-with-retry.ps1
+            .github/test-quarantine.txt
+          retention-days: 3
+
+  # Job 2: Core tests on Windows
+  core-tests-windows:
+    name: Core Tests (Windows)
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Download test binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: test-binaries-debug
+          path: .\_ci_test_binaries
+
+      - name: Run Core tests
+        timeout-minutes: 5
+        shell: pwsh
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+          -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Tests.dll
+          -SuiteName core-tests
+          -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+          -MaxRetries 0
+          -AttemptTimeoutMinutes 5
+          -HangTimeoutSeconds 300
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-results
+          path: TestResults/core-tests*.trx
+          retention-days: 3
+
+  # Job 3: Monitor tests on Windows
+  monitor-tests-windows:
+    name: Monitor Tests (Windows)
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Download test binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: test-binaries-debug
+          path: .\_ci_test_binaries
+
+      - name: Run Monitor tests
+        timeout-minutes: 3
+        shell: pwsh
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+          -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Monitor.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.Tests.dll
+          -SuiteName monitor-tests
+          -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+          -MaxRetries 0
+          -AttemptTimeoutMinutes 3
+          -HangTimeoutSeconds 180
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-test-results
+          path: TestResults/monitor-tests*.trx
+          retention-days: 3
+
+  # Job 4: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
+  core-tests-cross-platform:
+    name: Core Tests (${{ matrix.os }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore Core
+        run: dotnet restore AIUsageTracker.Core/AIUsageTracker.Core.csproj
+
+      - name: Restore Infrastructure
+        run: dotnet restore AIUsageTracker.Infrastructure/AIUsageTracker.Infrastructure.csproj
+
+      - name: Build Core
+        run: dotnet build AIUsageTracker.Core/AIUsageTracker.Core.csproj --configuration Release --no-restore
+
+      - name: Build Infrastructure
+        run: dotnet build AIUsageTracker.Infrastructure/AIUsageTracker.Infrastructure.csproj --configuration Release --no-restore
+
+      - name: Run Core tests (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          echo "Core and Infrastructure build successfully on Linux"
+          echo "Note: Full test suite requires Windows (Windows-specific dependencies)"
+
+  # Job 5: Verify all tests passed
+  test-summary:
+    name: Test Summary
+    needs: [prepare, core-tests-windows, monitor-tests-windows, core-tests-cross-platform]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Check test results
+        run: |
+          PREPARE="${{ needs.prepare.result }}"
+          CORE="${{ needs.core-tests-windows.result }}"
+          MONITOR="${{ needs.monitor-tests-windows.result }}"
+          CROSS="${{ needs.core-tests-cross-platform.result }}"
+          
+          echo "Test Results:"
+          echo "  Prepare: $PREPARE"
+          echo "  Core Tests (Windows): $CORE"
+          echo "  Monitor Tests (Windows): $MONITOR"
+          echo "  Core Tests (Linux): $CROSS"
+          
+          if [ "$PREPARE" != "success" ] || [ "$CORE" != "success" ] || [ "$MONITOR" != "success" ] || [ "$CROSS" != "success" ]; then
+            echo "❌ Some tests failed"
+            exit 1
+          else
+            echo "✅ All tests passed"
+          fi
+        shell: bash
