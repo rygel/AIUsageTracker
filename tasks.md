@@ -108,24 +108,27 @@ Updated with additional tasks on 2026-03-03.
 
 ### Code Duplication - Utilities
 
-- [ ] **Create AppPaths utility class**
+- [x] **Create AppPaths utility class**
   - Source: `AIUsageTracker.Monitor\Program.cs`
   - Source: `AIUsageTracker.Monitor\Services\UsageDatabase.cs`
   - Source: `AIUsageTracker.Web\Services\WebDatabaseService.cs`
   - Problem: Directory path resolution duplicated 3 times
   - Fix: Create `AIUsageTracker.Core\Utilities\AppPaths.cs` for current directory logic only
+  - Status: **COMPLETED** - Created centralized AppPaths class with GetAppDataDirectory, GetAppDirectory, GetDatabasePath, etc.
 
-- [ ] **Create JsonHelpers utility class**
+- [x] **Create JsonHelpers utility class**
   - Source: `SyntheticProvider.cs:243-319`
   - Source: `CodexProvider.cs:799-855`
   - Problem: Similar JSON parsing utilities (`TryGetDoubleCandidate`, `ReadString`, etc.)
   - Fix: Create `AIUsageTracker.Infrastructure\Utilities\JsonHelpers.cs` with extension methods
+  - Status: **COMPLETED** - Created JsonHelpers with ReadString, ReadDouble, ReadBool, TryGetPropertyIgnoreCase, TryGetDoubleProperty, TryGetDoubleCandidate
 
-- [ ] **Consolidate config normalization logic**
+- [x] **Consolidate config normalization logic**
   - Source: `AIUsageTracker.Monitor\Services\ConfigService.cs:149-184`
   - Source: `AIUsageTracker.Infrastructure\Configuration\JsonConfigLoader.cs:164-202`
-  - Problem: `NormalizeOpenAiCodexSessionOverlap` duplicated
-  - Fix: Move to `AIUsageTracker.Infrastructure\Configuration\ConfigNormalization.cs`
+  - Problem: `NormalizeOpenAiCodexSessionOverlap` duplicated in both files
+  - Fix: Create `AIUsageTracker.Infrastructure\Configuration\ConfigNormalization.cs` with shared methods
+  - Status: **COMPLETED** - Created ConfigNormalization with NormalizeOpenAiCodexSessionOverlap and NormalizeCodexSparkConfiguration
 
 ### Interface Segregation
 
@@ -192,11 +195,12 @@ Updated with additional tasks on 2026-03-03.
   - Problem: Account masking logic duplicated
   - Fix: Create `AIUsageTracker.Core\Utilities\AccountMasker.cs`
 
-- [ ] **Unify progress bar color thresholds**
+- [x] **Unify progress bar color thresholds**
   - Source: `MainWindow.xaml.cs:608-613` (90% red, 70% yellow)
   - Source: `Web\Pages\Index.cshtml:419-429` (90% high, 50% medium)
   - Problem: Inconsistent thresholds between UIs
   - Fix: Extract to shared `ProgressColorCalculator` in Core
+  - Status: **COMPLETED** - Created ProgressColorCalculator with YellowThreshold=70, RedThreshold=90 constants
 
 ### Hardcoded Values
 
