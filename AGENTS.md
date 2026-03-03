@@ -791,5 +791,35 @@ Key rules:
 - Add exception handling to all `async void` event handlers
 - Use `ConfigureAwait(false)` in library code (Core/Infrastructure projects)
 
+## Code Exploration and Analysis Tools
+
+**outln** - CLI for generating structured code outlines and quick file summaries for codebase understanding.
+
+Usage:
+```
+outln <file-path>
+```
+
+Description: Generates a structured outline and synopsis of files to quickly understand code structure before deep reading.
+
+Supported languages:
+- TypeScript
+- JavaScript
+- Java
+- Kotlin
+- C#
+- Go
+- Rust
+- Markdown
+
+Use cases:
+- Codebase structure exploration
+- Finding classes/functions
+- Code review preparation
+- API endpoint discovery
+- Documentation overview
+- Quick comprehension before making changes
+
+
 
 
