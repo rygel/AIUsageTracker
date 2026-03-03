@@ -112,3 +112,72 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
 6. **DateTime & Logging** - Code quality improvements
 7. **Dead Code Removal** - Cleanup pass
 
+## CI/CD Pipeline Optimization Opportunities
+
+### Phase 1 - Quick Wins (High Impact, Low Effort)
+
+- [ ] Security scanning workflow (Priority: P1, Effort: S): Add dependency vulnerability scanning with `dotnet list package --vulnerable`
+  - Run on PR and scheduled basis
+  - Upload results to GitHub Security tab
+  - Benefit: Catch vulnerable dependencies before production
+
+- [ ] Conditional workflow skipping (Priority: P1, Effort: S): Skip unnecessary workflows for documentation-only changes
+  - Use `paths-filter` or `paths-ignore` more aggressively
+  - Skip builds when only markdown files change
+  - Benefit: 30-40% reduction in CI minutes for docs PRs
+
+- [ ] Cache optimization (Priority: P1, Effort: S): Add Playwright browser caching, Docker layer caching
+  - Cache `~/.cache/ms-playwright` separately
+  - Use `restore-keys` for fallback cache hits
+  - Benefit: Faster workflow execution
+
+- [ ] Build artifact compression (Priority: P2, Effort: S): Compress artifacts before upload, reduce retention days
+  - Use `tar.gz` compression before upload
+  - Reduce retention from 7 to 3 days for non-release builds
+  - Benefit: Faster uploads, lower storage costs
+
+### Phase 2 - Medium Effort Improvements
+
+- [ ] Code coverage reporting (Priority: P2, Effort: M): Add code coverage collection and reporting
+  - Use `dotnet test --collect:"XPlat Code Coverage"`
+  - Upload to Codecov or similar service
+  - Add coverage badges to README
+  - Benefit: Track coverage trends, ensure test quality
+
+- [ ] PR size limit warning (Priority: P2, Effort: S): Warn on large PRs over 1000 lines
+  - Add workflow step to calculate diff stats
+  - Post comment on PR if too large
+  - Benefit: Encourage focused, reviewable PRs
+
+- [ ] Notification integration (Priority: P2, Effort: S): Add Slack/Discord notifications for failed builds
+  - Notify on main/develop branch failures only
+  - Include link to failed run and error summary
+  - Benefit: Faster incident response
+
+- [ ] Reusable workflow templates (Priority: P2, Effort: M): Create `reusable-test.yml` for common test patterns
+  - Parameterize test filter, timeout, OS
+  - Replace duplicated test job definitions
+  - Benefit: Single source of truth for test execution
+
+### Phase 3 - Larger Projects
+
+- [ ] Matrix builds for cross-platform testing (Priority: P3, Effort: M): Run tests on Windows, Ubuntu, macOS
+  - Test matrix: OS × .NET version
+  - Focus on platform-specific code paths
+  - Benefit: Catch OS-specific bugs early
+
+- [ ] Automated dependency updates (Priority: P3, Effort: M): Weekly automated PRs for dependency updates
+  - Use `dotnet-outdated` or Dependabot
+  - Auto-merge if tests pass
+  - Benefit: Keep dependencies current without manual work
+
+- [ ] Build performance monitoring (Priority: P3, Effort: M): Track and alert on build time regressions
+  - Record metrics to external service (DataDog, Grafana)
+  - Alert if build time increases >20%
+  - Benefit: Proactively detect performance regressions
+
+- [ ] Full workflow refactoring (Priority: P3, Effort: L): Consolidate similar workflows, remove redundancies
+  - Merge test workflows where possible
+  - Standardize naming and structure
+  - Benefit: Easier maintenance, less confusion
+
