@@ -1,4 +1,5 @@
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;

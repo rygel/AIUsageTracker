@@ -1,4 +1,4 @@
-using AIUsageTracker.Core.Models;
+namespace AIUsageTracker.Core.Models;
 
 /// <summary>
 /// Represents arguments passed to notification click event handlers.

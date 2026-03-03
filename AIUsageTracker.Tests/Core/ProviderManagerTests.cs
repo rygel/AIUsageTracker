@@ -10,12 +10,12 @@ namespace AIUsageTracker.Tests.Core;
 public class ProviderManagerTests
 {
     private readonly Mock<ILogger<ProviderManager>> _mockLogger;
-    private readonly Mock<IConfigLoader> _mockConfigLoader;
+    private readonly Mock<IProviderConfigLoader> _mockConfigLoader;
 
     public ProviderManagerTests()
     {
         _mockLogger = new Mock<ILogger<ProviderManager>>();
-        _mockConfigLoader = new Mock<IConfigLoader>();
+        _mockConfigLoader = new Mock<IProviderConfigLoader>();
     }
 
     [Fact]
