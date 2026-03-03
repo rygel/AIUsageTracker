@@ -95,14 +95,19 @@ public static class JsonHelpers
             return false;
         }
 
-        if (property!.ValueKind == JsonValueKind.Number)
+        if (property is null)
         {
-            return property!.Value.TryGetDouble(out value);
+            return false;
         }
 
-        if (property!.ValueKind == JsonValueKind.String)
+        if (property.Value.ValueKind == JsonValueKind.Number)
         {
-            var text = property!.Value.GetString();
+            return property.Value.TryGetDouble(out value);
+        }
+
+        if (property.Value.ValueKind == JsonValueKind.String)
+        {
+            var text = property.Value.GetString();
             return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
         }
 
