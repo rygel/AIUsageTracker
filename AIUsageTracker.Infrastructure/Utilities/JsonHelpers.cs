@@ -77,7 +77,7 @@ public static class JsonHelpers
         {
             if (prop.Name.Equals(propertyName, StringComparison.OrdinalIgnoreCase))
             {
-                property = prop.Value;
+                property = prop;
                 return true;
             }
         }
@@ -97,12 +97,12 @@ public static class JsonHelpers
 
         if (property!.ValueKind == JsonValueKind.Number)
         {
-            return property.Value.TryGetDouble(out value);
+            return property!.Value.TryGetDouble(out value);
         }
 
         if (property!.ValueKind == JsonValueKind.String)
         {
-            var text = property.Value.GetString();
+            var text = property!.Value.GetString();
             return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
         }
 
