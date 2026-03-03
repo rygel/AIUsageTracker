@@ -22,6 +22,21 @@
 - **Added path triggers** for composite action changes to ensure workflows re-run when shared components update
 - **Added CI/CD architecture documentation** at `docs/CI_CD_ARCHITECTURE.md`
 
+### Added (CI/CD Phase 1 Optimizations)
+- **Security scanning workflow** `.github/workflows/security-scan.yml`
+  - Weekly scheduled security audits using `dotnet list package --vulnerable`
+  - Runs on PRs, pushes, and manual dispatch
+  - Uploads security reports and comments on PR failures
+- **Playwright browser caching** in test workflow
+  - Caches browsers in `~/AppData/Local/ms-playwright`
+  - Reduces install time from minutes to seconds on cache hits
+- **Artifact retention optimization**
+  - Reduced retention from default 7 days to 3 days for test artifacts
+  - Significant storage cost reduction
+- **Reusable workflow template** `.github/workflows/reusable-test.yml`
+  - Parameterized test execution with configurable timeouts, retries, filters
+  - Foundation for standardizing test patterns across workflows
+
 ## [2.2.27-beta.7] - 2026-03-03
 
 ### Fixed
