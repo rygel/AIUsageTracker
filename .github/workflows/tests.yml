@@ -154,6 +154,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
       - name: Download test binaries
         uses: actions/download-artifact@v4
         with:
@@ -177,7 +180,7 @@ jobs:
 
       - name: Build Seeder
         shell: pwsh
-        run: dotnet build .\scripts\Seeder\Seeder.csproj -c Debug
+        run: dotnet build "$PSScriptRoot\..\scripts\Seeder\Seeder.csproj" -c Debug
 
       - name: Seed test database from fixture
         shell: pwsh
@@ -242,10 +245,10 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          $pid = $env:WEB_APP_PID
-          if ($pid) {
-            Write-Host "Stopping Web App PID: $pid"
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+          $webAppPid = $env:WEB_APP_PID
+          if ($webAppPid) {
+            Write-Host "Stopping Web App PID: $webAppPid"
+            Stop-Process -Id $webAppPid -Force -ErrorAction SilentlyContinue
           }
 
       - name: Upload results
