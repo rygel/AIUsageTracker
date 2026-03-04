@@ -75,6 +75,7 @@ jobs:
             scripts/Seeder/bin/Debug/net8.0/**
             scripts/run-vstest-with-retry.ps1
             .github/test-quarantine.txt
+            test-fixtures/
           retention-days: 3
 
   # Job 2: Core tests on Windows
@@ -162,11 +163,16 @@ jobs:
       - name: Install Playwright browsers
         shell: pwsh
         run: |
-          $playwrightScript = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1"
-          if (Test-Path $playwrightScript) {
-            & $playwrightScript install
+          $playwrightDir = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\.playwright"
+          if (Test-Path $playwrightDir) {
+            Push-Location $playwrightDir
+            try {
+              & node package/cli.js install chromium
+            } finally {
+              Pop-Location
+            }
           } else {
-            Write-Host "Warning: playwright.ps1 not found at expected location."
+            Write-Host "Warning: Playwright package not found at expected location."
           }
 
       - name: Build Seeder
@@ -177,8 +183,12 @@ jobs:
         shell: pwsh
         run: |
           $seederPath = ".\scripts\Seeder\bin\Debug\net8.0\Seeder.dll"
+          $fixturePath = "test-fixtures\provider-data.json"
+          if (Test-Path "\_ci_test_binaries\test-fixtures\provider-data.json") {
+            $fixturePath = "\_ci_test_binaries\test-fixtures\provider-data.json"
+          }
           if (Test-Path $seederPath) {
-            & dotnet $seederPath "test-fixtures\provider-data.json"
+            & dotnet $seederPath $fixturePath
           } else {
             Write-Host "Error: Seeder not found at expected location."
             exit 1
