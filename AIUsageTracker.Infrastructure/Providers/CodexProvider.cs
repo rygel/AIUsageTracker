@@ -84,7 +84,15 @@ public class CodexProvider : ProviderBase
                 return new[] { CreateUnavailableUsage(detailMessage) };
             }
 
-            return BuildUsages(jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId);
+            try
+            {
+                return BuildUsages(jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse Codex usage data. Raw response: {RawResponse}", content.Substring(0, Math.Min(2000, content.Length)));
+                return new[] { CreateUnavailableUsage("Failed to parse Codex usage data") };
+            }
         }
         catch (JsonException ex)
         {
