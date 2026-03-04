@@ -24,7 +24,7 @@
         else
         {
             <div class="reliability-grid">
-                @foreach (var usage in Model.LatestUsage)
+                @foreach (var usage in Model.LatestUsage!)
                 {
                     var hasReliability = Model.ReliabilityByProvider.TryGetValue(usage.ProviderId, out var reliability);
                     var snapshot = hasReliability && reliability != null
@@ -109,7 +109,7 @@
         else
         {
             <div class="reliability-grid">
-                @foreach (var usage in Model.LatestUsage)
+                @foreach (var usage in Model.LatestUsage!)
                 {
                     var hasReliability = Model.ReliabilityByProvider.TryGetValue(usage.ProviderId, out var reliability);
                     var snapshot = hasReliability && reliability != null

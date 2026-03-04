@@ -1,0 +1,438 @@
+{
+  "providers": [
+    {
+      "provider_id": "antigravity",
+      "provider_name": "Google Antigravity",
+      "account_name": null,
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"antigravity\",\"Type\":\"quota-based\",\"AuthSource\":\"Unknown, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "github-copilot",
+      "provider_name": "GitHub Copilot",
+      "account_name": "rygel",
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"github-copilot\",\"Type\":\"quota-based\",\"AuthSource\":\"Unknown, auth.json, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "zai-coding-plan",
+      "provider_name": "Z.ai Coding Plan",
+      "account_name": null,
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"zai-coding-plan\",\"Type\":\"api\",\"AuthSource\":\"Unknown, auth.json, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "synthetic",
+      "provider_name": "Synthetic",
+      "account_name": null,
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"synthetic\",\"Type\":\"quota-based\",\"AuthSource\":\"Unknown, auth.json, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "claude-code",
+      "provider_name": "Claude Code",
+      "account_name": null,
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"claude-code\",\"Type\":\"pay-as-you-go\",\"AuthSource\":\"Unknown, auth.json, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "mistral",
+      "provider_name": "Mistral",
+      "account_name": null,
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"mistral\",\"Type\":\"api\",\"AuthSource\":\"Unknown, auth.json, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "openai",
+      "provider_name": "OpenAI (Codex)",
+      "account_name": "abrandt51@gmail.com",
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"openai\",\"Type\":\"quota-based\",\"AuthSource\":\"Config: C:\\\\Users\\\\Alexander\\\\.local\\\\share\\\\opencode\\\\auth.json\"}"
+    },
+    {
+      "provider_id": "antigravity.claude-opus-4.6-(thinking)",
+      "provider_name": "Antigravity Claude Opus 4.6 (Thinking)",
+      "account_name": "abrandt51@gmail.com",
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"antigravity.claude-opus-4.6-(thinking)\",\"Type\":\"coding\",\"AuthSource\":\"Unknown, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "antigravity.claude-sonnet-4.6-(thinking)",
+      "provider_name": "Antigravity Claude Sonnet 4.6 (Thinking)",
+      "account_name": "abrandt51@gmail.com",
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"antigravity.claude-sonnet-4.6-(thinking)\",\"Type\":\"coding\",\"AuthSource\":\"Unknown, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "antigravity.gemini-3-flash",
+      "provider_name": "Antigravity Gemini 3 Flash",
+      "account_name": "abrandt51@gmail.com",
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"antigravity.gemini-3-flash\",\"Type\":\"coding\",\"AuthSource\":\"Unknown, auth.json, providers.json\"}"
+    },
+    {
+      "provider_id": "antigravity.gemini-3.1-pro-(high)",
+      "provider_name": "Antigravity Gemini 3.1 Pro (High)",
+      "account_name": "abrandt51@gmail.com",
+      "is_active": 1,
+      "config_json": "{\"ProviderId\":\"antigravity.gemini-3.1-pro-(high)\",\"Type\":\"coding\",\"AuthSource\":\"Unknown, auth.json, providers.json\"}"
+    }
+  ],
+  "latest_history": [
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:43:13.8778406Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "antigravity",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Application not running",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:43:13.8768247Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "antigravity.claude-opus-4.6-(thinking)",
+      "requests_used": 0,
+      "requests_available": 100,
+      "requests_percentage": 100,
+      "is_available": 1,
+      "status_message": "100% Remaining",
+      "next_reset_time": "2026-03-04T03:55:55+02:00",
+      "fetched_at": "2026-03-03T21:00:55.8493999Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "antigravity.claude-sonnet-4.6-(thinking)",
+      "requests_used": 0,
+      "requests_available": 100,
+      "requests_percentage": 100,
+      "is_available": 1,
+      "status_message": "100% Remaining",
+      "next_reset_time": "2026-03-04T03:55:55+02:00",
+      "fetched_at": "2026-03-03T21:00:55.8494009Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "antigravity.gemini-3-flash",
+      "requests_used": 0,
+      "requests_available": 100,
+      "requests_percentage": 100,
+      "is_available": 1,
+      "status_message": "100% Remaining",
+      "next_reset_time": "2026-03-04T03:55:55+02:00",
+      "fetched_at": "2026-03-03T21:00:55.8494016Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "antigravity.gemini-3.1-pro-(high)",
+      "requests_used": 20,
+      "requests_available": 100,
+      "requests_percentage": 80,
+      "is_available": 1,
+      "status_message": "80% Remaining",
+      "next_reset_time": "2026-03-03T23:08:20+02:00",
+      "fetched_at": "2026-03-03T21:00:55.8494022Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "antigravity.gemini-3.1-pro-(low)",
+      "requests_used": 20,
+      "requests_available": 100,
+      "requests_percentage": 80,
+      "is_available": 1,
+      "status_message": "80% Remaining",
+      "next_reset_time": "2026-03-03T23:08:20+02:00",
+      "fetched_at": "2026-03-03T21:00:55.8494027Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "antigravity.gpt-oss-120b-(medium)",
+      "requests_used": 0,
+      "requests_available": 100,
+      "requests_percentage": 100,
+      "is_available": 1,
+      "status_message": "100% Remaining",
+      "next_reset_time": "2026-03-04T03:55:55+02:00",
+      "fetched_at": "2026-03-03T21:00:55.8494033Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "claude-code",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (API key configured)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:43:20.8026797Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "codex",
+      "requests_used": 0,
+      "requests_available": 100,
+      "requests_percentage": 100,
+      "is_available": 1,
+      "status_message": "100% remaining (0% used) | Plan: plus",
+      "next_reset_time": "2026-03-04T13:37:26.083972+02:00",
+      "fetched_at": "2026-03-04T06:37:26.0839737Z",
+      "details_json": "[{\"Name\":\"5-hour quota\",\"ModelName\":\"\",\"GroupName\":\"\",\"Used\":\"100% remaining (0% used)\",\"Description\":\"Resets in 18000s\",\"NextResetTime\":\"2026-03-04T13:37:26.0839637+02:00\",\"DetailType\":1,\"WindowKind\":1},{\"Name\":\"Weekly quota\",\"ModelName\":\"\",\"GroupName\":\"\",\"Used\":\"100% remaining (0% used)\",\"Description\":\"Resets in 604800s\",\"NextResetTime\":\"2026-03-11T08:37:26.0839671+02:00\",\"DetailType\":1,\"WindowKind\":2},{\"Name\":\"Credits\",\"ModelName\":\"\",\"GroupName\":\"\",\"Used\":\"0.00\",\"Description\":\"\",\"NextResetTime\":null,\"DetailType\":2,\"WindowKind\":0}]"
+    },
+    {
+      "provider_id": "github-copilot",
+      "requests_used": 13,
+      "requests_available": 300,
+      "requests_percentage": 95.66666666666667,
+      "is_available": 1,
+      "status_message": "Premium Requests: 287/300 Remaining (individual)",
+      "next_reset_time": "2026-04-01T03:00:00+03:00",
+      "fetched_at": "2026-03-04T11:43:14.4711307Z",
+      "details_json": null
+    }
+  ],
+  "exported_at": "2026-03-04T11:43:39.1006536Z",
+  "history_7days": [
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:43:13.8778406Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:38:10.6218428Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:33:08.2428467Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:28:05.6325696Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:23:02.8265475Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:18:00.2537049Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:12:58.1492855Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:07:55.9184762Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T11:02:53.8596969Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:57:51.8239419Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:52:49.8139156Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:47:47.6723537Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:42:45.5483181Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:37:42.939444Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:32:40.8882825Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:27:38.759574Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:22:36.4634947Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:17:34.2157196Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:12:32.2522915Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:07:30.0038077Z",
+      "details_json": null
+    },
+    {
+      "provider_id": "anthropic",
+      "requests_used": 0,
+      "requests_available": 0,
+      "requests_percentage": 0,
+      "is_available": 1,
+      "status_message": "Connected (Check Dashboard)",
+      "next_reset_time": null,
+      "fetched_at": "2026-03-04T10:02:27.9986546Z",
+      "details_json": null
+    }
+  ]
+}

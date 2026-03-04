@@ -41,11 +41,17 @@ jobs:
         run: |
           dotnet restore AIUsageTracker.Tests/AIUsageTracker.Tests.csproj
           dotnet restore AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj
+          dotnet restore AIUsageTracker.Web/AIUsageTracker.Web.csproj
+          dotnet restore AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj
+          dotnet restore scripts/Seeder/Seeder.csproj
 
       - name: Build projects
         run: |
           dotnet build AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug --no-restore
           dotnet build AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-restore
+          dotnet build AIUsageTracker.Web/AIUsageTracker.Web.csproj --configuration Debug --no-restore
+          dotnet build AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj --configuration Debug --no-restore
+          dotnet build scripts/Seeder/Seeder.csproj --configuration Debug --no-restore
 
       - name: Validate test quarantine entries
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
@@ -62,6 +68,11 @@ jobs:
           path: |
             AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
             AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
+            AIUsageTracker.Web/bin/Debug/net8.0/**
+            AIUsageTracker.Web.Tests/bin/Debug/net8.0/**
+            AIUsageTracker.Infrastructure/bin/Debug/net8.0/**
+            AIUsageTracker.Core/bin/Debug/net8.0/**
+            scripts/Seeder/bin/Debug/net8.0/**
             scripts/run-vstest-with-retry.ps1
             .github/test-quarantine.txt
           retention-days: 3
@@ -134,7 +145,108 @@ jobs:
           path: TestResults/monitor-tests*.trx
           retention-days: 3
 
-  # Job 4: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
+  # Job 4: Web tests on Windows (requires Web app running)
+  web-tests-windows:
+    name: Web Tests (Windows)
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Download test binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: test-binaries-debug
+          path: .\_ci_test_binaries
+
+      - name: Install Playwright browsers
+        shell: pwsh
+        run: |
+          $playwrightScript = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\playwright.ps1"
+          if (Test-Path $playwrightScript) {
+            & $playwrightScript install
+          } else {
+            Write-Host "Warning: playwright.ps1 not found at expected location."
+          }
+
+      - name: Build Seeder
+        shell: pwsh
+        run: dotnet build .\scripts\Seeder\Seeder.csproj -c Debug
+
+      - name: Seed test database from fixture
+        shell: pwsh
+        run: |
+          $seederPath = ".\scripts\Seeder\bin\Debug\net8.0\Seeder.dll"
+          if (Test-Path $seederPath) {
+            & dotnet $seederPath "test-fixtures\provider-data.json"
+          } else {
+            Write-Host "Error: Seeder not found at expected location."
+            exit 1
+          }
+
+      - name: Start Web Application
+        shell: pwsh
+        run: |
+          $webProject = ".\AIUsageTracker.Web\AIUsageTracker.Web.csproj"
+          $proc = Start-Process -FilePath "dotnet" -ArgumentList "run --project $webProject --configuration Debug --urls=http://localhost:5100" -PassThru -NoNewWindow
+          $env:WEB_APP_PID = $proc.Id
+          Write-Host "Web app started with PID: $($proc.Id)"
+
+          # Wait for web app to be ready
+          $retries = 0
+          $maxRetries = 30
+          $ready = $false
+          while ($retries -lt $maxRetries) {
+            try {
+              $response = Invoke-WebRequest -Uri "http://localhost:5100" -UseBasicParsing -ErrorAction Stop
+              if ($response.StatusCode -eq 200) {
+                $ready = $true
+                break
+              }
+            } catch {
+              Start-Sleep -Seconds 1
+            }
+            $retries++
+            Write-Host "." -NoNewline
+          }
+          Write-Host ""
+          if (-not $ready) {
+            Write-Host "Failed to start Web App!" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "Web App is running!" -ForegroundColor Green
+
+      - name: Run Web tests
+        timeout-minutes: 8
+        shell: pwsh
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+          -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll
+          -SuiteName web-tests
+          -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+          -MaxRetries 0
+          -AttemptTimeoutMinutes 8
+          -HangTimeoutSeconds 480
+
+      - name: Stop Web Application
+        if: always()
+        shell: pwsh
+        run: |
+          $pid = $env:WEB_APP_PID
+          if ($pid) {
+            Write-Host "Stopping Web App PID: $pid"
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-test-results
+          path: TestResults/web-tests*.trx
+          retention-days: 3
+
+  # Job 5: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
   core-tests-cross-platform:
     name: Core Tests (${{ matrix.os }})
     needs: prepare
@@ -171,10 +283,10 @@ jobs:
           echo "Core and Infrastructure build successfully on Linux"
           echo "Note: Full test suite requires Windows (Windows-specific dependencies)"
 
-  # Job 5: Verify all tests passed
+  # Job 6: Verify all tests passed
   test-summary:
     name: Test Summary
-    needs: [prepare, core-tests-windows, monitor-tests-windows, core-tests-cross-platform]
+    needs: [prepare, core-tests-windows, monitor-tests-windows, web-tests-windows, core-tests-cross-platform]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -185,15 +297,17 @@ jobs:
           PREPARE="${{ needs.prepare.result }}"
           CORE="${{ needs.core-tests-windows.result }}"
           MONITOR="${{ needs.monitor-tests-windows.result }}"
+          WEB="${{ needs.web-tests-windows.result }}"
           CROSS="${{ needs.core-tests-cross-platform.result }}"
           
           echo "Test Results:"
           echo "  Prepare: $PREPARE"
           echo "  Core Tests (Windows): $CORE"
           echo "  Monitor Tests (Windows): $MONITOR"
+          echo "  Web Tests (Windows): $WEB"
           echo "  Core Tests (Linux): $CROSS"
           
-          if [ "$PREPARE" != "success" ] || [ "$CORE" != "success" ] || [ "$MONITOR" != "success" ] || [ "$CROSS" != "success" ]; then
+          if [ "$PREPARE" != "success" ] || [ "$CORE" != "success" ] || [ "$MONITOR" != "success" ] || [ "$WEB" != "success" ] || [ "$CROSS" != "success" ]; then
             echo "❌ Some tests failed"
             exit 1
           else
