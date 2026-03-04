@@ -156,6 +156,7 @@ else
     builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
 }
 builder.Services.AddSingleton<IConfigService, ConfigService>();
+builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
 builder.Services.AddProvidersFromAssembly();
 builder.Services.AddSingleton<ProviderRefreshService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
