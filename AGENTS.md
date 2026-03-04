@@ -109,6 +109,43 @@ AIUsageTracker.exe --test --screenshot
 - If only screenshot baseline fails, download the `slim-ui-screenshots` artifact from the failing run and sync only the drifted files.
 - Do not add new screenshot files to baseline verification unless workflow and verification script are updated together.
 
+### Pre-Commit Validation (CRITICAL)
+
+**ALWAYS run validation before committing and pushing changes.** This prevents CI failures and broken builds.
+
+Run the pre-commit validation script:
+```bash
+./scripts/pre-commit-check.sh
+```
+
+This script performs:
+1. **Build Validation** - Ensures solution compiles without errors
+2. **Test Execution** - Runs all unit tests (162 tests)
+3. **Format Checking** - Verifies code matches `.editorconfig` rules
+
+**Manual validation** (if script unavailable):
+```bash
+# Build
+dotnet build AIUsageTracker.sln --configuration Release
+
+# Test
+dotnet test AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Release --no-build
+
+# Format check
+dotnet format --verify-no-changes --severity warn
+```
+
+**Do NOT commit if:**
+- ❌ Build fails
+- ❌ Any tests fail
+- ❌ Format check shows errors (warnings are OK)
+
+**Why this matters:**
+- CI/CD pipelines will reject broken builds
+- Other developers will be blocked by failing tests
+- Fixes require additional commits and PR updates
+- Wastes CI minutes on known-failing builds
+
 ### Publishing
 ```bash
 # Publish Windows UI

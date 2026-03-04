@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-public class OpenCodeZenProvider : IProviderService
+public class OpenCodeZenProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "opencode-zen",
@@ -16,8 +16,8 @@ public class OpenCodeZenProvider : IProviderService
         defaultConfigType: "pay-as-you-go",
         autoIncludeWhenUnconfigured: true);
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly ILogger<OpenCodeZenProvider> _logger;
     private string _cliPath;
 
@@ -35,7 +35,7 @@ public class OpenCodeZenProvider : IProviderService
         _cliPath = cliPath;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Check if CLI exists first
         var pathExists = _cliPath == "opencode"

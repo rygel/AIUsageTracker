@@ -2,12 +2,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-public class GeminiProvider : IProviderService
+public class GeminiProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "gemini-cli",
@@ -19,8 +19,8 @@ public class GeminiProvider : IProviderService
         includeInWellKnownProviders: true,
         handledProviderIds: new[] { "gemini-cli", "gemini" });
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<GeminiProvider> _logger;
 
@@ -35,7 +35,7 @@ public class GeminiProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // 1. Load Accounts
         var accounts = LoadAntigravityAccounts();

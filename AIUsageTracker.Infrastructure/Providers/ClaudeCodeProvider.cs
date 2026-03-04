@@ -4,12 +4,12 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-public class ClaudeCodeProvider : IProviderService
+public class ClaudeCodeProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "claude-code",
@@ -19,8 +19,8 @@ public class ClaudeCodeProvider : IProviderService
         defaultConfigType: "pay-as-you-go",
         autoIncludeWhenUnconfigured: true);
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly ILogger<ClaudeCodeProvider> _logger;
     private readonly HttpClient _httpClient;
 
@@ -30,7 +30,7 @@ public class ClaudeCodeProvider : IProviderService
         _httpClient = httpClient;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Check if API key is configured
         if (string.IsNullOrEmpty(config.ApiKey))

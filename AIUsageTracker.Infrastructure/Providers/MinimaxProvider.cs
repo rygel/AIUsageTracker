@@ -2,13 +2,13 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-public class MinimaxProvider : IProviderService
+public class MinimaxProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "minimax",
@@ -24,8 +24,8 @@ public class MinimaxProvider : IProviderService
             ["minimax-global"] = "Minimax (International)"
         });
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<MinimaxProvider> _logger;
 
@@ -35,7 +35,7 @@ public class MinimaxProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {

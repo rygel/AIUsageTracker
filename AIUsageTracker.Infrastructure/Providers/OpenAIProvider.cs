@@ -3,14 +3,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text;
 using Microsoft.Extensions.Logging;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 using System.Net;
 using System.Net.Http.Headers;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-public class OpenAIProvider : IProviderService
+public class OpenAIProvider : ProviderBase
 {
     private const string WhamUsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
     public static ProviderDefinition StaticDefinition { get; } = new(
@@ -20,8 +20,8 @@ public class OpenAIProvider : IProviderService
         isQuotaBased: true,
         defaultConfigType: "quota-based");
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenAIProvider> _logger;
 
@@ -31,7 +31,7 @@ public class OpenAIProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (!string.IsNullOrWhiteSpace(config.ApiKey) && IsApiKey(config.ApiKey))
         {
@@ -197,20 +197,6 @@ public class OpenAIProvider : IProviderService
             AuthSource = "OpenCode Session",
             NextResetTime = nextResetTime,
             Details = BuildOpenAiSessionDetails(doc.RootElement)
-        };
-    }
-
-    private ProviderUsage CreateUnavailableUsage(string description)
-    {
-        return new ProviderUsage
-        {
-            ProviderId = ProviderId,
-            ProviderName = "OpenAI",
-            IsAvailable = false,
-            Description = description,
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
-            UsageUnit = "Quota %"
         };
     }
 

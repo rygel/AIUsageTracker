@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-public class GitHubCopilotProvider : IProviderService
+public class GitHubCopilotProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "github-copilot",
@@ -14,8 +15,8 @@ public class GitHubCopilotProvider : IProviderService
         defaultConfigType: "quota-based",
         includeInWellKnownProviders: true);
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly IGitHubAuthService _authService;
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubCopilotProvider> _logger;
@@ -27,7 +28,7 @@ public class GitHubCopilotProvider : IProviderService
         _authService = authService;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         var token = ResolveToken(config);
         if (string.IsNullOrEmpty(token))
@@ -295,19 +296,6 @@ public class GitHubCopilotProvider : IProviderService
         }
 
         return "Authenticated";
-    }
-
-    private ProviderUsage CreateUnavailableUsage(string description)
-    {
-        return new ProviderUsage
-        {
-            ProviderId = ProviderId,
-            ProviderName = "GitHub Copilot",
-            IsAvailable = false,
-            Description = description,
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding
-        };
     }
 
     private static string NormalizeCopilotPlanName(string plan)

@@ -1,10 +1,10 @@
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-public class AnthropicProvider : IProviderService
+public class AnthropicProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "anthropic",
@@ -13,8 +13,8 @@ public class AnthropicProvider : IProviderService
         isQuotaBased: false,
         defaultConfigType: "pay-as-you-go");
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly ILogger<AnthropicProvider> _logger;
 
     public AnthropicProvider(ILogger<AnthropicProvider> logger)
@@ -22,7 +22,7 @@ public class AnthropicProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {

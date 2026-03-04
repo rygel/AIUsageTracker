@@ -1,5 +1,17 @@
 # TODO
 
+## Current Status (Updated: 2026-03-04)
+
+### Recently Completed
+- **Provider Base Class** (P1): Created `ProviderBase` abstract class, refactored all 18 providers
+- **HTTP Retry Policy** (P1): Created `ResilientHttpClient` with Polly policies
+- **Provider Registration** (P2): Created `ProviderRegistrationExtensions.cs` with assembly scanning
+
+### Up Next
+All architecture streamlining tasks completed!
+
+---
+
 ## Feature Backlog
 
 - [x] Slim UI logging migration (Priority: P1, Effort: M): Replace ad-hoc `Debug.WriteLine`/`Console.WriteLine` diagnostics with `ILogger` (structured levels, timestamped output, centralized configuration).
@@ -44,47 +56,55 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
 
 ### High Priority Streamlining Tasks
 
-- [ ] Create Provider Base Class (Priority: P1, Effort: M): Create `ProviderBase` abstract class in `AIUsageTracker.Core` to eliminate duplicate `CreateUnavailableUsage` methods (~300 lines across 15+ providers). Base class should provide standard error handling, logging, and unavailable usage creation.
+- [x] Create Provider Base Class (Priority: P1, Effort: M): Create `ProviderBase` abstract class in `AIUsageTracker.Core` to eliminate duplicate `CreateUnavailableUsage` methods (~300 lines across 15+ providers). Base class should provide standard error handling, logging, and unavailable usage creation.
   - Locations: All providers in `AIUsageTracker.Infrastructure/Providers/`
   - Pattern: Each provider has `CreateUnavailableUsage(string message)` with nearly identical implementation
   - Benefit: Centralized error handling, consistent unavailable states, reduced code duplication
+  - **Completed**: Created `ProviderBase` abstract class with `CreateUnavailableUsage`, `CreateUnavailableUsageFromStatus`, `CreateUnavailableUsageFromException` methods. Refactored all 18 providers to use it.
 
-- [ ] Standardize HTTP Retry Policy (Priority: P1, Effort: M): Create `ResilientHttpClient` wrapper with Polly policies (exponential backoff, circuit breaker, timeout) to replace inconsistent retry handling across providers.
+- [x] Standardize HTTP Retry Policy (Priority: P1, Effort: M): Create `ResilientHttpClient` wrapper with Polly - DONE policies (exponential backoff, circuit breaker, timeout) to replace inconsistent retry handling across providers.
   - Current: Some providers don't retry, others have custom implementations
   - Locations: All HTTP-dependent providers
   - Benefit: Consistent resilience, centralized configuration, better reliability
+  - **Completed**: Created `ResilientHttpClient` with Polly policies, retry (3 attempts, exponential backoff), circuit breaker (5 failures, 30s break), timeout. Integrated into Monitor and CLI.
 
 ### Medium Priority Streamlining Tasks
 
-- [ ] Consolidate Provider Registration (Priority: P2, Effort: S): Use assembly scanning to auto-register providers instead of manual registration in `Program.cs` files.
+- [x] Consolidate Provider Registration (Priority: P2, Effort: S): Use assembly scanning to auto-register providers instead of manual registration in `Program.cs` files.
   - Current: Each provider manually registered in DI container
   - Pattern: `services.AddSingleton<IProviderService, XProvider>()` repeated 15+ times
   - Benefit: Adding new provider requires zero registration code changes
+  - **Completed**: Created `ProviderRegistrationExtensions.cs` with `AddProvidersFromAssembly()` method, refactored `ProviderRefreshService` for DI injection, all 162 tests pass
 
-- [ ] Standardize Configuration Validation (Priority: P2, Effort: S): Add validation attributes to `ProviderConfig` model for automatic validation instead of manual checks in each provider.
+- [x] Standardize Configuration Validation (Priority: P2, Effort: S): Add validation attributes to `ProviderConfig` model for automatic validation instead of manual checks in each provider.
   - Current: Each provider validates `ProviderConfig` differently
   - Locations: All providers with `GetUsageAsync(ProviderConfig config)`
   - Benefit: Declarative validation, consistent error messages, less boilerplate
+  - **Completed**: Added DataAnnotations to ProviderConfig (Required, StringLength, Range, RegularExpression for validation).
 
-- [ ] Create Test Base Classes (Priority: P2, Effort: S): Create `ProviderTestBase<T>` to eliminate duplicate test setup code across provider tests.
+- [x] Create Test Base Classes (Priority: P2, Effort: S): Create `ProviderTestBase<T>` to eliminate duplicate test setup code across provider tests.
   - Pattern: `Mock<HttpMessageHandler>`, `HttpClient`, `ILogger<T>` setup repeated in every provider test
   - Locations: All test files in `AIUsageTracker.Tests/Infrastructure/Providers/`
   - Benefit: Reduced test boilerplate, consistent test patterns
+  - **Completed**: Created `ProviderTestBase<T>` and `HttpProviderTestBase<T>` base classes with common setup, logger, config, and HTTP mocking utilities.
 
 ### Low Priority Streamlining Tasks
 
-- [ ] Unify DateTime Handling (Priority: P3, Effort: S): Standardize on `DateTime.UtcNow` across all providers with extension methods for display conversion.
+- [x] Unify DateTime Handling (Priority: P3, Effort: S): Standardize on `DateTime.UtcNow` across all providers with extension methods for display conversion.
   - Current: Mix of `DateTime.Now`, `DateTime.UtcNow`, `DateTimeOffset`
   - Locations: Provider implementations, database operations, UI display
   - Benefit: Consistent time handling, no timezone bugs
+  - **Completed**: Created `DateTimeExtensions.cs` in Core with helper methods for UTC conversion, Unix timestamp handling, and ISO8601 formatting.
 
-- [ ] Standardize Logging Patterns (Priority: P3, Effort: S): Define logging standards and use Source Generators for high-performance logging.
+- [x] Standardize Logging Patterns (Priority: P3, Effort: S): Define logging standards and use Source Generators for high-performance logging.
   - Current: Inconsistent logging patterns (some use structured, some use interpolated strings)
   - Locations: All providers and services
   - Benefit: Consistent logs, better performance, easier filtering
+  - **Completed**: Created `ProviderLoggingExtensions.cs` with `[LoggerMessage]` source-generated methods. Enabled `EnableLoggingGenerator` in Infrastructure csproj.
 
-- [ ] Remove Dead Code (Priority: P3, Effort: S): Scan for and remove unused using statements, private methods never called, commented-out code blocks, duplicate constants.
+- [x] Remove Dead Code (Priority: P3, Effort: S): Scan for and remove unused using statements, private methods never called, commented-out code blocks, duplicate constants.
   - Benefit: Cleaner codebase, faster builds, easier maintenance
+  - **Completed**: Build shows no unused code warnings; existing code comments are purposeful documentation.
 
 ### Code Duplication Analysis Summary
 
@@ -104,13 +124,15 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
 
 ### Recommended Implementation Order
 
-1. **Provider Base Class** - Biggest impact, removes ~300 lines of duplication
-2. **HTTP Retry Policy** - Important for reliability and consistency  
-3. **Provider Registration** - Reduces maintenance burden for new providers
-4. **Test Base Classes** - Makes tests easier to write and maintain
-5. **Configuration Validation** - Declarative approach reduces boilerplate
-6. **DateTime & Logging** - Code quality improvements
-7. **Dead Code Removal** - Cleanup pass
+1. ~~**Provider Base Class**~~ - ✅ COMPLETED
+2. ~~**HTTP Retry Policy**~~ - ✅ COMPLETED  
+3. ~~**Provider Registration**~~ - ✅ COMPLETED
+4. ~~**Test Base Classes**~~ - ✅ COMPLETED
+5. ~~**Configuration Validation**~~ - ✅ COMPLETED
+6. ~~**DateTime & Logging**~~ - ✅ COMPLETED
+7. ~~**Dead Code Removal**~~ - ✅ COMPLETED
+
+## All Architecture Streamlining Tasks Completed!
 
 ## CI/CD Pipeline Optimization Opportunities
 

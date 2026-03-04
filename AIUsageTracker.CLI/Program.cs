@@ -2,6 +2,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Infrastructure.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
@@ -82,6 +83,7 @@ class Program
         });
 
         services.AddHttpClient();
+        services.AddResilientHttpClient();
         services.AddSingleton<MonitorService>();
 
         var serviceProvider = services.BuildServiceProvider();

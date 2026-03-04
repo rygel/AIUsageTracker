@@ -1,7 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
@@ -9,7 +9,7 @@ namespace AIUsageTracker.Infrastructure.Providers;
 /// Evolve database migration tracking provider
 /// Reads from Evolve's changelog table to display migration history
 /// </summary>
-public class EvolveMigrationProvider : IProviderService
+public class EvolveMigrationProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "evolve-migrations",
@@ -18,8 +18,8 @@ public class EvolveMigrationProvider : IProviderService
         isQuotaBased: false,
         defaultConfigType: "pay-as-you-go");
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly ILogger<EvolveMigrationProvider> _logger;
 
     public EvolveMigrationProvider(ILogger<EvolveMigrationProvider> logger)
@@ -27,7 +27,7 @@ public class EvolveMigrationProvider : IProviderService
         _logger = logger;
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         try
         {

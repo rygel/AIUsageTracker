@@ -8,14 +8,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Providers;
 
 using AIUsageTracker.Infrastructure.Helpers;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
-    public class AntigravityProvider : IProviderService
+public class AntigravityProvider : ProviderBase
 {
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "antigravity",
@@ -27,8 +27,8 @@ namespace AIUsageTracker.Infrastructure.Providers;
         includeInWellKnownProviders: true,
         supportsChildProviderIds: true);
 
-    public ProviderDefinition Definition => StaticDefinition;
-    public string ProviderId => StaticDefinition.ProviderId;
+    public override ProviderDefinition Definition => StaticDefinition;
+    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<AntigravityProvider> _logger;
     private ProviderUsage? _cachedUsage;
@@ -61,7 +61,7 @@ namespace AIUsageTracker.Infrastructure.Providers;
         return new HttpClient(handler);
     }
 
-    public async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         var results = new List<ProviderUsage>();
 
