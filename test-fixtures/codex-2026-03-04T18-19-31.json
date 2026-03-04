@@ -1,0 +1,48 @@
+﻿{
+    "user_id":  "user-0OaAGl8fyOnxpFIVZK9rFL2E",
+    "account_id":  "user-0OaAGl8fyOnxpFIVZK9rFL2E",
+    "email":  "abrandt51@gmail.com",
+    "plan_type":  "plus",
+    "rate_limit":  {
+                       "allowed":  true,
+                       "limit_reached":  false,
+                       "primary_window":  {
+                                              "used_percent":  0,
+                                              "limit_window_seconds":  18000,
+                                              "reset_after_seconds":  18000,
+                                              "reset_at":  1772659173
+                                          },
+                       "secondary_window":  {
+                                                "used_percent":  19,
+                                                "limit_window_seconds":  604800,
+                                                "reset_after_seconds":  576234,
+                                                "reset_at":  1773217407
+                                            }
+                   },
+    "code_review_rate_limit":  {
+                                   "allowed":  true,
+                                   "limit_reached":  false,
+                                   "primary_window":  {
+                                                          "used_percent":  0,
+                                                          "limit_window_seconds":  604800,
+                                                          "reset_after_seconds":  604800,
+                                                          "reset_at":  1773245973
+                                                      },
+                                   "secondary_window":  null
+                               },
+    "additional_rate_limits":  null,
+    "credits":  {
+                    "has_credits":  false,
+                    "unlimited":  false,
+                    "balance":  "0",
+                    "approx_local_messages":  [
+                                                  0,
+                                                  0
+                                              ],
+                    "approx_cloud_messages":  [
+                                                  0,
+                                                  0
+                                              ]
+                },
+    "promo":  null
+}
