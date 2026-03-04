@@ -408,7 +408,6 @@ public class UsageDatabase : IUsageDatabase
                        h.response_latency_ms AS ResponseLatencyMs
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
-                WHERE h.provider_id != 'antigravity'
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
