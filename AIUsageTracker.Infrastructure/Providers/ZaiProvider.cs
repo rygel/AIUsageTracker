@@ -47,6 +47,7 @@ public class ZaiProvider : ProviderBase
 
         _logger.LogDebug("[ZAI] Sending API request to https://api.z.ai/api/monitor/usage/quota/limit");
         var response = await _httpClient.SendAsync(request);
+        var httpStatus = (int)response.StatusCode;
 
         if (!response.IsSuccessStatusCode)
         {
@@ -76,7 +77,9 @@ public class ZaiProvider : ProviderBase
                  IsAvailable = false,
                  Description = "No usage data available",
                  IsQuotaBased = true,
-                 PlanType = PlanType.Coding
+                 PlanType = PlanType.Coding,
+                 RawJson = responseString,
+                 HttpStatus = httpStatus
              }};
         }
 
@@ -240,7 +243,9 @@ public class ZaiProvider : ProviderBase
                 IsAvailable = false,
                 Description = "Usage unknown (missing quota metrics)",
                 IsQuotaBased = true,
-                PlanType = PlanType.Coding
+                PlanType = PlanType.Coding,
+                RawJson = responseString,
+                HttpStatus = httpStatus
             }};
         }
 
@@ -270,7 +275,9 @@ public class ZaiProvider : ProviderBase
             DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
             Description = finalDescription,
             NextResetTime = nextResetTime,
-            IsAvailable = true
+            IsAvailable = true,
+            RawJson = responseString,
+            HttpStatus = httpStatus
         }};
     }
 

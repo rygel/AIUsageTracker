@@ -98,8 +98,8 @@ public class KimiProviderTests
         // Assert
         var usage = result.Single();
         Assert.NotNull(usage.Details);
-        Assert.Single(usage.Details);
-        var detail = usage.Details.First();
+        Assert.Equal(2, usage.Details.Count); // Weekly limit from usage + Hourly limit from limits array
+        var detail = usage.Details.Last(); // Hourly limit is from limits array
         Assert.Equal("Hourly Limit", detail.Name);
         Assert.Contains("50.0%", detail.Used); // Hardcoded 50.0% to enforce InvariantCulture
     }
@@ -141,15 +141,18 @@ public class KimiProviderTests
         // Assert
         var usage = result.Single();
         Assert.NotNull(usage.Details);
-        Assert.Equal(2, usage.Details.Count);
+        Assert.Equal(3, usage.Details.Count); // Weekly limit from usage + Hourly + Weekly from limits array
         
         var hourlyDetail = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
-        var weeklyDetail = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
+        var weeklyDetailFromUsage = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary && d.Name == "Weekly Limit");
+        var weeklyDetailFromLimits = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary && d.Name == "7d Limit");
         
         Assert.NotNull(hourlyDetail);
-        Assert.NotNull(weeklyDetail);
+        Assert.NotNull(weeklyDetailFromUsage);
+        Assert.NotNull(weeklyDetailFromLimits);
         Assert.Equal("Hourly Limit", hourlyDetail.Name);
-        Assert.Equal("7d Limit", weeklyDetail.Name);
+        Assert.Equal("Weekly Limit", weeklyDetailFromUsage.Name);
+        Assert.Equal("7d Limit", weeklyDetailFromLimits.Name);
     }
 }
 

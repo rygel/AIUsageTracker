@@ -1,0 +1,22 @@
+﻿{
+    "provider_id":  "antigravity",
+    "provider_name":  "Google Antigravity",
+    "requests_used":  40,
+    "requests_available":  100,
+    "requests_percentage":  60,
+    "plan_type":  "usage",
+    "usage_unit":  "USD",
+    "is_quota_based":  false,
+    "display_as_fraction":  false,
+    "is_available":  true,
+    "description":  "60.0% Remaining",
+    "auth_source":  "",
+    "details":  null,
+    "account_name":  "",
+    "config_key":  "",
+    "next_reset_time":  "2026-03-04T22:14:03+02:00",
+    "fetched_at":  "2026-03-04T19:52:00.9329253+02:00",
+    "response_latency_ms":  848.309,
+    "raw_json":  null,
+    "http_status":  200
+}

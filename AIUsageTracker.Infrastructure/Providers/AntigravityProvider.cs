@@ -430,6 +430,7 @@ public class AntigravityProvider : ProviderBase
     {
         var body = new { metadata = new { ideName = "antigravity", extensionName = "antigravity", ideVersion = "unknown", locale = "en" } };
         string? responseString = null;
+        int httpStatus = 200;
         Exception? lastRequestException = null;
 
         foreach (var scheme in new[] { "https", "http" })
@@ -445,6 +446,7 @@ public class AntigravityProvider : ProviderBase
                 var response = await _httpClient.SendAsync(request);
                 response.EnsureSuccessStatusCode();
 
+                httpStatus = (int)response.StatusCode;
                 responseString = await response.Content.ReadAsStringAsync();
                 _logger.LogDebug(
                     "[Antigravity] Raw response from {Scheme} port {Port}: {Response}",
@@ -535,7 +537,7 @@ public class AntigravityProvider : ProviderBase
         }
 
         var sortedDetails = SortDetails(details);
-        var summary = BuildSummaryUsage(data.UserStatus, sortedDetails, minRemaining.Value);
+        var summary = BuildSummaryUsage(data.UserStatus, sortedDetails, minRemaining.Value, responseString, httpStatus);
         ApplySummaryRawNumbers(summary, configMap);
 
         var results = BuildChildUsages(sortedDetails, configMap, config, data.UserStatus.Email ?? string.Empty);
@@ -668,7 +670,7 @@ public class AntigravityProvider : ProviderBase
             .ToList();
     }
 
-    private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ProviderUsageDetail> sortedDetails, double remainingPctTotal)
+    private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ProviderUsageDetail> sortedDetails, double remainingPctTotal, string? rawJson = null, int httpStatus = 200)
     {
         return new ProviderUsage
         {
@@ -683,7 +685,9 @@ public class AntigravityProvider : ProviderBase
             Description = $"{remainingPctTotal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
             Details = sortedDetails,
             AccountName = userStatus.Email ?? string.Empty,
-            NextResetTime = sortedDetails.Where(d => d.NextResetTime.HasValue).OrderBy(d => d.NextResetTime).FirstOrDefault()?.NextResetTime
+            NextResetTime = sortedDetails.Where(d => d.NextResetTime.HasValue).OrderBy(d => d.NextResetTime).FirstOrDefault()?.NextResetTime,
+            RawJson = rawJson,
+            HttpStatus = httpStatus
         };
     }
 

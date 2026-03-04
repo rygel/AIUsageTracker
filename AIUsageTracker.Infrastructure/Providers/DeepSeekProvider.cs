@@ -46,11 +46,11 @@ public class DeepSeekProvider : ProviderBase
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
             
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning("DeepSeek API error: {StatusCode} - {ErrorContent}", response.StatusCode, errorContent);
+                _logger.LogWarning("DeepSeek API error: {StatusCode} - {ErrorContent}", response.StatusCode, content);
 
                 return new[] { new ProviderUsage
                 {
@@ -63,11 +63,12 @@ public class DeepSeekProvider : ProviderBase
                     HttpStatus = (int)response.StatusCode,
                     RequestsPercentage = 0,
                     RequestsUsed = 0,
-                    RequestsAvailable = 0
+                    RequestsAvailable = 0,
+                    RawJson = content
                 }};
             }
 
-            var result = await response.Content.ReadFromJsonAsync<DeepSeekBalanceResponse>();
+            var result = JsonSerializer.Deserialize<DeepSeekBalanceResponse>(content);
             
             if (result == null)
             {
@@ -115,7 +116,9 @@ public class DeepSeekProvider : ProviderBase
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 Description = mainDescription,
-                Details = details
+                Details = details,
+                RawJson = content,
+                HttpStatus = (int)response.StatusCode
             }};
         }
         catch (Exception ex)

@@ -53,10 +53,12 @@ public class OpenCodeProvider : ProviderBase
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
             var response = await _httpClient.SendAsync(request);
+            var httpStatus = (int)response.StatusCode;
             
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("OpenCode API failed with status {StatusCode}", response.StatusCode);
+                var errorContent = await response.Content.ReadAsStringAsync();
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
@@ -64,12 +66,14 @@ public class OpenCodeProvider : ProviderBase
                     IsAvailable = false,
                     Description = $"API Error: {response.StatusCode}",
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    PlanType = PlanType.Usage,
+                    RawJson = errorContent,
+                    HttpStatus = httpStatus
                 }};
             }
 
             var responseString = await response.Content.ReadAsStringAsync();
-            var result = ParseJsonResponse(responseString);
+            var result = ParseJsonResponse(responseString, httpStatus);
             _logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.RequestsUsed);
             
             return new[] { result };
@@ -89,7 +93,7 @@ public class OpenCodeProvider : ProviderBase
         }
     }
 
-private ProviderUsage ParseJsonResponse(string json)
+private ProviderUsage ParseJsonResponse(string json, int httpStatus = 200)
     {
         try
         {
@@ -104,7 +108,9 @@ private ProviderUsage ParseJsonResponse(string json)
                     IsAvailable = false,
                     Description = "Empty API response",
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    PlanType = PlanType.Usage,
+                    RawJson = json,
+                    HttpStatus = httpStatus
                 };
             }
 
@@ -130,7 +136,9 @@ private ProviderUsage ParseJsonResponse(string json)
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 IsAvailable = true,
-                Description = $"${totalCost.ToString("F2", CultureInfo.InvariantCulture)} used (7 days)"
+                Description = $"${totalCost.ToString("F2", CultureInfo.InvariantCulture)} used (7 days)",
+                RawJson = json,
+                HttpStatus = httpStatus
             };
         }
         catch (JsonException ex)

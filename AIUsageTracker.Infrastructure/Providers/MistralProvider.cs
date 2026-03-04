@@ -42,6 +42,7 @@ public class MistralProvider : ProviderBase
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
             var response = await _httpClient.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
             {
@@ -54,7 +55,9 @@ public class MistralProvider : ProviderBase
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     Description = "Connected (Check Dashboard)",
-                    UsageUnit = "Status"
+                    UsageUnit = "Status",
+                    RawJson = content,
+                    HttpStatus = (int)response.StatusCode
                 }};
             }
             else

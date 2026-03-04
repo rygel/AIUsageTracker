@@ -11,7 +11,6 @@ public static class ProviderMetadataCatalog
         ClaudeCodeProvider.StaticDefinition,
         CodexProvider.StaticDefinition,
         DeepSeekProvider.StaticDefinition,
-        EvolveMigrationProvider.StaticDefinition,
         GeminiProvider.StaticDefinition,
         GitHubCopilotProvider.StaticDefinition,
         KimiProvider.StaticDefinition,

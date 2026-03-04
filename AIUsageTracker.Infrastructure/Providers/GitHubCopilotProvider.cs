@@ -48,6 +48,7 @@ public class GitHubCopilotProvider : ProviderBase
         {
             using var request = CreateBearerRequest("https://api.github.com/user", token);
             using var response = await _httpClient.SendAsync(request);
+            state.HttpStatus = (int)response.StatusCode;
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
@@ -116,6 +117,7 @@ public class GitHubCopilotProvider : ProviderBase
     private async Task PopulateProfileAndCopilotDataAsync(string token, HttpResponseMessage response, CopilotUsageState state)
     {
         var json = await response.Content.ReadAsStringAsync();
+        state.RawJson = json;
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         if (doc.RootElement.TryGetProperty("login", out var loginElement))
         {
@@ -246,7 +248,9 @@ public class GitHubCopilotProvider : ProviderBase
             PlanType = PlanType.Coding,
             IsQuotaBased = true,
             AuthSource = string.IsNullOrEmpty(state.PlanName) ? "Unknown" : state.PlanName,
-            NextResetTime = state.ResetTime
+            NextResetTime = state.ResetTime,
+            RawJson = state.RawJson,
+            HttpStatus = state.HttpStatus
         };
     }
 
@@ -321,6 +325,8 @@ public class GitHubCopilotProvider : ProviderBase
         public double CostUsed { get; set; }
         public double CostLimit { get; set; }
         public bool HasCopilotQuotaData { get; set; }
+        public string? RawJson { get; set; }
+        public int HttpStatus { get; set; } = 200;
     }
 }
 

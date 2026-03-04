@@ -86,7 +86,8 @@ public class CodexProvider : ProviderBase
 
             try
             {
-                return BuildUsages(jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId);
+                var httpStatus = (int)response.StatusCode;
+                return BuildUsages(jsonDoc.RootElement, email, jwtPlanType, authIdentity, accountId, content, httpStatus);
             }
             catch (Exception ex)
             {
@@ -143,7 +144,9 @@ public class CodexProvider : ProviderBase
         string? jwtEmail,
         string? jwtPlanType,
         string? authIdentity,
-        string? accountId)
+        string? accountId,
+        string? rawJson = null,
+        int httpStatus = 200)
     {
         var planType = ReadString(root, "plan_type") ?? jwtPlanType ?? "unknown";
         var primaryUsedPercent = ReadDouble(root, "rate_limit", "primary_window", "used_percent") ?? 0.0;
@@ -181,7 +184,9 @@ public class CodexProvider : ProviderBase
                 AccountName = accountIdentity ?? string.Empty,
                 AuthSource = $"Codex Native ({planType})",
                 NextResetTime = nextResetTime,
-                Details = details
+                Details = details,
+                RawJson = rawJson,
+                HttpStatus = httpStatus
             }
         };
 

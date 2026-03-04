@@ -2,10 +2,17 @@
 
 ## [2.2.28-beta.10] - 2026-03-04
 
+### Added
+- **Raw Snapshot Fields**: All providers now populate RawJson and HttpStatus fields for improved debugging and monitoring
+  - Added tests for AnthropicProvider, GeminiProvider, OpenCodeZenProvider to verify field population
+  - Added test fixtures for antigravity, github-copilot, and synthetic providers
+- **Gemini Provider Improvements**: Enhanced GeminiProvider with path override support for testing and improved error handling
+
+### Removed
+- **EvolveMigrationProvider**: Deleted deprecated provider (191 lines)
+
 ### Fixed
 - **Kimi Provider Dual Progress Bars**: Added `DetermineWindowKind()` method to correctly set `WindowKind.Secondary` for weekly limits (7+ days), enabling dual progress bar display in UI
-- Added test fixtures for Kimi API responses (`test-fixtures/kimi-api-responses.json`)
-- Added test case `GetUsageAsync_WithHourlyAndWeeklyLimits_SetsCorrectWindowKinds` to verify dual window logic
 
 ### CI/CD
 - Added Web Tests job to CI pipeline
@@ -89,7 +96,7 @@
   - Ensures consistent error handling and unavailable usage creation
   - Providers refactored:
     * AnthropicProvider, AntigravityProvider, ClaudeCodeProvider, CodexProvider
-    * DeepSeekProvider, EvolveMigrationProvider, GeminiProvider, GitHubCopilotProvider
+    * DeepSeekProvider, GeminiProvider, GitHubCopilotProvider
     * KimiProvider, MinimaxProvider, MistralProvider, OpenCodeProvider
     * OpenCodeZenProvider, OpenAIProvider, OpenRouterProvider, SyntheticProvider
     * XiaomiProvider, ZaiProvider

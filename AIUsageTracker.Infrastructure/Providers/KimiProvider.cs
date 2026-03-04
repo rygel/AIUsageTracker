@@ -44,7 +44,8 @@ public class KimiProvider : ProviderBase
             var response = await _httpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
-            var data = await response.Content.ReadFromJsonAsync<KimiUsageResponse>();
+            var content = await response.Content.ReadAsStringAsync();
+            var data = JsonSerializer.Deserialize<KimiUsageResponse>(content);
             if (data == null || data.Usage == null) throw new Exception("Invalid response from Kimi API");
 
             double used = data.Usage.Used;
@@ -64,7 +65,7 @@ public class KimiProvider : ProviderBase
             var details = new List<ProviderUsageDetail>();
             TimeSpan minDiff = TimeSpan.MaxValue;
 
-            // Add weekly limit from usage as Secondary detail
+            // Add weekly limit from usage as Secondary detail (always, as this is the primary quota)
             if (limit > 0 && remaining >= 0)
             {
                 var weeklyRemainingPct = UsageMath.CalculateRemainingPercent(used, limit);
@@ -149,6 +150,8 @@ public class KimiProvider : ProviderBase
                 PlanType = PlanType.Coding,
                 IsAvailable = true,
                 Description = description,
+                RawJson = content,
+                HttpStatus = (int)response.StatusCode,
 
                 Details = details,
                 NextResetTime = soonestResetDt

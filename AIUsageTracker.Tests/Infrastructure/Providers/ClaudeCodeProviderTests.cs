@@ -35,6 +35,8 @@ public class ClaudeCodeProviderTests
         Assert.Equal("No API key configured", usage.Description);
         Assert.False(usage.IsQuotaBased);
         Assert.Equal(PlanType.Usage, usage.PlanType);
+        Assert.False(string.IsNullOrWhiteSpace(usage.RawJson));
+        Assert.Equal(401, usage.HttpStatus);
     }
 
     [Fact]
@@ -51,6 +53,8 @@ public class ClaudeCodeProviderTests
         Assert.True(usage.IsAvailable, "Provider should be available when API key is configured");
         Assert.False(usage.IsQuotaBased);
         Assert.Equal(PlanType.Usage, usage.PlanType);
+        Assert.False(string.IsNullOrWhiteSpace(usage.RawJson));
+        Assert.True(usage.HttpStatus > 0);
     }
 }
 

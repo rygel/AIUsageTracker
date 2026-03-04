@@ -43,7 +43,9 @@ public class ClaudeCodeProvider : ProviderBase
                 Description = "No API key configured",
                 UsageUnit = "Status",
                 IsQuotaBased = false,
-                PlanType = PlanType.Usage
+                PlanType = PlanType.Usage,
+                RawJson = "{\"source\":\"claude-code\",\"status\":\"api_key_missing\"}",
+                HttpStatus = 401
             }};
         }
 
@@ -77,6 +79,7 @@ public class ClaudeCodeProvider : ProviderBase
             testRequest.Content = new StringContent("{\"model\":\"claude-sonnet-4-20250514\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}", System.Text.Encoding.UTF8, "application/json");
 
             using var testResponse = await _httpClient.SendAsync(testRequest);
+            var responseBody = await testResponse.Content.ReadAsStringAsync();
             
             // Extract rate limit information from headers
             var rateLimitHeaders = ExtractRateLimitInfo(testResponse.Headers);
@@ -130,7 +133,9 @@ public class ClaudeCodeProvider : ProviderBase
                     IsAvailable = true,
                     Description = description,
                     Details = tooltipDetails,
-                    AccountName = warningMessage // Using AccountName to carry warning state
+                    AccountName = warningMessage, // Using AccountName to carry warning state
+                    RawJson = responseBody,
+                    HttpStatus = (int)testResponse.StatusCode
                 };
             }
             
@@ -203,7 +208,9 @@ public class ClaudeCodeProvider : ProviderBase
                         Description = "Connected (API key configured)",
                         UsageUnit = "Status",
                         IsQuotaBased = false,
-                        PlanType = PlanType.Usage
+                        PlanType = PlanType.Usage,
+                        RawJson = "{\"source\":\"claude-cli\",\"status\":\"process_start_failed\"}",
+                        HttpStatus = 503
                     }};
                 }
 
@@ -233,7 +240,9 @@ public class ClaudeCodeProvider : ProviderBase
                         Description = "Connected (API key configured)",
                         UsageUnit = "Status",
                         IsQuotaBased = false,
-                        PlanType = PlanType.Usage
+                        PlanType = PlanType.Usage,
+                        RawJson = string.IsNullOrWhiteSpace(error) ? "{\"source\":\"claude-cli\",\"status\":\"failed\"}" : error,
+                        HttpStatus = 500
                     }};
                 }
 
@@ -251,7 +260,9 @@ public class ClaudeCodeProvider : ProviderBase
                     Description = "Connected (API key configured)",
                     UsageUnit = "Status",
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    PlanType = PlanType.Usage,
+                    RawJson = ex.ToString(),
+                    HttpStatus = 500
                 }};
             }
         });
@@ -300,7 +311,9 @@ public class ClaudeCodeProvider : ProviderBase
             IsAvailable = true,
             Description = budgetLimit > 0 
                 ? $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used of ${budgetLimit.ToString("F2", CultureInfo.InvariantCulture)} limit"
-                : $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used"
+                : $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used",
+            RawJson = output,
+            HttpStatus = 200
         };
     }
 

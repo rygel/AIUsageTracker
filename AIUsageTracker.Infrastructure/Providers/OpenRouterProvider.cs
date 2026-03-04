@@ -44,6 +44,7 @@ public class OpenRouterProvider : ProviderBase
         // Try to fetch credits first
         OpenRouterCreditsResponse? creditsData = null;
         string? creditsResponseBody = null;
+        int httpStatus = 200;
         
         try
         {
@@ -53,6 +54,7 @@ public class OpenRouterProvider : ProviderBase
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
             var response = await _httpClient.SendAsync(request);
+            httpStatus = (int)response.StatusCode;
             creditsResponseBody = await response.Content.ReadAsStringAsync();
             
             _logger.LogDebug("OpenRouter credits API response status: {StatusCode}", response.StatusCode);
@@ -231,7 +233,9 @@ public class OpenRouterProvider : ProviderBase
             IsAvailable = true,
             Description = $"{remaining.ToString("F2", CultureInfo.InvariantCulture)} Credits Remaining{mainReset}",
             NextResetTime = spendingLimitResetTime,
-            Details = details
+            Details = details,
+            RawJson = creditsResponseBody,
+            HttpStatus = httpStatus
         }};
     }
 

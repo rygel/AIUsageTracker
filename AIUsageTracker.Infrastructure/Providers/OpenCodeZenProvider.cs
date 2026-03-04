@@ -54,7 +54,9 @@ public class OpenCodeZenProvider : ProviderBase
                     Description = "CLI not found at expected path",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    AuthSource = config.AuthSource
+                    AuthSource = config.AuthSource,
+                    RawJson = $"CLI not found at path: {_cliPath}",
+                    HttpStatus = 404
                 }
             };
         }
@@ -77,7 +79,9 @@ public class OpenCodeZenProvider : ProviderBase
                     Description = $"CLI Error: {ex.Message} (Check log or clear storage if JSON error)",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    AuthSource = config.AuthSource
+                    AuthSource = config.AuthSource,
+                    RawJson = ex.ToString(),
+                    HttpStatus = 500
                 }
             };
         }
@@ -195,7 +199,9 @@ public class OpenCodeZenProvider : ProviderBase
             IsAvailable = true,
             Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs)",
             Details = details,
-            AuthSource = config.AuthSource
+            AuthSource = config.AuthSource,
+            RawJson = output,
+            HttpStatus = 200
         };
     }
 

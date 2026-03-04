@@ -261,7 +261,7 @@ public class UsageDatabase : IUsageDatabase
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync();
 
-            const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < datetime('now', '-14 days')";
+            const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < datetime('now', '-7 days')";
             var deletedCount = await connection.ExecuteAsync(sql);
             
             if (deletedCount > 0)

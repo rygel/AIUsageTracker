@@ -36,7 +36,9 @@ public class AnthropicProvider : ProviderBase
                     Description = "API Key missing",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
-                    AuthSource = config.AuthSource
+                    AuthSource = config.AuthSource,
+                    RawJson = "{\"source\":\"anthropic\",\"status\":\"api_key_missing\"}",
+                    HttpStatus = 401
                 }
             };
         }
@@ -53,7 +55,9 @@ public class AnthropicProvider : ProviderBase
                 PlanType = PlanType.Usage,
                 Description = "Connected (Check Dashboard)",
                 UsageUnit = "Status",
-                AuthSource = config.AuthSource
+                AuthSource = config.AuthSource,
+                RawJson = "{\"source\":\"anthropic\",\"status\":\"connected_no_usage_endpoint\"}",
+                HttpStatus = 200
             }
         };
     }

@@ -196,7 +196,9 @@ public class OpenAIProvider : ProviderBase
             Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}",
             AuthSource = "OpenCode Session",
             NextResetTime = nextResetTime,
-            Details = BuildOpenAiSessionDetails(doc.RootElement)
+            Details = BuildOpenAiSessionDetails(doc.RootElement),
+            RawJson = content,
+            HttpStatus = (int)response.StatusCode
         };
     }
 

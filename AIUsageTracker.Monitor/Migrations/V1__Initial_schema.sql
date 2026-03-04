@@ -30,7 +30,7 @@ CREATE TABLE provider_history (
 CREATE INDEX idx_history_provider_time 
 ON provider_history(provider_id, fetched_at);
 
--- Table 3: raw_snapshots - Raw JSON data (14-day TTL)
+-- Table 3: raw_snapshots - Raw JSON data (7-day TTL)
 CREATE TABLE raw_snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     provider_id TEXT NOT NULL,

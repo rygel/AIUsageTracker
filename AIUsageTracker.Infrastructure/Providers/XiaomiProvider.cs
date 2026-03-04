@@ -82,7 +82,9 @@ public class XiaomiProvider : ProviderBase
                 IsAvailable = true,
                 Description = quota > 0 
                     ? $"{balance} remaining / {quota} total" 
-                    : $"Balance: {balance}"
+                    : $"Balance: {balance}",
+                RawJson = content,
+                HttpStatus = (int)response.StatusCode
             }};
         }
         catch (Exception ex)
