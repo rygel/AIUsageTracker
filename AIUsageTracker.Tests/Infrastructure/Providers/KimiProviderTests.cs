@@ -103,5 +103,53 @@ public class KimiProviderTests
         Assert.Equal("Hourly Limit", detail.Name);
         Assert.Contains("50.0%", detail.Used); // Hardcoded 50.0% to enforce InvariantCulture
     }
+
+    [Fact]
+    public async Task GetUsageAsync_WithHourlyAndWeeklyLimits_SetsCorrectWindowKinds()
+    {
+        // Arrange
+        var config = new ProviderConfig { ProviderId = "kimi", ApiKey = "test-key" };
+
+        var hourlyResetTime = DateTime.UtcNow.AddMinutes(30).ToString("o");
+        var weeklyResetTime = DateTime.UtcNow.AddDays(7).ToString("o");
+        
+        var responseData = new
+        {
+            usage = new { limit = 100000, used = 25000, remaining = 75000 },
+            limits = new object[] 
+            {
+                new 
+                {
+                    window = new { duration = 60, timeUnit = "TIME_UNIT_MINUTE" },
+                    detail = new { limit = 3000, remaining = 1800, resetTime = hourlyResetTime }
+                },
+                new 
+                {
+                    window = new { duration = 7, timeUnit = "TIME_UNIT_DAY" },
+                    detail = new { limit = 100000, remaining = 75000, resetTime = weeklyResetTime }
+                }
+            }
+        };
+
+        _msgHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>("SendAsync", ItExpr.IsAny<HttpRequestMessage>(), ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage { StatusCode = HttpStatusCode.OK, Content = new StringContent(JsonSerializer.Serialize(responseData)) });
+
+        // Act
+        var result = await _provider.GetUsageAsync(config);
+        
+        // Assert
+        var usage = result.Single();
+        Assert.NotNull(usage.Details);
+        Assert.Equal(2, usage.Details.Count);
+        
+        var hourlyDetail = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
+        var weeklyDetail = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
+        
+        Assert.NotNull(hourlyDetail);
+        Assert.NotNull(weeklyDetail);
+        Assert.Equal("Hourly Limit", hourlyDetail.Name);
+        Assert.Equal("7d Limit", weeklyDetail.Name);
+    }
 }
 

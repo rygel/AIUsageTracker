@@ -1,0 +1,169 @@
+{
+  "description": "Sanitized Kimi API response fixtures for testing",
+  "fixtures": [
+    {
+      "name": "typical_usage_with_hourly_and_weekly_limits",
+      "description": "User with both hourly (60 min) and weekly (7 day) limits",
+      "request": {
+        "method": "GET",
+        "endpoint": "https://api.kimi.com/coding/v1/usages",
+        "headers": {
+          "Authorization": "Bearer [REDACTED]"
+        }
+      },
+      "response": {
+        "usage": {
+          "limit": 100000,
+          "used": 25000,
+          "remaining": 75000,
+          "resetTime": "2026-03-11T00:00:00Z"
+        },
+        "limits": [
+          {
+            "window": {
+              "duration": 60,
+              "timeUnit": "TIME_UNIT_MINUTE"
+            },
+            "detail": {
+              "limit": 3000,
+              "remaining": 1800,
+              "resetTime": "2026-03-04T14:30:00Z"
+            }
+          },
+          {
+            "window": {
+              "duration": 7,
+              "timeUnit": "TIME_UNIT_DAY"
+            },
+            "detail": {
+              "limit": 100000,
+              "remaining": 75000,
+              "resetTime": "2026-03-11T00:00:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "new_user_no_usage",
+      "description": "New user with full quota available",
+      "response": {
+        "usage": {
+          "limit": 100000,
+          "used": 0,
+          "remaining": 100000,
+          "resetTime": "2026-03-11T00:00:00Z"
+        },
+        "limits": [
+          {
+            "window": {
+              "duration": 60,
+              "timeUnit": "TIME_UNIT_MINUTE"
+            },
+            "detail": {
+              "limit": 3000,
+              "remaining": 3000,
+              "resetTime": "2026-03-04T14:30:00Z"
+            }
+          },
+          {
+            "window": {
+              "duration": 7,
+              "timeUnit": "TIME_UNIT_DAY"
+            },
+            "detail": {
+              "limit": 100000,
+              "remaining": 100000,
+              "resetTime": "2026-03-11T00:00:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "near_hourly_limit",
+      "description": "User close to hourly limit but plenty of weekly remaining",
+      "response": {
+        "usage": {
+          "limit": 100000,
+          "used": 50000,
+          "remaining": 50000,
+          "resetTime": "2026-03-11T00:00:00Z"
+        },
+        "limits": [
+          {
+            "window": {
+              "duration": 60,
+              "timeUnit": "TIME_UNIT_MINUTE"
+            },
+            "detail": {
+              "limit": 3000,
+              "remaining": 150,
+              "resetTime": "2026-03-04T14:30:00Z"
+            }
+          },
+          {
+            "window": {
+              "duration": 7,
+              "timeUnit": "TIME_UNIT_DAY"
+            },
+            "detail": {
+              "limit": 100000,
+              "remaining": 50000,
+              "resetTime": "2026-03-11T00:00:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "unlimited_plan",
+      "description": "User on unlimited/pay-as-you-go plan",
+      "response": {
+        "usage": {
+          "limit": 0,
+          "used": 1500,
+          "remaining": 0,
+          "resetTime": null
+        },
+        "limits": []
+      }
+    },
+    {
+      "name": "daily_limit_instead_of_hourly",
+      "description": "User with daily limit instead of hourly",
+      "response": {
+        "usage": {
+          "limit": 100000,
+          "used": 30000,
+          "remaining": 70000,
+          "resetTime": "2026-03-11T00:00:00Z"
+        },
+        "limits": [
+          {
+            "window": {
+              "duration": 1,
+              "timeUnit": "TIME_UNIT_DAY"
+            },
+            "detail": {
+              "limit": 20000,
+              "remaining": 14000,
+              "resetTime": "2026-03-05T00:00:00Z"
+            }
+          },
+          {
+            "window": {
+              "duration": 7,
+              "timeUnit": "TIME_UNIT_DAY"
+            },
+            "detail": {
+              "limit": 100000,
+              "remaining": 70000,
+              "resetTime": "2026-03-11T00:00:00Z"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Placeholder for Z.AI (z.ai) API response fixtures. Add real responses here when available.",
+  "note": "API keys should be redacted. Add actual responses from Z.AI API to enable dual progress bar support.",
+  "api_endpoint": "https://api.z.ai/api/monitor/usage/quota/limit",
+  "known_limit_types": [
+    "TOKENS_LIMIT - Token quota (typically Primary window)",
+    "TIME_LIMIT - Time quota (could be Secondary window)"
+  ],
+  "fixtures": []
+}

@@ -93,14 +93,16 @@ public class KimiProvider : ProviderBase
                         }
                     }
 
+                    var windowKind = DetermineWindowKind(win.Duration, win.TimeUnit);
+
                      details.Add(new ProviderUsageDetail
                     {
                          Name = name,
                          Used = $"{itemRemainingPercentage.ToString("F1", CultureInfo.InvariantCulture)}%",
-                         Description = $"{det.Remaining} remaining (Resets: {resetDisplay})", // Kept original description for detail item
+                         Description = $"{det.Remaining} remaining (Resets: {resetDisplay})",
                          NextResetTime = itemResetDt,
                          DetailType = ProviderUsageDetailType.QuotaWindow,
-                         WindowKind = WindowKind.Primary
+                         WindowKind = windowKind
                     });
                 }
             }
@@ -146,6 +148,16 @@ public class KimiProvider : ProviderBase
             return $"({dt:MMM dd HH:mm})";
         }
         return resetTime;
+    }
+
+    private static WindowKind DetermineWindowKind(long duration, string? unit)
+    {
+        if (unit == "TIME_UNIT_DAY" && duration >= 7)
+        {
+            return WindowKind.Secondary;
+        }
+
+        return WindowKind.Primary;
     }
 
     private class KimiUsageResponse
