@@ -8,6 +8,7 @@ using System.Net;
 using System.Net.Sockets;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
@@ -156,7 +157,10 @@ else
 builder.Services.AddSingleton<IConfigService, ConfigService>();
 builder.Services.AddSingleton<ProviderRefreshService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
+
+// Configure HTTP clients with resilience policies
 builder.Services.AddHttpClient();
+builder.Services.AddResilientHttpClient();
 
 // Enable debug mode in refresh service
 if (isDebugMode)
