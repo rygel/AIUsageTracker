@@ -1,93 +1,141 @@
 # Architecture Improvement Tasks
 
-**Generated: 2026-03-04**
+Generated: 2026-03-04
 
-## Major Duplications Found
+## Goal
+Improve architecture and remove duplicated code while preserving current behavior (especially provider visibility and startup non-hammering behavior).
 
-### 1. HTTP Client Management (15 occurrences)
-- **Pattern**: Each provider declares `private readonly HttpClient _httpClient`
-- **Impact**: No centralized retry/resilience policies, inconsistent timeout handling
-- **Affected**: All 15 providers except Antigravity
+## Priority Backlog
 
-### 2. API Endpoint Patterns (28 occurrences)
-- **Pattern**: Hardcoded API URLs in string literals
-- **Impact**: No version management, difficult to update endpoints
-- **Examples**:
-  - OpenAI: `https://api.openai.com/v1/models`
-  - OpenRouter: `https://openrouter.ai/api/v1/credits`
-  - GitHub: `https://api.github.com/user`
-  - ZAI: `https://api.z.ai/api/monitor/usage/quota/limit`
+### P1: Single Source of Truth for Providers
 
-### 3. Generic Exception Handling (29 occurrences)
-- **Pattern**: `catch (Exception ex)` without specific handling
-- **Impact**: Swallows all exceptions, no retry logic
-- **Location**: All providers
+1. Replace manual provider wiring in monitor with centralized DI-based registration.
+   - Current duplication:
+     - `AIUsageTracker.Monitor/Services/ProviderRefreshService.cs:141` to `:177` manually instantiates provider list.
+     - `AIUsageTracker.Infrastructure/Providers/ProviderMetadataCatalog.cs:7` to `:27` hardcodes definitions separately.
+   - Risk today:
+     - Provider list and metadata list can drift.
+     - Adding/removing provider requires edits in multiple files.
+   - Refactor target:
+     - One provider registry service used by Monitor/Web/UI.
+     - Register providers via DI and derive metadata from registered implementations.
 
-### 4. Request Creation Patterns (15 occurrences)
-- **Pattern**: `new HttpRequestMessage(HttpMethod.Get, url)` repeated
-- **Impact**: No centralized request building
+2. Adopt or remove dead registration abstraction.
+   - Candidate currently unused:
+     - `AIUsageTracker.Infrastructure/Extensions/ProviderRegistrationExtensions.cs:13`
+   - Action:
+     - Either wire this extension into startup or delete it if not used.
 
-## Recommendations
+### P1: Shared Provider Result/Error Pipeline
 
-### High Priority (P1)
+3. Normalize provider error/result creation.
+   - Current duplication:
+     - Inline `new ProviderUsage` error payloads repeated in many providers, e.g.:
+       - `AIUsageTracker.Infrastructure/Providers/OpenRouterProvider.cs:35`
+       - `AIUsageTracker.Infrastructure/Providers/OpenRouterProvider.cs:68`
+       - `AIUsageTracker.Infrastructure/Providers/KimiProvider.cs`
+       - `AIUsageTracker.Infrastructure/Providers/DeepSeekProvider.cs`
+       - `AIUsageTracker.Infrastructure/Providers/MistralProvider.cs`
+   - Existing base support:
+     - `AIUsageTracker.Core/Providers/ProviderBase.cs` has `CreateUnavailableUsage*` helpers.
+   - Refactor target:
+     - Use base helper methods consistently.
+     - Add shared helper for common success payload fields.
 
-1. **Centralize API Endpoints**: Create `IProviderEndpoints` interface or config class
-   - Define standard endpoint structure
-   - Allow version management
-   - Enable endpoint override via config
+4. Standardize provider HTTP request construction and status handling.
+   - Current duplication:
+     - Repeated `HttpRequestMessage` + bearer setup + status handling across providers.
+   - Refactor target:
+     - Add provider HTTP helper (`SendGetBearerAsync` style) with consistent timeout/status mapping/logging.
 
-2. **Consolidate JSON Deserialization**: Already using `ReadFromJsonAsync` but not consistently
-   - Standardize on `ReadFromJsonAsync<T>` across all providers
-   - Create typed response models for all APIs
+### P1: Eliminate Silent Failures (Logging Rule Compliance)
 
-3. **Add Specific Exception Types**: Replace generic `catch (Exception)` with specific exception types
-   - Create provider-specific exception types
-   - Add retry logic for transient failures
-   - Log specific exception details
+5. Replace silent catches with logging.
+   - Violations:
+     - `AIUsageTracker.Web/Services/WebDatabaseService.cs:138` (`catch { }`)
+     - `AIUsageTracker.Infrastructure/Providers/OpenAIProvider.cs:246` (`catch { }`)
+     - `AIUsageTracker.Infrastructure/Providers/OpenAIProvider.cs:462` (`catch { }`)
+     - `AIUsageTracker.Monitor/Program.cs:672` (`catch { }`)
+   - Refactor target:
+     - Log at `Debug`/`Warning` with context.
+     - Keep intentional suppression explicit and documented.
 
-### Medium Priority (P2)
+### P2: Extract Shared Auth/JWT/JSON Utilities
 
-1. **Standardize Request Builders**: Create extension methods for common request patterns
-   - `CreateGetRequest(string url)`
-   - `CreatePostRequest(string url, object body)`
-   - `AddBearerToken(string token)`
-   - Reduce request creation boilerplate
+6. Consolidate OpenAI and Codex auth parsing logic.
+   - Current duplication:
+     - JWT decode/claims parsing in both:
+       - `AIUsageTracker.Infrastructure/Providers/OpenAIProvider.cs:392`
+       - `AIUsageTracker.Infrastructure/Providers/CodexProvider.cs:582`
+     - JSON traversal helpers duplicated:
+       - `OpenAIProvider.cs:468` (`ReadString` / `ReadDouble`)
+       - `CodexProvider.cs:730` (`ReadString` / `ReadDouble`)
+     - Auth-file scanning logic duplicated:
+       - `OpenAIProvider.cs:208`
+       - `CodexProvider.cs:309`
+   - Refactor target:
+     - `AuthTokenParser` helper for JWT/email/plan extraction.
+     - `JsonElementPath` helper for safe `ReadString/ReadDouble/ReadBool`.
+     - Shared auth-file locator utility for OpenCode/Codex.
 
-2. **Shared Helper Methods**: Move common parsing logic to utility classes
-   - Unix timestamp conversion helpers
-   - Percentage calculation helpers
-   - Reset time parsing helpers
+### P2: Split Oversized Service Classes
 
-### Low Priority (P3)
+7. Decompose large classes into focused components.
+   - Current sizes:
+     - `AIUsageTracker.UI.Slim/App.xaml.cs`: ~1015 lines
+     - `AIUsageTracker.Web/Services/WebDatabaseService.cs`: ~963 lines
+     - `AIUsageTracker.Monitor/Services/ProviderRefreshService.cs`: ~778 lines
+   - Refactor target:
+     - `WebDatabaseService` -> `UsageReadService`, `AnalyticsReadService`, `ExportService`, shared mapper.
+     - `App.xaml.cs` -> theme service + tray icon service + screenshot service.
+     - `ProviderRefreshService` -> refresh orchestration + reset detection + alerting components.
 
-1. **Magic String Literals**: Extract to constants where appropriate
-   - API endpoint URLs
-   - HTTP headers
-   - Error messages
+### P2: Remove Web Endpoint Duplication
 
-2. **Configuration-Driven URLs**: Allow endpoint override via config
-   - Support custom API endpoints
-   - Proxy support for corporate environments
+8. Deduplicate alias endpoints in Web API.
+   - Current duplication:
+     - `/api/monitor/*` and `/api/agent/*` handlers are duplicated:
+       - `AIUsageTracker.Web/Program.cs:146` to `:188`
+   - Refactor target:
+     - Route mapping helper that registers both aliases to shared delegates.
 
-## Implementation Order
+### P3: Remove Repeated ViewModel Hydration/Preference Boilerplate
 
-1. Phase 1: High Priority API Endpoints (P1)
-2. Phase 2: Exception Handling Improvements (P1)
-3. Phase 3: Request Builder Extensions (P2)
-4. Phase 4: Shared Utilities (P2)
-5. Phase 5: Configuration Support (P3)
+9. Centralize provider usage hydration in Web DB layer.
+   - Current duplication:
+     - Repeated post-query loops applying metadata/display-name:
+       - `AIUsageTracker.Web/Services/WebDatabaseService.cs:130`
+       - `:176`
+       - `:211`
+   - Refactor target:
+     - Single hydration method for `ProviderUsage` rows.
 
-## Estimated Effort
+10. Centralize query/cookie boolean preference handling in Razor pages.
+   - Current duplication:
+     - `AIUsageTracker.Web/Pages/Index.cshtml.cs:36` to `:99`
+   - Refactor target:
+     - Shared helper `ReadBoolPreference(queryKey, cookieKey, defaultValue)`.
 
-- P1 Tasks: 2-3 days
-- P2 Tasks: 1-2 days
-- P3 Tasks: 1 day
+### P3: Deduplicate Theme Resource Application
 
-Total: 4-6 days for full implementation
+11. Replace repetitive theme switch blocks with palette maps.
+   - Current duplication:
+     - Repeated `SetBrushColor` for each theme in:
+       - `AIUsageTracker.UI.Slim/App.xaml.cs:78` onward.
+   - Refactor target:
+     - Theme palette dictionary keyed by resource name.
+     - One loop applies resource colors.
 
-## Notes
+## Suggested Delivery Phases
 
-- ResilientHttpClient already provides retry logic - need to integrate better
-- ProviderBase provides some error handling - could be extended
-- DateTimeExtensions already exists - leverage for timestamp helpers
-- ProviderLoggingExtensions already created - use consistently
+1. Phase A (P1): Provider registry + error/result normalization + silent catch cleanup.
+2. Phase B (P2): Shared auth/json utilities + endpoint dedup + service decomposition start.
+3. Phase C (P3): UI/Web boilerplate reductions and theme palette refactor.
+
+## Validation Checklist Per Phase
+
+1. Build solution.
+2. Run tests (including startup/deadlock tests).
+3. Verify provider list still shows all configured providers (including unavailable).
+4. Verify monitor startup serves cached data immediately and only targeted startup refresh runs.
+5. Verify no new silent `catch {}` blocks were introduced.

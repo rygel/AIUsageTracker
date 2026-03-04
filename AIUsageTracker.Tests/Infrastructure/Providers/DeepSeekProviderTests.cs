@@ -99,6 +99,7 @@ public class DeepSeekProviderTests
         // Assert
         Assert.True(usage.IsAvailable);
         Assert.Contains("API Error", usage.Description);
+        Assert.Contains("Unauthorized", usage.Description);
     }
 }
 

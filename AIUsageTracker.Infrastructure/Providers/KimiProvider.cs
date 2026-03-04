@@ -33,13 +33,7 @@ public class KimiProvider : ProviderBase
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new[] { new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = "Kimi",
-                IsAvailable = false,
-                Description = "API Key missing"
-            }};
+            return new[] { CreateUnavailableUsage("API Key missing") };
         }
 
         try
@@ -133,13 +127,7 @@ public class KimiProvider : ProviderBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to fetch Kimi usage");
-            return new[] { new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = "Kimi",
-                IsAvailable = false,
-                Description = $"Error: {ex.Message}"
-            }};
+            return new[] { CreateUnavailableUsageFromException(ex, "Failed to fetch Kimi usage") };
         }
     }
     

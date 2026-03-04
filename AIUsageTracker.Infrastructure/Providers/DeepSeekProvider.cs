@@ -33,15 +33,10 @@ public class DeepSeekProvider : ProviderBase
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new[] { new ProviderUsage
-            {
-                ProviderId = ProviderId,
-                ProviderName = "DeepSeek",
-                IsAvailable = false,
-                Description = "API Key missing",
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage
-            }};
+            return new[] { CreateUnavailableUsage(
+                "API Key missing",
+                planType: PlanType.Usage,
+                isQuotaBased: false) };
         }
 
         try
@@ -55,17 +50,20 @@ public class DeepSeekProvider : ProviderBase
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogWarning($"DeepSeek API error: {response.StatusCode} - {errorContent}");
-                
+                _logger.LogWarning("DeepSeek API error: {StatusCode} - {ErrorContent}", response.StatusCode, errorContent);
+
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
-                    ProviderName = "DeepSeek",
+                    ProviderName = Definition.DisplayName ?? ProviderId,
                     IsAvailable = true, // Key exists, just failed request
                     Description = $"API Error ({response.StatusCode})",
-                    RequestsPercentage = 0,
+                    PlanType = PlanType.Usage,
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage
+                    HttpStatus = (int)response.StatusCode,
+                    RequestsPercentage = 0,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0
                 }};
             }
 
@@ -73,15 +71,10 @@ public class DeepSeekProvider : ProviderBase
             
             if (result == null)
             {
-                return new[] { new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "DeepSeek",
-                    IsAvailable = false,
-                    Description = "Failed to parse DeepSeek response",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage
-                }};
+                return new[] { CreateUnavailableUsage(
+                    "Failed to parse DeepSeek response",
+                    planType: PlanType.Usage,
+                    isQuotaBased: false) };
             }
 
             var details = new List<ProviderUsageDetail>();
@@ -128,15 +121,7 @@ public class DeepSeekProvider : ProviderBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "DeepSeek check failed");
-            return new[] { new ProviderUsage
-            {
-                ProviderId = ProviderId,
-                ProviderName = "DeepSeek",
-                IsAvailable = false,
-                Description = "Check failed",
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage
-            }};
+            return new[] { CreateUnavailableUsageFromException(ex, "DeepSeek check failed") };
         }
     }
 

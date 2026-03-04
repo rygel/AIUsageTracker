@@ -35,13 +35,10 @@ public class OpenRouterProvider : ProviderBase
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             _logger.LogWarning("OpenRouter API key is missing for provider {ProviderId}", config.ProviderId);
-            return new[] { new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = "OpenRouter",
-                IsAvailable = false,
-                Description = "API Key missing - please configure OPENROUTER_API_KEY"
-            }};
+            return new[] { CreateUnavailableUsage(
+                "API Key missing - please configure OPENROUTER_API_KEY",
+                planType: PlanType.Usage,
+                isQuotaBased: false) };
         }
 
         // Try to fetch credits first
@@ -63,15 +60,9 @@ public class OpenRouterProvider : ProviderBase
             
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogError("OpenRouter credits API failed with status {StatusCode}. Response: {Response}", 
+                _logger.LogError("OpenRouter credits API failed with status {StatusCode}. Response: {Response}",
                     response.StatusCode, creditsResponseBody);
-                return new[] { new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = "OpenRouter",
-                    IsAvailable = false,
-                    Description = $"API Error: {response.StatusCode} - Check API key validity"
-                }};
+                return new[] { CreateUnavailableUsageFromStatus(response) };
             }
 
             try
@@ -81,25 +72,19 @@ public class OpenRouterProvider : ProviderBase
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to deserialize OpenRouter credits response. Raw response: {Response}", creditsResponseBody);
-                return new[] { new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = "OpenRouter",
-                    IsAvailable = false,
-                    Description = "Failed to parse credits response - API format may have changed"
-                }};
+                return new[] { CreateUnavailableUsage(
+                    "Failed to parse credits response - API format may have changed",
+                    planType: PlanType.Usage,
+                    isQuotaBased: false) };
             }
             
             if (creditsData?.Data == null)
             {
                 _logger.LogError("OpenRouter credits response missing 'data' field. Response: {Response}", creditsResponseBody);
-                return new[] { new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = "OpenRouter",
-                    IsAvailable = false,
-                    Description = "Invalid response format - missing data field"
-                }};
+                return new[] { CreateUnavailableUsage(
+                    "Invalid response format - missing data field",
+                    planType: PlanType.Usage,
+                    isQuotaBased: false) };
             }
 
             _logger.LogDebug("Successfully parsed credits data - Total: {Total}, Usage: {Usage}", 
@@ -108,13 +93,9 @@ public class OpenRouterProvider : ProviderBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception while calling OpenRouter credits API");
-            return new[] { new ProviderUsage
-            {
-                ProviderId = config.ProviderId,
-                ProviderName = "OpenRouter",
-                IsAvailable = false,
-                Description = $"Connection error: {ex.Message}"
-            }};
+            return new[] { CreateUnavailableUsageFromException(
+                ex,
+                context: "Credits API call failed") };
         }
 
         // Try to fetch additional key info (optional - for limits, labels, etc.)

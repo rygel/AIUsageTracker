@@ -31,13 +31,7 @@ public class MistralProvider : ProviderBase
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new[] { new ProviderUsage
-            {
-                ProviderId = ProviderId,
-                ProviderName = "Mistral AI",
-                IsAvailable = false,
-                Description = "API Key missing"
-            }};
+            return new[] { CreateUnavailableUsage("API Key missing") };
         }
 
         // Mistral does not have a public usage/billing API endpoint
@@ -65,25 +59,13 @@ public class MistralProvider : ProviderBase
             }
             else
             {
-                return new[] { new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "Mistral AI",
-                    IsAvailable = false,
-                    Description = $"Invalid API Key ({response.StatusCode})"
-                }};
+                return new[] { CreateUnavailableUsageFromStatus(response) };
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to verify Mistral API key");
-            return new[] { new ProviderUsage
-            {
-                ProviderId = ProviderId,
-                ProviderName = "Mistral AI",
-                IsAvailable = false,
-                Description = "Connection Failed"
-            }};
+            return new[] { CreateUnavailableUsageFromException(ex, "Failed to verify Mistral API key") };
         }
     }
 }
