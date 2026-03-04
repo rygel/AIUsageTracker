@@ -166,7 +166,7 @@ jobs:
       - name: Install Playwright browsers
         shell: pwsh
         run: |
-          $playwrightDir = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\.playwright"
+          $playwrightDir = "\_ci_test_binaries\AIUsageTracker.Web.Tests\bin\Debug\net8.0\.playwright"
           if (Test-Path $playwrightDir) {
             Push-Location $playwrightDir
             try {
@@ -178,29 +178,22 @@ jobs:
             Write-Host "Warning: Playwright package not found at expected location."
           }
 
-      - name: Build Seeder
-        shell: pwsh
-        run: dotnet build "$PSScriptRoot\..\scripts\Seeder\Seeder.csproj" -c Debug
-
       - name: Seed test database from fixture
         shell: pwsh
         run: |
-          $seederPath = ".\scripts\Seeder\bin\Debug\net8.0\Seeder.dll"
-          $fixturePath = "test-fixtures\provider-data.json"
-          if (Test-Path "\_ci_test_binaries\test-fixtures\provider-data.json") {
-            $fixturePath = "\_ci_test_binaries\test-fixtures\provider-data.json"
-          }
+          $seederPath = "\_ci_test_binaries\scripts\Seeder\bin\Debug\net8.0\Seeder.dll"
+          $fixturePath = "\_ci_test_binaries\test-fixtures\provider-data.json"
           if (Test-Path $seederPath) {
             & dotnet $seederPath $fixturePath
           } else {
-            Write-Host "Error: Seeder not found at expected location."
+            Write-Host "Error: Seeder not found at expected location: $seederPath"
             exit 1
           }
 
       - name: Start Web Application
         shell: pwsh
         run: |
-          $webProject = ".\AIUsageTracker.Web\AIUsageTracker.Web.csproj"
+          $webProject = "\_ci_test_binaries\AIUsageTracker.Web\AIUsageTracker.Web.csproj"
           $proc = Start-Process -FilePath "dotnet" -ArgumentList "run --project $webProject --configuration Debug --urls=http://localhost:5100" -PassThru -NoNewWindow
           $env:WEB_APP_PID = $proc.Id
           Write-Host "Web app started with PID: $($proc.Id)"
