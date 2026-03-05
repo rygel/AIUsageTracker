@@ -1776,10 +1776,44 @@ public partial class MainWindow : Window
             return false;
         }
 
-        var hourlyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && (d.WindowKind == WindowKind.Primary || d.WindowKind == WindowKind.Spark));
-        var weeklyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && d.WindowKind == WindowKind.Secondary);
+        // Find all quota windows
+        var windows = usage.Details
+            .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow)
+            .ToList();
 
+        if (windows.Count < 2)
+        {
+            return false;
+        }
+
+        // Identify the best match for 'short term' (hourly/spark/primary)
+        var hourlyDetail = windows.FirstOrDefault(d => 
+            d.WindowKind == WindowKind.Primary || 
+            d.WindowKind == WindowKind.Spark ||
+            d.Name.Contains("hour", StringComparison.OrdinalIgnoreCase) ||
+            d.Name.Contains("minute", StringComparison.OrdinalIgnoreCase));
+
+        // Identify the best match for 'long term' (weekly/secondary)
+        var weeklyDetail = windows.FirstOrDefault(d => 
+            d.WindowKind == WindowKind.Secondary ||
+            d.Name.Contains("week", StringComparison.OrdinalIgnoreCase) ||
+            d.Name.Contains("premium", StringComparison.OrdinalIgnoreCase));
+
+        // Fallback: if we have exactly 2 windows and didn't match by name/kind above, use them
         if (hourlyDetail == null || weeklyDetail == null)
+        {
+            if (windows.Count == 2)
+            {
+                hourlyDetail = windows[0];
+                weeklyDetail = windows[1];
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        if (hourlyDetail == weeklyDetail)
         {
             return false;
         }

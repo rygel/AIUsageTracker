@@ -1,10 +1,10 @@
 # Changelog
 
-## [2.2.28-beta.13] - 2026-03-05
+## [2.2.28-beta.14] - 2026-03-05
 
 ### Added
 - **GitHub Copilot Dual Path Support**: Implemented dual-quota tracking for GitHub Copilot, allowing simultaneous monitoring of Premium Interactions and short-term quota windows.
-- **Improved UI Logic**: Updated Slim UI to support "Spark" quota windows in the dual-progress bar view, ensuring correct rendering for OpenAI and GitHub Copilot.
+- **Improved Dual Path Detection**: Refined UI logic to robustly detect and render dual progress bars for OpenAI, Kimi, and GitHub Copilot by supporting flexible matching of primary, secondary, and spark quota windows.
 
 ### Fixed
 - **Web UI Data Parity**: Fixed a regression in `WebDatabaseService` where provider details were not correctly mapped, restoring dual-bar visibility and detailed quota lists in the Web dashboard.
