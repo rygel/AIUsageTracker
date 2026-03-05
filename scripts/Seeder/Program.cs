@@ -56,6 +56,9 @@ class Program
 
         [JsonPropertyName("details_json")]
         public string? DetailsJson { get; set; }
+
+        [JsonPropertyName("response_latency_ms")]
+        public double ResponseLatencyMs { get; set; }
     }
 
     private sealed class TestDataFixture
@@ -123,7 +126,8 @@ class Program
         {
             cmd.CommandText = @"
                 SELECT h.provider_id, h.requests_used, h.requests_available, h.requests_percentage, 
-                       h.is_available, h.status_message, h.next_reset_time, h.fetched_at, h.details_json
+                       h.is_available, h.status_message, h.next_reset_time, h.fetched_at, h.details_json,
+                       h.response_latency_ms
                 FROM provider_history h
                 INNER JOIN (
                     SELECT provider_id, MAX(fetched_at) as max_fetched
@@ -144,7 +148,8 @@ class Program
                     StatusMessage = reader.IsDBNull(5) ? "" : reader.GetString(5),
                     NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
                     FetchedAt = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                    DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8)
+                    DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9)
                 });
             }
         }
@@ -154,7 +159,8 @@ class Program
         {
             cmd.CommandText = @"
                 SELECT provider_id, requests_used, requests_available, requests_percentage,
-                       is_available, status_message, next_reset_time, fetched_at, details_json
+                       is_available, status_message, next_reset_time, fetched_at, details_json,
+                       response_latency_ms
                 FROM provider_history
                 WHERE fetched_at >= datetime('now', '-7 days')
                 ORDER BY provider_id, fetched_at DESC";
@@ -171,7 +177,8 @@ class Program
                     StatusMessage = reader.IsDBNull(5) ? "" : reader.GetString(5),
                     NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
                     FetchedAt = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                    DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8)
+                    DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9)
                 });
             }
         }
@@ -243,6 +250,7 @@ class Program
                 provider_id TEXT PRIMARY KEY,
                 provider_name TEXT,
                 account_name TEXT,
+                auth_source TEXT,
                 updated_at TEXT,
                 is_active INTEGER,
                 config_json TEXT
@@ -258,17 +266,26 @@ class Program
                 status_message TEXT,
                 next_reset_time TEXT,
                 fetched_at TEXT,
-                details_json TEXT
+                details_json TEXT,
+                response_latency_ms REAL NOT NULL DEFAULT 0
             );
 
             CREATE TABLE reset_events (
-                id TEXT PRIMARY KEY,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 provider_id TEXT,
                 provider_name TEXT,
                 previous_usage REAL,
                 new_usage REAL,
                 reset_type TEXT,
                 timestamp TEXT
+            );
+
+            CREATE TABLE raw_snapshots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider_id TEXT,
+                raw_json TEXT,
+                http_status INTEGER,
+                fetched_at TEXT
             );
         ");
 
@@ -291,8 +308,8 @@ class Program
         foreach (var history in historyToInsert)
         {
             connection.Execute(@"
-                INSERT INTO provider_history (provider_id, requests_used, requests_available, requests_percentage, is_available, status_message, next_reset_time, fetched_at, details_json)
-                VALUES (@Id, @Used, @Avail, @Perc, @IsAvail, @Msg, @Next, @Fetched, @Details)",
+                INSERT INTO provider_history (provider_id, requests_used, requests_available, requests_percentage, is_available, status_message, next_reset_time, fetched_at, details_json, response_latency_ms)
+                VALUES (@Id, @Used, @Avail, @Perc, @IsAvail, @Msg, @Next, @Fetched, @Details, @Latency)",
                 new
                 {
                     Id = history.ProviderId,
@@ -303,7 +320,8 @@ class Program
                     Msg = history.StatusMessage,
                     Next = history.NextResetTime,
                     Fetched = history.FetchedAt,
-                    Details = history.DetailsJson
+                    Details = history.DetailsJson,
+                    Latency = history.ResponseLatencyMs
                 });
         }
 
