@@ -8,6 +8,8 @@ namespace AIUsageTracker.UI.Slim.ViewModels;
 public class SettingsViewModel : BaseViewModel
 {
     private readonly IMonitorService _monitorService;
+    private readonly IUsageAnalyticsService _analyticsService;
+    private readonly IDataExportService _exportService;
     private readonly ILogger<SettingsViewModel> _logger;
     private bool _isPrivacyMode;
     private string _statusMessage = "Ready";
@@ -39,9 +41,15 @@ public class SettingsViewModel : BaseViewModel
         private set => SetProperty(ref _configs, value);
     }
 
-    public SettingsViewModel(IMonitorService monitorService, ILogger<SettingsViewModel> logger)
+    public SettingsViewModel(
+        IMonitorService monitorService, 
+        IUsageAnalyticsService analyticsService,
+        IDataExportService exportService,
+        ILogger<SettingsViewModel> logger)
     {
         _monitorService = monitorService;
+        _analyticsService = analyticsService;
+        _exportService = exportService;
         _logger = logger;
     }
 
@@ -78,5 +86,10 @@ public class SettingsViewModel : BaseViewModel
     {
         IsPrivacyMode = !IsPrivacyMode;
         StatusMessage = IsPrivacyMode ? "Privacy Mode Enabled" : "Privacy Mode Disabled";
+    }
+
+    public async Task<string> ExportDataAsync()
+    {
+        return await _exportService.ExportHistoryToCsvAsync();
     }
 }

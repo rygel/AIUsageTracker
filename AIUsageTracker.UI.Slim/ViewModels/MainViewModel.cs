@@ -8,6 +8,7 @@ namespace AIUsageTracker.UI.Slim.ViewModels;
 public class MainViewModel : BaseViewModel
 {
     private readonly IMonitorService _monitorService;
+    private readonly IUsageAnalyticsService _analyticsService;
     private readonly ILogger<MainViewModel> _logger;
     private bool _isLoading;
     private bool _isPrivacyMode;
@@ -45,9 +46,13 @@ public class MainViewModel : BaseViewModel
         private set => SetProperty(ref _lastRefreshTime, value);
     }
 
-    public MainViewModel(IMonitorService monitorService, ILogger<MainViewModel> logger)
+    public MainViewModel(
+        IMonitorService monitorService, 
+        IUsageAnalyticsService analyticsService,
+        ILogger<MainViewModel> logger)
     {
         _monitorService = monitorService;
+        _analyticsService = analyticsService;
         _logger = logger;
         _isPrivacyMode = false; // Initial state
     }

@@ -1,4 +1,5 @@
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -10,10 +11,12 @@ namespace AIUsageTracker.Web.Pages;
 public class IndexModel : PageModel
 {
     private readonly WebDatabaseService _dbService;
+    private readonly IUsageAnalyticsService _analyticsService;
 
-    public IndexModel(WebDatabaseService dbService)
+    public IndexModel(WebDatabaseService dbService, IUsageAnalyticsService analyticsService)
     {
         _dbService = dbService;
+        _analyticsService = analyticsService;
     }
 
     public List<ProviderUsage>? LatestUsage { get; set; }
@@ -115,12 +118,12 @@ public class IndexModel : PageModel
             if (LatestUsage.Count > 0)
             {
                 var providerIds = LatestUsage.Select(x => x.ProviderId).ToList();
-                var forecastTask = _dbService.GetBurnRateForecastsAsync(providerIds);
-                var reliabilityTask = _dbService.GetProviderReliabilityAsync(providerIds);
+                var forecastTask = _analyticsService.GetBurnRateForecastsAsync(providerIds);
+                var reliabilityTask = _analyticsService.GetProviderReliabilityAsync(providerIds);
                 Task<Dictionary<string, UsageAnomalySnapshot>>? anomalyTask = null;
                 if (EnableExperimentalAnomalyDetection)
                 {
-                    anomalyTask = _dbService.GetUsageAnomaliesAsync(providerIds);
+                    anomalyTask = _analyticsService.GetUsageAnomaliesAsync(providerIds);
                     await Task.WhenAll(forecastTask, reliabilityTask, anomalyTask);
                 }
                 else
@@ -136,15 +139,14 @@ public class IndexModel : PageModel
                 // Load experimental features
                 if (EnableExperimentalBudgetPolicies)
                 {
-                    BudgetStatuses = await _dbService.GetBudgetStatusesAsync(providerIds);
+                    BudgetStatuses = await _analyticsService.GetBudgetStatusesAsync(providerIds);
                 }
 
                 if (EnableExperimentalComparison)
                 {
-                    UsageComparisons = await _dbService.GetUsageComparisonsAsync(providerIds);
+                    UsageComparisons = await _analyticsService.GetUsageComparisonsAsync(providerIds);
                 }
             }
         }
     }
 }
-

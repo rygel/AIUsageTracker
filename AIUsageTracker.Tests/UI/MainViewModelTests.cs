@@ -10,14 +10,19 @@ namespace AIUsageTracker.Tests.UI;
 public class MainViewModelTests
 {
     private readonly Mock<IMonitorService> _monitorServiceMock;
+    private readonly Mock<IUsageAnalyticsService> _analyticsServiceMock;
     private readonly Mock<ILogger<MainViewModel>> _loggerMock;
     private readonly MainViewModel _viewModel;
 
     public MainViewModelTests()
     {
         _monitorServiceMock = new Mock<IMonitorService>();
+        _analyticsServiceMock = new Mock<IUsageAnalyticsService>();
         _loggerMock = new Mock<ILogger<MainViewModel>>();
-        _viewModel = new MainViewModel(_monitorServiceMock.Object, _loggerMock.Object);
+        _viewModel = new MainViewModel(
+            _monitorServiceMock.Object, 
+            _analyticsServiceMock.Object,
+            _loggerMock.Object);
     }
 
     [Fact]

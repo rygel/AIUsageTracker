@@ -1,4 +1,5 @@
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
@@ -10,10 +11,12 @@ namespace AIUsageTracker.Web.Pages;
 public class ReliabilityModel : PageModel
 {
     private readonly WebDatabaseService _dbService;
+    private readonly IUsageAnalyticsService _analyticsService;
 
-    public ReliabilityModel(WebDatabaseService dbService)
+    public ReliabilityModel(WebDatabaseService dbService, IUsageAnalyticsService analyticsService)
     {
         _dbService = dbService;
+        _analyticsService = analyticsService;
     }
 
     public List<ProviderUsage>? LatestUsage { get; set; }
@@ -30,7 +33,7 @@ public class ReliabilityModel : PageModel
             if (LatestUsage.Count > 0)
             {
                 var providerIds = LatestUsage.Select(x => x.ProviderId).ToList();
-                var reliability = await _dbService.GetProviderReliabilityAsync(providerIds);
+                var reliability = await _analyticsService.GetProviderReliabilityAsync(providerIds);
                 ReliabilityByProvider = reliability;
             }
         }

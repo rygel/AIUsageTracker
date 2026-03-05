@@ -1,4 +1,5 @@
 using AIUsageTracker.Web.Services;
+using AIUsageTracker.Core.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -7,11 +8,13 @@ namespace AIUsageTracker.Web.Pages;
 public class DataViewModel : PageModel
 {
     private readonly WebDatabaseService _dbService;
+    private readonly IDataExportService _exportService;
     private const int PageSize = 100;
 
-    public DataViewModel(WebDatabaseService dbService)
+    public DataViewModel(WebDatabaseService dbService, IDataExportService exportService)
     {
         _dbService = dbService;
+        _exportService = exportService;
     }
 
     public string? TableName { get; set; }
@@ -68,5 +71,10 @@ public class DataViewModel : PageModel
 
         return Page();
     }
-}
 
+    public async Task<IActionResult> OnGetExportCsvAsync()
+    {
+        var csv = await _exportService.ExportHistoryToCsvAsync();
+        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "history.csv");
+    }
+}

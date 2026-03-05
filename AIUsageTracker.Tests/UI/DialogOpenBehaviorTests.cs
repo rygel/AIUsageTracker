@@ -116,7 +116,9 @@ public class DialogOpenBehaviorTests
             return app;
         }
 
-        return new App();
+        var newApp = new App();
+        // Use reflection to initialize Host if needed, or rely on App.xaml.cs default init
+        return newApp;
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)

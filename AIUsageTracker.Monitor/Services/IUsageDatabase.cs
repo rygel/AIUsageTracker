@@ -17,6 +17,7 @@ public interface IUsageDatabase
     Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider);
     Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50);
     Task<bool> IsHistoryEmptyAsync();
+    Task SetProviderActiveAsync(string providerId, bool isActive);
 }
 
 
