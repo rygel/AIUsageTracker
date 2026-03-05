@@ -993,7 +993,13 @@ public class WebDatabaseService
 
             foreach (var row in rows)
             {
-                sb.AppendLine($"\"{row.provider_id}\",\"{row.provider_name}\",{row.requests_used},{row.requests_available},{row.requests_percentage},{(row.is_available ? 1 : 0)},\"{row.status_message?.Replace("\"", "\"\"")}\",\"{row.fetched_at}\",\"{row.next_reset_time}\"");
+                var isAvail = row.is_available;
+                int availInt = 0;
+                if (isAvail is bool b) availInt = b ? 1 : 0;
+                else if (isAvail is long l) availInt = (int)l;
+                else if (isAvail is int i) availInt = i;
+
+                sb.AppendLine($"\"{row.provider_id}\",\"{row.provider_name}\",{row.requests_used},{row.requests_available},{row.requests_percentage},{availInt},\"{row.status_message?.Replace("\"", "\"\"")}\",\"{row.fetched_at}\",\"{row.next_reset_time}\"");
             }
 
             return sb.ToString();

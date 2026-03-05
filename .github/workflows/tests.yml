@@ -164,17 +164,8 @@ jobs:
         shell: pwsh
         run: |
           dotnet build .\AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj -c Debug
-          $playwrightDir = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\.playwright"
-          if (Test-Path $playwrightDir) {
-            Push-Location $playwrightDir
-            try {
-              & node package/cli.js install chromium
-            } finally {
-              Pop-Location
-            }
-          } else {
-            Write-Host "Warning: Playwright package not found at expected location: $playwrightDir"
-          }
+          dotnet tool install --global Microsoft.Playwright.CLI || true
+          playwright install chromium
 
       - name: Build Web project
         shell: pwsh

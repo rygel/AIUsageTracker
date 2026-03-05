@@ -9,11 +9,17 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 public class TokenDiscoveryService
 {
     private readonly ILogger<TokenDiscoveryService> _logger;
+    private readonly string? _userProfileOverride;
 
-    public TokenDiscoveryService(ILogger<TokenDiscoveryService> logger)
+    public TokenDiscoveryService(ILogger<TokenDiscoveryService> logger, string? userProfileOverride = null)
     {
         _logger = logger;
+        _userProfileOverride = userProfileOverride;
     }
+
+    private string GetUserProfilePath() => _userProfileOverride ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    private string GetAppDataPath() => _userProfileOverride != null ? Path.Combine(_userProfileOverride, "AppData", "Roaming") : Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+    private string GetLocalAppDataPath() => _userProfileOverride != null ? Path.Combine(_userProfileOverride, "AppData", "Local") : Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
     public async Task<List<ProviderConfig>> DiscoverTokensAsync()
     {
@@ -147,7 +153,7 @@ public class TokenDiscoveryService
     {
         try
         {
-            var claudeCredentialsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".claude", ".credentials.json");
+            var claudeCredentialsPath = Path.Combine(GetUserProfilePath(), ".claude", ".credentials.json");
             if (File.Exists(claudeCredentialsPath))
             {
                 var json = await File.ReadAllTextAsync(claudeCredentialsPath);
@@ -187,7 +193,7 @@ public class TokenDiscoveryService
 
     private async Task DiscoverFromProvidersFileAsync(List<ProviderConfig> configs)
     {
-        var providersPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "providers.json");
+        var providersPath = Path.Combine(GetUserProfilePath(), ".local", "share", "opencode", "providers.json");
         
         _logger.LogDebug("[OpenCode Discovery] Checking for providers.json at: {Path}", providersPath);
         
@@ -229,35 +235,35 @@ public class TokenDiscoveryService
         }
     }
 
-    private static IEnumerable<string> GetCodexAuthCandidates()
+    private IEnumerable<string> GetCodexAuthCandidates()
     {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var home = GetUserProfilePath();
         var candidates = new List<string>
         {
             Path.Combine(home, ".codex", "auth.json")
         };
 
-        if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows() || _userProfileOverride != null)
         {
-            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "codex", "auth.json"));
+            candidates.Add(Path.Combine(GetAppDataPath(), "codex", "auth.json"));
         }
 
         return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static IEnumerable<string> GetOpenCodeAuthCandidates()
+    private IEnumerable<string> GetOpenCodeAuthCandidates()
     {
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var home = GetUserProfilePath();
         var candidates = new List<string>
         {
             Path.Combine(home, ".local", "share", "opencode", "auth.json"),
             Path.Combine(home, ".opencode", "auth.json")
         };
 
-        if (OperatingSystem.IsWindows())
+        if (OperatingSystem.IsWindows() || _userProfileOverride != null)
         {
-            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"));
-            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"));
+            candidates.Add(Path.Combine(GetAppDataPath(), "opencode", "auth.json"));
+            candidates.Add(Path.Combine(GetLocalAppDataPath(), "opencode", "auth.json"));
         }
 
         return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
@@ -330,7 +336,7 @@ public class TokenDiscoveryService
     private async Task DiscoverKiloCodeTokensAsync(List<ProviderConfig> configs)
     {
         // 1. Try VS Code extension secrets.json
-        var kiloSecretsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kilocode", "secrets.json");
+        var kiloSecretsPath = Path.Combine(GetUserProfilePath(), ".kilocode", "secrets.json");
         if (File.Exists(kiloSecretsPath))
         {
             try
@@ -393,7 +399,7 @@ public class TokenDiscoveryService
             }
             
             // Also check for standalone Roo Code config directory (similar to Kilo Code)
-            var rooConfigPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".roo");
+            var rooConfigPath = Path.Combine(GetUserProfilePath(), ".roo");
             if (Directory.Exists(rooConfigPath))
             {
                 var secretsPath = Path.Combine(rooConfigPath, "secrets.json");
@@ -432,21 +438,21 @@ public class TokenDiscoveryService
         try
         {
             // Windows
-            if (OperatingSystem.IsWindows())
+            if (OperatingSystem.IsWindows() || _userProfileOverride != null)
             {
-                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var appData = GetAppDataPath();
                 return Path.Combine(appData, "Code", "User", "globalStorage");
             }
             // macOS
             else if (OperatingSystem.IsMacOS())
             {
-                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var home = GetUserProfilePath();
                 return Path.Combine(home, "Library", "Application Support", "Code", "User", "globalStorage");
             }
             // Linux
             else
             {
-                var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                var home = GetUserProfilePath();
                 var configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ?? Path.Combine(home, ".config");
                 return Path.Combine(configHome, "Code", "User", "globalStorage");
             }
@@ -474,7 +480,7 @@ public class TokenDiscoveryService
                     TryAddRooKey(configs, config, "openAiApiKey", "openai");
                     TryAddRooKey(configs, config, "geminiApiKey", "gemini");
                     TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
-                    TryAddRooKey(configs, config, "mistralApiKey", "mistoral");
+                    TryAddRooKey(configs, config, "mistralApiKey", "mistral");
                 }
             }
         }
