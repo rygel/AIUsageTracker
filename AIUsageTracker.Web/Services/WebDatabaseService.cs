@@ -116,6 +116,45 @@ public class WebDatabaseService : IWebDatabaseRepository
         return list;
     }
 
+    public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
+    {
+        if (!IsDatabaseAvailable())
+            return new List<ProviderUsage>();
+
+        using var connection = CreateReadConnection();
+        await connection.OpenAsync();
+
+        var sql = $@"
+            SELECT h.*, p.provider_name as ProviderName
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            ORDER BY h.fetched_at DESC
+            LIMIT {limit}";
+
+        var results = await connection.QueryAsync<dynamic>(sql);
+        return results.Select(MapToProviderUsage).ToList();
+    }
+
+    public async Task<List<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
+    {
+        if (!IsDatabaseAvailable())
+            return new List<ProviderUsage>();
+
+        using var connection = CreateReadConnection();
+        await connection.OpenAsync();
+
+        var sql = $@"
+            SELECT h.*, p.provider_name as ProviderName
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.provider_id = @ProviderId
+            ORDER BY h.fetched_at DESC
+            LIMIT {limit}";
+
+        var results = await connection.QueryAsync<dynamic>(sql, new { ProviderId = providerId });
+        return results.Select(MapToProviderUsage).ToList();
+    }
+
     public async Task<UsageSummary> GetUsageSummaryAsync()
     {
         var cacheKey = "db:usage-summary";
@@ -303,6 +342,98 @@ public class WebDatabaseService : IWebDatabaseRepository
             reset.ProviderName = ProviderMetadataCatalog.GetDisplayName(reset.ProviderId, reset.ProviderName);
         }
         return results;
+    }
+
+    public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
+    {
+        if (!IsDatabaseAvailable())
+            return new List<ResetEvent>();
+
+        using var connection = CreateReadConnection();
+        await connection.OpenAsync();
+
+        const string sql = @"
+            SELECT 
+                id AS Id, 
+                provider_id AS ProviderId, 
+                provider_name AS ProviderName,
+                previous_usage AS PreviousUsage, 
+                new_usage AS NewUsage,
+                reset_type AS ResetType, 
+                timestamp AS Timestamp
+            FROM reset_events
+            WHERE provider_id = @ProviderId
+            ORDER BY timestamp DESC
+            LIMIT @Limit";
+
+        var results = (await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId, Limit = limit })).ToList();
+        foreach (var reset in results)
+        {
+            reset.ProviderName = ProviderMetadataCatalog.GetDisplayName(reset.ProviderId, reset.ProviderName);
+        }
+        return results;
+    }
+
+    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await GetTableRawAsync("providers", page, pageSize);
+    }
+
+    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC");
+    }
+
+    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC");
+    }
+
+    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC");
+    }
+
+    private async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
+    {
+        if (!IsDatabaseAvailable())
+            return (new List<Dictionary<string, object?>>(), 0);
+
+        await _semaphore.WaitAsync();
+        try
+        {
+            using var connection = CreateReadConnection();
+            await connection.OpenAsync();
+
+            var offset = (page - 1) * pageSize;
+            var orderClause = string.IsNullOrEmpty(orderBy) ? "" : $"ORDER BY {orderBy}";
+
+            var totalCount = await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM {tableName}");
+
+            var sql = $"SELECT * FROM {tableName} {orderClause} LIMIT {pageSize} OFFSET {offset}";
+            var rows = new List<Dictionary<string, object?>>();
+
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = sql;
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                var row = new Dictionary<string, object?>();
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    row[reader.GetName(i)] = value;
+                }
+                rows.Add(row);
+            }
+
+            return (rows, totalCount);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
     }
 
     private static async Task EnsureChartIndexesAsync(SqliteConnection connection)

@@ -144,7 +144,8 @@ public partial class MainWindow : Window
         // Fallbacks for internal/test use
         _logger ??= App.CreateLogger<MainWindow>();
         _monitorService ??= App.MonitorService;
-        _updateChecker ??= new GitHubUpdateChecker(Microsoft.Extensions.Logging.Abstractions.NullLogger<GitHubUpdateChecker>.Instance, UpdateChannel.Stable);
+        _updateChecker ??= App.Host.Services.GetRequiredService<IUpdateCheckerService>();
+        _preferencesStore ??= App.Host.Services.GetRequiredService<UiPreferencesStore>();
         
         _updateCheckTimer = new DispatcherTimer
         {

@@ -51,7 +51,7 @@ else
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const chartData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartData ?? new List<AIUsageTracker.Web.Services.ChartDataPoint>()));
+        const chartData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ChartData ?? new List<AIUsageTracker.Core.Models.ChartDataPoint>()));
         const providerColors = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ProviderColors ?? new Dictionary<string, string>()));
         let currentChartData = chartData;
         let currentResetEvents = [];

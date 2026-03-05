@@ -146,8 +146,3 @@ public class UsageAnalyticsService : IUsageAnalyticsService
             .ToList();
     }
 }
-
-public interface IWebDatabaseRepository
-{
-    Task<List<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples);
-}

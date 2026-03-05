@@ -71,8 +71,3 @@ public class DataExportService : IDataExportService
         }
     }
 }
-
-public partial interface IWebDatabaseRepository
-{
-    Task<List<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0);
-}

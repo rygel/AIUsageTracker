@@ -2,6 +2,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using AIUsageTracker.Web.Services;
+using AIUsageTracker.Core.Interfaces;
+using Moq;
 using System.Data;
 
 namespace AIUsageTracker.Tests.Infrastructure;
@@ -33,7 +35,11 @@ public abstract class DatabaseTestBase : IDisposable
 
         Cache = new MemoryCache(new MemoryCacheOptions());
         InitializeSchema();
-        DatabaseService = new WebDatabaseService(Cache, NullLogger<WebDatabaseService>.Instance, DbPath);
+
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(DbPath);
+
+        DatabaseService = new WebDatabaseService(Cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
     }
 
     private void InitializeSchema()

@@ -11,14 +11,22 @@ namespace AIUsageTracker.Tests.UI;
 public class SettingsViewModelTests
 {
     private readonly Mock<IMonitorService> _monitorServiceMock;
+    private readonly Mock<IUsageAnalyticsService> _analyticsServiceMock;
+    private readonly Mock<IDataExportService> _exportServiceMock;
     private readonly Mock<ILogger<SettingsViewModel>> _loggerMock;
     private readonly SettingsViewModel _viewModel;
 
     public SettingsViewModelTests()
     {
         _monitorServiceMock = new Mock<IMonitorService>();
+        _analyticsServiceMock = new Mock<IUsageAnalyticsService>();
+        _exportServiceMock = new Mock<IDataExportService>();
         _loggerMock = new Mock<ILogger<SettingsViewModel>>();
-        _viewModel = new SettingsViewModel(_monitorServiceMock.Object, _loggerMock.Object);
+        _viewModel = new SettingsViewModel(
+            _monitorServiceMock.Object, 
+            _analyticsServiceMock.Object,
+            _exportServiceMock.Object,
+            _loggerMock.Object);
     }
 
     [Fact]
