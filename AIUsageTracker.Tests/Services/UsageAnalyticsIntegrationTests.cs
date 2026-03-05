@@ -28,10 +28,7 @@ public class UsageAnalyticsIntegrationTests
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
             
-            var mockPathProvider = new Mock<IAppPathProvider>();
-            mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
-            
-            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
+            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, dbPath);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
             var forecasts = await service.GetBurnRateForecastsAsync(new[] { "openai" }, lookbackHours: 12, maxSamplesPerProvider: 100);
@@ -66,10 +63,7 @@ public class UsageAnalyticsIntegrationTests
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
             
-            var mockPathProvider = new Mock<IAppPathProvider>();
-            mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
-            
-            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
+            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, dbPath);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
             var anomalies = await service.GetUsageAnomaliesAsync(new[] { "openai" }, lookbackHours: 24, maxSamplesPerProvider: 100);
@@ -104,10 +98,7 @@ public class UsageAnalyticsIntegrationTests
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
             
-            var mockPathProvider = new Mock<IAppPathProvider>();
-            mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
-            
-            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
+            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, dbPath);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
             var forecasts = await service.GetBurnRateForecastsAsync(new[] { "steady-p" });

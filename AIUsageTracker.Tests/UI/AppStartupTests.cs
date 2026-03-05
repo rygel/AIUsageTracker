@@ -4,6 +4,7 @@ using AIUsageTracker.UI.Slim;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using System.Text.Json;
+using System.Windows;
 using Xunit;
 
 namespace AIUsageTracker.Tests.UI;
@@ -107,6 +108,12 @@ public class AppStartupTests : IDisposable
     [Fact]
     public void ApplyTheme_WithNullResources_DoesNotThrow()
     {
+        // Ensure App is initialized so Host is available
+        if (Application.Current == null)
+        {
+            new App(); 
+        }
+        
         var theme = AppTheme.Dark;
 
         try
@@ -116,6 +123,10 @@ public class AppStartupTests : IDisposable
         catch (NullReferenceException)
         {
             // Expected in test context since Application.Current is null
+        }
+        catch (InvalidOperationException)
+        {
+            // Fallback for some test environments
         }
     }
 

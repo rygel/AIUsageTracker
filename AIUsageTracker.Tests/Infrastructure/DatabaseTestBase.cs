@@ -36,10 +36,7 @@ public abstract class DatabaseTestBase : IDisposable
         Cache = new MemoryCache(new MemoryCacheOptions());
         InitializeSchema();
 
-        var mockPathProvider = new Mock<IAppPathProvider>();
-        mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(DbPath);
-
-        DatabaseService = new WebDatabaseService(Cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
+        DatabaseService = new WebDatabaseService(Cache, NullLogger<WebDatabaseService>.Instance, DbPath);
     }
 
     private void InitializeSchema()

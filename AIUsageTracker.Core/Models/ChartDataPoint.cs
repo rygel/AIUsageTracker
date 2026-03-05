@@ -1,3 +1,5 @@
+using System;
+
 namespace AIUsageTracker.Core.Models;
 
 public class ChartDataPoint

@@ -143,7 +143,7 @@ jobs:
           path: TestResults/monitor-tests*.trx
           retention-days: 3
 
-  # Job 4: Web tests on Windows (requires Web app running)
+  # Job 4: Web tests on Windows
   web-tests-windows:
     name: Web Tests (Windows)
     needs: prepare
@@ -167,10 +167,6 @@ jobs:
           dotnet tool install --global Microsoft.Playwright.CLI || true
           playwright install chromium
 
-      - name: Build Web project
-        shell: pwsh
-        run: dotnet build .\AIUsageTracker.Web\AIUsageTracker.Web.csproj -c Debug
-
       - name: Seed test database from fixture
         shell: pwsh
         run: |
@@ -186,38 +182,6 @@ jobs:
             exit 1
           }
 
-      - name: Start Web Application
-        shell: pwsh
-        run: |
-          $webProject = ".\AIUsageTracker.Web\AIUsageTracker.Web.csproj"
-          $proc = Start-Process -FilePath "dotnet" -ArgumentList "run --project $webProject --configuration Debug --urls=http://localhost:5100" -PassThru -NoNewWindow
-          $env:WEB_APP_PID = $proc.Id
-          Write-Host "Web app started with PID: $($proc.Id)"
-
-          # Wait for web app to be ready
-          $retries = 0
-          $maxRetries = 30
-          $ready = $false
-          while ($retries -lt $maxRetries) {
-            try {
-              $response = Invoke-WebRequest -Uri "http://localhost:5100" -UseBasicParsing -ErrorAction Stop
-              if ($response.StatusCode -eq 200) {
-                $ready = $true
-                break
-              }
-            } catch {
-              Start-Sleep -Seconds 1
-            }
-            $retries++
-            Write-Host "." -NoNewline
-          }
-          Write-Host ""
-          if (-not $ready) {
-            Write-Host "Failed to start Web App!" -ForegroundColor Red
-            exit 1
-          }
-          Write-Host "Web App is running!" -ForegroundColor Green
-
       - name: Run Web tests
         timeout-minutes: 8
         shell: pwsh
@@ -227,16 +191,6 @@ jobs:
           $assemblyPath = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll"
           $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
           powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-tests -QuarantineFile $quarantinePath -MaxRetries 0 -AttemptTimeoutMinutes 8 -HangTimeoutSeconds 480
-
-      - name: Stop Web Application
-        if: always()
-        shell: pwsh
-        run: |
-          $webAppPid = $env:WEB_APP_PID
-          if ($webAppPid) {
-            Write-Host "Stopping Web App PID: $webAppPid"
-            Stop-Process -Id $webAppPid -Force -ErrorAction SilentlyContinue
-          }
 
       - name: Upload results
         if: failure()
