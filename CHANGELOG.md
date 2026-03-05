@@ -1,11 +1,11 @@
 # Changelog
 
-## [2.2.28-beta.15] - 2026-03-05
+## [2.2.28-beta.16] - 2026-03-05
 
 ### Added
+- **Refined Dual Path Detection**: Robustly improved dual-progress bar logic for OpenAI and Kimi by prioritizing explicit `WindowKind` matching (Primary vs. Secondary) before falling back to name-based heuristics. This ensures consistent visibility of both short-term and long-term quotas.
 - **Architectural Cleanup**: Significantly simplified and decoupled the UI layer by extracting theme, screenshot, and tray icon logic from `App.xaml.cs` into dedicated services within `AIUsageTracker.UI.Slim/Services`.
 - **Centralized Path Management**: Enhanced `IAppPathProvider` to include methods for retrieving Monitor discovery paths and configuration roots, eliminating remaining hardcoded special folder lookups.
-- **Improved Dual Path Detection**: Refined UI logic to robustly detect and render dual progress bars for OpenAI, Kimi, and GitHub Copilot by supporting flexible matching of primary, secondary, and spark quota windows.
 
 ### Fixed
 - **App Orchestration**: Refactored `App` class to be a pure orchestrator using standard dependency injection for all core services, including mock implementations for the Slim UI.

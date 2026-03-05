@@ -6,7 +6,7 @@ namespace AIUsageTracker.Web.Tests;
 
 public abstract class WebTestBase : PageTest
 {
-    protected static KestrelWebApplicationFactory<Program> Factory { get; private set; } = null!;
+    protected static KestrelWebApplicationFactory<AIUsageTracker.Web.Startup>? Factory { get; private set; }
     protected static string ServerUrl { get; private set; } = null!;
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
@@ -14,7 +14,7 @@ public abstract class WebTestBase : PageTest
     {
         if (Factory == null)
         {
-            Factory = new KestrelWebApplicationFactory<Program>();
+            Factory = new KestrelWebApplicationFactory<AIUsageTracker.Web.Startup>();
             ServerUrl = Factory.ServerAddress.TrimEnd('/');
         }
     }
@@ -23,5 +23,6 @@ public abstract class WebTestBase : PageTest
     public static void CleanupFactory()
     {
         Factory?.Dispose();
+        Factory = null;
     }
 }
