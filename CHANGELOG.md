@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.2.28-beta.10] - 2026-03-04
+## [2.2.28-beta.10] - 2026-03-05
 
 ### Added
 - **Raw Snapshot Fields**: All providers now populate RawJson and HttpStatus fields for improved debugging and monitoring
