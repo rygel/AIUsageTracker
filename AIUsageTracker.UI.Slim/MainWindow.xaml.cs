@@ -1787,20 +1787,26 @@ public partial class MainWindow : Window
             return false;
         }
 
-        // Identify the best match for 'short term' (hourly/spark/primary)
-        var hourlyDetail = windows.FirstOrDefault(d => 
-            d.WindowKind == WindowKind.Primary || 
-            d.WindowKind == WindowKind.Spark ||
-            d.Name.Contains("hour", StringComparison.OrdinalIgnoreCase) ||
-            d.Name.Contains("minute", StringComparison.OrdinalIgnoreCase));
+        // 1. Try to find by explicit WindowKind first (the most reliable way)
+        var hourlyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Primary || d.WindowKind == WindowKind.Spark);
+        var weeklyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
 
-        // Identify the best match for 'long term' (weekly/secondary)
-        var weeklyDetail = windows.FirstOrDefault(d => 
-            d.WindowKind == WindowKind.Secondary ||
-            d.Name.Contains("week", StringComparison.OrdinalIgnoreCase) ||
-            d.Name.Contains("premium", StringComparison.OrdinalIgnoreCase));
+        // 2. If kind-based matching failed, try name-based matching
+        if (hourlyDetail == null)
+        {
+            hourlyDetail = windows.FirstOrDefault(d => 
+                d.Name.Contains("hour", StringComparison.OrdinalIgnoreCase) ||
+                d.Name.Contains("minute", StringComparison.OrdinalIgnoreCase));
+        }
 
-        // Fallback: if we have exactly 2 windows and didn't match by name/kind above, use them
+        if (weeklyDetail == null)
+        {
+            weeklyDetail = windows.FirstOrDefault(d => 
+                d.Name.Contains("week", StringComparison.OrdinalIgnoreCase) ||
+                d.Name.Contains("premium", StringComparison.OrdinalIgnoreCase));
+        }
+
+        // 3. Fallback: if we have exactly 2 windows and still haven't picked them, use them
         if (hourlyDetail == null || weeklyDetail == null)
         {
             if (windows.Count == 2)
@@ -1810,10 +1816,12 @@ public partial class MainWindow : Window
             }
             else
             {
+                // Last ditch: if we found at least one of them, but not both, we can't show dual bars reliably
                 return false;
             }
         }
 
+        // Ensure we didn't pick the same window for both
         if (hourlyDetail == weeklyDetail)
         {
             return false;
