@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.2.28-beta.11] - 2026-03-05
+
+### Added
+- **Centralized Path Provider**: Introduced `IAppPathProvider` to manage all file system paths (DB, logs, configs) in one place, improving testability and consistency.
+- **Dependency Injection for WPF**: Fully refactored Slim UI to use `Microsoft.Extensions.Hosting` and dependency injection for all windows and ViewModels.
+- **Decomposed Database Services**: Refactored `WebDatabaseService` into specialized `IUsageAnalyticsService` and `IDataExportService` for better maintainability.
+- **New Models**: Added `ResetEvent`, `ProviderInfo`, `UsageSummary`, and `ChartDataPoint` to `Core.Models` for better cross-project data sharing.
+
+### Fixed
+- **Screenshot Mode**: Restored headless screenshot capture mode and command-line argument parsing broken during refactoring.
+- **Tray Icon Logic**: Restored tray icon initialization and update logic in the refactored Slim UI.
+- **Theme Manifest**: Fixed CI validation by updating theme manifest dates and restoring valid JSON formatting.
+- **Database Seeder**: Updated test database seeder to include missing `response_latency_ms` column.
+- **Security**: Upgraded caching and logging abstractions to resolve high-severity vulnerabilities.
+
+### CI/CD
+- Fixed timeout in Slim Screenshot Baseline by ensuring application exits correctly in headless mode.
+- Improved theme validation workflow with better contract parity checks.
+
 ## [2.2.28-beta.10] - 2026-03-05
 
 ### Added
