@@ -48,6 +48,8 @@ public partial class App : Application
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
         services.AddSingleton<IMonitorService, MonitorService>();
+        services.AddSingleton<IUsageAnalyticsService, NoOpUsageAnalyticsService>();
+        services.AddSingleton<IDataExportService, NoOpDataExportService>();
         services.AddSingleton<IUpdateCheckerService, GitHubUpdateChecker>();
         services.AddSingleton<HttpClient>();
         
@@ -131,5 +133,21 @@ public partial class App : Application
     public Func<Window> InfoDialogFactory { get; set; } = () => new InfoDialog();
     public Action<Window> ShowInfoDialogAction { get; set; } = dialog => dialog.ShowDialog();
     public void OpenInfoDialog() => ShowInfoDialogAction(InfoDialogFactory());
+}
+
+public class NoOpUsageAnalyticsService : IUsageAnalyticsService
+{
+    public Task<Dictionary<string, BurnRateForecast>> GetBurnRateForecastsAsync(IEnumerable<string> providerIds, int lookbackHours = 24, int maxSamplesPerProvider = 100) => Task.FromResult(new Dictionary<string, BurnRateForecast>());
+    public Task<Dictionary<string, ProviderReliabilitySnapshot>> GetProviderReliabilityAsync(IEnumerable<string> providerIds, int lookbackHours = 24, int maxSamplesPerProvider = 100) => Task.FromResult(new Dictionary<string, ProviderReliabilitySnapshot>());
+    public Task<Dictionary<string, UsageAnomalySnapshot>> GetUsageAnomaliesAsync(IEnumerable<string> providerIds, int lookbackHours = 24, int maxSamplesPerProvider = 100) => Task.FromResult(new Dictionary<string, UsageAnomalySnapshot>());
+    public Task<List<UsageComparison>> GetUsageComparisonsAsync(List<string> providerIds) => Task.FromResult(new List<UsageComparison>());
+    public Task<List<BudgetStatus>> GetBudgetStatusesAsync(List<string> providerIds) => Task.FromResult(new List<BudgetStatus>());
+}
+
+public class NoOpDataExportService : IDataExportService
+{
+    public Task<string> ExportHistoryToCsvAsync() => Task.FromResult(string.Empty);
+    public Task<string> ExportHistoryToJsonAsync() => Task.FromResult(string.Empty);
+    public Task<byte[]?> CreateDatabaseBackupAsync() => Task.FromResult<byte[]?>(null);
 }
 

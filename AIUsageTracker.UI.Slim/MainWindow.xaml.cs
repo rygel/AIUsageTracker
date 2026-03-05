@@ -21,13 +21,10 @@ using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
+using AIUsageTracker.UI.Slim.ViewModels;
 using SharpVectors.Renderers.Wpf;
 using SharpVectors.Converters;
-
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
-using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.UI.Slim.ViewModels;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -114,14 +111,8 @@ public partial class MainWindow : Window
         ILogger<MainWindow> logger,
         IUpdateCheckerService updateChecker,
         UiPreferencesStore preferencesStore)
-        : this(skipUiInitialization: false)
+        : this(skipUiInitialization: false, viewModel, monitorService, logger, updateChecker, preferencesStore)
     {
-        _viewModel = viewModel;
-        DataContext = _viewModel;
-        _monitorService = monitorService;
-        _logger = logger;
-        _updateChecker = updateChecker;
-        _preferencesStore = preferencesStore;
     }
 
     public MainWindow()
@@ -134,6 +125,17 @@ public partial class MainWindow : Window
     }
 
     internal MainWindow(bool skipUiInitialization)
+        : this(skipUiInitialization, null, null, null, null, null)
+    {
+    }
+
+    private MainWindow(
+        bool skipUiInitialization,
+        MainViewModel? viewModel,
+        IMonitorService? monitorService,
+        ILogger<MainWindow>? logger,
+        IUpdateCheckerService? updateChecker,
+        UiPreferencesStore? preferencesStore)
     {
         if (!skipUiInitialization)
         {
@@ -142,10 +144,12 @@ public partial class MainWindow : Window
         }
 
         // Fallbacks for internal/test use
-        _logger ??= App.CreateLogger<MainWindow>();
-        _monitorService ??= App.MonitorService;
-        _updateChecker ??= App.Host.Services.GetRequiredService<IUpdateCheckerService>();
-        _preferencesStore ??= App.Host.Services.GetRequiredService<UiPreferencesStore>();
+        _logger = logger ?? App.CreateLogger<MainWindow>();
+        _monitorService = monitorService ?? App.MonitorService;
+        _updateChecker = updateChecker ?? App.Host.Services.GetRequiredService<IUpdateCheckerService>();
+        _preferencesStore = preferencesStore ?? App.Host.Services.GetRequiredService<UiPreferencesStore>();
+        _viewModel = viewModel ?? App.Host.Services.GetRequiredService<MainViewModel>();
+        DataContext = _viewModel;
         
         _updateCheckTimer = new DispatcherTimer
         {
@@ -3303,4 +3307,3 @@ public partial class MainWindow : Window
 
 
 }
-
