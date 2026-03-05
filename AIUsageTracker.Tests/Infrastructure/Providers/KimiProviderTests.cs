@@ -155,4 +155,3 @@ public class KimiProviderTests
         Assert.Equal("7d Limit", weeklyDetailFromLimits.Name);
     }
 }
-
