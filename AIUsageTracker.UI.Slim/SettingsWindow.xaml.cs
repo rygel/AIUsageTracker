@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.UI.Slim.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.DependencyInjection;

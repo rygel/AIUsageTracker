@@ -1,4 +1,5 @@
 using AIUsageTracker.Core.Interfaces;
+using System.Collections.Generic;
 using System.IO;
 
 namespace AIUsageTracker.Infrastructure.Helpers;
@@ -50,5 +51,20 @@ public class DefaultAppPathProvider : IAppPathProvider
     public string GetUserProfileRoot()
     {
         return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    }
+
+    public IEnumerable<string> GetMonitorInfoCandidatePaths()
+    {
+        var appDataRoot = GetAppDataRoot();
+        var userProfileRoot = GetUserProfileRoot();
+
+        return new[]
+        {
+            Path.Combine(appDataRoot, "monitor.json"),
+            Path.Combine(appDataRoot, "Monitor", "monitor.json"),
+            Path.Combine(appDataRoot, "Agent", "monitor.json"),
+            Path.Combine(userProfileRoot, ".ai-consumption-tracker", "monitor.json"),
+            Path.Combine(userProfileRoot, ".opencode", "monitor.json")
+        };
     }
 }

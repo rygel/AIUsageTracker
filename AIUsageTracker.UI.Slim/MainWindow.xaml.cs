@@ -17,6 +17,7 @@ using Microsoft.Win32;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.UI.Slim.Interfaces;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -145,7 +146,7 @@ public partial class MainWindow : Window
 
         // Fallbacks for internal/test use
         _logger = logger ?? App.CreateLogger<MainWindow>();
-        _monitorService = monitorService ?? App.MonitorService;
+        _monitorService = monitorService ?? App.AppMonitorService;
         _updateChecker = updateChecker ?? App.Host.Services.GetRequiredService<IUpdateCheckerService>();
         _preferencesStore = preferencesStore ?? App.Host.Services.GetRequiredService<UiPreferencesStore>();
         _viewModel = viewModel ?? App.Host.Services.GetRequiredService<MainViewModel>();
