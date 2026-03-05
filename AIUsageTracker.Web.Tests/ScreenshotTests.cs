@@ -8,9 +8,8 @@ using System.Text.Json.Serialization;
 namespace AIUsageTracker.Web.Tests;
 
 [TestClass]
-public class ScreenshotTests : PageTest
+public class ScreenshotTests : WebTestBase
 {
-    private const string BaseUrl = "http://127.0.0.1:5100";
     private sealed class ThemeCatalog
     {
         [JsonPropertyName("themes")]
@@ -44,13 +43,15 @@ public class ScreenshotTests : PageTest
     private readonly string _outputDir;
     private readonly string _themeOutputDir;
 
-    [ClassInitialize]
-    public static void EnsurePlaywrightBrowserCanLaunch(TestContext _)
+    [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
+    public static void EnsurePlaywrightBrowserCanLaunch(TestContext context)
     {
+        // Call base initialize
+        InitializeFactory(context);
+
         var chromiumPath = FindPlaywrightChromiumPath();
         if (string.IsNullOrWhiteSpace(chromiumPath))
         {
-            Assert.Inconclusive("Playwright Chromium executable was not found. Install browsers with 'playwright install'.");
             return;
         }
 
@@ -69,7 +70,6 @@ public class ScreenshotTests : PageTest
             using var process = Process.Start(startInfo);
             if (process == null)
             {
-                Assert.Inconclusive($"Unable to start Playwright Chromium at '{chromiumPath}'.");
                 return;
             }
 
@@ -83,23 +83,14 @@ public class ScreenshotTests : PageTest
                 {
                     // Ignore cleanup errors.
                 }
-
-                Assert.Inconclusive("Playwright Chromium launch probe timed out.");
                 return;
-            }
-
-            if (process.ExitCode != 0)
-            {
-                Assert.Inconclusive($"Playwright Chromium launch probe failed with exit code {process.ExitCode}.");
             }
         }
         catch (Win32Exception ex) when (IsPermissionError(ex))
         {
-            Assert.Inconclusive($"Browser launch is blocked in this environment: {ex.Message}");
         }
-        catch (UnauthorizedAccessException ex)
+        catch (UnauthorizedAccessException)
         {
-            Assert.Inconclusive($"Browser launch is blocked in this environment: {ex.Message}");
         }
     }
 
@@ -223,7 +214,7 @@ public class ScreenshotTests : PageTest
     public async Task Dashboard_StylesheetAssetsLoadAndStylesApply()
     {
         await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(BaseUrl);
+        await Page.GotoAsync(ServerUrl);
         await Page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var siteCssStatus = await Page.EvaluateAsync<int>("""
@@ -256,7 +247,7 @@ public class ScreenshotTests : PageTest
         Assert.AreEqual("fixed", sidebarPosition, "Sidebar CSS is not applied (expected fixed sidebar). ");
         Assert.AreEqual("flex", appContainerDisplay, "Layout CSS is not applied (expected flex app container).");
         Assert.AreEqual("200px", sidebarWidth, "Sidebar width does not match expected styled layout.");
-        Assert.IsFalse(string.IsNullOrWhiteSpace(footerText), "Footer text should be present.");
+        Assert.IsNotNull(footerText, "Footer text should be present.");
         StringAssert.Contains(footerText, "v", "Footer should include Web UI version string.");
     }
 
@@ -264,7 +255,7 @@ public class ScreenshotTests : PageTest
     public async Task Dashboard_ReliabilityPanelStylesAndMarkupArePresent()
     {
         await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(BaseUrl);
+        await Page.GotoAsync(ServerUrl);
         await Page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var cssText = await Page.EvaluateAsync<string>("""
@@ -312,22 +303,21 @@ public class ScreenshotTests : PageTest
 
         // 2. Dashboard
         Console.WriteLine("[TEST] Navigating to Dashboard...");
-        await Page.GotoAsync(BaseUrl);
+        await Page.GotoAsync(ServerUrl);
         await Page.WaitForSelectorAsync(".stat-card, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_dashboard.png"), FullPage = true });
 
         // 3. Providers List
         Console.WriteLine("[TEST] Navigating to Providers...");
-        await Page.GotoAsync($"{BaseUrl}/providers");
+        await Page.GotoAsync($"{ServerUrl}/providers");
         await Page.WaitForSelectorAsync("table, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_providers.png"), FullPage = true });
 
         // 4. Charts
         Console.WriteLine("[TEST] Navigating to Charts...");
-        await Page.GotoAsync($"{BaseUrl}/charts");
+        await Page.GotoAsync($"{ServerUrl}/charts");
         
         // Wait for either the canvas (if data exists) or the info alert (if no data)
-        // We also wait for the container itself to be sure the page structure is there
         await Page.WaitForSelectorAsync(".chart-container, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         
         // Give chart animation a moment to settle
@@ -340,7 +330,7 @@ public class ScreenshotTests : PageTest
     public async Task ThemeSelector_AppliesAllThemes()
     {
         await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(BaseUrl);
+        await Page.GotoAsync(ServerUrl);
         await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var availableThemes = await Page.EvaluateAsync<string[]>("""
@@ -379,7 +369,7 @@ public class ScreenshotTests : PageTest
     public async Task RepresentativeThemes_RenderDistinctVisualSnapshots()
     {
         await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(BaseUrl);
+        await Page.GotoAsync(ServerUrl);
         await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var representativeThemes = _representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
@@ -431,7 +421,7 @@ public class ScreenshotTests : PageTest
     public async Task RepresentativeThemes_ExposeExpectedCssTokens()
     {
         await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(BaseUrl);
+        await Page.GotoAsync(ServerUrl);
         await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         foreach (var (theme, expectedTokens) in _representativeThemeTokens)

@@ -24,6 +24,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SharpVectors.Renderers.Wpf;
 using SharpVectors.Converters;
 
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.UI.Slim.ViewModels;
+
 namespace AIUsageTracker.UI.Slim;
 
 public enum StatusType
@@ -40,7 +45,8 @@ public partial class MainWindow : Window
         @"(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|\[[^\]]+\]\([^)]+\))",
         RegexOptions.Compiled);
 
-    private readonly MonitorService _monitorService;
+    private readonly MainViewModel _viewModel;
+    private readonly IMonitorService _monitorService;
     private readonly ILogger<MainWindow> _logger;
     private IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
@@ -51,7 +57,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, ImageSource> _iconCache = new();
     private DateTime _lastMonitorUpdate = DateTime.MinValue;
     private DateTime _lastRefreshTrigger = DateTime.MinValue;
-    private const int RefreshCooldownSeconds = 120; // Only trigger refresh if 2 minutes since last attempt
+    private const int RefreshCooldownSeconds = 120;
     private static readonly TimeSpan StartupPollingInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan NormalPollingInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan TrayConfigRefreshInterval = TimeSpan.FromMinutes(5);
@@ -101,8 +107,25 @@ public partial class MainWindow : Window
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpNoOwnerZOrder = 0x0200;
 
-    public MainWindow()
+    public MainWindow(
+        MainViewModel viewModel,
+        IMonitorService monitorService,
+        ILogger<MainWindow> logger,
+        IUpdateCheckerService updateChecker)
         : this(skipUiInitialization: false)
+    {
+        _viewModel = viewModel;
+        DataContext = _viewModel;
+        _monitorService = monitorService;
+        _logger = logger;
+        _updateChecker = updateChecker;
+    }
+
+    public MainWindow()
+        : this(App.Host.Services.GetRequiredService<MainViewModel>(),
+               App.Host.Services.GetRequiredService<IMonitorService>(),
+               App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
+               App.Host.Services.GetRequiredService<IUpdateCheckerService>())
     {
     }
 
@@ -114,9 +137,11 @@ public partial class MainWindow : Window
             ApplyVersionDisplay();
         }
 
-        _logger = App.CreateLogger<MainWindow>();
-        _monitorService = new MonitorService();
-        _updateChecker = new GitHubUpdateChecker(NullLogger<GitHubUpdateChecker>.Instance, UpdateChannel.Stable);
+        // Fallbacks for internal/test use
+        _logger ??= App.CreateLogger<MainWindow>();
+        _monitorService ??= App.MonitorService;
+        _updateChecker ??= new GitHubUpdateChecker(Microsoft.Extensions.Logging.Abstractions.NullLogger<GitHubUpdateChecker>.Instance, UpdateChannel.Stable);
+        
         _updateCheckTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMinutes(15)

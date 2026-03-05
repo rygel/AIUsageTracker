@@ -4,10 +4,8 @@ using Microsoft.Playwright.MSTest;
 namespace AIUsageTracker.Web.Tests;
 
 [TestClass]
-public class ViewTests : PageTest
+public class ViewTests : WebTestBase
 {
-    private const string BaseUrl = "http://127.0.0.1:5100";
-
     [TestMethod]
     [DataRow("/")]
     [DataRow("/providers")]
@@ -16,7 +14,7 @@ public class ViewTests : PageTest
     [DataRow("/reliability")]
     public async Task Page_LoadsSuccessfully(string path)
     {
-        var response = await Page.GotoAsync($"{BaseUrl}{path}");
+        var response = await Page.GotoAsync($"{ServerUrl}{path}");
         Assert.IsNotNull(response);
         Assert.AreEqual(200, response.Status);
     }
@@ -24,7 +22,7 @@ public class ViewTests : PageTest
     [TestMethod]
     public async Task Dashboard_HasExpectedElements()
     {
-        await Page.GotoAsync(BaseUrl);
+        await Page.GotoAsync(ServerUrl);
         
         // Check for common layout elements
         var sidebar = await Page.QuerySelectorAsync(".sidebar");

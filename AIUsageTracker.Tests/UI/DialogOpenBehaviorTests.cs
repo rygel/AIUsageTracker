@@ -52,7 +52,7 @@ public class DialogOpenBehaviorTests
             var shown = 0;
 
             app.SetMainWindowForTesting(mainWindow);
-            app.IsMainWindowVisible = _ => false;
+            app.IsMainWindowVisible = () => false;
             app.InfoDialogFactory = () => infoDialog;
             app.ShowInfoDialogAction = _ => shown++;
 
