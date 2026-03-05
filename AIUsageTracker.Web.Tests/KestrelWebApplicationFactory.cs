@@ -27,7 +27,7 @@ public class KestrelWebApplicationFactory<TEntryPoint> : IDisposable where TEntr
 
     private void InitializeHost()
     {
-        var projectDir = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "AIUsageTracker.Web");
+        var projectDir = ResolveProjectDirectory();
         
         _host = Host.CreateDefaultBuilder()
             .ConfigureWebHostDefaults(webBuilder =>
@@ -51,6 +51,37 @@ public class KestrelWebApplicationFactory<TEntryPoint> : IDisposable where TEntr
         {
             throw new InvalidOperationException("Could not determine server address.");
         }
+    }
+
+    private static string ResolveProjectDirectory()
+    {
+        // Try local development path (relative to bin/Debug/net8.0)
+        var localPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web");
+        if (Directory.Exists(localPath))
+        {
+            return Path.GetFullPath(localPath);
+        }
+
+        // Try CI path (relative to repo root if current directory is root)
+        var ciPath = Path.Combine(Directory.GetCurrentDirectory(), "AIUsageTracker.Web");
+        if (Directory.Exists(ciPath))
+        {
+            return Path.GetFullPath(ciPath);
+        }
+
+        // Fallback: search up for solution root
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current != null)
+        {
+            var candidate = Path.Combine(current.FullName, "AIUsageTracker.Web");
+            if (Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not find AIUsageTracker.Web project directory.");
     }
 
     public void Dispose()
