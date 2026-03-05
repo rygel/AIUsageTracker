@@ -103,10 +103,13 @@ public class ScreenshotTests : PageTest
         }
     }
 
-    public override BrowserTypeLaunchOptions BrowserTypeLaunchOptions => new()
+    public override async Task<BrowserNewContextOptions> ContextOptionsAsync()
     {
-        Headless = true,
-    };
+        return new BrowserNewContextOptions
+        {
+            ViewportSize = new ViewportSize { Width = 1280, Height = 800 }
+        };
+    }
 
     public ScreenshotTests()
     {
