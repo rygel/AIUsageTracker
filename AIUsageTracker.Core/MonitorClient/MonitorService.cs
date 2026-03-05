@@ -3,12 +3,13 @@ using System.Net.Http.Json;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Core.MonitorClient;
 
-public class MonitorService
+public class MonitorService : IMonitorService
 {
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
