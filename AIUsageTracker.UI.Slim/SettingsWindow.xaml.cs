@@ -10,8 +10,10 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
@@ -25,8 +27,9 @@ public partial class SettingsWindow : Window
         public string Label { get; init; } = string.Empty;
     }
 
-    private readonly MonitorService _monitorService;
+    private readonly IMonitorService _monitorService;
     private readonly ILogger<SettingsWindow> _logger;
+    private readonly UiPreferencesStore _preferencesStore;
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
     private string? _gitHubAuthUsername;
@@ -43,7 +46,7 @@ public partial class SettingsWindow : Window
 
     public bool SettingsChanged { get; private set; }
 
-    public SettingsWindow()
+    public SettingsWindow(IMonitorService monitorService, ILogger<SettingsWindow> logger, UiPreferencesStore preferencesStore)
     {
         _autoSaveTimer = new DispatcherTimer
         {
@@ -52,12 +55,20 @@ public partial class SettingsWindow : Window
         _autoSaveTimer.Tick += AutoSaveTimer_Tick;
 
         InitializeComponent();
-        _logger = App.CreateLogger<SettingsWindow>();
-        _monitorService = new MonitorService();
+        _monitorService = monitorService;
+        _logger = logger;
+        _preferencesStore = preferencesStore;
         App.PrivacyChanged += OnPrivacyChanged;
         Closed += SettingsWindow_Closed;
         Loaded += SettingsWindow_Loaded;
         UpdatePrivacyButtonState();
+    }
+
+    public SettingsWindow() : this(
+        App.Host.Services.GetRequiredService<IMonitorService>(),
+        App.Host.Services.GetRequiredService<ILogger<SettingsWindow>>(),
+        App.Host.Services.GetRequiredService<UiPreferencesStore>())
+    {
     }
 
     private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
@@ -104,7 +115,7 @@ public partial class SettingsWindow : Window
             _gitHubAuthUsername = await TryGetGitHubUsernameFromAuthAsync();
             _openAiAuthUsername = await TryGetOpenAiUsernameFromAuthAsync();
             _codexAuthUsername = await TryGetCodexUsernameFromAuthAsync();
-            _preferences = await UiPreferencesStore.LoadAsync();
+            _preferences = await _preferencesStore.LoadAsync();
             _agentPreferences = await _monitorService.GetPreferencesAsync();
             App.Preferences = _preferences;
             _isPrivacyMode = _preferences.IsPrivacyMode;
@@ -1554,7 +1565,7 @@ public partial class SettingsWindow : Window
     private async Task<bool> SaveUiPreferencesAsync(bool showErrorDialog = false)
     {
         App.Preferences = _preferences;
-        var saved = await UiPreferencesStore.SaveAsync(_preferences);
+        var saved = await _preferencesStore.SaveAsync(_preferences);
         if (!saved)
         {
             _logger.LogWarning("Failed to save Slim UI preferences");

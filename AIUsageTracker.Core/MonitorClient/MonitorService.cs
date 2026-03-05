@@ -50,7 +50,7 @@ public class MonitorService : IMonitorService
         // to avoid race conditions where the Monitor port changes
     }
 
-    public List<string> LastAgentErrors { get; private set; } = new();
+    public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
     private static readonly List<string> _diagnosticsLog = new();
     public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
     private static long _usageRequestCount;
@@ -391,7 +391,7 @@ public class MonitorService : IMonitorService
         return result.Success;
     }
 
-    public async Task<(bool Success, string Message)> SendTestNotificationDetailedAsync()
+    public async Task<AgentTestNotificationResult> SendTestNotificationDetailedAsync()
     {
         try
         {
@@ -400,20 +400,21 @@ public class MonitorService : IMonitorService
 
             if (response.IsSuccessStatusCode)
             {
-                return (true, "Test sent. Check system notifications.");
+                var result = await response.Content.ReadFromJsonAsync<AgentTestNotificationResult>(_jsonOptions);
+                return result ?? new AgentTestNotificationResult { Success = true, Message = "Test sent. Check system notifications." };
             }
 
             if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
-                return (false, "Monitor endpoint not available. Restart Monitor and try again.");
+                return new AgentTestNotificationResult { Success = false, Message = "Monitor endpoint not available. Restart Monitor and try again." };
             }
 
-            return (false, $"Monitor returned {(int)response.StatusCode} ({response.ReasonPhrase}).");
+            return new AgentTestNotificationResult { Success = false, Message = $"Monitor returned {(int)response.StatusCode} ({response.ReasonPhrase})." };
         }
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "SendTestNotificationAsync error");
-            return (false, "Could not reach Monitor. Ensure it is running and try again.");
+            return new AgentTestNotificationResult { Success = false, Message = "Could not reach Monitor. Ensure it is running and try again." };
         }
     }
 
@@ -654,6 +655,12 @@ public class MonitorService : IMonitorService
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
     }
+}
+
+public sealed class AgentTestNotificationResult
+{
+    public bool Success { get; init; }
+    public string Message { get; init; } = string.Empty;
 }
 
 public sealed class AgentTelemetrySnapshot

@@ -324,9 +324,9 @@ app.MapDelete("/api/config/{providerId}", async (string providerId, IConfigServi
 });
 
 // Preferences endpoints (deprecated: legacy compatibility only)
-const preferencesApiDeprecationMessage =
+const string preferencesApiDeprecationMessage =
     "/api/preferences is deprecated and reserved for legacy clients; UI preferences must be managed locally by each UI.";
-const preferencesApiSunsetDate = "Wed, 31 Dec 2026 00:00:00 GMT";
+const string preferencesApiSunsetDate = "Wed, 31 Dec 2026 00:00:00 GMT";
 
 app.MapGet("/api/preferences", async (HttpContext httpContext, IConfigService configService, ILogger<Program> logger) =>
 {

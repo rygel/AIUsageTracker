@@ -17,6 +17,7 @@ public class ProviderRefreshServiceTests
     private readonly Mock<IUsageDatabase> _mockDatabase;
     private readonly Mock<INotificationService> _mockNotificationService;
     private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
+    private readonly Mock<IAppPathProvider> _mockPathProvider;
     private readonly Mock<ConfigService> _mockConfigService;
     private readonly ProviderRefreshService _service;
 
@@ -27,10 +28,11 @@ public class ProviderRefreshServiceTests
         _mockDatabase = new Mock<IUsageDatabase>();
         _mockNotificationService = new Mock<INotificationService>();
         _mockHttpClientFactory = new Mock<IHttpClientFactory>();
+        _mockPathProvider = new Mock<IAppPathProvider>();
 
-        // ConfigService needs a logger, using NullLogger
+        // ConfigService needs a logger and path provider, using NullLogger
         var configLogger = new Mock<ILogger<ConfigService>>();
-        _mockConfigService = new Mock<ConfigService>(configLogger.Object);
+        _mockConfigService = new Mock<ConfigService>(configLogger.Object, _mockPathProvider.Object);
 
         _service = new ProviderRefreshService(
             _mockLogger.Object,
@@ -39,6 +41,7 @@ public class ProviderRefreshServiceTests
             _mockNotificationService.Object,
             _mockHttpClientFactory.Object,
             _mockConfigService.Object,
+            _mockPathProvider.Object,
             Enumerable.Empty<IProviderService>());
     }
 

@@ -1,4 +1,5 @@
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10,14 +11,17 @@ public class ConfigService : IConfigService
     private readonly ILogger<ConfigService> _logger;
     private readonly JsonConfigLoader _configLoader;
     private readonly TokenDiscoveryService _tokenDiscovery;
+    private readonly IAppPathProvider _pathProvider;
 
-    public ConfigService(ILogger<ConfigService> logger)
+    public ConfigService(ILogger<ConfigService> logger, IAppPathProvider pathProvider)
     {
         _logger = logger;
+        _pathProvider = pathProvider;
         _configLoader = new JsonConfigLoader(
             logger: NullLogger<JsonConfigLoader>.Instance,
-            tokenDiscoveryLogger: NullLogger<TokenDiscoveryService>.Instance);
-        _tokenDiscovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance);
+            tokenDiscoveryLogger: NullLogger<TokenDiscoveryService>.Instance,
+            pathProvider: _pathProvider);
+        _tokenDiscovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, _pathProvider);
     }
 
     public async Task<List<ProviderConfig>> GetConfigsAsync()

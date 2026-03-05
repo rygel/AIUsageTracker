@@ -1,6 +1,8 @@
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 
@@ -10,7 +12,9 @@ public class TokenDiscoveryServiceTests
     public async Task DiscoverTokensAsync_IncludesCodexAsWellKnownProvider()
     {
         // Arrange
-        var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance);
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(Path.GetTempPath());
+        var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
 
         // Act
         var configs = await discovery.DiscoverTokensAsync();

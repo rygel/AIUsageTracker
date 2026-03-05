@@ -48,6 +48,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly IMonitorService _monitorService;
     private readonly ILogger<MainWindow> _logger;
+    private readonly UiPreferencesStore _preferencesStore;
     private IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
     private List<ProviderUsage> _usages = new();
@@ -111,7 +112,8 @@ public partial class MainWindow : Window
         MainViewModel viewModel,
         IMonitorService monitorService,
         ILogger<MainWindow> logger,
-        IUpdateCheckerService updateChecker)
+        IUpdateCheckerService updateChecker,
+        UiPreferencesStore preferencesStore)
         : this(skipUiInitialization: false)
     {
         _viewModel = viewModel;
@@ -119,13 +121,15 @@ public partial class MainWindow : Window
         _monitorService = monitorService;
         _logger = logger;
         _updateChecker = updateChecker;
+        _preferencesStore = preferencesStore;
     }
 
     public MainWindow()
         : this(App.Host.Services.GetRequiredService<MainViewModel>(),
                App.Host.Services.GetRequiredService<IMonitorService>(),
                App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
-               App.Host.Services.GetRequiredService<IUpdateCheckerService>())
+               App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
+               App.Host.Services.GetRequiredService<UiPreferencesStore>())
     {
     }
 
@@ -421,7 +425,7 @@ public partial class MainWindow : Window
 
             if (!_preferencesLoaded)
             {
-                _preferences = await UiPreferencesStore.LoadAsync();
+                _preferences = await _preferencesStore.LoadAsync();
                 App.Preferences = _preferences;
                 _isPrivacyMode = _preferences.IsPrivacyMode;
                 App.SetPrivacyMode(_isPrivacyMode);
@@ -649,7 +653,7 @@ public partial class MainWindow : Window
     private async Task SaveUiPreferencesAsync()
     {
         App.Preferences = _preferences;
-        var saved = await UiPreferencesStore.SaveAsync(_preferences);
+        var saved = await _preferencesStore.SaveAsync(_preferences);
         if (!saved)
         {
             _logger.LogWarning("Failed to save Slim UI preferences");

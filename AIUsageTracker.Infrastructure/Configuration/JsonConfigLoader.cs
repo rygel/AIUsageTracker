@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Helpers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -10,37 +11,40 @@ public class JsonConfigLoader : IConfigLoader
 {
     private readonly ILogger<JsonConfigLoader> _logger;
     private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
+    private readonly IAppPathProvider _pathProvider;
 
-    public JsonConfigLoader(ILogger<JsonConfigLoader>? logger = null, ILogger<TokenDiscoveryService>? tokenDiscoveryLogger = null)
+    public JsonConfigLoader(
+        ILogger<JsonConfigLoader>? logger = null, 
+        ILogger<TokenDiscoveryService>? tokenDiscoveryLogger = null,
+        IAppPathProvider? pathProvider = null)
     {
         _logger = logger ?? NullLogger<JsonConfigLoader>.Instance;
         _tokenDiscoveryLogger = tokenDiscoveryLogger ?? NullLogger<TokenDiscoveryService>.Instance;
+        _pathProvider = pathProvider ?? new DefaultAppPathProvider();
     }
 
-    private string GetTrackerConfigPath() => 
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "auth.json");
+    private string GetTrackerConfigPath() => _pathProvider.GetAuthFilePath();
 
-    private string GetProvidersConfigPath() => 
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "providers.json");
+    private string GetProvidersConfigPath() => _pathProvider.GetProviderConfigFilePath();
 
     public async Task<List<ProviderConfig>> LoadConfigAsync()
     {
         var authPaths = new List<string>
         {
             GetTrackerConfigPath(),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
+            Path.Combine(_pathProvider.GetUserProfileRoot(), ".local", "share", "opencode", "auth.json"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
+            Path.Combine(_pathProvider.GetUserProfileRoot(), ".opencode", "auth.json")
         };
 
         var providerPaths = new List<string>
         {
             GetProvidersConfigPath(),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "providers.json"),
+            Path.Combine(_pathProvider.GetUserProfileRoot(), ".local", "share", "opencode", "providers.json"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "providers.json"),
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "providers.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "providers.json")
+            Path.Combine(_pathProvider.GetUserProfileRoot(), ".opencode", "providers.json")
         };
 
         // Dictionary to merge configs: ProviderId -> Config
@@ -129,7 +133,7 @@ public class JsonConfigLoader : IConfigLoader
 
         var result = mergedConfigs.Values.ToList();
 
-        var discoveryService = new TokenDiscoveryService(_tokenDiscoveryLogger);
+        var discoveryService = new TokenDiscoveryService(_tokenDiscoveryLogger, _pathProvider);
         var discovered = await discoveryService.DiscoverTokensAsync();
         
         foreach (var d in discovered)
@@ -349,8 +353,7 @@ public class JsonConfigLoader : IConfigLoader
         await File.WriteAllTextAsync(providersPath, JsonSerializer.Serialize(exportProviders, opts));
     }
 
-    private string GetPreferencesPath() => 
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker", "preferences.json");
+    private string GetPreferencesPath() => _pathProvider.GetPreferencesFilePath();
 
     public async Task<AppPreferences> LoadPreferencesAsync()
     {
@@ -418,5 +421,3 @@ public class JsonConfigLoader : IConfigLoader
         await File.WriteAllTextAsync(path, output);
     }
 }
-
-

@@ -19,8 +19,9 @@ public class StartupAntiHammerTests
             INotificationService notificationService,
             IHttpClientFactory httpClientFactory,
             IConfigService configService,
+            IAppPathProvider pathProvider,
             System.Collections.Generic.IEnumerable<IProviderService> providers)
-            : base(logger, loggerFactory, database, notificationService, httpClientFactory, configService, providers)
+            : base(logger, loggerFactory, database, notificationService, httpClientFactory, configService, pathProvider, providers)
         {
         }
 
@@ -50,6 +51,7 @@ public class StartupAntiHammerTests
         var mockNotificationService = new Mock<INotificationService>();
         var mockHttpClientFactory = new Mock<IHttpClientFactory>();
         var mockConfigService = new Mock<IConfigService>();
+        var mockPathProvider = new Mock<IAppPathProvider>();
 
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
             .ReturnsAsync(false);
@@ -64,6 +66,7 @@ public class StartupAntiHammerTests
             mockNotificationService.Object,
             mockHttpClientFactory.Object,
             mockConfigService.Object,
+            mockPathProvider.Object,
             Enumerable.Empty<IProviderService>());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -87,6 +90,7 @@ public class StartupAntiHammerTests
         var mockNotificationService = new Mock<INotificationService>();
         var mockHttpClientFactory = new Mock<IHttpClientFactory>();
         var mockConfigService = new Mock<IConfigService>();
+        var mockPathProvider = new Mock<IAppPathProvider>();
 
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
             .ReturnsAsync(true);
@@ -102,6 +106,7 @@ public class StartupAntiHammerTests
             mockNotificationService.Object,
             mockHttpClientFactory.Object,
             mockConfigService.Object,
+            mockPathProvider.Object,
             Enumerable.Empty<IProviderService>());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));

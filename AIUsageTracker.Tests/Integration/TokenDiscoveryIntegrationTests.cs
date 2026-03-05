@@ -1,6 +1,8 @@
 using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using Xunit;
 
 namespace AIUsageTracker.Tests.Integration;
@@ -11,7 +13,10 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
 
     public TokenDiscoveryIntegrationTests()
     {
-        _service = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, TestRootPath);
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(TestRootPath);
+        
+        _service = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
     }
 
     [Fact]

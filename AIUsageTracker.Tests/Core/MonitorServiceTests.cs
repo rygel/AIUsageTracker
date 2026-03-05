@@ -232,7 +232,7 @@ public class MonitorServiceTests
     public async Task SendTestNotificationDetailedAsync_Success_ReturnsSuccessMessage()
     {
         // Arrange
-        SetupMockResponse(HttpStatusCode.OK, new { message = "ok" });
+        SetupMockResponse(HttpStatusCode.OK, new { success = true, message = "Test sent" });
 
         // Act
         var result = await _service.SendTestNotificationDetailedAsync();

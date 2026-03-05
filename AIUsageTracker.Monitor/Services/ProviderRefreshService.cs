@@ -18,6 +18,7 @@ public class ProviderRefreshService : BackgroundService
     private readonly INotificationService _notificationService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfigService _configService;
+    private readonly IAppPathProvider _pathProvider;
     private readonly IEnumerable<IProviderService> _providers;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
@@ -55,6 +56,7 @@ public class ProviderRefreshService : BackgroundService
         INotificationService notificationService,
         IHttpClientFactory httpClientFactory,
         IConfigService configService,
+        IAppPathProvider pathProvider,
         IEnumerable<IProviderService> providers)
     {
         _logger = logger;
@@ -63,6 +65,7 @@ public class ProviderRefreshService : BackgroundService
         _notificationService = notificationService;
         _httpClientFactory = httpClientFactory;
         _configService = configService;
+        _pathProvider = pathProvider;
         _providers = providers;
     }
 
@@ -147,7 +150,8 @@ public class ProviderRefreshService : BackgroundService
 
         var configLoader = new JsonConfigLoader(
             _loggerFactory.CreateLogger<JsonConfigLoader>(),
-            _loggerFactory.CreateLogger<TokenDiscoveryService>());
+            _loggerFactory.CreateLogger<TokenDiscoveryService>(),
+            _pathProvider);
 
         var providerList = _providers.ToList();
 
@@ -367,7 +371,7 @@ public class ProviderRefreshService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
-            Program.ReportError($"Refresh failed: {ex.Message}", _logger);
+            Program.ReportError($"Refresh failed: {ex.Message}", _pathProvider, _logger);
             refreshError = ex.Message;
         }
         finally

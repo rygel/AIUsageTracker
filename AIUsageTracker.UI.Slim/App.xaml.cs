@@ -45,6 +45,8 @@ public partial class App : Application
     private static void ConfigureServices(IServiceCollection services)
     {
         // Infrastructure
+        services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
+        services.AddSingleton<UiPreferencesStore>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<IUpdateCheckerService, GitHubUpdateChecker>();
         services.AddSingleton<HttpClient>();
@@ -84,7 +86,8 @@ public partial class App : Application
 
         try
         {
-            Preferences = await UiPreferencesStore.LoadAsync();
+            var preferencesStore = Host.Services.GetRequiredService<UiPreferencesStore>();
+            Preferences = await preferencesStore.LoadAsync();
             ApplyTheme(Preferences.Theme);
             IsPrivacyMode = Preferences.IsPrivacyMode;
         }
