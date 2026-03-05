@@ -1,44 +1,17 @@
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Net;
 
 namespace AIUsageTracker.Web.Tests;
 
-public class KestrelWebApplicationFactory<TEntryPoint> : WebApplicationFactory<TEntryPoint> where TEntryPoint : class
+// We inherit from Object instead of WebApplicationFactory to completely avoid the TestServer cast issues.
+public class KestrelWebApplicationFactory<TEntryPoint> : IDisposable where TEntryPoint : class
 {
     private IHost? _host;
-
-    protected override IHost CreateHost(IHostBuilder builder)
-    {
-        // Use the actual web project directory as the content root
-        var projectDir = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "AIUsageTracker.Web");
-        if (Directory.Exists(projectDir))
-        {
-            builder.UseContentRoot(projectDir);
-        }
-
-        builder.ConfigureWebHost(webBuilder =>
-        {
-            webBuilder.UseKestrel(options =>
-            {
-                options.Listen(IPAddress.Loopback, 0);
-            });
-        });
-
-        _host = base.CreateHost(builder);
-        return _host;
-    }
-
-    protected override TestServer CreateServer(IWebHostBuilder builder)
-    {
-        return null!;
-    }
+    private string? _serverAddress;
 
     public string ServerAddress
     {
@@ -46,26 +19,44 @@ public class KestrelWebApplicationFactory<TEntryPoint> : WebApplicationFactory<T
         {
             if (_host == null)
             {
-                _ = CreateClient();
+                InitializeHost();
             }
-            
-            if (_host == null)
-            {
-                throw new InvalidOperationException("Host failed to initialize.");
-            }
-
-            var server = _host.Services.GetRequiredService<IServer>();
-            var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses;
-            return addresses?.FirstOrDefault() ?? "http://127.0.0.1:5100";
+            return _serverAddress ?? throw new InvalidOperationException("Server address not initialized.");
         }
     }
 
-    protected override void Dispose(bool disposing)
+    private void InitializeHost()
     {
-        base.Dispose(disposing);
-        if (disposing)
+        var projectDir = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", "AIUsageTracker.Web");
+        
+        _host = Host.CreateDefaultBuilder()
+            .ConfigureWebHostDefaults(webBuilder =>
+            {
+                webBuilder.UseContentRoot(projectDir);
+                webBuilder.UseKestrel(options =>
+                {
+                    options.Listen(IPAddress.Loopback, 0); // Random port
+                });
+                webBuilder.UseStartup<AIUsageTracker.Web.Startup>();
+            })
+            .Build();
+
+        _host.Start();
+
+        var server = _host.Services.GetRequiredService<IServer>();
+        var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses;
+        _serverAddress = addresses?.FirstOrDefault();
+        
+        if (_serverAddress == null)
         {
-            _host?.Dispose();
+            throw new InvalidOperationException("Could not determine server address.");
         }
+    }
+
+    public void Dispose()
+    {
+        _host?.StopAsync().GetAwaiter().GetResult();
+        _host?.Dispose();
+        _host = null;
     }
 }
