@@ -519,7 +519,7 @@ public partial class Program
             }
 
             var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
-            foreach (var infoPath in GetMonitorInfoCandidatePaths(pathProvider))
+            foreach (var infoPath in pathProvider.GetMonitorInfoCandidatePaths())
             {
                 try
                 {
@@ -571,25 +571,10 @@ public partial class Program
 
     private static string? GetExistingAgentInfoPath(IAppPathProvider pathProvider)
     {
-        return GetMonitorInfoCandidatePaths(pathProvider)
+        return pathProvider.GetMonitorInfoCandidatePaths()
             .Where(File.Exists)
             .OrderByDescending(path => File.GetLastWriteTimeUtc(path))
             .FirstOrDefault();
-    }
-
-    private static IEnumerable<string> GetMonitorInfoCandidatePaths(IAppPathProvider pathProvider)
-    {
-        var appDataRoot = pathProvider.GetAppDataRoot();
-        var userProfileRoot = pathProvider.GetUserProfileRoot();
-
-        return new[]
-        {
-            Path.Combine(appDataRoot, "monitor.json"),
-            Path.Combine(appDataRoot, "Monitor", "monitor.json"),
-            Path.Combine(appDataRoot, "Agent", "monitor.json"),
-            Path.Combine(userProfileRoot, ".ai-consumption-tracker", "monitor.json"),
-            Path.Combine(userProfileRoot, ".opencode", "monitor.json")
-        };
     }
 }
 

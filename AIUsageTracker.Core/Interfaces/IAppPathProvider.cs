@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace AIUsageTracker.Core.Interfaces;
 
 public interface IAppPathProvider
@@ -11,4 +13,7 @@ public interface IAppPathProvider
     
     // Discovery root for external tools (e.g., .claude, .codex)
     string GetUserProfileRoot();
+
+    // Helper for monitor info discovery
+    IEnumerable<string> GetMonitorInfoCandidatePaths();
 }
