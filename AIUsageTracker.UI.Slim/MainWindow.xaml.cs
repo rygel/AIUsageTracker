@@ -1776,7 +1776,7 @@ public partial class MainWindow : Window
             return false;
         }
 
-        var hourlyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && d.WindowKind == WindowKind.Primary);
+        var hourlyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && (d.WindowKind == WindowKind.Primary || d.WindowKind == WindowKind.Spark));
         var weeklyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && d.WindowKind == WindowKind.Secondary);
 
         if (hourlyDetail == null || weeklyDetail == null)

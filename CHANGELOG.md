@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.2.28-beta.13] - 2026-03-05
+
+### Added
+- **GitHub Copilot Dual Path Support**: Implemented dual-quota tracking for GitHub Copilot, allowing simultaneous monitoring of Premium Interactions and short-term quota windows.
+- **Improved UI Logic**: Updated Slim UI to support "Spark" quota windows in the dual-progress bar view, ensuring correct rendering for OpenAI and GitHub Copilot.
+
+### Fixed
+- **Web UI Data Parity**: Fixed a regression in `WebDatabaseService` where provider details were not correctly mapped, restoring dual-bar visibility and detailed quota lists in the Web dashboard.
+
 ## [2.2.28-beta.11] - 2026-03-05
 
 ### Added
@@ -37,27 +46,6 @@
 - Added Web Tests job to CI pipeline
 - Improved Playwright browser installation in CI workflow
 - Fixed path handling in GitHub Actions PowerShell scripts
-
-## [2.2.26] - 2026-02-28
-
-### Added
-- Dual release channel support (Stable and Beta)
-- Update channel selector in Settings window
-- develop branch for beta releases
-
-### Changes
-- Solution file updated to reference AIUsageTracker.* projects
-- App icon now properly embedded in all executables
-
-### CI/CD
-- New release.yml workflow with channel parameter
-- publish.yml updated to detect beta releases from tag patterns
-- generate-appcast.sh script with channel support
-- Beta appcast XML files for all architectures
-
-### Application
-- UpdateChannel enum in Core (Stable/Beta)
-- GitHubUpdateChecker now uses channel-specific appcast URLs
 
 ## [2.2.26] - 2026-02-28
 
