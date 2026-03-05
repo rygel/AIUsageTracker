@@ -103,14 +103,6 @@ public class ScreenshotTests : PageTest
         }
     }
 
-    public override async Task<BrowserNewContextOptions> ContextOptionsAsync()
-    {
-        return new BrowserNewContextOptions
-        {
-            ViewportSize = new ViewportSize { Width = 1280, Height = 800 }
-        };
-    }
-
     public ScreenshotTests()
     {
         // bin/Debug/net8.0/../../../docs
@@ -481,4 +473,3 @@ public class ScreenshotTests : PageTest
         }
     }
 }
-
