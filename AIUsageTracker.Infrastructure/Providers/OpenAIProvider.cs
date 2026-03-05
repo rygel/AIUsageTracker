@@ -162,18 +162,18 @@ public class OpenAIProvider : ProviderBase
 
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            return CreateUnavailableUsage($"Session invalid ({(int)response.StatusCode})");
+            return CreateUnavailableUsage($"Session invalid ({(int)response.StatusCode})", (int)response.StatusCode);
         }
 
         if (!response.IsSuccessStatusCode)
         {
-            return CreateUnavailableUsage($"Session usage request failed ({(int)response.StatusCode})");
+            return CreateUnavailableUsage($"Session usage request failed ({(int)response.StatusCode})", (int)response.StatusCode);
         }
 
         using var doc = JsonDocument.Parse(content);
         if (doc.RootElement.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
         {
-            return CreateUnavailableUsage(detail.GetString() ?? "Session usage request failed");
+            return CreateUnavailableUsage(detail.GetString() ?? "Session usage request failed", (int)response.StatusCode);
         }
 
         var planType = ReadString(doc.RootElement, "plan_type") ?? "chatgpt";
