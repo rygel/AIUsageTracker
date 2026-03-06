@@ -36,7 +36,7 @@ public class ZaiProvider : ProviderBase
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            throw new ArgumentException("API Key not found for Z.AI provider.");
+            throw new ArgumentException("API Key not found for Z.AI provider.", nameof(config));
         }
 
         var request = new HttpRequestMessage(HttpMethod.Get, "https://api.z.ai/api/monitor/usage/quota/limit");

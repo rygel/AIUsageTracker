@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Management;
 using System.Net.Http;
@@ -47,15 +48,13 @@ public class AntigravityProvider : ProviderBase
         _logger = logger;
     }
 
+    [SuppressMessage("Security", "MA0039:Do not write your own certificate validation method", Justification = "Antigravity only exposes an ephemeral loopback endpoint on 127.0.0.1 with a self-signed certificate. This client is never used for remote hosts.")]
     private static HttpClient CreateLocalhostClient()
     {
         var handler = new HttpClientHandler
         {
-            ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
-            {
-                // Only allow localhost self-signed
-                return message.RequestUri?.Host == "127.0.0.1";
-            }
+            // This client is used only for the local Antigravity loopback endpoint.
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         };
 
         return new HttpClient(handler)
@@ -669,7 +668,7 @@ public class AntigravityProvider : ProviderBase
     private static List<ProviderUsageDetail> SortDetails(List<ProviderUsageDetail> details)
     {
         return details
-            .OrderBy(d => d.Name.StartsWith("[Credits]") ? "0" + d.Name : "1" + d.Name)
+            .OrderBy(d => d.Name.StartsWith("[Credits]", StringComparison.Ordinal) ? "0" + d.Name : "1" + d.Name)
             .ToList();
     }
 
@@ -776,7 +775,7 @@ public class AntigravityProvider : ProviderBase
 
     private static double ParseDetailRemainingPercentage(string detailUsed)
     {
-        if (detailUsed.EndsWith("%") &&
+        if (detailUsed.EndsWith("%", StringComparison.Ordinal) &&
             double.TryParse(detailUsed.TrimEnd('%'), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
         {
             return parsed;

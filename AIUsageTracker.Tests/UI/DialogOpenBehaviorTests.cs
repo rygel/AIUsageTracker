@@ -8,6 +8,8 @@ namespace AIUsageTracker.Tests.UI;
 
 public class DialogOpenBehaviorTests
 {
+    private static readonly TimeSpan StaTestTimeout = TimeSpan.FromSeconds(15);
+
     [Fact]
     public Task OpenSettingsDialogAsync_ShowsOwnedDialog_WithoutTopmostToggle()
     {
@@ -130,13 +132,13 @@ public class DialogOpenBehaviorTests
 
     private static Task RunInStaAsync(Func<Task> testBody)
     {
-        var tcs = new TaskCompletionSource<object?>();
+        var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         var thread = new Thread(() =>
         {
             try
             {
-                testBody().GetAwaiter().GetResult();
+                testBody().WaitAsync(StaTestTimeout).GetAwaiter().GetResult();
                 tcs.SetResult(null);
             }
             catch (Exception ex)

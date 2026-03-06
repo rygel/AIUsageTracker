@@ -112,8 +112,8 @@ public class IndexModel : PageModel
 
             await Task.WhenAll(latestUsageTask, summaryTask);
 
-            LatestUsage = latestUsageTask.Result;
-            Summary = summaryTask.Result;
+            LatestUsage = await latestUsageTask;
+            Summary = await summaryTask;
 
             if (LatestUsage.Count > 0)
             {
@@ -131,9 +131,10 @@ public class IndexModel : PageModel
                     await Task.WhenAll(forecastTask, reliabilityTask);
                 }
 
-                ForecastsByProvider = forecastTask.Result;
-                ReliabilityByProvider = reliabilityTask.Result;
-                AnomaliesByProvider = anomalyTask?.Result
+                ForecastsByProvider = await forecastTask;
+                ReliabilityByProvider = await reliabilityTask;
+                var anomalies = anomalyTask != null ? await anomalyTask : null;
+                AnomaliesByProvider = anomalies
                     ?? new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
 
                 // Load experimental features

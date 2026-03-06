@@ -55,7 +55,7 @@ public class MinimaxProvider : ProviderBase
         if (!string.IsNullOrEmpty(config.BaseUrl))
         {
             url = config.BaseUrl;
-            if (!url.StartsWith("http")) url = "https://" + url;
+            if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) url = "https://" + url;
         }
         else
         {

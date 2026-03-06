@@ -71,10 +71,28 @@ dotnet test --filter "FullyQualifiedName~ProviderManagerTests"
 - Always run builds and tests with a sensible timeout to avoid hanging indefinitely on deadlocks, endless loops, or stalled restores.
 - Treat timeout expiry as a failure that must be reported and investigated, not as a command to rerun indefinitely.
 - Preferred limits:
-  - Targeted test runs: 60-120 seconds
-  - Project builds: 60-120 seconds
+  - Targeted test runs: 15-30 seconds
+  - Project builds: 30-45 seconds
   - Full test suites: 180-300 seconds
 - If a command times out, isolate the specific hanging test or build step before retrying.
+
+### Local Test Environment Stabilization
+
+**Important local finding (2026-03-06):** on this machine, plain `dotnet build` / `dotnet test` can fail or behave erratically during SDK workload resolver / project-reference evaluation even after repairing and reinstalling the .NET 8 SDK. This is a local tooling/workflow issue, not necessarily an application-code issue.
+
+**Required environment variables for stable local build/test runs:**
+```powershell
+$env:MSBuildEnableWorkloadResolver = "false"
+$env:MSBUILDDISABLENODEREUSE = "1"
+$env:DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER = "1"
+```
+
+**Local workflow requirements:**
+- Prefer `scripts/run-local-tests-safe.ps1` for local test execution.
+- For very narrow or suspect test slices, prefer running `dotnet vstest` against the already-built test assembly instead of raw `dotnet test`.
+- Avoid raw `dotnet test` for suspected hangs, because it may re-enter restore/build paths and ignore the intended timeout budget.
+- Build once under the stabilized environment, then run tiny test slices with hard wall-clock caps.
+- If a test command exceeds the timeout budget, kill the full process tree and report the overrun explicitly.
 
 ### Running the Monitor
 ```bash
@@ -125,6 +143,11 @@ AIUsageTracker.exe --test --screenshot
 Run the pre-commit validation script:
 ```bash
 ./scripts/pre-commit-check.sh
+```
+
+For local Windows troubleshooting or hang investigation, use:
+```powershell
+./scripts/run-local-tests-safe.ps1
 ```
 
 This script performs:

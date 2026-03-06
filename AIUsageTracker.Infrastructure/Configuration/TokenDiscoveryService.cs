@@ -482,7 +482,10 @@ public class TokenDiscoveryService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to parse Roo config during token discovery");
+        }
     }
 
     private void TryAddRooKey(List<ProviderConfig> configs, JsonElement config, string propName, string providerId)

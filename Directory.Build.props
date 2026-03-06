@@ -3,5 +3,14 @@
     <TrackerVersion>2.2.28-beta.18</TrackerVersion>
     <TrackerAssemblyVersion>2.2.28</TrackerAssemblyVersion>
     <DefaultItemExcludes>$(DefaultItemExcludes);$(MSBuildProjectDirectory)\artifacts\**\*</DefaultItemExcludes>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <NoWarn>$(NoWarn);VSTHRD001;VSTHRD100;VSTHRD101;VSTHRD200;MA0002;MA0004;MA0005;MA0006;MA0009;MA0011;MA0016;MA0023;MA0025;MA0046;MA0047;MA0048;MA0051;MA0061</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" Version="17.14.15" PrivateAssets="all" />
+    <PackageReference Include="Meziantou.Analyzer" Version="3.0.19" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

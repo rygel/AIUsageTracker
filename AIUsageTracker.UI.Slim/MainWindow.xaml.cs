@@ -789,17 +789,22 @@ public partial class MainWindow : Window
             App.SetPrivacyMode(true);
             _preferencesLoaded = true;
             _lastMonitorUpdate = new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Local);
-            var deterministicNow = DateTime.Now;
+            var deterministicNow = new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Local);
             ApplyPreferences();
             Width = 460;
             Height = MinHeight;
+
+            static string GetProviderName(string providerId)
+            {
+                return ProviderMetadataCatalog.GetDisplayName(providerId);
+            }
 
             _usages = new List<ProviderUsage>
             {
                 new()
                 {
                     ProviderId = "antigravity",
-                    ProviderName = "Antigravity",
+                    ProviderName = GetProviderName("antigravity"),
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     DisplayAsFraction = true,
@@ -870,7 +875,7 @@ public partial class MainWindow : Window
                 new()
                 {
                     ProviderId = "github-copilot",
-                    ProviderName = "GitHub Copilot",
+                    ProviderName = GetProviderName("github-copilot"),
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     DisplayAsFraction = true,
@@ -885,7 +890,7 @@ public partial class MainWindow : Window
                 new()
                 {
                     ProviderId = "zai-coding-plan",
-                    ProviderName = "Z.AI",
+                    ProviderName = GetProviderName("zai-coding-plan"),
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     DisplayAsFraction = true,
@@ -900,7 +905,7 @@ public partial class MainWindow : Window
                 new()
                 {
                     ProviderId = "claude-code",
-                    ProviderName = "Claude Code",
+                    ProviderName = GetProviderName("claude-code"),
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     RequestsPercentage = 0,
@@ -913,7 +918,7 @@ public partial class MainWindow : Window
                 new()
                 {
                     ProviderId = "synthetic",
-                    ProviderName = "Synthetic",
+                    ProviderName = GetProviderName("synthetic"),
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     DisplayAsFraction = true,
@@ -928,7 +933,7 @@ public partial class MainWindow : Window
                 new()
                 {
                     ProviderId = "mistral",
-                    ProviderName = "Mistral",
+                    ProviderName = GetProviderName("mistral"),
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     RequestsPercentage = 0,
@@ -1319,7 +1324,7 @@ public partial class MainWindow : Window
         // Title
         var titleBlock = CreateText(
             titleText,
-            isGroupHeader ? 10.0 : 10.0,
+            10.0,
             titleForeground,
             titleFontWeight,
             new Thickness(0, 0, 10, 0));
@@ -2008,7 +2013,7 @@ public partial class MainWindow : Window
 
     private FrameworkElement CreateProviderIcon(string providerId)
     {
-        var normalizedProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+        var normalizedProviderId = ProviderVisualCatalog.GetCanonicalProviderId(providerId);
 
         // Check cache first
         if (_iconCache.TryGetValue(normalizedProviderId, out var cachedImage))
@@ -2023,26 +2028,7 @@ public partial class MainWindow : Window
         }
 
         // Map provider IDs to filename
-        string filename = normalizedProviderId.ToLower() switch
-        {
-            "github-copilot" => "github",
-            "gemini-cli" => "google",
-            "antigravity" => "google",
-            "claude-code" or "claude" => "anthropic", // Use anthropic icon for claude
-            "minimax" => "minimax",
-            "kimi" => "kimi",
-            "xiaomi" => "xiaomi",
-            "zai" or "zai-coding-plan" => "zai",
-            "deepseek" => "deepseek",
-            "openrouter" => "openai", // Fallback to openai
-            "codex" => "openai",
-            "mistral" => "mistral",
-            "openai" => "openai",
-            "anthropic" => "anthropic",
-            "google" => "google",
-            "github" => "github",
-            _ => normalizedProviderId.ToLower()
-        };
+        var filename = ProviderVisualCatalog.GetIconAssetName(normalizedProviderId);
 
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
         var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");
@@ -2085,25 +2071,9 @@ public partial class MainWindow : Window
 
     private FrameworkElement CreateFallbackIcon(string providerId)
     {
-        var (color, initial) = providerId.ToLower() switch
-        {
-            "openai" => (Brushes.DarkCyan, "AI"),
-            "codex" => (Brushes.DarkCyan, "AI"),
-            "anthropic" => (Brushes.IndianRed, "An"),
-            "github-copilot" => (Brushes.MediumPurple, "GH"),
-            "gemini" or "google" or "antigravity" => (Brushes.DodgerBlue, "G"),
-            "deepseek" => (Brushes.DeepSkyBlue, "DS"),
-            "openrouter" => (Brushes.DarkSlateBlue, "OR"),
-            "kimi" => (Brushes.MediumOrchid, "K"),
-            "minimax" => (Brushes.DarkTurquoise, "MM"),
-            "mistral" => (Brushes.OrangeRed, "Mi"),
-            "xiaomi" => (Brushes.Orange, "Xi"),
-            "zai" or "zai-coding-plan" => (Brushes.LightSeaGreen, "Z"),
-            "claude-code" or "claude" => (Brushes.Orange, "C"),
-            "cloudcode" => (Brushes.DeepSkyBlue, "CC"),
-            "synthetic" => (Brushes.Gold, "Sy"),
-            _ => (GetResourceBrush("SecondaryText", Brushes.Gray), providerId[..Math.Min(2, providerId.Length)].ToUpper())
-        };
+        var (color, initial) = ProviderVisualCatalog.GetFallbackBadge(
+            providerId,
+            GetResourceBrush("SecondaryText", Brushes.Gray));
 
         var grid = new Grid { Width = 16, Height = 16 };
 

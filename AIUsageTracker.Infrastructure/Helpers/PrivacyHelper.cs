@@ -2,9 +2,10 @@ using System.Text.RegularExpressions;
 
 namespace AIUsageTracker.Infrastructure.Helpers;
 
-public static class PrivacyHelper
+public static partial class PrivacyHelper
 {
-    private static readonly Regex EmailRegex = new Regex(@"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", RegexOptions.Compiled);
+    [GeneratedRegex(@"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex EmailRegex();
 
     public static string MaskContent(string input, string? accountName = null)
     {
@@ -13,9 +14,9 @@ public static class PrivacyHelper
         string result = input;
 
         // 1. Mask emails
-        if (EmailRegex.IsMatch(result))
+        if (EmailRegex().IsMatch(result))
         {
-            result = EmailRegex.Replace(result, match =>
+            result = EmailRegex().Replace(result, match =>
             {
                 var email = match.Value;
                 var parts = email.Split('@');
@@ -23,7 +24,7 @@ public static class PrivacyHelper
 
                 var name = parts[0];
                 var domain = parts[1];
-                var maskedDomain = Regex.Replace(domain, @"[^.]", "*");
+                var maskedDomain = new string(domain.Select(ch => ch == '.' ? '.' : '*').ToArray());
 
                 return $"{MaskString(name)}@{maskedDomain}";
             });

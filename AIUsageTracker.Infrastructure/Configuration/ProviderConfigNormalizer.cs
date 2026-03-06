@@ -3,7 +3,7 @@ using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Infrastructure.Configuration;
 
-internal static class ProviderConfigNormalizer
+public static class ProviderConfigNormalizer
 {
     public static void NormalizeOpenAiCodexSessionOverlap(List<ProviderConfig> configs)
     {
@@ -71,7 +71,9 @@ internal static class ProviderConfigNormalizer
                 codexConfig.ApiKey = sparkConfig.ApiKey;
             }
 
-            if (string.IsNullOrWhiteSpace(codexConfig.AuthSource) && !string.IsNullOrWhiteSpace(sparkConfig.AuthSource))
+            if ((string.IsNullOrWhiteSpace(codexConfig.AuthSource) ||
+                 string.Equals(codexConfig.AuthSource, "Unknown", StringComparison.OrdinalIgnoreCase)) &&
+                !string.IsNullOrWhiteSpace(sparkConfig.AuthSource))
             {
                 codexConfig.AuthSource = sparkConfig.AuthSource;
             }

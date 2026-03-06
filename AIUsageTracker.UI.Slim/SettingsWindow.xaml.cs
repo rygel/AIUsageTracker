@@ -556,40 +556,36 @@ public partial class SettingsWindow : Window
         ProviderConfig CreateConfig(
             string providerId,
             string apiKey,
-            PlanType planType,
-            string type,
             bool showInTray = false,
             bool enableNotifications = false)
         {
-            return new ProviderConfig
+            if (!ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config, apiKey: apiKey))
             {
-                ProviderId = providerId,
-                ApiKey = apiKey,
-                ShowInTray = showInTray,
-                EnableNotifications = enableNotifications,
-                PlanType = planType,
-                Type = type
-            };
+                throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot data.");
+            }
+
+            config.ShowInTray = showInTray;
+            config.EnableNotifications = enableNotifications;
+            return config;
         }
 
         _configs = new List<ProviderConfig>
         {
-            CreateConfig("antigravity", "local-session", PlanType.Coding, "quota-based"),
-            CreateConfig("anthropic", "sk-ant-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
-            CreateConfig("claude-code", "cc-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("deepseek", "sk-ds-demo", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("gemini-cli", "gemini-local-auth", PlanType.Coding, "quota-based"),
-            CreateConfig("github-copilot", "ghp_demo_key", PlanType.Coding, "quota-based", showInTray: true, enableNotifications: true),
-            CreateConfig("kimi", "kimi-demo-key", PlanType.Coding, "quota-based"),
-            CreateConfig("minimax", "mm-cn-demo", PlanType.Coding, "quota-based"),
-            CreateConfig("minimax-io", "mm-intl-demo", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("mistral", "mistral-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("openai", "sk-openai-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
-            CreateConfig("opencode", "oc-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("opencode-zen", "ocz-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("openrouter", "or-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("synthetic", "syn-demo-key", PlanType.Coding, "quota-based"),
-            CreateConfig("zai-coding-plan", "zai-demo-key", PlanType.Coding, "quota-based", showInTray: true)
+            CreateConfig("antigravity", "local-session"),
+            CreateConfig("claude-code", "cc-demo-key", showInTray: true),
+            CreateConfig("deepseek", "sk-ds-demo"),
+            CreateConfig("gemini-cli", "gemini-local-auth"),
+            CreateConfig("github-copilot", "ghp_demo_key", showInTray: true, enableNotifications: true),
+            CreateConfig("kimi", "kimi-demo-key"),
+            CreateConfig("minimax", "mm-cn-demo"),
+            CreateConfig("minimax-io", "mm-intl-demo"),
+            CreateConfig("mistral", "mistral-demo-key"),
+            CreateConfig("openai", "sk-openai-demo", showInTray: true),
+            CreateConfig("opencode", "oc-demo-key"),
+            CreateConfig("opencode-zen", "ocz-demo-key"),
+            CreateConfig("openrouter", "or-demo-key"),
+            CreateConfig("synthetic", "syn-demo-key"),
+            CreateConfig("zai-coding-plan", "zai-demo-key", showInTray: true)
         };
 
         var deterministicNow = new DateTime(2026, 02, 01, 12, 00, 00, DateTimeKind.Local);
@@ -662,18 +658,6 @@ public partial class SettingsWindow : Window
                     }
                 },
                 NextResetTime = deterministicNow.AddHours(6)
-            },
-            new()
-            {
-                ProviderId = "anthropic",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("anthropic"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
             },
             new()
             {
@@ -1594,20 +1578,8 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
-            string filename = canonicalProviderId.ToLower() switch
-            {
-                "github-copilot" => "github",
-                "gemini-cli" => "google",
-                "antigravity" => "google",
-                "codex" => "openai",
-                "claude-code" => "claude",
-                "zai" or "zai-coding-plan" => "zai",
-                "minimax" => "minimax",
-                "kimi" => "kimi",
-                "xiaomi" => "xiaomi",
-                _ => canonicalProviderId.ToLower()
-            };
+            var canonicalProviderId = ProviderVisualCatalog.GetCanonicalProviderId(providerId);
+            var filename = ProviderVisualCatalog.GetIconAssetName(canonicalProviderId);
 
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -1632,25 +1604,18 @@ public partial class SettingsWindow : Window
                 return icoImage;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
+        }
 
-        return CreateFallbackIcon(ProviderMetadataCatalog.GetCanonicalProviderId(providerId));
+        return CreateFallbackIcon(ProviderVisualCatalog.GetCanonicalProviderId(providerId));
     }
 
     private ImageSource CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
-        var (color, _) = providerId.ToLower() switch
-        {
-            "openai" => (Brushes.DarkCyan, "AI"),
-            "codex" => (Brushes.DarkCyan, "AI"),
-            "codex.spark" => (Brushes.DarkCyan, "AI"),
-            "anthropic" => (Brushes.IndianRed, "An"),
-            "github-copilot" => (Brushes.MediumPurple, "GH"),
-            "gemini" or "google" => (Brushes.DodgerBlue, "G"),
-            "deepseek" => (Brushes.DeepSkyBlue, "DS"),
-            _ => (Brushes.Gray, "?")
-        };
+        var (color, _) = ProviderVisualCatalog.GetFallbackBadge(providerId, Brushes.Gray);
 
         // Return a drawing image with just a colored rectangle (simplified)
         var drawing = new GeometryDrawing(
@@ -2046,7 +2011,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async void BackupDbBtn_Click(object sender, RoutedEventArgs e)
+    private void BackupDbBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -2092,7 +2057,14 @@ public partial class SettingsWindow : Window
             foreach (var process in System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")
                 .Concat(System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")))
             {
-                try { process.Kill(); } catch { }
+                try
+                {
+                    process.Kill();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to terminate monitor process {ProcessId}", process.Id);
+                }
             }
             
             await Task.Delay(1000);

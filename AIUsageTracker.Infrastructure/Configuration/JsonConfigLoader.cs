@@ -104,7 +104,10 @@ public class JsonConfigLoader : IConfigLoader
                             {
                                 config.Models = JsonSerializer.Deserialize<List<AIModelConfig>>(modelsProp.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AIModelConfig>();
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
+                            }
                         }
                         
                         // Append source
@@ -189,7 +192,10 @@ public class JsonConfigLoader : IConfigLoader
                 var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
                 if (existing != null) exportAuth = existing;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load existing auth config from {Path}; continuing with a clean export payload", authPath);
+            }
         }
 
         if (File.Exists(providersPath))
@@ -200,7 +206,10 @@ public class JsonConfigLoader : IConfigLoader
                 var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
                 if (existing != null) exportProviders = existing;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load existing provider config from {Path}; continuing with a clean export payload", providersPath);
+            }
         }
 
         // Keep Codex as a single top-level provider track; spark is represented as model detail.
@@ -276,7 +285,10 @@ public class JsonConfigLoader : IConfigLoader
                     return JsonSerializer.Deserialize<AppPreferences>(settingsElement.GetRawText()) ?? new AppPreferences();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load app settings from {Path}; falling back to defaults", authPath);
+            }
         }
 
         // 2. Fallback to old preferences.json
@@ -288,7 +300,10 @@ public class JsonConfigLoader : IConfigLoader
                 var json = await File.ReadAllTextAsync(path);
                 return JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load legacy preferences from {Path}; falling back to defaults", path);
+            }
         }
         return new AppPreferences();
     }
@@ -311,8 +326,9 @@ public class JsonConfigLoader : IConfigLoader
                 var json = await File.ReadAllTextAsync(path);
                 root = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new Dictionary<string, object>();
              }
-             catch
+             catch (Exception ex)
              {
+                _logger.LogDebug(ex, "Failed to load existing preferences container from {Path}; rebuilding it", path);
                 root = new Dictionary<string, object>();
              }
         }

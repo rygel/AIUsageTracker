@@ -67,6 +67,10 @@ foreach ($suiteKey in $Suites) {
 $env:MSBUILDDISABLENODEREUSE = "1"
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 $env:DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER = "1"
+# Local SDK/workload resolver state on some Windows machines can make project-reference
+# evaluation fail before tests start. Disabling the workload resolver keeps safe local
+# test runs deterministic without affecting CI.
+$env:MSBuildEnableWorkloadResolver = "false"
 
 function Resolve-AssemblyPath {
     param(

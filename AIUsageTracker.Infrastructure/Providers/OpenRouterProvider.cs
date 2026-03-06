@@ -213,9 +213,9 @@ public class OpenRouterProvider : ProviderBase
         string mainReset = "";
         DateTime? spendingLimitResetTime = null;
         var spendingLimitDetail = details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.Other && d.NextResetTime.HasValue);
-        if (spendingLimitDetail != null && spendingLimitDetail.Description.Contains("(Resets:"))
+        if (spendingLimitDetail != null && spendingLimitDetail.Description.Contains("(Resets:", StringComparison.Ordinal))
         {
-            var idx = spendingLimitDetail.Description.IndexOf("(Resets:");
+            var idx = spendingLimitDetail.Description.IndexOf("(Resets:", StringComparison.Ordinal);
             if (idx >= 0) mainReset = " " + spendingLimitDetail.Description.Substring(idx);
             spendingLimitResetTime = spendingLimitDetail.NextResetTime;
         }
