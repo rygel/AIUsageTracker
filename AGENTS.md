@@ -655,7 +655,9 @@ IMPORTANT: **All release-related changes MUST be made via pull request**. Never 
 1. Create a feature branch (e.g., `feature/v2.2.0-release`)
 2. Update version files on that branch
 3. Create a pull request to main
-4. After PR is merged, trigger the release workflow with `skip_file_updates=true`
+4. After PR is merged, either:
+   - create and push the release tag manually with maintainer credentials, or
+   - trigger the `Create Release` workflow with `skip_file_updates=true` only if you want the workflow summary/help text; GitHub Actions itself must not be relied on to create the tag in this repository because repository rules block `GITHUB_TOKEN` tag creation
 
 When preparing a new release (e.g., v2.2.0), ensure the following files are updated with the new version number:
 
@@ -678,11 +680,13 @@ Update the `<Version>` tag in all project files:
 - `scripts/setup.iss`: Update the `MyAppVersion` definition: `#define MyAppVersion "2.2.0"`
 
 ### 5. Git Tagging
-Once all files are committed and pushed to `main`, create a git tag to trigger the CI/CD release workflow:
+Once all files are committed and pushed to the target release branch, create a git tag manually to trigger the CI/CD release workflow:
 ```bash
 git tag v2.2.0
 git push origin v2.2.0
 ```
+
+**Important:** the repository currently blocks tag creation by GitHub Actions. The `Create Release` workflow can prepare or verify release state, but the final tag push must be done with maintainer credentials.
 
 ### 6. Appcast Files (Updater)
 After the release workflow completes and assets are published, update the appcast files in `appcast/` to point to the new release assets:
