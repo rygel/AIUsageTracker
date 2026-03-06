@@ -17,6 +17,7 @@ using Microsoft.Win32;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.UI.Slim.Interfaces;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -1153,81 +1154,69 @@ public partial class MainWindow : Window
                 return;
             }
 
-            // Separate providers by type and order alphabetically
-            var quotaProviders = filteredUsages
-                .Where(u => u.IsQuotaBased)
-                .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var paygProviders = filteredUsages
-                .Where(u => !u.IsQuotaBased)
-                .OrderBy(GetFriendlyProviderName, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // Render Quota Providers first, then PAYG
+            var orderedUsages = filteredUsages
+                .OrderByDescending(u => u.IsQuotaBased)
+                .ThenBy(u => GetFriendlyProviderName(u), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase);
 
-            LogDiagnostic($"[DIAGNOSTIC] Provider render groups: quota={quotaProviders.Count}, payg={paygProviders.Count}");
+            UIElement? currentHeader = null;
+            StackPanel? currentContainer = null;
+            bool? currentIsQuota = null;
 
-            // Plans & Quotas Section
-            if (quotaProviders.Any())
+            foreach (var usage in orderedUsages)
             {
-                var (plansHeader, plansContainer) = CreateCollapsibleGroupHeader(
-                    "Plans & Quotas",
-                    Brushes.DeepSkyBlue,
-                    "PlansAndQuotas",
-                    () => _preferences.IsPlansAndQuotasCollapsed,
-                    v => _preferences.IsPlansAndQuotasCollapsed = v);
-
-                ProvidersList.Children.Add(plansHeader);
-                ProvidersList.Children.Add(plansContainer);
-
-                if (!_preferences.IsPlansAndQuotasCollapsed)
+                // Switch section if type changes
+                if (currentIsQuota != usage.IsQuotaBased)
                 {
-                    // Add all quota providers with Antigravity models listed as standalone cards.
-                    foreach (var usage in quotaProviders)
-                    {
-                        if (string.Equals(usage.ProviderId, "antigravity", StringComparison.OrdinalIgnoreCase))
-                        {
-                            if (usage.Details?.Any() == true)
-                            {
-                                AddAntigravityModels(usage, plansContainer);
-                            }
-                            else
-                            {
-                                AddAntigravityUnavailableNotice(usage, plansContainer);
-                            }
+                    currentIsQuota = usage.IsQuotaBased;
+                    var sectionTitle = currentIsQuota.Value ? "Plans & Quotas" : "Pay As You Go";
+                    var sectionColor = currentIsQuota.Value ? Brushes.DeepSkyBlue : Brushes.MediumSeaGreen;
+                    var sectionKey = currentIsQuota.Value ? "PlansAndQuotas" : "PayAsYouGo";
+                    
+                    var (header, container) = CreateCollapsibleGroupHeader(
+                        sectionTitle,
+                        sectionColor,
+                        sectionKey,
+                        () => currentIsQuota.Value ? _preferences.IsPlansAndQuotasCollapsed : _preferences.IsPayAsYouGoCollapsed,
+                        v => {
+                            if (currentIsQuota.Value) _preferences.IsPlansAndQuotasCollapsed = v;
+                            else _preferences.IsPayAsYouGoCollapsed = v;
+                        });
 
-                            continue;
-                        }
-
-                        AddProviderCard(usage, plansContainer);
-
-                        if (usage.Details?.Any() == true)
-                        {
-                            AddCollapsibleSubProviders(usage, plansContainer);
-                        }
-                    }
+                    ProvidersList.Children.Add(header);
+                    ProvidersList.Children.Add(container);
+                    currentHeader = header;
+                    currentContainer = container;
                 }
-            }
 
-            // Pay As You Go Section
-            if (paygProviders.Any())
-            {
-                var (paygHeader, paygContainer) = CreateCollapsibleGroupHeader(
-                    "Pay As You Go",
-                    Brushes.MediumSeaGreen,
-                    "PayAsYouGo",
-                    () => _preferences.IsPayAsYouGoCollapsed,
-                    v => _preferences.IsPayAsYouGoCollapsed = v);
+                if (currentContainer == null) continue;
 
-                ProvidersList.Children.Add(paygHeader);
-                ProvidersList.Children.Add(paygContainer);
+                // Check if this section is collapsed
+                var isCollapsed = currentIsQuota.Value ? _preferences.IsPlansAndQuotasCollapsed : _preferences.IsPayAsYouGoCollapsed;
+                if (isCollapsed) continue;
 
-                if (!_preferences.IsPayAsYouGoCollapsed)
+                // Special handling for Antigravity
+                if (string.Equals(usage.ProviderId, "antigravity", StringComparison.OrdinalIgnoreCase))
                 {
-                    foreach (var usage in paygProviders)
+                    if (usage.Details?.Any() == true)
                     {
-                        AddProviderCard(usage, paygContainer);
+                        AddAntigravityModels(usage, currentContainer);
                     }
+                    else
+                    {
+                        AddAntigravityUnavailableNotice(usage, currentContainer);
+                    }
+                    continue;
+                }
+
+                // Standard provider card
+                AddProviderCard(usage, currentContainer);
+
+                // Sub-providers if available
+                if (usage.Details?.Any() == true)
+                {
+                    AddCollapsibleSubProviders(usage, currentContainer);
                 }
             }
 
@@ -1291,7 +1280,7 @@ public partial class MainWindow : Window
                 break;
 
             case Decorator decorator when decorator.Child is not null:
-                ApplyFontPreferencesToElement(decorator.Child);
+                ApplyFontPreferencesToElement(child);
                 break;
 
             case ContentControl contentControl when contentControl.Content is DependencyObject child:
@@ -1521,7 +1510,7 @@ public partial class MainWindow : Window
             {
                 var displayUsed = ShowUsedToggle?.IsChecked ?? false;
 
-                // Check if we have raw numbers (limit > 100 serves as a heuristic for usage limits > 100%)
+                // Check if we have raw numbers
                 if (usage.DisplayAsFraction)
                 {
                     if (displayUsed)
@@ -1555,21 +1544,6 @@ public partial class MainWindow : Window
                 statusText = showUsedPercent
                     ? $"{usedPercent:F0}% used"
                     : $"{(100.0 - usedPercent):F0}% remaining";
-            }
-            else if (!isUnknown && !isStatusOnlyProvider && usage.IsQuotaBased)
-            {
-                // Show used% or remaining% based on toggle
-                // Show used% or remaining% based on toggle (variable renamed to avoid conflict)
-                var usePercentage = ShowUsedToggle?.IsChecked ?? false;
-                if (usePercentage)
-                {
-                    var usedPercent = 100.0 - usage.RequestsPercentage;
-                    statusText = $"{usedPercent:F0}% used";
-                }
-                else
-                {
-                    statusText = $"{usage.RequestsPercentage:F0}% remaining";
-                }
             }
         }
 
@@ -1733,7 +1707,7 @@ public partial class MainWindow : Window
 
     private static ProviderUsage CreateAntigravityModelUsage(ProviderUsageDetail detail, ProviderUsage parentUsage)
     {
-        var remainingPercent = ParsePercent(detail.Used);
+        var remainingPercent = UsageMath.ParsePercent(detail.Used);
         var hasRemainingPercent = remainingPercent.HasValue;
         var effectiveRemaining = remainingPercent ?? 0;
         return new ProviderUsage
@@ -1755,15 +1729,7 @@ public partial class MainWindow : Window
 
     private static double? ParsePercent(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var parsedValue = value.Replace("%", "").Trim();
-        return double.TryParse(parsedValue, out var parsed)
-            ? Math.Max(0, Math.Min(100, parsed))
-            : null;
+        return UsageMath.ParsePercent(value);
     }
 
     private static bool TryGetDualWindowUsedPercentages(ProviderUsage usage, out double hourlyUsed, out double weeklyUsed)
@@ -1776,78 +1742,42 @@ public partial class MainWindow : Window
             return false;
         }
 
+<<<<<<< HEAD
         var hourlyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && d.WindowKind == WindowKind.Primary);
         var weeklyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && d.WindowKind == WindowKind.Secondary);
+=======
+        // Find all quota windows
+        var windows = usage.Details
+            .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow)
+            .ToList();
 
-        if (hourlyDetail == null || weeklyDetail == null)
+        if (windows.Count < 2)
         {
             return false;
         }
 
-        var parsedHourly = ParseUsedPercentFromDetail(hourlyDetail.Used);
-        var parsedWeekly = ParseUsedPercentFromDetail(weeklyDetail.Used);
+        // Use explicit WindowKind only
+        var hourlyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Primary || d.WindowKind == WindowKind.Spark);
+        var weeklyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
+
+        if (hourlyDetail == null || weeklyDetail == null || hourlyDetail == weeklyDetail)
+        {
+            return false;
+        }
+>>>>>>> 5e181ba (refactor(ui): consolidate provider rendering and fix dual pass issue)
+
+        var parsedHourly = UsageMath.ParsePercent(hourlyDetail.Used);
+        var parsedWeekly = UsageMath.ParsePercent(weeklyDetail.Used);
+
         if (!parsedHourly.HasValue || !parsedWeekly.HasValue)
         {
             return false;
         }
 
-        hourlyUsed = parsedHourly.Value;
-        weeklyUsed = parsedWeekly.Value;
+        // Quota windows always represent remaining percentage, so we invert them to get USED percentage.
+        hourlyUsed = 100.0 - parsedHourly.Value;
+        weeklyUsed = 100.0 - parsedWeekly.Value;
         return true;
-    }
-
-    private static double? ParseUsedPercentFromDetail(string? used)
-    {
-        if (string.IsNullOrWhiteSpace(used))
-        {
-            return null;
-        }
-
-        // First try to find percentage followed by "used" (e.g., "100% used")
-        var usedMatch = Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-        if (usedMatch.Success)
-        {
-            if (double.TryParse(
-                    usedMatch.Groups["percent"].Value,
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var percent))
-            {
-                return Math.Clamp(percent, 0, 100);
-            }
-        }
-
-        // Try to find percentage followed by "remaining" (e.g., "80% remaining")
-        var remainingMatch = Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
-        if (remainingMatch.Success)
-        {
-            if (double.TryParse(
-                    remainingMatch.Groups["percent"].Value,
-                    System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture,
-                    out var percent))
-            {
-                return Math.Clamp(100.0 - percent, 0, 100);
-            }
-        }
-
-        // Fallback: match first percentage (for backwards compatibility)
-        var match = Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%", RegexOptions.CultureInvariant);
-        if (!match.Success)
-        {
-            return null;
-        }
-
-        if (!double.TryParse(
-                match.Groups["percent"].Value,
-                System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture,
-                out var fallbackPercent))
-        {
-            return null;
-        }
-
-        return Math.Clamp(fallbackPercent, 0, 100);
     }
 
     private Grid CreateProgressLayer(double usedPercent, bool showUsed, double opacity)
@@ -1891,7 +1821,7 @@ public partial class MainWindow : Window
         return detail.DetailType == ProviderUsageDetailType.Model || detail.DetailType == ProviderUsageDetailType.Other;
     }
 
-    private void AddSubProviderCard(ProviderUsageDetail detail, StackPanel container)
+    private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container)
     {
         // Compact sub-item (child provider detail)
         var grid = new Grid
@@ -1901,20 +1831,16 @@ public partial class MainWindow : Window
             Background = Brushes.Transparent
         };
 
-        // Calculate Percentages
-        // Antigravity detail.Used comes as "80%" which represents REMAINING percentage
-        double pctRemaining = 0;
-        double pctUsed = 0;
-        var hasPercent = false;
-
-        // Try parse percentage
-        var valueText = detail.Used?.Replace("%", "").Trim();
-        if (double.TryParse(valueText, out double val))
-        {
-            hasPercent = true;
-            pctRemaining = val; // Antigravity sends Remaining % in this field
-            pctUsed = Math.Max(0, 100 - pctRemaining);
-        }
+        // Calculate Percentages using shared logic
+        var parsedPercent = UsageMath.ParsePercent(detail.Used);
+        var hasPercent = parsedPercent.HasValue;
+        
+        // If it's quota based, the detail.Used is usually a REMAINING percentage (e.g. "80%").
+        // We want pctUsed for coloring and pctRemaining for display if toggle is off.
+        double pctUsed = hasPercent 
+            ? (usage.IsQuotaBased ? (100.0 - parsedPercent!.Value) : parsedPercent!.Value)
+            : 0;
+        double pctRemaining = 100.0 - pctUsed;
 
         // Determine display values based on toggle
         bool showUsed = ShowUsedToggle?.IsChecked ?? false;
@@ -2038,7 +1964,7 @@ public partial class MainWindow : Window
             // Add sub-provider details
             foreach (var detail in displayableDetails)
             {
-                AddSubProviderCard(detail, subContainer);
+                AddSubProviderCard(usage, detail, subContainer);
             }
         }
     }

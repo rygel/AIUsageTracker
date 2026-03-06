@@ -68,7 +68,7 @@ public class KimiProvider : ProviderBase
             // Add weekly limit from usage as Secondary detail (always, as this is the primary quota)
             if (limit > 0 && remaining >= 0)
             {
-                var weeklyRemainingPct = UsageMath.CalculateRemainingPercent(used, limit);
+                var weeklyUsedPct = limit > 0 ? ((limit - remaining) / (double)limit) * 100.0 : 0;
                 DateTime? weeklyResetDt = null;
                 if (!string.IsNullOrEmpty(data.Usage.ResetTime) && 
                     DateTime.TryParse(data.Usage.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var weeklyDt))
@@ -85,7 +85,7 @@ public class KimiProvider : ProviderBase
                 details.Add(new ProviderUsageDetail
                 {
                     Name = "Weekly Limit",
-                    Used = $"{weeklyRemainingPct.ToString("F1", CultureInfo.InvariantCulture)}% remaining",
+                    Used = $"{weeklyUsedPct.ToString("F1", CultureInfo.InvariantCulture)}% used",
                     Description = $"{remaining} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {FormatResetTime(data.Usage.ResetTime)})" : "")}",      
                     NextResetTime = weeklyResetDt,
                     DetailType = ProviderUsageDetailType.QuotaWindow,
@@ -134,17 +134,9 @@ public class KimiProvider : ProviderBase
                          WindowKind = windowKind
                     });
                     }
-                    }
+                }
 
-                    // Also update the Weekly Limit to use "used" format for consistency
-                    var weeklyUsed = limit - remaining;
-                    var weeklyUsedPct = limit > 0 ? (weeklyUsed / (double)limit) * 100.0 : 0;
-
-                    var weeklyDetail = details.FirstOrDefault(d => d.Name == "Weekly Limit");
-                    if (weeklyDetail != null)
-                    {
-                    weeklyDetail.Used = $"{weeklyUsedPct.ToString("F1", CultureInfo.InvariantCulture)}% used";
-                    }            if (!string.IsNullOrEmpty(soonestResetStr)) description += soonestResetStr; // Used soonestResetStr
+            if (!string.IsNullOrEmpty(soonestResetStr)) description += soonestResetStr; // Used soonestResetStr
 
             return new[] { new ProviderUsage
             {

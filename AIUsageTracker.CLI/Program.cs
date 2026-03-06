@@ -454,7 +454,8 @@ class Program
 
             foreach (var u in usage)
             {
-                var pct = u.IsAvailable ? $"{u.RequestsPercentage:F0}%" : "-";
+                var usedPct = u.IsQuotaBased ? (100.0 - u.RequestsPercentage) : u.RequestsPercentage;
+                var pct = u.IsAvailable ? $"{usedPct:F0}%" : "-";
                 // Handle missing PlanType or IsQuotaBased if relying on serialized data
                 var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
                 var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : "";

@@ -89,13 +89,37 @@ public static class UsageMath
     /// <summary>
     /// Gets the effective used percentage for a provider, accounting for quota vs usage-based.
     /// </summary>
-    public static double GetEffectiveUsedPercent(ProviderUsage usage)
+    /// <summary>
+    /// Parses a percentage value from a string, handling optional '%' sign.
+    /// </summary>
+    public static double? ParsePercent(string? value)
     {
-        ArgumentNullException.ThrowIfNull(usage);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
 
-        var percentage = ClampPercent(usage.RequestsPercentage);
-        var isQuota = usage.IsQuotaBased;
-        return isQuota ? ClampPercent(100 - percentage) : percentage;
+        var match = System.Text.RegularExpressions.Regex.Match(value, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (match.Success)
+        {
+            if (double.TryParse(
+                    match.Groups["percent"].Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var percent))
+            {
+                return ClampPercent(percent);
+            }
+        }
+
+        // Fallback for just numbers
+        var cleanValue = value.Replace("%", string.Empty).Trim();
+        if (double.TryParse(cleanValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var result))
+        {
+            return ClampPercent(result);
+        }
+
+        return null;
     }
 
     public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)

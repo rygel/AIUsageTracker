@@ -616,8 +616,8 @@
 
         if (primaryDetail == null || secondaryDetail == null) return false;
 
-        var p = ParseUsedPercentFromDetail(primaryDetail.Used);
-        var s = ParseUsedPercentFromDetail(secondaryDetail.Used);
+        var p = ParseUsedPercentFromDetail(primaryDetail.Used, true); // Quota windows use remaining %
+        var s = ParseUsedPercentFromDetail(secondaryDetail.Used, true);
 
         if (p.HasValue && s.HasValue)
         {
@@ -631,24 +631,15 @@
         return false;
     }
 
-    double? ParseUsedPercentFromDetail(string? used)
+    double? ParseUsedPercentFromDetail(string? used, bool isQuota)
     {
         if (string.IsNullOrWhiteSpace(used)) return null;
 
-        // "XX% used"
-        var usedMatch = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (usedMatch.Success && double.TryParse(usedMatch.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p1))
-            return p1;
-
-        // "XX% remaining"
-        var remainingMatch = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (remainingMatch.Success && double.TryParse(remainingMatch.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p2))
-            return Math.Clamp(100.0 - p2, 0, 100);
-
-        // Fallback "XX%"
-        var fallbackMatch = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (fallbackMatch.Success && double.TryParse(fallbackMatch.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p3))
-            return p3;
+        var match = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (match.Success && double.TryParse(match.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p))
+        {
+            return isQuota ? Math.Clamp(100.0 - p, 0, 100) : Math.Clamp(p, 0, 100);
+        }
 
         return null;
     }

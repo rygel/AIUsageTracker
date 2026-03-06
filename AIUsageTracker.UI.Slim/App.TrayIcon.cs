@@ -193,26 +193,12 @@ public partial class App
 
     private static double? ParsePercent(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var parsedValue = value.Replace("%", string.Empty).Trim();
-        return double.TryParse(parsedValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
-            ? Math.Max(0, Math.Min(100, parsed))
-            : null;
+        return UsageMath.ParsePercent(value);
     }
 
     private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
     {
-        if (string.IsNullOrWhiteSpace(detail.Name))
-        {
-            return false;
-        }
-
-        return !detail.Name.Contains("window", StringComparison.OrdinalIgnoreCase) &&
-               !detail.Name.Contains("credit", StringComparison.OrdinalIgnoreCase);
+        return detail.IsDisplayableSubProviderDetail();
     }
 
     private static ImageSource GenerateUsageIcon(double percentage, int yellowThreshold, int redThreshold, bool invert = false, bool isQuota = false)
