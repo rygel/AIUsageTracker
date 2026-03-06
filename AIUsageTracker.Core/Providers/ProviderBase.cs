@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Exceptions;
@@ -6,6 +8,17 @@ namespace AIUsageTracker.Core.Providers;
 
 public abstract class ProviderBase : IProviderService
 {
+    /// <summary>
+    /// Shared JSON options for all providers. Case-insensitive property matching only.
+    /// Do NOT add NumberHandling.AllowReadingFromString here — any API that returns numbers
+    /// as strings should handle it explicitly on its model class with [JsonNumberHandling],
+    /// so that unexpected format changes produce logged errors rather than silent zeros.
+    /// </summary>
+    protected static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public abstract string ProviderId { get; }
     public abstract ProviderDefinition Definition { get; }
 
