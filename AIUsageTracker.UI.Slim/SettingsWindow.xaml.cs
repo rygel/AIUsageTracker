@@ -553,192 +553,28 @@ public partial class SettingsWindow : Window
         App.SetPrivacyMode(true);
         UpdatePrivacyButtonState();
 
-        ProviderConfig CreateConfig(
-            string providerId,
-            string apiKey,
-            bool showInTray = false,
-            bool enableNotifications = false)
-        {
-            if (!ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config, apiKey: apiKey))
-            {
-                throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot data.");
-            }
-
-            config.ShowInTray = showInTray;
-            config.EnableNotifications = enableNotifications;
-            return config;
-        }
-
-        _configs = new List<ProviderConfig>
-        {
-            CreateConfig("antigravity", "local-session"),
-            CreateConfig("claude-code", "cc-demo-key", showInTray: true),
-            CreateConfig("deepseek", "sk-ds-demo"),
-            CreateConfig("gemini-cli", "gemini-local-auth"),
-            CreateConfig("github-copilot", "ghp_demo_key", showInTray: true, enableNotifications: true),
-            CreateConfig("kimi", "kimi-demo-key"),
-            CreateConfig("minimax", "mm-cn-demo"),
-            CreateConfig("minimax-io", "mm-intl-demo"),
-            CreateConfig("mistral", "mistral-demo-key"),
-            CreateConfig("openai", "sk-openai-demo", showInTray: true),
-            CreateConfig("opencode", "oc-demo-key"),
-            CreateConfig("opencode-zen", "ocz-demo-key"),
-            CreateConfig("openrouter", "or-demo-key"),
-            CreateConfig("synthetic", "syn-demo-key"),
-            CreateConfig("zai-coding-plan", "zai-demo-key", showInTray: true)
-        };
-
-        var deterministicNow = new DateTime(2026, 02, 01, 12, 00, 00, DateTimeKind.Local);
-        ProviderUsage CreateUsage(
-            string providerId,
-            double requestsPercentage = 0,
-            double requestsUsed = 0,
-            double requestsAvailable = 0,
-            string description = "Connected",
-            bool isAvailable = true,
-            DateTime? nextResetTime = null,
-            List<ProviderUsageDetail>? details = null)
-        {
-            var definition = ProviderMetadataCatalog.Find(providerId)
-                ?? throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot data.");
-
-            return new ProviderUsage
-            {
-                ProviderId = providerId,
-                ProviderName = ProviderMetadataCatalog.GetDisplayName(providerId),
-                IsAvailable = isAvailable,
-                IsQuotaBased = definition.IsQuotaBased,
-                PlanType = definition.PlanType,
-                RequestsPercentage = requestsPercentage,
-                RequestsUsed = requestsUsed,
-                RequestsAvailable = requestsAvailable,
-                Description = description,
-                Details = details,
-                NextResetTime = nextResetTime
-            };
-        }
-
-        _usages = new List<ProviderUsage>
-        {
-            CreateUsage(
-                "antigravity",
-                requestsPercentage: 60.0,
-                description: "60.0% Remaining",
-                nextResetTime: deterministicNow.AddHours(6),
-                details: new List<ProviderUsageDetail>
-                {
-                    new()
-                    {
-                        Name = "Claude Opus 4.6 (Thinking)",
-                        ModelName = "Claude Opus 4.6 (Thinking)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(10)
-                    },
-                    new()
-                    {
-                        Name = "Claude Sonnet 4.6 (Thinking)",
-                        ModelName = "Claude Sonnet 4.6 (Thinking)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(10)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3 Flash",
-                        ModelName = "Gemini 3 Flash",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(6)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3.1 Pro (High)",
-                        ModelName = "Gemini 3.1 Pro (High)",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(14)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3.1 Pro (Low)",
-                        ModelName = "Gemini 3.1 Pro (Low)",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(14)
-                    },
-                    new()
-                    {
-                        Name = "GPT-OSS 120B (Medium)",
-                        ModelName = "GPT-OSS 120B (Medium)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(8)
-                    }
-                }),
-            CreateUsage("claude-code"),
-            CreateUsage("deepseek"),
-            CreateUsage("gemini-cli", requestsPercentage: 84.0, description: "84.0% Remaining", nextResetTime: deterministicNow.AddHours(12)),
-            CreateUsage("github-copilot", requestsPercentage: 72.5, description: "72.5% Remaining", nextResetTime: deterministicNow.AddHours(20)),
-            CreateUsage("kimi", requestsPercentage: 66.0, description: "66.0% Remaining", nextResetTime: deterministicNow.AddHours(9)),
-            CreateUsage("minimax", requestsPercentage: 61.0, description: "61.0% Remaining", nextResetTime: deterministicNow.AddHours(11)),
-            CreateUsage("minimax-io"),
-            CreateUsage("mistral"),
-            CreateUsage("openai", requestsPercentage: 63.0, description: "63.0% Remaining", nextResetTime: deterministicNow.AddHours(18)),
-            CreateUsage("opencode"),
-            CreateUsage("opencode-zen"),
-            CreateUsage("openrouter"),
-            CreateUsage("synthetic", requestsPercentage: 79.0, description: "79.0% Remaining", nextResetTime: deterministicNow.AddHours(4)),
-            CreateUsage("zai-coding-plan", requestsPercentage: 88.0, description: "88.0% Remaining", nextResetTime: deterministicNow.AddHours(15))
-        };
+        var fixture = SettingsWindowDeterministicFixture.Create();
+        _configs = fixture.Configs;
+        _usages = fixture.Usages;
 
         PopulateProviders();
         PopulateLayoutSettings();
 
-        HistoryDataGrid.ItemsSource = new[]
-        {
-            new
-            {
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("github-copilot"),
-                UsagePercentage = 27.5,
-                Used = 27.5,
-                Limit = 100.0,
-                PlanType = "Coding",
-                Description = "72.5% Remaining",
-                FetchedAt = new DateTime(2026, 2, 1, 12, 0, 0)
-            },
-            new
-            {
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("openai"),
-                UsagePercentage = 31.1,
-                Used = 12.45,
-                Limit = 40.0,
-                PlanType = "Usage",
-                Description = "$12.45 / $40.00",
-                FetchedAt = new DateTime(2026, 2, 1, 12, 5, 0)
-            }
-        };
+        HistoryDataGrid.ItemsSource = fixture.HistoryRows;
 
         if (MonitorStatusText != null)
         {
-            MonitorStatusText.Text = "Running";
+            MonitorStatusText.Text = fixture.MonitorStatusText;
         }
 
         if (MonitorPortText != null)
         {
-            MonitorPortText.Text = "5000";
+            MonitorPortText.Text = fixture.MonitorPortText;
         }
 
         if (MonitorLogsText != null)
         {
-            MonitorLogsText.Text = "Monitor health check: OK" + Environment.NewLine +
-                                 "Diagnostics available in Settings > Monitor.";
+            MonitorLogsText.Text = fixture.MonitorLogsText;
         }
     }
 
@@ -1058,17 +894,8 @@ public partial class SettingsWindow : Window
         headerPanel.Children.Add(notifyCheckBox);
 
         // Status badge if not configured
-        bool isInactive = !isDerived && string.IsNullOrEmpty(config.ApiKey);
-        if (config.ProviderId == "antigravity")
-        {
-            isInactive = usage == null || !usage.IsAvailable;
-        }
-        else if (config.ProviderId == "openai")
-        {
-            var hasApiKey = !string.IsNullOrWhiteSpace(config.ApiKey);
-            var hasSessionUsage = usage != null && usage.IsAvailable && usage.IsQuotaBased;
-            isInactive = !hasApiKey && !hasSessionUsage;
-        }
+        var inputMode = GetProviderInputMode(config, usage, isDerived);
+        bool isInactive = IsProviderInactive(config, usage, isDerived, inputMode);
 
         if (isInactive)
         {
@@ -1097,241 +924,9 @@ public partial class SettingsWindow : Window
         var keyPanel = new Grid { Margin = new Thickness(0, 0, 0, 0) };
         keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        if (isDerived)
-        {
-            var derivedPanel = new StackPanel { Orientation = Orientation.Vertical };
-            var statusText = new TextBlock
-            {
-                Text = usage?.IsAvailable == true ? "Derived from Codex usage (read-only)" : "Derived provider (waiting for usage data)",
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(
-                TextBlock.ForegroundProperty,
-                usage?.IsAvailable == true ? "ProgressBarGreen" : "TertiaryText");
-            derivedPanel.Children.Add(statusText);
-
-            if (usage?.NextResetTime is DateTime derivedReset)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = $"Next reset: {derivedReset:g}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                derivedPanel.Children.Add(resetText);
-            }
-
-            Grid.SetColumn(derivedPanel, 0);
-            keyPanel.Children.Add(derivedPanel);
-        }
-        else if (config.ProviderId == "antigravity")
-        {
-            // Antigravity: Auto-Detection
-            var statusPanel = new StackPanel { Orientation = Orientation.Vertical };
-            bool isConnected = usage != null && usage.IsAvailable;
-            string accountInfo = usage?.AccountName ?? "Unknown";
-            var displayAccount = _isPrivacyMode
-                ? MaskAccountIdentifier(accountInfo)
-                : accountInfo;
-
-            var statusText = new TextBlock
-            {
-                Text = isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11,
-                FontStyle = isConnected ? FontStyles.Normal : FontStyles.Italic
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty, 
-                isConnected ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-
-            var antigravitySubmodels = usage?.Details?
-                .Select(d => d.Name)
-                .Where(name =>
-                    !string.IsNullOrWhiteSpace(name) &&
-                    !name.StartsWith("[", StringComparison.Ordinal))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (antigravitySubmodels is { Count: > 0 })
-            {
-                var modelsText = new TextBlock
-                {
-                    Text = $"Models: {string.Join(", ", antigravitySubmodels)}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 4, 0, 0),
-                    TextWrapping = TextWrapping.Wrap
-                };
-                modelsText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(modelsText);
-            }
-
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else if (config.ProviderId == "github-copilot")
-        {
-            // GitHub Copilot: Show username (if available) - privacy mode only shows masked username
-            var statusPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            string? username = usage?.AccountName;
-            if (string.IsNullOrWhiteSpace(username) || username == "Unknown")
-            {
-                username = _gitHubAuthUsername;
-            }
-            bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown" && username != "User";
-
-            bool isAuthenticated = !string.IsNullOrEmpty(config.ApiKey) || !string.IsNullOrWhiteSpace(_gitHubAuthUsername);
-
-            string displayText;
-            if (!isAuthenticated)
-            {
-                displayText = "Not Authenticated";
-            }
-            else if (!hasUsername)
-            {
-                displayText = "Authenticated";
-            }
-            else if (_isPrivacyMode && username != null)
-            {
-                displayText = $"Authenticated ({MaskAccountIdentifier(username)})";
-            }
-            else
-            {
-                // Normal mode: show full text with username
-                displayText = $"Authenticated ({username})";
-            }
-
-            var statusText = new TextBlock
-            {
-                Text = displayText,
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty, 
-                isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else if ((config.ProviderId == "openai" &&
-                  (usage?.IsQuotaBased == true ||
-                   (!string.IsNullOrWhiteSpace(config.ApiKey) && !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase))))
-                 || config.ProviderId == "codex")
-        {
-            var statusPanel = new StackPanel { Orientation = Orientation.Vertical };
-            var isCodex = config.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase);
-            var providerSessionLabel = isCodex ? "OpenAI Codex" : "OpenAI";
-            var hasSessionToken = !string.IsNullOrWhiteSpace(config.ApiKey) &&
-                                  !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-            var isAuthenticated = hasSessionToken || (usage != null && usage.IsAvailable);
-            var accountName = usage?.AccountName;
-            if (string.IsNullOrWhiteSpace(accountName) || accountName == "Unknown" || accountName == "User")
-            {
-                accountName = isCodex
-                    ? (_codexAuthUsername ?? _openAiAuthUsername)
-                    : _openAiAuthUsername;
-            }
-
-            string displayText;
-            if (!isAuthenticated)
-            {
-                displayText = "Not Authenticated";
-            }
-            else if (!string.IsNullOrWhiteSpace(accountName))
-            {
-                displayText = _isPrivacyMode
-                    ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
-                    : $"Authenticated ({accountName})";
-            }
-            else if (hasSessionToken && (usage == null || !usage.IsAvailable))
-            {
-                displayText = $"Authenticated via {providerSessionLabel} - refresh to load quota";
-            }
-            else
-            {
-                displayText = $"Authenticated via {providerSessionLabel}";
-            }
-
-            var statusText = new TextBlock
-            {
-                Text = displayText,
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty,
-                isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-
-            var resolvedReset = usage?.NextResetTime ?? InferResetTimeFromDetails(usage);
-            if (resolvedReset is DateTime nextReset)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = $"Next reset: {nextReset:g}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(resetText);
-            }
-            else if (isAuthenticated)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = "Next reset: loading...",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(resetText);
-            }
-
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else
-        {
-            // Standard API Key Input
-            var displayKey = config.ApiKey;
-            if (_isPrivacyMode && !string.IsNullOrEmpty(displayKey))
-            {
-                if (displayKey.Length > 8)
-                    displayKey = displayKey.Substring(0, 4) + "****" + displayKey.Substring(displayKey.Length - 4);
-                else
-                    displayKey = "****";
-            }
-
-            var keyBox = new TextBox
-            {
-                Text = displayKey,
-                Tag = config,
-                VerticalContentAlignment = VerticalAlignment.Center,
-                FontSize = 11,
-                IsReadOnly = _isPrivacyMode
-            };
-            
-            if (!_isPrivacyMode)
-            {
-                keyBox.TextChanged += (s, e) => {
-                    config.ApiKey = keyBox.Text;
-                    SettingsChanged = true;
-                    ScheduleAutoSave();
-                };
-            }
-
-            Grid.SetColumn(keyBox, 0);
-            keyPanel.Children.Add(keyBox);
-        }
+        var keyContent = BuildProviderInputContent(config, usage, inputMode);
+        Grid.SetColumn(keyContent, 0);
+        keyPanel.Children.Add(keyContent);
 
         Grid.SetRow(keyPanel, 1);
         grid.Children.Add(keyPanel);
@@ -1412,6 +1007,271 @@ public partial class SettingsWindow : Window
 
         card.Child = grid;
         ProvidersStack.Children.Add(card);
+    }
+
+    private enum ProviderInputMode
+    {
+        StandardApiKey,
+        DerivedReadOnly,
+        AntigravityAutoDetected,
+        GitHubCopilotAuthStatus,
+        OpenAiSessionStatus
+    }
+
+    private ProviderInputMode GetProviderInputMode(ProviderConfig config, ProviderUsage? usage, bool isDerived)
+    {
+        if (isDerived)
+        {
+            return ProviderInputMode.DerivedReadOnly;
+        }
+
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId);
+        return canonicalProviderId switch
+        {
+            "antigravity" => ProviderInputMode.AntigravityAutoDetected,
+            "github-copilot" => ProviderInputMode.GitHubCopilotAuthStatus,
+            "codex" => ProviderInputMode.OpenAiSessionStatus,
+            "openai" when usage?.IsQuotaBased == true || IsSessionToken(config.ApiKey) => ProviderInputMode.OpenAiSessionStatus,
+            _ => ProviderInputMode.StandardApiKey
+        };
+    }
+
+    private bool IsProviderInactive(ProviderConfig config, ProviderUsage? usage, bool isDerived, ProviderInputMode inputMode)
+    {
+        if (isDerived)
+        {
+            return false;
+        }
+
+        return inputMode switch
+        {
+            ProviderInputMode.AntigravityAutoDetected => usage == null || !usage.IsAvailable,
+            ProviderInputMode.OpenAiSessionStatus => string.IsNullOrWhiteSpace(config.ApiKey) && !(usage?.IsAvailable == true),
+            _ => string.IsNullOrEmpty(config.ApiKey)
+        };
+    }
+
+    private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderInputMode inputMode)
+    {
+        return inputMode switch
+        {
+            ProviderInputMode.DerivedReadOnly => BuildDerivedProviderPanel(usage),
+            ProviderInputMode.AntigravityAutoDetected => BuildAntigravityStatusPanel(usage),
+            ProviderInputMode.GitHubCopilotAuthStatus => BuildGitHubCopilotStatusPanel(config, usage),
+            ProviderInputMode.OpenAiSessionStatus => BuildOpenAiSessionStatusPanel(config, usage),
+            _ => BuildApiKeyEditor(config)
+        };
+    }
+
+    private StackPanel BuildDerivedProviderPanel(ProviderUsage? usage)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Vertical };
+        var statusText = new TextBlock
+        {
+            Text = usage?.IsAvailable == true ? "Derived from Codex usage (read-only)" : "Derived provider (waiting for usage data)",
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11
+        };
+        statusText.SetResourceReference(
+            TextBlock.ForegroundProperty,
+            usage?.IsAvailable == true ? "ProgressBarGreen" : "TertiaryText");
+        panel.Children.Add(statusText);
+
+        if (usage?.NextResetTime is DateTime derivedReset)
+        {
+            var resetText = CreateSecondaryStatusText($"Next reset: {derivedReset:g}");
+            panel.Children.Add(resetText);
+        }
+
+        return panel;
+    }
+
+    private StackPanel BuildAntigravityStatusPanel(ProviderUsage? usage)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Vertical };
+        bool isConnected = usage != null && usage.IsAvailable;
+        string accountInfo = usage?.AccountName ?? "Unknown";
+        var displayAccount = _isPrivacyMode ? MaskAccountIdentifier(accountInfo) : accountInfo;
+
+        var statusText = new TextBlock
+        {
+            Text = isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            FontStyle = isConnected ? FontStyles.Normal : FontStyles.Italic
+        };
+        statusText.SetResourceReference(
+            TextBlock.ForegroundProperty,
+            isConnected ? "ProgressBarGreen" : "TertiaryText");
+        panel.Children.Add(statusText);
+
+        var antigravitySubmodels = usage?.Details?
+            .Select(d => d.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name) && !name.StartsWith("[", StringComparison.Ordinal))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (antigravitySubmodels is { Count: > 0 })
+        {
+            var modelsText = CreateSecondaryStatusText($"Models: {string.Join(", ", antigravitySubmodels)}");
+            modelsText.TextWrapping = TextWrapping.Wrap;
+            modelsText.Margin = new Thickness(0, 4, 0, 0);
+            panel.Children.Add(modelsText);
+        }
+
+        return panel;
+    }
+
+    private StackPanel BuildGitHubCopilotStatusPanel(ProviderConfig config, ProviderUsage? usage)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        string? username = usage?.AccountName;
+        if (string.IsNullOrWhiteSpace(username) || username == "Unknown")
+        {
+            username = _gitHubAuthUsername;
+        }
+
+        bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown" && username != "User";
+        bool isAuthenticated = !string.IsNullOrEmpty(config.ApiKey) || !string.IsNullOrWhiteSpace(_gitHubAuthUsername);
+
+        string displayText = !isAuthenticated
+            ? "Not Authenticated"
+            : !hasUsername
+                ? "Authenticated"
+                : _isPrivacyMode && username != null
+                    ? $"Authenticated ({MaskAccountIdentifier(username)})"
+                    : $"Authenticated ({username})";
+
+        var statusText = new TextBlock
+        {
+            Text = displayText,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11
+        };
+        statusText.SetResourceReference(
+            TextBlock.ForegroundProperty,
+            isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
+
+        panel.Children.Add(statusText);
+        return panel;
+    }
+
+    private StackPanel BuildOpenAiSessionStatusPanel(ProviderConfig config, ProviderUsage? usage)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Vertical };
+        var isCodex = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId)
+            .Equals("codex", StringComparison.OrdinalIgnoreCase);
+        var providerSessionLabel = isCodex ? "OpenAI Codex" : "OpenAI";
+        var hasSessionToken = IsSessionToken(config.ApiKey);
+        var isAuthenticated = hasSessionToken || (usage != null && usage.IsAvailable);
+        var accountName = usage?.AccountName;
+
+        if (string.IsNullOrWhiteSpace(accountName) || accountName == "Unknown" || accountName == "User")
+        {
+            accountName = isCodex
+                ? (_codexAuthUsername ?? _openAiAuthUsername)
+                : _openAiAuthUsername;
+        }
+
+        string displayText;
+        if (!isAuthenticated)
+        {
+            displayText = "Not Authenticated";
+        }
+        else if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            displayText = _isPrivacyMode
+                ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
+                : $"Authenticated ({accountName})";
+        }
+        else if (hasSessionToken && (usage == null || !usage.IsAvailable))
+        {
+            displayText = $"Authenticated via {providerSessionLabel} - refresh to load quota";
+        }
+        else
+        {
+            displayText = $"Authenticated via {providerSessionLabel}";
+        }
+
+        var statusText = new TextBlock
+        {
+            Text = displayText,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11
+        };
+        statusText.SetResourceReference(
+            TextBlock.ForegroundProperty,
+            isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
+        panel.Children.Add(statusText);
+
+        var resolvedReset = usage?.NextResetTime ?? InferResetTimeFromDetails(usage);
+        if (resolvedReset is DateTime nextReset)
+        {
+            panel.Children.Add(CreateSecondaryStatusText($"Next reset: {nextReset:g}"));
+        }
+        else if (isAuthenticated)
+        {
+            panel.Children.Add(CreateSecondaryStatusText("Next reset: loading..."));
+        }
+
+        return panel;
+    }
+
+    private TextBox BuildApiKeyEditor(ProviderConfig config)
+    {
+        var displayKey = config.ApiKey;
+        if (_isPrivacyMode && !string.IsNullOrEmpty(displayKey))
+        {
+            if (displayKey.Length > 8)
+            {
+                displayKey = displayKey.Substring(0, 4) + "****" + displayKey.Substring(displayKey.Length - 4);
+            }
+            else
+            {
+                displayKey = "****";
+            }
+        }
+
+        var keyBox = new TextBox
+        {
+            Text = displayKey,
+            Tag = config,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            IsReadOnly = _isPrivacyMode
+        };
+
+        if (!_isPrivacyMode)
+        {
+            keyBox.TextChanged += (s, e) =>
+            {
+                config.ApiKey = keyBox.Text;
+                SettingsChanged = true;
+                ScheduleAutoSave();
+            };
+        }
+
+        return keyBox;
+    }
+
+    private TextBlock CreateSecondaryStatusText(string text)
+    {
+        var statusText = new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 10,
+            Margin = new Thickness(0, 3, 0, 0)
+        };
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        return statusText;
+    }
+
+    private static bool IsSessionToken(string? apiKey)
+    {
+        return !string.IsNullOrWhiteSpace(apiKey) &&
+               !apiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
     }
 
     private void RefreshTrayIcons()

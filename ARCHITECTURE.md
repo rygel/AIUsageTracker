@@ -6,6 +6,17 @@ This document outlines the architectural design and project structure of the AI 
 
 The project follows the principles of **Clean Architecture** to maintain a separation of concerns, improve testability, and ensure platform independence where possible.
 
+## Platform Baseline: .NET 8 Compatibility
+
+The solution baseline is **.NET 8**.
+
+- Application projects must remain compatible with `net8.0` / `net8.0-windows`.
+- Dependency upgrades should prefer the **latest versions that still work cleanly with the .NET 8 baseline**.
+- Test and tooling packages must not silently force the project toward a newer runtime model than the application itself.
+- In particular, web-test host packages (for example `Microsoft.AspNetCore.Mvc.Testing`) should stay aligned with the application runtime unless there is an explicit decision to modernize the web test harness separately.
+
+This rule exists to maximize compatibility and reduce accidental breakage from version skew between the runtime, hosting stack, and test infrastructure.
+
 ### 1. Separation of Intent from Implementation
 We separate **What** the application does (Core) from **How** it does it (Infrastructure).
 - Interfaces are defined in **Core**.
