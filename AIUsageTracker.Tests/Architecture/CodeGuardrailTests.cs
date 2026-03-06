@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.Architecture;
 
@@ -22,6 +23,23 @@ public class CodeGuardrailTests
         (new Regex(@"\.GetAwaiter\(\)\.GetResult\(", RegexOptions.Compiled | RegexOptions.CultureInvariant), "GetAwaiter().GetResult()"),
         (new Regex(@"\.Wait\(", RegexOptions.Compiled | RegexOptions.CultureInvariant), ".Wait(...)"),
         (new Regex(@"\.Result\b(?!\s*\?)", RegexOptions.Compiled | RegexOptions.CultureInvariant), ".Result")
+    };
+    private static readonly Regex StringLiteralRegex = new(
+        "\"((?:\\\\.|[^\"\\\\])*)\"",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private static readonly HashSet<string> AllowedHardcodedProviderIdFiles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        NormalizePath("AIUsageTracker.Infrastructure/Configuration/JsonConfigLoader.cs"),
+        NormalizePath("AIUsageTracker.Infrastructure/Configuration/TokenDiscoveryService.cs"),
+        NormalizePath("AIUsageTracker.Infrastructure/Services/CodexAuthService.cs"),
+        NormalizePath("AIUsageTracker.Monitor/Program.cs"),
+        NormalizePath("AIUsageTracker.Monitor/Services/ProviderRefreshService.cs"),
+        NormalizePath("AIUsageTracker.UI.Slim/MainWindowDeterministicFixture.cs"),
+        NormalizePath("AIUsageTracker.UI.Slim/ProviderAuthIdentityDiscovery.cs"),
+        NormalizePath("AIUsageTracker.UI.Slim/ProviderSettingsCatalog.cs"),
+        NormalizePath("AIUsageTracker.UI.Slim/ProviderVisualCatalog.cs"),
+        NormalizePath("AIUsageTracker.UI.Slim/SettingsWindowDeterministicFixture.cs")
     };
 
     [Fact]
@@ -75,9 +93,55 @@ public class CodeGuardrailTests
             "Empty catch blocks are forbidden in production code." + Environment.NewLine + string.Join(Environment.NewLine, violations));
     }
 
-    private static IEnumerable<string> EnumerateProductionSourceFiles()
+    [Fact]
+    public void ProductionCode_DoesNotIntroduceHardcodedProviderIdsOutsideAllowedFiles()
+    {
+        var violations = new List<string>();
+        var providerIds = GetKnownProviderIds();
+
+        foreach (var file in EnumerateProductionSourceFiles(includeMarkup: true))
+        {
+            var relativePath = NormalizePath(GetRelativePath(file));
+            if (IsAllowedHardcodedProviderIdFile(relativePath))
+            {
+                continue;
+            }
+
+            var lines = File.ReadAllLines(file);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var line = lines[index];
+                if (line.Contains("provider-id-guardrail-allow", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                foreach (Match match in StringLiteralRegex.Matches(line))
+                {
+                    var literalValue = match.Groups[1].Value;
+                    if (!providerIds.Contains(literalValue))
+                    {
+                        continue;
+                    }
+
+                    violations.Add($"{relativePath}:{index + 1} hardcodes provider id \"{literalValue}\"");
+                }
+            }
+        }
+
+        Assert.True(
+            violations.Count == 0,
+            "Hardcoded provider ids are forbidden outside provider metadata/compatibility files." +
+            Environment.NewLine +
+            string.Join(Environment.NewLine, violations));
+    }
+
+    private static IEnumerable<string> EnumerateProductionSourceFiles(bool includeMarkup = false)
     {
         var repoRoot = GetRepoRoot();
+        var extensions = includeMarkup
+            ? new[] { "*.cs", "*.cshtml" }
+            : new[] { "*.cs" };
 
         foreach (var projectDirectory in ProductionProjectDirectories)
         {
@@ -87,15 +151,18 @@ public class CodeGuardrailTests
                 continue;
             }
 
-            foreach (var file in Directory.EnumerateFiles(fullProjectDirectory, "*.cs", SearchOption.AllDirectories))
+            foreach (var extension in extensions)
             {
-                if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
-                    file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                foreach (var file in Directory.EnumerateFiles(fullProjectDirectory, extension, SearchOption.AllDirectories))
                 {
-                    continue;
-                }
+                    if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
+                        file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
 
-                yield return file;
+                    yield return file;
+                }
             }
         }
     }
@@ -115,5 +182,25 @@ public class CodeGuardrailTests
     private static string GetRelativePath(string path)
     {
         return Path.GetRelativePath(GetRepoRoot(), path);
+    }
+
+    private static HashSet<string> GetKnownProviderIds()
+    {
+        return ProviderMetadataCatalog.Definitions
+            .SelectMany(definition => definition.HandledProviderIds
+                .Concat(definition.NonPersistedProviderIds)
+                .Concat(definition.VisibleDerivedProviderIds))
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static bool IsAllowedHardcodedProviderIdFile(string relativePath)
+    {
+        return relativePath.StartsWith(NormalizePath("AIUsageTracker.Infrastructure/Providers/"), StringComparison.OrdinalIgnoreCase) ||
+               AllowedHardcodedProviderIdFiles.Contains(relativePath);
+    }
+
+    private static string NormalizePath(string path)
+    {
+        return path.Replace('\\', '/');
     }
 }
