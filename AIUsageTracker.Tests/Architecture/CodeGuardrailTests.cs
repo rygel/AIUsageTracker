@@ -28,10 +28,7 @@ public class CodeGuardrailTests
         "\"((?:\\\\.|[^\"\\\\])*)\"",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
-    private static readonly HashSet<string> AllowedHardcodedProviderIdFiles = new(StringComparer.OrdinalIgnoreCase)
-    {
-        NormalizePath("AIUsageTracker.Infrastructure/Configuration/JsonConfigLoader.cs")
-    };
+    private static readonly HashSet<string> AllowedHardcodedProviderIdFiles = new(StringComparer.OrdinalIgnoreCase);
 
     [Fact]
     public void ProductionCode_DoesNotUseSyncOverAsync()

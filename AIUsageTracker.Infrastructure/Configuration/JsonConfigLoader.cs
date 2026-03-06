@@ -30,23 +30,15 @@ public class JsonConfigLoader : IConfigLoader
 
     public async Task<List<ProviderConfig>> LoadConfigAsync()
     {
-        var authPaths = new List<string>
-        {
-            GetTrackerConfigPath(),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".local", "share", "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".opencode", "auth.json")
-        };
+        var authPaths = new[] { GetTrackerConfigPath() }
+            .Concat(GetCompatibilityAuthPaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var providerPaths = new List<string>
-        {
-            GetProvidersConfigPath(),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".local", "share", "opencode", "providers.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "providers.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "providers.json"),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".opencode", "providers.json")
-        };
+        var providerPaths = new[] { GetProvidersConfigPath() }
+            .Concat(GetCompatibilityProvidersPaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         // Dictionary to merge configs: ProviderId -> Config
         var mergedConfigs = new Dictionary<string, ProviderConfig>(StringComparer.OrdinalIgnoreCase);
@@ -357,5 +349,29 @@ public class JsonConfigLoader : IConfigLoader
 
         var output = JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(path, output);
+    }
+
+    private IEnumerable<string> GetCompatibilityAuthPaths()
+    {
+        return OpenAIProvider.StaticDefinition.AuthIdentityCandidatePathTemplates
+            .Select(ResolvePathTemplate);
+    }
+
+    private IEnumerable<string> GetCompatibilityProvidersPaths()
+    {
+        return GetCompatibilityAuthPaths()
+            .Select(path =>
+            {
+                var directory = Path.GetDirectoryName(path) ?? string.Empty;
+                return Path.Combine(directory, "providers.json");
+            });
+    }
+
+    private string ResolvePathTemplate(string pathTemplate)
+    {
+        return pathTemplate
+            .Replace("%USERPROFILE%", _pathProvider.GetUserProfileRoot(), StringComparison.OrdinalIgnoreCase)
+            .Replace("%APPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), StringComparison.OrdinalIgnoreCase)
+            .Replace("%LOCALAPPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StringComparison.OrdinalIgnoreCase);
     }
 }
