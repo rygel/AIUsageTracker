@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;
@@ -40,39 +41,11 @@ public class CodexAuthService : ICodexAuthService
             try
             {
                 var json = File.ReadAllText(path);
-
-                // Native Codex shape: { "tokens": { "access_token": "...", "account_id": "..." } }
-                var nativeAuth = JsonSerializer.Deserialize<CodexNativeAuth>(json);
-                if (!string.IsNullOrWhiteSpace(nativeAuth?.Tokens.AccessToken))
-                {
-                    return new CodexAuth
-                    {
-                        AccessToken = nativeAuth.Tokens.AccessToken,
-                        AccountId = nativeAuth.Tokens.AccountId
-                    };
-                }
-
-                // OpenCode shape: { "openai": { "access": "...", "accountId": "..." } }
                 using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("openai", out var openai) &&
-                    openai.ValueKind == JsonValueKind.Object)
+                var auth = TryReadAuth(doc.RootElement);
+                if (auth != null)
                 {
-                    var access = openai.TryGetProperty("access", out var accessProp) && accessProp.ValueKind == JsonValueKind.String
-                        ? accessProp.GetString()
-                        : null;
-
-                    if (!string.IsNullOrWhiteSpace(access))
-                    {
-                        var accountId = openai.TryGetProperty("accountId", out var accountIdProp) && accountIdProp.ValueKind == JsonValueKind.String
-                            ? accountIdProp.GetString()
-                            : null;
-
-                        return new CodexAuth
-                        {
-                            AccessToken = access,
-                            AccountId = accountId
-                        };
-                    }
+                    return auth;
                 }
             }
             catch (Exception ex)
@@ -93,45 +66,54 @@ public class CodexAuthService : ICodexAuthService
         }
 
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        yield return Path.Combine(home, ".codex", "auth.json");
-        yield return Path.Combine(home, ".local", "share", "opencode", "auth.json");
-        yield return Path.Combine(home, ".opencode", "auth.json");
-
-        if (OperatingSystem.IsWindows())
+        foreach (var pathTemplate in CodexProvider.StaticDefinition.AuthIdentityCandidatePathTemplates)
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (!string.IsNullOrWhiteSpace(appData))
+            var path = Environment.ExpandEnvironmentVariables(pathTemplate.Replace("%USERPROFILE%", home, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(path))
             {
-                yield return Path.Combine(appData, "codex", "auth.json");
-                yield return Path.Combine(appData, "opencode", "auth.json");
-            }
-
-            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            if (!string.IsNullOrWhiteSpace(localAppData))
-            {
-                yield return Path.Combine(localAppData, "opencode", "auth.json");
+                yield return path;
             }
         }
+    }
+
+    private static CodexAuth? TryReadAuth(JsonElement root)
+    {
+        foreach (var schema in CodexProvider.StaticDefinition.SessionAuthFileSchemas)
+        {
+            if (!root.TryGetProperty(schema.RootProperty, out var element) || element.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var accessToken = element.TryGetProperty(schema.AccessTokenProperty, out var accessTokenElement) &&
+                              accessTokenElement.ValueKind == JsonValueKind.String
+                ? accessTokenElement.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(accessToken))
+            {
+                continue;
+            }
+
+            var accountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty) &&
+                            element.TryGetProperty(schema.AccountIdProperty, out var accountIdElement) &&
+                            accountIdElement.ValueKind == JsonValueKind.String
+                ? accountIdElement.GetString()
+                : null;
+
+            return new CodexAuth
+            {
+                AccessToken = accessToken,
+                AccountId = accountId
+            };
+        }
+
+        return null;
     }
 
     private sealed class CodexAuth
     {
         public string? AccessToken { get; set; }
-        public string? AccountId { get; set; }
-    }
-
-    private sealed class CodexNativeAuth
-    {
-        [JsonPropertyName("tokens")]
-        public CodexNativeTokens Tokens { get; set; } = new();
-    }
-
-    private sealed class CodexNativeTokens
-    {
-        [JsonPropertyName("access_token")]
-        public string? AccessToken { get; set; }
-
-        [JsonPropertyName("account_id")]
         public string? AccountId { get; set; }
     }
 }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Helpers;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -29,23 +30,15 @@ public class JsonConfigLoader : IConfigLoader
 
     public async Task<List<ProviderConfig>> LoadConfigAsync()
     {
-        var authPaths = new List<string>
-        {
-            GetTrackerConfigPath(),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".local", "share", "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".opencode", "auth.json")
-        };
+        var authPaths = new[] { GetTrackerConfigPath() }
+            .Concat(GetCompatibilityAuthPaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
-        var providerPaths = new List<string>
-        {
-            GetProvidersConfigPath(),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".local", "share", "opencode", "providers.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "providers.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "providers.json"),
-            Path.Combine(_pathProvider.GetUserProfileRoot(), ".opencode", "providers.json")
-        };
+        var providerPaths = new[] { GetProvidersConfigPath() }
+            .Concat(GetCompatibilityProvidersPaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         // Dictionary to merge configs: ProviderId -> Config
         var mergedConfigs = new Dictionary<string, ProviderConfig>(StringComparer.OrdinalIgnoreCase);
@@ -62,8 +55,7 @@ public class JsonConfigLoader : IConfigLoader
                 {
                     foreach (var kvp in rawConfigs)
                     {
-                        var providerId = kvp.Key;
-                        if (providerId.Equals("kimi-for-coding", StringComparison.OrdinalIgnoreCase)) providerId = "kimi";
+                        var providerId = ProviderMetadataCatalog.GetCanonicalProviderId(kvp.Key);
                         if (providerId.Equals("app_settings", StringComparison.OrdinalIgnoreCase)) continue;
 
                         if (!mergedConfigs.TryGetValue(providerId, out var config))
@@ -104,7 +96,10 @@ public class JsonConfigLoader : IConfigLoader
                             {
                                 config.Models = JsonSerializer.Deserialize<List<AIModelConfig>>(modelsProp.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AIModelConfig>();
                             }
-                            catch { }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
+                            }
                         }
                         
                         // Append source
@@ -159,104 +154,9 @@ public class JsonConfigLoader : IConfigLoader
             }
         }
 
-        NormalizeOpenAiCodexSessionOverlap(result);
-        NormalizeCodexSparkConfiguration(result);
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(result);
 
         return result;
-    }
-
-    private static void NormalizeOpenAiCodexSessionOverlap(List<ProviderConfig> configs)
-    {
-        var openAiConfig = configs.FirstOrDefault(c => c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
-        if (openAiConfig == null)
-        {
-            return;
-        }
-
-        var openAiHasApiKey = !string.IsNullOrWhiteSpace(openAiConfig.ApiKey);
-        var openAiHasExplicitApiKey = openAiHasApiKey &&
-                                      openAiConfig.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-        if (openAiHasExplicitApiKey)
-        {
-            return;
-        }
-
-        var codexConfig = configs.FirstOrDefault(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase));
-        if (codexConfig == null)
-        {
-            codexConfig = new ProviderConfig
-            {
-                ProviderId = "codex",
-                Type = "quota-based",
-                PlanType = PlanType.Coding
-            };
-            configs.Add(codexConfig);
-        }
-
-        if (string.IsNullOrWhiteSpace(codexConfig.ApiKey) && openAiHasApiKey)
-        {
-            codexConfig.ApiKey = openAiConfig.ApiKey;
-            codexConfig.AuthSource = openAiConfig.AuthSource;
-            codexConfig.Description = "Migrated from OpenAI session config";
-            codexConfig.Type = "quota-based";
-            codexConfig.PlanType = PlanType.Coding;
-        }
-
-        configs.RemoveAll(c => c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static void NormalizeCodexSparkConfiguration(List<ProviderConfig> configs)
-    {
-        var sparkConfigs = configs
-            .Where(c => c.ProviderId.Equals("codex.spark", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        if (sparkConfigs.Count == 0)
-        {
-            return;
-        }
-
-        var codexConfig = configs.FirstOrDefault(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase));
-        if (codexConfig == null)
-        {
-            codexConfig = new ProviderConfig
-            {
-                ProviderId = "codex",
-                Type = "quota-based",
-                PlanType = PlanType.Coding
-            };
-            configs.Add(codexConfig);
-        }
-
-        foreach (var sparkConfig in sparkConfigs)
-        {
-            if (string.IsNullOrWhiteSpace(codexConfig.ApiKey) && !string.IsNullOrWhiteSpace(sparkConfig.ApiKey))
-            {
-                codexConfig.ApiKey = sparkConfig.ApiKey;
-            }
-
-            if (string.IsNullOrWhiteSpace(codexConfig.AuthSource) && !string.IsNullOrWhiteSpace(sparkConfig.AuthSource))
-            {
-                codexConfig.AuthSource = sparkConfig.AuthSource;
-            }
-
-            if (string.IsNullOrWhiteSpace(codexConfig.Description) && !string.IsNullOrWhiteSpace(sparkConfig.Description))
-            {
-                codexConfig.Description = sparkConfig.Description;
-            }
-
-            if (string.IsNullOrWhiteSpace(codexConfig.BaseUrl) && !string.IsNullOrWhiteSpace(sparkConfig.BaseUrl))
-            {
-                codexConfig.BaseUrl = sparkConfig.BaseUrl;
-            }
-
-            codexConfig.ShowInTray = codexConfig.ShowInTray || sparkConfig.ShowInTray;
-            codexConfig.EnableNotifications = codexConfig.EnableNotifications || sparkConfig.EnableNotifications;
-            codexConfig.Type = "quota-based";
-            codexConfig.PlanType = PlanType.Coding;
-        }
-
-        configs.RemoveAll(c => c.ProviderId.Equals("codex.spark", StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task SaveConfigAsync(List<ProviderConfig> configs)
@@ -283,7 +183,10 @@ public class JsonConfigLoader : IConfigLoader
                 var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
                 if (existing != null) exportAuth = existing;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load existing auth config from {Path}; continuing with a clean export payload", authPath);
+            }
         }
 
         if (File.Exists(providersPath))
@@ -294,15 +197,35 @@ public class JsonConfigLoader : IConfigLoader
                 var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
                 if (existing != null) exportProviders = existing;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load existing provider config from {Path}; continuing with a clean export payload", providersPath);
+            }
         }
 
-        // Keep Codex as a single top-level provider track; spark is represented as model detail.
-        exportAuth.Remove("codex.spark");
-        exportProviders.Remove("codex.spark");
+        foreach (var providerId in exportAuth.Keys.ToList())
+        {
+            if (!ProviderMetadataCatalog.ShouldPersistProviderId(providerId))
+            {
+                exportAuth.Remove(providerId);
+            }
+        }
+
+        foreach (var providerId in exportProviders.Keys.ToList())
+        {
+            if (!ProviderMetadataCatalog.ShouldPersistProviderId(providerId))
+            {
+                exportProviders.Remove(providerId);
+            }
+        }
 
         foreach (var config in configs)
         {
+            if (!ProviderMetadataCatalog.ShouldPersistProviderId(config.ProviderId))
+            {
+                continue;
+            }
+
             // 1. Update Auth (Key)
             if (exportAuth.TryGetValue(config.ProviderId, out var existingAuthObj) && existingAuthObj is JsonElement existingAuthEl)
             {
@@ -370,7 +293,10 @@ public class JsonConfigLoader : IConfigLoader
                     return JsonSerializer.Deserialize<AppPreferences>(settingsElement.GetRawText()) ?? new AppPreferences();
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load app settings from {Path}; falling back to defaults", authPath);
+            }
         }
 
         // 2. Fallback to old preferences.json
@@ -382,7 +308,10 @@ public class JsonConfigLoader : IConfigLoader
                 var json = await File.ReadAllTextAsync(path);
                 return JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load legacy preferences from {Path}; falling back to defaults", path);
+            }
         }
         return new AppPreferences();
     }
@@ -405,8 +334,9 @@ public class JsonConfigLoader : IConfigLoader
                 var json = await File.ReadAllTextAsync(path);
                 root = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new Dictionary<string, object>();
              }
-             catch
+             catch (Exception ex)
              {
+                _logger.LogDebug(ex, "Failed to load existing preferences container from {Path}; rebuilding it", path);
                 root = new Dictionary<string, object>();
              }
         }
@@ -419,5 +349,29 @@ public class JsonConfigLoader : IConfigLoader
 
         var output = JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = true });
         await File.WriteAllTextAsync(path, output);
+    }
+
+    private IEnumerable<string> GetCompatibilityAuthPaths()
+    {
+        return OpenAIProvider.StaticDefinition.AuthIdentityCandidatePathTemplates
+            .Select(ResolvePathTemplate);
+    }
+
+    private IEnumerable<string> GetCompatibilityProvidersPaths()
+    {
+        return GetCompatibilityAuthPaths()
+            .Select(path =>
+            {
+                var directory = Path.GetDirectoryName(path) ?? string.Empty;
+                return Path.Combine(directory, "providers.json");
+            });
+    }
+
+    private string ResolvePathTemplate(string pathTemplate)
+    {
+        return pathTemplate
+            .Replace("%USERPROFILE%", _pathProvider.GetUserProfileRoot(), StringComparison.OrdinalIgnoreCase)
+            .Replace("%APPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), StringComparison.OrdinalIgnoreCase)
+            .Replace("%LOCALAPPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StringComparison.OrdinalIgnoreCase);
     }
 }

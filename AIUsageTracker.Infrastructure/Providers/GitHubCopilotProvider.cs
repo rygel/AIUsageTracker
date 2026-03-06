@@ -13,7 +13,16 @@ public class GitHubCopilotProvider : ProviderBase
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
-        includeInWellKnownProviders: true);
+        includeInWellKnownProviders: true,
+        settingsMode: ProviderSettingsMode.ExternalAuthStatus,
+        iconAssetName: "github",
+        fallbackBadgeColorHex: "#9370DB",
+        fallbackBadgeInitial: "GH",
+        authIdentityCandidatePathTemplates: new[]
+        {
+            "%APPDATA%\\GitHub CLI\\hosts.yml",
+            "%USERPROFILE%\\.config\\gh\\hosts.yml"
+        });
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;

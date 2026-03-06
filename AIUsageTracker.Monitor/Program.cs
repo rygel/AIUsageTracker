@@ -11,6 +11,7 @@ using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
@@ -254,20 +255,9 @@ app.MapGet("/api/usage", async (UsageDatabase db, IConfigService configService, 
     var usage = await db.GetLatestHistoryAsync();
 
     var configs = await configService.GetConfigsAsync();
-    var hasCodexSession = configs.Any(c =>
-        c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase) &&
-        !string.IsNullOrWhiteSpace(c.ApiKey));
-    var hasExplicitOpenAiApiKey = configs.Any(c =>
-        c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase) &&
-        !string.IsNullOrWhiteSpace(c.ApiKey) &&
-        c.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase));
-
-    if (hasCodexSession && !hasExplicitOpenAiApiKey)
-    {
-        usage = usage
-            .Where(u => !u.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-    }
+    usage = usage
+        .Where(u => !ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, u.ProviderId))
+        .ToList();
 
     logger.LogDebug("GET /api/usage returning {Count} providers: {Providers}", 
         usage.Count, string.Join(", ", usage.Select(u => u.ProviderId)));

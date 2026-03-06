@@ -9,7 +9,7 @@ public static class UpdateMapper
     {
         return new AppCastItem
         {
-            Version = info.Version.StartsWith("v") ? info.Version[1..] : info.Version,
+            Version = info.Version.StartsWith("v", StringComparison.Ordinal) ? info.Version[1..] : info.Version,
             DownloadLink = info.DownloadUrl,
             ReleaseNotesLink = info.ReleaseUrl,
             PublicationDate = info.PublishedAt,

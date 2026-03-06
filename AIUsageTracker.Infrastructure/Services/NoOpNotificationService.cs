@@ -12,7 +12,11 @@ public class NoOpNotificationService : INotificationService
         _logger = logger;
     }
 
-    public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked;
+    public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked
+    {
+        add { }
+        remove { }
+    }
 
     public void Initialize()
     {

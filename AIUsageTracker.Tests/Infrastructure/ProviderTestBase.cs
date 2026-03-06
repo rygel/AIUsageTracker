@@ -1,3 +1,4 @@
+using System.Reflection;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -14,17 +15,40 @@ public abstract class ProviderTestBase<TProvider> where TProvider : class
     protected ProviderTestBase()
     {
         Logger = new Mock<ILogger<TProvider>>();
-        Config = new ProviderConfig { ProviderId = GetProviderId() };
+        var definition = GetProviderDefinition();
+        Config = new ProviderConfig
+        {
+            ProviderId = definition?.ProviderId ?? GetProviderId(),
+            PlanType = definition?.PlanType ?? PlanType.Usage,
+            Type = definition?.DefaultConfigType ?? "pay-as-you-go"
+        };
     }
 
     protected static string GetProviderId()
     {
+        var definition = GetProviderDefinition();
+        if (definition != null)
+        {
+            return definition.ProviderId;
+        }
+
         var providerTypeName = typeof(TProvider).Name;
         if (providerTypeName.EndsWith("Provider"))
         {
             providerTypeName = providerTypeName[..^8];
         }
         return providerTypeName.ToLowerInvariant().Replace(" ", "-");
+    }
+
+    private static ProviderDefinition? GetProviderDefinition()
+    {
+        var property = typeof(TProvider).GetProperty(
+            "StaticDefinition",
+            BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+
+        return property?.PropertyType == typeof(ProviderDefinition)
+            ? property.GetValue(null) as ProviderDefinition
+            : null;
     }
 
     protected static string LoadFixture(string fileName)

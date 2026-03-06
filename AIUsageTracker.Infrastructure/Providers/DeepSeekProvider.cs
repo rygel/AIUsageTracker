@@ -16,7 +16,10 @@ public class DeepSeekProvider : ProviderBase
         planType: PlanType.Usage,
         isQuotaBased: false,
         defaultConfigType: "pay-as-you-go",
-        includeInWellKnownProviders: true);
+        includeInWellKnownProviders: true,
+        iconAssetName: "deepseek",
+        fallbackBadgeColorHex: "#00BFFF",
+        fallbackBadgeInitial: "DS");
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;

@@ -19,7 +19,10 @@ public class ZaiProvider : ProviderBase
         displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["zai"] = "Z.AI"
-        });
+        },
+        iconAssetName: "zai",
+        fallbackBadgeColorHex: "#20B2AA",
+        fallbackBadgeInitial: "Z");
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;
@@ -36,7 +39,7 @@ public class ZaiProvider : ProviderBase
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            throw new ArgumentException("API Key not found for Z.AI provider.");
+            throw new ArgumentException("API Key not found for Z.AI provider.", nameof(config));
         }
 
         var request = new HttpRequestMessage(HttpMethod.Get, "https://api.z.ai/api/monitor/usage/quota/limit");

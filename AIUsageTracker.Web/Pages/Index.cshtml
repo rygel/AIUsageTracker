@@ -1,5 +1,6 @@
 @page
 @model IndexModel
+@using AIUsageTracker.Infrastructure.Providers
 @{
     ViewData["Title"] = "Dashboard";
 }
@@ -35,7 +36,7 @@
 
         @{
             var visibleUsage = (Model.LatestUsage ?? new List<AIUsageTracker.Core.Models.ProviderUsage>())
-                .Where(u => u.ProviderId != "antigravity" && (Model.ShowInactiveProviders || u.IsAvailable))
+                .Where(u => !ProviderMetadataCatalog.IsAggregateParentProviderId(u.ProviderId) && (Model.ShowInactiveProviders || u.IsAvailable))
                 .ToList();
         }
 
@@ -127,12 +128,7 @@
             <div class="provider-grid">
                 @foreach (var usage in visibleUsage)
                 {
-                    var isStatusOnlyProvider =
-                        usage.ProviderId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
-                        usage.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase);
-                    var isStatusOnly =
-                        isStatusOnlyProvider ||
-                        string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
+                    var isStatusOnly = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
                     var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
                     var hasForecast = Model.ForecastsByProvider.TryGetValue(usage.ProviderId, out var forecast);
                     var hasAnomaly = Model.AnomaliesByProvider.TryGetValue(usage.ProviderId, out var anomalySnapshot);

@@ -422,7 +422,7 @@ public class WebDatabaseService : IWebDatabaseRepository
                 var row = new Dictionary<string, object?>();
                 for (int i = 0; i < reader.FieldCount; i++)
                 {
-                    var value = reader.IsDBNull(i) ? null : reader.GetValue(i);
+                    var value = await reader.IsDBNullAsync(i) ? null : reader.GetValue(i);
                     row[reader.GetName(i)] = value;
                 }
                 rows.Add(row);

@@ -56,8 +56,8 @@ public class SettingsViewModelTests
         // Arrange
         var testConfigs = new List<ProviderConfig>
         {
-            new ProviderConfig { ProviderId = "openai", ApiKey = "key1" },
-            new ProviderConfig { ProviderId = "anthropic", ApiKey = "key2" }
+            new ProviderConfig { ProviderId = "codex", ApiKey = "key1" },
+            new ProviderConfig { ProviderId = "claude-code", ApiKey = "key2" }
         };
         _monitorServiceMock.Setup(m => m.GetConfigsAsync()).ReturnsAsync(testConfigs);
         _monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(new List<ProviderUsage>());

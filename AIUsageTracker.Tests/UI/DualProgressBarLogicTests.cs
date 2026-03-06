@@ -1,5 +1,5 @@
-using System.Reflection;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim;
 using Xunit;
 
 namespace AIUsageTracker.Tests.UI;
@@ -38,10 +38,6 @@ public class DualProgressBarLogicTests
     [Fact]
     public void TryGetDualWindowUsedPercentages_IdentifiesPrimaryAndSecondary()
     {
-        var method = typeof(AIUsageTracker.UI.Slim.MainWindow)
-            .GetMethod("TryGetDualWindowUsedPercentages", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
         var usage = new ProviderUsage
         {
             Details = new List<ProviderUsageDetail>
@@ -63,11 +59,13 @@ public class DualProgressBarLogicTests
             }
         };
 
-        var args = new object?[] { usage, 0.0, 0.0 };
-        var result = (bool)method!.Invoke(null, args)!;
+        var result = ProviderDualWindowPresentationCatalog.TryGetDualWindowUsedPercentages(
+            usage,
+            out var hourlyUsed,
+            out var weeklyUsed);
 
         Assert.True(result);
-        Assert.Equal(10.0, (double)args[1]!);
-        Assert.Equal(20.0, (double)args[2]!); // 100 - 80
+        Assert.Equal(10.0, hourlyUsed);
+        Assert.Equal(20.0, weeklyUsed); // 100 - 80
     }
 }

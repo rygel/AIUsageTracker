@@ -112,7 +112,7 @@ public class ProviderRefreshService : BackgroundService
                     _logger.LogDebug("Startup: running targeted refresh for system providers...");
                     await TriggerRefreshAsync(
                         forceAll: true,
-                        includeProviderIds: new[] { "antigravity" });
+                        includeProviderIds: ProviderMetadataCatalog.GetStartupRefreshProviderIds());
                     _logger.LogDebug("Startup: targeted refresh complete.");
                 }
                 catch (Exception ex)
@@ -200,36 +200,21 @@ public class ProviderRefreshService : BackgroundService
                     c.ProviderId, hasKey ? $"Has API key ({c.ApiKey?.Length ?? 0} chars)" : "NO API KEY");
             }
 
-            // Always include system providers that don't require API keys (mirrors ProviderManager.FetchAllUsageInternal)
-            if (!configs.Any(c => c.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase)))
-                configs.Add(new ProviderConfig
-                {
-                    ProviderId = "antigravity",
-                    ApiKey = "",
-                    Type = "quota-based",
-                    PlanType = PlanType.Coding
-                });
-            // System providers (antigravity) work without API keys
-            // All other providers need an API key to be queried
-            var systemProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
-            { 
-                "antigravity"
-            };
+            EnsureAutoIncludedConfigs(configs);
 
             var activeConfigs = configs.Where(c =>
                 forceAll ||
-                systemProviders.Contains(c.ProviderId) ||
-                c.ProviderId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) ||
+                IsAutoIncludedProviderConfig(c.ProviderId) ||
                 !string.IsNullOrEmpty(c.ApiKey)).ToList();
 
-            if (ShouldSuppressOpenAiSession(activeConfigs))
+            if (activeConfigs.Any(config => ProviderMetadataCatalog.ShouldSuppressConfig(activeConfigs, config)))
             {
                 var beforeCount = activeConfigs.Count;
                 activeConfigs = activeConfigs
-                    .Where(c => !IsOpenAiSessionConfig(c))
+                    .Where(c => !ProviderMetadataCatalog.ShouldSuppressConfig(activeConfigs, c))
                     .ToList();
                 _logger.LogInformation(
-                    "Suppressed duplicate OpenAI session provider while Codex is active (removed {Count}).",
+                    "Suppressed duplicate session-backed provider while canonical provider is active (removed {Count}).",
                     beforeCount - activeConfigs.Count);
             }
 
@@ -541,19 +526,39 @@ public class ProviderRefreshService : BackgroundService
         return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool ShouldSuppressOpenAiSession(IReadOnlyCollection<ProviderConfig> activeConfigs)
+    private void EnsureAutoIncludedConfigs(List<ProviderConfig> configs)
     {
-        var hasCodex = activeConfigs.Any(c =>
-            c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(c.ApiKey));
-        return hasCodex && activeConfigs.Any(IsOpenAiSessionConfig);
+        var configuredProviderIds = configs
+            .Select(config => config.ProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var definition in _providers
+                     .Select(provider => provider.Definition)
+                     .Where(definition => definition.AutoIncludeWhenUnconfigured))
+        {
+            if (configuredProviderIds.Contains(definition.ProviderId))
+            {
+                continue;
+            }
+
+            if (!ProviderMetadataCatalog.TryCreateDefaultConfig(definition.ProviderId, out var config))
+            {
+                _logger.LogWarning(
+                    "Failed to create default config for auto-included provider {ProviderId}.",
+                    definition.ProviderId);
+                continue;
+            }
+
+            configs.Add(config);
+            configuredProviderIds.Add(config.ProviderId);
+        }
     }
 
-    private static bool IsOpenAiSessionConfig(ProviderConfig config)
+    private bool IsAutoIncludedProviderConfig(string providerId)
     {
-        return config.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase) &&
-               !string.IsNullOrWhiteSpace(config.ApiKey) &&
-               !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
+        return _providers.Any(provider =>
+            provider.Definition.AutoIncludeWhenUnconfigured &&
+            provider.Definition.HandlesProviderId(providerId));
     }
 
     private static bool IsUsageForAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)

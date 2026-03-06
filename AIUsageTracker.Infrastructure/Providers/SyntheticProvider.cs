@@ -18,7 +18,10 @@ public sealed class SyntheticProvider : ProviderBase
         displayName: "Synthetic",
         planType: PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based");
+        defaultConfigType: "quota-based",
+        iconAssetName: "synthetic",
+        fallbackBadgeColorHex: "#FFD700",
+        fallbackBadgeInitial: "Sy");
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;

@@ -25,4 +25,18 @@ public class TokenDiscoveryServiceTests
         Assert.Equal(PlanType.Coding, codex!.PlanType);
         Assert.Equal("quota-based", codex.Type);
     }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_DoesNotExpandWellKnownProviderAliases()
+    {
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(Path.GetTempPath());
+        var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
+
+        var configs = await discovery.DiscoverTokensAsync();
+
+        Assert.DoesNotContain(configs, c => c.ProviderId.Equals("minimax-io", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(configs, c => c.ProviderId.Equals("minimax-global", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(configs, c => c.ProviderId.Equals("kimi-for-coding", StringComparison.OrdinalIgnoreCase));
+    }
 }

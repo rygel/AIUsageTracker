@@ -14,7 +14,11 @@ public class MistralProvider : ProviderBase
         displayName: "Mistral",
         planType: PlanType.Usage,
         isQuotaBased: false,
-        defaultConfigType: "pay-as-you-go");
+        defaultConfigType: "pay-as-you-go",
+        rooConfigPropertyNames: new[] { "mistralApiKey" },
+        iconAssetName: "mistral",
+        fallbackBadgeColorHex: "#FF4500",
+        fallbackBadgeInitial: "Mi");
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;

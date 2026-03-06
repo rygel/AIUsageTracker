@@ -7,6 +7,7 @@ using Xunit;
 
 namespace AIUsageTracker.Tests.Integration;
 
+[Collection("TokenDiscovery")]
 public class TokenDiscoveryIntegrationTests : IntegrationTestBase
 {
     private readonly TokenDiscoveryService _service;
@@ -88,6 +89,25 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
         finally
         {
             Environment.SetEnvironmentVariable("MINIMAX_API_KEY", null);
+        }
+    }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_FindsEnvironmentVariableAliasesFromProviderMetadata()
+    {
+        Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", "env-kimi-key");
+
+        try
+        {
+            var configs = await _service.DiscoverTokensAsync();
+
+            var config = configs.FirstOrDefault(c => c.ProviderId == "kimi");
+            Assert.NotNull(config);
+            Assert.Equal("env-kimi-key", config.ApiKey);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", null);
         }
     }
 }

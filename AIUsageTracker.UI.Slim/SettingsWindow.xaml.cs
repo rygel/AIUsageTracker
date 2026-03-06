@@ -3,7 +3,6 @@ using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -112,9 +111,9 @@ public partial class SettingsWindow : Window
                            "Try clicking 'Refresh Data' or restarting the Monitor.";
             }
             
-            _gitHubAuthUsername = await TryGetGitHubUsernameFromAuthAsync();
-            _openAiAuthUsername = await TryGetOpenAiUsernameFromAuthAsync();
-            _codexAuthUsername = await TryGetCodexUsernameFromAuthAsync();
+            _gitHubAuthUsername = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(_logger);
+            _openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(_logger);
+            _codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(_logger);
             _preferences = await _preferencesStore.LoadAsync();
             _agentPreferences = await _monitorService.GetPreferencesAsync();
             App.Preferences = _preferences;
@@ -148,311 +147,6 @@ public partial class SettingsWindow : Window
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
-    }
-
-    private static async Task<string?> TryGetGitHubUsernameFromAuthAsync()
-    {
-        // UI intentionally avoids spawning GitHub CLI (`gh`) for username lookup.
-        return await TryGetGitHubUsernameFromHostsFileAsync();
-    }
-
-    private static async Task<string?> TryGetGitHubUsernameFromHostsFileAsync()
-    {
-        try
-        {
-            var candidates = new[]
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GitHub CLI", "hosts.yml"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "gh", "hosts.yml")
-            };
-
-            foreach (var path in candidates)
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var lines = await File.ReadAllLinesAsync(path);
-                foreach (var rawLine in lines)
-                {
-                    var line = rawLine.Trim();
-                    if (line.StartsWith("user:", StringComparison.OrdinalIgnoreCase) ||
-                        line.StartsWith("login:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var value = line[(line.IndexOf(':') + 1)..].Trim().Trim('\'', '"');
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            return value;
-                        }
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // ignore file parse issues
-        }
-
-        return null;
-    }
-
-    private static async Task<string?> TryGetOpenAiUsernameFromAuthAsync()
-    {
-        try
-        {
-            var candidates = new[]
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
-            };
-
-            foreach (var path in candidates)
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var json = await File.ReadAllTextAsync(path);
-                using var doc = JsonDocument.Parse(json);
-                if (!doc.RootElement.TryGetProperty("openai", out var openai) || openai.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                foreach (var claim in new[] { "email", "upn" })
-                {
-                    if (openai.TryGetProperty(claim, out var emailElement) && emailElement.ValueKind == JsonValueKind.String)
-                    {
-                        var emailValue = emailElement.GetString();
-                        if (IsEmailLike(emailValue))
-                        {
-                            return emailValue;
-                        }
-                    }
-                }
-
-                var explicitIdentity = FindIdentityInJson(openai);
-                if (!string.IsNullOrWhiteSpace(explicitIdentity))
-                {
-                    return explicitIdentity;
-                }
-
-                // Fallback: decode common claims from session access token.
-                if (openai.TryGetProperty("access", out var accessElement) && accessElement.ValueKind == JsonValueKind.String)
-                {
-                    var token = accessElement.GetString();
-                    var fromToken = TryGetUsernameFromJwt(token);
-                    if (!string.IsNullOrWhiteSpace(fromToken))
-                    {
-                        return fromToken;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // OpenAI/OpenCode auth may be unavailable.
-        }
-
-        return null;
-    }
-
-    private static async Task<string?> TryGetCodexUsernameFromAuthAsync()
-    {
-        try
-        {
-            var candidates = new[]
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "codex", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
-            };
-
-            foreach (var path in candidates)
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var json = await File.ReadAllTextAsync(path);
-                using var doc = JsonDocument.Parse(json);
-
-                var directIdentity = FindIdentityInJson(doc.RootElement);
-                if (!string.IsNullOrWhiteSpace(directIdentity))
-                {
-                    return directIdentity;
-                }
-
-                if (doc.RootElement.TryGetProperty("tokens", out var tokens) &&
-                    tokens.ValueKind == JsonValueKind.Object)
-                {
-                    if (tokens.TryGetProperty("id_token", out var idToken) &&
-                        idToken.ValueKind == JsonValueKind.String)
-                    {
-                        var fromIdToken = TryGetUsernameFromJwt(idToken.GetString());
-                        if (!string.IsNullOrWhiteSpace(fromIdToken))
-                        {
-                            return fromIdToken;
-                        }
-                    }
-
-                    if (tokens.TryGetProperty("access_token", out var accessToken) &&
-                        accessToken.ValueKind == JsonValueKind.String)
-                    {
-                        var fromToken = TryGetUsernameFromJwt(accessToken.GetString());
-                        if (!string.IsNullOrWhiteSpace(fromToken))
-                        {
-                            return fromToken;
-                        }
-                    }
-                }
-
-                if (doc.RootElement.TryGetProperty("openai", out var openai) &&
-                    openai.ValueKind == JsonValueKind.Object &&
-                    openai.TryGetProperty("access", out var openAiAccessToken) &&
-                    openAiAccessToken.ValueKind == JsonValueKind.String)
-                {
-                    var fromOpenAiToken = TryGetUsernameFromJwt(openAiAccessToken.GetString());
-                    if (!string.IsNullOrWhiteSpace(fromOpenAiToken))
-                    {
-                        return fromOpenAiToken;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Codex auth may be unavailable.
-        }
-
-        return null;
-    }
-
-    private static string? TryGetUsernameFromJwt(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return null;
-        }
-
-        var parts = token.Split('.');
-        if (parts.Length < 2)
-        {
-            return null;
-        }
-
-        try
-        {
-            var payload = parts[1]
-                .Replace('-', '+')
-                .Replace('_', '/');
-
-            switch (payload.Length % 4)
-            {
-                case 2: payload += "=="; break;
-                case 3: payload += "="; break;
-            }
-
-            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
-            using var doc = JsonDocument.Parse(json);
-
-            // Prefer explicit email-like identity claims from OpenAI/OpenCode sessions.
-            foreach (var claim in new[] { "email", "upn", "preferred_username" })
-            {
-                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
-                {
-                    var value = valueElement.GetString();
-                    if (IsEmailLike(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-
-            // Fallback to non-email identifiers only when email is unavailable.
-            foreach (var claim in new[] { "username", "login", "name" })
-            {
-                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
-                {
-                    var value = valueElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-
-            // Last fallback: recursively scan JWT payload for first identity-like value.
-            var recursiveIdentity = FindIdentityInJson(doc.RootElement);
-            if (!string.IsNullOrWhiteSpace(recursiveIdentity))
-            {
-                return recursiveIdentity;
-            }
-        }
-        catch
-        {
-            // ignore malformed token payload
-        }
-
-        return null;
-    }
-
-    private static string? FindIdentityInJson(JsonElement element)
-    {
-        switch (element.ValueKind)
-        {
-            case JsonValueKind.Object:
-                foreach (var prop in element.EnumerateObject())
-                {
-                    if (prop.Value.ValueKind == JsonValueKind.String)
-                    {
-                        var value = prop.Value.GetString();
-                        if (string.IsNullOrWhiteSpace(value))
-                        {
-                            continue;
-                        }
-
-                        var key = prop.Name.ToLowerInvariant();
-                        if (key.Contains("email") || key.Contains("username") || key.Contains("login") || key.Contains("user"))
-                        {
-                            return value;
-                        }
-                    }
-
-                    var nested = FindIdentityInJson(prop.Value);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                    {
-                        return nested;
-                    }
-                }
-                break;
-
-            case JsonValueKind.Array:
-                foreach (var item in element.EnumerateArray())
-                {
-                    var nested = FindIdentityInJson(item);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                    {
-                        return nested;
-                    }
-                }
-                break;
-        }
-
-        return null;
-    }
-
-    private static bool IsEmailLike(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
     }
 
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
@@ -553,332 +247,28 @@ public partial class SettingsWindow : Window
         App.SetPrivacyMode(true);
         UpdatePrivacyButtonState();
 
-        ProviderConfig CreateConfig(
-            string providerId,
-            string apiKey,
-            PlanType planType,
-            string type,
-            bool showInTray = false,
-            bool enableNotifications = false)
-        {
-            return new ProviderConfig
-            {
-                ProviderId = providerId,
-                ApiKey = apiKey,
-                ShowInTray = showInTray,
-                EnableNotifications = enableNotifications,
-                PlanType = planType,
-                Type = type
-            };
-        }
-
-        _configs = new List<ProviderConfig>
-        {
-            CreateConfig("antigravity", "local-session", PlanType.Coding, "quota-based"),
-            CreateConfig("anthropic", "sk-ant-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
-            CreateConfig("claude-code", "cc-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("deepseek", "sk-ds-demo", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("gemini-cli", "gemini-local-auth", PlanType.Coding, "quota-based"),
-            CreateConfig("github-copilot", "ghp_demo_key", PlanType.Coding, "quota-based", showInTray: true, enableNotifications: true),
-            CreateConfig("kimi", "kimi-demo-key", PlanType.Coding, "quota-based"),
-            CreateConfig("minimax", "mm-cn-demo", PlanType.Coding, "quota-based"),
-            CreateConfig("minimax-io", "mm-intl-demo", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("mistral", "mistral-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("openai", "sk-openai-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
-            CreateConfig("opencode", "oc-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("opencode-zen", "ocz-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("openrouter", "or-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("synthetic", "syn-demo-key", PlanType.Coding, "quota-based"),
-            CreateConfig("zai-coding-plan", "zai-demo-key", PlanType.Coding, "quota-based", showInTray: true)
-        };
-
-        var deterministicNow = new DateTime(2026, 02, 01, 12, 00, 00, DateTimeKind.Local);
-        _usages = new List<ProviderUsage>
-        {
-            new()
-            {
-                ProviderId = "antigravity",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("antigravity"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 60.0,
-                Description = "60.0% Remaining",
-                Details = new List<ProviderUsageDetail>
-                {
-                    new()
-                    {
-                        Name = "Claude Opus 4.6 (Thinking)",
-                        ModelName = "Claude Opus 4.6 (Thinking)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(10)
-                    },
-                    new()
-                    {
-                        Name = "Claude Sonnet 4.6 (Thinking)",
-                        ModelName = "Claude Sonnet 4.6 (Thinking)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(10)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3 Flash",
-                        ModelName = "Gemini 3 Flash",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(6)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3.1 Pro (High)",
-                        ModelName = "Gemini 3.1 Pro (High)",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(14)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3.1 Pro (Low)",
-                        ModelName = "Gemini 3.1 Pro (Low)",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(14)
-                    },
-                    new()
-                    {
-                        Name = "GPT-OSS 120B (Medium)",
-                        ModelName = "GPT-OSS 120B (Medium)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(8)
-                    }
-                },
-                NextResetTime = deterministicNow.AddHours(6)
-            },
-            new()
-            {
-                ProviderId = "anthropic",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("anthropic"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "claude-code",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("claude-code"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "deepseek",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("deepseek"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "gemini-cli",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("gemini-cli"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 84.0,
-                Description = "84.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(12)
-            },
-            new()
-            {
-                ProviderId = "github-copilot",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("github-copilot"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 72.5,
-                Description = "72.5% Remaining",
-                NextResetTime = deterministicNow.AddHours(20)
-            },
-            new()
-            {
-                ProviderId = "kimi",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("kimi"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 66.0,
-                Description = "66.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(9)
-            },
-            new()
-            {
-                ProviderId = "minimax",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("minimax"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 61.0,
-                Description = "61.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(11)
-            },
-            new()
-            {
-                ProviderId = "minimax-io",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("minimax-io"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "mistral",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("mistral"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "openai",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("openai"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 63.0,
-                Description = "63.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(18)
-            },
-            new()
-            {
-                ProviderId = "opencode",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("opencode"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "opencode-zen",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("opencode-zen"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "openrouter",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("openrouter"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "synthetic",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("synthetic"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 79.0,
-                Description = "79.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(4)
-            },
-            new()
-            {
-                ProviderId = "zai-coding-plan",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("zai-coding-plan"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 88.0,
-                Description = "88.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(15)
-            }
-        };
+        var fixture = SettingsWindowDeterministicFixture.Create();
+        _configs = fixture.Configs;
+        _usages = fixture.Usages;
 
         PopulateProviders();
         PopulateLayoutSettings();
 
-        HistoryDataGrid.ItemsSource = new[]
-        {
-            new
-            {
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("github-copilot"),
-                UsagePercentage = 27.5,
-                Used = 27.5,
-                Limit = 100.0,
-                PlanType = "Coding",
-                Description = "72.5% Remaining",
-                FetchedAt = new DateTime(2026, 2, 1, 12, 0, 0)
-            },
-            new
-            {
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("openai"),
-                UsagePercentage = 31.1,
-                Used = 12.45,
-                Limit = 40.0,
-                PlanType = "Usage",
-                Description = "$12.45 / $40.00",
-                FetchedAt = new DateTime(2026, 2, 1, 12, 5, 0)
-            }
-        };
+        HistoryDataGrid.ItemsSource = fixture.HistoryRows;
 
         if (MonitorStatusText != null)
         {
-            MonitorStatusText.Text = "Running";
+            MonitorStatusText.Text = fixture.MonitorStatusText;
         }
 
         if (MonitorPortText != null)
         {
-            MonitorPortText.Text = "5000";
+            MonitorPortText.Text = fixture.MonitorPortText;
         }
 
         if (MonitorLogsText != null)
         {
-            MonitorLogsText.Text = "Monitor health check: OK" + Environment.NewLine +
-                                 "Diagnostics available in Settings > Monitor.";
+            MonitorLogsText.Text = fixture.MonitorLogsText;
         }
     }
 
@@ -1067,43 +457,18 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var displayConfigs = _configs
-            .Select(config => (Config: config, IsDerived: false))
-            .ToList();
+        var displayItems = ProviderSettingsDisplayCatalog.CreateDisplayItems(_configs, _usages);
+        var usageByProviderId = _usages.ToDictionary(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase);
 
-        var configuredProviderIds = _configs
-            .Select(c => c.ProviderId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var derivedConfigs = _usages
-            .Where(u =>
-                IsDerivedProviderVisibleInSettings(u.ProviderId) &&
-                !configuredProviderIds.Contains(u.ProviderId))
-            .Select(u => new ProviderConfig
-            {
-                ProviderId = u.ProviderId,
-                Type = u.IsQuotaBased ? "quota-based" : "pay-as-you-go",
-                PlanType = u.PlanType
-            })
-            .Select(config => (Config: config, IsDerived: true));
-
-        displayConfigs.AddRange(derivedConfigs);
-
-        var orderedDisplayConfigs = displayConfigs
-            .OrderBy(item => GetProviderDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
-            .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        foreach (var (config, isDerived) in orderedDisplayConfigs)
+        foreach (var item in displayItems)
         {
-            var usage = _usages.FirstOrDefault(u => u.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
-            AddProviderCard(config, usage, isDerived);
+            usageByProviderId.TryGetValue(item.Config.ProviderId, out var usage);
+            AddProviderCard(item.Config, usage, item.IsDerived);
         }
     }
 
     private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
     {
-        // Compact card with minimal padding
         var card = new Border
         {
             CornerRadius = new CornerRadius(4),
@@ -1118,10 +483,89 @@ public partial class SettingsWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
 
-        // Header: Icon + Name
+        var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived);
+        var headerPanel = BuildProviderHeader(config, settingsBehavior, isDerived);
+
+        grid.Children.Add(headerPanel);
+
+        // Input row
+        var keyPanel = new Grid { Margin = new Thickness(0, 0, 0, 0) };
+        keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var keyContent = BuildProviderInputContent(config, usage, settingsBehavior);
+        Grid.SetColumn(keyContent, 0);
+        keyPanel.Children.Add(keyContent);
+
+        Grid.SetRow(keyPanel, 1);
+        grid.Children.Add(keyPanel);
+
+        var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+
+        if (!isDerived && subTrayDetails is { Count: > 0 })
+        {
+            AddSubTraySection(grid, config, subTrayDetails);
+        }
+
+        card.Child = grid;
+        ProvidersStack.Children.Add(card);
+    }
+
+    private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
+    {
+        return settingsBehavior.InputMode switch
+        {
+            ProviderInputMode.DerivedReadOnly
+                or ProviderInputMode.AntigravityAutoDetected
+                or ProviderInputMode.GitHubCopilotAuthStatus
+                or ProviderInputMode.OpenAiSessionStatus
+                => BuildStatusPanel(config, usage, settingsBehavior),
+            _ => BuildApiKeyEditor(config)
+        };
+    }
+
+    private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
+    {
+        var presentation = ProviderStatusPresentationCatalog.Create(
+            config,
+            usage,
+            settingsBehavior.InputMode,
+            _isPrivacyMode,
+            new ProviderAuthIdentities(_gitHubAuthUsername, _openAiAuthUsername, _codexAuthUsername));
+
+        var panel = new StackPanel
+        {
+            Orientation = presentation.UseHorizontalLayout ? Orientation.Horizontal : Orientation.Vertical
+        };
+
+        var statusText = new TextBlock
+        {
+            Text = presentation.PrimaryText,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            FontStyle = presentation.PrimaryItalic ? FontStyles.Italic : FontStyles.Normal
+        };
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, presentation.PrimaryResourceKey);
+        panel.Children.Add(statusText);
+
+        foreach (var line in presentation.SecondaryLines)
+        {
+            var secondaryText = CreateSecondaryStatusText(line.Text);
+            secondaryText.TextWrapping = line.Wrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            if (line.ExtraTopMargin)
+            {
+                secondaryText.Margin = new Thickness(0, 4, 0, 0);
+            }
+
+            panel.Children.Add(secondaryText);
+        }
+
+        return panel;
+    }
+
+    private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)
+    {
         var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
-        
-        // Small icon (16x16)
+
         var icon = CreateProviderIcon(config.ProviderId);
         icon.Width = 16;
         icon.Height = 16;
@@ -1129,12 +573,9 @@ public partial class SettingsWindow : Window
         icon.VerticalAlignment = VerticalAlignment.Center;
         headerPanel.Children.Add(icon);
 
-        // Display name
-        var displayName = GetProviderDisplayName(config.ProviderId);
-
         var title = new TextBlock
         {
-            Text = displayName,
+            Text = ProviderMetadataCatalog.GetDisplayName(config.ProviderId),
             FontWeight = FontWeights.SemiBold,
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
@@ -1143,415 +584,178 @@ public partial class SettingsWindow : Window
         title.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
         headerPanel.Children.Add(title);
 
-        // Tray checkbox
-        var trayCheckBox = new CheckBox
+        headerPanel.Children.Add(CreateProviderHeaderCheckBox(
+            content: "Tray",
+            isChecked: config.ShowInTray,
+            margin: new Thickness(12, 0, 0, 0),
+            isEnabled: !isDerived,
+            onCheckedChanged: isChecked =>
+            {
+                config.ShowInTray = isChecked;
+                MarkSettingsChanged(refreshTrayIcons: true);
+            }));
+
+        headerPanel.Children.Add(CreateProviderHeaderCheckBox(
+            content: "Notify",
+            isChecked: config.EnableNotifications,
+            margin: new Thickness(8, 0, 0, 0),
+            isEnabled: !isDerived,
+            onCheckedChanged: isChecked =>
+            {
+                config.EnableNotifications = isChecked;
+                MarkSettingsChanged();
+            }));
+
+        if (settingsBehavior.IsInactive)
         {
-            Content = "Tray",
-            IsChecked = config.ShowInTray,
+            headerPanel.Children.Add(CreateInactiveBadge());
+        }
+
+        return headerPanel;
+    }
+
+    private CheckBox CreateProviderHeaderCheckBox(
+        string content,
+        bool isChecked,
+        Thickness margin,
+        bool isEnabled,
+        Action<bool> onCheckedChanged)
+    {
+        var checkBox = new CheckBox
+        {
+            Content = content,
+            IsChecked = isChecked,
             FontSize = 10,
             VerticalAlignment = VerticalAlignment.Center,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            Margin = new Thickness(12, 0, 0, 0),
-            IsEnabled = !isDerived
+            Cursor = Cursors.Hand,
+            Margin = margin,
+            IsEnabled = isEnabled
         };
-        trayCheckBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
-        trayCheckBox.Checked += (s, e) =>
-        {
-            config.ShowInTray = true;
-            SettingsChanged = true;
-            RefreshTrayIcons();
-            ScheduleAutoSave();
-        };
-        trayCheckBox.Unchecked += (s, e) =>
-        {
-            config.ShowInTray = false;
-            SettingsChanged = true;
-            RefreshTrayIcons();
-            ScheduleAutoSave();
-        };
-        headerPanel.Children.Add(trayCheckBox);
+        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
+        checkBox.Checked += (_, _) => onCheckedChanged(true);
+        checkBox.Unchecked += (_, _) => onCheckedChanged(false);
+        return checkBox;
+    }
 
-        // Notification checkbox
-        var notifyCheckBox = new CheckBox
+    private static Border CreateInactiveBadge()
+    {
+        var status = new Border
         {
-            Content = "Notify",
-            IsChecked = config.EnableNotifications,
+            Background = new SolidColorBrush(Color.FromRgb(205, 92, 92)),
+            CornerRadius = new CornerRadius(3),
+            Margin = new Thickness(10, 0, 0, 0),
+            Padding = new Thickness(8, 3, 8, 3)
+        };
+
+        status.Child = new TextBlock
+        {
+            Text = "Inactive",
             FontSize = 10,
+            Foreground = new SolidColorBrush(Color.FromRgb(240, 240, 240)),
+            FontWeight = FontWeights.SemiBold
+        };
+        return status;
+    }
+
+    private void AddSubTraySection(Grid grid, ProviderConfig config, IReadOnlyList<ProviderUsageDetail> subTrayDetails)
+    {
+        config.EnabledSubTrays ??= new List<string>();
+
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var separator = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 8, 0, 8)
+        };
+        separator.SetResourceReference(Border.BackgroundProperty, "Separator");
+        Grid.SetRow(separator, 2);
+        grid.Children.Add(separator);
+
+        var subTrayPanel = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
+
+        var subTrayTitle = new TextBlock
+        {
+            Text = "Sub-tray icons",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4)
+        };
+        subTrayTitle.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        subTrayPanel.Children.Add(subTrayTitle);
+
+        foreach (var detail in subTrayDetails)
+        {
+            subTrayPanel.Children.Add(CreateSubTrayCheckBox(config, detail.Name));
+        }
+
+        Grid.SetRow(subTrayPanel, 3);
+        grid.Children.Add(subTrayPanel);
+    }
+
+    private CheckBox CreateSubTrayCheckBox(ProviderConfig config, string detailName)
+    {
+        var checkBox = new CheckBox
+        {
+            Content = detailName,
+            IsChecked = config.EnabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase),
+            FontSize = 10,
+            Margin = new Thickness(0, 1, 0, 1),
+            Cursor = Cursors.Hand
+        };
+        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
+        checkBox.Checked += (_, _) =>
+        {
+            if (!config.EnabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase))
+            {
+                config.EnabledSubTrays.Add(detailName);
+            }
+
+            MarkSettingsChanged(refreshTrayIcons: true);
+        };
+        checkBox.Unchecked += (_, _) =>
+        {
+            config.EnabledSubTrays.RemoveAll(name => name.Equals(detailName, StringComparison.OrdinalIgnoreCase));
+            MarkSettingsChanged(refreshTrayIcons: true);
+        };
+        return checkBox;
+    }
+
+    private TextBox BuildApiKeyEditor(ProviderConfig config)
+    {
+        var keyBox = new TextBox
+        {
+            Text = ProviderApiKeyPresentationCatalog.GetDisplayApiKey(config.ApiKey, _isPrivacyMode),
+            Tag = config,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            IsReadOnly = _isPrivacyMode
+        };
+
+        if (!_isPrivacyMode)
+        {
+            keyBox.TextChanged += (s, e) =>
+            {
+                config.ApiKey = keyBox.Text;
+                MarkSettingsChanged();
+            };
+        }
+
+        return keyBox;
+    }
+
+    private TextBlock CreateSecondaryStatusText(string text)
+    {
+        var statusText = new TextBlock
+        {
+            Text = text,
             VerticalAlignment = VerticalAlignment.Center,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            Margin = new Thickness(8, 0, 0, 0),
-            IsEnabled = !isDerived
+            FontSize = 10,
+            Margin = new Thickness(0, 3, 0, 0)
         };
-        notifyCheckBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
-        notifyCheckBox.Checked += (s, e) =>
-        {
-            config.EnableNotifications = true;
-            SettingsChanged = true;
-            ScheduleAutoSave();
-        };
-        notifyCheckBox.Unchecked += (s, e) =>
-        {
-            config.EnableNotifications = false;
-            SettingsChanged = true;
-            ScheduleAutoSave();
-        };
-        headerPanel.Children.Add(notifyCheckBox);
-
-        // Status badge if not configured
-        bool isInactive = !isDerived && string.IsNullOrEmpty(config.ApiKey);
-        if (config.ProviderId == "antigravity")
-        {
-            isInactive = usage == null || !usage.IsAvailable;
-        }
-        else if (config.ProviderId == "openai")
-        {
-            var hasApiKey = !string.IsNullOrWhiteSpace(config.ApiKey);
-            var hasSessionUsage = usage != null && usage.IsAvailable && usage.IsQuotaBased;
-            isInactive = !hasApiKey && !hasSessionUsage;
-        }
-
-        if (isInactive)
-        {
-            var status = new Border
-            {
-                Background = new SolidColorBrush(Color.FromRgb(205, 92, 92)), // IndianRed - pastel red
-                CornerRadius = new CornerRadius(3),
-                Margin = new Thickness(10, 0, 0, 0),
-                Padding = new Thickness(8, 3, 8, 3)
-            };
-
-            var badgeText = new TextBlock 
-            { 
-                Text = "Inactive", 
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(240, 240, 240)), // Muted white
-                FontWeight = FontWeights.SemiBold
-            };
-            status.Child = badgeText;
-            headerPanel.Children.Add(status);
-        }
-
-        grid.Children.Add(headerPanel);
-
-        // Input row
-        var keyPanel = new Grid { Margin = new Thickness(0, 0, 0, 0) };
-        keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-        if (isDerived)
-        {
-            var derivedPanel = new StackPanel { Orientation = Orientation.Vertical };
-            var statusText = new TextBlock
-            {
-                Text = usage?.IsAvailable == true ? "Derived from Codex usage (read-only)" : "Derived provider (waiting for usage data)",
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(
-                TextBlock.ForegroundProperty,
-                usage?.IsAvailable == true ? "ProgressBarGreen" : "TertiaryText");
-            derivedPanel.Children.Add(statusText);
-
-            if (usage?.NextResetTime is DateTime derivedReset)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = $"Next reset: {derivedReset:g}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                derivedPanel.Children.Add(resetText);
-            }
-
-            Grid.SetColumn(derivedPanel, 0);
-            keyPanel.Children.Add(derivedPanel);
-        }
-        else if (config.ProviderId == "antigravity")
-        {
-            // Antigravity: Auto-Detection
-            var statusPanel = new StackPanel { Orientation = Orientation.Vertical };
-            bool isConnected = usage != null && usage.IsAvailable;
-            string accountInfo = usage?.AccountName ?? "Unknown";
-            var displayAccount = _isPrivacyMode
-                ? MaskAccountIdentifier(accountInfo)
-                : accountInfo;
-
-            var statusText = new TextBlock
-            {
-                Text = isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11,
-                FontStyle = isConnected ? FontStyles.Normal : FontStyles.Italic
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty, 
-                isConnected ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-
-            var antigravitySubmodels = usage?.Details?
-                .Select(d => d.Name)
-                .Where(name =>
-                    !string.IsNullOrWhiteSpace(name) &&
-                    !name.StartsWith("[", StringComparison.Ordinal))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (antigravitySubmodels is { Count: > 0 })
-            {
-                var modelsText = new TextBlock
-                {
-                    Text = $"Models: {string.Join(", ", antigravitySubmodels)}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 4, 0, 0),
-                    TextWrapping = TextWrapping.Wrap
-                };
-                modelsText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(modelsText);
-            }
-
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else if (config.ProviderId == "github-copilot")
-        {
-            // GitHub Copilot: Show username (if available) - privacy mode only shows masked username
-            var statusPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            string? username = usage?.AccountName;
-            if (string.IsNullOrWhiteSpace(username) || username == "Unknown")
-            {
-                username = _gitHubAuthUsername;
-            }
-            bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown" && username != "User";
-
-            bool isAuthenticated = !string.IsNullOrEmpty(config.ApiKey) || !string.IsNullOrWhiteSpace(_gitHubAuthUsername);
-
-            string displayText;
-            if (!isAuthenticated)
-            {
-                displayText = "Not Authenticated";
-            }
-            else if (!hasUsername)
-            {
-                displayText = "Authenticated";
-            }
-            else if (_isPrivacyMode && username != null)
-            {
-                displayText = $"Authenticated ({MaskAccountIdentifier(username)})";
-            }
-            else
-            {
-                // Normal mode: show full text with username
-                displayText = $"Authenticated ({username})";
-            }
-
-            var statusText = new TextBlock
-            {
-                Text = displayText,
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty, 
-                isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else if ((config.ProviderId == "openai" &&
-                  (usage?.IsQuotaBased == true ||
-                   (!string.IsNullOrWhiteSpace(config.ApiKey) && !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase))))
-                 || config.ProviderId == "codex")
-        {
-            var statusPanel = new StackPanel { Orientation = Orientation.Vertical };
-            var isCodex = config.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase);
-            var providerSessionLabel = isCodex ? "OpenAI Codex" : "OpenAI";
-            var hasSessionToken = !string.IsNullOrWhiteSpace(config.ApiKey) &&
-                                  !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-            var isAuthenticated = hasSessionToken || (usage != null && usage.IsAvailable);
-            var accountName = usage?.AccountName;
-            if (string.IsNullOrWhiteSpace(accountName) || accountName == "Unknown" || accountName == "User")
-            {
-                accountName = isCodex
-                    ? (_codexAuthUsername ?? _openAiAuthUsername)
-                    : _openAiAuthUsername;
-            }
-
-            string displayText;
-            if (!isAuthenticated)
-            {
-                displayText = "Not Authenticated";
-            }
-            else if (!string.IsNullOrWhiteSpace(accountName))
-            {
-                displayText = _isPrivacyMode
-                    ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
-                    : $"Authenticated ({accountName})";
-            }
-            else if (hasSessionToken && (usage == null || !usage.IsAvailable))
-            {
-                displayText = $"Authenticated via {providerSessionLabel} - refresh to load quota";
-            }
-            else
-            {
-                displayText = $"Authenticated via {providerSessionLabel}";
-            }
-
-            var statusText = new TextBlock
-            {
-                Text = displayText,
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty,
-                isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-
-            var resolvedReset = usage?.NextResetTime ?? InferResetTimeFromDetails(usage);
-            if (resolvedReset is DateTime nextReset)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = $"Next reset: {nextReset:g}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(resetText);
-            }
-            else if (isAuthenticated)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = "Next reset: loading...",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(resetText);
-            }
-
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else
-        {
-            // Standard API Key Input
-            var displayKey = config.ApiKey;
-            if (_isPrivacyMode && !string.IsNullOrEmpty(displayKey))
-            {
-                if (displayKey.Length > 8)
-                    displayKey = displayKey.Substring(0, 4) + "****" + displayKey.Substring(displayKey.Length - 4);
-                else
-                    displayKey = "****";
-            }
-
-            var keyBox = new TextBox
-            {
-                Text = displayKey,
-                Tag = config,
-                VerticalContentAlignment = VerticalAlignment.Center,
-                FontSize = 11,
-                IsReadOnly = _isPrivacyMode
-            };
-            
-            if (!_isPrivacyMode)
-            {
-                keyBox.TextChanged += (s, e) => {
-                    config.ApiKey = keyBox.Text;
-                    SettingsChanged = true;
-                    ScheduleAutoSave();
-                };
-            }
-
-            Grid.SetColumn(keyBox, 0);
-            keyPanel.Children.Add(keyBox);
-        }
-
-        Grid.SetRow(keyPanel, 1);
-        grid.Children.Add(keyPanel);
-
-        var subTrayDetails = usage?.Details?
-            .Where(d =>
-                !string.IsNullOrWhiteSpace(d.Name) &&
-                !d.Name.StartsWith("[", StringComparison.Ordinal) &&
-                IsSubTrayEligibleDetail(d))
-            .GroupBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (!isDerived && subTrayDetails is { Count: > 0 })
-        {
-            config.EnabledSubTrays ??= new List<string>();
-
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            var separator = new Border
-            {
-                Height = 1,
-                Margin = new Thickness(0, 8, 0, 8)
-            };
-            separator.SetResourceReference(Border.BackgroundProperty, "Separator");
-            Grid.SetRow(separator, 2);
-            grid.Children.Add(separator);
-
-            var subTrayPanel = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
-
-            var subTrayTitle = new TextBlock
-            {
-                Text = "Sub-tray icons",
-                FontSize = 10,
-                FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 0, 0, 4)
-            };
-            subTrayTitle.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-            subTrayPanel.Children.Add(subTrayTitle);
-
-            foreach (var detail in subTrayDetails)
-            {
-                var subTrayCheckbox = new CheckBox
-                {
-                    Content = detail.Name,
-                    IsChecked = config.EnabledSubTrays.Contains(detail.Name, StringComparer.OrdinalIgnoreCase),
-                    FontSize = 10,
-                    Margin = new Thickness(0, 1, 0, 1),
-                    Cursor = Cursors.Hand
-                };
-                subTrayCheckbox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
-                subTrayCheckbox.Checked += (s, e) =>
-                {
-                    if (!config.EnabledSubTrays.Contains(detail.Name, StringComparer.OrdinalIgnoreCase))
-                    {
-                        config.EnabledSubTrays.Add(detail.Name);
-                    }
-
-                    SettingsChanged = true;
-                    RefreshTrayIcons();
-                    ScheduleAutoSave();
-                };
-                subTrayCheckbox.Unchecked += (s, e) =>
-                {
-                    config.EnabledSubTrays.RemoveAll(name => name.Equals(detail.Name, StringComparison.OrdinalIgnoreCase));
-                    SettingsChanged = true;
-                    RefreshTrayIcons();
-                    ScheduleAutoSave();
-                };
-                subTrayPanel.Children.Add(subTrayCheckbox);
-            }
-
-            Grid.SetRow(subTrayPanel, 3);
-            grid.Children.Add(subTrayPanel);
-        }
-
-        card.Child = grid;
-        ProvidersStack.Children.Add(card);
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        return statusText;
     }
 
     private void RefreshTrayIcons()
@@ -1560,6 +764,24 @@ public partial class SettingsWindow : Window
         {
             app.UpdateProviderTrayIcons(_usages, _configs, _preferences);
         }
+    }
+
+    private void MarkSettingsChanged(bool refreshTrayIcons = false)
+    {
+        SettingsChanged = true;
+        if (refreshTrayIcons)
+        {
+            RefreshTrayIcons();
+        }
+
+        ScheduleAutoSave();
+    }
+
+    private void ApplyFontPreferenceChange(Action applyChange)
+    {
+        applyChange();
+        UpdateFontPreview();
+        ScheduleAutoSave();
     }
 
     private async Task<bool> SaveUiPreferencesAsync(bool showErrorDialog = false)
@@ -1594,23 +816,7 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            string filename = providerId.ToLower() switch
-            {
-                "github-copilot" => "github",
-                "gemini-cli" => "google",
-                "antigravity" => "google",
-                "codex" => "openai",
-                "codex.spark" => "openai",
-                "claude-code" => "claude",
-                "zai" => "zai",
-                "zai-coding-plan" => "zai",
-                "minimax" => "minimax",
-                "minimax-io" => "minimax",
-                "minimax-global" => "minimax",
-                "kimi" => "kimi",
-                "xiaomi" => "xiaomi",
-                _ => providerId.ToLower()
-            };
+            var filename = ProviderVisualCatalog.GetIconAssetName(providerId);
 
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -1635,7 +841,10 @@ public partial class SettingsWindow : Window
                 return icoImage;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
+        }
 
         return CreateFallbackIcon(providerId);
     }
@@ -1643,17 +852,7 @@ public partial class SettingsWindow : Window
     private ImageSource CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
-        var (color, _) = providerId.ToLower() switch
-        {
-            "openai" => (Brushes.DarkCyan, "AI"),
-            "codex" => (Brushes.DarkCyan, "AI"),
-            "codex.spark" => (Brushes.DarkCyan, "AI"),
-            "anthropic" => (Brushes.IndianRed, "An"),
-            "github-copilot" => (Brushes.MediumPurple, "GH"),
-            "gemini" or "google" => (Brushes.DodgerBlue, "G"),
-            "deepseek" => (Brushes.DeepSkyBlue, "DS"),
-            _ => (Brushes.Gray, "?")
-        };
+        var (color, _) = ProviderVisualCatalog.GetFallbackBadge(providerId, Brushes.Gray);
 
         // Return a drawing image with just a colored rectangle (simplified)
         var drawing = new GeometryDrawing(
@@ -1663,54 +862,6 @@ public partial class SettingsWindow : Window
         var image = new DrawingImage(drawing);
         image.Freeze();
         return image;
-    }
-
-    private string MaskString(string input)
-    {
-        if (string.IsNullOrEmpty(input))
-        {
-            return input;
-        }
-
-        if (input.Length <= 2)
-        {
-            return new string('*', input.Length);
-        }
-
-        return input[0] + new string('*', input.Length - 2) + input[^1];
-    }
-
-    private string MaskAccountIdentifier(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return input;
-        }
-
-        var atIndex = input.IndexOf('@');
-        if (atIndex > 0 && atIndex < input.Length - 1)
-        {
-            var localPart = input[..atIndex];
-            var domainPart = input[(atIndex + 1)..];
-            var maskedDomainChars = domainPart.ToCharArray();
-            for (var i = 0; i < maskedDomainChars.Length; i++)
-            {
-                if (maskedDomainChars[i] != '.')
-                {
-                    maskedDomainChars[i] = '*';
-                }
-            }
-
-            var maskedDomain = new string(maskedDomainChars);
-            if (localPart.Length <= 2)
-            {
-                return $"{new string('*', localPart.Length)}@{maskedDomain}";
-            }
-
-            return $"{localPart[0]}{new string('*', localPart.Length - 2)}{localPart[^1]}@{maskedDomain}";
-        }
-
-        return MaskString(input);
     }
 
     private void PopulateLayoutSettings()
@@ -1829,28 +980,25 @@ public partial class SettingsWindow : Window
 
     private void ResetFontBtn_Click(object sender, RoutedEventArgs e)
     {
-        // Reset to defaults
-        _preferences.FontFamily = "Segoe UI";
-        _preferences.FontSize = 12;
-        _preferences.FontBold = false;
-        _preferences.FontItalic = false;
-        
-        // Update UI
-        FontFamilyCombo.SelectedItem = _preferences.FontFamily;
-        FontSizeBox.Text = _preferences.FontSize.ToString();
-        FontBoldCheck.IsChecked = _preferences.FontBold;
-        FontItalicCheck.IsChecked = _preferences.FontItalic;
-        UpdateFontPreview();
-        ScheduleAutoSave();
+        ApplyFontPreferenceChange(() =>
+        {
+            _preferences.FontFamily = "Segoe UI";
+            _preferences.FontSize = 12;
+            _preferences.FontBold = false;
+            _preferences.FontItalic = false;
+
+            FontFamilyCombo.SelectedItem = _preferences.FontFamily;
+            FontSizeBox.Text = _preferences.FontSize.ToString();
+            FontBoldCheck.IsChecked = _preferences.FontBold;
+            FontItalicCheck.IsChecked = _preferences.FontItalic;
+        });
     }
 
     private void FontFamilyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (FontFamilyCombo.SelectedItem is string font)
         {
-            _preferences.FontFamily = font;
-            UpdateFontPreview();
-            ScheduleAutoSave();
+            ApplyFontPreferenceChange(() => _preferences.FontFamily = font);
         }
     }
 
@@ -1858,24 +1006,18 @@ public partial class SettingsWindow : Window
     {
         if (int.TryParse(FontSizeBox.Text, out int size) && size > 0 && size <= 72)
         {
-            _preferences.FontSize = size;
-            UpdateFontPreview();
-            ScheduleAutoSave();
+            ApplyFontPreferenceChange(() => _preferences.FontSize = size);
         }
     }
 
     private void FontBoldCheck_CheckedChanged(object sender, RoutedEventArgs e)
     {
-        _preferences.FontBold = FontBoldCheck.IsChecked ?? false;
-        UpdateFontPreview();
-        ScheduleAutoSave();
+        ApplyFontPreferenceChange(() => _preferences.FontBold = FontBoldCheck.IsChecked ?? false);
     }
 
     private void FontItalicCheck_CheckedChanged(object sender, RoutedEventArgs e)
     {
-        _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
-        UpdateFontPreview();
-        ScheduleAutoSave();
+        ApplyFontPreferenceChange(() => _preferences.FontItalic = FontItalicCheck.IsChecked ?? false);
     }
 
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
@@ -2049,7 +1191,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async void BackupDbBtn_Click(object sender, RoutedEventArgs e)
+    private void BackupDbBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -2095,7 +1237,14 @@ public partial class SettingsWindow : Window
             foreach (var process in System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")
                 .Concat(System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")))
             {
-                try { process.Kill(); } catch { }
+                try
+                {
+                    process.Kill();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to terminate monitor process {ProcessId}", process.Id);
+                }
             }
             
             await Task.Delay(1000);
@@ -2255,61 +1404,6 @@ public partial class SettingsWindow : Window
         {
             return content;
         }
-    }
-
-    private static DateTime? InferResetTimeFromDetails(ProviderUsage? usage)
-    {
-        if (usage?.Details == null)
-        {
-            return null;
-        }
-
-        foreach (var detail in usage.Details)
-        {
-            if (string.IsNullOrWhiteSpace(detail.Description))
-            {
-                continue;
-            }
-
-            var match = Regex.Match(detail.Description, @"Resets in\s+(\d+)s", RegexOptions.IgnoreCase);
-            if (match.Success && int.TryParse(match.Groups[1].Value, out var seconds) && seconds > 0)
-            {
-                return DateTime.Now.AddSeconds(seconds);
-            }
-        }
-
-        return null;
-    }
-
-    private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
-    {
-        if (string.IsNullOrWhiteSpace(detail.Name))
-        {
-            return false;
-        }
-
-        if (detail.DetailType != ProviderUsageDetailType.Model && detail.DetailType != ProviderUsageDetailType.Other)
-        {
-            return false;
-        }
-
-        var match = Regex.Match(detail.Used ?? string.Empty, @"(?<percent>\d+(\.\d+)?)\s*%", RegexOptions.IgnoreCase);
-        if (!match.Success)
-        {
-            return false;
-        }
-
-        return double.TryParse(match.Groups["percent"].Value, out _);
-    }
-
-    private static string GetProviderDisplayName(string providerId)
-    {
-        return ProviderMetadataCatalog.GetDisplayName(providerId);
-    }
-
-    private static bool IsDerivedProviderVisibleInSettings(string? providerId)
-    {
-        return string.Equals(providerId, "codex.spark", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task PersistAllSettingsAsync(bool showErrorDialog)

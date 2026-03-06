@@ -53,7 +53,11 @@ public class WindowsNotificationService : INotificationService
         ShowNotification($"{providerName} Quota Exceeded", details, "showProvider", providerName);
     }
 
-    public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked;
+    public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked
+    {
+        add { }
+        remove { }
+    }
 }
 
 

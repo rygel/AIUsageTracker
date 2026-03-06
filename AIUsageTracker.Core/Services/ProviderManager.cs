@@ -166,7 +166,7 @@ public class ProviderManager : IDisposable
                                      d.AutoIncludeWhenUnconfigured);
             if (definition == null)
             {
-                throw new ArgumentException($"Provider '{providerId}' not found in configuration.");
+                throw new ArgumentException($"Provider '{providerId}' not found in configuration.", nameof(providerId));
             }
 
             config = new ProviderConfig
@@ -207,7 +207,9 @@ public class ProviderManager : IDisposable
 
                     _ = usageTask.ContinueWith(
                         static task => { _ = task.Exception; },
-                        TaskContinuationOptions.OnlyOnFaulted);
+                        CancellationToken.None,
+                        TaskContinuationOptions.OnlyOnFaulted,
+                        TaskScheduler.Default);
 
                     var timeoutUsage = new ProviderUsage
                     {

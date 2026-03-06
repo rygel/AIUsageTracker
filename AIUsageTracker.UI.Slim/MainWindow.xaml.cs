@@ -770,175 +770,18 @@ public partial class MainWindow : Window
     {
         if (deterministic)
         {
-            _preferences = new AppPreferences
-            {
-                AlwaysOnTop = true,
-                InvertProgressBar = true,
-                InvertCalculations = false,
-                ColorThresholdYellow = 60,
-                ColorThresholdRed = 80,
-                FontFamily = "Segoe UI",
-                FontSize = 12,
-                FontBold = false,
-                FontItalic = false,
-                IsPrivacyMode = true
-            };
+            var fixture = MainWindowDeterministicFixture.Create();
+            _preferences = fixture.Preferences;
 
             App.Preferences = _preferences;
             _isPrivacyMode = true;
             App.SetPrivacyMode(true);
             _preferencesLoaded = true;
-            _lastMonitorUpdate = new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Local);
-            var deterministicNow = DateTime.Now;
+            _lastMonitorUpdate = fixture.LastMonitorUpdate;
             ApplyPreferences();
-            Width = 460;
+            Width = fixture.WindowWidth;
             Height = MinHeight;
-
-            _usages = new List<ProviderUsage>
-            {
-                new()
-                {
-                    ProviderId = "antigravity",
-                    ProviderName = "Antigravity",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    DisplayAsFraction = true,
-                    RequestsPercentage = 60.0,
-                    RequestsUsed = 40,
-                    RequestsAvailable = 100,
-                    Description = "60.0% Remaining",
-                    IsAvailable = true,
-                    AuthSource = "local app",
-                    Details = new List<ProviderUsageDetail>
-                    {
-                        new()
-                        {
-                            Name = "Claude Opus 4.6 (Thinking)",
-                            ModelName = "Claude Opus 4.6 (Thinking)",
-                            GroupName = "Recommended Group 1",
-                            Used = "60%",
-                            Description = "60% remaining",
-                            NextResetTime = deterministicNow.AddHours(10)
-                        },
-                        new()
-                        {
-                            Name = "Claude Sonnet 4.6 (Thinking)",
-                            ModelName = "Claude Sonnet 4.6 (Thinking)",
-                            GroupName = "Recommended Group 1",
-                            Used = "60%",
-                            Description = "60% remaining",
-                            NextResetTime = deterministicNow.AddHours(10)
-                        },
-                        new()
-                        {
-                            Name = "Gemini 3 Flash",
-                            ModelName = "Gemini 3 Flash",
-                            GroupName = "Recommended Group 1",
-                            Used = "100%",
-                            Description = "100% remaining",
-                            NextResetTime = deterministicNow.AddHours(6)
-                        },
-                        new()
-                        {
-                            Name = "Gemini 3.1 Pro (High)",
-                            ModelName = "Gemini 3.1 Pro (High)",
-                            GroupName = "Recommended Group 1",
-                            Used = "100%",
-                            Description = "100% remaining",
-                            NextResetTime = deterministicNow.AddHours(14)
-                        },
-                        new()
-                        {
-                            Name = "Gemini 3.1 Pro (Low)",
-                            ModelName = "Gemini 3.1 Pro (Low)",
-                            GroupName = "Recommended Group 1",
-                            Used = "100%",
-                            Description = "100% remaining",
-                            NextResetTime = deterministicNow.AddHours(14)
-                        },
-                        new()
-                        {
-                            Name = "GPT-OSS 120B (Medium)",
-                            ModelName = "GPT-OSS 120B (Medium)",
-                            GroupName = "Recommended Group 1",
-                            Used = "60%",
-                            Description = "60% remaining",
-                            NextResetTime = deterministicNow.AddHours(8)
-                        }
-                    }
-                },
-                new()
-                {
-                    ProviderId = "github-copilot",
-                    ProviderName = "GitHub Copilot",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    DisplayAsFraction = true,
-                    RequestsPercentage = 72.5,
-                    RequestsUsed = 110,
-                    RequestsAvailable = 400,
-                    Description = "72.5% Remaining",
-                    IsAvailable = true,
-                    AuthSource = "oauth",
-                    NextResetTime = deterministicNow.AddHours(20)
-                },
-                new()
-                {
-                    ProviderId = "zai-coding-plan",
-                    ProviderName = "Z.AI",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    DisplayAsFraction = true,
-                    RequestsPercentage = 82.0,
-                    RequestsUsed = 45,
-                    RequestsAvailable = 250,
-                    Description = "82.0% Remaining",
-                    IsAvailable = true,
-                    AuthSource = "api key",
-                    NextResetTime = deterministicNow.AddHours(12)
-                },
-                new()
-                {
-                    ProviderId = "claude-code",
-                    ProviderName = "Claude Code",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    RequestsPercentage = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    Description = "Connected",
-                    IsAvailable = true,
-                    AuthSource = "local credentials"
-                },
-                new()
-                {
-                    ProviderId = "synthetic",
-                    ProviderName = "Synthetic",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    DisplayAsFraction = true,
-                    RequestsPercentage = 91.0,
-                    RequestsUsed = 18,
-                    RequestsAvailable = 200,
-                    Description = "91.0% Remaining",
-                    IsAvailable = true,
-                    AuthSource = "api key",
-                    NextResetTime = deterministicNow.AddHours(4)
-                },
-                new()
-                {
-                    ProviderId = "mistral",
-                    ProviderName = "Mistral",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    RequestsPercentage = 0,
-                    RequestsUsed = 0,
-                    RequestsAvailable = 0,
-                    Description = "Connected",
-                    IsAvailable = true,
-                    AuthSource = "api key"
-                }
-            };
+            _usages = fixture.Usages;
 
             RenderProviders();
             ShowStatus($"{_lastMonitorUpdate:HH:mm:ss}", StatusType.Success);
@@ -1124,27 +967,11 @@ public partial class MainWindow : Window
         {
             LogDiagnostic($"[DIAGNOSTIC] Rendering {_usages.Count} providers...");
 
-            var filteredUsages = _usages.ToList();
-            var hasAntigravityParent = filteredUsages.Any(u =>
-                string.Equals(u.ProviderId, "antigravity", StringComparison.OrdinalIgnoreCase));
-
-            // Hide unavailable Antigravity parent, and hide antigravity.* rows only when parent exists
-            // because those rows are rendered from Antigravity details in that case.
-            filteredUsages = filteredUsages.Where(u =>
-            {
-                var providerId = u.ProviderId ?? string.Empty;
-                return !(string.Equals(providerId, "antigravity", StringComparison.OrdinalIgnoreCase) && !u.IsAvailable) &&
-                    (!providerId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) || !hasAntigravityParent);
-            }).ToList();
-
-            // Guard against duplicate provider entries returned by the Agent.
-            filteredUsages = filteredUsages
-                .GroupBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase)
-                .Select(g => g.First())
-                .ToList();
+            var renderPreparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(_usages);
+            var filteredUsages = renderPreparation.DisplayableUsages;
 
             LogDiagnostic(
-                $"[DIAGNOSTIC] Provider render counts: raw={_usages.Count}, filtered={filteredUsages.Count}, hasAntigravityParent={hasAntigravityParent}");
+                $"[DIAGNOSTIC] Provider render counts: raw={_usages.Count}, filtered={filteredUsages.Count}, hasAntigravityParent={renderPreparation.HasAntigravityParent}");
 
             if (!filteredUsages.Any())
             {
@@ -1156,7 +983,7 @@ public partial class MainWindow : Window
             // Render Quota Providers first, then PAYG
             var orderedUsages = filteredUsages
                 .OrderByDescending(u => u.IsQuotaBased)
-                .ThenBy(u => GetFriendlyProviderName(u), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(u => ProviderMetadataCatalog.GetDisplayName(u.ProviderId ?? string.Empty, u.ProviderName), StringComparer.OrdinalIgnoreCase)
                 .ThenBy(u => u.ProviderId, StringComparer.OrdinalIgnoreCase);
 
             UIElement? currentHeader = null;
@@ -1173,10 +1000,11 @@ public partial class MainWindow : Window
                     var sectionColor = currentIsQuota.Value ? Brushes.DeepSkyBlue : Brushes.MediumSeaGreen;
                     var sectionKey = currentIsQuota.Value ? "PlansAndQuotas" : "PayAsYouGo";
                     
-                    var (header, container) = CreateCollapsibleGroupHeader(
+                    var (header, container) = CreateCollapsibleHeader(
                         sectionTitle,
                         sectionColor,
-                        sectionKey,
+                        isGroupHeader: true,
+                        groupKey: sectionKey,
                         () => currentIsQuota.Value ? _preferences.IsPlansAndQuotasCollapsed : _preferences.IsPayAsYouGoCollapsed,
                         v => {
                             if (currentIsQuota.Value) _preferences.IsPlansAndQuotasCollapsed = v;
@@ -1196,7 +1024,7 @@ public partial class MainWindow : Window
                 if (isCollapsed) continue;
 
                 // Special handling for Antigravity
-                if (string.Equals(usage.ProviderId, "antigravity", StringComparison.OrdinalIgnoreCase))
+                if (ProviderMetadataCatalog.IsAggregateParentProviderId(usage.ProviderId ?? string.Empty))
                 {
                     if (usage.Details?.Any() == true)
                     {
@@ -1319,7 +1147,7 @@ public partial class MainWindow : Window
         // Title
         var titleBlock = CreateText(
             titleText,
-            isGroupHeader ? 10.0 : 10.0,
+            10.0,
             titleForeground,
             titleFontWeight,
             new Thickness(0, 0, 10, 0));
@@ -1356,32 +1184,12 @@ public partial class MainWindow : Window
         return (header, container);
     }
 
-    private (UIElement Header, StackPanel Container) CreateCollapsibleGroupHeader(
-        string title, Brush accent, string groupKey,
-        Func<bool> getCollapsed, Action<bool> setCollapsed)
-    {
-        return CreateCollapsibleHeader(title, accent, isGroupHeader: true, groupKey, getCollapsed, setCollapsed);
-    }
-
-    private (UIElement Header, StackPanel Container) CreateCollapsibleSubHeader(
-        string title, Brush accent,
-        Func<bool> getCollapsed, Action<bool> setCollapsed)
-    {
-        return CreateCollapsibleHeader(title, accent, isGroupHeader: false, null, getCollapsed, setCollapsed);
-    }
-
     private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = GetFriendlyProviderName(usage);
-        var description = usage.Description ?? string.Empty;
-
-        // Compact horizontal bar similar to non-slim UI
-        bool isMissing = description.Contains("not found", StringComparison.OrdinalIgnoreCase);
-        bool isConsoleCheck = description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
-        bool isError = description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
-        bool isUnknown = description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
-        bool isAntigravityParent = providerId.Equals("antigravity", StringComparison.OrdinalIgnoreCase);
+        var friendlyName = ProviderMetadataCatalog.GetDisplayName(providerId, usage.ProviderName);
+        var showUsed = ShowUsedToggle?.IsChecked ?? false;
+        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed);
 
         // Main Grid Container - single row layout
         var grid = new Grid
@@ -1392,27 +1200,10 @@ public partial class MainWindow : Window
             Tag = providerId
         };
 
-        bool shouldHaveProgress = usage.IsAvailable &&
-            !isUnknown &&
-            !isAntigravityParent &&
-            (usage.RequestsPercentage > 0 || usage.IsQuotaBased) &&
-            !isMissing &&
-            !isError;
-
         // Background Progress Bar
         var pGrid = new Grid();
 
-        // Normalize percentages based on provider type
-        // Quota/Coding: RequestsPercentage is REMAINING %
-        // Usage/PAYG: RequestsPercentage is USED %
-        bool isQuotaType = usage.IsQuotaBased;
-        double pctRemaining = isQuotaType ? usage.RequestsPercentage : Math.Max(0, 100 - usage.RequestsPercentage);
-        double pctUsed = isQuotaType ? Math.Max(0, 100 - usage.RequestsPercentage) : usage.RequestsPercentage;
-
-        // Determine which width to show based on toggle
-        bool showUsed = ShowUsedToggle?.IsChecked ?? false;
-
-        if (TryGetDualWindowUsedPercentages(usage, out var hourlyUsed, out var weeklyUsed))
+        if (ProviderDualWindowPresentationCatalog.TryGetDualWindowUsedPercentages(usage, out var hourlyUsed, out var weeklyUsed))
         {
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -1426,24 +1217,11 @@ public partial class MainWindow : Window
         }
         else
         {
-            var indicatorWidth = showUsed ? pctUsed : pctRemaining;
-
-            // Clamp to 0-100
-            indicatorWidth = Math.Max(0, Math.Min(100, indicatorWidth));
-
-            pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
-            pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
-
-            var fill = new Border
-            {
-                Background = GetProgressBarColor(pctUsed),
-                Opacity = 0.45,
-                CornerRadius = new CornerRadius(0)
-            };
-            pGrid.Children.Add(fill);
+            var indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
+            pGrid = CreateSingleProgressLayer(presentation.UsedPercent, indicatorWidth, opacity: 0.45);
         }
 
-        pGrid.Visibility = shouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
+        pGrid.Visibility = presentation.ShouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
         grid.Children.Add(pGrid);
 
         // Background for non-progress items
@@ -1451,7 +1229,7 @@ public partial class MainWindow : Window
         {
             Background = GetResourceBrush("CardBackground", Brushes.DarkGray),
             CornerRadius = new CornerRadius(0),
-            Visibility = shouldHaveProgress ? Visibility.Collapsed : Visibility.Visible
+            Visibility = presentation.ShouldHaveProgress ? Visibility.Collapsed : Visibility.Visible
         };
         grid.Children.Add(bg);
 
@@ -1461,16 +1239,7 @@ public partial class MainWindow : Window
         // Provider icon or bullet for child items
         if (isChild)
         {
-            var icon = new Border
-            {
-                Width = 4, Height = 4,
-                Background = GetResourceBrush("SecondaryText", Brushes.Gray),
-                CornerRadius = new CornerRadius(2),
-                Margin = new Thickness(2, 0, 10, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            contentPanel.Children.Add(icon);
-            DockPanel.SetDock(icon, Dock.Left);
+            AddDockedElement(contentPanel, CreateBulletMarker(), Dock.Left);
         }
         else
         {
@@ -1480,214 +1249,75 @@ public partial class MainWindow : Window
             providerIcon.Width = 14;
             providerIcon.Height = 14;
             providerIcon.VerticalAlignment = VerticalAlignment.Center;
-            contentPanel.Children.Add(providerIcon);
-            DockPanel.SetDock(providerIcon, Dock.Left);
+            AddDockedElement(contentPanel, providerIcon, Dock.Left);
         }
 
         // Right Side: Usage/Status
-        var statusText = "";
-        Brush statusBrush = GetResourceBrush("SecondaryText", Brushes.Gray);
-
-        if (isMissing) { statusText = "Key Missing"; statusBrush = Brushes.IndianRed; }
-        else if (isError) { statusText = "Error"; statusBrush = Brushes.Red; }
-        else if (isConsoleCheck) { statusText = "Check Console"; statusBrush = Brushes.Orange; }
-        else
+        var statusText = presentation.StatusText;
+        Brush statusBrush = presentation.StatusTone switch
         {
-            statusText = description;
-            var isStatusOnlyProvider =
-                providerId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
-                providerId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
-
-            if (isAntigravityParent)
-            {
-                statusText = string.IsNullOrWhiteSpace(description)
-                    ? "Per-model quotas"
-                    : description;
-            }
-            else if (!isUnknown && !isStatusOnlyProvider && usage.IsQuotaBased)
-            {
-                var displayUsed = ShowUsedToggle?.IsChecked ?? false;
-
-                // Check if we have raw numbers
-                if (usage.DisplayAsFraction)
-                {
-                    if (displayUsed)
-                    {
-                        statusText = $"{usage.RequestsUsed:N0} / {usage.RequestsAvailable:N0} used";
-                    }
-                    else
-                    {
-                        var remaining = usage.RequestsAvailable - usage.RequestsUsed;
-                        statusText = $"{remaining:N0} / {usage.RequestsAvailable:N0} remaining";
-                    }
-                }
-                else
-                {
-                    // Percentage only mode
-                    var remainingPercent = UsageMath.ClampPercent(usage.RequestsPercentage);
-                    if (displayUsed)
-                    {
-                        statusText = $"{(100.0 - remainingPercent):F0}% used";
-                    }
-                    else
-                    {
-                        statusText = $"{remainingPercent:F0}% remaining";
-                    }
-                }
-            }
-            else if (!isUnknown && !isStatusOnlyProvider && usage.PlanType == PlanType.Usage && usage.RequestsAvailable > 0)
-            {
-                var showUsedPercent = ShowUsedToggle?.IsChecked ?? false;
-                var usedPercent = UsageMath.ClampPercent(usage.RequestsPercentage);
-                statusText = showUsedPercent
-                    ? $"{usedPercent:F0}% used"
-                    : $"{(100.0 - usedPercent):F0}% remaining";
-            }
-        }
+            ProviderCardStatusTone.Missing => Brushes.IndianRed,
+            ProviderCardStatusTone.Warning => Brushes.Orange,
+            ProviderCardStatusTone.Error => Brushes.Red,
+            _ => GetResourceBrush("SecondaryText", Brushes.Gray)
+        };
 
         // Reset time display (if available) - shown with muted golden color
         if (usage.NextResetTime.HasValue)
         {
             var relative = GetRelativeTimeString(usage.NextResetTime.Value);
-            var resetBlock = new TextBlock
-            {
-                Text = $"(Resets: {relative})",
-                FontSize = 10,
-                Foreground = GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-
-                Margin = new Thickness(10, 0, 0, 0)
-            };
-            DockPanel.SetDock(resetBlock, Dock.Right);
-            contentPanel.Children.Add(resetBlock);
+            AddDockedElement(
+                contentPanel,
+                CreateDockedTextBlock(
+                    $"(Resets: {relative})",
+                    fontSize: 10,
+                    foreground: GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
+                    fontWeight: FontWeights.SemiBold,
+                    margin: new Thickness(10, 0, 0, 0)),
+                Dock.Right);
         }
 
         // Right Side: Usage/Status - must be added last to Dock.Right to appear left of reset time
-        var rightBlock = new TextBlock
-        {
-            Text = statusText,
-            FontSize = 10,
-            Foreground = statusBrush,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 0, 0)
-        };
-        DockPanel.SetDock(rightBlock, Dock.Right);
-        contentPanel.Children.Add(rightBlock);
+        AddDockedElement(
+            contentPanel,
+            CreateDockedTextBlock(
+                statusText,
+                fontSize: 10,
+                foreground: statusBrush,
+                margin: new Thickness(10, 0, 0, 0)),
+            Dock.Right);
 
         // Name (gets remaining space)
-        var accountPart = string.IsNullOrWhiteSpace(usage.AccountName) ? "" : $" [{(_isPrivacyMode ? MaskAccountIdentifier(usage.AccountName) : usage.AccountName)}]";
-        var nameBlock = new TextBlock
-        {
-            Text = $"{friendlyName}{accountPart}",
-            FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold,
-            FontSize = 11,
-            Foreground = isMissing ? GetResourceBrush("TertiaryText", Brushes.Gray) : GetResourceBrush("PrimaryText", Brushes.White),
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        contentPanel.Children.Add(nameBlock);
-        DockPanel.SetDock(nameBlock, Dock.Left);
+        var accountPart = string.IsNullOrWhiteSpace(usage.AccountName)
+            ? ""
+            : $" [{(_isPrivacyMode ? ProviderStatusPresentationCatalog.MaskAccountIdentifier(usage.AccountName) : usage.AccountName)}]";
+        AddDockedElement(
+            contentPanel,
+            CreateDockedTextBlock(
+                $"{friendlyName}{accountPart}",
+                fontSize: 11,
+                foreground: presentation.IsMissing ? GetResourceBrush("TertiaryText", Brushes.Gray) : GetResourceBrush("PrimaryText", Brushes.White),
+                fontWeight: isChild ? FontWeights.Normal : FontWeights.SemiBold,
+                textTrimming: TextTrimming.CharacterEllipsis),
+            Dock.Left);
 
         grid.Children.Add(contentPanel);
 
-        // Tooltip with details
-        if (usage.Details != null && usage.Details.Any())
+        var toolTipContent = ProviderTooltipPresentationCatalog.BuildContent(usage, friendlyName);
+        if (!string.IsNullOrEmpty(toolTipContent))
         {
-            var tooltipBuilder = new System.Text.StringBuilder();
-            tooltipBuilder.AppendLine($"{friendlyName}");
-            tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
-            if (!string.IsNullOrEmpty(usage.Description))
-            {
-                tooltipBuilder.AppendLine($"Description: {usage.Description}");
-            }
-            tooltipBuilder.AppendLine();
-            tooltipBuilder.AppendLine("Rate Limits:");
-            foreach (var detail in usage.Details.OrderBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
-            {
-                tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detail.Used}");
-            }
-            
-            var toolTip = new ToolTip
-            {
-                Content = tooltipBuilder.ToString().Trim(),
-                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
-                PlacementTarget = grid
-            };
-            
-            // Hook into the tooltip opened event to ensure it stays on top
-            toolTip.Opened += (s, e) =>
-            {
-                _isTooltipOpen = true;
-                if (s is ToolTip tip && tip.PlacementTarget != null)
-                {
-                    // Force the tooltip window to be topmost when parent is topmost
-                    var tooltipWindow = Window.GetWindow(tip);
-                    if (tooltipWindow != null && this.Topmost)
-                    {
-                        tooltipWindow.Topmost = true;
-                    }
-                }
-            };
-            toolTip.Closed += (s, e) => _isTooltipOpen = false;
-            
-            grid.ToolTip = toolTip;
-            ToolTipService.SetInitialShowDelay(grid, 100);
-            ToolTipService.SetShowDuration(grid, 15000);
-        }
-        else if (!string.IsNullOrEmpty(usage.AuthSource))
-        {
-            var toolTip = new ToolTip
-            {
-                Content = $"{friendlyName}\nSource: {usage.AuthSource}",
-                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
-                PlacementTarget = grid
-            };
-            
-            toolTip.Opened += (s, e) =>
-            {
-                _isTooltipOpen = true;
-                if (s is ToolTip tip && tip.PlacementTarget != null)
-                {
-                    var tooltipWindow = Window.GetWindow(tip);
-                    if (tooltipWindow != null && this.Topmost)
-                    {
-                        tooltipWindow.Topmost = true;
-                    }
-                }
-            };
-            toolTip.Closed += (s, e) => _isTooltipOpen = false;
-            
-            grid.ToolTip = toolTip;
-            ToolTipService.SetInitialShowDelay(grid, 100);
-            ToolTipService.SetShowDuration(grid, 15000);
+            grid.ToolTip = CreateTopmostAwareToolTip(grid, toolTipContent);
+            ConfigureCardToolTip(grid);
         }
 
         container.Children.Add(grid);
     }
 
-    private static string GetFriendlyProviderName(ProviderUsage usage)
-    {
-        var providerId = usage.ProviderId ?? string.Empty;
-        return ProviderMetadataCatalog.GetDisplayName(providerId, usage.ProviderName);
-    }
-
     private void AddAntigravityModels(ProviderUsage usage, StackPanel container)
     {
-        if (usage.Details?.Any() != true)
+        foreach (var modelUsage in ProviderUsageDisplayCatalog.CreateAntigravityModelUsages(usage))
         {
-            return;
-        }
-
-        var uniqueModelDetails = usage.Details
-            .Where(d => !string.IsNullOrWhiteSpace(GetAntigravityModelDisplayName(d)) && !d.Name.StartsWith("[", StringComparison.Ordinal))
-            .GroupBy(GetAntigravityModelDisplayName, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First());
-
-        foreach (var detail in uniqueModelDetails.OrderBy(GetAntigravityModelDisplayName, StringComparer.OrdinalIgnoreCase))
-        {
-            AddProviderCard(CreateAntigravityModelUsage(detail, usage), container);
+            AddProviderCard(modelUsage, container);
         }
     }
 
@@ -1704,122 +1334,100 @@ public partial class MainWindow : Window
         container.Children.Add(CreateInfoTextBlock(message));
     }
 
-    private static ProviderUsage CreateAntigravityModelUsage(ProviderUsageDetail detail, ProviderUsage parentUsage)
+    private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)
     {
-        var remainingPercent = UsageMath.ParsePercent(detail.Used);
-        var hasRemainingPercent = remainingPercent.HasValue;
-        var effectiveRemaining = remainingPercent ?? 0;
-        return new ProviderUsage
+        var toolTip = new ToolTip
         {
-            ProviderId = $"antigravity.{detail.Name.ToLowerInvariant().Replace(" ", "-")}",
-            ProviderName = $"{GetAntigravityModelDisplayName(detail)} [Antigravity]",
-            RequestsPercentage = effectiveRemaining,
-            RequestsUsed = 100.0 - effectiveRemaining,
-            RequestsAvailable = 100,
-            UsageUnit = "Quota %",
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
-            Description = hasRemainingPercent ? $"{effectiveRemaining:F0}% Remaining" : "Usage unknown",
-            NextResetTime = detail.NextResetTime,
-            IsAvailable = parentUsage.IsAvailable,
-            AuthSource = parentUsage.AuthSource
+            Content = content,
+            Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
+            PlacementTarget = placementTarget
+        };
+
+        toolTip.Opened += (s, e) =>
+        {
+            _isTooltipOpen = true;
+            if (s is ToolTip tip && tip.PlacementTarget != null)
+            {
+                var tooltipWindow = Window.GetWindow(tip);
+                if (tooltipWindow != null && this.Topmost)
+                {
+                    tooltipWindow.Topmost = true;
+                }
+            }
+        };
+        toolTip.Closed += (s, e) => _isTooltipOpen = false;
+
+        return toolTip;
+    }
+
+    private static void AddDockedElement(DockPanel panel, UIElement element, Dock dock)
+    {
+        panel.Children.Add(element);
+        DockPanel.SetDock(element, dock);
+    }
+
+    private TextBlock CreateDockedTextBlock(
+        string text,
+        double fontSize,
+        Brush foreground,
+        FontWeight? fontWeight = null,
+        Thickness? margin = null,
+        TextTrimming textTrimming = TextTrimming.None)
+    {
+        return new TextBlock
+        {
+            Text = text,
+            FontSize = fontSize,
+            Foreground = foreground,
+            FontWeight = fontWeight ?? FontWeights.Normal,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = margin ?? new Thickness(0),
+            TextTrimming = textTrimming
         };
     }
 
-    private static double? ParsePercent(string? value)
+    private Border CreateBulletMarker()
     {
-        return UsageMath.ParsePercent(value);
+        return new Border
+        {
+            Width = 4,
+            Height = 4,
+            Background = GetResourceBrush("SecondaryText", Brushes.Gray),
+            CornerRadius = new CornerRadius(2),
+            Margin = new Thickness(2, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
     }
 
-    private static bool TryGetDualWindowUsedPercentages(ProviderUsage usage, out double hourlyUsed, out double weeklyUsed)
+    private static void ConfigureCardToolTip(FrameworkElement target)
     {
-        hourlyUsed = 0;
-        weeklyUsed = 0;
-
-        if (usage.Details?.Any() != true)
-        {
-            return false;
-        }
-
-        // Find all quota windows
-        var windows = usage.Details
-            .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow)
-            .ToList();
-
-        if (windows.Count < 2)
-        {
-            return false;
-        }
-
-        // Use explicit WindowKind only
-        // Hourly/5-hour limit is Primary
-        // Weekly limit is Secondary
-        var hourlyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
-        
-        // Fallback to Spark if Primary not found (Codex specific)
-        if (hourlyDetail == null)
-        {
-            hourlyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Spark);
-        }
-        var weeklyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
-
-        if (hourlyDetail == null || weeklyDetail == null || hourlyDetail == weeklyDetail)
-        {
-            return false;
-        }
-
-        var parsedHourly = UsageMath.GetEffectiveUsedPercent(hourlyDetail, usage.IsQuotaBased);
-        var parsedWeekly = UsageMath.GetEffectiveUsedPercent(weeklyDetail, usage.IsQuotaBased);
-
-        if (!parsedHourly.HasValue || !parsedWeekly.HasValue)
-        {
-            return false;
-        }
-
-        hourlyUsed = parsedHourly.Value;
-        weeklyUsed = parsedWeekly.Value;
-        return true;
+        ToolTipService.SetInitialShowDelay(target, 100);
+        ToolTipService.SetShowDuration(target, 15000);
     }
 
     private Grid CreateProgressLayer(double usedPercent, bool showUsed, double opacity)
     {
         var remainingPercent = Math.Max(0, 100 - usedPercent);
         var indicatorWidth = showUsed ? usedPercent : remainingPercent;
-        indicatorWidth = Math.Clamp(indicatorWidth, 0, 100);
+        return CreateSingleProgressLayer(usedPercent, indicatorWidth, opacity);
+    }
+
+    private Grid CreateSingleProgressLayer(double usedPercent, double indicatorWidth, double opacity)
+    {
+        var clampedWidth = Math.Clamp(indicatorWidth, 0, 100);
 
         var layer = new Grid();
-        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
-        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
+        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(clampedWidth, GridUnitType.Star) });
+        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - clampedWidth), GridUnitType.Star) });
 
-        var fill = new Border
+        layer.Children.Add(new Border
         {
             Background = GetProgressBarColor(usedPercent),
             Opacity = opacity,
             CornerRadius = new CornerRadius(0)
-        };
+        });
 
-        layer.Children.Add(fill);
         return layer;
-    }
-
-    private static string GetAntigravityModelDisplayName(ProviderUsageDetail detail)
-    {
-        return detail.Name;
-    }
-
-    private static string GetDetailDisplayName(ProviderUsageDetail detail)
-    {
-        return detail.Name;
-    }
-
-    private static bool IsDisplayableSubProviderDetail(ProviderUsageDetail detail)
-    {
-        if (string.IsNullOrWhiteSpace(detail.Name))
-        {
-            return false;
-        }
-
-        return detail.DetailType == ProviderUsageDetailType.Model || detail.DetailType == ProviderUsageDetailType.Other;
     }
 
     private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container)
@@ -1832,35 +1440,15 @@ public partial class MainWindow : Window
             Background = Brushes.Transparent
         };
 
-        // Calculate Percentages using shared logic
-        var parsedUsed = UsageMath.GetEffectiveUsedPercent(detail, usage.IsQuotaBased);
-        var hasPercent = parsedUsed.HasValue;
-        double pctUsed = parsedUsed ?? 0;
-        double pctRemaining = 100.0 - pctUsed;
-
-        // Determine display values based on toggle
-        bool showUsed = ShowUsedToggle?.IsChecked ?? false;
-        double displayPct = showUsed ? pctUsed : pctRemaining;
-        string displayStr = hasPercent
-            ? $"{displayPct:F0}%"
-            : (string.IsNullOrWhiteSpace(detail.Used) ? "Unknown" : detail.Used);
-
-        // Calculate Bar Width (normalized to 0-100)
-        double indicatorWidth = Math.Max(0, Math.Min(100, displayPct));
+        var presentation = ProviderSubDetailPresentationCatalog.Create(
+            detail,
+            usage.IsQuotaBased,
+            ShowUsedToggle?.IsChecked ?? false,
+            GetRelativeTimeString);
 
         // Background Progress Bar (Miniature)
-        var pGrid = new Grid();
-        pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(indicatorWidth, GridUnitType.Star) });
-        pGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - indicatorWidth), GridUnitType.Star) });
-
-        var fill = new Border
-        {
-            Background = GetProgressBarColor(pctUsed), // Always color based on USED percentage
-            Opacity = 0.3, // Slightly more transparent for sub-items
-            CornerRadius = new CornerRadius(0)
-        };
-        pGrid.Children.Add(fill);
-        if (hasPercent)
+        var pGrid = CreateSingleProgressLayer(presentation.UsedPercent, presentation.IndicatorWidth, opacity: 0.3);
+        if (presentation.HasProgress)
         {
             grid.Children.Add(pGrid);
         }
@@ -1868,56 +1456,41 @@ public partial class MainWindow : Window
         // Content Overlay
         var bulletPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
 
-        var bullet = new Border
-        {
-            Width = 4, Height = 4,
-            Background = GetResourceBrush("SecondaryText", Brushes.Gray),
-            CornerRadius = new CornerRadius(2),
-            Margin = new Thickness(2, 0, 10, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        bulletPanel.Children.Add(bullet);
-        DockPanel.SetDock(bullet, Dock.Left);
+        AddDockedElement(bulletPanel, CreateBulletMarker(), Dock.Left);
 
         // Reset time on the right (if available) - shown in yellow
-        if (detail.NextResetTime.HasValue)
+        if (!string.IsNullOrEmpty(presentation.ResetText))
         {
-            var resetBlock = new TextBlock
-            {
-                Text = $"({GetRelativeTimeString(detail.NextResetTime.Value)})",
-                FontSize = 9,
-                Foreground = GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(6, 0, 0, 0)
-            };
-            bulletPanel.Children.Add(resetBlock);
-            DockPanel.SetDock(resetBlock, Dock.Right);
+            AddDockedElement(
+                bulletPanel,
+                CreateDockedTextBlock(
+                    presentation.ResetText,
+                    fontSize: 9,
+                    foreground: GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
+                    fontWeight: FontWeights.SemiBold,
+                    margin: new Thickness(6, 0, 0, 0)),
+                Dock.Right);
         }
 
         // Value on the right
-        var valueBlock = new TextBlock
-        {
-            Text = displayStr,
-            FontSize = 10,
-            Foreground = GetResourceBrush("TertiaryText", Brushes.Gray),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(10, 0, 0, 0)
-        };
-        bulletPanel.Children.Add(valueBlock);
-        DockPanel.SetDock(valueBlock, Dock.Right);
+        AddDockedElement(
+            bulletPanel,
+            CreateDockedTextBlock(
+                presentation.DisplayText,
+                fontSize: 10,
+                foreground: GetResourceBrush("TertiaryText", Brushes.Gray),
+                margin: new Thickness(10, 0, 0, 0)),
+            Dock.Right);
 
         // Name on the left
-        var nameBlock = new TextBlock
-        {
-            Text = detail.Name,
-            FontSize = 10,
-            Foreground = GetResourceBrush("SecondaryText", Brushes.LightGray),
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        bulletPanel.Children.Add(nameBlock);
-        DockPanel.SetDock(nameBlock, Dock.Left);
+        AddDockedElement(
+            bulletPanel,
+            CreateDockedTextBlock(
+                detail.Name,
+                fontSize: 10,
+                foreground: GetResourceBrush("SecondaryText", Brushes.LightGray),
+                textTrimming: TextTrimming.CharacterEllipsis),
+            Dock.Left);
 
         grid.Children.Add(bulletPanel);
         container.Children.Add(grid);
@@ -1927,11 +1500,7 @@ public partial class MainWindow : Window
     {
         if (usage.Details?.Any() != true) return;
 
-        var displayableDetails = usage.Details
-            .Where(IsDisplayableSubProviderDetail)
-            .OrderBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var displayableDetails = ProviderSubDetailPresentationCatalog.GetDisplayableDetails(usage);
 
         if (!displayableDetails.Any())
         {
@@ -1939,10 +1508,13 @@ public partial class MainWindow : Window
         }
 
         // Create collapsible section for sub-providers
-        var useAntigravityCollapsePreference = usage.ProviderId.StartsWith("antigravity", StringComparison.OrdinalIgnoreCase);
-        var (subHeader, subContainer) = CreateCollapsibleSubHeader(
+        var useAntigravityCollapsePreference = ProviderMetadataCatalog.IsAggregateParentProviderId(
+            ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId ?? string.Empty));
+        var (subHeader, subContainer) = CreateCollapsibleHeader(
             $"{usage.ProviderName} Details",
             Brushes.DeepSkyBlue,
+            isGroupHeader: false,
+            groupKey: null,
             () => useAntigravityCollapsePreference && _preferences.IsAntigravityCollapsed,
             v =>
             {
@@ -1975,44 +1547,9 @@ public partial class MainWindow : Window
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
     }
 
-    private static string MaskAccountIdentifier(string name)
-    {
-        if (string.IsNullOrEmpty(name)) return name;
-
-        var atIndex = name.IndexOf('@');
-        if (atIndex > 0 && atIndex < name.Length - 1)
-        {
-            var local = name[..atIndex];
-            var domain = name[(atIndex + 1)..];
-            var maskedDomainChars = domain.ToCharArray();
-            for (var i = 0; i < maskedDomainChars.Length; i++)
-            {
-                if (maskedDomainChars[i] != '.')
-                {
-                    maskedDomainChars[i] = '*';
-                }
-            }
-
-            var maskedDomain = new string(maskedDomainChars);
-            if (local.Length <= 2)
-            {
-                return $"{new string('*', local.Length)}@{maskedDomain}";
-            }
-
-            return $"{local[0]}{new string('*', local.Length - 2)}{local[^1]}@{maskedDomain}";
-        }
-
-        if (name.Length <= 2) return new string('*', name.Length);
-        return name[0] + new string('*', name.Length - 2) + name[^1];
-    }
-
     private FrameworkElement CreateProviderIcon(string providerId)
     {
-        var normalizedProviderId = providerId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase)
-            ? "antigravity"
-            : providerId.StartsWith("codex.", StringComparison.OrdinalIgnoreCase)
-                ? "codex"
-            : providerId;
+        var normalizedProviderId = ProviderVisualCatalog.GetCanonicalProviderId(providerId);
 
         // Check cache first
         if (_iconCache.TryGetValue(normalizedProviderId, out var cachedImage))
@@ -2027,26 +1564,7 @@ public partial class MainWindow : Window
         }
 
         // Map provider IDs to filename
-        string filename = normalizedProviderId.ToLower() switch
-        {
-            "github-copilot" => "github",
-            "gemini-cli" => "google",
-            "antigravity" => "google",
-            "claude-code" or "claude" => "anthropic", // Use anthropic icon for claude
-            "minimax" or "minimax-io" or "minimax-global" => "minimax",
-            "kimi" => "kimi",
-            "xiaomi" => "xiaomi",
-            "zai" => "zai",
-            "deepseek" => "deepseek",
-            "openrouter" => "openai", // Fallback to openai
-            "codex" => "openai",
-            "mistral" => "mistral",
-            "openai" => "openai",
-            "anthropic" => "anthropic",
-            "google" => "google",
-            "github" => "github",
-            _ => normalizedProviderId.ToLower()
-        };
+        var filename = ProviderVisualCatalog.GetIconAssetName(providerId);
 
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
         var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");
@@ -2089,25 +1607,9 @@ public partial class MainWindow : Window
 
     private FrameworkElement CreateFallbackIcon(string providerId)
     {
-        var (color, initial) = providerId.ToLower() switch
-        {
-            "openai" => (Brushes.DarkCyan, "AI"),
-            "codex" => (Brushes.DarkCyan, "AI"),
-            "anthropic" => (Brushes.IndianRed, "An"),
-            "github-copilot" => (Brushes.MediumPurple, "GH"),
-            "gemini" or "google" or "antigravity" => (Brushes.DodgerBlue, "G"),
-            "deepseek" => (Brushes.DeepSkyBlue, "DS"),
-            "openrouter" => (Brushes.DarkSlateBlue, "OR"),
-            "kimi" => (Brushes.MediumOrchid, "K"),
-            "minimax" or "minimax-io" or "minimax-global" => (Brushes.DarkTurquoise, "MM"),
-            "mistral" => (Brushes.OrangeRed, "Mi"),
-            "xiaomi" => (Brushes.Orange, "Xi"),
-            "zai" => (Brushes.LightSeaGreen, "Z"),
-            "claude-code" or "claude" => (Brushes.Orange, "C"),
-            "cloudcode" => (Brushes.DeepSkyBlue, "CC"),
-            "synthetic" => (Brushes.Gold, "Sy"),
-            _ => (GetResourceBrush("SecondaryText", Brushes.Gray), providerId[..Math.Min(2, providerId.Length)].ToUpper())
-        };
+        var (color, initial) = ProviderVisualCatalog.GetFallbackBadge(
+            providerId,
+            GetResourceBrush("SecondaryText", Brushes.Gray));
 
         var grid = new Grid { Width = 16, Height = 16 };
 
@@ -2343,49 +1845,11 @@ public partial class MainWindow : Window
 
         if (StatusLed != null)
         {
-            var ledToolTip = new ToolTip
-            {
-                Content = tooltipText,
-                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
-                PlacementTarget = StatusLed
-            };
-            ledToolTip.Opened += (s, e) =>
-            {
-                _isTooltipOpen = true;
-                if (s is ToolTip tip && tip.PlacementTarget != null)
-                {
-                    var tooltipWindow = Window.GetWindow(tip);
-                    if (tooltipWindow != null && this.Topmost)
-                    {
-                        tooltipWindow.Topmost = true;
-                    }
-                }
-            };
-            ledToolTip.Closed += (s, e) => _isTooltipOpen = false;
-            StatusLed.ToolTip = ledToolTip;
+            StatusLed.ToolTip = CreateTopmostAwareToolTip(StatusLed, tooltipText);
         }
         if (StatusText != null)
         {
-            var textToolTip = new ToolTip
-            {
-                Content = tooltipText,
-                Placement = System.Windows.Controls.Primitives.PlacementMode.MousePoint,
-                PlacementTarget = StatusText
-            };
-            textToolTip.Opened += (s, e) =>
-            {
-                _isTooltipOpen = true;
-                if (s is ToolTip tip && tip.PlacementTarget != null)
-                {
-                    var tooltipWindow = Window.GetWindow(tip);
-                    if (tooltipWindow != null && this.Topmost)
-                    {
-                        tooltipWindow.Topmost = true;
-                    }
-                }
-            };
-            textToolTip.Closed += (s, e) => _isTooltipOpen = false;
-            StatusText.ToolTip = textToolTip;
+            StatusText.ToolTip = CreateTopmostAwareToolTip(StatusText, tooltipText);
         }
 
         var logLevel = type switch

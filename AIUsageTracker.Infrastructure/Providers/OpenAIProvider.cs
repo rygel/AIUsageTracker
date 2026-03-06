@@ -1,7 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text;
 using Microsoft.Extensions.Logging;
 using AIUsageTracker.Core.Helpers;
 using AIUsageTracker.Core.Models;
@@ -19,17 +18,47 @@ public class OpenAIProvider : ProviderBase
         displayName: "OpenAI",
         planType: PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based");
+        defaultConfigType: "quota-based",
+        discoveryEnvironmentVariables: new[] { "OPENAI_API_KEY" },
+        rooConfigPropertyNames: new[] { "openAiApiKey" },
+        explicitApiKeyPrefixes: new[] { "sk-" },
+        sessionAuthCanonicalProviderId: "codex",
+        sessionAuthMigrationDescription: "Migrated from OpenAI session config",
+        settingsMode: ProviderSettingsMode.SessionAuthStatus,
+        useSessionAuthStatusWhenQuotaBasedOrSessionToken: true,
+        sessionStatusLabel: "OpenAI",
+        sessionIdentitySource: ProviderSessionIdentitySource.OpenAi,
+        iconAssetName: "openai",
+        fallbackBadgeColorHex: "#008B8B",
+        fallbackBadgeInitial: "AI",
+        authIdentityCandidatePathTemplates: new[]
+        {
+            "%USERPROFILE%\\.local\\share\\opencode\\auth.json",
+            "%APPDATA%\\opencode\\auth.json",
+            "%LOCALAPPDATA%\\opencode\\auth.json",
+            "%USERPROFILE%\\.opencode\\auth.json"
+        },
+        sessionAuthFileSchemas: new[]
+        {
+            new ProviderAuthFileSchema("openai", "access", "accountId", "id_token")
+        });
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenAIProvider> _logger;
+    private readonly string? _authFilePath;
 
     public OpenAIProvider(HttpClient httpClient, ILogger<OpenAIProvider> logger)
+        : this(httpClient, logger, null)
+    {
+    }
+
+    public OpenAIProvider(HttpClient httpClient, ILogger<OpenAIProvider> logger, string? authFilePath)
     {
         _httpClient = httpClient;
         _logger = logger;
+        _authFilePath = authFilePath;
     }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
@@ -208,17 +237,9 @@ public class OpenAIProvider : ProviderBase
         return token.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<OpenCodeOpenAiAuth?> LoadOpenCodeAuthAsync()
+    private async Task<OpenCodeOpenAiAuth?> LoadOpenCodeAuthAsync()
     {
-        var paths = new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
-        };
-
-        foreach (var path in paths)
+        foreach (var path in GetAuthFileCandidates())
         {
             if (!File.Exists(path))
             {
@@ -229,28 +250,69 @@ public class OpenAIProvider : ProviderBase
             {
                 var json = await File.ReadAllTextAsync(path);
                 using var doc = JsonDocument.Parse(json);
-                if (!doc.RootElement.TryGetProperty("openai", out var openai) || openai.ValueKind != JsonValueKind.Object)
+                var auth = TryReadOpenCodeAuth(doc.RootElement);
+                if (auth != null)
                 {
-                    continue;
+                    return auth;
                 }
-
-                var access = openai.ReadString("access");
-                if (string.IsNullOrWhiteSpace(access))
-                {
-                    continue;
-                }
-
-                return new OpenCodeOpenAiAuth
-                {
-                    Access = access,
-                    AccountId = openai.ReadString("accountId")
-                };
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // Intentionally suppressed: scanning multiple candidate auth file paths.
-                // Malformed or inaccessible files are skipped to try next candidate.
+                _logger.LogDebug(ex, "Failed to read OpenAI session auth file at {Path}", path);
             }
+        }
+
+        return null;
+    }
+
+    private IEnumerable<string> GetAuthFileCandidates()
+    {
+        if (!string.IsNullOrWhiteSpace(_authFilePath))
+        {
+            yield return _authFilePath;
+            yield break;
+        }
+
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+        foreach (var pathTemplate in StaticDefinition.AuthIdentityCandidatePathTemplates)
+        {
+            var path = pathTemplate
+                .Replace("%USERPROFILE%", userProfile, StringComparison.OrdinalIgnoreCase)
+                .Replace("%APPDATA%", appData, StringComparison.OrdinalIgnoreCase)
+                .Replace("%LOCALAPPDATA%", localAppData, StringComparison.OrdinalIgnoreCase);
+
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                yield return path;
+            }
+        }
+    }
+
+    private static OpenCodeOpenAiAuth? TryReadOpenCodeAuth(JsonElement root)
+    {
+        foreach (var schema in StaticDefinition.SessionAuthFileSchemas)
+        {
+            if (!root.TryGetProperty(schema.RootProperty, out var sessionRoot) || sessionRoot.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var accessToken = sessionRoot.ReadString(schema.AccessTokenProperty);
+            if (string.IsNullOrWhiteSpace(accessToken))
+            {
+                continue;
+            }
+
+            return new OpenCodeOpenAiAuth
+            {
+                Access = accessToken,
+                AccountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty)
+                    ? sessionRoot.ReadString(schema.AccountIdProperty)
+                    : null
+            };
         }
 
         return null;
@@ -349,40 +411,16 @@ public class OpenAIProvider : ProviderBase
 
     private static string? GetAccountIdentity(JsonElement root, string accessToken, string? accountId)
     {
-        foreach (var key in new[] { "email", "upn" })
+        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(root);
+        if (!string.IsNullOrWhiteSpace(directIdentity))
         {
-            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-            {
-                var value = claimElement.GetString();
-                if (IsEmailLike(value))
-                {
-                    return value;
-                }
-            }
+            return directIdentity;
         }
 
-        var profileEmail = root.ReadString("https://api.openai.com/profile", "email");
-        if (IsEmailLike(profileEmail))
+        var fromToken = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken);
+        if (!string.IsNullOrWhiteSpace(fromToken))
         {
-            return profileEmail;
-        }
-
-        var claims = DecodeJwtClaims(accessToken);
-        if (!string.IsNullOrWhiteSpace(claims.Email))
-        {
-            return claims.Email;
-        }
-
-        foreach (var key in new[] { "preferred_username", "username", "login", "name" })
-        {
-            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-            {
-                var value = claimElement.GetString();
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    return value;
-                }
-            }
+            return fromToken;
         }
 
         if (!string.IsNullOrWhiteSpace(accountId))
@@ -392,90 +430,6 @@ public class OpenAIProvider : ProviderBase
 
         return null;
     }
-
-    private static (string? Email, string? PlanType) DecodeJwtClaims(string token)
-    {
-        try
-        {
-            var parts = token.Split('.');
-            if (parts.Length < 2)
-            {
-                return (null, null);
-            }
-
-            var payload = parts[1].Replace('-', '+').Replace('_', '/');
-            switch (payload.Length % 4)
-            {
-                case 2: payload += "=="; break;
-                case 3: payload += "="; break;
-            }
-
-            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
-            using var doc = JsonDocument.Parse(json);
-
-            string? email = null;
-            foreach (var claim in new[] { "email", "upn" })
-            {
-                if (doc.RootElement.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-                {
-                    var value = claimElement.GetString();
-                    if (IsEmailLike(value))
-                    {
-                        email = value;
-                        break;
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(email) &&
-                doc.RootElement.TryGetProperty("https://api.openai.com/profile", out var profile) &&
-                profile.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var claim in new[] { "email", "username", "name" })
-                {
-                    var profileValue = profile.ReadString(claim);
-                    if (IsEmailLike(profileValue))
-                    {
-                        email = profileValue;
-                        break;
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                foreach (var claim in new[] { "preferred_username", "username", "login", "name", "sub" })
-                {
-                    if (doc.RootElement.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-                    {
-                        var value = claimElement.GetString();
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            email = value;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            var planType = doc.RootElement.ReadString("https://api.openai.com/auth", "plan_type")
-                           ?? doc.RootElement.ReadString("plan_type");
-
-            return (email, planType);
-        }
-        catch (Exception)
-        {
-            // Intentionally suppressed: JWT parsing failures are non-critical.
-            // Returns (null, null) to indicate claims could not be extracted.
-            return (null, null);
-        }
-    }
-
-    private static bool IsEmailLike(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
-    }
-
     private sealed class OpenCodeOpenAiAuth
     {
         public string? Access { get; set; }

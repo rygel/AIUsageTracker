@@ -39,34 +39,7 @@ public class TokenDiscoveryService
 
             if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value)) continue;
 
-            if (key == "MINIMAX_API_KEY")
-            {
-                AddOrUpdate(discoveredConfigs, "minimax", value, "Discovered via Environment Variable", "Env: MINIMAX_API_KEY");
-            }
-            else if (key == "XIAOMI_API_KEY" || key == "MIMO_API_KEY")
-            {
-                AddOrUpdate(discoveredConfigs, "xiaomi", value, "Discovered via Environment Variable", "Env: XIAOMI_API_KEY");
-            }
-            else if (key == "KIMI_API_KEY" || key == "MOONSHOT_API_KEY")
-            {
-                AddOrUpdate(discoveredConfigs, "kimi", value, "Discovered via Environment Variable", "Env: KIMI_API_KEY");
-            }
-            else if (key == "ANTHROPIC_API_KEY" || key == "CLAUDE_API_KEY")
-            {
-                AddOrUpdate(discoveredConfigs, "claude-code", value, "Discovered via Environment Variable", "Env: ANTHROPIC_API_KEY");
-            }
-            else if (key == "OPENAI_API_KEY")
-            {
-                AddOrUpdate(discoveredConfigs, "openai", value, "Discovered via Environment Variable", "Env: OPENAI_API_KEY");
-            }
-            else if (key == "CODEX_API_KEY")
-            {
-                AddOrUpdate(discoveredConfigs, "codex", value, "Discovered via Environment Variable", "Env: CODEX_API_KEY");
-            }
-            else if (key == "OPENROUTER_API_KEY")
-            {
-                AddOrUpdate(discoveredConfigs, "openrouter", value, "Discovered via Environment Variable", "Env: OPENROUTER_API_KEY");
-            }
+            TryAddEnvironmentVariable(discoveredConfigs, key, value);
         }
 
         // 3. Discover from Kilo Code
@@ -110,7 +83,7 @@ public class TokenDiscoveryService
                     continue;
                 }
 
-                AddOrUpdate(configs, "codex", token, "Discovered in Codex auth", $"Config: {path}");
+                AddOrUpdate(configs, CodexProvider.StaticDefinition.ProviderId, token, "Discovered in Codex auth", $"Config: {path}");
                 return;
             }
         }
@@ -139,8 +112,13 @@ public class TokenDiscoveryService
                     continue;
                 }
 
-                // Session-based OpenAI access should be represented by Codex provider.
-                AddOrUpdate(configs, "codex", token, "Discovered in OpenCode auth", $"Config: {path}");
+                // Session-based OpenAI access should be represented by the canonical session provider.
+                AddOrUpdate(
+                    configs,
+                    OpenAIProvider.StaticDefinition.SessionAuthCanonicalProviderId ?? CodexProvider.StaticDefinition.ProviderId,
+                    token,
+                    "Discovered in OpenCode auth",
+                    $"Config: {path}");
                 return;
             }
         }
@@ -154,23 +132,28 @@ public class TokenDiscoveryService
     {
         try
         {
-            var claudeCredentialsPath = Path.Combine(GetUserProfilePath(), ".claude", ".credentials.json");
-            if (File.Exists(claudeCredentialsPath))
+            foreach (var path in GetCandidatePaths(ClaudeCodeProvider.StaticDefinition))
             {
-                var json = await File.ReadAllTextAsync(claudeCredentialsPath);
-                using var doc = JsonDocument.Parse(json);
-
-                if (doc.RootElement.TryGetProperty("claudeAiOauth", out var oauthElement))
+                if (!File.Exists(path))
                 {
-                    if (oauthElement.TryGetProperty("accessToken", out var tokenElement))
-                    {
-                        var token = tokenElement.GetString();
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            AddOrUpdate(configs, "claude-code", token, "Discovered in Claude Code credentials", "Claude Code: ~/.claude/.credentials.json");
-                        }
-                    }
+                    continue;
                 }
+
+                var json = await File.ReadAllTextAsync(path);
+                using var doc = JsonDocument.Parse(json);
+                var token = TryReadAccessToken(doc.RootElement, ClaudeCodeProvider.StaticDefinition);
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    continue;
+                }
+
+                AddOrUpdate(
+                    configs,
+                    ClaudeCodeProvider.StaticDefinition.ProviderId,
+                    token,
+                    "Discovered in Claude Code credentials",
+                    $"Claude Code: {path}");
+                return;
             }
         }
         catch (Exception ex)
@@ -183,8 +166,7 @@ public class TokenDiscoveryService
     {
         var wellKnownIds = ProviderMetadataCatalog.Definitions
             .Where(definition => definition.IncludeInWellKnownProviders)
-            .SelectMany(definition => definition.HandledProviderIds)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+            .Select(definition => definition.ProviderId);
 
         foreach (var id in wellKnownIds)
         {
@@ -238,82 +220,79 @@ public class TokenDiscoveryService
 
     private IEnumerable<string> GetCodexAuthCandidates()
     {
-        var home = GetUserProfilePath();
-        var candidates = new List<string>
-        {
-            Path.Combine(home, ".codex", "auth.json")
-        };
-
-        if (OperatingSystem.IsWindows())
-        {
-            candidates.Add(Path.Combine(GetAppDataPath(), "codex", "auth.json"));
-        }
-
-        return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+        return GetCandidatePaths(CodexProvider.StaticDefinition);
     }
 
     private IEnumerable<string> GetOpenCodeAuthCandidates()
     {
-        var home = GetUserProfilePath();
-        var candidates = new List<string>
-        {
-            Path.Combine(home, ".local", "share", "opencode", "auth.json"),
-            Path.Combine(home, ".opencode", "auth.json"),
-            _pathProvider.GetAuthFilePath()
-        };
-
-        if (OperatingSystem.IsWindows())
-        {
-            candidates.Add(Path.Combine(GetAppDataPath(), "opencode", "auth.json"));
-            candidates.Add(Path.Combine(GetLocalAppDataPath(), "opencode", "auth.json"));
-        }
-
-        return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+        return new[] { _pathProvider.GetAuthFilePath() }
+            .Concat(GetCandidatePaths(OpenAIProvider.StaticDefinition))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string? TryReadCodexAccessToken(JsonElement root)
     {
-        if (root.TryGetProperty("tokens", out var tokensElement) &&
-            tokensElement.ValueKind == JsonValueKind.Object &&
-            tokensElement.TryGetProperty("access_token", out var accessTokenElement) &&
-            accessTokenElement.ValueKind == JsonValueKind.String)
-        {
-            return accessTokenElement.GetString();
-        }
-
-        // Legacy/fallback compatibility if auth file contains OpenCode-style shape.
-        return TryReadOpenAiSessionAccessToken(root);
+        return TryReadAccessToken(root, CodexProvider.StaticDefinition);
     }
 
     private static string? TryReadOpenAiSessionAccessToken(JsonElement root)
     {
-        if (!root.TryGetProperty("openai", out var openaiElement) || openaiElement.ValueKind != JsonValueKind.Object)
+        return TryReadAccessToken(root, OpenAIProvider.StaticDefinition);
+    }
+
+    private static string? TryReadAccessToken(JsonElement root, ProviderDefinition definition)
+    {
+        foreach (var schema in definition.SessionAuthFileSchemas)
         {
-            return null;
+            if (!root.TryGetProperty(schema.RootProperty, out var element) || element.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            if (element.TryGetProperty(schema.AccessTokenProperty, out var accessElement) &&
+                accessElement.ValueKind == JsonValueKind.String)
+            {
+                return accessElement.GetString();
+            }
         }
 
-        if (!openaiElement.TryGetProperty("access", out var accessElement) || accessElement.ValueKind != JsonValueKind.String)
-        {
-            return null;
-        }
+        return null;
+    }
 
-        return accessElement.GetString();
+    private IEnumerable<string> GetCandidatePaths(ProviderDefinition definition)
+    {
+        return definition.AuthIdentityCandidatePathTemplates
+            .Select(ResolvePathTemplate)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)!;
+    }
+
+    private string ResolvePathTemplate(string pathTemplate)
+    {
+        return pathTemplate
+            .Replace("%USERPROFILE%", GetUserProfilePath(), StringComparison.OrdinalIgnoreCase)
+            .Replace("%APPDATA%", GetAppDataPath(), StringComparison.OrdinalIgnoreCase)
+            .Replace("%LOCALAPPDATA%", GetLocalAppDataPath(), StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddOrUpdate(List<ProviderConfig> configs, string providerId, string key, string description, string source)
     {
-        if (!TryGetProviderDefaults(providerId, out var providerDefaults))
+        if (!ProviderMetadataCatalog.TryCreateDefaultConfig(
+                providerId,
+                out var defaultConfig,
+                apiKey: key,
+                authSource: source,
+                description: description))
         {
             _logger.LogWarning("Skipping token discovery for unsupported provider id '{ProviderId}'.", providerId);
             return;
         }
 
-        var (planType, type) = providerDefaults;
         var existing = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
         if (existing != null)
         {
-            existing.PlanType = planType;
-            existing.Type = type;
+            existing.PlanType = defaultConfig.PlanType;
+            existing.Type = defaultConfig.Type;
             if (!string.IsNullOrEmpty(key))
             {
                 existing.ApiKey = key;
@@ -323,15 +302,7 @@ public class TokenDiscoveryService
         }
         else
         {
-            configs.Add(new ProviderConfig
-            {
-                ProviderId = providerId,
-                ApiKey = key,
-                Type = type,
-                PlanType = planType,
-                Description = description,
-                AuthSource = source
-            });
+            configs.Add(defaultConfig);
         }
     }
 
@@ -358,7 +329,10 @@ public class TokenDiscoveryService
                     }
                 }
             }
-            catch { /* Ignore parse errors */ }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to parse Kilo Code secrets from {Path}", kiloSecretsPath);
+            }
         }
     }
 
@@ -388,14 +362,14 @@ public class TokenDiscoveryService
                                 foreach (var configPair in configsProp.EnumerateObject())
                                 {
                                     var config = configPair.Value;
-                                    TryAddRooKey(configs, config, "openAiApiKey", "openai");
-                                    TryAddRooKey(configs, config, "geminiApiKey", "gemini");
-                                    TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
-                                    TryAddRooKey(configs, config, "mistralApiKey", "mistral");
+                                    TryAddRooKeys(configs, config);
                                 }
                             }
                         }
-                        catch { /* Ignore individual file errors */ }
+                        catch (Exception ex)
+                        {
+                            _logger.LogDebug(ex, "Failed to parse Roo Code state file {Path}", stateFile);
+                        }
                     }
                 }
             }
@@ -420,19 +394,22 @@ public class TokenDiscoveryService
                                 foreach (var configPair in configsProp.EnumerateObject())
                                 {
                                     var config = configPair.Value;
-                                    TryAddRooKey(configs, config, "openAiApiKey", "openai");
-                                    TryAddRooKey(configs, config, "geminiApiKey", "gemini");
-                                    TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
-                                    TryAddRooKey(configs, config, "mistralApiKey", "mistral");
+                                    TryAddRooKeys(configs, config);
                                 }
                             }
                         }
                     }
-                    catch { /* Ignore parse errors */ }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to parse Roo secrets from {Path}", secretsPath);
+                    }
                 }
             }
         }
-        catch { /* Ignore all errors */ }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Roo Code token discovery failed");
+        }
     }
 
     private string? GetVSCodeGlobalStoragePath()
@@ -479,14 +456,41 @@ public class TokenDiscoveryService
                     var config = configPair.Value;
 
                     // Logic for common providers in Roo Cline
-                    TryAddRooKey(configs, config, "openAiApiKey", "openai");
-                    TryAddRooKey(configs, config, "geminiApiKey", "gemini");
-                    TryAddRooKey(configs, config, "openrouterApiKey", "openrouter");
-                    TryAddRooKey(configs, config, "mistralApiKey", "mistral");
+                    TryAddRooKeys(configs, config);
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to parse Roo config during token discovery");
+        }
+    }
+
+    private void TryAddEnvironmentVariable(List<ProviderConfig> configs, string environmentVariableName, string value)
+    {
+        var definition = ProviderMetadataCatalog.FindByEnvironmentVariable(environmentVariableName);
+        if (definition == null)
+        {
+            return;
+        }
+
+        AddOrUpdate(
+            configs,
+            definition.ProviderId,
+            value,
+            "Discovered via Environment Variable",
+            $"Env: {environmentVariableName}");
+    }
+
+    private void TryAddRooKeys(List<ProviderConfig> configs, JsonElement config)
+    {
+        foreach (var definition in ProviderMetadataCatalog.Definitions.Where(d => d.RooConfigPropertyNames.Count > 0))
+        {
+            foreach (var propertyName in definition.RooConfigPropertyNames)
+            {
+                TryAddRooKey(configs, config, propertyName, definition.ProviderId);
+            }
+        }
     }
 
     private void TryAddRooKey(List<ProviderConfig> configs, JsonElement config, string propName, string providerId)
@@ -503,7 +507,12 @@ public class TokenDiscoveryService
 
     private void AddIfNotExists(List<ProviderConfig> configs, string providerId, string key, string description, string source)
     {
-        if (!TryGetProviderDefaults(providerId, out var providerDefaults))
+        if (!ProviderMetadataCatalog.TryCreateDefaultConfig(
+                providerId,
+                out var defaultConfig,
+                apiKey: key,
+                authSource: source,
+                description: description))
         {
             _logger.LogDebug("Ignoring unsupported provider id '{ProviderId}' from discovery source '{Source}'.", providerId, source);
             return;
@@ -511,28 +520,7 @@ public class TokenDiscoveryService
 
         if (!configs.Any(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase)))
         {
-            var (planType, type) = providerDefaults;
-            configs.Add(new ProviderConfig
-            {
-                ProviderId = providerId,
-                ApiKey = key,
-                Type = type,
-                PlanType = planType,
-                Description = description,
-                AuthSource = source
-            });
+            configs.Add(defaultConfig);
         }
-    }
-
-    private static bool TryGetProviderDefaults(string providerId, out (PlanType PlanType, string Type) defaults)
-    {
-        if (ProviderMetadataCatalog.TryGet(providerId, out var definition))
-        {
-            defaults = (definition.PlanType, definition.DefaultConfigType);
-            return true;
-        }
-
-        defaults = default;
-        return false;
     }
 }

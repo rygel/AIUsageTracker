@@ -18,7 +18,11 @@ public class GeminiProvider : ProviderBase
         defaultConfigType: "quota-based",
         autoIncludeWhenUnconfigured: true,
         includeInWellKnownProviders: true,
-        handledProviderIds: new[] { "gemini-cli", "gemini" });
+        handledProviderIds: new[] { "gemini-cli", "gemini" },
+        rooConfigPropertyNames: new[] { "geminiApiKey" },
+        iconAssetName: "google",
+        fallbackBadgeColorHex: "#1E90FF",
+        fallbackBadgeInitial: "G");
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;

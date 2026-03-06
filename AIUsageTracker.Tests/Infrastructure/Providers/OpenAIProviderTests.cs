@@ -111,6 +111,53 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     }
 
     [Fact]
+    public async Task GetUsageAsync_LoadsSessionAuthFromMetadataDefinedAuthFile()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"openai-auth-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var authPath = Path.Combine(tempDir, "auth.json");
+        await File.WriteAllTextAsync(authPath, """
+            {
+              "openai": {
+                "access": "session-from-file",
+                "accountId": "acct-from-file"
+              }
+            }
+            """);
+
+        SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("""
+                {
+                  "rate_limit": {
+                    "primary_window": {
+                      "used_percent": 20,
+                      "reset_after_seconds": 3600
+                    }
+                  }
+                }
+                """)
+        });
+
+        var provider = new OpenAIProvider(HttpClient, Logger.Object, authPath);
+
+        try
+        {
+            var result = await provider.GetUsageAsync(new ProviderConfig { ProviderId = "openai" });
+
+            var usage = result.Single();
+            Assert.True(usage.IsAvailable);
+            Assert.Equal("acct-from-file", usage.AccountName);
+            Assert.Equal("OpenCode Session", usage.AuthSource);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task GetUsageAsync_InvalidSession_ReturnsUnavailable()
     {
         // Arrange

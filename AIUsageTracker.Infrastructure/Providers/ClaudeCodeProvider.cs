@@ -17,7 +17,19 @@ public class ClaudeCodeProvider : ProviderBase
         planType: PlanType.Usage,
         isQuotaBased: false,
         defaultConfigType: "pay-as-you-go",
-        autoIncludeWhenUnconfigured: true);
+        autoIncludeWhenUnconfigured: true,
+        discoveryEnvironmentVariables: new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
+        iconAssetName: "anthropic",
+        fallbackBadgeColorHex: "#FFA500",
+        fallbackBadgeInitial: "C",
+        authIdentityCandidatePathTemplates: new[]
+        {
+            "%USERPROFILE%\\.claude\\.credentials.json"
+        },
+        sessionAuthFileSchemas: new[]
+        {
+            new ProviderAuthFileSchema("claudeAiOauth", "accessToken")
+        });
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;
@@ -133,7 +145,7 @@ public class ClaudeCodeProvider : ProviderBase
                     IsAvailable = true,
                     Description = description,
                     Details = tooltipDetails,
-                    AccountName = warningMessage, // Using AccountName to carry warning state
+                    AccountName = warningMessage ?? string.Empty, // Using AccountName to carry warning state
                     RawJson = responseBody,
                     HttpStatus = (int)testResponse.StatusCode
                 };

@@ -605,7 +605,10 @@ public class MonitorService : IMonitorService
                     if (!string.IsNullOrEmpty(error?.Message))
                         return (false, error.Message);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    _logger?.LogDebug(ex, "Failed to parse provider check error response for {ProviderId}", providerId);
+                }
                 
                 return (false, $"HTTP {response.StatusCode}");
             }

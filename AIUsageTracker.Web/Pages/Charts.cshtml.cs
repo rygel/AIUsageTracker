@@ -38,8 +38,8 @@ public class ChartsModel : PageModel
 
             await Task.WhenAll(chartTask, colorTask);
 
-            ChartData = chartTask.Result;
-            ProviderColors = colorTask.Result;
+            ChartData = await chartTask;
+            ProviderColors = await colorTask;
         }
     }
 
@@ -71,8 +71,8 @@ public class ChartsModel : PageModel
 
         return new JsonResult(new
         {
-            chartData = chartTask.Result,
-            resetEvents = resetTask.Result
+            chartData = await chartTask,
+            resetEvents = await resetTask
         });
     }
 

@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Helpers;
 using AIUsageTracker.Core.Models;
@@ -25,13 +24,36 @@ public class CodexProvider : ProviderBase
         {
             ["codex.spark"] = "OpenAI (GPT-5.3-Codex-Spark)"
         },
-        supportsChildProviderIds: true);
+        supportsChildProviderIds: true,
+        discoveryEnvironmentVariables: new[] { "CODEX_API_KEY" },
+        nonPersistedProviderIds: new[] { "codex.spark" },
+        visibleDerivedProviderIds: new[] { "codex.spark" },
+        settingsMode: ProviderSettingsMode.SessionAuthStatus,
+        sessionStatusLabel: "OpenAI Codex",
+        sessionIdentitySource: ProviderSessionIdentitySource.Codex,
+        iconAssetName: "openai",
+        fallbackBadgeColorHex: "#008B8B",
+        fallbackBadgeInitial: "AI",
+        authIdentityCandidatePathTemplates: new[]
+        {
+            "%USERPROFILE%\\.codex\\auth.json",
+            "%APPDATA%\\codex\\auth.json",
+            "%USERPROFILE%\\.local\\share\\opencode\\auth.json",
+            "%APPDATA%\\opencode\\auth.json",
+            "%LOCALAPPDATA%\\opencode\\auth.json",
+            "%USERPROFILE%\\.opencode\\auth.json"
+        },
+        sessionAuthFileSchemas: new[]
+        {
+            new ProviderAuthFileSchema("tokens", "access_token", "account_id", "id_token"),
+            new ProviderAuthFileSchema("openai", "access", "accountId", "id_token")
+        });
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<CodexProvider> _logger;
-    private readonly string _authFilePath;
+    private readonly string? _authFilePath;
 
     public CodexProvider(HttpClient httpClient, ILogger<CodexProvider> logger)
         : this(httpClient, logger, null)
@@ -42,9 +64,7 @@ public class CodexProvider : ProviderBase
     {
         _httpClient = httpClient;
         _logger = logger;
-        _authFilePath = string.IsNullOrWhiteSpace(authFilePath)
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "auth.json")
-            : authFilePath;
+        _authFilePath = string.IsNullOrWhiteSpace(authFilePath) ? null : authFilePath;
     }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
@@ -68,7 +88,9 @@ public class CodexProvider : ProviderBase
             }
 
             var resolvedAccessToken = accessToken!;
-            var (email, jwtPlanType) = DecodeJwtClaims(resolvedAccessToken);
+            var payload = SessionIdentityHelper.TryDecodeJwtPayload(resolvedAccessToken);
+            var email = payload.HasValue ? SessionIdentityHelper.TryGetPreferredIdentity(payload.Value) : null;
+            var jwtPlanType = payload?.ReadString(AuthClaimKey, "chatgpt_plan_type");
 
             using var request = CreateUsageRequest(resolvedAccessToken, accountId);
             using var response = await _httpClient.SendAsync(request);
@@ -252,44 +274,20 @@ public class CodexProvider : ProviderBase
         string? authIdentity,
         string? accountId)
     {
-        foreach (var key in new[] { "email", "upn", "preferred_username" })
+        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(root);
+        if (!string.IsNullOrWhiteSpace(directIdentity))
         {
-            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-            {
-                var value = claimElement.GetString();
-                if (IsEmailLike(value))
-                {
-                    return value;
-                }
-            }
+            return directIdentity;
         }
 
-        var profileEmail = root.ReadString(ProfileClaimKey, "email");
-        if (IsEmailLike(profileEmail))
-        {
-            return profileEmail;
-        }
-
-        if (IsEmailLike(jwtEmail))
+        if (SessionIdentityHelper.IsEmailLike(jwtEmail))
         {
             return jwtEmail;
         }
 
-        if (IsEmailLike(authIdentity))
+        if (SessionIdentityHelper.IsEmailLike(authIdentity))
         {
             return authIdentity;
-        }
-
-        foreach (var key in new[] { "username", "login", "name" })
-        {
-            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-            {
-                var value = claimElement.GetString();
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    return value;
-                }
-            }
         }
 
         if (!string.IsNullOrWhiteSpace(authIdentity))
@@ -333,46 +331,10 @@ public class CodexProvider : ProviderBase
             {
                 var json = await File.ReadAllTextAsync(path);
                 using var doc = JsonDocument.Parse(json);
-                var root = doc.RootElement;
-
-                if (root.TryGetProperty("tokens", out var tokensElement) &&
-                    tokensElement.ValueKind == JsonValueKind.Object)
+                var auth = TryReadNativeAuth(doc.RootElement);
+                if (auth != null)
                 {
-                    var accessToken = tokensElement.ReadString("access_token");
-                    if (string.IsNullOrWhiteSpace(accessToken))
-                    {
-                        continue;
-                    }
-
-                    var idToken = tokensElement.ReadString("id_token");
-                    var accountId = tokensElement.ReadString("account_id");
-                    var identity = ResolveIdentityFromAuthPayload(root, accessToken, idToken);
-                    return new CodexAuth
-                    {
-                        AccessToken = accessToken,
-                        AccountId = accountId,
-                        Identity = identity
-                    };
-                }
-
-                if (root.TryGetProperty("openai", out var openAiElement) &&
-                    openAiElement.ValueKind == JsonValueKind.Object)
-                {
-                    var accessToken = openAiElement.ReadString("access");
-                    if (string.IsNullOrWhiteSpace(accessToken))
-                    {
-                        continue;
-                    }
-
-                    var idToken = openAiElement.ReadString("id_token");
-                    var accountId = openAiElement.ReadString("accountId") ?? openAiElement.ReadString("account_id");
-                    var identity = ResolveIdentityFromAuthPayload(openAiElement, accessToken, idToken);
-                    return new CodexAuth
-                    {
-                        AccessToken = accessToken,
-                        AccountId = accountId,
-                        Identity = identity
-                    };
+                    return auth;
                 }
             }
             catch (Exception ex)
@@ -392,60 +354,80 @@ public class CodexProvider : ProviderBase
             yield break;
         }
 
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        yield return Path.Combine(home, ".codex", "auth.json");
-        yield return Path.Combine(home, ".local", "share", "opencode", "auth.json");
-        yield return Path.Combine(home, ".opencode", "auth.json");
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 
-        if (OperatingSystem.IsWindows())
+        foreach (var pathTemplate in StaticDefinition.AuthIdentityCandidatePathTemplates)
         {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (!string.IsNullOrWhiteSpace(appData))
-            {
-                yield return Path.Combine(appData, "codex", "auth.json");
-                yield return Path.Combine(appData, "opencode", "auth.json");
-            }
+            var path = pathTemplate
+                .Replace("%USERPROFILE%", userProfile, StringComparison.OrdinalIgnoreCase)
+                .Replace("%APPDATA%", appData, StringComparison.OrdinalIgnoreCase)
+                .Replace("%LOCALAPPDATA%", localAppData, StringComparison.OrdinalIgnoreCase);
 
-            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            if (!string.IsNullOrWhiteSpace(localAppData))
+            if (!string.IsNullOrWhiteSpace(path))
             {
-                yield return Path.Combine(localAppData, "opencode", "auth.json");
+                yield return path;
             }
         }
     }
 
-    private static string? ResolveIdentityFromAuthPayload(JsonElement source, string accessToken, string? idToken = null)
+    private static CodexAuth? TryReadNativeAuth(JsonElement root)
     {
-        foreach (var claim in new[] { "email", "upn", "preferred_username", "username", "login", "name" })
+        foreach (var schema in StaticDefinition.SessionAuthFileSchemas)
         {
-            var value = source.ReadString(claim);
-            if (string.IsNullOrWhiteSpace(value))
+            if (!root.TryGetProperty(schema.RootProperty, out var authRoot) || authRoot.ValueKind != JsonValueKind.Object)
             {
                 continue;
             }
 
-            if (IsEmailLike(value))
+            var accessToken = authRoot.ReadString(schema.AccessTokenProperty);
+            if (string.IsNullOrWhiteSpace(accessToken))
             {
-                return value;
+                continue;
             }
+
+            var identityToken = !string.IsNullOrWhiteSpace(schema.IdentityTokenProperty)
+                ? authRoot.ReadString(schema.IdentityTokenProperty)
+                : null;
+
+            var accountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty)
+                ? authRoot.ReadString(schema.AccountIdProperty)
+                : null;
+
+            var identitySource = string.Equals(schema.RootProperty, "tokens", StringComparison.OrdinalIgnoreCase)
+                ? root
+                : authRoot;
+
+            return new CodexAuth
+            {
+                AccessToken = accessToken,
+                AccountId = accountId,
+                Identity = ResolveIdentityFromAuthPayload(identitySource, accessToken, identityToken)
+            };
         }
 
-        var nestedProfile = source.ReadString("profile", "email");
-        if (IsEmailLike(nestedProfile))
+        return null;
+    }
+
+    private static string? ResolveIdentityFromAuthPayload(JsonElement source, string accessToken, string? idToken = null)
+    {
+        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(source);
+        if (!string.IsNullOrWhiteSpace(directIdentity))
         {
-            return nestedProfile;
+            return directIdentity;
         }
 
         if (!string.IsNullOrWhiteSpace(idToken))
         {
-            var (emailFromIdToken, _) = DecodeJwtClaims(idToken);
+            var emailFromIdToken = SessionIdentityHelper.TryGetIdentityFromJwt(idToken);
             if (!string.IsNullOrWhiteSpace(emailFromIdToken))
             {
                 return emailFromIdToken;
             }
         }
 
-        var (emailFromJwt, _) = DecodeJwtClaims(accessToken);
+        var emailFromJwt = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken);
         if (!string.IsNullOrWhiteSpace(emailFromJwt))
         {
             return emailFromJwt;
@@ -597,79 +579,6 @@ public class CodexProvider : ProviderBase
                lower.Contains("sonnet");
     }
 
-    private static (string? Email, string? PlanType) DecodeJwtClaims(string token)
-    {
-        var parts = token.Split('.');
-        if (parts.Length < 2)
-        {
-            return (null, null);
-        }
-
-        try
-        {
-            var payloadBytes = DecodeBase64Url(parts[1]);
-            using var doc = JsonDocument.Parse(payloadBytes);
-            var root = doc.RootElement;
-
-            string? email = null;
-            string? planType = null;
-
-            foreach (var claim in new[] { "email", "upn", "preferred_username" })
-            {
-                if (root.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-                {
-                    var value = claimElement.GetString();
-                    if (IsEmailLike(value))
-                    {
-                        email = value;
-                        break;
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(email) &&
-                root.TryGetProperty(ProfileClaimKey, out var profile) &&
-                profile.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var claim in new[] { "email", "username", "name" })
-                {
-                    var value = profile.ReadString(claim);
-                    if (IsEmailLike(value))
-                    {
-                        email = value;
-                        break;
-                    }
-                }
-            }
-
-            if (root.TryGetProperty(AuthClaimKey, out var auth) && auth.ValueKind == JsonValueKind.Object)
-            {
-                if (auth.TryGetProperty("chatgpt_plan_type", out var planTypeElement) && planTypeElement.ValueKind == JsonValueKind.String)
-                {
-                    planType = planTypeElement.GetString();
-                }
-            }
-
-            return (email, planType);
-        }
-        catch
-        {
-            return (null, null);
-        }
-    }
-
-    private static byte[] DecodeBase64Url(string value)
-    {
-        var normalized = value.Replace('-', '+').Replace('_', '/');
-        var padding = normalized.Length % 4;
-        if (padding > 0)
-        {
-            normalized = normalized.PadRight(normalized.Length + (4 - padding), '=');
-        }
-
-        return Convert.FromBase64String(normalized);
-    }
-
     private static DateTime? ResolveNextResetTime(double? primaryResetSeconds, double? sparkResetSeconds)
     {
         var resetSeconds = primaryResetSeconds ?? sparkResetSeconds;
@@ -743,30 +652,6 @@ public class CodexProvider : ProviderBase
         }
 
         return new SparkWindow(null, null, null, null);
-    }
-
-    private static bool? ReadBool(JsonElement root, params string[] path)
-    {
-        var current = root;
-        foreach (var segment in path)
-        {
-            if (!current.TryGetProperty(segment, out current))
-            {
-                return null;
-            }
-        }
-
-        return current.ValueKind switch
-        {
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            _ => null
-        };
-    }
-
-    private static bool IsEmailLike(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
     }
 
     private sealed class CodexAuth

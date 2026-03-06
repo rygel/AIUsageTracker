@@ -42,7 +42,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal("Opencode Zen", usage.ProviderName);
+        Assert.Equal(OpenCodeProvider.StaticDefinition.DisplayName, usage.ProviderName);
         Assert.Equal(12.34, usage.RequestsUsed);
         Assert.Equal("USD", usage.UsageUnit);
         Assert.Equal("$12.34 used (7 days)", usage.Description);

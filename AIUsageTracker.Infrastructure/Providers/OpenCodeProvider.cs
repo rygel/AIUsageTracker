@@ -31,6 +31,7 @@ public class OpenCodeProvider : ProviderBase
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         _logger.LogDebug("OpenCode GetUsageAsync called for provider {ProviderId}", ProviderId);
+        var displayName = Definition.DisplayName;
         
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -38,7 +39,7 @@ public class OpenCodeProvider : ProviderBase
             return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
-                ProviderName = "Opencode Zen",
+                ProviderName = displayName,
                 IsAvailable = false,
                 Description = "No API key configured",
                 IsQuotaBased = false,
@@ -62,7 +63,7 @@ public class OpenCodeProvider : ProviderBase
                 return new[] { new ProviderUsage
                 {
                     ProviderId = ProviderId,
-                    ProviderName = "Opencode Zen",
+                    ProviderName = displayName,
                     IsAvailable = false,
                     Description = $"API Error: {response.StatusCode}",
                     IsQuotaBased = false,
@@ -84,7 +85,7 @@ public class OpenCodeProvider : ProviderBase
             return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
-                ProviderName = "Opencode Zen",
+                ProviderName = displayName,
                 IsAvailable = false,
                 Description = $"API Call Failed: {ex.Message}",
                 IsQuotaBased = false,
@@ -93,8 +94,9 @@ public class OpenCodeProvider : ProviderBase
         }
     }
 
-private ProviderUsage ParseJsonResponse(string json, int httpStatus = 200)
+    private ProviderUsage ParseJsonResponse(string json, int httpStatus = 200)
     {
+        var displayName = Definition.DisplayName;
         try
         {
             // Check if response is empty or not JSON
@@ -104,7 +106,7 @@ private ProviderUsage ParseJsonResponse(string json, int httpStatus = 200)
                 return new ProviderUsage
                 {
                     ProviderId = ProviderId,
-                    ProviderName = "Opencode Zen",
+                    ProviderName = displayName,
                     IsAvailable = false,
                     Description = "Empty API response",
                     IsQuotaBased = false,
@@ -129,7 +131,7 @@ private ProviderUsage ParseJsonResponse(string json, int httpStatus = 200)
             return new ProviderUsage
             {
                 ProviderId = ProviderId,
-                ProviderName = "Opencode Zen",
+                ProviderName = displayName,
                 RequestsPercentage = 0,
                 RequestsUsed = totalCost,
                 UsageUnit = "USD",
@@ -148,7 +150,7 @@ private ProviderUsage ParseJsonResponse(string json, int httpStatus = 200)
             return new ProviderUsage
             {
                 ProviderId = ProviderId,
-                ProviderName = "Opencode Zen",
+                ProviderName = displayName,
                 IsAvailable = false,
                 Description = "Invalid API response (not JSON)",
                 IsQuotaBased = false,
@@ -161,7 +163,7 @@ private ProviderUsage ParseJsonResponse(string json, int httpStatus = 200)
             return new ProviderUsage
             {
                 ProviderId = ProviderId,
-                ProviderName = "Opencode Zen",
+                ProviderName = displayName,
                 IsAvailable = false,
                 Description = "Parse Error",
                 IsQuotaBased = false,

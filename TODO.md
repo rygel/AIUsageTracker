@@ -14,6 +14,11 @@
 ### Up Next
 All architecture streamlining tasks completed! See remaining feature backlog below.
 
+### Analyzer Follow-Up
+- [ ] Add third-party analyzer packages (Priority: P1, Effort: S/M): Evaluate and enable `Microsoft.VisualStudio.Threading.Analyzers`, `Meziantou.Analyzer`, and optionally `StyleCop.Analyzers` with repo-specific severities after the current MSBuild/test invocation issues are stabilized.
+  - Goal: catch sync-over-async, brittle async patterns, and consistency issues earlier in CI
+  - Constraint: introduce in a controlled pass to avoid warning floods and masking real build/test regressions
+
 ---
 
 ## Feature Backlog

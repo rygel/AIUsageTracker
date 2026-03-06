@@ -1,75 +1,47 @@
-# .NET EditorConfig for AI Consumption Tracker
-
-# Core .NET coding conventions
 root = true
 
-# C# Code Style Rules
 [*.cs]
-
-# Indentation
 indent_style = space
 indent_size = 4
-
-# Newline preferences
 insert_final_newline = true
 end_of_line = lf
 charset = utf-8
-
-# Whitespace
 trim_trailing_whitespace = true
 insert_new_line_at_end_of_file = true
 
-# Code quality - Roslyn Analyzers
-# Severity levels: error, warning, info, suggestion, none
-# These rules enforce consistent code style and catch common issues
-
-# IDE0005: Using directive is unnecessary in C#
 dot_diagnostic.IDE0005.severity = warning
-
-# IDE0055: Unnecessary using directive
 dot_diagnostic.IDE0055.severity = warning
-
-# CA1031: Do not catch general exception types
-dot_diagnostic.CA1031.severity = warning
-
-# CA1062: Validate arguments of public methods
+dot_diagnostic.CA1031.severity = suggestion
 dot_diagnostic.CA1062.severity = error
-
-# CA1307: Specify StringComparison for string comparisons
-dot_diagnostic.CA1307.severity = suggestion
-
-# CA1308: Normalize strings to uppercase
-dot_diagnostic.CA1308.severity = suggestion
-
-# CA1309: Use ordinal string comparison
-dot_diagnostic.CA1309.severity = suggestion
-
-# CA1725: Do not use 256 character wide parameters
+dot_diagnostic.CA1307.severity = warning
+dot_diagnostic.CA1309.severity = warning
 dot_diagnostic.CA1725.severity = error
-
-# CA2007: Consider providing a known object for comparison
-dot_diagnostic.CA2007.severity = suggestion
-
-# CA2208: Instantiate argument types correctly
-dot_diagnostic.CA2208.severity = suggestion
-
-# CA2300: Check for null before assigning
+dot_diagnostic.CA2208.severity = warning
 dot_diagnostic.CA2300.severity = warning
 
-# CA1307: Specify StringComparison for string comparisons
-# Only warn when StringComparison is omitted (not when generic .Equals is used)
-dot_diagnostic.CA1307.severity = suggestion
-
-# RS0016: Empty block should not be used
-dot_diagnostic.RS0016.severity = warning
-
-# RS0034: Unused type parameter
-dot_diagnostic.RS0034.severity = warning
-
-# RS0041: Unused member
-dot_diagnostic.RS0041.severity = warning
-
-# XML comments
+# Repo-specific guardrails like "no sync-over-async" and "no empty catch blocks"
+# are enforced in architecture tests because the patterns are project-specific and
+# need tighter control than generic analyzer packages provide.
+dot_diagnostic.VSTHRD002.severity = warning
+dot_diagnostic.VSTHRD103.severity = warning
+dot_diagnostic.VSTHRD105.severity = warning
+dot_diagnostic.VSTHRD110.severity = warning
+dot_diagnostic.VSTHRD111.severity = none
+dot_diagnostic.VSTHRD200.severity = none
+dot_diagnostic.MA0002.severity = none
+dot_diagnostic.MA0004.severity = none
+dot_diagnostic.MA0006.severity = none
+dot_diagnostic.MA0009.severity = warning
+dot_diagnostic.MA0011.severity = none
+dot_diagnostic.MA0016.severity = none
+dot_diagnostic.MA0023.severity = suggestion
+dot_diagnostic.MA0039.severity = warning
+dot_diagnostic.MA0048.severity = none
+dot_diagnostic.MA0051.severity = none
+dot_diagnostic.MA0074.severity = warning
 dot_style_diagnostics.use_slashes_for_doc_comments = false
 dot_style_diagnostics.xml_header = false
 dot_style_diagnostics.separate_multiple_def_lines = false
+
+[AIUsageTracker.Tests/**/*.cs]
+dot_diagnostic.MA0074.severity = none

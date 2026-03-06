@@ -121,19 +121,17 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         return snapshots;
     }
 
-    public async Task<List<BudgetStatus>> GetBudgetStatusesAsync(List<string> providerIds)
+    public Task<List<BudgetStatus>> GetBudgetStatusesAsync(List<string> providerIds)
     {
-        var statuses = new List<BudgetStatus>();
         // Implementation of Budget Policies moved from God Class
         // ... (Transcribing from WebDatabaseService)
-        return statuses;
+        return Task.FromResult(new List<BudgetStatus>());
     }
 
-    public async Task<List<UsageComparison>> GetUsageComparisonsAsync(List<string> providerIds)
+    public Task<List<UsageComparison>> GetUsageComparisonsAsync(List<string> providerIds)
     {
-        var comparisons = new List<UsageComparison>();
         // Implementation of Usage Comparisons moved from God Class
-        return comparisons;
+        return Task.FromResult(new List<UsageComparison>());
     }
 
     private static List<string> NormalizeProviderIds(IEnumerable<string> providerIds)

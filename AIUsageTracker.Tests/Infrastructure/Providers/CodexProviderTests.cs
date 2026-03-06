@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Reflection;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Tests.Infrastructure;
@@ -12,6 +13,16 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 {
+    [Fact]
+    public void Constructor_WithoutExplicitAuthPath_KeepsCandidateSearchEnabled()
+    {
+        var provider = new CodexProvider(HttpClient, Logger.Object);
+        var authFilePathField = typeof(CodexProvider).GetField("_authFilePath", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(authFilePathField);
+        Assert.Null(authFilePathField!.GetValue(provider));
+    }
+
     [Fact]
     public async Task GetUsageAsync_AuthFileMissing_ReturnsUnavailable()
     {
