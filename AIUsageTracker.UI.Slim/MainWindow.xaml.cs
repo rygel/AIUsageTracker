@@ -1508,10 +1508,8 @@ public partial class MainWindow : Window
         }
 
         // Create collapsible section for sub-providers
-        var useAntigravityCollapsePreference = string.Equals(
-            ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId ?? string.Empty),
-            "antigravity",
-            StringComparison.OrdinalIgnoreCase);
+        var useAntigravityCollapsePreference = ProviderMetadataCatalog.IsAggregateParentProviderId(
+            ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId ?? string.Empty));
         var (subHeader, subContainer) = CreateCollapsibleHeader(
             $"{usage.ProviderName} Details",
             Brushes.DeepSkyBlue,
@@ -1566,7 +1564,7 @@ public partial class MainWindow : Window
         }
 
         // Map provider IDs to filename
-        var filename = ProviderVisualCatalog.GetIconAssetName(normalizedProviderId);
+        var filename = ProviderVisualCatalog.GetIconAssetName(providerId);
 
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
         var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");

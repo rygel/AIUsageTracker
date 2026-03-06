@@ -816,8 +816,7 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            var canonicalProviderId = ProviderVisualCatalog.GetCanonicalProviderId(providerId);
-            var filename = ProviderVisualCatalog.GetIconAssetName(canonicalProviderId);
+            var filename = ProviderVisualCatalog.GetIconAssetName(providerId);
 
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -826,7 +825,7 @@ public partial class SettingsWindow : Window
             if (System.IO.File.Exists(svgPath))
             {
                 // Return a simple colored circle as fallback (SVG loading requires SharpVectors)
-                return CreateFallbackIcon(canonicalProviderId);
+                return CreateFallbackIcon(providerId);
             }
 
             // Try ICO
@@ -847,7 +846,7 @@ public partial class SettingsWindow : Window
             _logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
         }
 
-        return CreateFallbackIcon(ProviderVisualCatalog.GetCanonicalProviderId(providerId));
+        return CreateFallbackIcon(providerId);
     }
 
     private ImageSource CreateFallbackIcon(string providerId)
