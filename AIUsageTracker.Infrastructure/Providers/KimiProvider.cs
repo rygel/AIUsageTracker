@@ -33,7 +33,7 @@ public class KimiProvider : ProviderBase
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new[] { CreateUnavailableUsage("API Key missing") };
+            return new[] { CreateUnavailableUsage("API Key missing", authSource: config.AuthSource) };
         }
 
         try
@@ -42,23 +42,29 @@ public class KimiProvider : ProviderBase
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
             var response = await _httpClient.SendAsync(request);
-            response.EnsureSuccessStatusCode();
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to fetch Kimi usage: {StatusCode}", response.StatusCode);
+                return new[] { CreateUnavailableUsageFromStatus(response, authSource: config.AuthSource) };
+            }
 
             var content = await response.Content.ReadAsStringAsync();
             var data = JsonSerializer.Deserialize<KimiUsageResponse>(content);
-            if (data == null || data.Usage == null) throw new Exception("Invalid response from Kimi API");
+            if (data == null || data.Usage == null)
+            {
+                return new[] { CreateUnavailableUsage("Invalid response format", authSource: config.AuthSource) };
+            }
 
             double used = data.Usage.Used;
             double limit = data.Usage.Limit;
             double remaining = data.Usage.Remaining;
-            
+
             var remainingPercentage = limit > 0
                 ? UsageMath.CalculateRemainingPercent(used, limit)
                 : 100.0;
 
-            var description = $"{remainingPercentage.ToString("F1", CultureInfo.InvariantCulture)}% Remaining ({remaining}/{limit})";
-            if (limit == 0) description = "Unlimited / Pay-as-you-go";
-            
+            var description = "Active";
+
             // Limits Detail
             string soonestResetStr = "";
             DateTime? soonestResetDt = null;
@@ -68,9 +74,9 @@ public class KimiProvider : ProviderBase
             // Add weekly limit from usage as Secondary detail (always, as this is the primary quota)
             if (limit > 0 && remaining >= 0)
             {
-                var weeklyRemainingPct = UsageMath.CalculateRemainingPercent(used, limit);
+                var weeklyUsedPct = UsageMath.CalculateUsedPercent(used, limit);
                 DateTime? weeklyResetDt = null;
-                if (!string.IsNullOrEmpty(data.Usage.ResetTime) && 
+                if (!string.IsNullOrEmpty(data.Usage.ResetTime) &&
                     DateTime.TryParse(data.Usage.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var weeklyDt))
                 {
                     weeklyResetDt = weeklyDt.ToLocalTime();
@@ -85,16 +91,16 @@ public class KimiProvider : ProviderBase
                 details.Add(new ProviderUsageDetail
                 {
                     Name = "Weekly Limit",
-                    Used = $"{weeklyRemainingPct.ToString("F1", CultureInfo.InvariantCulture)}% remaining",
-                    Description = $"{remaining} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {FormatResetTime(data.Usage.ResetTime)})" : "")}",      
+                    Used = $"{weeklyUsedPct.ToString("F1", CultureInfo.InvariantCulture)}% used",
+                    Description = $"{remaining} remaining{(!string.IsNullOrEmpty(data.Usage.ResetTime) ? $" (Resets: {FormatResetTime(data.Usage.ResetTime)})" : "")}",
                     NextResetTime = weeklyResetDt,
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     WindowKind = WindowKind.Secondary
                 });
-                }
+            }
 
-                if (data.Limits != null)
-                {
+            if (data.Limits != null)
+            {
                 foreach (var limitItem in data.Limits)
                 {
                     if (limitItem.Detail == null || limitItem.Window == null) continue;
@@ -124,7 +130,7 @@ public class KimiProvider : ProviderBase
 
                     var windowKind = DetermineWindowKind(win.Duration, win.TimeUnit);
 
-                     details.Add(new ProviderUsageDetail
+                    details.Add(new ProviderUsageDetail
                     {
                          Name = name,
                          Used = $"{itemUsedPercentage.ToString("F1", CultureInfo.InvariantCulture)}% used",
@@ -133,45 +139,40 @@ public class KimiProvider : ProviderBase
                          DetailType = ProviderUsageDetailType.QuotaWindow,
                          WindowKind = windowKind
                     });
-                    }
-                    }
+                }
+            }
 
-                    // Also update the Weekly Limit to use "used" format for consistency
-                    var weeklyUsed = limit - remaining;
-                    var weeklyUsedPct = limit > 0 ? (weeklyUsed / (double)limit) * 100.0 : 0;
-
-                    var weeklyDetail = details.FirstOrDefault(d => d.Name == "Weekly Limit");
-                    if (weeklyDetail != null)
-                    {
-                    weeklyDetail.Used = $"{weeklyUsedPct.ToString("F1", CultureInfo.InvariantCulture)}% used";
-                    }            if (!string.IsNullOrEmpty(soonestResetStr)) description += soonestResetStr; // Used soonestResetStr
+            if (!string.IsNullOrEmpty(soonestResetStr))
+            {
+                description += soonestResetStr;
+            }
 
             return new[] { new ProviderUsage
             {
-                ProviderId = config.ProviderId,
-                ProviderName = "Kimi",
+                ProviderId = ProviderId,
+                ProviderName = Definition.DisplayName,
                 RequestsPercentage = remainingPercentage,
                 RequestsUsed = used,
                 RequestsAvailable = limit,
-                UsageUnit = "Points", 
+                UsageUnit = "Points",
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 IsAvailable = true,
                 Description = description,
                 RawJson = content,
                 HttpStatus = (int)response.StatusCode,
-
                 Details = details,
-                NextResetTime = soonestResetDt
+                NextResetTime = soonestResetDt,
+                AuthSource = config.AuthSource
             }};
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to fetch Kimi usage");
-            return new[] { CreateUnavailableUsageFromException(ex, "Failed to fetch Kimi usage") };
+            _logger.LogError(ex, "Kimi check failed");
+            return new[] { CreateUnavailableUsageFromException(ex, authSource: config.AuthSource) };
         }
     }
-    
+
     private string FormatDuration(long duration, string unit)
     {
          if (unit == "TIME_UNIT_MINUTE") return duration == 60 ? "Hourly" : $"{duration}m";
@@ -203,7 +204,7 @@ public class KimiProvider : ProviderBase
     {
         [JsonPropertyName("usage")]
         public KimiUsageData? Usage { get; set; }
-        
+
         [JsonPropertyName("limits")]
         public List<KimiLimitItem>? Limits { get; set; }
     }
@@ -212,46 +213,44 @@ public class KimiProvider : ProviderBase
     {
         [JsonPropertyName("limit")]
         public long Limit { get; set; }
-        
+
         [JsonPropertyName("used")]
         public long Used { get; set; }
-        
+
         [JsonPropertyName("remaining")]
         public long Remaining { get; set; }
-        
+
         [JsonPropertyName("resetTime")]
         public string? ResetTime { get; set; }
     }
-    
+
     private class KimiLimitItem
     {
         [JsonPropertyName("window")]
         public KimiWindow? Window { get; set; }
-        
+
         [JsonPropertyName("detail")]
         public KimiLimitDetail? Detail { get; set; }
     }
-    
+
     private class KimiWindow
     {
         [JsonPropertyName("duration")]
         public long Duration { get; set; }
-        
+
         [JsonPropertyName("timeUnit")]
         public string? TimeUnit { get; set; }
     }
-    
+
     private class KimiLimitDetail
     {
          [JsonPropertyName("limit")]
          public long Limit { get; set; }
-         
+
          [JsonPropertyName("remaining")]
          public long Remaining { get; set; }
-         
+
          [JsonPropertyName("resetTime")]
          public string? ResetTime { get; set; }
     }
 }
-
-
