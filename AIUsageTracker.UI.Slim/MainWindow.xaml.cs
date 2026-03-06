@@ -1761,7 +1761,6 @@ public partial class MainWindow : Window
         {
             hourlyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Spark);
         }
-
         var weeklyDetail = windows.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
 
         if (hourlyDetail == null || weeklyDetail == null || hourlyDetail == weeklyDetail)

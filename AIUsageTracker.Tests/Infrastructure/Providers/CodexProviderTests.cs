@@ -79,6 +79,9 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             Assert.Equal("OpenAI (Codex)", usage.ProviderName);
             Assert.Equal("user@example.com", usage.AccountName);
             Assert.Equal(75.0, usage.RequestsPercentage);
+            Assert.NotNull(usage.Details);
+            Assert.Contains(usage.Details, d => d.WindowKind == WindowKind.Primary);
+            Assert.Contains(usage.Details, d => d.WindowKind == WindowKind.Secondary);
         }
         finally
         {
