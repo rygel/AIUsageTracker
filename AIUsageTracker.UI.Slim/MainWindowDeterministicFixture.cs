@@ -17,29 +17,12 @@ internal static class MainWindowDeterministicFixture
     {
         var deterministicNow = new DateTime(2026, 2, 1, 12, 0, 0, DateTimeKind.Local);
 
-        var quotaUsageSeeds = new (string ProviderId, double RequestsPercentage, double RequestsUsed, double RequestsAvailable, string Description, int ResetHours, string AuthSource)[]
-        {
-            ("github-copilot", 72.5, 110, 400, "72.5% Remaining", 20, "oauth"),
-            ("zai-coding-plan", 82.0, 45, 250, "82.0% Remaining", 12, "api key"),
-            ("synthetic", 91.0, 18, 200, "91.0% Remaining", 4, "api key")
-        };
-
-        var statusUsageSeeds = new (string ProviderId, string Description, string AuthSource)[]
-        {
-            ("claude-code", "Connected", "local credentials"),
-            ("mistral", "Connected", "api key")
-        };
-
         var usages = new List<ProviderUsage>
         {
             CreateUsage(
-                "antigravity",
-                requestsPercentage: 60.0,
-                requestsUsed: 40,
-                requestsAvailable: 100,
-                description: "60.0% Remaining",
-                authSource: "local app",
-                nextResetTime: deterministicNow.AddHours(6),
+                new DeterministicProviderScenario(AntigravityProvider.StaticDefinition.ProviderId, "local-session", AuthSource: "local app"),
+                deterministicNow,
+                new FixtureUsageScenario(60.0, 40, 100, "60.0% Remaining", 6),
                 details: new List<ProviderUsageDetail>
                 {
                     CreateDetail(deterministicNow, "Claude Opus 4.6 (Thinking)", "60%", 10),
@@ -51,19 +34,9 @@ internal static class MainWindowDeterministicFixture
                 })
         };
 
-        usages.AddRange(quotaUsageSeeds.Select(seed => CreateUsage(
-            seed.ProviderId,
-            requestsPercentage: seed.RequestsPercentage,
-            requestsUsed: seed.RequestsUsed,
-            requestsAvailable: seed.RequestsAvailable,
-            description: seed.Description,
-            authSource: seed.AuthSource,
-            nextResetTime: deterministicNow.AddHours(seed.ResetHours))));
-
-        usages.AddRange(statusUsageSeeds.Select(seed => CreateUsage(
-            seed.ProviderId,
-            description: seed.Description,
-            authSource: seed.AuthSource)));
+        usages.AddRange(DeterministicProviderScenarioCatalog.Scenarios
+            .Where(scenario => scenario.MainWindowUsage != null)
+            .Select(scenario => CreateUsage(scenario, deterministicNow, scenario.MainWindowUsage!)));
 
         return new MainWindowDeterministicFixtureData
         {
@@ -86,34 +59,32 @@ internal static class MainWindowDeterministicFixture
     }
 
     private static ProviderUsage CreateUsage(
-        string providerId,
-        double requestsPercentage = 0,
-        double requestsUsed = 0,
-        double requestsAvailable = 0,
-        string description = "Connected",
-        string authSource = "api key",
+        DeterministicProviderScenario scenario,
+        DateTime deterministicNow,
+        FixtureUsageScenario usageScenario,
         bool isAvailable = true,
-        DateTime? nextResetTime = null,
         List<ProviderUsageDetail>? details = null)
     {
-        var definition = ProviderMetadataCatalog.Find(providerId)
-            ?? throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot data.");
+        var definition = ProviderMetadataCatalog.Find(scenario.ProviderId)
+            ?? throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
 
         return new ProviderUsage
         {
-            ProviderId = providerId,
-            ProviderName = ProviderMetadataCatalog.GetDisplayName(providerId),
+            ProviderId = scenario.ProviderId,
+            ProviderName = ProviderMetadataCatalog.GetDisplayName(scenario.ProviderId),
             IsAvailable = isAvailable,
             IsQuotaBased = definition.IsQuotaBased,
             PlanType = definition.PlanType,
             DisplayAsFraction = definition.IsQuotaBased,
-            RequestsPercentage = requestsPercentage,
-            RequestsUsed = requestsUsed,
-            RequestsAvailable = requestsAvailable,
-            Description = description,
+            RequestsPercentage = usageScenario.RequestsPercentage,
+            RequestsUsed = usageScenario.RequestsUsed,
+            RequestsAvailable = usageScenario.RequestsAvailable,
+            Description = usageScenario.Description,
             Details = details,
-            NextResetTime = nextResetTime,
-            AuthSource = authSource
+            NextResetTime = usageScenario.ResetHours.HasValue
+                ? deterministicNow.AddHours(usageScenario.ResetHours.Value)
+                : null,
+            AuthSource = scenario.AuthSource
         };
     }
 

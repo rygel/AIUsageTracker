@@ -30,10 +30,7 @@ public class CodeGuardrailTests
 
     private static readonly HashSet<string> AllowedHardcodedProviderIdFiles = new(StringComparer.OrdinalIgnoreCase)
     {
-        NormalizePath("AIUsageTracker.Infrastructure/Configuration/JsonConfigLoader.cs"),
-        NormalizePath("AIUsageTracker.Infrastructure/Configuration/TokenDiscoveryService.cs"),
-        NormalizePath("AIUsageTracker.UI.Slim/MainWindowDeterministicFixture.cs"),
-        NormalizePath("AIUsageTracker.UI.Slim/SettingsWindowDeterministicFixture.cs")
+        NormalizePath("AIUsageTracker.Infrastructure/Configuration/JsonConfigLoader.cs")
     };
 
     [Fact]

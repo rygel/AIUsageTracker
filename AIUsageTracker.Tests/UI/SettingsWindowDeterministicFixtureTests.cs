@@ -16,6 +16,7 @@ public class SettingsWindowDeterministicFixtureTests
         var fixture = createMethod.Invoke(null, null)!;
         var configs = (IEnumerable<ProviderConfig>)fixture.GetType().GetProperty("Configs")!.GetValue(fixture)!;
         var usages = (IEnumerable<ProviderUsage>)fixture.GetType().GetProperty("Usages")!.GetValue(fixture)!;
+        var historyRows = (IEnumerable<object>)fixture.GetType().GetProperty("HistoryRows")!.GetValue(fixture)!;
 
         foreach (var config in configs)
         {
@@ -32,6 +33,18 @@ public class SettingsWindowDeterministicFixtureTests
             Assert.Equal(ProviderMetadataCatalog.GetDisplayName(usage.ProviderId), usage.ProviderName);
             Assert.Equal(definition.PlanType, usage.PlanType);
             Assert.Equal(definition.IsQuotaBased, usage.IsQuotaBased);
+        }
+
+        foreach (var historyRow in historyRows)
+        {
+            var providerName = (string)historyRow.GetType().GetProperty("ProviderName")!.GetValue(historyRow)!;
+            var planType = (string)historyRow.GetType().GetProperty("PlanType")!.GetValue(historyRow)!;
+
+            var definition = Assert.Single(
+                ProviderMetadataCatalog.Definitions,
+                d => string.Equals(d.DisplayName, providerName, StringComparison.OrdinalIgnoreCase) ||
+                     d.DisplayNameOverrides.Values.Any(value => string.Equals(value, providerName, StringComparison.OrdinalIgnoreCase)));
+            Assert.Equal(definition.PlanType.ToString(), planType);
         }
     }
 }

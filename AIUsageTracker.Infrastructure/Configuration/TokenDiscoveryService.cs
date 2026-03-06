@@ -83,7 +83,7 @@ public class TokenDiscoveryService
                     continue;
                 }
 
-                AddOrUpdate(configs, "codex", token, "Discovered in Codex auth", $"Config: {path}");
+                AddOrUpdate(configs, CodexProvider.StaticDefinition.ProviderId, token, "Discovered in Codex auth", $"Config: {path}");
                 return;
             }
         }
@@ -112,8 +112,13 @@ public class TokenDiscoveryService
                     continue;
                 }
 
-                // Session-based OpenAI access should be represented by Codex provider.
-                AddOrUpdate(configs, "codex", token, "Discovered in OpenCode auth", $"Config: {path}");
+                // Session-based OpenAI access should be represented by the canonical session provider.
+                AddOrUpdate(
+                    configs,
+                    OpenAIProvider.StaticDefinition.SessionAuthCanonicalProviderId ?? CodexProvider.StaticDefinition.ProviderId,
+                    token,
+                    "Discovered in OpenCode auth",
+                    $"Config: {path}");
                 return;
             }
         }
@@ -140,7 +145,12 @@ public class TokenDiscoveryService
                         var token = tokenElement.GetString();
                         if (!string.IsNullOrEmpty(token))
                         {
-                            AddOrUpdate(configs, "claude-code", token, "Discovered in Claude Code credentials", "Claude Code: ~/.claude/.credentials.json");
+                            AddOrUpdate(
+                                configs,
+                                ClaudeCodeProvider.StaticDefinition.ProviderId,
+                                token,
+                                "Discovered in Claude Code credentials",
+                                "Claude Code: ~/.claude/.credentials.json");
                         }
                     }
                 }
@@ -210,37 +220,14 @@ public class TokenDiscoveryService
 
     private IEnumerable<string> GetCodexAuthCandidates()
     {
-        var home = GetUserProfilePath();
-        var candidates = new List<string>
-        {
-            Path.Combine(home, ".codex", "auth.json")
-        };
-
-        if (OperatingSystem.IsWindows())
-        {
-            candidates.Add(Path.Combine(GetAppDataPath(), "codex", "auth.json"));
-        }
-
-        return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+        return GetCandidatePaths(CodexProvider.StaticDefinition);
     }
 
     private IEnumerable<string> GetOpenCodeAuthCandidates()
     {
-        var home = GetUserProfilePath();
-        var candidates = new List<string>
-        {
-            Path.Combine(home, ".local", "share", "opencode", "auth.json"),
-            Path.Combine(home, ".opencode", "auth.json"),
-            _pathProvider.GetAuthFilePath()
-        };
-
-        if (OperatingSystem.IsWindows())
-        {
-            candidates.Add(Path.Combine(GetAppDataPath(), "opencode", "auth.json"));
-            candidates.Add(Path.Combine(GetLocalAppDataPath(), "opencode", "auth.json"));
-        }
-
-        return candidates.Distinct(StringComparer.OrdinalIgnoreCase);
+        return new[] { _pathProvider.GetAuthFilePath() }
+            .Concat(GetCandidatePaths(OpenAIProvider.StaticDefinition))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     private static string? TryReadCodexAccessToken(JsonElement root)
@@ -259,7 +246,10 @@ public class TokenDiscoveryService
 
     private static string? TryReadOpenAiSessionAccessToken(JsonElement root)
     {
-        if (!root.TryGetProperty("openai", out var openaiElement) || openaiElement.ValueKind != JsonValueKind.Object)
+        var openAiRootProperty = OpenAIProvider.StaticDefinition.AuthIdentityJsonRootProperties.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(openAiRootProperty) ||
+            !root.TryGetProperty(openAiRootProperty, out var openaiElement) ||
+            openaiElement.ValueKind != JsonValueKind.Object)
         {
             return null;
         }
@@ -270,6 +260,22 @@ public class TokenDiscoveryService
         }
 
         return accessElement.GetString();
+    }
+
+    private IEnumerable<string> GetCandidatePaths(ProviderDefinition definition)
+    {
+        return definition.AuthIdentityCandidatePathTemplates
+            .Select(ResolvePathTemplate)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)!;
+    }
+
+    private string ResolvePathTemplate(string pathTemplate)
+    {
+        return pathTemplate
+            .Replace("%USERPROFILE%", GetUserProfilePath(), StringComparison.OrdinalIgnoreCase)
+            .Replace("%APPDATA%", GetAppDataPath(), StringComparison.OrdinalIgnoreCase)
+            .Replace("%LOCALAPPDATA%", GetLocalAppDataPath(), StringComparison.OrdinalIgnoreCase);
     }
 
     private void AddOrUpdate(List<ProviderConfig> configs, string providerId, string key, string description, string source)

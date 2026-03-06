@@ -32,58 +32,16 @@ internal static class SettingsWindowDeterministicFixture
     {
         var deterministicNow = new DateTime(2026, 02, 01, 12, 00, 00, DateTimeKind.Local);
 
-        var configSeeds = new (string ProviderId, string ApiKey, bool ShowInTray, bool EnableNotifications)[]
-        {
-            ("antigravity", "local-session", false, false),
-            ("claude-code", "cc-demo-key", true, false),
-            ("deepseek", "sk-ds-demo", false, false),
-            ("gemini-cli", "gemini-local-auth", false, false),
-            ("github-copilot", "ghp_demo_key", true, true),
-            ("kimi", "kimi-demo-key", false, false),
-            ("minimax", "mm-cn-demo", false, false),
-            ("minimax-io", "mm-intl-demo", false, false),
-            ("mistral", "mistral-demo-key", false, false),
-            ("openai", "sk-openai-demo", true, false),
-            ("opencode", "oc-demo-key", false, false),
-            ("opencode-zen", "ocz-demo-key", false, false),
-            ("openrouter", "or-demo-key", false, false),
-            ("synthetic", "syn-demo-key", false, false),
-            ("zai-coding-plan", "zai-demo-key", true, false)
-        };
-
-        var usageSeeds = new (string ProviderId, double RequestsPercentage, string Description, int? ResetHours)[]
-        {
-            ("gemini-cli", 84.0, "84.0% Remaining", 12),
-            ("github-copilot", 72.5, "72.5% Remaining", 20),
-            ("kimi", 66.0, "66.0% Remaining", 9),
-            ("minimax", 61.0, "61.0% Remaining", 11),
-            ("openai", 63.0, "63.0% Remaining", 18),
-            ("synthetic", 79.0, "79.0% Remaining", 4),
-            ("zai-coding-plan", 88.0, "88.0% Remaining", 15)
-        };
-
-        var connectedUsageProviderIds = new[]
-        {
-            "claude-code",
-            "deepseek",
-            "minimax-io",
-            "mistral",
-            "opencode",
-            "opencode-zen",
-            "openrouter"
-        };
-
-        var configs = configSeeds
-            .Select(seed => CreateConfig(seed.ProviderId, seed.ApiKey, seed.ShowInTray, seed.EnableNotifications))
+        var configs = DeterministicProviderScenarioCatalog.Scenarios
+            .Select(CreateConfig)
             .ToList();
 
         var usages = new List<ProviderUsage>
         {
             CreateUsage(
-                "antigravity",
-                requestsPercentage: 60.0,
-                description: "60.0% Remaining",
-                nextResetTime: deterministicNow.AddHours(6),
+                new DeterministicProviderScenario(AntigravityProvider.StaticDefinition.ProviderId, "local-session"),
+                deterministicNow,
+                new FixtureUsageScenario(60.0, 0, 0, "60.0% Remaining", 6),
                 details: new List<ProviderUsageDetail>
                 {
                     CreateDetail(deterministicNow, "Claude Opus 4.6 (Thinking)", "60%", 10),
@@ -95,18 +53,14 @@ internal static class SettingsWindowDeterministicFixture
                 })
         };
 
-        usages.AddRange(connectedUsageProviderIds.Select(providerId => CreateUsage(providerId)));
-        usages.AddRange(usageSeeds.Select(seed => CreateUsage(
-            seed.ProviderId,
-            requestsPercentage: seed.RequestsPercentage,
-            description: seed.Description,
-            nextResetTime: seed.ResetHours.HasValue ? deterministicNow.AddHours(seed.ResetHours.Value) : null)));
+        usages.AddRange(DeterministicProviderScenarioCatalog.Scenarios
+            .Where(scenario => scenario.SettingsWindowUsage != null)
+            .Select(scenario => CreateUsage(scenario, deterministicNow, scenario.SettingsWindowUsage!)));
 
-        var historyRows = new[]
-        {
-            CreateHistoryRow("github-copilot", 27.5, 27.5, 100.0, "Coding", "72.5% Remaining", new DateTime(2026, 2, 1, 12, 0, 0)),
-            CreateHistoryRow("openai", 31.1, 12.45, 40.0, "Usage", "$12.45 / $40.00", new DateTime(2026, 2, 1, 12, 5, 0))
-        };
+        var historyRows = DeterministicProviderScenarioCatalog.Scenarios
+            .Where(scenario => scenario.SettingsWindowHistory != null)
+            .Select(scenario => CreateHistoryRow(scenario.ProviderId, scenario.SettingsWindowHistory!))
+            .ToArray();
 
         return new SettingsWindowDeterministicFixtureData
         {
@@ -116,44 +70,43 @@ internal static class SettingsWindowDeterministicFixture
         };
     }
 
-    private static ProviderConfig CreateConfig(string providerId, string apiKey, bool showInTray, bool enableNotifications)
+    private static ProviderConfig CreateConfig(DeterministicProviderScenario scenario)
     {
-        if (!ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config, apiKey: apiKey))
+        if (!ProviderMetadataCatalog.TryCreateDefaultConfig(scenario.ProviderId, out var config, apiKey: scenario.ApiKey))
         {
-            throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot data.");
+            throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
         }
 
-        config.ShowInTray = showInTray;
-        config.EnableNotifications = enableNotifications;
+        config.ShowInTray = scenario.ShowInTray;
+        config.EnableNotifications = scenario.EnableNotifications;
         return config;
     }
 
     private static ProviderUsage CreateUsage(
-        string providerId,
-        double requestsPercentage = 0,
-        double requestsUsed = 0,
-        double requestsAvailable = 0,
-        string description = "Connected",
+        DeterministicProviderScenario scenario,
+        DateTime deterministicNow,
+        FixtureUsageScenario usageScenario,
         bool isAvailable = true,
-        DateTime? nextResetTime = null,
         List<ProviderUsageDetail>? details = null)
     {
-        var definition = ProviderMetadataCatalog.Find(providerId)
-            ?? throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot data.");
+        var definition = ProviderMetadataCatalog.Find(scenario.ProviderId)
+            ?? throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
 
         return new ProviderUsage
         {
-            ProviderId = providerId,
-            ProviderName = ProviderMetadataCatalog.GetDisplayName(providerId),
+            ProviderId = scenario.ProviderId,
+            ProviderName = ProviderMetadataCatalog.GetDisplayName(scenario.ProviderId),
             IsAvailable = isAvailable,
             IsQuotaBased = definition.IsQuotaBased,
             PlanType = definition.PlanType,
-            RequestsPercentage = requestsPercentage,
-            RequestsUsed = requestsUsed,
-            RequestsAvailable = requestsAvailable,
-            Description = description,
+            RequestsPercentage = usageScenario.RequestsPercentage,
+            RequestsUsed = usageScenario.RequestsUsed,
+            RequestsAvailable = usageScenario.RequestsAvailable,
+            Description = usageScenario.Description,
             Details = details,
-            NextResetTime = nextResetTime
+            NextResetTime = usageScenario.ResetHours.HasValue
+                ? deterministicNow.AddHours(usageScenario.ResetHours.Value)
+                : null
         };
     }
 
@@ -170,24 +123,20 @@ internal static class SettingsWindowDeterministicFixture
         };
     }
 
-    private static SettingsWindowHistoryRow CreateHistoryRow(
-        string providerId,
-        double usagePercentage,
-        double used,
-        double limit,
-        string planType,
-        string description,
-        DateTime fetchedAt)
+    private static SettingsWindowHistoryRow CreateHistoryRow(string providerId, FixtureHistoryScenario scenario)
     {
+        var definition = ProviderMetadataCatalog.Find(providerId)
+            ?? throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot history.");
+
         return new SettingsWindowHistoryRow
         {
             ProviderName = ProviderMetadataCatalog.GetDisplayName(providerId),
-            UsagePercentage = usagePercentage,
-            Used = used,
-            Limit = limit,
-            PlanType = planType,
-            Description = description,
-            FetchedAt = fetchedAt
+            UsagePercentage = scenario.UsagePercentage,
+            Used = scenario.Used,
+            Limit = scenario.Limit,
+            PlanType = definition.PlanType.ToString(),
+            Description = scenario.Description,
+            FetchedAt = scenario.FetchedAt
         };
     }
 }

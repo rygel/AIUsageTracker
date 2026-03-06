@@ -7,6 +7,7 @@ using Xunit;
 
 namespace AIUsageTracker.Tests.Integration;
 
+[Collection("TokenDiscovery")]
 public class TokenDiscoveryIntegrationTests : IntegrationTestBase
 {
     private readonly TokenDiscoveryService _service;
