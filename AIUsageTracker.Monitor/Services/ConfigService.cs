@@ -1,6 +1,7 @@
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -138,7 +139,7 @@ public class ConfigService : IConfigService
                 }
             }
 
-            ProviderConfigNormalizer.NormalizeOpenAiCodexSessionOverlap(existing);
+            ProviderMetadataCatalog.NormalizeCanonicalConfigurations(existing);
             
             await _configLoader.SaveConfigAsync(existing);
             return discovered;

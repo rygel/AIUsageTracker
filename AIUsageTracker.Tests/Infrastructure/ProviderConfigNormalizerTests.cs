@@ -1,12 +1,12 @@
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 
-public class ProviderConfigNormalizerTests
+public class ProviderMetadataCatalogCanonicalizationTests
 {
     [Fact]
-    public void NormalizeOpenAiCodexSessionOverlap_MigratesSessionTokenToCodex()
+    public void NormalizeCanonicalConfigurations_MigratesOpenAiSessionTokenToCodex()
     {
         var configs = new List<ProviderConfig>
         {
@@ -19,7 +19,7 @@ public class ProviderConfigNormalizerTests
             }
         };
 
-        ProviderConfigNormalizer.NormalizeOpenAiCodexSessionOverlap(configs);
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 
         var codex = Assert.Single(configs);
         Assert.Equal("codex", codex.ProviderId);
@@ -31,7 +31,7 @@ public class ProviderConfigNormalizerTests
     }
 
     [Fact]
-    public void NormalizeCodexSparkConfiguration_MergesSparkIntoCodex()
+    public void NormalizeCanonicalConfigurations_MergesCodexSparkIntoCodex()
     {
         var configs = new List<ProviderConfig>
         {
@@ -47,7 +47,7 @@ public class ProviderConfigNormalizerTests
             }
         };
 
-        ProviderConfigNormalizer.NormalizeCodexSparkConfiguration(configs);
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 
         var codex = Assert.Single(configs);
         Assert.Equal("codex", codex.ProviderId);
@@ -70,7 +70,7 @@ public class ProviderConfigNormalizerTests
             new() { ProviderId = "openai", ApiKey = "legacy-session-token" }
         };
 
-        var result = ProviderConfigNormalizer.ShouldSuppressOpenAiSession(configs);
+        var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
 
         Assert.True(result);
     }
@@ -84,7 +84,7 @@ public class ProviderConfigNormalizerTests
             new() { ProviderId = "openai", ApiKey = "sk-openai-live" }
         };
 
-        var result = ProviderConfigNormalizer.ShouldSuppressOpenAiSession(configs);
+        var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
 
         Assert.False(result);
     }

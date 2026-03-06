@@ -207,11 +207,11 @@ public class ProviderRefreshService : BackgroundService
                 IsAutoIncludedProviderConfig(c.ProviderId) ||
                 !string.IsNullOrEmpty(c.ApiKey)).ToList();
 
-            if (ShouldSuppressOpenAiSession(activeConfigs))
+            if (ProviderMetadataCatalog.ShouldSuppressOpenAiSession(activeConfigs))
             {
                 var beforeCount = activeConfigs.Count;
                 activeConfigs = activeConfigs
-                    .Where(c => !ProviderConfigNormalizer.IsOpenAiSessionConfig(c))
+                    .Where(c => !ProviderMetadataCatalog.IsOpenAiSessionConfig(c))
                     .ToList();
                 _logger.LogInformation(
                     "Suppressed duplicate OpenAI session provider while Codex is active (removed {Count}).",
@@ -524,11 +524,6 @@ public class ProviderRefreshService : BackgroundService
         }
 
         return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool ShouldSuppressOpenAiSession(IReadOnlyCollection<ProviderConfig> activeConfigs)
-    {
-        return ProviderConfigNormalizer.ShouldSuppressOpenAiSession(activeConfigs);
     }
 
     private void EnsureAutoIncludedConfigs(List<ProviderConfig> configs)

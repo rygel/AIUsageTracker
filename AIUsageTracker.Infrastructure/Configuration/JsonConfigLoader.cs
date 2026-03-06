@@ -2,6 +2,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Helpers;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -162,8 +163,7 @@ public class JsonConfigLoader : IConfigLoader
             }
         }
 
-        ProviderConfigNormalizer.NormalizeOpenAiCodexSessionOverlap(result);
-        ProviderConfigNormalizer.NormalizeCodexSparkConfiguration(result);
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(result);
 
         return result;
     }

@@ -11,6 +11,7 @@ using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Infrastructure.Extensions;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
@@ -254,7 +255,7 @@ app.MapGet("/api/usage", async (UsageDatabase db, IConfigService configService, 
     var usage = await db.GetLatestHistoryAsync();
 
     var configs = await configService.GetConfigsAsync();
-    if (ProviderConfigNormalizer.ShouldSuppressOpenAiSession(configs))
+    if (ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs))
     {
         usage = usage
             .Where(u => !u.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase))
