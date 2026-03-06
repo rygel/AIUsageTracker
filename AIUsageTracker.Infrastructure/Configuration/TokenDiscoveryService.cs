@@ -132,28 +132,28 @@ public class TokenDiscoveryService
     {
         try
         {
-            var claudeCredentialsPath = Path.Combine(GetUserProfilePath(), ".claude", ".credentials.json");
-            if (File.Exists(claudeCredentialsPath))
+            foreach (var path in GetCandidatePaths(ClaudeCodeProvider.StaticDefinition))
             {
-                var json = await File.ReadAllTextAsync(claudeCredentialsPath);
-                using var doc = JsonDocument.Parse(json);
-
-                if (doc.RootElement.TryGetProperty("claudeAiOauth", out var oauthElement))
+                if (!File.Exists(path))
                 {
-                    if (oauthElement.TryGetProperty("accessToken", out var tokenElement))
-                    {
-                        var token = tokenElement.GetString();
-                        if (!string.IsNullOrEmpty(token))
-                        {
-                            AddOrUpdate(
-                                configs,
-                                ClaudeCodeProvider.StaticDefinition.ProviderId,
-                                token,
-                                "Discovered in Claude Code credentials",
-                                "Claude Code: ~/.claude/.credentials.json");
-                        }
-                    }
+                    continue;
                 }
+
+                var json = await File.ReadAllTextAsync(path);
+                using var doc = JsonDocument.Parse(json);
+                var token = TryReadAccessToken(doc.RootElement, ClaudeCodeProvider.StaticDefinition);
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    continue;
+                }
+
+                AddOrUpdate(
+                    configs,
+                    ClaudeCodeProvider.StaticDefinition.ProviderId,
+                    token,
+                    "Discovered in Claude Code credentials",
+                    $"Claude Code: {path}");
+                return;
             }
         }
         catch (Exception ex)

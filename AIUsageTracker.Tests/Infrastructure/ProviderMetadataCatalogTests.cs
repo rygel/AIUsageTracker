@@ -168,6 +168,18 @@ public class ProviderMetadataCatalogTests
     }
 
     [Fact]
+    public void Find_ExposesClaudeSessionAuthDiscoveryMetadata()
+    {
+        var definition = ProviderMetadataCatalog.Find("claude-code");
+
+        Assert.NotNull(definition);
+        Assert.Contains("%USERPROFILE%\\.claude\\.credentials.json", definition!.AuthIdentityCandidatePathTemplates);
+        Assert.Contains(definition.SessionAuthFileSchemas, schema =>
+            schema.RootProperty == "claudeAiOauth" &&
+            schema.AccessTokenProperty == "accessToken");
+    }
+
+    [Fact]
     public void ShouldSuppressUsageProviderId_ReturnsTrue_ForSessionBackedAliasWithCanonicalConfig()
     {
         var configs = new List<ProviderConfig>

@@ -21,7 +21,15 @@ public class ClaudeCodeProvider : ProviderBase
         discoveryEnvironmentVariables: new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         iconAssetName: "anthropic",
         fallbackBadgeColorHex: "#FFA500",
-        fallbackBadgeInitial: "C");
+        fallbackBadgeInitial: "C",
+        authIdentityCandidatePathTemplates: new[]
+        {
+            "%USERPROFILE%\\.claude\\.credentials.json"
+        },
+        sessionAuthFileSchemas: new[]
+        {
+            new ProviderAuthFileSchema("claudeAiOauth", "accessToken")
+        });
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;
