@@ -232,34 +232,31 @@ public class TokenDiscoveryService
 
     private static string? TryReadCodexAccessToken(JsonElement root)
     {
-        if (root.TryGetProperty("tokens", out var tokensElement) &&
-            tokensElement.ValueKind == JsonValueKind.Object &&
-            tokensElement.TryGetProperty("access_token", out var accessTokenElement) &&
-            accessTokenElement.ValueKind == JsonValueKind.String)
-        {
-            return accessTokenElement.GetString();
-        }
-
-        // Legacy/fallback compatibility if auth file contains OpenCode-style shape.
-        return TryReadOpenAiSessionAccessToken(root);
+        return TryReadAccessToken(root, CodexProvider.StaticDefinition);
     }
 
     private static string? TryReadOpenAiSessionAccessToken(JsonElement root)
     {
-        var openAiRootProperty = OpenAIProvider.StaticDefinition.AuthIdentityJsonRootProperties.FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(openAiRootProperty) ||
-            !root.TryGetProperty(openAiRootProperty, out var openaiElement) ||
-            openaiElement.ValueKind != JsonValueKind.Object)
+        return TryReadAccessToken(root, OpenAIProvider.StaticDefinition);
+    }
+
+    private static string? TryReadAccessToken(JsonElement root, ProviderDefinition definition)
+    {
+        foreach (var schema in definition.SessionAuthFileSchemas)
         {
-            return null;
+            if (!root.TryGetProperty(schema.RootProperty, out var element) || element.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            if (element.TryGetProperty(schema.AccessTokenProperty, out var accessElement) &&
+                accessElement.ValueKind == JsonValueKind.String)
+            {
+                return accessElement.GetString();
+            }
         }
 
-        if (!openaiElement.TryGetProperty("access", out var accessElement) || accessElement.ValueKind != JsonValueKind.String)
-        {
-            return null;
-        }
-
-        return accessElement.GetString();
+        return null;
     }
 
     private IEnumerable<string> GetCandidatePaths(ProviderDefinition definition)

@@ -44,7 +44,12 @@ public class CodexProvider : ProviderBase
             "%LOCALAPPDATA%\\opencode\\auth.json",
             "%USERPROFILE%\\.opencode\\auth.json"
         },
-        authIdentityJsonRootProperties: new[] { "openai" });
+        authIdentityJsonRootProperties: new[] { "openai" },
+        sessionAuthFileSchemas: new[]
+        {
+            new ProviderAuthFileSchema("tokens", "access_token", "account_id"),
+            new ProviderAuthFileSchema("openai", "access", "accountId")
+        });
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;

@@ -29,6 +29,7 @@ public sealed class ProviderDefinition
     public string? FallbackBadgeInitial { get; }
     public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; }
     public IReadOnlyCollection<string> AuthIdentityJsonRootProperties { get; }
+    public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; }
 
     private readonly HashSet<string> _handledProviderIds;
 
@@ -59,7 +60,8 @@ public sealed class ProviderDefinition
         string? fallbackBadgeColorHex = null,
         string? fallbackBadgeInitial = null,
         IEnumerable<string>? authIdentityCandidatePathTemplates = null,
-        IEnumerable<string>? authIdentityJsonRootProperties = null)
+        IEnumerable<string>? authIdentityJsonRootProperties = null,
+        IEnumerable<ProviderAuthFileSchema>? sessionAuthFileSchemas = null)
     {
         if (string.IsNullOrWhiteSpace(providerId))
         {
@@ -96,6 +98,11 @@ public sealed class ProviderDefinition
         FallbackBadgeInitial = fallbackBadgeInitial;
         AuthIdentityCandidatePathTemplates = NormalizeValues(authIdentityCandidatePathTemplates);
         AuthIdentityJsonRootProperties = NormalizeValues(authIdentityJsonRootProperties);
+        SessionAuthFileSchemas = sessionAuthFileSchemas?
+            .Where(schema => schema != null)
+            .Distinct()
+            .ToArray()
+            ?? Array.Empty<ProviderAuthFileSchema>();
 
         var normalizedHandledIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {

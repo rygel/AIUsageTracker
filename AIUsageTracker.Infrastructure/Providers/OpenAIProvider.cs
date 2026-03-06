@@ -39,7 +39,11 @@ public class OpenAIProvider : ProviderBase
             "%LOCALAPPDATA%\\opencode\\auth.json",
             "%USERPROFILE%\\.opencode\\auth.json"
         },
-        authIdentityJsonRootProperties: new[] { "openai" });
+        authIdentityJsonRootProperties: new[] { "openai" },
+        sessionAuthFileSchemas: new[]
+        {
+            new ProviderAuthFileSchema("openai", "access", "accountId")
+        });
 
     public override ProviderDefinition Definition => StaticDefinition;
     public override string ProviderId => StaticDefinition.ProviderId;

@@ -41,39 +41,11 @@ public class CodexAuthService : ICodexAuthService
             try
             {
                 var json = File.ReadAllText(path);
-
-                // Native Codex shape: { "tokens": { "access_token": "...", "account_id": "..." } }
-                var nativeAuth = JsonSerializer.Deserialize<CodexNativeAuth>(json);
-                if (!string.IsNullOrWhiteSpace(nativeAuth?.Tokens.AccessToken))
-                {
-                    return new CodexAuth
-                    {
-                        AccessToken = nativeAuth.Tokens.AccessToken,
-                        AccountId = nativeAuth.Tokens.AccountId
-                    };
-                }
-
-                // Compatibility shape stored under provider-defined identity roots.
                 using var doc = JsonDocument.Parse(json);
-                var compatibilityRoot = FindFirstCompatibilityRoot(doc.RootElement);
-                if (compatibilityRoot != null)
+                var auth = TryReadAuth(doc.RootElement);
+                if (auth != null)
                 {
-                    var access = compatibilityRoot.Value.TryGetProperty("access", out var accessProp) && accessProp.ValueKind == JsonValueKind.String
-                        ? accessProp.GetString()
-                        : null;
-
-                    if (!string.IsNullOrWhiteSpace(access))
-                    {
-                        var accountId = compatibilityRoot.Value.TryGetProperty("accountId", out var accountIdProp) && accountIdProp.ValueKind == JsonValueKind.String
-                            ? accountIdProp.GetString()
-                            : null;
-
-                        return new CodexAuth
-                        {
-                            AccessToken = access,
-                            AccountId = accountId
-                        };
-                    }
+                    return auth;
                 }
             }
             catch (Exception ex)
@@ -104,14 +76,36 @@ public class CodexAuthService : ICodexAuthService
         }
     }
 
-    private static JsonElement? FindFirstCompatibilityRoot(JsonElement root)
+    private static CodexAuth? TryReadAuth(JsonElement root)
     {
-        foreach (var propertyName in CodexProvider.StaticDefinition.AuthIdentityJsonRootProperties)
+        foreach (var schema in CodexProvider.StaticDefinition.SessionAuthFileSchemas)
         {
-            if (root.TryGetProperty(propertyName, out var element) && element.ValueKind == JsonValueKind.Object)
+            if (!root.TryGetProperty(schema.RootProperty, out var element) || element.ValueKind != JsonValueKind.Object)
             {
-                return element;
+                continue;
             }
+
+            var accessToken = element.TryGetProperty(schema.AccessTokenProperty, out var accessTokenElement) &&
+                              accessTokenElement.ValueKind == JsonValueKind.String
+                ? accessTokenElement.GetString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(accessToken))
+            {
+                continue;
+            }
+
+            var accountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty) &&
+                            element.TryGetProperty(schema.AccountIdProperty, out var accountIdElement) &&
+                            accountIdElement.ValueKind == JsonValueKind.String
+                ? accountIdElement.GetString()
+                : null;
+
+            return new CodexAuth
+            {
+                AccessToken = accessToken,
+                AccountId = accountId
+            };
         }
 
         return null;
@@ -120,21 +114,6 @@ public class CodexAuthService : ICodexAuthService
     private sealed class CodexAuth
     {
         public string? AccessToken { get; set; }
-        public string? AccountId { get; set; }
-    }
-
-    private sealed class CodexNativeAuth
-    {
-        [JsonPropertyName("tokens")]
-        public CodexNativeTokens Tokens { get; set; } = new();
-    }
-
-    private sealed class CodexNativeTokens
-    {
-        [JsonPropertyName("access_token")]
-        public string? AccessToken { get; set; }
-
-        [JsonPropertyName("account_id")]
         public string? AccountId { get; set; }
     }
 }
