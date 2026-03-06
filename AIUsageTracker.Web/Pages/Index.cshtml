@@ -279,9 +279,15 @@
                                 <div id="sub-providers-@usage.ProviderId" class="sub-providers">
                                     @foreach (var detail in displayableDetails)
                                     {
+                                        var detailUsed = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(detail, usage.IsQuotaBased);
+                                        var showUsed = Model.ShowUsedPercentage;
+                                        var displayVal = detailUsed.HasValue 
+                                            ? (showUsed ? detailUsed.Value : (100.0 - detailUsed.Value)).ToString("F0") + "%"
+                                            : detail.Used;
+
                                         <div class="sub-provider-row">
                                             <span class="sub-provider-name">@detail.Name</span>
-                                            <span class="sub-provider-value">@detail.Used</span>
+                                            <span class="sub-provider-value">@displayVal</span>
                                             @if (detail.NextResetTime.HasValue)
                                             {
                                                 <span class="sub-provider-reset">(@GetRelativeTimeString(detail.NextResetTime.Value))</span>
@@ -616,8 +622,8 @@
 
         if (primaryDetail == null || secondaryDetail == null) return false;
 
-        var p = ParseUsedPercentFromDetail(primaryDetail.Used, true); // Quota windows use remaining %
-        var s = ParseUsedPercentFromDetail(secondaryDetail.Used, true);
+        var p = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(primaryDetail, usage.IsQuotaBased);
+        var s = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(secondaryDetail, usage.IsQuotaBased);
 
         if (p.HasValue && s.HasValue)
         {
@@ -629,18 +635,5 @@
         }
 
         return false;
-    }
-
-    double? ParseUsedPercentFromDetail(string? used, bool isQuota)
-    {
-        if (string.IsNullOrWhiteSpace(used)) return null;
-
-        var match = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (match.Success && double.TryParse(match.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p))
-        {
-            return isQuota ? Math.Clamp(100.0 - p, 0, 100) : Math.Clamp(p, 0, 100);
-        }
-
-        return null;
     }
 }

@@ -17,7 +17,6 @@ using Microsoft.Win32;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.UI.Slim.Interfaces;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -1280,7 +1279,7 @@ public partial class MainWindow : Window
                 break;
 
             case Decorator decorator when decorator.Child is not null:
-                ApplyFontPreferencesToElement(child);
+                ApplyFontPreferencesToElement(decorator.Child);
                 break;
 
             case ContentControl contentControl when contentControl.Content is DependencyObject child:
@@ -1742,10 +1741,6 @@ public partial class MainWindow : Window
             return false;
         }
 
-<<<<<<< HEAD
-        var hourlyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && d.WindowKind == WindowKind.Primary);
-        var weeklyDetail = usage.Details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.QuotaWindow && d.WindowKind == WindowKind.Secondary);
-=======
         // Find all quota windows
         var windows = usage.Details
             .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow)
@@ -1764,19 +1759,17 @@ public partial class MainWindow : Window
         {
             return false;
         }
->>>>>>> 5e181ba (refactor(ui): consolidate provider rendering and fix dual pass issue)
 
-        var parsedHourly = UsageMath.ParsePercent(hourlyDetail.Used);
-        var parsedWeekly = UsageMath.ParsePercent(weeklyDetail.Used);
+        var parsedHourly = UsageMath.GetEffectiveUsedPercent(hourlyDetail, usage.IsQuotaBased);
+        var parsedWeekly = UsageMath.GetEffectiveUsedPercent(weeklyDetail, usage.IsQuotaBased);
 
         if (!parsedHourly.HasValue || !parsedWeekly.HasValue)
         {
             return false;
         }
 
-        // Quota windows always represent remaining percentage, so we invert them to get USED percentage.
-        hourlyUsed = 100.0 - parsedHourly.Value;
-        weeklyUsed = 100.0 - parsedWeekly.Value;
+        hourlyUsed = parsedHourly.Value;
+        weeklyUsed = parsedWeekly.Value;
         return true;
     }
 
@@ -1832,14 +1825,9 @@ public partial class MainWindow : Window
         };
 
         // Calculate Percentages using shared logic
-        var parsedPercent = UsageMath.ParsePercent(detail.Used);
-        var hasPercent = parsedPercent.HasValue;
-        
-        // If it's quota based, the detail.Used is usually a REMAINING percentage (e.g. "80%").
-        // We want pctUsed for coloring and pctRemaining for display if toggle is off.
-        double pctUsed = hasPercent 
-            ? (usage.IsQuotaBased ? (100.0 - parsedPercent!.Value) : parsedPercent!.Value)
-            : 0;
+        var parsedUsed = UsageMath.GetEffectiveUsedPercent(detail, usage.IsQuotaBased);
+        var hasPercent = parsedUsed.HasValue;
+        double pctUsed = parsedUsed ?? 0;
         double pctRemaining = 100.0 - pctUsed;
 
         // Determine display values based on toggle

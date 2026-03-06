@@ -91,12 +91,28 @@ public static class UsageMath
     /// </summary>
     /// <summary>
     /// Parses a percentage value from a string, handling optional '%' sign.
+    /// If the string contains 'remaining', it is interpreted as a remaining percentage.
+    /// If the string contains 'used', it is interpreted as a used percentage.
     /// </summary>
-    public static double? ParsePercent(string? value)
+    /// <param name="value">The string to parse</param>
+    /// <param name="isUsed">Output parameter indicating if the value was explicitly marked as 'used'</param>
+    /// <returns>The parsed percentage (0-100), or null if parsing failed</returns>
+    public static double? ParsePercent(string? value, out bool? isUsed)
     {
+        isUsed = null;
         if (string.IsNullOrWhiteSpace(value))
         {
             return null;
+        }
+
+        // Check for explicit "used" or "remaining"
+        if (value.Contains("used", StringComparison.OrdinalIgnoreCase))
+        {
+            isUsed = true;
+        }
+        else if (value.Contains("remaining", StringComparison.OrdinalIgnoreCase))
+        {
+            isUsed = false;
         }
 
         var match = System.Text.RegularExpressions.Regex.Match(value, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
@@ -113,13 +129,53 @@ public static class UsageMath
         }
 
         // Fallback for just numbers
-        var cleanValue = value.Replace("%", string.Empty).Trim();
+        var cleanValue = new string(value.Where(c => char.IsDigit(c) || c == '.').ToArray());
         if (double.TryParse(cleanValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var result))
         {
             return ClampPercent(result);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Simple wrapper for ParsePercent when 'isUsed' info is not needed.
+    /// </summary>
+    public static double? ParsePercent(string? value) => ParsePercent(value, out _);
+
+    public static double GetEffectiveUsedPercent(ProviderUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var percentage = ClampPercent(usage.RequestsPercentage);
+        var isQuota = usage.IsQuotaBased;
+        return isQuota ? ClampPercent(100 - percentage) : percentage;
+    }
+
+    /// <summary>
+    /// Gets the effective used percentage for a provider detail, accounting for parent quota status
+    /// and explicit 'used'/'remaining' strings.
+    /// </summary>
+    public static double? GetEffectiveUsedPercent(ProviderUsageDetail detail, bool parentIsQuota)
+    {
+        var val = ParsePercent(detail.Used, out var isUsed);
+        if (!val.HasValue) return null;
+
+        // 1. If explicitly marked as 'used', return as is.
+        if (isUsed == true) return val.Value;
+
+        // 2. If explicitly marked as 'remaining', return inverted.
+        if (isUsed == false) return ClampPercent(100.0 - val.Value);
+
+        // 3. Strict contract: Quota windows (DetailType=1) are ALWAYS remaining unless explicitly marked 'used'.
+        // Antigravity sends "80%" which means 80% remaining.
+        if (detail.DetailType == ProviderUsageDetailType.QuotaWindow || parentIsQuota)
+        {
+            return ClampPercent(100.0 - val.Value);
+        }
+
+        // 4. PAYG/Other details are used % by default
+        return val.Value;
     }
 
     public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)

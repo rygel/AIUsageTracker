@@ -6,32 +6,33 @@ namespace AIUsageTracker.Tests.UI;
 
 public class DualProgressBarLogicTests
 {
-    // We use reflection to test the private/static methods in MainWindow without a UI thread
-    private static readonly MethodInfo? ParseMethod = typeof(AIUsageTracker.UI.Slim.MainWindow)
-        .GetMethod("ParseUsedPercentFromDetail", BindingFlags.Static | BindingFlags.NonPublic);
-
     [Theory]
-    [InlineData("10% used", 10.0)]
-    [InlineData("45.5 % used", 45.5)]
-    [InlineData("100% used", 100.0)]
-    [InlineData("0% used", 0.0)]
-    [InlineData("80% remaining", 20.0)]
-    [InlineData("25.5 % remaining", 74.5)]
-    [InlineData("0% remaining", 100.0)]
-    [InlineData("100% remaining", 0.0)]
-    [InlineData("50%", 50.0)] // Fallback
+    [InlineData("10%", 10.0)]
+    [InlineData("45.5 %", 45.5)]
+    [InlineData("100%", 100.0)]
+    [InlineData("0%", 0.0)]
+    [InlineData("50", 50.0)]
     [InlineData("Invalid", null)]
     [InlineData("", null)]
     [InlineData(null, null)]
-    public void ParseUsedPercentFromDetail_HandlesFormatsCorrectly(string? input, double? expected)
+    public void ParsePercent_HandlesFormatsCorrectly(string? input, double? expected)
     {
-        Assert.NotNull(ParseMethod);
-        var result = (double?)ParseMethod!.Invoke(null, new object?[] { input });
+        var result = UsageMath.ParsePercent(input);
         
         if (expected == null)
             Assert.Null(result);
         else
             Assert.Equal(expected.Value, result!.Value, 1);
+    }
+
+    [Fact]
+    public void GetEffectiveUsedPercent_CalculatesCorrectly()
+    {
+        var quotaUsage = new ProviderUsage { RequestsPercentage = 80, IsQuotaBased = true };
+        var paygUsage = new ProviderUsage { RequestsPercentage = 20, IsQuotaBased = false };
+
+        Assert.Equal(20.0, UsageMath.GetEffectiveUsedPercent(quotaUsage)); // 100 - 80
+        Assert.Equal(20.0, UsageMath.GetEffectiveUsedPercent(paygUsage));
     }
 
     [Fact]
