@@ -198,7 +198,7 @@ class Program
         }
 
         // Adjust default extension if format changed but output didn't
-        if (format == "json" && output.EndsWith(".csv")) output = Path.ChangeExtension(output, ".json");
+        if (format == "json" && output.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) output = Path.ChangeExtension(output, ".json");
         
         Console.WriteLine($"Exporting {days} days of history to {output} ({format})...");
 
