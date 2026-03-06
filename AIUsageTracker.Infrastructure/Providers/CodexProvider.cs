@@ -43,7 +43,6 @@ public class CodexProvider : ProviderBase
             "%LOCALAPPDATA%\\opencode\\auth.json",
             "%USERPROFILE%\\.opencode\\auth.json"
         },
-        authIdentityJsonRootProperties: new[] { "openai" },
         sessionAuthFileSchemas: new[]
         {
             new ProviderAuthFileSchema("tokens", "access_token", "account_id", "id_token"),

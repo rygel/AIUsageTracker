@@ -38,7 +38,6 @@ public class OpenAIProvider : ProviderBase
             "%LOCALAPPDATA%\\opencode\\auth.json",
             "%USERPROFILE%\\.opencode\\auth.json"
         },
-        authIdentityJsonRootProperties: new[] { "openai" },
         sessionAuthFileSchemas: new[]
         {
             new ProviderAuthFileSchema("openai", "access", "accountId", "id_token")

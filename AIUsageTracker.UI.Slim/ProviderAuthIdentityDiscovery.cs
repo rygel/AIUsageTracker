@@ -85,7 +85,7 @@ internal static class ProviderAuthIdentityDiscovery
             {
                 var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 using var doc = JsonDocument.Parse(json);
-                var root = FindFirstRootObject(doc.RootElement, definition.AuthIdentityJsonRootProperties);
+                var root = FindFirstRootObject(doc.RootElement, definition);
                 if (root == null)
                 {
                     continue;
@@ -155,7 +155,7 @@ internal static class ProviderAuthIdentityDiscovery
                     }
                 }
 
-                var compatibilityRoot = FindFirstRootObject(doc.RootElement, definition.AuthIdentityJsonRootProperties);
+                var compatibilityRoot = FindFirstRootObject(doc.RootElement, definition);
                 if (compatibilityRoot != null &&
                     compatibilityRoot.Value.TryGetProperty("access", out var accessToken) &&
                     accessToken.ValueKind == JsonValueKind.String)
@@ -183,9 +183,11 @@ internal static class ProviderAuthIdentityDiscovery
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static JsonElement? FindFirstRootObject(JsonElement root, IEnumerable<string> propertyNames)
+    private static JsonElement? FindFirstRootObject(JsonElement root, ProviderDefinition definition)
     {
-        foreach (var propertyName in propertyNames)
+        foreach (var propertyName in definition.SessionAuthFileSchemas
+                     .Select(schema => schema.RootProperty)
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (root.TryGetProperty(propertyName, out var element) && element.ValueKind == JsonValueKind.Object)
             {
