@@ -55,9 +55,9 @@ public class KimiProvider : ProviderBase
                 return new[] { CreateUnavailableUsage("Invalid response format", authSource: config.AuthSource) };
             }
 
-            double used = data.Usage.Used;
-            double limit = data.Usage.Limit;
-            double remaining = data.Usage.Remaining;
+            double used = data.Usage.GetUsed();
+            double limit = data.Usage.GetLimit();
+            double remaining = data.Usage.GetRemaining();
 
             var remainingPercentage = limit > 0
                 ? UsageMath.CalculateRemainingPercent(used, limit)
@@ -108,11 +108,11 @@ public class KimiProvider : ProviderBase
                     var win = limitItem.Window;
                     var det = limitItem.Detail;
 
-                    if (det.Limit <= 0) continue;
+                    if (det.GetLimit() <= 0) continue;
 
                     string name = $"{FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
-                    var itemUsed = det.Limit - det.Remaining;
-                    var itemUsedPercentage = det.Limit > 0 ? (itemUsed / (double)det.Limit) * 100.0 : 0;
+                    var itemUsed = det.GetLimit() - det.GetRemaining();
+                    var itemUsedPercentage = det.GetLimit() > 0 ? (itemUsed / (double)det.GetLimit()) * 100.0 : 0;
 
                     var resetDisplay = FormatResetTime(det.ResetTime ?? "");
                     DateTime? itemResetDt = null;
@@ -134,7 +134,7 @@ public class KimiProvider : ProviderBase
                     {
                          Name = name,
                          Used = $"{itemUsedPercentage.ToString("F1", CultureInfo.InvariantCulture)}% used",
-                         Description = $"{det.Remaining} / {det.Limit} remaining (Resets: {resetDisplay})",
+                         Description = $"{det.GetRemaining()} / {det.GetLimit()} remaining (Resets: {resetDisplay})",
                          NextResetTime = itemResetDt,
                          DetailType = ProviderUsageDetailType.QuotaWindow,
                          WindowKind = windowKind
@@ -230,16 +230,27 @@ public class KimiProvider : ProviderBase
     private class KimiUsageData
     {
         [JsonPropertyName("limit")]
-        public long Limit { get; set; }
+        public JsonElement Limit { get; set; }
 
         [JsonPropertyName("used")]
-        public long Used { get; set; }
+        public JsonElement Used { get; set; }
 
         [JsonPropertyName("remaining")]
-        public long Remaining { get; set; }
+        public JsonElement Remaining { get; set; }
 
         [JsonPropertyName("resetTime")]
         public string? ResetTime { get; set; }
+
+        public long GetLimit() => ParseJsonLong(Limit);
+        public long GetUsed() => ParseJsonLong(Used);
+        public long GetRemaining() => ParseJsonLong(Remaining);
+
+        private static long ParseJsonLong(JsonElement el) => el.ValueKind switch
+        {
+            JsonValueKind.Number => el.TryGetInt64(out var n) ? n : 0,
+            JsonValueKind.String => long.TryParse(el.GetString(), out var s) ? s : 0,
+            _ => 0
+        };
     }
 
     private class KimiLimitItem
@@ -263,12 +274,22 @@ public class KimiProvider : ProviderBase
     private class KimiLimitDetail
     {
          [JsonPropertyName("limit")]
-         public long Limit { get; set; }
+         public JsonElement Limit { get; set; }
 
          [JsonPropertyName("remaining")]
-         public long Remaining { get; set; }
+         public JsonElement Remaining { get; set; }
 
          [JsonPropertyName("resetTime")]
          public string? ResetTime { get; set; }
+
+         public long GetLimit() => ParseJsonLong(Limit);
+         public long GetRemaining() => ParseJsonLong(Remaining);
+
+         private static long ParseJsonLong(JsonElement el) => el.ValueKind switch
+         {
+             JsonValueKind.Number => el.TryGetInt64(out var n) ? n : 0,
+             JsonValueKind.String => long.TryParse(el.GetString(), out var s) ? s : 0,
+             _ => 0
+         };
     }
 }

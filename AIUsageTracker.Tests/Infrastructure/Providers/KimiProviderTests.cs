@@ -139,4 +139,47 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Contains("% used", hourlyDetail.Used);
         Assert.Contains("% used", weeklyDetailFromUsage.Used);
     }
+
+    [Fact]
+    public async Task GetUsageAsync_WithStringTypedNumericFields_ParsesCorrectly()
+    {
+        // The real Kimi API returns limit/used/remaining as JSON strings (e.g. "100"), not numbers.
+        // This test ensures we handle both string and numeric JSON values correctly.
+        var resetTime = DateTime.UtcNow.AddHours(5).ToString("o");
+        var weeklyResetTime = DateTime.UtcNow.AddDays(4).ToString("o");
+
+        // Raw JSON with string-typed numeric fields, exactly as the real API returns them
+        var rawJson = $$"""
+            {
+              "usage": { "limit": "100", "used": "26", "remaining": "74", "resetTime": "{{weeklyResetTime}}" },
+              "limits": [
+                {
+                  "window": { "duration": 300, "timeUnit": "TIME_UNIT_MINUTE" },
+                  "detail": { "limit": "100", "remaining": "74", "resetTime": "{{resetTime}}" }
+                }
+              ]
+            }
+            """;
+
+        SetupHttpResponse("https://api.kimi.com/coding/v1/usages", new HttpResponseMessage
+        {
+            StatusCode = System.Net.HttpStatusCode.OK,
+            Content = new StringContent(rawJson)
+        });
+
+        var result = await _provider.GetUsageAsync(Config);
+
+        var usage = result.Single();
+        Assert.Equal(74, usage.RequestsPercentage); // 74 remaining out of 100
+        Assert.Equal(26, usage.RequestsUsed);
+        Assert.Equal(100, usage.RequestsAvailable);
+        Assert.NotNull(usage.Details);
+        // Should have: Secondary (weekly from usage block) + Primary (300min window from limits)
+        var primary = usage.Details!.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
+        var secondary = usage.Details!.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
+        Assert.NotNull(primary);   // 300-minute window → Primary
+        Assert.NotNull(secondary); // usage block → Secondary
+        Assert.Contains("% used", primary.Used);
+        Assert.Contains("% used", secondary.Used);
+    }
 }
