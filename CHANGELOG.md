@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.28-beta.18] - 2026-03-06
+
+### Added
+- **Dual Progress Bars**: Added full support for displaying primary and secondary quota progress bars simultaneously for Kimi, OpenAI Codex, and GitHub Copilot.
+- **UI Refactoring**: Consolidate provider rendering to improve the layout footprint and fix the dual pass issue in the Slim UI.
+
+### Removed
+- **Providers**: Removed Anthropic and OpenAI providers from the codebase.
+
+### Fixed
+- **Antigravity Tracking**: Fixed an issue where the local Antigravity server probe would hang on incorrect listening ports by adding an explicit HTTP timeout.
+
 ## [2.2.28-beta.10] - 2026-03-05
 
 ### Added
