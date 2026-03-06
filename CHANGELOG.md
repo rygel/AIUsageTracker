@@ -1,17 +1,23 @@
 # Changelog
 
-## [Unreleased] - Beta 19 preparation
+## [Unreleased]
+
+## [2.2.28-beta.19] - 2026-03-06
+
+### Added
+- **Architecture Guardrails**: Added provider-id guardrail coverage and direct tests for shared session identity parsing.
+- **Safer Local Test Slices**: Added bounded `vstest` slice execution for faster local verification of targeted changes.
 
 ### Fixed
-- **Kimi Dual Bars**: Fixed `DetermineWindowKind` not emitting `WindowKind.Primary` for daily limits, preventing dual progress bars from rendering.
-- **Synthetic Reset Time**: Fixed `BuildResetLabel` double-converting UTC timestamps by adding `DateTimeStyles.RoundtripKind` during parse, resolving "resets in 0 minutes" display.
-- **ProviderMetadataCatalog**: Fixed stale inline `ProviderMetadata` stubs for GitHub Copilot, Mistral, and Kimi left over from the Beta 18 Anthropic cleanup; now references each provider's own `StaticDefinition`.
-
-### Removed
-- **Anthropic Provider**: Fully removed `AnthropicProvider.cs`, its catalog entry, and `AnthropicProviderTests.cs`.
+- **Provider Discovery Consistency**: Fixed Codex, OpenAI, OpenCode, and Claude session discovery to use provider metadata for auth file paths and schemas.
+- **Config Persistence**: Fixed non-persisted derived provider IDs such as `codex.spark` so they are skipped correctly on save.
+- **Codex Auth Candidate Search**: Fixed Codex default auth loading so metadata-defined fallback candidates stay enabled instead of being pinned to a single path.
 
 ### Refactored
-- Extracted shared JSON navigation helpers (`ReadString`, `ReadDouble`, `ReadBool`) into `JsonElementExtensions` in `AIUsageTracker.Core.Helpers`, eliminating identical private methods duplicated in `OpenAIProvider` and `CodexProvider`.
+- **Provider Definitions as Source of Truth**: Centralized provider discovery, canonicalization, visibility, visuals, startup refresh, and session-auth ownership behind provider definitions and `ProviderMetadataCatalog`.
+- **Slim UI Provider Composition**: Extracted provider settings, status, usage, tooltip, visual, and deterministic fixture behavior into dedicated catalogs/helpers to remove window-level duplication.
+- **Shared Session Identity Parsing**: Moved JWT and auth identity parsing into `SessionIdentityHelper` and removed repeated OpenAI/Codex/UI implementations.
+- **Dependency and Analyzer Refresh**: Updated compatible dependencies and enabled a stricter analyzer stack while keeping the solution on the .NET 8 baseline.
 
 ## [2.2.28-beta.18] - 2026-03-06
 
