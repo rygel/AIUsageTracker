@@ -468,7 +468,7 @@ public partial class SettingsWindow : Window
 
         var derivedConfigs = _usages
             .Where(u =>
-                IsDerivedProviderVisibleInSettings(u.ProviderId) &&
+                ProviderSettingsCatalog.IsDerivedProviderVisible(u.ProviderId) &&
                 !configuredProviderIds.Contains(u.ProviderId))
             .Select(u => new ProviderConfig
             {
@@ -589,8 +589,8 @@ public partial class SettingsWindow : Window
         headerPanel.Children.Add(notifyCheckBox);
 
         // Status badge if not configured
-        var inputMode = GetProviderInputMode(config, usage, isDerived);
-        bool isInactive = IsProviderInactive(config, usage, isDerived, inputMode);
+        var inputMode = ProviderSettingsCatalog.GetInputMode(config, usage, isDerived);
+        bool isInactive = ProviderSettingsCatalog.IsInactive(config, usage, isDerived, inputMode);
 
         if (isInactive)
         {
@@ -702,48 +702,6 @@ public partial class SettingsWindow : Window
 
         card.Child = grid;
         ProvidersStack.Children.Add(card);
-    }
-
-    private enum ProviderInputMode
-    {
-        StandardApiKey,
-        DerivedReadOnly,
-        AntigravityAutoDetected,
-        GitHubCopilotAuthStatus,
-        OpenAiSessionStatus
-    }
-
-    private ProviderInputMode GetProviderInputMode(ProviderConfig config, ProviderUsage? usage, bool isDerived)
-    {
-        if (isDerived)
-        {
-            return ProviderInputMode.DerivedReadOnly;
-        }
-
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId);
-        return canonicalProviderId switch
-        {
-            "antigravity" => ProviderInputMode.AntigravityAutoDetected,
-            "github-copilot" => ProviderInputMode.GitHubCopilotAuthStatus,
-            "codex" => ProviderInputMode.OpenAiSessionStatus,
-            "openai" when usage?.IsQuotaBased == true || IsSessionToken(config.ApiKey) => ProviderInputMode.OpenAiSessionStatus,
-            _ => ProviderInputMode.StandardApiKey
-        };
-    }
-
-    private bool IsProviderInactive(ProviderConfig config, ProviderUsage? usage, bool isDerived, ProviderInputMode inputMode)
-    {
-        if (isDerived)
-        {
-            return false;
-        }
-
-        return inputMode switch
-        {
-            ProviderInputMode.AntigravityAutoDetected => usage == null || !usage.IsAvailable,
-            ProviderInputMode.OpenAiSessionStatus => string.IsNullOrWhiteSpace(config.ApiKey) && !(usage?.IsAvailable == true),
-            _ => string.IsNullOrEmpty(config.ApiKey)
-        };
     }
 
     private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderInputMode inputMode)
@@ -858,7 +816,7 @@ public partial class SettingsWindow : Window
         var isCodex = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId)
             .Equals("codex", StringComparison.OrdinalIgnoreCase);
         var providerSessionLabel = isCodex ? "OpenAI Codex" : "OpenAI";
-        var hasSessionToken = IsSessionToken(config.ApiKey);
+        var hasSessionToken = ProviderSettingsCatalog.IsSessionToken(config.ApiKey);
         var isAuthenticated = hasSessionToken || (usage != null && usage.IsAvailable);
         var accountName = usage?.AccountName;
 
@@ -961,12 +919,6 @@ public partial class SettingsWindow : Window
         };
         statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
         return statusText;
-    }
-
-    private static bool IsSessionToken(string? apiKey)
-    {
-        return !string.IsNullOrWhiteSpace(apiKey) &&
-               !apiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
     }
 
     private void RefreshTrayIcons()
@@ -1705,11 +1657,6 @@ public partial class SettingsWindow : Window
     private static string GetProviderDisplayName(string providerId)
     {
         return ProviderMetadataCatalog.GetDisplayName(providerId);
-    }
-
-    private static bool IsDerivedProviderVisibleInSettings(string? providerId)
-    {
-        return string.Equals(providerId, "codex.spark", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task PersistAllSettingsAsync(bool showErrorDialog)
