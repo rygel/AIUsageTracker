@@ -144,7 +144,14 @@ public class DatabaseMigrationService
             );
         ");
 
+        EnsureColumn(connection, "providers", "provider_name", "TEXT");
+        EnsureColumn(connection, "providers", "account_name", "TEXT");
+        EnsureColumn(connection, "providers", "created_at", "TEXT");
+        EnsureColumn(connection, "providers", "updated_at", "TEXT");
+        EnsureColumn(connection, "providers", "is_active", "INTEGER NOT NULL DEFAULT 1");
+        EnsureColumn(connection, "providers", "config_json", "TEXT");
         EnsureColumn(connection, "providers", "auth_source", "TEXT DEFAULT 'manual'");
+        EnsureColumn(connection, "providers", "plan_type", "TEXT DEFAULT 'usage'");
         EnsureColumn(connection, "provider_history", "details_json", "TEXT");
         EnsureColumn(connection, "provider_history", "response_latency_ms", "REAL NOT NULL DEFAULT 0");
 
