@@ -39,7 +39,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider);
+        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var forecasts = normalizedIds.ToDictionary(
             id => id,
@@ -72,7 +72,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider);
+        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var snapshots = normalizedIds.ToDictionary(
             id => id,
@@ -104,7 +104,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider);
+        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var snapshots = normalizedIds.ToDictionary(
             id => id,

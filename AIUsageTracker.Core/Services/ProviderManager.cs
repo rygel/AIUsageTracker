@@ -39,7 +39,7 @@ public class ProviderManager : IDisposable
             return _lastConfigs;
         }
 
-        await _configSemaphore.WaitAsync();
+        await _configSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
             if (!forceRefresh && _lastConfigs != null && DateTime.UtcNow - _lastConfigLoadTime < _configCacheValidity)
@@ -48,7 +48,7 @@ public class ProviderManager : IDisposable
             }
 
             _logger.LogDebug("Loading configs from file");
-            var configs = (await _configLoader.LoadConfigAsync()).ToList();
+            var configs = (await _configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
             _lastConfigs = configs;
             _lastConfigLoadTime = DateTime.UtcNow;
             return configs;
@@ -65,7 +65,7 @@ public class ProviderManager : IDisposable
         IReadOnlyCollection<string>? includeProviderIds = null,
         IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
     {
-        await _refreshSemaphore.WaitAsync();
+        await _refreshSemaphore.WaitAsync().ConfigureAwait(false);
         var semaphoreReleased = false;
         try
         {
@@ -75,7 +75,7 @@ public class ProviderManager : IDisposable
                 var existingTask = _refreshTask;
                 _refreshSemaphore.Release();
                 semaphoreReleased = true;
-                return await existingTask;
+                return await existingTask.ConfigureAwait(false);
             }
 
             if (!forceRefresh && _lastUsages.Count > 0)
@@ -89,7 +89,7 @@ public class ProviderManager : IDisposable
             var currentTask = _refreshTask;
             _refreshSemaphore.Release();
             semaphoreReleased = true;
-            return await currentTask;
+            return await currentTask.ConfigureAwait(false);
         }
         finally
         {
@@ -109,7 +109,7 @@ public class ProviderManager : IDisposable
         _logger.LogDebug("Starting FetchAllUsageInternal...");
         var configs = overrideConfigs != null
             ? overrideConfigs.Select(CloneConfig).ToList()
-            : (await GetConfigsAsync(forceRefresh: true)).ToList();
+            : (await GetConfigsAsync(forceRefresh: true).ConfigureAwait(false)).ToList();
 
         if (overrideConfigs == null)
         {
@@ -144,10 +144,10 @@ public class ProviderManager : IDisposable
 
         var tasks = configs.Select(async config =>
         {
-            return await FetchSingleProviderUsageAsync(config, progressCallback);
+            return await FetchSingleProviderUsageAsync(config, progressCallback).ConfigureAwait(false);
         });
 
-        var nestedResults = await Task.WhenAll(tasks);
+        var nestedResults = await Task.WhenAll(tasks).ConfigureAwait(false);
         results.AddRange(nestedResults.SelectMany(x => x));
         _lastUsages = results;
         return results;
@@ -155,7 +155,7 @@ public class ProviderManager : IDisposable
 
     public async Task<List<ProviderUsage>> GetUsageAsync(string providerId)
     {
-        var configs = await GetConfigsAsync(forceRefresh: false);
+        var configs = await GetConfigsAsync(forceRefresh: false).ConfigureAwait(false);
         var config = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
         
         if (config == null)
@@ -178,7 +178,7 @@ public class ProviderManager : IDisposable
             };
         }
 
-        return await FetchSingleProviderUsageAsync(config, null);
+        return await FetchSingleProviderUsageAsync(config, null).ConfigureAwait(false);
     }
 
     private async Task<List<ProviderUsage>> FetchSingleProviderUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback)

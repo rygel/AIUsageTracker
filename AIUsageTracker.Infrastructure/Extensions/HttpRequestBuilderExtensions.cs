@@ -97,8 +97,8 @@ public static class HttpRequestBuilderExtensions
         try
         {
             logger?.LogDebug("Sending GET request to {Url} for provider {ProviderId}", url, providerId);
-            
-            var response = await httpClient.SendAsync(request, cancellationToken);
+
+            var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             
             logger?.LogDebug("Received response {StatusCode} from {Url}", response.StatusCode, url);
 
@@ -150,7 +150,7 @@ public static class HttpRequestBuilderExtensions
         var response = await httpClient.SendGetBearerAsync(
             url, token, providerId, timeout, logger, cancellationToken);
 
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
