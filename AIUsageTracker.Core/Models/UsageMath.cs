@@ -9,6 +9,22 @@ public static class UsageMath
     private const double AnomalyMadScale = 1.4826;
     private const double MinimumAbsoluteRateDeltaPerDay = 1.0;
 
+#pragma warning disable MA0009 // Simple patterns for parsing percentages, not vulnerable to ReDoS
+    private static readonly System.Text.RegularExpressions.Regex s_usedPattern = new(
+        @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    private static readonly System.Text.RegularExpressions.Regex s_remainingPattern = new(
+        @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    private static readonly System.Text.RegularExpressions.Regex s_percentPattern = new(
+        @"(?<percent>\d+(?:\.\d+)?)\s*%",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+#pragma warning restore MA0009
+
     /// <summary>
     /// Clamps a percentage value to the range [0, 100], handling NaN and Infinity.
     /// </summary>
@@ -105,10 +121,7 @@ public static class UsageMath
             return null;
         }
 
-        var usedMatch = System.Text.RegularExpressions.Regex.Match(
-            value,
-            @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        var usedMatch = s_usedPattern.Match(value);
         if (usedMatch.Success)
         {
             isUsed = true;
@@ -122,10 +135,7 @@ public static class UsageMath
             }
         }
 
-        var remainingMatch = System.Text.RegularExpressions.Regex.Match(
-            value,
-            @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        var remainingMatch = s_remainingPattern.Match(value);
         if (remainingMatch.Success)
         {
             isUsed = false;
@@ -139,11 +149,7 @@ public static class UsageMath
             }
         }
 
-        var match = System.Text.RegularExpressions.Regex.Match(
-            value, 
-            @"(?<percent>\d+(?:\.\d+)?)\s*%", 
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant,
-            System.TimeSpan.FromMilliseconds(100));
+        var match = s_percentPattern.Match(value);
         if (match.Success)
         {
             if (value.Contains("used", StringComparison.OrdinalIgnoreCase))
