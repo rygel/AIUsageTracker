@@ -53,10 +53,10 @@ public class XiaomiProvider : ProviderBase
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.xiaomimimo.com/v1/user/balance");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-
-            var content = await response.Content.ReadAsStringAsync();
+            
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var data = JsonSerializer.Deserialize<XiaomiResponse>(content);
             
             if (data == null || data.Data == null) throw new Exception("Invalid response from Xiaomi API");
