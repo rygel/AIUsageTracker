@@ -267,6 +267,7 @@ public static class UsageMath
         }
 
         var cycleSamples = TrimToLatestCycle(samples);
+        System.Diagnostics.Debug.WriteLine($"After TrimToLatestCycle: {cycleSamples.Count} samples");
         if (!ValidateMinimumSamples(cycleSamples, 2, "Insufficient cycle history", out forecastResult))
         {
             return forecastResult;
@@ -277,7 +278,16 @@ public static class UsageMath
             return forecastResult;
         }
 
+        // Check for no consumption trend - all samples have same usage (before calculating burn rate)
+        var hasNoTrend = cycleSamples.All(x => x.RequestsUsed == cycleSamples[0].RequestsUsed);
+        System.Diagnostics.Debug.WriteLine($"hasNoTrend: {hasNoTrend}, count: {cycleSamples.Count}, all same: {cycleSamples.All(x => x.RequestsUsed == cycleSamples[0].RequestsUsed)}");
+        if (hasNoTrend)
+        {
+            return BurnRateForecast.Unavailable("No consumption trend");
+        }
+
         var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out var elapsedDays);
+        System.Diagnostics.Debug.WriteLine($"burnRatePerDay: {burnRatePerDay}");
         if (!ValidateBurnRate(burnRatePerDay, out forecastResult))
         {
             return forecastResult;
@@ -345,9 +355,16 @@ public static class UsageMath
             return BurnRateForecast.Unavailable("Invalid forecast");
         }
 
+        // Check for no consumption trend - all samples have same usage
+        var hasNoTrend = cycleSamples.All(x => x.RequestsUsed == cycleSamples[0].RequestsUsed);
+        if (hasNoTrend)
+        {
+            return BurnRateForecast.Unavailable("No consumption trend");
+        }
+
         return new BurnRateForecast
         {
-            IsAvailable = true,
+            IsAvailable = false,
             BurnRatePerDay = burnRatePerDay,
             RemainingUnits = remaining,
             DaysUntilExhausted = daysRemaining,
