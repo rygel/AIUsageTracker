@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Models;
 using System.Net;
 using System.Net.Sockets;
@@ -108,12 +109,8 @@ try
         logger.LogInformation("");
     }
 
-    // Find available port with retry logic for bind races
-    int port = FindAvailablePortWithRetry(preferredPort: 5000, debug: isDebugMode, logger: logger);
-    if (port != 5000)
-    {
-        logger.LogInformation("Port 5000 was in use, using port {Port} instead", port);
-    }
+    // Reserve the canonical monitor port with retry for transient bind races.
+    int port = ResolveCanonicalPort(preferredPort: 5000, debug: isDebugMode, logger: logger);
 
     logger.LogDebug("Configuring web host on port {Port}...", port);
     logger.LogDebug("Base Directory: {BaseDir}", AppDomain.CurrentDomain.BaseDirectory);
@@ -410,8 +407,8 @@ finally
     startupMutex?.Dispose();
 }
 
-// Helper: Find available port with actual bind retry (handles race conditions)
-static int FindAvailablePortWithRetry(int preferredPort, bool debug, ILogger logger)
+// Helper: Resolve canonical monitor port with bind retry (no alternate-port scanning).
+static int ResolveCanonicalPort(int preferredPort, bool debug, ILogger logger)
 {
     var maxAttempts = 10;
     var attemptDelay = TimeSpan.FromMilliseconds(100);
@@ -434,48 +431,44 @@ static int FindAvailablePortWithRetry(int preferredPort, bool debug, ILogger log
             {
                 if (debug) logger.LogDebug("Port {Port} in use on attempt {Attempt}, retrying...", preferredPort, attempt);
                 Thread.Sleep(attemptDelay);
+                continue;
             }
-            else
-            {
-                if (debug) logger.LogDebug("Port {Port} still in use after {MaxAttempts} attempts, trying alternatives", preferredPort, maxAttempts);
-            }
+
+                logger.LogWarning("Preferred port {Port} is unavailable after {Attempts} attempts.", preferredPort, maxAttempts);
+                break;
         }
     }
 
-    // Fall back to scanning available ports
-    if (debug) logger.LogDebug("Port {Port} unavailable after retries, scanning for alternatives...", preferredPort);
+    logger.LogWarning("Preferred port {Port} was unavailable; selecting a random high port", preferredPort);
+    return GetRandomHighPort(logger);
+}
 
-    // Try ports 5001-5010 with actual bind
-    for (int port = 5001; port <= 5010; port++)
+// Helper: Get a random high available port.
+static int GetRandomHighPort(ILogger logger)
+{
+    var random = new Random();
+    const int minPort = 49152;
+    const int maxPort = 65535;
+    const int attempts = 200;
+
+    for (int attempt = 0; attempt < attempts; attempt++)
     {
+        var candidate = random.Next(minPort, maxPort + 1);
         try
         {
-            using var listener = new TcpListener(IPAddress.Loopback, port);
+            using var listener = new TcpListener(IPAddress.Loopback, candidate);
             listener.Start();
             listener.Stop();
-            if (debug) logger.LogDebug("Found available port {Port}", port);
-            return port;
+            logger.LogInformation("Using random high port {Port}", candidate);
+            return candidate;
         }
         catch (SocketException)
         {
-            // Port not available, try next
+            // Keep searching.
         }
     }
 
-    // Fall back to random available port
-    var randomPort = GetRandomAvailablePort();
-    if (debug) logger.LogDebug("Using random port {Port}", randomPort);
-    return randomPort;
-}
-
-// Helper: Get random available port
-static int GetRandomAvailablePort()
-{
-    using var listener = new TcpListener(IPAddress.Loopback, 0);
-    listener.Start();
-    int port = ((IPEndPoint)listener.LocalEndpoint).Port;
-    listener.Stop();
-    return port;
+    throw new InvalidOperationException($"No available high port found in range {minPort}-{maxPort}.");
 }
 
 // Define partial Program class to hold static methods needed by other files
@@ -571,15 +564,7 @@ public partial class Program
     {
         var appDataRoot = pathProvider.GetAppDataRoot();
         var userProfileRoot = pathProvider.GetUserProfileRoot();
-
-        return new[]
-        {
-            Path.Combine(appDataRoot, "monitor.json"),
-            Path.Combine(appDataRoot, "Monitor", "monitor.json"),
-            Path.Combine(appDataRoot, "Agent", "monitor.json"),
-            Path.Combine(userProfileRoot, ".ai-consumption-tracker", "monitor.json"),
-            Path.Combine(userProfileRoot, ".opencode", "monitor.json")
-        };
+        return MonitorInfoPathCatalog.GetWriteCandidatePaths(appDataRoot, userProfileRoot);
     }
 }
 

@@ -142,6 +142,7 @@ public class MonitorService : IMonitorService
             }
             
             LogDiagnostic("monitor.json missing, stale, or invalid; using default port 5000");
+            AgentUrl = "http://localhost:5000";
             LastAgentErrors = new List<string>();
         }
         catch (Exception ex)

@@ -659,6 +659,13 @@ IMPORTANT: **All release-related changes MUST be made via pull request**. Never 
    - create and push the release tag manually with maintainer credentials, or
    - trigger the `Create Release` workflow with `skip_file_updates=true` only if you want the workflow summary/help text; GitHub Actions itself must not be relied on to create the tag in this repository because repository rules block `GITHUB_TOKEN` tag creation
 
+### Next Release Checklist
+1. Prepare version/changelog updates on a feature branch and merge them to the target release branch.
+2. If the release-prep PR is already merged, run `Create Release` with `skip_file_updates=true`; otherwise leave it `false` so the workflow can still push the version-file commit.
+3. Create and push the release tag manually with maintainer credentials.
+4. Verify the `Publish & Distribute` workflow starts from the tag push and completes successfully.
+5. After assets are published, update the appcast files if required by the channel/release type.
+
 When preparing a new release (e.g., v2.2.0), ensure the following files are updated with the new version number:
 
 ### 1. Project Files (.csproj)

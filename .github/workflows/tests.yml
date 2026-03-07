@@ -110,6 +110,41 @@ jobs:
           retention-days: 3
 
   # Job 3: Monitor tests on Windows
+  monitor-startup-config-windows:
+    name: Monitor Startup Config (Windows)
+    needs: prepare
+    runs-on: windows-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Download test binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: test-binaries-debug
+          path: .\_ci_test_binaries
+
+      - name: Run Monitor startup/config tests
+        timeout-minutes: 3
+        shell: pwsh
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
+          -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Tests.dll
+          -SuiteName monitor-startup-config
+          -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
+          -AdditionalTestCaseFilter "FullyQualifiedName~MonitorStartupPathTests|FullyQualifiedName~MonitorProgramTests|FullyQualifiedName~MonitorClientTests|FullyQualifiedName~MonitorServiceTests|FullyQualifiedName~StartupAntiHammerTests"
+          -MaxRetries 0
+          -AttemptTimeoutMinutes 3
+          -HangTimeoutSeconds 180
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-startup-config-results
+          path: TestResults/monitor-startup-config*.trx
+          retention-days: 3
+
+  # Job 4: Monitor tests on Windows
   monitor-tests-windows:
     name: Monitor Tests (Windows)
     needs: prepare
@@ -143,7 +178,7 @@ jobs:
           path: TestResults/monitor-tests*.trx
           retention-days: 3
 
-  # Job 4: Web tests on Windows (requires Web app running)
+  # Job 5: Web tests on Windows (requires Web app running)
   web-tests-windows:
     name: Web Tests (Windows)
     needs: prepare
@@ -246,7 +281,7 @@ jobs:
           path: TestResults/web-tests*.trx
           retention-days: 3
 
-  # Job 5: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
+  # Job 6: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
   core-tests-cross-platform:
     name: Core Tests (${{ matrix.os }})
     needs: prepare
@@ -283,10 +318,10 @@ jobs:
           echo "Core and Infrastructure build successfully on Linux"
           echo "Note: Full test suite requires Windows (Windows-specific dependencies)"
 
-  # Job 6: Verify all tests passed
+  # Job 7: Verify all tests passed
   test-summary:
     name: Test Summary
-    needs: [prepare, core-tests-windows, monitor-tests-windows, web-tests-windows, core-tests-cross-platform]
+    needs: [prepare, core-tests-windows, monitor-startup-config-windows, monitor-tests-windows, web-tests-windows, core-tests-cross-platform]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -296,6 +331,7 @@ jobs:
         run: |
           PREPARE="${{ needs.prepare.result }}"
           CORE="${{ needs.core-tests-windows.result }}"
+          MONITOR_STARTUP="${{ needs.monitor-startup-config-windows.result }}"
           MONITOR="${{ needs.monitor-tests-windows.result }}"
           WEB="${{ needs.web-tests-windows.result }}"
           CROSS="${{ needs.core-tests-cross-platform.result }}"
@@ -303,11 +339,12 @@ jobs:
           echo "Test Results:"
           echo "  Prepare: $PREPARE"
           echo "  Core Tests (Windows): $CORE"
+          echo "  Monitor Startup Config (Windows): $MONITOR_STARTUP"
           echo "  Monitor Tests (Windows): $MONITOR"
           echo "  Web Tests (Windows): $WEB"
           echo "  Core Tests (Linux): $CROSS"
           
-          if [ "$PREPARE" != "success" ] || [ "$CORE" != "success" ] || [ "$MONITOR" != "success" ] || [ "$WEB" != "success" ] || [ "$CROSS" != "success" ]; then
+          if [ "$PREPARE" != "success" ] || [ "$CORE" != "success" ] || [ "$MONITOR_STARTUP" != "success" ] || [ "$MONITOR" != "success" ] || [ "$WEB" != "success" ] || [ "$CROSS" != "success" ]; then
             echo "❌ Some tests failed"
             exit 1
           else

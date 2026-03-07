@@ -14,8 +14,44 @@ public class MonitorLauncher
     private const int StopWaitSeconds = 5;
     private static ILogger<MonitorLauncher>? _logger;
     private static readonly SemaphoreSlim StartupSemaphore = new(1, 1);
+    private static Func<IEnumerable<string>>? _monitorInfoCandidatePathsOverride;
+    private static Func<int, Task<bool>>? _healthCheckOverride;
+    private static Func<int, Task<bool>>? _processRunningOverride;
 
     public static void SetLogger(ILogger<MonitorLauncher> logger) => _logger = logger;
+
+    internal static IDisposable PushTestOverrides(
+        IEnumerable<string>? monitorInfoCandidatePaths = null,
+        Func<int, Task<bool>>? healthCheckAsync = null,
+        Func<int, Task<bool>>? processRunningAsync = null)
+    {
+        var previousCandidatePaths = _monitorInfoCandidatePathsOverride;
+        var previousHealthCheck = _healthCheckOverride;
+        var previousProcessCheck = _processRunningOverride;
+
+        if (monitorInfoCandidatePaths != null)
+        {
+            var paths = monitorInfoCandidatePaths.ToArray();
+            _monitorInfoCandidatePathsOverride = () => paths;
+        }
+
+        if (healthCheckAsync != null)
+        {
+            _healthCheckOverride = healthCheckAsync;
+        }
+
+        if (processRunningAsync != null)
+        {
+            _processRunningOverride = processRunningAsync;
+        }
+
+        return new TestOverrideScope(() =>
+        {
+            _monitorInfoCandidatePathsOverride = previousCandidatePaths;
+            _healthCheckOverride = previousHealthCheck;
+            _processRunningOverride = previousProcessCheck;
+        });
+    }
 
 
     private static async Task<MonitorInfo?> GetAgentInfoAsync()
@@ -90,6 +126,11 @@ public class MonitorLauncher
 
     private static async Task<bool> CheckHealthAsync(int port)
     {
+        if (_healthCheckOverride != null)
+        {
+            return await _healthCheckOverride(port).ConfigureAwait(false);
+        }
+
         try
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
@@ -104,6 +145,11 @@ public class MonitorLauncher
 
     private static Task<bool> CheckProcessRunningAsync(int processId)
     {
+        if (_processRunningOverride != null)
+        {
+            return _processRunningOverride(processId);
+        }
+
         if (processId <= 0) return Task.FromResult(false);
         try
         {
@@ -179,29 +225,16 @@ public class MonitorLauncher
             var monitorExeName = OperatingSystem.IsWindows()
                 ? "AIUsageTracker.Monitor.exe"
                 : "AIUsageTracker.Monitor";
-            var legacyAgentExeName = OperatingSystem.IsWindows()
-                ? "AIConsumptionTracker.Agent.exe"
-                : "AIConsumptionTracker.Agent";
-            
             // Try to find Agent executable
             var possiblePaths = new[]
             {
                 // Development paths
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0", monitorExeName),
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0", monitorExeName),
-                // Legacy Windows-targeted development paths
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0-windows10.0.17763.0", "AIUsageTracker.Monitor.exe"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0-windows10.0.17763.0", "AIUsageTracker.Monitor.exe"),
                 // Installed paths
                 Path.Combine(AppContext.BaseDirectory, monitorExeName),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIUsageTracker", monitorExeName),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker", monitorExeName),
-                // Legacy compatibility
-                Path.Combine(AppContext.BaseDirectory, legacyAgentExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIConsumptionTracker", monitorExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", monitorExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIConsumptionTracker", legacyAgentExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", legacyAgentExeName),
             };
 
             MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Length} common locations)...");
@@ -279,7 +312,6 @@ public class MonitorLauncher
             
             // Fallback: try to find and kill by process name
             var processes = Process.GetProcessesByName("AIUsageTracker.Monitor")
-                .Concat(Process.GetProcessesByName("AIConsumptionTracker.Agent"))
                 .ToArray();
             var stoppedAny = false;
             foreach (var process in processes)
@@ -425,16 +457,36 @@ public class MonitorLauncher
 
     private static IEnumerable<string> GetMonitorInfoCandidatePaths()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return new[]
+        if (_monitorInfoCandidatePathsOverride != null)
         {
-            Path.Combine(appData, "AIUsageTracker", "monitor.json"),
-            Path.Combine(appData, "AIUsageTracker", "Monitor", "monitor.json"),
-            Path.Combine(appData, "AIUsageTracker", "Agent", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Monitor", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Agent", "monitor.json")
-        };
+            return _monitorInfoCandidatePathsOverride();
+        }
+
+        var appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var userProfileRoot = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return MonitorInfoPathCatalog.GetReadCandidatePaths(appDataRoot, userProfileRoot);
+    }
+
+    private sealed class TestOverrideScope : IDisposable
+    {
+        private readonly Action _reset;
+        private bool _disposed;
+
+        public TestOverrideScope(Action reset)
+        {
+            _reset = reset;
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _reset();
+        }
     }
 }
 

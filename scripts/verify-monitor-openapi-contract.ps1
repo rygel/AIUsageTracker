@@ -10,8 +10,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 
 if ([string]::IsNullOrWhiteSpace($AgentExecutablePath)) {
     $candidateExecutables = @(
-        (Join-Path $projectRoot "AIUsageTracker.Monitor\bin\Debug\net8.0\AIUsageTracker.Monitor.exe"),
-        (Join-Path $projectRoot "AIUsageTracker.Monitor\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.exe")
+        (Join-Path $projectRoot "AIUsageTracker.Monitor\bin\Debug\net8.0\AIUsageTracker.Monitor.exe")
     )
 
     $defaultExe = $candidateExecutables | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
@@ -54,7 +53,7 @@ function Get-OpenApiOperations {
             continue
         }
 
-        if ($line -match '^\s{2}\S.+:\s*$' -and $line -notmatch '^\s{2}/api/') {
+        if ($currentPath -and $line -match '^\s{2}\S.+:\s*$' -and $line -notmatch '^\s{2}/api/') {
             $currentPath = $null
         }
     }
@@ -68,10 +67,8 @@ function Wait-ForAgentPort {
         [int]$TimeoutSeconds
     )
 
-    $agentInfoPaths = @(
-        (Join-Path $env:LOCALAPPDATA "AIUsageTracker\monitor.json"),
-        (Join-Path $env:LOCALAPPDATA "AIConsumptionTracker\monitor.json")
-    )
+    $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+    $agentInfoPath = Join-Path $localAppData "AIUsageTracker\monitor.json"
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
     while ((Get-Date) -lt $deadline) {
@@ -87,30 +84,39 @@ function Wait-ForAgentPort {
             }
         }
 
-        foreach ($agentInfoPath in $agentInfoPaths) {
-            if (Test-Path -LiteralPath $agentInfoPath) {
-                try {
-                    $agentInfo = Get-Content -LiteralPath $agentInfoPath -Raw | ConvertFrom-Json
-                    if ($agentInfo -and [int]$agentInfo.processId -eq $ProcessId -and [int]$agentInfo.port -gt 0) {
-                        return [int]$agentInfo.port
-                    }
-                }
-                catch {
-                    # Keep polling while agent writes startup file.
-                }
-            }
-        }
-
-        foreach ($candidatePort in 5000..5010) {
+        if (Test-Path -LiteralPath $agentInfoPath) {
             try {
-                $health = Invoke-RestMethod -Uri "http://localhost:$candidatePort/api/health" -TimeoutSec 1
-                if ($health -and [int]$health.processId -eq $ProcessId) {
-                    return $candidatePort
+                $agentInfo = Get-Content -LiteralPath $agentInfoPath -Raw | ConvertFrom-Json
+                if ($agentInfo -and [int]$agentInfo.port -gt 0) {
+                    $reportedPort = [int]$agentInfo.port
+                    if (-not $agentInfo.processId -and -not $agentInfo.process_id -or
+                        [int]$agentInfo.processId -eq $ProcessId -or [int]$agentInfo.process_id -eq $ProcessId) {
+                        return $reportedPort
+                    }
                 }
             }
             catch {
-                # Port not serving expected health endpoint yet.
+                # Keep polling while monitor writes startup file.
             }
+        }
+
+        try {
+            $health = Invoke-RestMethod -Uri "http://localhost:5000/api/health" -TimeoutSec 1
+            $healthPort = [int]$health.port
+            if ($healthPort -le 0) {
+                continue
+            }
+
+            $healthProcessId = $null
+            if ($health.PSObject.Properties.Name -contains "processId" -and $health.processId) { $healthProcessId = [int]$health.processId }
+            elseif ($health.PSObject.Properties.Name -contains "process_id" -and $health.process_id) { $healthProcessId = [int]$health.process_id }
+
+            if (-not $healthProcessId -or $healthProcessId -eq $ProcessId) {
+                return $healthPort
+            }
+        }
+        catch {
+            # Health endpoint not ready yet.
         }
 
         Start-Sleep -Milliseconds 500
@@ -127,7 +133,9 @@ try {
     }
 
     Write-Host "Starting Agent for live endpoint inspection..." -ForegroundColor Cyan
-    $agentProcess = Start-Process -FilePath $AgentExecutablePath -PassThru
+    $agentProcess = Start-Process -FilePath $AgentExecutablePath `
+        -ArgumentList "--urls", "http://localhost:5000", "--debug" `
+        -PassThru
 
     $port = Wait-ForAgentPort -ProcessId $agentProcess.Id -TimeoutSeconds $StartupTimeoutSeconds
     $diagnosticsUri = "http://localhost:$port/api/diagnostics"
@@ -197,5 +205,3 @@ finally {
         Stop-Process -Id $agentProcess.Id
     }
 }
-
-

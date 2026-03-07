@@ -7,6 +7,7 @@ param(
 
     [string]$ResultsDirectory = "TestResults",
     [string]$QuarantineFile = ".github\test-quarantine.txt",
+    [string]$AdditionalTestCaseFilter = "",
     [int]$MaxRetries = 1,
     [int]$AttemptTimeoutMinutes = 10,
     [int]$HangTimeoutSeconds = 90
@@ -55,6 +56,15 @@ if (Test-Path -LiteralPath $QuarantineFile) {
     if ($quarantinedTests.Count -gt 0) {
         $testCaseFilter = ($quarantinedTests | ForEach-Object { "FullyQualifiedName!=$_" }) -join "&"
         Write-Host "Applying quarantine filter with $($quarantinedTests.Count) test(s)." -ForegroundColor Yellow
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($AdditionalTestCaseFilter)) {
+    if ([string]::IsNullOrWhiteSpace($testCaseFilter)) {
+        $testCaseFilter = $AdditionalTestCaseFilter
+    }
+    else {
+        $testCaseFilter = "($testCaseFilter)&($AdditionalTestCaseFilter)"
     }
 }
 

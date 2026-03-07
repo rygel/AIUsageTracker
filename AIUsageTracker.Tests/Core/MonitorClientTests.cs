@@ -81,10 +81,13 @@ public class MonitorClientTests
     [Fact]
     public async Task MonitorLauncher_GetAndValidateMonitorInfo_ReturnsNull_WhenHealthFails()
     {
-        // Act
+        using var _ = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: Array.Empty<string>(),
+            healthCheckAsync: _ => Task.FromResult(false),
+            processRunningAsync: _ => Task.FromResult(false));
+
         var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
 
-        // Assert
         Assert.Null(result);
     }
 
