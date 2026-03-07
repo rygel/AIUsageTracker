@@ -158,7 +158,7 @@ $newListPath = Join-Path $outputDir "new-analyzer-warnings.txt"
 $summaryPath = Join-Path $outputDir "analyzer-regression-summary.md"
 
 @(
-    "Analyzer warnings introduced by this PR on files changed from $baseRef:",
+    "Analyzer warnings introduced by this PR on files changed from ${baseRef}:",
     ""
 ) + ($newWarnings | Sort-Object) | Set-Content $newListPath
 
