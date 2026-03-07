@@ -332,17 +332,17 @@ public class JsonConfigLoader : IConfigLoader
              try
              {
                 var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                root = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new Dictionary<string, object>();
+                root = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new Dictionary<string, object>(StringComparer.Ordinal);
              }
              catch (Exception ex)
              {
                 _logger.LogDebug(ex, "Failed to load existing preferences container from {Path}; rebuilding it", path);
-                root = new Dictionary<string, object>();
+                 root = new Dictionary<string, object>(StringComparer.Ordinal);
              }
         }
         else
         {
-            root = new Dictionary<string, object>();
+            root = new Dictionary<string, object>(StringComparer.Ordinal);
         }
 
         root["app_settings"] = preferences;

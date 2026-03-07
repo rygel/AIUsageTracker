@@ -79,7 +79,7 @@ public class GeminiProvider : ProviderBase
         {
             try
             {
-                var accessToken = await RefreshToken(account.RefreshToken);
+                var accessToken = await RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await FetchQuota(accessToken, account.ProjectId);
                 var allBuckets = buckets ?? new List<Bucket>();
 
@@ -229,7 +229,7 @@ public class GeminiProvider : ProviderBase
         }
     }
 
-    private async Task<string> RefreshToken(string refreshToken)
+    private async Task<string> RefreshTokenAsync(string refreshToken)
     {
         string clientId = GeminiCliClientId;
 
@@ -275,7 +275,7 @@ public class GeminiProvider : ProviderBase
     private async Task<string> DoRefreshToken(string refreshToken, string clientId)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
-        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "client_id", clientId },
             { "client_secret", "" },

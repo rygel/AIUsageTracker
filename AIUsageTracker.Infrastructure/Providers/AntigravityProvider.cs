@@ -601,7 +601,7 @@ public class AntigravityProvider : ProviderBase
     {
         return modelConfigs
             .Where(c => !string.IsNullOrEmpty(c.Label))
-            .ToDictionary(c => c.Label!, c => c);
+            .ToDictionary(c => c.Label!, c => c, StringComparer.Ordinal);
     }
 
     private double? ResolveRemainingPercentage(string label, ClientModelConfig? modelConfig)
@@ -665,7 +665,7 @@ public class AntigravityProvider : ProviderBase
     private static List<ProviderUsageDetail> SortDetails(List<ProviderUsageDetail> details)
     {
         return details
-            .OrderBy(d => d.Name.StartsWith("[Credits]", StringComparison.Ordinal) ? "0" + d.Name : "1" + d.Name)
+            .OrderBy(d => d.Name.StartsWith("[Credits]", StringComparison.Ordinal) ? "0" + d.Name : "1" + d.Name, StringComparer.Ordinal)
             .ToList();
     }
 
