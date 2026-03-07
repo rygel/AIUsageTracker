@@ -72,7 +72,7 @@ public class DatabaseMigrationService
 
         using var command = connection.CreateCommand();
         command.CommandText = sql;
-        var count = Convert.ToInt32(command.ExecuteScalar());
+        var count = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
         return count > 0;
     }
 
@@ -86,7 +86,7 @@ public class DatabaseMigrationService
 
         try
         {
-            var count = Convert.ToInt32(command.ExecuteScalar());
+            var count = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
             return count > 0;
         }
         catch (SqliteException)
