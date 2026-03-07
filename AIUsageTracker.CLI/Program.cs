@@ -70,8 +70,8 @@ class Program
         }
 
         var command = args[0].ToLower(System.Globalization.CultureInfo.InvariantCulture);
-        var showAll = args.Contains("--all");
-        var json = args.Contains("--json");
+        var showAll = args.Contains("--all", StringComparer.Ordinal);
+        var json = args.Contains("--json", StringComparer.Ordinal);
 
         // Setup DI
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();

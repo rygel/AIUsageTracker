@@ -26,7 +26,7 @@ public class ChartsModel : PageModel
     }
 
     public List<ChartDataPoint>? ChartData { get; set; }
-    public Dictionary<string, string> ProviderColors { get; set; } = new();
+    public Dictionary<string, string> ProviderColors { get; set; } = new(StringComparer.Ordinal);
     public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
 
     public async Task OnGetAsync(int hours = 24)
