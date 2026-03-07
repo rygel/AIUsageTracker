@@ -35,6 +35,14 @@ public class OpenCodeZenProvider : ProviderBase
         _cliPath = cliPath;
     }
 
+    private static readonly Regex[] CleanupPatterns = new[]
+    {
+        new Regex("\u001b\\[[0-9;]*m", RegexOptions.Compiled),
+        new Regex("\u001b\\[K", RegexOptions.Compiled),
+        new Regex("[0-9]+A", RegexOptions.Compiled),
+        new Regex("\u001b\\[[0-9]*;[0-9]*m", RegexOptions.Compiled)
+    };
+
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Check if CLI exists first
@@ -119,90 +127,247 @@ public class OpenCodeZenProvider : ProviderBase
 
     private ProviderUsage ParseOutput(string output, ProviderConfig config)
     {
-        var totalCost = 0.0;
-        var sessions = 0;
-        var messages = 0;
-        var avgCostPerDay = 0.0;
+        var cleaned = CleanAnsiOutput(output);
+        
+        var totalCost = ParseValue<double>(cleaned, @"Total Cost\s+\$([0-9.]+)");
+        var sessions = ParseValue<int>(cleaned, @"Sessions\s+([0-9,]+)");
+        var messages = ParseValue<int>(cleaned, @"Messages\s+([0-9,]+)");
+        var days = ParseValue<int>(cleaned, @"Days\s+(\d+)");
+        var avgCostPerDay = ParseValue<double>(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
+        var avgTokensPerSession = ParseValue<double>(cleaned, @"Avg Tokens/Session\s+([0-9.,KM]+)");
+        var medianTokensPerSession = ParseValue<double>(cleaned, @"Median Tokens/Session\s+([0-9.,KM]+)");
+        var inputTokens = ParseValue<double>(cleaned, @"Input\s+([0-9.,KM]+)");
+        var outputTokens = ParseValue<double>(cleaned, @"Output\s+([0-9.,KM]+)");
+        var cacheRead = ParseValue<double>(cleaned, @"Cache Read\s+([0-9.,KM]+)");
+        var cacheWrite = ParseValue<double>(cleaned, @"Cache Write\s+([0-9.,KM]+)");
 
-        // Clean ANSI codes (simplified - remove common escape sequences)
-        var cleaned = output
-            .Replace("\u001b[", "")
-            .Replace("0m", "")
-            .Replace("1m", "")
-            .Replace("32m", "")
-            .Replace("36m", "")
-            .Replace("90m", "");
-
-        // Parse Total Cost
-        var costMatch = Regex.Match(cleaned, @"Total Cost\s+\$(?<cost>[0-9.]+)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        if (costMatch.Success && costMatch.Groups.Count > 1)
+        var details = new List<ProviderUsageDetail>();
+        
+        // Add overview details
+        details.Add(new ProviderUsageDetail
         {
-            double.TryParse(costMatch.Groups["cost"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out totalCost);
-        }
-
-        // Parse Sessions
-        var sessionsMatch = Regex.Match(cleaned, @"Sessions\s+(?<sessions>[0-9,]+)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        if (sessionsMatch.Success && sessionsMatch.Groups.Count > 1)
+            Name = "Sessions",
+            Description = $"{sessions:N0} sessions",
+            DetailType = ProviderUsageDetailType.Other,
+            WindowKind = WindowKind.None
+        });
+        
+        details.Add(new ProviderUsageDetail
         {
-            int.TryParse(sessionsMatch.Groups["sessions"].Value.Replace(",", ""), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out sessions);
-        }
-
-        // Parse Messages
-        var messagesMatch = Regex.Match(cleaned, @"Messages\s+(?<messages>[0-9,]+)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        if (messagesMatch.Success && messagesMatch.Groups.Count > 1)
+            Name = "Messages",
+            Description = $"{messages:N0} messages",
+            DetailType = ProviderUsageDetailType.Other,
+            WindowKind = WindowKind.None
+        });
+        
+        details.Add(new ProviderUsageDetail
         {
-            int.TryParse(messagesMatch.Groups["messages"].Value.Replace(",", ""), System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out messages);
-        }
+            Name = "Avg Cost/Day",
+            Description = $"${avgCostPerDay:F2}",
+            DetailType = ProviderUsageDetailType.Other,
+            WindowKind = WindowKind.None
+        });
 
-        // Parse Avg Cost/Day
-        var avgCostMatch = Regex.Match(cleaned, @"Avg Cost/Day\s+\$(?<avgCost>[0-9.]+)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        if (avgCostMatch.Success && avgCostMatch.Groups.Count > 1)
+        // Add token statistics
+        details.Add(new ProviderUsageDetail
         {
-            double.TryParse(avgCostMatch.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out avgCostPerDay);
-        }
+            Name = "Input Tokens",
+            Description = FormatTokens(inputTokens),
+            DetailType = ProviderUsageDetailType.Other,
+            WindowKind = WindowKind.None
+        });
+        
+        details.Add(new ProviderUsageDetail
+        {
+            Name = "Output Tokens",
+            Description = FormatTokens(outputTokens),
+            DetailType = ProviderUsageDetailType.Other,
+            WindowKind = WindowKind.None
+        });
+        
+        details.Add(new ProviderUsageDetail
+        {
+            Name = "Cache Read",
+            Description = FormatTokens(cacheRead),
+            DetailType = ProviderUsageDetailType.Other,
+            WindowKind = WindowKind.None
+        });
+        
+        details.Add(new ProviderUsageDetail
+        {
+            Name = "Cache Write",
+            Description = FormatTokens(cacheWrite),
+            DetailType = ProviderUsageDetailType.Other,
+            WindowKind = WindowKind.None
+        });
 
-        var details = new List<ProviderUsageDetail>
+        // Parse and add per-model breakdown
+        var modelUsage = ParseModelUsage(cleaned);
+        foreach (var model in modelUsage.Take(5)) // Limit to top 5 models
         {
-            new ProviderUsageDetail
+            details.Add(new ProviderUsageDetail
             {
-                Name = "Sessions",
-                Description = $"{sessions} sessions",
+                Name = model.Name,
+                Description = $"{model.Messages:N0} msgs | {FormatTokens(model.Tokens)} | ${model.Cost:F2}",
                 DetailType = ProviderUsageDetailType.Other,
                 WindowKind = WindowKind.None
-            },
-            new ProviderUsageDetail
+            });
+        }
+
+        // Parse and add tool usage
+        var toolUsage = ParseToolUsage(cleaned);
+        foreach (var tool in toolUsage.Take(5)) // Limit to top 5 tools
+        {
+            details.Add(new ProviderUsageDetail
             {
-                Name = "Messages",
-                Description = $"{messages} messages",
+                Name = $"Tool: {tool.Name}",
+                Description = $"{tool.Count:N0} uses ({tool.Percentage:F1}%)",
                 DetailType = ProviderUsageDetailType.Other,
                 WindowKind = WindowKind.None
-            },
-            new ProviderUsageDetail
-            {
-                Name = "Avg Cost/Day",
-                Description = $"${avgCostPerDay:F2}",
-                DetailType = ProviderUsageDetailType.Other,
-                WindowKind = WindowKind.None
-            }
-        };
+            });
+        }
 
         return new ProviderUsage
         {
             ProviderId = ProviderId,
             ProviderName = "OpenCode Zen",
-            RequestsPercentage = 0.0, // Pay as you go, no limit
+            RequestsPercentage = 0.0,
             RequestsUsed = totalCost,
             RequestsAvailable = 0.0,
             UsageUnit = "USD",
             IsQuotaBased = false,
             PlanType = PlanType.Usage,
             IsAvailable = true,
-            Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs)",
+            Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs, {days} days)",
             Details = details,
             AuthSource = config.AuthSource,
             RawJson = output,
             HttpStatus = 200
         };
+    }
+
+    private string CleanAnsiOutput(string output)
+    {
+        var cleaned = output;
+        foreach (var pattern in CleanupPatterns)
+        {
+            cleaned = pattern.Replace(cleaned, "");
+        }
+        return cleaned;
+    }
+
+    private T ParseValue<T>(string input, string pattern) where T : struct
+    {
+        var match = Regex.Match(input, pattern, RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+        if (match.Success && match.Groups.Count > 1)
+        {
+            var valueStr = match.Groups[1].Value.Replace(",", "");
+            
+            if (typeof(T) == typeof(double))
+            {
+                if (double.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+                {
+                    return (T)(object)d;
+                }
+            }
+            else if (typeof(T) == typeof(int))
+            {
+                if (int.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var i))
+                {
+                    return (T)(object)i;
+                }
+            }
+        }
+        return default;
+    }
+
+    private string FormatTokens(double tokens)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        if (tokens >= 1_000_000_000) return (tokens / 1_000_000_000).ToString("F1", culture) + "B";
+        if (tokens >= 1_000_000) return (tokens / 1_000_000).ToString("F1", culture) + "M";
+        if (tokens >= 1_000) return (tokens / 1_000).ToString("F1", culture) + "K";
+        return tokens.ToString("F0", culture);
+    }
+
+    private List<ModelUsage> ParseModelUsage(string input)
+    {
+        var models = new List<ModelUsage>();
+        var modelBlocks = Regex.Split(input, @"─{44,}")
+            .SkipWhile(block => !block.Contains("MODEL USAGE"))
+            .Skip(1)
+            .FirstOrDefault();
+
+        if (string.IsNullOrEmpty(modelBlocks)) return models;
+
+        var modelPattern = new Regex(@"(?<model>[^\n]+)\s+Messages\s+(?<messages>[0-9,]+)\s+Input Tokens\s+(?<input>[0-9.,KM]+)\s+Output Tokens\s+(?<output>[0-9.,KM]+)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+        
+        foreach (Match match in modelPattern.Matches(modelBlocks))
+        {
+            var model = new ModelUsage
+            {
+                Name = match.Groups["model"].Value.Trim(),
+                Messages = int.Parse(match.Groups["messages"].Value.Replace(",", "")),
+                Tokens = ParseTokenCount(match.Groups["input"].Value) + ParseTokenCount(match.Groups["output"].Value),
+                Cost = 0.0
+            };
+            models.Add(model);
+        }
+
+        return models.OrderByDescending(m => m.Cost).ToList();
+    }
+
+    private List<ToolUsage> ParseToolUsage(string input)
+    {
+        var tools = new List<ToolUsage>();
+        var toolBlocks = Regex.Split(input, @"─{44,}")
+            .SkipWhile(block => !block.Contains("TOOL USAGE"))
+            .Skip(1)
+            .FirstOrDefault();
+
+        if (string.IsNullOrEmpty(toolBlocks)) return tools;
+
+        var toolPattern = new Regex(@"(?<tool>\w+)\s+[█]+(?<count>[0-9]+)\s+\((?<percentage>[\d.]+)%\)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+        
+        foreach (Match match in toolPattern.Matches(toolBlocks))
+        {
+            var tool = new ToolUsage
+            {
+                Name = match.Groups["tool"].Value,
+                Count = int.Parse(match.Groups["count"].Value),
+                Percentage = double.Parse(match.Groups["percentage"].Value)
+            };
+            tools.Add(tool);
+        }
+
+        return tools.OrderByDescending(t => t.Count).ToList();
+    }
+
+    private double ParseTokenCount(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return 0;
+        
+        var cleaned = value.Replace(",", "");
+        if (cleaned.EndsWith("B")) return double.Parse(cleaned[..^1]) * 1_000_000_000;
+        if (cleaned.EndsWith("M")) return double.Parse(cleaned[..^1]) * 1_000_000;
+        if (cleaned.EndsWith("K")) return double.Parse(cleaned[..^1]) * 1_000;
+        
+        return double.Parse(cleaned);
+    }
+
+    private class ModelUsage
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Messages { get; set; }
+        public double Tokens { get; set; }
+        public double Cost { get; set; }
+    }
+
+    private class ToolUsage
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Count { get; set; }
+        public double Percentage { get; set; }
     }
 
     private async Task<bool> IsInPath(string command)
