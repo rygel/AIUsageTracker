@@ -22,9 +22,9 @@ public class DataExportService : IDataExportService
 
     public async Task<string> ExportHistoryToCsvAsync()
     {
-        try
+            try
         {
-            var history = await _repository.GetAllHistoryForExportAsync();
+            var history = await _repository.GetAllHistoryForExportAsync().ConfigureAwait(false);
             
             var sb = new StringBuilder();
             sb.AppendLine("provider_id,provider_name,requests_used,requests_available,requests_percentage,is_available,status_message,fetched_at,next_reset_time");
@@ -46,9 +46,9 @@ public class DataExportService : IDataExportService
 
     public async Task<string> ExportHistoryToJsonAsync()
     {
-        try
+            try
         {
-            var history = await _repository.GetAllHistoryForExportAsync(limit: 10000);
+            var history = await _repository.GetAllHistoryForExportAsync(limit: 10000).ConfigureAwait(false);
             return JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
         }
         catch (Exception ex)
@@ -63,7 +63,7 @@ public class DataExportService : IDataExportService
         try
         {
             if (!File.Exists(_dbPath)) return null;
-            return await File.ReadAllBytesAsync(_dbPath);
+            return await File.ReadAllBytesAsync(_dbPath).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

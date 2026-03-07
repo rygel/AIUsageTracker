@@ -72,7 +72,7 @@ public class ResilientHttpClient : IResilientHttpClient, IDisposable
 
         return await _circuitBreakerPolicy
             .WrapAsync(_retryPolicy)
-            .ExecuteAsync(async ct => await _httpClient.SendAsync(request, ct), cancellationToken);
+            .ExecuteAsync(async ct => await _httpClient.SendAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()

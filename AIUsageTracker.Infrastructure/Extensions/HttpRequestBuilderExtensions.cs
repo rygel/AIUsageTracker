@@ -97,60 +97,11 @@ public static class HttpRequestBuilderExtensions
         try
         {
             logger?.LogDebug("Sending GET request to {Url} for provider {ProviderId}", url, providerId);
-            
-            var response = await httpClient.SendAsync(request, cancellationToken);
-            
-            logger?.LogDebug("Received response {StatusCode} from {Url}", response.StatusCode, url);
 
-            // Map HTTP status codes to specific exceptions
-            if (!response.IsSuccessStatusCode)
-            {
-                throw MapHttpStatusToException(providerId, response);
-            }
+            var response = await httpClient.SendGetBearerAsync(
+                url, token, providerId, timeout, logger, cancellationToken);
 
-            return response;
-        }
-        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-        {
-            logger?.LogWarning(ex, "Request to {Url} timed out for provider {ProviderId}", url, providerId);
-            throw new ProviderTimeoutException(
-                providerId,
-                timeout ?? httpClient.Timeout,
-                innerException: ex);
-        }
-        catch (HttpRequestException ex)
-        {
-            logger?.LogWarning(ex, "Network error when calling {Url} for provider {ProviderId}", url, providerId);
-            throw new ProviderNetworkException(
-                providerId,
-                "Connection failed - check network",
-                innerException: ex);
-        }
-        finally
-        {
-            if (timeout.HasValue)
-            {
-                httpClient.Timeout = originalTimeout;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Sends a GET request and deserializes the JSON response.
-    /// </summary>
-    public static async Task<T?> SendGetBearerAsync<T>(
-        this HttpClient httpClient,
-        string url,
-        string token,
-        string providerId,
-        TimeSpan? timeout = null,
-        ILogger? logger = null,
-        CancellationToken cancellationToken = default)
-    {
-        var response = await httpClient.SendGetBearerAsync(
-            url, token, providerId, timeout, logger, cancellationToken);
-
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {

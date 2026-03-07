@@ -39,72 +39,25 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider);
+        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var forecasts = normalizedIds.ToDictionary(
             id => id,
             _ => BurnRateForecast.Unavailable("Insufficient history"),
             StringComparer.OrdinalIgnoreCase);
 
-        foreach (var group in data.GroupBy(r => r.ProviderId, StringComparer.OrdinalIgnoreCase))
+            foreach (var group in data.GroupBy(r => r.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
             var samples = group.Where(x => x.IsAvailable).ToList();
-            forecasts[group.Key] = UsageMath.CalculateBurnRateForecast(samples);
-        }
-
-        _cache.Set(cacheKey, forecasts, TimeSpan.FromMinutes(10));
-        _logger.LogInformation("Analytics: GetBurnRateForecastsAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
-        return forecasts;
-    }
-
-    public async Task<Dictionary<string, ProviderReliabilitySnapshot>> GetProviderReliabilityAsync(
-        IEnumerable<string> providerIds,
-        int lookbackHours = 168,
-        int maxSamplesPerProvider = 1000)
-    {
-        var normalizedIds = NormalizeProviderIds(providerIds);
-        if (!normalizedIds.Any()) return new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase);
-
-        var cacheKey = $"analytics:reliability:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
-        if (_cache.TryGetValue<Dictionary<string, ProviderReliabilitySnapshot>>(cacheKey, out var cached) && cached != null)
-        {
-            return cached;
-        }
-
-        var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider);
-
-        var snapshots = normalizedIds.ToDictionary(
-            id => id,
-            _ => ProviderReliabilitySnapshot.Unavailable("No history"),
-            StringComparer.OrdinalIgnoreCase);
-
-        foreach (var group in data.GroupBy(r => r.ProviderId, StringComparer.OrdinalIgnoreCase))
-        {
-            snapshots[group.Key] = UsageMath.CalculateReliabilitySnapshot(group);
+            snapshots[group.Key] = UsageMath.CalculateUsageAnomalySnapshot(samples);
         }
 
         _cache.Set(cacheKey, snapshots, TimeSpan.FromMinutes(10));
         _logger.LogInformation("Analytics: GetProviderReliabilityAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
         return snapshots;
-    }
-
-    public async Task<Dictionary<string, UsageAnomalySnapshot>> GetUsageAnomaliesAsync(
-        IEnumerable<string> providerIds,
-        int lookbackHours = 72,
-        int maxSamplesPerProvider = 720)
-    {
-        var normalizedIds = NormalizeProviderIds(providerIds);
-        if (!normalizedIds.Any()) return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
-
-        var cacheKey = $"analytics:anomaly:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
-        if (_cache.TryGetValue<Dictionary<string, UsageAnomalySnapshot>>(cacheKey, out var cached) && cached != null)
-        {
-            return cached;
-        }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider);
+        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var snapshots = normalizedIds.ToDictionary(
             id => id,
