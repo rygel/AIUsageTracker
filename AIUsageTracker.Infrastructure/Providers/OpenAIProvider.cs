@@ -74,7 +74,7 @@ public class OpenAIProvider : ProviderBase
 
         if (string.IsNullOrWhiteSpace(accessToken))
         {
-            var nativeAuth = await LoadOpenCodeAuthAsync();
+            var nativeAuth = await LoadOpenCodeAuthAsync().ConfigureAwait(false);
             accessToken = nativeAuth?.Access;
             accountId = nativeAuth?.AccountId;
         }
@@ -128,7 +128,7 @@ public class OpenAIProvider : ProviderBase
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
             {
