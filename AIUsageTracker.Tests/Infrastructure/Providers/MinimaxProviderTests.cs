@@ -42,7 +42,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Contains("30", usage.RequestsUsed.ToString());
-        Assert.Contains("100", usage.RequestsAvailable.ToString());
+        Assert.Contains("30", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Contains("100", usage.RequestsAvailable.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 }

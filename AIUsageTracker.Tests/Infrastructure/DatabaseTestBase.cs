@@ -122,7 +122,7 @@ public abstract class DatabaseTestBase : IDisposable
         command.Parameters.AddWithValue("$used", used);
         command.Parameters.AddWithValue("$available", available);
         command.Parameters.AddWithValue("$pct", pct);
-        command.Parameters.AddWithValue("$at", fetchedAt.ToString("yyyy-MM-dd HH:mm:ss")); // Consistent format
+        command.Parameters.AddWithValue("$at", fetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)); // Consistent format
         command.Parameters.AddWithValue("$avail", isAvailable ? 1 : 0);
         command.Parameters.AddWithValue("$latency", latencyMs);
         command.ExecuteNonQuery();

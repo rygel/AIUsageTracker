@@ -17,9 +17,9 @@ public class UsageAnalyticsIntegrationTests
         var now = DateTime.UtcNow;
         var rows = new[]
         {
-            CreateRow("openai", 10, 100, true, now.AddHours(-3).ToString("yyyy-MM-dd HH:mm:ss")),
+            CreateRow("openai", 10, 100, true, now.AddHours(-3).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
             CreateRow("openai", 20, 100, true, now.AddHours(-2).ToString("O")),
-            CreateRow("openai", 30, 100, true, now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss"))
+            CreateRow("openai", 30, 100, true, now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture))
         };
 
         var dbPath = CreateTempDbPath();

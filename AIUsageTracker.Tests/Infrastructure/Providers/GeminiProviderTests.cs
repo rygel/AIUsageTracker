@@ -61,8 +61,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("user@example.com", usage.AccountName);
-        Assert.Contains("80", usage.RequestsPercentage.ToString());
-        Assert.Contains("20", usage.RequestsUsed.ToString());
+        Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Contains("20", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Assert.Contains("80", usage.Description);
         
         Directory.Delete(tempDir, recursive: true);

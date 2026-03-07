@@ -51,7 +51,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 
         // Assert
         var usage = result.Single();
-        Assert.Contains("80", usage.RequestsPercentage.ToString()); // 80% remaining
+        Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture)); // 80% remaining
         Assert.Contains("80", usage.Description);
     }
 
@@ -132,7 +132,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 
         // Assert
         var usage = result.Single();
-        Assert.Contains("100", usage.RequestsPercentage.ToString());
+        Assert.Contains("100", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Assert.Contains("Remaining", usage.Description);
     }
 }
