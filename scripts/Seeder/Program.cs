@@ -78,7 +78,7 @@ class Program
 
     static int Main(string[] args)
     {
-        if (args.Length > 0 && args[0] == "export")
+        if (args.Length > 0 && string.Equals(args[0], "export", StringComparison.Ordinal))
         {
             return ExportData(args.Length > 1 ? args[1] : "test-fixtures/provider-data.json");
         }
