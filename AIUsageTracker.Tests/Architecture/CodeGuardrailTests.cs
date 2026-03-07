@@ -15,18 +15,20 @@ public class CodeGuardrailTests
     };
 
     private static readonly Regex EmptyCatchRegex = new(
-        @"catch\s*(\([^)]*\))?\s*\{\s*\}",
+        @"catch\s*(?<catch>\([^)]*)\))?\s*\{\s*\}",
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline);
 
+#pragma warning disable MA0023
     private static readonly (Regex Pattern, string Description)[] SyncOverAsyncPatterns =
     {
-        (new Regex(@"\.GetAwaiter\(\)\.GetResult\(", RegexOptions.Compiled | RegexOptions.CultureInvariant), "GetAwaiter().GetResult()"),
-        (new Regex(@"\.Wait\(", RegexOptions.Compiled | RegexOptions.CultureInvariant), ".Wait(...)"),
-        (new Regex(@"\.Result\b(?!\s*\?)", RegexOptions.Compiled | RegexOptions.CultureInvariant), ".Result")
+        (new Regex(@"\.GetAwaiter\(\)\.GetResult\(", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture), "GetAwaiter().GetResult()"),
+        (new Regex(@"\.Wait\(", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture), ".Wait(...)"),
+        (new Regex(@"\.Result\b(?!\s*\?)", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture), ".Result")
     };
     private static readonly Regex StringLiteralRegex = new(
-        "\"((?:\\\\.|[^\"\\\\])*)\"",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        "\"(?<literal>(?:\\\\.|[^\"\\\\])*)\"",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture);
+#pragma warning restore MA0023
 
     private static readonly HashSet<string> AllowedHardcodedProviderIdFiles = new(StringComparer.OrdinalIgnoreCase);
 
