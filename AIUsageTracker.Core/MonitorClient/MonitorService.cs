@@ -660,32 +660,3 @@ public class MonitorService : IMonitorService
         public string Message { get; set; } = string.Empty;
     }
 }
-
-public sealed class AgentTestNotificationResult
-{
-    public bool Success { get; init; }
-    public string Message { get; init; } = string.Empty;
-}
-
-public sealed class AgentTelemetrySnapshot
-{
-    public long UsageRequestCount { get; init; }
-    public long UsageErrorCount { get; init; }
-    public double UsageAverageLatencyMs { get; init; }
-    public long UsageLastLatencyMs { get; init; }
-    public double UsageErrorRatePercent { get; init; }
-    public long RefreshRequestCount { get; init; }
-    public long RefreshErrorCount { get; init; }
-    public double RefreshAverageLatencyMs { get; init; }
-    public long RefreshLastLatencyMs { get; init; }
-    public double RefreshErrorRatePercent { get; init; }
-}
-
-public sealed class AgentContractHandshakeResult
-{
-    public bool IsReachable { get; init; }
-    public bool IsCompatible { get; init; }
-    public string? AgentContractVersion { get; init; }
-    public string? AgentVersion { get; init; }
-    public string Message { get; init; } = string.Empty;
-}
