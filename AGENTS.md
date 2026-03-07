@@ -178,6 +178,36 @@ dotnet format --verify-no-changes --severity warn
 - Fixes require additional commits and PR updates
 - Wastes CI minutes on known-failing builds
 
+### Pre-Push Validation (RECOMMENDED)
+
+**Run local CI/CD checks before pushing to catch failures early.**
+
+Run the pre-push validation script:
+```powershell
+./scripts/pre-push-validation.ps1
+```
+
+This script mimics GitHub Actions workflows locally:
+1. **Build Validation** - Ensures solution compiles
+2. **Unit Tests** - Runs all tests
+3. **Theme Validation** - Checks theme contract parity
+4. **Build Error Check** - Verifies no compile errors
+
+**Optional flags:**
+```powershell
+# Skip tests (faster)
+./scripts/pre-push-validation.ps1 -SkipTests
+
+# Skip theme validation
+./scripts/pre-push-validation.ps1 -SkipThemeValidation
+```
+
+**Benefits:**
+- Catches CI/CD failures before pushing
+- Saves CI minutes
+- Faster feedback loop
+- Prevents broken PRs
+
 ### Publishing
 ```bash
 # Publish Windows UI
