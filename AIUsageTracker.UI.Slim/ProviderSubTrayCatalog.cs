@@ -36,6 +36,6 @@ internal static class ProviderSubTrayCatalog
         }
 
         var match = Regex.Match(detail.Used ?? string.Empty, @"(?<percent>\d+(\.\d+)?)\s*%", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
-        return match.Success && double.TryParse(match.Groups["percent"].Value, out _);
+        return match.Success && double.TryParse(match.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out _);
     }
 }
