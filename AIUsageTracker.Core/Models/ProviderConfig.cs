@@ -3,12 +3,6 @@ using System.Text.Json.Serialization;
 
 namespace AIUsageTracker.Core.Models;
 
-public enum PlanType
-{
-    Usage,
-    Coding
-}
-
 public class ProviderConfig
 {
     [Required(ErrorMessage = "ProviderId is required")]
@@ -56,5 +50,3 @@ public class ProviderConfig
     [JsonPropertyName("models")]
     public List<AIModelConfig> Models { get; set; } = new();
 }
-
-

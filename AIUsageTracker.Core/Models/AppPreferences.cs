@@ -1,23 +1,5 @@
 namespace AIUsageTracker.Core.Models;
 
-public enum AppTheme
-{
-    Dark,
-    Light,
-    Corporate,
-    Midnight,
-    Dracula,
-    Nord,
-    Monokai,
-    OneDark,
-    SolarizedDark,
-    SolarizedLight,
-    CatppuccinFrappe,
-    CatppuccinMacchiato,
-    CatppuccinMocha,
-    CatppuccinLatte
-}
-
 public class AppPreferences
 {
     public bool ShowAll { get; set; } = false;
@@ -60,5 +42,3 @@ public class AppPreferences
     // Update channel (Stable or Beta)
     public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 }
-
-

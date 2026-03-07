@@ -7,10 +7,3 @@ public enum ProviderSettingsMode
     ExternalAuthStatus,
     SessionAuthStatus
 }
-
-public enum ProviderSessionIdentitySource
-{
-    None,
-    OpenAi,
-    Codex
-}
