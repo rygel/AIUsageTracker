@@ -242,6 +242,31 @@ class Program
 
     static int SeedDatabase(string fixturePath)
     {
+        var (dbPath, dbCreated) = PrepareDatabasePath();
+        Console.WriteLine($"Creating database at: {dbPath}");
+
+        var fixture = ValidateAndLoadFixture(fixturePath);
+        if (fixture == null)
+        {
+            return 1;
+        }
+
+        Console.WriteLine($"Fixture contains {fixture.Providers.Count} providers");
+
+        var connectionString = $"Data Source={dbPath}";
+        using var connection = new SqliteConnection(connectionString);
+        connection.Open();
+
+        CreateDatabaseTables(connection);
+        SeedProviders(connection, fixture.Providers);
+        SeedHistory(connection, fixture);
+
+        Console.WriteLine($"Seeded {fixture.Providers.Count} providers with {CountHistoryRecords(fixture)} history records.");
+        return 0;
+    }
+
+    static (string DbPath, bool WasCreated) PrepareDatabasePath()
+    {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var dbDir = Path.Combine(appData, "AIUsageTracker");
         Directory.CreateDirectory(dbDir);
@@ -251,6 +276,9 @@ class Program
         {
             File.Delete(dbPath);
         }
+
+        return (dbPath, false);
+    }
 
         Console.WriteLine($"Creating database at: {dbPath}");
 
