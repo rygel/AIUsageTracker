@@ -115,7 +115,11 @@ public static class UsageMath
             isUsed = false;
         }
 
-        var match = System.Text.RegularExpressions.Regex.Match(value, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        var match = System.Text.RegularExpressions.Regex.Match(
+            value, 
+            @"(?<percent>\d+(?:\.\d+)?)\s*%", 
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            System.TimeSpan.FromMilliseconds(100));
         if (match.Success)
         {
             if (double.TryParse(
