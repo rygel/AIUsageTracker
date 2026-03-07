@@ -260,29 +260,60 @@ public static class UsageMath
     {
         ArgumentNullException.ThrowIfNull(history);
 
-        var samples = history
-            .Where(x => x.FetchedAt != default && x.RequestsAvailable > 0 && !double.IsNaN(x.RequestsUsed))
-            .OrderBy(x => x.FetchedAt)
-            .ToList();
-
-        if (samples.Count < 2)
+        var samples = FilterValidSamples(history);
+        if (!ValidateMinimumSamples(samples, 2, "Insufficient history", out var forecastResult))
         {
-            return BurnRateForecast.Unavailable("Insufficient history");
+            return forecastResult;
         }
 
         var cycleSamples = TrimToLatestCycle(samples);
-        if (cycleSamples.Count < 2)
+        if (!ValidateMinimumSamples(cycleSamples, 2, "Insufficient cycle history", out forecastResult))
         {
-            return BurnRateForecast.Unavailable("Insufficient cycle history");
+            return forecastResult;
         }
 
+        if (!ValidateTimeWindow(cycleSamples, out forecastResult))
+        {
+            return forecastResult;
+        }
+
+        var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out var elapsedDays);
+        if (!ValidateBurnRate(burnRatePerDay, out forecastResult))
+        {
+            return forecastResult;
+        }
+
+        return CreateBurnRateForecast(burnRatePerDay, cycleSamples, elapsedDays);
+    }
+
+    private static List<ProviderUsage> FilterValidSamples(IEnumerable<ProviderUsage> history)
+    {
+        return history
+            .Where(x => x.FetchedAt != default && x.RequestsAvailable > 0 && !double.IsNaN(x.RequestsUsed))
+            .OrderBy(x => x.FetchedAt)
+            .ToList();
+    }
+
+    private static bool ValidateMinimumSamples(List<ProviderUsage> samples, int minimum, string errorMessage, out BurnRateForecast forecast)
+    {
+        forecast = BurnRateForecast.Unavailable(errorMessage);
+        return samples.Count >= minimum;
+    }
+
+    private static bool ValidateTimeWindow(List<ProviderUsage> cycleSamples, out BurnRateForecast forecast)
+    {
+        forecast = BurnRateForecast.Unavailable("Insufficient time window");
         var first = cycleSamples[0];
         var last = cycleSamples[^1];
         var elapsedDays = (last.FetchedAt - first.FetchedAt).TotalDays;
-        if (elapsedDays <= 0 || (last.FetchedAt - first.FetchedAt).TotalHours < MinimumElapsedHours)
-        {
-            return BurnRateForecast.Unavailable("Insufficient time window");
-        }
+        return elapsedDays > 0 && (last.FetchedAt - first.FetchedAt).TotalHours >= MinimumElapsedHours;
+    }
+
+    private static double CalculateBurnRatePerDay(List<ProviderUsage> cycleSamples, out double elapsedDays)
+    {
+        var first = cycleSamples[0];
+        var last = cycleSamples[^1];
+        elapsedDays = (last.FetchedAt - first.FetchedAt).TotalDays;
 
         double positiveIncrease = 0;
         for (var i = 1; i < cycleSamples.Count; i++)
@@ -294,19 +325,21 @@ public static class UsageMath
             }
         }
 
-        if (positiveIncrease <= 0)
-        {
-            return BurnRateForecast.Unavailable("No consumption trend");
-        }
+        return positiveIncrease / elapsedDays;
+    }
 
-        var burnRatePerDay = positiveIncrease / elapsedDays;
-        if (burnRatePerDay <= 0 || double.IsNaN(burnRatePerDay) || double.IsInfinity(burnRatePerDay))
-        {
-            return BurnRateForecast.Unavailable("Invalid burn rate");
-        }
+    private static bool ValidateBurnRate(double burnRatePerDay, out BurnRateForecast forecast)
+    {
+        forecast = BurnRateForecast.Unavailable("Invalid burn rate");
+        return burnRatePerDay > 0 && !double.IsNaN(burnRatePerDay) && !double.IsInfinity(burnRatePerDay);
+    }
 
+    private static BurnRateForecast CreateBurnRateForecast(double burnRatePerDay, List<ProviderUsage> cycleSamples, double elapsedDays)
+    {
+        var last = cycleSamples[^1];
         var remaining = Math.Max(0, last.RequestsAvailable - last.RequestsUsed);
         var daysRemaining = remaining <= 0 ? 0 : remaining / burnRatePerDay;
+
         if (double.IsNaN(daysRemaining) || double.IsInfinity(daysRemaining))
         {
             return BurnRateForecast.Unavailable("Invalid forecast");
@@ -366,22 +399,43 @@ public static class UsageMath
     {
         ArgumentNullException.ThrowIfNull(history);
 
-        var samples = history
-            .Where(x => x.FetchedAt != default && x.RequestsAvailable > 0 && !double.IsNaN(x.RequestsUsed))
-            .OrderBy(x => x.FetchedAt)
-            .ToList();
-
-        if (samples.Count < 4)
+        var samples = FilterValidSamplesForAnomaly(history);
+        if (!ValidateMinimumSamplesForAnomaly(samples, 4, "Insufficient history", out var snapshotResult))
         {
-            return UsageAnomalySnapshot.Unavailable("Insufficient history");
+            return snapshotResult;
         }
 
         var cycleSamples = TrimToLatestCycle(samples);
-        if (cycleSamples.Count < 4)
+        if (!ValidateMinimumSamplesForAnomaly(cycleSamples, 4, "Insufficient cycle history", out snapshotResult))
         {
-            return UsageAnomalySnapshot.Unavailable("Insufficient cycle history");
+            return snapshotResult;
         }
 
+        var rates = CalculateRatesPerDay(cycleSamples);
+        if (!ValidateRatesAndCalculateBaseline(rates, out var baselineMedian, out var baselineRates, out var latest, out var snapshot))
+        {
+            return snapshot;
+        }
+
+        return CreateAnomalySnapshot(baselineMedian, baselineRates, latest, cycleSamples);
+    }
+
+    private static List<ProviderUsage> FilterValidSamplesForAnomaly(IEnumerable<ProviderUsage> history)
+    {
+        return history
+            .Where(x => x.FetchedAt != default && x.RequestsAvailable > 0 && !double.IsNaN(x.RequestsUsed))
+            .OrderBy(x => x.FetchedAt)
+            .ToList();
+    }
+
+    private static bool ValidateMinimumSamplesForAnomaly(List<ProviderUsage> samples, int minimum, string errorMessage, out UsageAnomalySnapshot snapshot)
+    {
+        snapshot = UsageAnomalySnapshot.Unavailable(errorMessage);
+        return samples.Count >= minimum;
+    }
+
+    private static List<(double RatePerDay, DateTime FetchedAt)> CalculateRatesPerDay(List<ProviderUsage> cycleSamples)
+    {
         var rates = new List<(double RatePerDay, DateTime FetchedAt)>();
         for (var i = 1; i < cycleSamples.Count; i++)
         {
@@ -401,23 +455,35 @@ public static class UsageMath
 
             rates.Add((ratePerDay, current.FetchedAt));
         }
+        return rates;
+    }
+
+    private static bool ValidateRatesAndCalculateBaseline(List<(double RatePerDay, DateTime FetchedAt)> rates, out double baselineMedian, out List<double> baselineRates, out (double RatePerDay, DateTime FetchedAt) latest, out UsageAnomalySnapshot snapshot)
+    {
+        snapshot = UsageAnomalySnapshot.Unavailable("Insufficient trend data");
+        baselineMedian = 0;
+        baselineRates = new List<double>();
+        latest = (0, DateTime.MinValue);
 
         if (rates.Count < 3)
         {
-            return UsageAnomalySnapshot.Unavailable("Insufficient trend data");
+            return false;
         }
 
-        var latest = rates[^1];
-        var baselineRates = rates
-            .Take(rates.Count - 1)
-            .Select(x => x.RatePerDay)
-            .ToList();
+        snapshot = UsageAnomalySnapshot.Unavailable("Insufficient baseline");
+        latest = rates[^1];
+        baselineRates = rates.Take(rates.Count - 1).Select(x => x.RatePerDay).ToList();
         if (baselineRates.Count < 2)
         {
-            return UsageAnomalySnapshot.Unavailable("Insufficient baseline");
+            return false;
         }
 
-        var baselineMedian = Median(baselineRates);
+        baselineMedian = Median(baselineRates);
+        return true;
+    }
+
+    private static UsageAnomalySnapshot CreateAnomalySnapshot(double baselineMedian, List<double> baselineRates, (double RatePerDay, DateTime FetchedAt) latest, List<ProviderUsage> cycleSamples)
+    {
         var mad = Median(baselineRates.Select(x => Math.Abs(x - baselineMedian)).ToList());
         var sigma = mad * AnomalyMadScale;
         if (sigma < AnomalySigmaEpsilon)
@@ -428,18 +494,7 @@ public static class UsageMath
         var delta = latest.RatePerDay - baselineMedian;
         var minimumDelta = Math.Max(MinimumAbsoluteRateDeltaPerDay, Math.Abs(baselineMedian) * 0.25);
 
-        double sigmaDistance;
-        bool hasAnomaly;
-        if (sigma < AnomalySigmaEpsilon)
-        {
-            hasAnomaly = Math.Abs(delta) >= minimumDelta * 2;
-            sigmaDistance = hasAnomaly ? double.PositiveInfinity : 0;
-        }
-        else
-        {
-            sigmaDistance = Math.Abs(delta) / sigma;
-            hasAnomaly = sigmaDistance >= AnomalySigmaThreshold && Math.Abs(delta) >= minimumDelta;
-        }
+        var (hasAnomaly, sigmaDistance) = DetermineAnomalyStatus(delta, sigma, minimumDelta);
 
         return new UsageAnomalySnapshot
         {
@@ -453,6 +508,21 @@ public static class UsageMath
             SampleCount = cycleSamples.Count,
             LastDetectedUtc = hasAnomaly ? latest.FetchedAt.ToUniversalTime() : null
         };
+    }
+
+    private static (bool HasAnomaly, double SigmaDistance) DetermineAnomalyStatus(double delta, double sigma, double minimumDelta)
+    {
+        if (sigma < AnomalySigmaEpsilon)
+        {
+            var hasAnomaly = Math.Abs(delta) >= minimumDelta * 2;
+            return (hasAnomaly, hasAnomaly ? double.PositiveInfinity : 0);
+        }
+        else
+        {
+            var sigmaDistance = Math.Abs(delta) / sigma;
+            var hasAnomaly = sigmaDistance >= AnomalySigmaThreshold && Math.Abs(delta) >= minimumDelta;
+            return (hasAnomaly, sigmaDistance);
+        }
     }
 
     private static List<ProviderUsage> TrimToLatestCycle(List<ProviderUsage> orderedSamples)
