@@ -93,8 +93,8 @@ public class CodexProvider : ProviderBase
             var jwtPlanType = payload?.ReadString(AuthClaimKey, "chatgpt_plan_type");
 
             using var request = CreateUsageRequest(resolvedAccessToken, accountId);
-            using var response = await _httpClient.SendAsync(request);
-            var content = await response.Content.ReadAsStringAsync();
+            using var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -329,7 +329,7 @@ public class CodexProvider : ProviderBase
 
             try
             {
-                var json = await File.ReadAllTextAsync(path);
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 using var doc = JsonDocument.Parse(json);
                 var auth = TryReadNativeAuth(doc.RootElement);
                 if (auth != null)

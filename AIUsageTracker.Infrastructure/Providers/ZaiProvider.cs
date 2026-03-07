@@ -49,7 +49,7 @@ public class ZaiProvider : ProviderBase
         request.Headers.TryAddWithoutValidation("Accept-Language", "en-US,en");
 
         _logger.LogDebug("[ZAI] Sending API request to https://api.z.ai/api/monitor/usage/quota/limit");
-        var response = await _httpClient.SendAsync(request);
+        var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
         var httpStatus = (int)response.StatusCode;
 
         if (!response.IsSuccessStatusCode)
@@ -58,7 +58,7 @@ public class ZaiProvider : ProviderBase
             throw new Exception($"Z.AI API returned {response.StatusCode}");
         }
 
-        var responseString = await response.Content.ReadAsStringAsync();
+        var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         _logger.LogDebug("[ZAI RAW RESPONSE] {Response}", responseString);
 
         // Parse envelope

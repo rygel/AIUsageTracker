@@ -46,14 +46,14 @@ public class KimiProvider : ProviderBase
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.kimi.com/coding/v1/usages");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Failed to fetch Kimi usage: {StatusCode}", response.StatusCode);
                 return new[] { CreateUnavailableUsageFromStatus(response, authSource: config.AuthSource) };
             }
 
-            var content = await response.Content.ReadAsStringAsync();
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             KimiUsageResponse? data;
             try
             {
