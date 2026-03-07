@@ -126,10 +126,10 @@ public class ClaudeCodeProvider : ProviderBase
                 // Build detailed tooltip info
                 var tooltipDetails = new List<ProviderUsageDetail>();
                 tooltipDetails.Add(new ProviderUsageDetail { Name = "Rate Limit Tier", Used = rateLimitHeaders.GetTierName(), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Limit", Used = rateLimitHeaders.RequestsLimit.ToString("N0"), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Remaining", Used = rateLimitHeaders.RequestsRemaining.ToString("N0"), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Limit", Used = rateLimitHeaders.InputTokensLimit.ToString("N0"), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Remaining", Used = rateLimitHeaders.InputTokensRemaining.ToString("N0"), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Limit", Used = rateLimitHeaders.RequestsLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Remaining", Used = rateLimitHeaders.RequestsRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Limit", Used = rateLimitHeaders.InputTokensLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Remaining", Used = rateLimitHeaders.InputTokensRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
                 tooltipDetails.Add(new ProviderUsageDetail { Name = "Current RPM Usage", Used = $"{usagePercentage:F1}%", DetailType = ProviderUsageDetailType.Other, WindowKind = WindowKind.None });
 
                 return new ProviderUsage
@@ -286,19 +286,19 @@ public class ClaudeCodeProvider : ProviderBase
         double currentUsage = 0;
         double budgetLimit = 0;
 
-        var usageMatch = Regex.Match(output, @"Current Usage[:\s]+\$?([0-9.]+)", RegexOptions.IgnoreCase);
+        var usageMatch = Regex.Match(output, @"Current Usage[:\s]+\$?([0-9.]+)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
         if (usageMatch.Success)
         {
             double.TryParse(usageMatch.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out currentUsage);
         }
 
-        var budgetMatch = Regex.Match(output, @"Budget Limit[:\s]+\$?([0-9.]+)", RegexOptions.IgnoreCase);
+        var budgetMatch = Regex.Match(output, @"Budget Limit[:\s]+\$?([0-9.]+)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
         if (budgetMatch.Success)
         {
             double.TryParse(budgetMatch.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out budgetLimit);
         }
 
-        var remainingMatch = Regex.Match(output, @"Remaining[:\s]+\$?([0-9.]+)", RegexOptions.IgnoreCase);
+        var remainingMatch = Regex.Match(output, @"Remaining[:\s]+\$?([0-9.]+)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
         if (remainingMatch.Success && budgetLimit == 0)
         {
             double remaining;

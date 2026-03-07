@@ -192,13 +192,13 @@ class Program
 
         for (int i = 1; i < args.Length; i++)
         {
-            if (args[i] == "--format" && i + 1 < args.Length) format = args[++i];
-            else if (args[i] == "--days" && i + 1 < args.Length && int.TryParse(args[i+1], out int d)) { days = d; i++; }
-            else if (args[i] == "--output" && i + 1 < args.Length) output = args[++i];
+            if (string.Equals(args[i], "--format", StringComparison.Ordinal) && i + 1 < args.Length) format = args[++i];
+            else if (string.Equals(args[i], "--days", StringComparison.Ordinal) && i + 1 < args.Length && int.TryParse(args[i+1], out int d)) { days = d; i++; }
+            else if (string.Equals(args[i], "--output", StringComparison.Ordinal) && i + 1 < args.Length) output = args[++i];
         }
 
         // Adjust default extension if format changed but output didn't
-        if (format == "json" && output.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) output = Path.ChangeExtension(output, ".json");
+        if (string.Equals(format, "json", StringComparison.Ordinal) && output.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) output = Path.ChangeExtension(output, ".json");
         
         Console.WriteLine($"Exporting {days} days of history to {output} ({format})...");
 

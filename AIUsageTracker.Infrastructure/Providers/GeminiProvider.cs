@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -95,9 +97,8 @@ public class GeminiProvider : ProviderBase
                         if (bucket.ExtensionData != null && bucket.ExtensionData.TryGetValue("quotaId", out var qidElement))
                         {
                            var qid = qidElement;
-                           name = qid.ValueKind != JsonValueKind.Null ? qid.ToString() : "Unknown";
-                           name = System.Text.RegularExpressions.Regex.Replace(name, "([a-z])([A-Z])", "$1 $2");
-                           name = name.Replace("Requests Per Day", "(Day)").Replace("Requests Per Minute", "(Min)");
+                            name = System.Text.RegularExpressions.Regex.Replace(name, "([a-z])([A-Z])", "$1 $2", RegexOptions.IgnoreCase);
+                            name = name.Replace("Requests Per Day", "(Day)").Replace("Requests Per Minute", "(Min)");
                         }
 
                         var bucketRemainingPercentage = UsageMath.ClampPercent(bucket.RemainingFraction * 100.0);
@@ -147,7 +148,7 @@ public class GeminiProvider : ProviderBase
                 var usedPercentage = 100.0 - remainingPercentage;
 
                 var soonestBucket = allBuckets.Where(b => !string.IsNullOrEmpty(b.ResetTime))
-                                             .OrderBy(b => DateTime.TryParse(b.ResetTime, out var dt) ? dt : DateTime.MaxValue)
+                                              .OrderBy(b => DateTime.TryParse(b.ResetTime, System.Globalization.CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt) ? dt : DateTime.MaxValue)
                                              .FirstOrDefault();
 
                 if (soonestBucket != null && DateTime.TryParse(soonestBucket.ResetTime, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var sdt))
@@ -249,7 +250,7 @@ public class GeminiProvider : ProviderBase
                         {
                             var payload = Encoding.UTF8.GetString(Convert.FromBase64String(parts[1].Replace('-', '+').Replace('_', '/').PadRight(parts[1].Length + (4 - parts[1].Length % 4) % 4, '=')));
                             using var payloadDoc = JsonDocument.Parse(payload);
-                            if (payloadDoc.RootElement.TryGetProperty("aud", out var aud) && aud.GetString() == GeminiPluginClientId)
+                            if (payloadDoc.RootElement.TryGetProperty("aud", out var aud) && string.Equals(aud.GetString(), GeminiPluginClientId, StringComparison.Ordinal))
                             {
                                 clientId = GeminiPluginClientId;
                             }
@@ -264,7 +265,7 @@ public class GeminiProvider : ProviderBase
         {
             return await DoRefreshToken(refreshToken, clientId);
         }
-        catch when (clientId == GeminiCliClientId)
+        catch when (string.Equals(clientId, GeminiCliClientId, StringComparison.Ordinal))
         {
             // If default client fails, retry with plugin client
             return await DoRefreshToken(refreshToken, GeminiPluginClientId);

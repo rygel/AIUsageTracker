@@ -224,7 +224,7 @@ internal static class ProviderStatusPresentationCatalog
                 continue;
             }
 
-            var match = Regex.Match(detail.Description, @"Resets in\s+(\d+)s", RegexOptions.IgnoreCase);
+            var match = Regex.Match(detail.Description, @"Resets in\s+(\d+)s", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
             if (match.Success && int.TryParse(match.Groups[1].Value, out var seconds) && seconds > 0)
             {
                 return DateTime.Now.AddSeconds(seconds);

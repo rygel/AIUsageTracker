@@ -29,7 +29,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
 
     private string GetAppcastUrlForCurrentArchitecture()
     {
-        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower();
+        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
         
         // Map architecture names
         var archMapping = new Dictionary<string, string>

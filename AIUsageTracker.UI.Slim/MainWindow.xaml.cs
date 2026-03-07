@@ -40,7 +40,7 @@ public partial class MainWindow : Window
 {
     private static readonly Regex MarkdownTokenRegex = new(
         @"(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|\[[^\]]+\]\([^)]+\))",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
     private readonly MainViewModel _viewModel;
     private readonly IMonitorService _monitorService;

@@ -1163,7 +1163,7 @@ public partial class SettingsWindow : Window
         {
             await _monitorService.RefreshPortAsync();
             var json = await _monitorService.ExportDataAsync("json");
-            if (json == "[]" || string.IsNullOrEmpty(json))
+            if (string.Equals(json, "[]", StringComparison.Ordinal) || string.IsNullOrEmpty(json))
             {
                 MessageBox.Show("No data to export or Monitor is not running.", "Export", 
                     MessageBoxButton.OK, MessageBoxImage.Warning);

@@ -31,7 +31,7 @@ public class DataExportService : IDataExportService
             foreach (var row in history)
             {
                 var isAvail = row.IsAvailable ? 1 : 0;
-                sb.AppendLine($"\"{row.ProviderId}\",\"{row.ProviderName}\",{row.RequestsUsed},{row.RequestsAvailable},{row.RequestsPercentage},{isAvail},\"{row.Description?.Replace("\"", "\"\"")}\",\"{row.FetchedAt:O}\",\"{row.NextResetTime?.ToString("O")}\"");
+                sb.AppendLine($"\"{row.ProviderId}\",\"{row.ProviderName}\",{row.RequestsUsed},{row.RequestsAvailable},{row.RequestsPercentage},{isAvail},\"{row.Description?.Replace("\"", "\"\"")}\",\"{row.FetchedAt:O}\",\"{row.NextResetTime?.ToString("O", System.Globalization.CultureInfo.InvariantCulture)}\"");
             }
 
             return sb.ToString();

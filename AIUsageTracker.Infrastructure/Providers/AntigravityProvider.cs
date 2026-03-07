@@ -156,7 +156,7 @@ public class AntigravityProvider : ProviderBase
                     var (pid, csrfToken, commandLinePort) = info;
                     var tokenPreview = csrfToken.Length > 8 ? csrfToken[..8] : csrfToken;
                     _logger.LogDebug("Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
-                        pid, tokenPreview, commandLinePort?.ToString() ?? "none");
+                        pid, tokenPreview, commandLinePort?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none");
 
                     // 2. Resolve candidate ports (extension port hint + all listening loopback ports)
                     var candidatePorts = new List<int>();
@@ -204,9 +204,9 @@ public class AntigravityProvider : ProviderBase
 
                     // Check for duplicates based on AccountName (Email) for the MAIN item
                     // Assuming the first item is the summary
-                    var mainItem = usageItems.FirstOrDefault(u => u.ProviderId == ProviderId);
+                    var mainItem = usageItems.FirstOrDefault(u => string.Equals(u.ProviderId, ProviderId, StringComparison.Ordinal));
                     
-                    if (mainItem != null && results.Any(r => r.ProviderId == ProviderId && r.AccountName == mainItem.AccountName))
+                    if (mainItem != null && results.Any(r => string.Equals(r.ProviderId, ProviderId, StringComparison.Ordinal) && string.Equals(r.AccountName, mainItem.AccountName, StringComparison.Ordinal)))
                     {
                         continue;
                     }
@@ -321,7 +321,7 @@ public class AntigravityProvider : ProviderBase
                         continue;
                     }
 
-                    var pid = Convert.ToInt32(pidVal);
+                    var pid = Convert.ToInt32(pidVal, System.Globalization.CultureInfo.InvariantCulture);
                     var port = ParseExtensionServerPort(cmdLine);
                     candidates.Add((pid, token, port));
                 }
@@ -344,14 +344,14 @@ public class AntigravityProvider : ProviderBase
 
     private static string? ParseCsrfToken(string commandLine)
     {
-        var match = Regex.Match(commandLine, @"--csrf[_-]token(?:=|\s+)([a-zA-Z0-9-]+)", RegexOptions.IgnoreCase);
+        var match = Regex.Match(commandLine, @"--csrf[_-]token(?:=|\s+)([a-zA-Z0-9-]+)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
         return match.Success ? match.Groups[1].Value : null;
     }
 
     private static int? ParseExtensionServerPort(string commandLine)
     {
-        var match = Regex.Match(commandLine, @"--extension_server_port(?:=|\s+)(\d+)", RegexOptions.IgnoreCase);
-        if (match.Success && int.TryParse(match.Groups[1].Value, out var port))
+        var match = Regex.Match(commandLine, @"--extension_server_port(?:=|\s+)(\d+)", RegexOptions.IgnoreCase, TimeSpan.FromSeconds(1));
+        if (match.Success && int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var port))
         {
             return port;
         }
@@ -407,7 +407,7 @@ public class AntigravityProvider : ProviderBase
         var output = await outputTask;
 
         var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-        var regex = new Regex($@"\s+TCP\s+(?:127\.0\.0\.1|\[::1\]):(\d+)\s+.*LISTENING\s+{pid}");
+        var regex = new Regex($@"\s+TCP\s+(?:127\.0\.0\.1|\[::1\]):(\d+)\s+.*LISTENING\s+{pid}", RegexOptions.None, TimeSpan.FromSeconds(1));
         var ports = new List<int>();
 
         foreach (var line in lines)
@@ -614,9 +614,9 @@ public class AntigravityProvider : ProviderBase
 
         _logger.LogDebug("[Antigravity] Model {Label}: RemainingFraction={Rem}, TotalRequests={Total}, UsedRequests={Used}",
             label,
-            modelConfig.QuotaInfo?.RemainingFraction?.ToString() ?? "null",
-            modelConfig.QuotaInfo?.TotalRequests?.ToString() ?? "null",
-            modelConfig.QuotaInfo?.UsedRequests?.ToString() ?? "null");
+            modelConfig.QuotaInfo?.RemainingFraction?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null",
+            modelConfig.QuotaInfo?.TotalRequests?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null",
+            modelConfig.QuotaInfo?.UsedRequests?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
 
         if (modelConfig.QuotaInfo?.RemainingFraction.HasValue == true)
         {

@@ -188,11 +188,11 @@ public class KimiProvider : ProviderBase
         }
     }
 
-    private string FormatDuration(long duration, string unit)
+     private string FormatDuration(long duration, string unit)
     {
-         if (unit == "TIME_UNIT_MINUTE") return duration == 60 ? "Hourly" : $"{duration}m";
-         if (unit == "TIME_UNIT_HOUR") return $"{duration}h";
-         if (unit == "TIME_UNIT_DAY") return $"{duration}d";
+         if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal)) return duration == 60 ? "Hourly" : $"{duration}m";
+         if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal)) return $"{duration}h";
+         if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal)) return $"{duration}d";
          return unit;
     }
 
@@ -207,25 +207,25 @@ public class KimiProvider : ProviderBase
 
     private static WindowKind DetermineWindowKind(long duration, string? unit)
     {
-        if (unit == "TIME_UNIT_DAY" && duration >= 7)
+        if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal) && duration >= 7)
         {
             return WindowKind.Secondary;
         }
 
         // Daily limits in some coding plans
-        if (unit == "TIME_UNIT_DAY" && duration == 1)
+        if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal) && duration == 1)
         {
             return WindowKind.Primary;
         }
 
         // 3h or 5h windows should be Primary
-        if (unit == "TIME_UNIT_HOUR" && (duration == 3 || duration == 5))
+        if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal) && (duration == 3 || duration == 5))
         {
             return WindowKind.Primary;
         }
 
         // Minutes-based windows (like 60m for 1h, 180m for 3h, 300m for 5h)
-        if (unit == "TIME_UNIT_MINUTE" && (duration >= 60 && duration <= 300))
+        if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal) && (duration >= 60 && duration <= 300))
         {
             return WindowKind.Primary;
         }
