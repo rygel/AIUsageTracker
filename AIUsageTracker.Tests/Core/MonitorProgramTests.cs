@@ -69,13 +69,9 @@ public sealed class MonitorProgramTests : IDisposable
         var candidatePaths = MonitorInfoPathCatalog.GetWriteCandidatePaths(
             _pathProvider.GetAppDataRoot(),
             _pathProvider.GetUserProfileRoot());
-        var olderPath = candidatePaths[0];
-        var newerPath = candidatePaths[1];
+        var path = candidatePaths[0];
 
-        WriteMonitorInfoFile(olderPath, "older");
-        WriteMonitorInfoFile(newerPath, "newer");
-        File.SetLastWriteTimeUtc(olderPath, DateTime.UtcNow.AddMinutes(-10));
-        File.SetLastWriteTimeUtc(newerPath, DateTime.UtcNow.AddMinutes(-1));
+        WriteMonitorInfoFile(path, "existing");
 
         InvokeMonitorProgramMethod(
             "ReportError",
@@ -83,11 +79,9 @@ public sealed class MonitorProgramTests : IDisposable
             _pathProvider,
             NullLogger.Instance);
 
-        var older = DeserializeMonitorInfo(olderPath);
-        var newer = DeserializeMonitorInfo(newerPath);
+        var updated = DeserializeMonitorInfo(path);
 
-        Assert.DoesNotContain("Refresh failed: newest", older.Errors ?? [], StringComparer.Ordinal);
-        Assert.Contains("Refresh failed: newest", newer.Errors ?? [], StringComparer.Ordinal);
+        Assert.Contains("Refresh failed: newest", updated.Errors ?? [], StringComparer.Ordinal);
     }
 
     public void Dispose()

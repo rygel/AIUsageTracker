@@ -225,29 +225,16 @@ public class MonitorLauncher
             var monitorExeName = OperatingSystem.IsWindows()
                 ? "AIUsageTracker.Monitor.exe"
                 : "AIUsageTracker.Monitor";
-            var legacyAgentExeName = OperatingSystem.IsWindows()
-                ? "AIConsumptionTracker.Agent.exe"
-                : "AIConsumptionTracker.Agent";
-            
             // Try to find Agent executable
             var possiblePaths = new[]
             {
                 // Development paths
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0", monitorExeName),
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0", monitorExeName),
-                // Legacy Windows-targeted development paths
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0-windows10.0.17763.0", "AIUsageTracker.Monitor.exe"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0-windows10.0.17763.0", "AIUsageTracker.Monitor.exe"),
                 // Installed paths
                 Path.Combine(AppContext.BaseDirectory, monitorExeName),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIUsageTracker", monitorExeName),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker", monitorExeName),
-                // Legacy compatibility
-                Path.Combine(AppContext.BaseDirectory, legacyAgentExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIConsumptionTracker", monitorExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", monitorExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIConsumptionTracker", legacyAgentExeName),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIConsumptionTracker", legacyAgentExeName),
             };
 
             MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Length} common locations)...");
@@ -325,7 +312,6 @@ public class MonitorLauncher
             
             // Fallback: try to find and kill by process name
             var processes = Process.GetProcessesByName("AIUsageTracker.Monitor")
-                .Concat(Process.GetProcessesByName("AIConsumptionTracker.Agent"))
                 .ToArray();
             var stoppedAny = false;
             foreach (var process in processes)
