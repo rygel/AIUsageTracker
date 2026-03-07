@@ -142,7 +142,7 @@ public class GeminiProvider : ProviderBase
                 }
 
                 // Sort details
-                details = details.OrderBy(d => d.Name).ToList();
+                details = details.OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ToList();
 
                 var remainingPercentage = UsageMath.ClampPercent(minFrac * 100.0);
                 var usedPercentage = 100.0 - remainingPercentage;

@@ -32,7 +32,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
         
         // Map architecture names
-        var archMapping = new Dictionary<string, string>
+        var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["x64"] = "x64",
             ["x86"] = "x86",

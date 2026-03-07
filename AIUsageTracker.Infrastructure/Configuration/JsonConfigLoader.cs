@@ -171,8 +171,8 @@ public class JsonConfigLoader : IConfigLoader
         if (provDir != null && !Directory.Exists(provDir)) Directory.CreateDirectory(provDir);
 
         // Prepare dictionaries
-        var exportAuth = new Dictionary<string, object>();
-        var exportProviders = new Dictionary<string, object>();
+        var exportAuth = new Dictionary<string, object>(StringComparer.Ordinal);
+        var exportProviders = new Dictionary<string, object>(StringComparer.Ordinal);
 
         // Load existing files to preserve extra data (like app_settings in auth.json, or other props)
         if (File.Exists(authPath))
@@ -230,7 +230,7 @@ public class JsonConfigLoader : IConfigLoader
             if (exportAuth.TryGetValue(config.ProviderId, out var existingAuthObj) && existingAuthObj is JsonElement existingAuthEl)
             {
                 // Deserialize to dict to modify
-                var dict = JsonSerializer.Deserialize<Dictionary<string, object?>>(existingAuthEl.GetRawText()) ?? new Dictionary<string, object?>();
+                var dict = JsonSerializer.Deserialize<Dictionary<string, object?>>(existingAuthEl.GetRawText()) ?? new Dictionary<string, object?>(StringComparer.Ordinal);
                 dict["key"] = config.ApiKey;
                 exportAuth[config.ProviderId] = dict;
             }
@@ -241,14 +241,14 @@ public class JsonConfigLoader : IConfigLoader
             else
             {
                 // Create new entry
-                exportAuth[config.ProviderId] = new Dictionary<string, object?> { { "key", config.ApiKey } };
+                exportAuth[config.ProviderId] = new Dictionary<string, object?>(StringComparer.Ordinal) { { "key", config.ApiKey } };
             }
 
             // 2. Update Providers (Settings)
             Dictionary<string, object?> provDict;
             if (exportProviders.TryGetValue(config.ProviderId, out var existingProvObj) && existingProvObj is JsonElement existingProvEl)
             {
-                 provDict = JsonSerializer.Deserialize<Dictionary<string, object?>>(existingProvEl.GetRawText()) ?? new Dictionary<string, object?>();
+                 provDict = JsonSerializer.Deserialize<Dictionary<string, object?>>(existingProvEl.GetRawText()) ?? new Dictionary<string, object?>(StringComparer.Ordinal);
             }
             else if (exportProviders.TryGetValue(config.ProviderId, out var existingProvDictObj) && existingProvDictObj is Dictionary<string, object?> existingProvDict)
             {
@@ -256,7 +256,7 @@ public class JsonConfigLoader : IConfigLoader
             }
             else
             {
-                provDict = new Dictionary<string, object?>();
+                provDict = new Dictionary<string, object?>(StringComparer.Ordinal);
             }
 
             provDict["type"] = config.Type;
