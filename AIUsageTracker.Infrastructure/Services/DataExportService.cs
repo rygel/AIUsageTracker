@@ -1,3 +1,4 @@
+using System.Globalization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -31,7 +32,7 @@ public class DataExportService : IDataExportService
             foreach (var row in history)
             {
                 var isAvail = row.IsAvailable ? 1 : 0;
-                sb.AppendLine($"\"{row.ProviderId}\",\"{row.ProviderName}\",{row.RequestsUsed},{row.RequestsAvailable},{row.RequestsPercentage},{isAvail},\"{row.Description?.Replace("\"", "\"\"")}\",\"{row.FetchedAt:O}\",\"{row.NextResetTime?.ToString("O")}\"");
+                sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\",\"{1}\",{2},{3},{4},{5},\"{6}\",\"{7:O}\",\"{8:O}\"\r\n", row.ProviderId, row.ProviderName, row.RequestsUsed, row.RequestsAvailable, row.RequestsPercentage, isAvail, row.Description?.Replace("\"", "\"\""), row.FetchedAt, row.NextResetTime?.ToString("O"));
             }
 
             return sb.ToString();
