@@ -47,4 +47,5 @@ jobs:
           path: |
             .analyzer-gate-output/new-analyzer-warnings.txt
             .analyzer-gate-output/analyzer-regression-summary.md
+          if-no-files-found: ignore
           retention-days: 7

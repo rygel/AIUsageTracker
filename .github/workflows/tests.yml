@@ -111,6 +111,7 @@ jobs:
         with:
           name: core-test-results
           path: TestResults/core-tests*.trx
+          if-no-files-found: ignore
           retention-days: 3
 
   # Job 3: Monitor tests on Windows
@@ -146,6 +147,7 @@ jobs:
         with:
           name: monitor-startup-config-results
           path: TestResults/monitor-startup-config*.trx
+          if-no-files-found: ignore
           retention-days: 3
 
   # Job 4: Monitor tests on Windows
@@ -180,6 +182,7 @@ jobs:
         with:
           name: monitor-test-results
           path: TestResults/monitor-tests*.trx
+          if-no-files-found: ignore
           retention-days: 3
 
   # Job 5: Web tests on Windows (requires Web app running)
@@ -204,7 +207,12 @@ jobs:
         run: |
           dotnet build .\AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj -c Debug
           dotnet tool install --global Microsoft.Playwright.CLI || true
-          playwright install chromium
+          $playwrightExe = Join-Path $env:USERPROFILE ".dotnet\tools\playwright.exe"
+          if (Test-Path $playwrightExe) {
+            & $playwrightExe install chromium
+          } else {
+            dotnet tool run playwright install chromium
+          }
 
       - name: Build Web project
         shell: pwsh
@@ -263,7 +271,7 @@ jobs:
         run: |
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
           $scriptPath = Join-Path $ciBinaries "scripts\run-vstest-with-retry.ps1"
-          $assemblyPath = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll"
+          $assemblyPath = Join-Path $ciBinaries "AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll"
           $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
           powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-tests -QuarantineFile $quarantinePath -MaxRetries 0 -AttemptTimeoutMinutes 8 -HangTimeoutSeconds 480
 
@@ -283,6 +291,7 @@ jobs:
         with:
           name: web-test-results
           path: TestResults/web-tests*.trx
+          if-no-files-found: ignore
           retention-days: 3
 
   # Job 6: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
