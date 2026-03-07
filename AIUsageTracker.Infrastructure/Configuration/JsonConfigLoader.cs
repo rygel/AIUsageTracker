@@ -49,7 +49,7 @@ public class JsonConfigLoader : IConfigLoader
             if (!File.Exists(path)) return;
             try
             {
-                var json = await File.ReadAllTextAsync(path);
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 var rawConfigs = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (rawConfigs != null)
                 {
@@ -179,7 +179,7 @@ public class JsonConfigLoader : IConfigLoader
         {
             try
             {
-                var json = await File.ReadAllTextAsync(authPath);
+                var json = await File.ReadAllTextAsync(authPath).ConfigureAwait(false);
                 var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
                 if (existing != null) exportAuth = existing;
             }
@@ -193,7 +193,7 @@ public class JsonConfigLoader : IConfigLoader
         {
             try
             {
-                var json = await File.ReadAllTextAsync(providersPath);
+                var json = await File.ReadAllTextAsync(providersPath).ConfigureAwait(false);
                 var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
                 if (existing != null) exportProviders = existing;
             }
@@ -272,8 +272,8 @@ public class JsonConfigLoader : IConfigLoader
         }
 
         var opts = new JsonSerializerOptions { WriteIndented = true };
-        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(exportAuth, opts));
-        await File.WriteAllTextAsync(providersPath, JsonSerializer.Serialize(exportProviders, opts));
+        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(exportAuth, opts)).ConfigureAwait(false);
+        await File.WriteAllTextAsync(providersPath, JsonSerializer.Serialize(exportProviders, opts)).ConfigureAwait(false);
     }
 
     private string GetPreferencesPath() => _pathProvider.GetPreferencesFilePath();
@@ -286,7 +286,7 @@ public class JsonConfigLoader : IConfigLoader
         {
             try
             {
-                var json = await File.ReadAllTextAsync(authPath);
+                var json = await File.ReadAllTextAsync(authPath).ConfigureAwait(false);
                 var root = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (root != null && root.TryGetValue("app_settings", out var settingsElement))
                 {
@@ -305,7 +305,7 @@ public class JsonConfigLoader : IConfigLoader
         {
             try
             {
-                var json = await File.ReadAllTextAsync(path);
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 return JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
             }
             catch (Exception ex)
@@ -329,9 +329,9 @@ public class JsonConfigLoader : IConfigLoader
         Dictionary<string, object> root;
         if (File.Exists(path))
         {
-             try 
+             try
              {
-                var json = await File.ReadAllTextAsync(path);
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 root = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new Dictionary<string, object>();
              }
              catch (Exception ex)
@@ -348,7 +348,7 @@ public class JsonConfigLoader : IConfigLoader
         root["app_settings"] = preferences;
 
         var output = JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(path, output);
+        await File.WriteAllTextAsync(path, output).ConfigureAwait(false);
     }
 
     private IEnumerable<string> GetCompatibilityAuthPaths()

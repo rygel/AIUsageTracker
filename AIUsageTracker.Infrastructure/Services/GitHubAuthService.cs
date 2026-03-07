@@ -40,10 +40,10 @@ public class GitHubAuthService : IGitHubAuthService
             });
             request.Content = content;
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<DeviceFlowResponse>();
+            var result = await response.Content.ReadFromJsonAsync<DeviceFlowResponse>().ConfigureAwait(false);
             if (result == null) throw new Exception("Failed to parse device flow response.");
 
             return (result.device_code, result.user_code, result.verification_uri, result.expires_in, result.interval);
@@ -73,10 +73,10 @@ public class GitHubAuthService : IGitHubAuthService
             });
             request.Content = content;
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return null;
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
@@ -132,10 +132,10 @@ public class GitHubAuthService : IGitHubAuthService
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _currentToken);
             request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIUsageTracker", "1.0"));
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return null;
 
-            using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+            using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
             if (doc.RootElement.TryGetProperty("login", out var loginProp))
             {
                 _cachedUsername = loginProp.GetString();
