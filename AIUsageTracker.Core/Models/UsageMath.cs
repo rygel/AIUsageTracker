@@ -372,7 +372,8 @@ public static class UsageMath
             RemainingUnits = remaining,
             DaysUntilExhausted = daysRemaining,
             EstimatedExhaustionUtc = last.FetchedAt.ToUniversalTime().AddDays(daysRemaining),
-            SampleCount = cycleSamples.Count
+            SampleCount = cycleSamples.Count,
+            TrendDirection = trend
         };
     }
 
