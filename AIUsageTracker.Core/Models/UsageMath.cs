@@ -277,21 +277,15 @@ public static class UsageMath
             return forecastResult;
         }
 
-        var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out var elapsedDays);
+        var elapsedDays = CalculateElapsedDays(cycleSamples);
+        var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples);
+
         if (!ValidateBurnRate(burnRatePerDay, out forecastResult))
         {
             return forecastResult;
         }
 
         return CreateBurnRateForecast(burnRatePerDay, cycleSamples, elapsedDays);
-    }
-
-    private static List<ProviderUsage> FilterValidSamples(IEnumerable<ProviderUsage> history)
-    {
-        return history
-            .Where(x => x.FetchedAt != default && x.RequestsAvailable > 0 && !double.IsNaN(x.RequestsUsed))
-            .OrderBy(x => x.FetchedAt)
-            .ToList();
     }
 
     private static bool ValidateMinimumSamples(List<ProviderUsage> samples, int minimum, string errorMessage, out BurnRateForecast forecast)
@@ -309,12 +303,11 @@ public static class UsageMath
         return elapsedDays > 0 && (last.FetchedAt - first.FetchedAt).TotalHours >= MinimumElapsedHours;
     }
 
-    private static double CalculateBurnRatePerDay(List<ProviderUsage> cycleSamples, out double elapsedDays)
+    private static double CalculateBurnRatePerDay(List<ProviderUsage> cycleSamples)
     {
         var first = cycleSamples[0];
         var last = cycleSamples[^1];
-        elapsedDays = (last.FetchedAt - first.FetchedAt).TotalDays;
-
+        var elapsedDays = (last.FetchedAt - first.FetchedAt).TotalDays;
         double positiveIncrease = 0;
         for (var i = 1; i < cycleSamples.Count; i++)
         {
@@ -324,7 +317,6 @@ public static class UsageMath
                 positiveIncrease += delta;
             }
         }
-
         return positiveIncrease / elapsedDays;
     }
 
@@ -332,28 +324,6 @@ public static class UsageMath
     {
         forecast = BurnRateForecast.Unavailable("Invalid burn rate");
         return burnRatePerDay > 0 && !double.IsNaN(burnRatePerDay) && !double.IsInfinity(burnRatePerDay);
-    }
-
-    private static BurnRateForecast CreateBurnRateForecast(double burnRatePerDay, List<ProviderUsage> cycleSamples, double elapsedDays)
-    {
-        var last = cycleSamples[^1];
-        var remaining = Math.Max(0, last.RequestsAvailable - last.RequestsUsed);
-        var daysRemaining = remaining <= 0 ? 0 : remaining / burnRatePerDay;
-
-        if (double.IsNaN(daysRemaining) || double.IsInfinity(daysRemaining))
-        {
-            return BurnRateForecast.Unavailable("Invalid forecast");
-        }
-
-        return new BurnRateForecast
-        {
-            IsAvailable = true,
-            BurnRatePerDay = burnRatePerDay,
-            RemainingUnits = remaining,
-            DaysUntilExhausted = daysRemaining,
-            EstimatedExhaustionUtc = last.FetchedAt.ToUniversalTime().AddDays(daysRemaining),
-            SampleCount = cycleSamples.Count
-        };
     }
 
     public static ProviderReliabilitySnapshot CalculateReliabilitySnapshot(IEnumerable<ProviderUsage> history)
