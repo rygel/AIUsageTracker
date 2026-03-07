@@ -192,4 +192,52 @@ public class ProviderMetadataCatalogTests
 
         Assert.True(result);
     }
+
+    [Fact]
+    public void ShouldSuppressUsageProviderId_ReturnsTrue_ForStaleSessionBackedAliasHistory_WhenCanonicalConfigExists()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "codex", ApiKey = "codex-session" }
+        };
+
+        var result = ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, "openai");
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ShouldSuppressUsageProviderId_ReturnsFalse_ForExplicitAliasApiKeyConfig()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "codex", ApiKey = "codex-session" },
+            new() { ProviderId = "openai", ApiKey = "sk-live-openai" }
+        };
+
+        var result = ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, "openai");
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void UsageFilter_RemovesStaleSessionAliasUsage_WhenCanonicalProviderIsConfigured()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "codex", ApiKey = "codex-session" }
+        };
+        var usages = new List<ProviderUsage>
+        {
+            new() { ProviderId = "codex", ProviderName = "OpenAI (Codex)" },
+            new() { ProviderId = "openai", ProviderName = "OpenAI" }
+        };
+
+        var visible = usages
+            .Where(usage => !ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, usage.ProviderId))
+            .ToList();
+
+        Assert.Single(visible);
+        Assert.Equal("codex", visible[0].ProviderId);
+    }
 }

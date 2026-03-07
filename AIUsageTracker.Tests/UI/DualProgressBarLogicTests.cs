@@ -12,6 +12,8 @@ public class DualProgressBarLogicTests
     [InlineData("100%", 100.0)]
     [InlineData("0%", 0.0)]
     [InlineData("50", 50.0)]
+    [InlineData("96% remaining (4% used)", 4.0)]
+    [InlineData("49% remaining (51% used)", 51.0)]
     [InlineData("Invalid", null)]
     [InlineData("", null)]
     [InlineData(null, null)]
@@ -67,5 +69,44 @@ public class DualProgressBarLogicTests
         Assert.True(result);
         Assert.Equal(10.0, hourlyUsed);
         Assert.Equal(20.0, weeklyUsed); // 100 - 80
+    }
+
+    [Fact]
+    public void TryGetPresentation_ReturnsLabelsAndResets_ForDualWindows()
+    {
+        var weeklyReset = new DateTime(2026, 3, 12, 23, 0, 0);
+        var hourlyReset = new DateTime(2026, 3, 7, 1, 0, 0);
+        var usage = new ProviderUsage
+        {
+            Details = new List<ProviderUsageDetail>
+            {
+                new ProviderUsageDetail
+                {
+                    Name = "5-hour quota",
+                    Used = "96% remaining (4% used)",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Primary,
+                    NextResetTime = hourlyReset
+                },
+                new ProviderUsageDetail
+                {
+                    Name = "Weekly quota",
+                    Used = "49% remaining (51% used)",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Secondary,
+                    NextResetTime = weeklyReset
+                }
+            }
+        };
+
+        var result = ProviderDualWindowPresentationCatalog.TryGetPresentation(usage, out var presentation);
+
+        Assert.True(result);
+        Assert.Equal("5-hour", presentation.PrimaryLabel);
+        Assert.Equal(4.0, presentation.PrimaryUsedPercent);
+        Assert.Equal(hourlyReset, presentation.PrimaryResetTime);
+        Assert.Equal("Weekly", presentation.SecondaryLabel);
+        Assert.Equal(51.0, presentation.SecondaryUsedPercent);
+        Assert.Equal(weeklyReset, presentation.SecondaryResetTime);
     }
 }

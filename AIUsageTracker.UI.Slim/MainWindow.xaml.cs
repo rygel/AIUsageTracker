@@ -1263,7 +1263,7 @@ public partial class MainWindow : Window
         };
 
         // Reset time display (if available) - shown with muted golden color
-        if (usage.NextResetTime.HasValue)
+        if (!presentation.SuppressSingleResetTime && usage.NextResetTime.HasValue)
         {
             var relative = GetRelativeTimeString(usage.NextResetTime.Value);
             AddDockedElement(

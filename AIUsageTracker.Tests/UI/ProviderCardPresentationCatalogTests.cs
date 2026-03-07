@@ -96,4 +96,39 @@ public sealed class ProviderCardPresentationCatalogTests
 
         Assert.Equal("75% remaining", presentation.StatusText);
     }
+
+    [Fact]
+    public void Create_FormatsDualWindowStatus_AndSuppressesSingleResetTime()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            RequestsPercentage = 96,
+            NextResetTime = new DateTime(2026, 3, 7, 1, 0, 0),
+            Details = new List<ProviderUsageDetail>
+            {
+                new()
+                {
+                    Name = "5-hour quota",
+                    Used = "96% remaining (4% used)",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Primary
+                },
+                new()
+                {
+                    Name = "Weekly quota",
+                    Used = "49% remaining (51% used)",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Secondary
+                }
+            }
+        };
+
+        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+
+        Assert.Equal("5-hour 96% remaining | Weekly 49% remaining", presentation.StatusText);
+        Assert.True(presentation.SuppressSingleResetTime);
+    }
 }

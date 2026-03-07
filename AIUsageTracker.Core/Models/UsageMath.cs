@@ -105,19 +105,52 @@ public static class UsageMath
             return null;
         }
 
-        // Check for explicit "used" or "remaining"
-        if (value.Contains("used", StringComparison.OrdinalIgnoreCase))
+        var usedMatch = System.Text.RegularExpressions.Regex.Match(
+            value,
+            @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (usedMatch.Success)
         {
             isUsed = true;
+            if (double.TryParse(
+                    usedMatch.Groups["percent"].Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var usedPercent))
+            {
+                return ClampPercent(usedPercent);
+            }
         }
-        else if (value.Contains("remaining", StringComparison.OrdinalIgnoreCase))
+
+        var remainingMatch = System.Text.RegularExpressions.Regex.Match(
+            value,
+            @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        if (remainingMatch.Success)
         {
             isUsed = false;
+            if (double.TryParse(
+                    remainingMatch.Groups["percent"].Value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out var remainingPercent))
+            {
+                return ClampPercent(remainingPercent);
+            }
         }
 
         var match = System.Text.RegularExpressions.Regex.Match(value, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
         if (match.Success)
         {
+            if (value.Contains("used", StringComparison.OrdinalIgnoreCase))
+            {
+                isUsed = true;
+            }
+            else if (value.Contains("remaining", StringComparison.OrdinalIgnoreCase))
+            {
+                isUsed = false;
+            }
+
             if (double.TryParse(
                     match.Groups["percent"].Value,
                     System.Globalization.NumberStyles.Float,

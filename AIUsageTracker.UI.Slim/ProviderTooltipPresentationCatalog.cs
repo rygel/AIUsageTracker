@@ -19,7 +19,9 @@ internal static class ProviderTooltipPresentationCatalog
 
             tooltipBuilder.AppendLine();
             tooltipBuilder.AppendLine("Rate Limits:");
-            foreach (var detail in usage.Details.OrderBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
+            foreach (var detail in usage.Details
+                         .OrderBy(GetDetailSortOrder)
+                         .ThenBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
             {
                 tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detail.Used}");
             }
@@ -38,5 +40,18 @@ internal static class ProviderTooltipPresentationCatalog
     private static string GetDetailDisplayName(ProviderUsageDetail detail)
     {
         return detail.Name;
+    }
+
+    private static int GetDetailSortOrder(ProviderUsageDetail detail)
+    {
+        return (detail.DetailType, detail.WindowKind) switch
+        {
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.Primary) => 0,
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.Secondary) => 1,
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.Spark) => 2,
+            (ProviderUsageDetailType.Model, _) => 3,
+            (ProviderUsageDetailType.Credit, _) => 4,
+            _ => 5
+        };
     }
 }

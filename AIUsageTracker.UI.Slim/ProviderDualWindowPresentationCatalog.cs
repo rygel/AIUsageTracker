@@ -2,12 +2,34 @@ using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.UI.Slim;
 
+internal sealed record ProviderDualWindowPresentation(
+    string PrimaryLabel,
+    double PrimaryUsedPercent,
+    DateTime? PrimaryResetTime,
+    string SecondaryLabel,
+    double SecondaryUsedPercent,
+    DateTime? SecondaryResetTime);
+
 internal static class ProviderDualWindowPresentationCatalog
 {
     public static bool TryGetDualWindowUsedPercentages(ProviderUsage usage, out double hourlyUsed, out double weeklyUsed)
     {
         hourlyUsed = 0;
         weeklyUsed = 0;
+
+        if (!TryGetPresentation(usage, out var presentation))
+        {
+            return false;
+        }
+
+        hourlyUsed = presentation.PrimaryUsedPercent;
+        weeklyUsed = presentation.SecondaryUsedPercent;
+        return true;
+    }
+
+    public static bool TryGetPresentation(ProviderUsage usage, out ProviderDualWindowPresentation presentation)
+    {
+        presentation = null!;
 
         if (usage.Details?.Any() != true)
         {
@@ -40,8 +62,26 @@ internal static class ProviderDualWindowPresentationCatalog
             return false;
         }
 
-        hourlyUsed = parsedHourly.Value;
-        weeklyUsed = parsedWeekly.Value;
+        presentation = new ProviderDualWindowPresentation(
+            PrimaryLabel: SimplifyWindowLabel(hourlyDetail.Name, "Primary"),
+            PrimaryUsedPercent: parsedHourly.Value,
+            PrimaryResetTime: hourlyDetail.NextResetTime,
+            SecondaryLabel: SimplifyWindowLabel(weeklyDetail.Name, "Secondary"),
+            SecondaryUsedPercent: parsedWeekly.Value,
+            SecondaryResetTime: weeklyDetail.NextResetTime);
         return true;
+    }
+
+    private static string SimplifyWindowLabel(string? rawLabel, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(rawLabel))
+        {
+            return fallback;
+        }
+
+        var label = rawLabel.Trim();
+        label = label.Replace(" quota", string.Empty, StringComparison.OrdinalIgnoreCase);
+        label = label.Replace(" limit", string.Empty, StringComparison.OrdinalIgnoreCase);
+        return string.IsNullOrWhiteSpace(label) ? fallback : label;
     }
 }

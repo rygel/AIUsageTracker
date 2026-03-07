@@ -164,10 +164,21 @@ public static class ProviderMetadataCatalog
             return false;
         }
 
-        return HasConfiguredCanonicalConfig(configs, definition.SessionAuthCanonicalProviderId) &&
-               configs.Any(config =>
-                   string.Equals(config.ProviderId, providerId, StringComparison.OrdinalIgnoreCase) &&
-                   IsSessionAuthConfig(config, definition));
+        if (!HasConfiguredCanonicalConfig(configs, definition.SessionAuthCanonicalProviderId))
+        {
+            return false;
+        }
+
+        var aliasConfigs = configs
+            .Where(config => string.Equals(config.ProviderId, providerId, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (aliasConfigs.Count == 0)
+        {
+            return true;
+        }
+
+        return aliasConfigs.All(config => IsSessionAuthConfig(config, definition));
     }
 
     public static bool ShouldSuppressConfig(IReadOnlyCollection<ProviderConfig> configs, ProviderConfig config)

@@ -17,6 +17,7 @@ internal sealed record ProviderCardPresentation(
     bool IsError,
     bool IsAntigravityParent,
     bool ShouldHaveProgress,
+    bool SuppressSingleResetTime,
     double UsedPercent,
     double RemainingPercent,
     string StatusText,
@@ -35,6 +36,7 @@ internal static class ProviderCardPresentationCatalog
         var isUnknown = description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
         var isAntigravityParent = ProviderMetadataCatalog.IsAggregateParentProviderId(providerId);
         var isStatusOnlyProvider = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
+        var hasDualWindowPresentation = ProviderDualWindowPresentationCatalog.TryGetPresentation(usage, out var dualWindowPresentation);
 
         var remainingPercent = usage.IsQuotaBased
             ? usage.RequestsPercentage
@@ -52,23 +54,29 @@ internal static class ProviderCardPresentationCatalog
 
         if (isMissing)
         {
-            return CreatePresentation(isMissing, isUnknown, isError, isAntigravityParent, shouldHaveProgress, usedPercent, remainingPercent, "Key Missing", ProviderCardStatusTone.Missing);
+            return CreatePresentation(isMissing, isUnknown, isError, isAntigravityParent, shouldHaveProgress, false, usedPercent, remainingPercent, "Key Missing", ProviderCardStatusTone.Missing);
         }
 
         if (isError)
         {
-            return CreatePresentation(isMissing, isUnknown, isError, isAntigravityParent, shouldHaveProgress, usedPercent, remainingPercent, "Error", ProviderCardStatusTone.Error);
+            return CreatePresentation(isMissing, isUnknown, isError, isAntigravityParent, shouldHaveProgress, false, usedPercent, remainingPercent, "Error", ProviderCardStatusTone.Error);
         }
 
         if (isConsoleCheck)
         {
-            return CreatePresentation(isMissing, isUnknown, isError, isAntigravityParent, shouldHaveProgress, usedPercent, remainingPercent, "Check Console", ProviderCardStatusTone.Warning);
+            return CreatePresentation(isMissing, isUnknown, isError, isAntigravityParent, shouldHaveProgress, false, usedPercent, remainingPercent, "Check Console", ProviderCardStatusTone.Warning);
         }
 
         var statusText = description;
+        var suppressSingleResetTime = false;
         if (isAntigravityParent)
         {
             statusText = string.IsNullOrWhiteSpace(description) ? "Per-model quotas" : description;
+        }
+        else if (hasDualWindowPresentation)
+        {
+            statusText = BuildDualWindowStatusText(dualWindowPresentation, showUsed);
+            suppressSingleResetTime = true;
         }
         else if (!isUnknown && !isStatusOnlyProvider && usage.IsQuotaBased)
         {
@@ -90,6 +98,7 @@ internal static class ProviderCardPresentationCatalog
             isError,
             isAntigravityParent,
             shouldHaveProgress,
+            suppressSingleResetTime,
             usedPercent,
             remainingPercent,
             statusText,
@@ -102,6 +111,7 @@ internal static class ProviderCardPresentationCatalog
         bool isError,
         bool isAntigravityParent,
         bool shouldHaveProgress,
+        bool suppressSingleResetTime,
         double usedPercent,
         double remainingPercent,
         string statusText,
@@ -113,10 +123,25 @@ internal static class ProviderCardPresentationCatalog
             IsError: isError,
             IsAntigravityParent: isAntigravityParent,
             ShouldHaveProgress: shouldHaveProgress,
+            SuppressSingleResetTime: suppressSingleResetTime,
             UsedPercent: usedPercent,
             RemainingPercent: remainingPercent,
             StatusText: statusText,
             StatusTone: statusTone);
+    }
+
+    private static string BuildDualWindowStatusText(ProviderDualWindowPresentation presentation, bool showUsed)
+    {
+        return $"{FormatDualWindowSegment(presentation.PrimaryLabel, presentation.PrimaryUsedPercent, showUsed)} | {FormatDualWindowSegment(presentation.SecondaryLabel, presentation.SecondaryUsedPercent, showUsed)}";
+    }
+
+    private static string FormatDualWindowSegment(string label, double usedPercent, bool showUsed)
+    {
+        var clampedUsed = UsageMath.ClampPercent(usedPercent);
+        var clampedRemaining = UsageMath.ClampPercent(100.0 - clampedUsed);
+        return showUsed
+            ? $"{label} {clampedUsed:F0}% used"
+            : $"{label} {clampedRemaining:F0}% remaining";
     }
 
     private static string GetQuotaFractionStatusText(ProviderUsage usage, bool showUsed)

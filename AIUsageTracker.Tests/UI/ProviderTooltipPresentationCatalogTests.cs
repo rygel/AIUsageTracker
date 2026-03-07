@@ -14,8 +14,8 @@ public sealed class ProviderTooltipPresentationCatalogTests
             Description = "Connected",
             Details = new List<ProviderUsageDetail>
             {
-                new() { Name = "Weekly", Used = "20% used" },
-                new() { Name = "Hourly", Used = "10% used" }
+                new() { Name = "Weekly", Used = "20% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Secondary },
+                new() { Name = "Hourly", Used = "10% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Primary }
             }
         };
 
@@ -23,6 +23,28 @@ public sealed class ProviderTooltipPresentationCatalogTests
 
         Assert.Equal(
             "OpenAI\nStatus: Active\nDescription: Connected\n\nRate Limits:\n  Hourly: 10% used\n  Weekly: 20% used",
+            content?.Replace("\r\n", "\n", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void BuildContent_OrdersQuotaWindowsBeforeCredits()
+    {
+        var usage = new ProviderUsage
+        {
+            IsAvailable = true,
+            Details = new List<ProviderUsageDetail>
+            {
+                new() { Name = "Credits", Used = "0.00", DetailType = ProviderUsageDetailType.Credit },
+                new() { Name = "Spark", Used = "0% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Spark },
+                new() { Name = "Weekly", Used = "51% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Secondary },
+                new() { Name = "5-hour", Used = "4% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Primary }
+            }
+        };
+
+        var content = ProviderTooltipPresentationCatalog.BuildContent(usage, "Codex");
+
+        Assert.Equal(
+            "Codex\nStatus: Active\n\nRate Limits:\n  5-hour: 4% used\n  Weekly: 51% used\n  Spark: 0% used\n  Credits: 0.00",
             content?.Replace("\r\n", "\n", StringComparison.Ordinal));
     }
 
