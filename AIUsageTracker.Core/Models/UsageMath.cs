@@ -1,7 +1,11 @@
+using System.Text.RegularExpressions;
+
 namespace AIUsageTracker.Core.Models;
 
 public static class UsageMath
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
     private const double MinimumDropRatioForReset = 0.2;
     private const double MinimumElapsedHours = 1.0;
     private const double AnomalySigmaThreshold = 3.0;
@@ -9,21 +13,20 @@ public static class UsageMath
     private const double AnomalyMadScale = 1.4826;
     private const double MinimumAbsoluteRateDeltaPerDay = 1.0;
 
-#pragma warning disable MA0009 // Simple patterns for parsing percentages, not vulnerable to ReDoS
-    private static readonly System.Text.RegularExpressions.Regex s_usedPattern = new(
+    private static readonly Regex s_usedPattern = new(
         @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used",
-        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
-        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        RegexTimeout);
 
-    private static readonly System.Text.RegularExpressions.Regex s_remainingPattern = new(
+    private static readonly Regex s_remainingPattern = new(
         @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining",
-        System.Text.RegularExpressions.RegexOptions.IgnoreCase |
-        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        RegexTimeout);
 
-    private static readonly System.Text.RegularExpressions.Regex s_percentPattern = new(
+    private static readonly Regex s_percentPattern = new(
         @"(?<percent>\d+(?:\.\d+)?)\s*%",
-        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
-#pragma warning restore MA0009
+        RegexOptions.CultureInvariant,
+        RegexTimeout);
 
     /// <summary>
     /// Clamps a percentage value to the range [0, 100], handling NaN and Infinity.

@@ -27,18 +27,15 @@ dot_diagnostic.VSTHRD103.severity = warning
 dot_diagnostic.VSTHRD105.severity = warning
 dot_diagnostic.VSTHRD110.severity = warning
 dot_diagnostic.VSTHRD111.severity = none
-dot_diagnostic.VSTHRD200.severity = none
-dot_diagnostic.MA0002.severity = none
-dot_diagnostic.MA0004.severity = none
-dot_diagnostic.MA0006.severity = none
-dot_diagnostic.MA0009.severity = none
-dot_diagnostic.MA0011.severity = none
-dot_diagnostic.MA0016.severity = none
+dot_diagnostic.VSTHRD200.severity = warning
+dot_diagnostic.MA0002.severity = warning
+dot_diagnostic.MA0004.severity = warning
+dot_diagnostic.MA0006.severity = warning
+dot_diagnostic.MA0011.severity = warning
+dot_diagnostic.MA0016.severity = warning
 dot_diagnostic.MA0023.severity = suggestion
 dot_diagnostic.MA0039.severity = warning
-dot_diagnostic.MA0004.severity = none
-dot_diagnostic.MA0016.severity = none
-dot_diagnostic.MA0051.severity = none
+dot_diagnostic.MA0009.severity = warning
 dot_diagnostic.MA0051.severity = none
 dot_diagnostic.MA0074.severity = warning
 dot_style_diagnostics.use_slashes_for_doc_comments = false
@@ -47,7 +44,13 @@ dot_style_diagnostics.separate_multiple_def_lines = false
 
 [AIUsageTracker.Tests/**/*.cs]
 dot_diagnostic.MA0074.severity = none
-dot_diagnostic.MA0009.severity = none
+dot_diagnostic.MA0004.severity = none
+dot_diagnostic.MA0006.severity = none
+dot_diagnostic.MA0011.severity = none
+dot_diagnostic.MA0016.severity = none
+dot_diagnostic.MA0002.severity = none
+dot_diagnostic.VSTHRD200.severity = none
+dot_diagnostic.MA0009.severity = warning
 
 
 # Suppress method length warnings - 60 line limit is arbitrary
