@@ -40,7 +40,7 @@ public class ExportService
 
             foreach (var item in history)
             {
-                var time = item.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss");
+                var time = item.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                 var provider = EscapeCsv(item.ProviderName);
                 
                 if (item.Details != null && item.Details.Any())

@@ -413,7 +413,7 @@ public class AntigravityProvider : ProviderBase
         foreach (var line in lines)
         {
             var match = regex.Match(line);
-            if (match.Success && int.TryParse(match.Groups[1].Value, out var parsedPort))
+            if (match.Success && int.TryParse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out var parsedPort))
             {
                 if (!ports.Contains(parsedPort))
                 {

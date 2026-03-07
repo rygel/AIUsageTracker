@@ -99,7 +99,7 @@ try
         logger.LogInformation("═══════════════════════════════════════════════════════════════");
         logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
         logger.LogInformation("═══════════════════════════════════════════════════════════════");
-        logger.LogInformation("  Started:    {StartedAt}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+        logger.LogInformation("  Started:    {StartedAt}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
         logger.LogInformation("  Process ID: {ProcessId}", Environment.ProcessId);
         logger.LogInformation("  Working Dir: {WorkingDir}", Directory.GetCurrentDirectory());
         logger.LogInformation("  OS:         {Os}", Environment.OSVersion);
@@ -237,7 +237,7 @@ app.MapGet("/api/diagnostics", (EndpointDataSource endpointDataSource, ProviderR
         processId = Environment.ProcessId,
         workingDir = Directory.GetCurrentDirectory(),
         baseDir = AppDomain.CurrentDomain.BaseDirectory,
-        startedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+        startedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
         os = Environment.OSVersion.ToString(),
         runtime = Environment.Version.ToString(),
         args = args,
@@ -486,7 +486,7 @@ public partial class Program
             var info = new MonitorInfo
             {
                 Port = port,
-                StartedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                StartedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
                 ProcessId = Environment.ProcessId,
                 DebugMode = debug,
                 Errors = new List<string>(),
@@ -621,7 +621,7 @@ public class FileLogger : ILogger
 
         var message = formatter(state, exception);
         var levelStr = GetLevelString(logLevel);
-        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        var timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture);
         var categoryShort = _categoryName.Length > 30 
             ? _categoryName.Substring(_categoryName.Length - 30) 
             : _categoryName.PadRight(30);

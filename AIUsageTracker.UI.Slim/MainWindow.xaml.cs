@@ -1128,7 +1128,7 @@ public partial class MainWindow : Window
         var titleFontWeight = isGroupHeader ? FontWeights.Bold : FontWeights.Normal;
         var toggleOpacity = isGroupHeader ? 1.0 : 0.8;
         var lineOpacity = isGroupHeader ? 0.5 : 0.3;
-        var titleText = isGroupHeader ? title.ToUpper() : title;
+        var titleText = isGroupHeader ? title.ToUpper(System.Globalization.CultureInfo.InvariantCulture) : title;
         var titleForeground = isGroupHeader ? accent : GetResourceBrush("SecondaryText", Brushes.Gray);
 
         var header = CreateCollapsibleHeaderGrid(margin);
@@ -1729,7 +1729,7 @@ public partial class MainWindow : Window
                     else if (_usages.Any())
                     {
                         // Keep showing old data, show yellow warning
-                        ShowStatus("Last update: " + _lastMonitorUpdate.ToString("HH:mm:ss") + " (stale)", StatusType.Warning);
+                        ShowStatus("Last update: " + _lastMonitorUpdate.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + " (stale)", StatusType.Warning);
                     }
                     else
                     {
@@ -2341,7 +2341,7 @@ public partial class MainWindow : Window
         }
 
         var prefix = line[..dotIndex];
-        if (!int.TryParse(prefix, out number))
+        if (!int.TryParse(prefix, System.Globalization.CultureInfo.InvariantCulture, out number))
         {
             return false;
         }

@@ -31,7 +31,7 @@ public class DataViewModel : PageModel
         PageNumber = page;
 
         // Map URL-friendly names to actual table names
-        var actualTable = tableName?.ToLower() switch
+        var actualTable = tableName?.ToLower(System.Globalization.CultureInfo.InvariantCulture) switch
         {
             "providers" => "providers",
             "history" => "provider_history",

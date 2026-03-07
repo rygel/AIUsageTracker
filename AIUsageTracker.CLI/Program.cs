@@ -69,7 +69,7 @@ class Program
             return;
         }
 
-        var command = args[0].ToLower();
+        var command = args[0].ToLower(System.Globalization.CultureInfo.InvariantCulture);
         var showAll = args.Contains("--all");
         var json = args.Contains("--json");
 
@@ -96,7 +96,7 @@ class Program
                 break;
             case "history":
                 int days = 7;
-                if (args.Length > 1 && int.TryParse(args[1], out int d)) days = d;
+                if (args.Length > 1 && int.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out int d)) days = d;
                 await ShowHistory(agentService, days, json);
                 break;
             case "list":
@@ -193,7 +193,7 @@ class Program
         for (int i = 1; i < args.Length; i++)
         {
             if (string.Equals(args[i], "--format", StringComparison.Ordinal) && i + 1 < args.Length) format = args[++i];
-            else if (string.Equals(args[i], "--days", StringComparison.Ordinal) && i + 1 < args.Length && int.TryParse(args[i+1], out int d)) { days = d; i++; }
+            else if (string.Equals(args[i], "--days", StringComparison.Ordinal) && i + 1 < args.Length && int.TryParse(args[i+1], System.Globalization.CultureInfo.InvariantCulture, out int d)) { days = d; i++; }
             else if (string.Equals(args[i], "--output", StringComparison.Ordinal) && i + 1 < args.Length) output = args[++i];
         }
 
@@ -366,11 +366,9 @@ class Program
             if (prop.PropertyType == typeof(bool))
                 typedValue = bool.Parse(value);
             else if (prop.PropertyType == typeof(int))
-                typedValue = int.Parse(value);
+                typedValue = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
             else if (prop.PropertyType == typeof(double))
-                typedValue = double.Parse(value);
-            else if (prop.PropertyType == typeof(string))
-                typedValue = value;
+                typedValue = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
             else if (prop.PropertyType.IsEnum)
                 typedValue = Enum.Parse(prop.PropertyType, value, true);
             
@@ -391,7 +389,7 @@ class Program
 
     static async Task ManageAgent(MonitorService service, string action)
     {
-        switch (action.ToLower())
+        switch (action.ToLower(System.Globalization.CultureInfo.InvariantCulture))
         {
             case "info":
                 var port = await MonitorLauncher.GetAgentPortAsync();

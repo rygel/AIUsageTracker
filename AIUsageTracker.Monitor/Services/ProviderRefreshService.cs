@@ -185,7 +185,7 @@ public class ProviderRefreshService : BackgroundService
         await _refreshSemaphore.WaitAsync();
         try
         {
-            _logger.LogDebug("Starting data refresh - {Time}", DateTime.Now.ToString("HH:mm:ss"));
+            _logger.LogDebug("Starting data refresh - {Time}", DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
 
             _logger.LogInformation("Refreshing...");
 

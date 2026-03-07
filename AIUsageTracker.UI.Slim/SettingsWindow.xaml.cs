@@ -374,7 +374,7 @@ public partial class SettingsWindow : Window
             // Update port display
             if (FindName("MonitorPortText") is TextBlock portText)
             {
-                portText.Text = port.ToString();
+                portText.Text = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
         }
         catch (Exception ex)
@@ -886,7 +886,7 @@ public partial class SettingsWindow : Window
         UpdateChannelCombo.SelectedValue = _preferences.UpdateChannel;
         
         EnableWindowsNotificationsCheck.IsChecked = _agentPreferences.EnableNotifications;
-        NotificationThresholdBox.Text = _agentPreferences.NotificationThreshold.ToString("0.#");
+        NotificationThresholdBox.Text = _agentPreferences.NotificationThreshold.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
         NotifyUsageThresholdCheck.IsChecked = _agentPreferences.NotifyOnUsageThreshold;
         NotifyQuotaExceededCheck.IsChecked = _agentPreferences.NotifyOnQuotaExceeded;
         NotifyProviderErrorsCheck.IsChecked = _agentPreferences.NotifyOnProviderErrors;
@@ -894,15 +894,15 @@ public partial class SettingsWindow : Window
         QuietHoursStartBox.Text = string.IsNullOrWhiteSpace(_agentPreferences.QuietHoursStart) ? "22:00" : _agentPreferences.QuietHoursStart;
         QuietHoursEndBox.Text = string.IsNullOrWhiteSpace(_agentPreferences.QuietHoursEnd) ? "07:00" : _agentPreferences.QuietHoursEnd;
         ApplyNotificationControlsState();
-        YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString();
-        RedThreshold.Text = _preferences.ColorThresholdRed.ToString();
+        YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        RedThreshold.Text = _preferences.ColorThresholdRed.ToString(System.Globalization.CultureInfo.InvariantCulture);
         
         // Font settings
         PopulateFontComboBox();
-        FontFamilyCombo.SelectedItem = _preferences.FontFamily;
-        FontSizeBox.Text = _preferences.FontSize.ToString();
-        FontBoldCheck.IsChecked = _preferences.FontBold;
-        FontItalicCheck.IsChecked = _preferences.FontItalic;
+            FontFamilyCombo.SelectedItem = _preferences.FontFamily;
+            FontSizeBox.Text = _preferences.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            FontBoldCheck.IsChecked = _preferences.FontBold;
+            FontItalicCheck.IsChecked = _preferences.FontItalic;
         UpdateFontPreview();
     }
 
@@ -988,7 +988,7 @@ public partial class SettingsWindow : Window
             _preferences.FontItalic = false;
 
             FontFamilyCombo.SelectedItem = _preferences.FontFamily;
-            FontSizeBox.Text = _preferences.FontSize.ToString();
+            FontSizeBox.Text = _preferences.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
             FontBoldCheck.IsChecked = _preferences.FontBold;
             FontItalicCheck.IsChecked = _preferences.FontItalic;
         });
@@ -1004,7 +1004,7 @@ public partial class SettingsWindow : Window
 
     private void FontSizeBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (int.TryParse(FontSizeBox.Text, out int size) && size > 0 && size <= 72)
+        if (int.TryParse(FontSizeBox.Text, System.Globalization.CultureInfo.InvariantCulture, out int size) && size > 0 && size <= 72)
         {
             ApplyFontPreferenceChange(() => _preferences.FontSize = size);
         }
@@ -1324,7 +1324,7 @@ public partial class SettingsWindow : Window
             bundle.AppendLine($"SlimVersion: {typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "unknown"}");
             bundle.AppendLine($"AgentUrl: {_monitorService.AgentUrl}");
             bundle.AppendLine($"AgentRunning: {isRunning}");
-            bundle.AppendLine($"AgentPort: {port}");
+            bundle.AppendLine($"AgentPort: {port.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Health ===");
@@ -1350,10 +1350,12 @@ public partial class SettingsWindow : Window
             bundle.AppendLine();
 
             bundle.AppendLine("=== Slim Telemetry ===");
-            bundle.AppendLine(
-                $"Usage: count={telemetry.UsageRequestCount}, avg={telemetry.UsageAverageLatencyMs:F1}ms, last={telemetry.UsageLastLatencyMs}ms, errors={telemetry.UsageErrorCount} ({telemetry.UsageErrorRatePercent:F1}%)");
-            bundle.AppendLine(
-                $"Refresh: count={telemetry.RefreshRequestCount}, avg={telemetry.RefreshAverageLatencyMs:F1}ms, last={telemetry.RefreshLastLatencyMs}ms, errors={telemetry.RefreshErrorCount} ({telemetry.RefreshErrorRatePercent:F1}%)");
+            bundle.AppendFormat(System.Globalization.CultureInfo.InvariantCulture,
+                "Usage: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
+                telemetry.UsageRequestCount, telemetry.UsageAverageLatencyMs, telemetry.UsageLastLatencyMs, telemetry.UsageErrorCount, telemetry.UsageErrorRatePercent);
+            bundle.AppendFormat(System.Globalization.CultureInfo.InvariantCulture,
+                "Refresh: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
+                telemetry.RefreshRequestCount, telemetry.RefreshAverageLatencyMs, telemetry.RefreshLastLatencyMs, telemetry.RefreshErrorCount, telemetry.RefreshErrorRatePercent);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Slim Diagnostics Log ===");
@@ -1438,12 +1440,12 @@ public partial class SettingsWindow : Window
                 _preferences.UpdateChannel = channel;
             }
 
-            if (int.TryParse(YellowThreshold.Text, out var yellow))
+            if (int.TryParse(YellowThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var yellow))
             {
                 _preferences.ColorThresholdYellow = yellow;
             }
 
-            if (int.TryParse(RedThreshold.Text, out var red))
+            if (int.TryParse(RedThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var red))
             {
                 _preferences.ColorThresholdRed = red;
             }
@@ -1453,7 +1455,7 @@ public partial class SettingsWindow : Window
                 _preferences.FontFamily = font;
             }
 
-            if (int.TryParse(FontSizeBox.Text, out var size) && size > 0 && size <= 72)
+            if (int.TryParse(FontSizeBox.Text, System.Globalization.CultureInfo.InvariantCulture, out var size) && size > 0 && size <= 72)
             {
                 _preferences.FontSize = size;
             }
@@ -1463,7 +1465,7 @@ public partial class SettingsWindow : Window
             _preferences.IsPrivacyMode = _isPrivacyMode;
 
             _agentPreferences.EnableNotifications = EnableWindowsNotificationsCheck.IsChecked ?? false;
-            if (double.TryParse(NotificationThresholdBox.Text, out var notifyThreshold))
+            if (double.TryParse(NotificationThresholdBox.Text, System.Globalization.CultureInfo.InvariantCulture, out var notifyThreshold))
             {
                 _agentPreferences.NotificationThreshold = Math.Clamp(notifyThreshold, 0, 100);
             }
@@ -1655,7 +1657,7 @@ public partial class SettingsWindow : Window
         if (TimeSpan.TryParse(value, out var parsed))
         {
             var normalized = new TimeSpan(parsed.Hours, parsed.Minutes, 0);
-            return normalized.ToString("hh\\:mm");
+            return normalized.ToString("hh\\:mm", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         return fallback;
