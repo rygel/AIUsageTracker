@@ -125,7 +125,7 @@ public class GitHubCopilotProvider : ProviderBase
 
     private async Task PopulateProfileAndCopilotDataAsync(string token, HttpResponseMessage response, CopilotUsageState state)
     {
-        var json = await response.Content.ReadAsStringAsync();
+        var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
         state.RawJson = json;
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         if (doc.RootElement.TryGetProperty("login", out var loginElement))
@@ -133,8 +133,8 @@ public class GitHubCopilotProvider : ProviderBase
             state.Username = NormalizeUsername(loginElement.GetString());
         }
 
-        await PopulatePlanNameAsync(token, state);
-        await PopulateQuotaSnapshotAsync(token, state);
+        await PopulatePlanNameAsync(token, state).ConfigureAwait(false);
+        await PopulateQuotaSnapshotAsync(token, state).ConfigureAwait(false);
     }
 
     private async Task PopulatePlanNameAsync(string token, CopilotUsageState state)
