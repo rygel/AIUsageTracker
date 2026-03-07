@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Management;
 using System.Net.Http;
@@ -53,16 +52,9 @@ public class AntigravityProvider : ProviderBase
         _logger = logger;
     }
 
-    [SuppressMessage("Security", "MA0039:Do not write your own certificate validation method", Justification = "Antigravity only exposes an ephemeral loopback endpoint on 127.0.0.1 with a self-signed certificate. This client is never used for remote hosts.")]
     private static HttpClient CreateLocalhostClient()
     {
-        var handler = new HttpClientHandler
-        {
-            // This client is used only for the local Antigravity loopback endpoint.
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        };
-
-        return new HttpClient(handler)
+        return new HttpClient
         {
             Timeout = TimeSpan.FromSeconds(1.5)
         };
@@ -440,7 +432,7 @@ public class AntigravityProvider : ProviderBase
         int httpStatus = 200;
         Exception? lastRequestException = null;
 
-        foreach (var scheme in new[] { "https", "http" })
+        foreach (var scheme in new[] { "http" })
         {
             var url = $"{scheme}://127.0.0.1:{port}/exa.language_server_pb.LanguageServerService/GetUserStatus";
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
