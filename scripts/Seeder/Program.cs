@@ -103,6 +103,36 @@ class Program
         using var connection = new SqliteConnection(connectionString);
         connection.Open();
 
+        var providers = LoadProvidersFromDatabase(connection);
+        var latestHistory = LoadLatestHistoryFromDatabase(connection);
+        var history7Days = LoadHistory7DaysFromDatabase(connection);
+
+        var fixture = new TestDataFixture
+        {
+            ExportedAt = DateTime.UtcNow.ToString("o"),
+            Providers = providers,
+            LatestHistory = latestHistory,
+            History7Days = history7Days
+        };
+
+        var outputDir = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
+        {
+            Directory.CreateDirectory(outputDir);
+        }
+
+        WriteTestFixtureToFile(fixture, outputPath);
+
+        Console.WriteLine($"Exported to: {outputPath}");
+        Console.WriteLine($"  Providers: {providers.Count}");
+        Console.WriteLine($"  Latest history: {latestHistory.Count}");
+        Console.WriteLine($"  7-day history: {history7Days.Count}");
+
+        return 0;
+    }
+
+    static List<ProviderFixture> LoadProvidersFromDatabase(SqliteConnection connection)
+    {
         var providers = new List<ProviderFixture>();
         using (var cmd = connection.CreateCommand())
         {
@@ -120,7 +150,11 @@ class Program
                 });
             }
         }
+        return providers;
+    }
 
+    static List<HistoryFixture> LoadLatestHistoryFromDatabase(SqliteConnection connection)
+    {
         var latestHistory = new List<HistoryFixture>();
         using (var cmd = connection.CreateCommand())
         {
@@ -153,7 +187,11 @@ class Program
                 });
             }
         }
+        return latestHistory;
+    }
 
+    static List<HistoryFixture> LoadHistory7DaysFromDatabase(SqliteConnection connection)
+    {
         var history7Days = new List<HistoryFixture>();
         using (var cmd = connection.CreateCommand())
         {
@@ -182,15 +220,11 @@ class Program
                 });
             }
         }
+        return history7Days;
+    }
 
-        var fixture = new TestDataFixture
-        {
-            ExportedAt = DateTime.UtcNow.ToString("o"),
-            Providers = providers,
-            LatestHistory = latestHistory,
-            History7Days = history7Days
-        };
-
+    static void WriteTestFixtureToFile(TestDataFixture fixture, string outputPath)
+    {
         var outputDir = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
         {
@@ -201,11 +235,9 @@ class Program
         File.WriteAllText(outputPath, json);
 
         Console.WriteLine($"Exported to: {outputPath}");
-        Console.WriteLine($"  Providers: {providers.Count}");
-        Console.WriteLine($"  Latest history: {latestHistory.Count}");
-        Console.WriteLine($"  7-day history: {history7Days.Count}");
-
-        return 0;
+        Console.WriteLine($"  Providers: {fixture.Providers.Count}");
+        Console.WriteLine($"  Latest history: {fixture.LatestHistory.Count}");
+        Console.WriteLine($"  7-day history: {fixture.History7Days.Count}");
     }
 
     static int SeedDatabase(string fixturePath)
