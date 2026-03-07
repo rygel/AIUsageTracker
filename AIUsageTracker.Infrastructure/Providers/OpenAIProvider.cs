@@ -395,7 +395,7 @@ public class OpenAIProvider : ProviderBase
                          ?? root.ReadString("rate_limit", windowName, "reset_at");
 
         if (!string.IsNullOrWhiteSpace(resetAtIso) &&
-            DateTime.TryParse(resetAtIso, out var parsedResetAt))
+            DateTime.TryParse(resetAtIso, System.Globalization.CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedResetAt))
         {
             return parsedResetAt.ToLocalTime();
         }

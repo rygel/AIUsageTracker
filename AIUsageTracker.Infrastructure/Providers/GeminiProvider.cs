@@ -147,7 +147,7 @@ public class GeminiProvider : ProviderBase
                 var usedPercentage = 100.0 - remainingPercentage;
 
                 var soonestBucket = allBuckets.Where(b => !string.IsNullOrEmpty(b.ResetTime))
-                                             .OrderBy(b => DateTime.TryParse(b.ResetTime, out var dt) ? dt : DateTime.MaxValue)
+                                              .OrderBy(b => DateTime.TryParse(b.ResetTime, System.Globalization.CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt) ? dt : DateTime.MaxValue)
                                              .FirstOrDefault();
 
                 if (soonestBucket != null && DateTime.TryParse(soonestBucket.ResetTime, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var sdt))
