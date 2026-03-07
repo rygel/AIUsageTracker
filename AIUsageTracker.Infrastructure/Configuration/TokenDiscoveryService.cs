@@ -139,8 +139,8 @@ public class TokenDiscoveryService
                     continue;
                 }
 
-                // Session-based OpenAI access should be represented by Codex provider.
-                AddOrUpdate(configs, "codex", token, "Discovered in OpenCode auth", $"Config: {path}");
+                // Session-based OpenAI access should be represented by OpenAI provider.
+                AddOrUpdate(configs, "openai", token, "Discovered in OpenCode auth", $"Config: {path}");
                 return;
             }
         }

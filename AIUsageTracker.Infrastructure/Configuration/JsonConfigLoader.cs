@@ -159,50 +159,9 @@ public class JsonConfigLoader : IConfigLoader
             }
         }
 
-        NormalizeOpenAiCodexSessionOverlap(result);
         NormalizeCodexSparkConfiguration(result);
 
         return result;
-    }
-
-    private static void NormalizeOpenAiCodexSessionOverlap(List<ProviderConfig> configs)
-    {
-        var openAiConfig = configs.FirstOrDefault(c => c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
-        if (openAiConfig == null)
-        {
-            return;
-        }
-
-        var openAiHasApiKey = !string.IsNullOrWhiteSpace(openAiConfig.ApiKey);
-        var openAiHasExplicitApiKey = openAiHasApiKey &&
-                                      openAiConfig.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-        if (openAiHasExplicitApiKey)
-        {
-            return;
-        }
-
-        var codexConfig = configs.FirstOrDefault(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase));
-        if (codexConfig == null)
-        {
-            codexConfig = new ProviderConfig
-            {
-                ProviderId = "codex",
-                Type = "quota-based",
-                PlanType = PlanType.Coding
-            };
-            configs.Add(codexConfig);
-        }
-
-        if (string.IsNullOrWhiteSpace(codexConfig.ApiKey) && openAiHasApiKey)
-        {
-            codexConfig.ApiKey = openAiConfig.ApiKey;
-            codexConfig.AuthSource = openAiConfig.AuthSource;
-            codexConfig.Description = "Migrated from OpenAI session config";
-            codexConfig.Type = "quota-based";
-            codexConfig.PlanType = PlanType.Coding;
-        }
-
-        configs.RemoveAll(c => c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
     }
 
     private static void NormalizeCodexSparkConfiguration(List<ProviderConfig> configs)
