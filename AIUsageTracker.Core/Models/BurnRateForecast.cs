@@ -13,6 +13,7 @@ public sealed class BurnRateForecast
     public ConfidenceLevel Confidence { get; init; }
     public double? ConfidenceLowerBound { get; init; }
     public double? ConfidenceUpperBound { get; init; }
+    public TrendDirection TrendDirection { get; init; }
 
     public static BurnRateForecast Unavailable(string reason)
     {
@@ -37,4 +38,11 @@ public enum ConfidenceLevel
     Low,
     Medium,
     High
+}
+
+public enum TrendDirection
+{
+    Increasing,
+    Decreasing,
+    Stable
 }
