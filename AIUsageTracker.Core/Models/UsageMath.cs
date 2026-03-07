@@ -303,21 +303,11 @@ public static class UsageMath
         return elapsedDays > 0 && (last.FetchedAt - first.FetchedAt).TotalHours >= MinimumElapsedHours;
     }
 
-    private static double CalculateBurnRatePerDay(List<ProviderUsage> cycleSamples)
+    private static double CalculateElapsedDays(List<ProviderUsage> cycleSamples)
     {
         var first = cycleSamples[0];
         var last = cycleSamples[^1];
-        var elapsedDays = (last.FetchedAt - first.FetchedAt).TotalDays;
-        double positiveIncrease = 0;
-        for (var i = 1; i < cycleSamples.Count; i++)
-        {
-            var delta = cycleSamples[i].RequestsUsed - cycleSamples[i - 1].RequestsUsed;
-            if (delta > 0)
-            {
-                positiveIncrease += delta;
-            }
-        }
-        return positiveIncrease / elapsedDays;
+        return (last.FetchedAt - first.FetchedAt).TotalDays;
     }
 
     private static bool ValidateBurnRate(double burnRatePerDay, out BurnRateForecast forecast)
