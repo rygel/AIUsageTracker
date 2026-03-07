@@ -1,0 +1,50 @@
+name: Analyzer Quality Gate
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - "Directory.Build.props"
+      - ".editorconfig"
+      - "AIUsageTracker.*/**"
+      - "scripts/**"
+      - ".github/workflows/analyzer-quality-gate.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyzer-gate:
+    name: Analyzer Regression Check
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
+        with:
+          dotnet-version: "8.0.x"
+          cache-key-prefix: "analyzer-gate"
+
+      - name: Run Analyzer Regression Gate
+        shell: pwsh
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'develop' }}
+        run: |
+          .\scripts\analyzer-regression-gate.ps1 -BaseRef "$env:BASE_REF" -Solution AIUsageTracker.sln -Configuration Debug
+
+      - name: Upload analyzer gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analyzer-gate-results
+          path: |
+            .analyzer-gate-output/new-analyzer-warnings.txt
+            .analyzer-gate-output/analyzer-regression-summary.md
+          retention-days: 7
