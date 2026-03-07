@@ -6,7 +6,7 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <NoWarn>$(NoWarn);VSTHRD001;MA0016;MA0023;MA0025;MA0046;MA0047;MA0048;MA0051;MA0061</NoWarn>
+    <NoWarn>$(NoWarn);VSTHRD001;MA0023;MA0025;MA0046;MA0047;MA0048;MA0051;MA0061</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
