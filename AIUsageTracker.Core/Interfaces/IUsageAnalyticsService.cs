@@ -23,10 +23,3 @@ public interface IUsageAnalyticsService
     
     Task<List<UsageComparison>> GetUsageComparisonsAsync(List<string> providerIds);
 }
-
-public interface IDataExportService
-{
-    Task<string> ExportHistoryToCsvAsync();
-    Task<string> ExportHistoryToJsonAsync();
-    Task<byte[]?> CreateDatabaseBackupAsync();
-}

@@ -9,10 +9,3 @@ public interface INotificationService
     void Unregister();
     event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked;
 }
-
-public class NotificationClickedEventArgs : EventArgs
-{
-    public string Action { get; set; } = string.Empty;
-    public string Data { get; set; } = string.Empty;
-}
-
