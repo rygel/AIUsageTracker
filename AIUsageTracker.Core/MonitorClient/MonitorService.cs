@@ -493,36 +493,14 @@ public class MonitorService : IMonitorService
             var response = await _httpClient.GetAsync($"{AgentUrl}/api/health").ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                return new AgentContractHandshakeResult
-                {
-                    IsReachable = false,
-                    IsCompatible = false,
-                    Message = $"Agent health check failed ({(int)response.StatusCode})."
-                };
+                return CreateFailedHandshakeResult($"Agent health check failed ({(int)response.StatusCode}).");
             }
 
-            await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
-            var root = document.RootElement;
-
-            var contractVersion =
-                TryGetJsonString(root, "apiContractVersion") ??
-                TryGetJsonString(root, "api_contract_version");
-
-            var reportedAgentVersion =
-                TryGetJsonString(root, "agentVersion") ??
-                TryGetJsonString(root, "agent_version") ??
-                TryGetJsonString(root, "version");
+            var (contractVersion, reportedAgentVersion) = await ParseAgentHealthResponseAsync(response).ConfigureAwait(false);
 
             if (string.IsNullOrWhiteSpace(contractVersion))
             {
-                return new AgentContractHandshakeResult
-                {
-                    IsReachable = true,
-                    IsCompatible = false,
-                    AgentVersion = reportedAgentVersion,
-                    Message = $"Agent API contract version is missing (expected {ExpectedApiContractVersion})."
-                };
+                return CreateIncompatibleResult(true, reportedAgentVersion, contractVersion, $"Agent API contract version is missing (expected {ExpectedApiContractVersion}).");
             }
 
             if (string.Equals(contractVersion, ExpectedApiContractVersion, StringComparison.OrdinalIgnoreCase))
@@ -537,18 +515,8 @@ public class MonitorService : IMonitorService
                 };
             }
 
-            var versionSuffix = string.IsNullOrWhiteSpace(reportedAgentVersion)
-                ? string.Empty
-                : $" (agent {reportedAgentVersion})";
-
-            return new AgentContractHandshakeResult
-            {
-                IsReachable = true,
-                IsCompatible = false,
-                AgentContractVersion = contractVersion,
-                AgentVersion = reportedAgentVersion,
-                Message = $"Agent API contract mismatch: expected {ExpectedApiContractVersion}, got {contractVersion}{versionSuffix}."
-            };
+            var versionSuffix = string.IsNullOrWhiteSpace(reportedAgentVersion) ? string.Empty : $" (agent {reportedAgentVersion})";
+            return CreateIncompatibleResult(true, reportedAgentVersion, contractVersion, $"Agent API contract mismatch: expected {ExpectedApiContractVersion}, got {contractVersion}{versionSuffix}.");
         }
         catch (Exception ex)
         {
@@ -559,6 +527,46 @@ public class MonitorService : IMonitorService
                 Message = $"Agent API handshake failed: {ex.Message}"
             };
         }
+    }
+
+    private static AgentContractHandshakeResult CreateFailedHandshakeResult(string message)
+    {
+        return new AgentContractHandshakeResult
+        {
+            IsReachable = false,
+            IsCompatible = false,
+            Message = message
+        };
+    }
+
+    private static AgentContractHandshakeResult CreateIncompatibleResult(bool isReachable, string agentVersion, string contractVersion, string message)
+    {
+        return new AgentContractHandshakeResult
+        {
+            IsReachable = isReachable,
+            IsCompatible = false,
+            AgentVersion = agentVersion,
+            AgentContractVersion = contractVersion,
+            Message = message
+        };
+    }
+
+    private async Task<(string ContractVersion, string AgentVersion)> ParseAgentHealthResponseAsync(HttpResponseMessage response)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
+        var root = document.RootElement;
+
+        var contractVersion =
+            TryGetJsonString(root, "apiContractVersion") ??
+            TryGetJsonString(root, "api_contract_version");
+
+        var reportedAgentVersion =
+            TryGetJsonString(root, "agentVersion") ??
+            TryGetJsonString(root, "agent_version") ??
+            TryGetJsonString(root, "version");
+
+        return (contractVersion, reportedAgentVersion);
     }
 
     private static string? TryGetJsonString(JsonElement root, string propertyName)
