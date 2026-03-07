@@ -17,13 +17,13 @@ class Program
         try 
         {
             // Ensure Agent is running
-            if (!await MonitorLauncher.IsAgentRunningAsync())
+            if (!await MonitorLauncher.IsAgentRunningAsync().ConfigureAwait(false))
             {
                 Console.WriteLine("Agent is not running. Attempting to start...");
-                if (await MonitorLauncher.StartAgentAsync())
+                if (await MonitorLauncher.StartAgentAsync().ConfigureAwait(false))
                 {
                     Console.Write("Waiting for Agent to initialize...");
-                    if (await MonitorLauncher.WaitForAgentAsync())
+                    if (await MonitorLauncher.WaitForAgentAsync().ConfigureAwait(false))
                     {
                         Console.WriteLine(" Done.");
                     }
@@ -41,7 +41,7 @@ class Program
                 }
             }
 
-            await Run(args);
+            await Run(args).ConfigureAwait(false);
         }
         finally
         {
@@ -92,15 +92,15 @@ class Program
         switch (command)
         {
             case "status":
-                await ShowStatus(agentService, json, showAll);
+                await ShowStatus(agentService, json, showAll).ConfigureAwait(false);
                 break;
             case "history":
                 int days = 7;
                 if (args.Length > 1 && int.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out int d)) days = d;
-                await ShowHistory(agentService, days, json);
+                await ShowHistory(agentService, days, json).ConfigureAwait(false);
                 break;
             case "list":
-                await ShowList(agentService, json);
+                await ShowList(agentService, json).ConfigureAwait(false);
                 break;
             case "set-key":
                 if (args.Length < 3)
@@ -108,7 +108,7 @@ class Program
                     Console.WriteLine("Usage: act set-key <provider-id> <api-key>");
                     return;
                 }
-                await SetKey(agentService, args[1], args[2]);
+                await SetKey(agentService, args[1], args[2]).ConfigureAwait(false);
                 break;
             case "remove-key":
                 if (args.Length < 2)
@@ -116,16 +116,16 @@ class Program
                     Console.WriteLine("Usage: act remove-key <provider-id>");
                     return;
                 }
-                await RemoveKey(agentService, args[1]);
+                await RemoveKey(agentService, args[1]).ConfigureAwait(false);
                 break;
             case "scan":
-                await ScanKeys(agentService);
+                await ScanKeys(agentService).ConfigureAwait(false);
                 break;
             case "config":
                 if (args.Length == 1)
-                    await ShowConfig(agentService);
+                    await ShowConfig(agentService).ConfigureAwait(false);
                 else if (args.Length >= 3)
-                    await SetConfig(agentService, args[1], args[2]);
+                    await SetConfig(agentService, args[1], args[2]).ConfigureAwait(false);
                 else
                     Console.WriteLine("Usage: act config [key] [value]");
                 break;
@@ -135,14 +135,14 @@ class Program
                     Console.WriteLine("Usage: act agent <start|stop|restart|info|log>");
                     return;
                 }
-                await ManageAgent(agentService, args[1]);
+                await ManageAgent(agentService, args[1]).ConfigureAwait(false);
                 break;
             case "check":
                 string? providerId = args.Length > 1 ? args[1] : null;
-                await CheckProvider(agentService, providerId);
+                await CheckProvider(agentService, providerId).ConfigureAwait(false);
                 break;
             case "export":
-                await ExportData(agentService, args);
+                await ExportData(agentService, args).ConfigureAwait(false);
                 break;
             default:
                 Console.WriteLine($"Unknown command: {command}");
@@ -155,22 +155,22 @@ class Program
         if (string.IsNullOrEmpty(providerId))
         {
             Console.WriteLine("Checking all configured providers...");
-            var configs = await service.GetConfigsAsync();
+            var configs = await service.GetConfigsAsync().ConfigureAwait(false);
             foreach (var config in configs)
             {
-                await CheckSingleProvider(service, config.ProviderId);
+                await CheckSingleProvider(service, config.ProviderId).ConfigureAwait(false);
             }
         }
         else
         {
-            await CheckSingleProvider(service, providerId);
+            await CheckSingleProvider(service, providerId).ConfigureAwait(false);
         }
     }
 
     static async Task CheckSingleProvider(MonitorService service, string providerId)
     {
         Console.Write($"Checking {providerId}... ");
-        var (success, message) = await service.CheckProviderAsync(providerId);
+        var (success, message) = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
         if (success)
         {
             Console.ForegroundColor = ConsoleColor.Green;
@@ -202,11 +202,11 @@ class Program
         
         Console.WriteLine($"Exporting {days} days of history to {output} ({format})...");
 
-        var stream = await service.ExportDataAsync(format, days);
+        var stream = await service.ExportDataAsync(format, days).ConfigureAwait(false);
         if (stream != null)
         {
             using var fileStream = File.Create(output);
-            await stream.CopyToAsync(fileStream);
+            await stream.CopyToAsync(fileStream).ConfigureAwait(false);
             Console.WriteLine("Export complete.");
         }
         else
@@ -221,8 +221,8 @@ class Program
         // The Agent API currently supports ?limit=N.
         // Ideally, we'd have a 'days' parameter on the API, but limit works for now.
         // Assuming ~50 requests/day for a heavy user, 7 days = 350.
-        var limit = days * 50; 
-        var history = await service.GetHistoryAsync(limit);
+        var limit = days * 50;
+        var history = await service.GetHistoryAsync(limit).ConfigureAwait(false);
 
         if (json)
         {
@@ -268,17 +268,17 @@ class Program
     static async Task SetKey(MonitorService service, string providerId, string apiKey)
     {
         Console.WriteLine($"Setting key for '{providerId}'...");
-        
-        var configs = await service.GetConfigsAsync();
+
+        var configs = await service.GetConfigsAsync().ConfigureAwait(false);
         var existingConfig = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
 
         if (existingConfig != null)
         {
             existingConfig.ApiKey = apiKey;
-            if (await service.SaveConfigAsync(existingConfig))
+            if (await service.SaveConfigAsync(existingConfig).ConfigureAwait(false))
             {
                 Console.WriteLine("Key updated successfully.");
-                await service.TriggerRefreshAsync();
+                await service.TriggerRefreshAsync().ConfigureAwait(false);
             }
             else
             {
@@ -292,11 +292,11 @@ class Program
                 ProviderId = providerId,
                 ApiKey = apiKey
             };
-            
-            if (await service.SaveConfigAsync(newConfig))
+
+            if (await service.SaveConfigAsync(newConfig).ConfigureAwait(false))
             {
                 Console.WriteLine("Key saved successfully.");
-                await service.TriggerRefreshAsync();
+                await service.TriggerRefreshAsync().ConfigureAwait(false);
             }
             else
             {
@@ -308,10 +308,10 @@ class Program
     static async Task RemoveKey(MonitorService service, string providerId)
     {
         Console.WriteLine($"Removing key for '{providerId}'...");
-        if (await service.RemoveConfigAsync(providerId))
+        if (await service.RemoveConfigAsync(providerId).ConfigureAwait(false))
         {
              Console.WriteLine("Key removed successfully.");
-             await service.TriggerRefreshAsync();
+             await service.TriggerRefreshAsync().ConfigureAwait(false);
         }
         else
         {
@@ -322,8 +322,8 @@ class Program
     static async Task ScanKeys(MonitorService service)
     {
         Console.WriteLine("Scanning for API keys from known applications...");
-        var (count, configs) = await service.ScanForKeysAsync();
-        
+        var (count, configs) = await service.ScanForKeysAsync().ConfigureAwait(false);
+
         if (count > 0)
         {
             Console.WriteLine($"Found {count} new API keys:");
@@ -332,7 +332,7 @@ class Program
                 Console.WriteLine($" - {config.ProviderId}");
             }
             Console.WriteLine("Keys have been saved to configuration.");
-            await service.TriggerRefreshAsync();
+            await service.TriggerRefreshAsync().ConfigureAwait(false);
         }
         else
         {
@@ -342,18 +342,18 @@ class Program
 
     static async Task ShowConfig(MonitorService service)
     {
-        var prefs = await service.GetPreferencesAsync();
+        var prefs = await service.GetPreferencesAsync().ConfigureAwait(false);
         Console.WriteLine("Current Configuration:");
         Console.WriteLine(JsonSerializer.Serialize(prefs, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     static async Task SetConfig(MonitorService service, string key, string value)
     {
-        var prefs = await service.GetPreferencesAsync();
-        
+        var prefs = await service.GetPreferencesAsync().ConfigureAwait(false);
+
         // Reflection to set property
         var prop = prefs.GetType().GetProperty(key, System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-        
+
         if (prop == null)
         {
             Console.WriteLine($"Configuration key '{key}' not found.");
@@ -371,11 +371,11 @@ class Program
                 typedValue = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
             else if (prop.PropertyType.IsEnum)
                 typedValue = Enum.Parse(prop.PropertyType, value, true);
-            
+
             if (typedValue != null)
             {
                 prop.SetValue(prefs, typedValue);
-                if (await service.SavePreferencesAsync(prefs))
+                if (await service.SavePreferencesAsync(prefs).ConfigureAwait(false))
                     Console.WriteLine($"Configuration '{key}' updated to '{value}'.");
                 else
                     Console.WriteLine("Failed to save configuration.");
@@ -392,30 +392,30 @@ class Program
         switch (action.ToLower(System.Globalization.CultureInfo.InvariantCulture))
         {
             case "info":
-                var port = await MonitorLauncher.GetAgentPortAsync();
-                var running = await MonitorLauncher.IsAgentRunningAsync();
+                var port = await MonitorLauncher.GetAgentPortAsync().ConfigureAwait(false);
+                var running = await MonitorLauncher.IsAgentRunningAsync().ConfigureAwait(false);
                 Console.WriteLine($"Agent Status: {(running ? "Running" : "Stopped")}");
                 Console.WriteLine($"Port: {port}");
                 break;
             case "stop":
                 Console.WriteLine("Stopping Agent...");
-                if (await MonitorLauncher.StopAgentAsync())
+                if (await MonitorLauncher.StopAgentAsync().ConfigureAwait(false))
                     Console.WriteLine("Agent stopped.");
                 else
                     Console.WriteLine("Failed to stop Agent.");
                 break;
             case "start":
                 Console.WriteLine("Starting Agent...");
-                if (await MonitorLauncher.StartAgentAsync())
+                if (await MonitorLauncher.StartAgentAsync().ConfigureAwait(false))
                     Console.WriteLine("Agent started.");
                 else
                     Console.WriteLine("Failed to start Agent.");
                 break;
             case "restart":
                 Console.WriteLine("Restarting Agent...");
-                await MonitorLauncher.StopAgentAsync();
-                await Task.Delay(1000); // Wait a bit
-                if (await MonitorLauncher.StartAgentAsync())
+                await MonitorLauncher.StopAgentAsync().ConfigureAwait(false);
+                await Task.Delay(1000).ConfigureAwait(false); // Wait a bit
+                if (await MonitorLauncher.StartAgentAsync().ConfigureAwait(false))
                     Console.WriteLine("Agent restarted.");
                 else
                     Console.WriteLine("Failed to restart Agent.");
@@ -428,7 +428,7 @@ class Program
 
     static async Task ShowStatus(MonitorService service, bool json, bool showAll)
     {
-        var usage = await service.GetUsageAsync();
+        var usage = await service.GetUsageAsync().ConfigureAwait(false);
         
         if (!showAll)
         {
@@ -502,7 +502,7 @@ class Program
 
     static async Task ShowList(MonitorService service, bool json)
     {
-        var configs = await service.GetConfigsAsync();
+        var configs = await service.GetConfigsAsync().ConfigureAwait(false);
         if (json)
         {
             Console.WriteLine(JsonSerializer.Serialize(configs, AppJsonContext.Default.ListProviderConfig));
