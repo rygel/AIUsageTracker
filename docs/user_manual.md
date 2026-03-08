@@ -24,9 +24,7 @@ The screenshots in this document are generated from the app's deterministic head
 - Settings > Monitor: `docs/screenshot_settings_monitor_privacy.png`
 - Info dialog: `docs/screenshot_info_privacy.png`
 - Tray context menu: `docs/screenshot_context_menu_privacy.png`
-- Web Dashboard: `docs/screenshot_web_dashboard.png`
 - Web Providers: `docs/screenshot_web_providers.png`
-- Web Charts: `docs/screenshot_web_charts.png`
 
 ---
 
@@ -128,8 +126,6 @@ The Web UI provides a browser-based view over Agent-collected data.
 
 ### Web Dashboard
 
-![Web Dashboard](screenshot_web_dashboard.png)
-
 High-level provider status cards, quotas/usage summaries, and periodic auto-refresh.
 
 ### Web Providers
@@ -139,8 +135,6 @@ High-level provider status cards, quotas/usage summaries, and periodic auto-refr
 Tabular provider listing with availability and current usage details.
 
 ### Web Charts
-
-![Web Charts](screenshot_web_charts.png)
 
 Historical charts with server-side downsampling for fast rendering over longer date ranges.
 
