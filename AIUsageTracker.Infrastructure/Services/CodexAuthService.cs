@@ -104,7 +104,7 @@ public class CodexAuthService : ICodexAuthService
             return new CodexAuth
             {
                 AccessToken = accessToken,
-                AccountId = accountId
+                AccountId = accountId,
             };
         }
 
@@ -114,6 +114,7 @@ public class CodexAuthService : ICodexAuthService
     private sealed class CodexAuth
     {
         public string? AccessToken { get; set; }
+
         public string? AccountId { get; set; }
     }
 }

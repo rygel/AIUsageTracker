@@ -36,7 +36,7 @@ public class GitHubAuthService : IGitHubAuthService
             var content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("client_id", CLIENT_ID),
-                new KeyValuePair<string, string>("scope", SCOPE)
+                new KeyValuePair<string, string>("scope", SCOPE),
             });
             request.Content = content;
 
@@ -72,7 +72,7 @@ public class GitHubAuthService : IGitHubAuthService
             {
                 new KeyValuePair<string, string>("client_id", CLIENT_ID),
                 new KeyValuePair<string, string>("device_code", deviceCode),
-                new KeyValuePair<string, string>("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
+                new KeyValuePair<string, string>("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
             });
             request.Content = content;
 
@@ -179,9 +179,13 @@ public class GitHubAuthService : IGitHubAuthService
     private class DeviceFlowResponse
     {
         public string device_code { get; set; } = string.Empty;
+
         public string user_code { get; set; } = string.Empty;
+
         public string verification_uri { get; set; } = string.Empty;
+
         public int expires_in { get; set; }
+
         public int interval { get; set; }
     }
 }
