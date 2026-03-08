@@ -20,70 +20,70 @@ public class ChartsModel : PageModel
         AIUsageTracker.Core.Interfaces.IConfigLoader configLoader,
         IMemoryCache memoryCache)
     {
-        _dbService = dbService;
-        _configLoader = configLoader;
-        _memoryCache = memoryCache;
+        this._dbService = dbService;
+        this._configLoader = configLoader;
+        this._memoryCache = memoryCache;
     }
 
     public List<ChartDataPoint>? ChartData { get; set; }
     public Dictionary<string, string> ProviderColors { get; set; } = new(StringComparer.Ordinal);
-    public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
     public async Task OnGetAsync(int hours = 24)
     {
-        if (IsDatabaseAvailable)
+        if (this.IsDatabaseAvailable)
         {
-            var chartTask = _dbService.GetChartDataAsync(hours);
-            var colorTask = GetProviderColorsAsync();
+            var chartTask = this._dbService.GetChartDataAsync(hours);
+            var colorTask = this.GetProviderColorsAsync();
 
             await Task.WhenAll(chartTask, colorTask);
 
-            ChartData = await chartTask;
-            ProviderColors = await colorTask;
+            this.ChartData = await chartTask;
+            this.ProviderColors = await colorTask;
         }
     }
 
     public async Task<IActionResult> OnGetResetEventsAsync(int hours = 24)
     {
-        if (!IsDatabaseAvailable)
+        if (!this.IsDatabaseAvailable)
         {
             return new JsonResult(Array.Empty<ResetEvent>());
         }
 
-        var events = await _dbService.GetRecentResetEventsAsync(hours);
+        var events = await this._dbService.GetRecentResetEventsAsync(hours);
         return new JsonResult(events);
     }
 
     public async Task<IActionResult> OnGetChartPayloadAsync(int hours = 24)
     {
-        if (!IsDatabaseAvailable)
+        if (!this.IsDatabaseAvailable)
         {
             return new JsonResult(new
             {
                 chartData = Array.Empty<ChartDataPoint>(),
-                resetEvents = Array.Empty<ResetEvent>()
+                resetEvents = Array.Empty<ResetEvent>(),
             });
         }
 
-        var chartTask = _dbService.GetChartDataAsync(hours);
-        var resetTask = _dbService.GetRecentResetEventsAsync(hours);
+        var chartTask = this._dbService.GetChartDataAsync(hours);
+        var resetTask = this._dbService.GetRecentResetEventsAsync(hours);
         await Task.WhenAll(chartTask, resetTask);
 
         return new JsonResult(new
         {
             chartData = await chartTask,
-            resetEvents = await resetTask
+            resetEvents = await resetTask,
         });
     }
 
     private Task<Dictionary<string, string>> GetProviderColorsAsync()
     {
-        return _memoryCache.GetOrCreateAsync(ProviderColorsCacheKey, async entry =>
+        return this._memoryCache.GetOrCreateAsync(ProviderColorsCacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
 
             var colors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var configs = await _configLoader.LoadConfigAsync();
+            var configs = await this._configLoader.LoadConfigAsync();
             foreach (var cfg in configs)
             {
                 if (cfg.Models == null)
