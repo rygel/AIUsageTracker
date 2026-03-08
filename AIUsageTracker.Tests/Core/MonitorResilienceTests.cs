@@ -8,13 +8,14 @@ public class MonitorResilienceTests
     [Fact]
     public void MonitorInfo_SupportsErrorTracking()
     {
+        var errors = new List<string>();
         var info = new MonitorInfo
         {
-            Errors = new List<string>()
+            Errors = errors
         };
 
-        info.Errors.Add("Startup status: starting");
-        info.Errors.Add("Startup status: running");
+        errors.Add("Startup status: starting");
+        errors.Add("Startup status: running");
 
         Assert.Equal(2, info.Errors.Count);
         Assert.Contains(info.Errors, e => e.Contains("running"));

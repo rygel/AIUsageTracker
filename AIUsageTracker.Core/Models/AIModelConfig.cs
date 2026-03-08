@@ -11,7 +11,7 @@ public class AIModelConfig
     public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("matches")]
-    public List<string> Matches { get; set; } = new();
+    public IReadOnlyList<string> Matches { get; set; } = [];
 
     [JsonPropertyName("color")]
     public string? Color { get; set; }

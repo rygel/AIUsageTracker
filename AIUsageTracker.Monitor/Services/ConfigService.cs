@@ -29,8 +29,8 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var configs = await _configLoader.LoadConfigAsync();
-            return configs;
+            var configs = await _configLoader.LoadConfigAsync().ConfigureAwait(false);
+            return configs.ToList();
         }
         catch (Exception ex)
         {
@@ -43,7 +43,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var configs = await _configLoader.LoadConfigAsync();
+            var configs = (await _configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
             
             // Update or add
             var existing = configs.FirstOrDefault(c => 
@@ -59,7 +59,7 @@ public class ConfigService : IConfigService
                 configs.Add(config);
             }
             
-            await _configLoader.SaveConfigAsync(configs);
+            await _configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
             _logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
         }
         catch (Exception ex)
@@ -73,9 +73,9 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var configs = await _configLoader.LoadConfigAsync();
+            var configs = (await _configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
             configs.RemoveAll(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
-            await _configLoader.SaveConfigAsync(configs);
+            await _configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
             _logger.LogInformation("Removed: {ProviderId}", providerId);
         }
         catch (Exception ex)
@@ -89,7 +89,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            return await _configLoader.LoadPreferencesAsync();
+            return await _configLoader.LoadPreferencesAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -102,7 +102,7 @@ public class ConfigService : IConfigService
     {
         try
         {
-            await _configLoader.SavePreferencesAsync(preferences);
+            await _configLoader.SavePreferencesAsync(preferences).ConfigureAwait(false);
             _logger.LogInformation("Prefs saved");
         }
         catch (Exception ex)
@@ -116,8 +116,8 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var discovered = await _tokenDiscovery.DiscoverTokensAsync();
-            var existing = await _configLoader.LoadConfigAsync();
+            var discovered = await _tokenDiscovery.DiscoverTokensAsync().ConfigureAwait(false);
+            var existing = (await _configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
             
             // Merge discovered with existing
             foreach (var newConfig in discovered)
@@ -141,8 +141,8 @@ public class ConfigService : IConfigService
 
             ProviderMetadataCatalog.NormalizeCanonicalConfigurations(existing);
             
-            await _configLoader.SaveConfigAsync(existing);
-            return discovered;
+            await _configLoader.SaveConfigAsync(existing).ConfigureAwait(false);
+            return discovered.ToList();
         }
         catch (Exception ex)
         {

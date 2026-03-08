@@ -15,115 +15,130 @@ public class IndexModel : PageModel
 
     public IndexModel(WebDatabaseService dbService, IUsageAnalyticsService analyticsService)
     {
-        _dbService = dbService;
-        _analyticsService = analyticsService;
+        this._dbService = dbService;
+        this._analyticsService = analyticsService;
     }
 
-    public List<ProviderUsage>? LatestUsage { get; set; }
+    public IReadOnlyList<ProviderUsage>? LatestUsage { get; set; }
+
     public UsageSummary? Summary { get; set; }
+
     public IReadOnlyDictionary<string, BurnRateForecast> ForecastsByProvider { get; private set; }
         = new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyDictionary<string, ProviderReliabilitySnapshot> ReliabilityByProvider { get; private set; }
         = new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase);
+
     public IReadOnlyDictionary<string, UsageAnomalySnapshot> AnomaliesByProvider { get; private set; }
         = new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
-    public List<BudgetStatus> BudgetStatuses { get; private set; }
-    public List<UsageComparison> UsageComparisons { get; private set; }
-    public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
+
+    public IReadOnlyList<BudgetStatus> BudgetStatuses { get; private set; } = [];
+
+    public IReadOnlyList<UsageComparison> UsageComparisons { get; private set; } = [];
+
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
+
     public bool ShowUsedPercentage { get; set; }
+
     public bool ShowInactiveProviders { get; set; }
+
     public bool EnableExperimentalAnomalyDetection { get; set; }
-    public bool EnableExperimentalBudgetPolicies { get; set; } = true; // Always on
-    public bool EnableExperimentalComparison { get; set; } = true; // Always on
+
+    // Always on.
+    public bool EnableExperimentalBudgetPolicies { get; set; } = true;
+
+    // Always on.
+    public bool EnableExperimentalComparison { get; set; } = true;
 
     public async Task OnGetAsync([FromQuery] bool? showUsed)
     {
         // Check query string first, then cookie, then default to false (show remaining)
         if (showUsed.HasValue)
         {
-            ShowUsedPercentage = showUsed.Value;
-            // Save preference to cookie
-            Response.Cookies.Append("showUsedPercentage", ShowUsedPercentage.ToString(), new CookieOptions
+            this.ShowUsedPercentage = showUsed.Value;
+
+            // Save preference to cookie.
+            this.Response.Cookies.Append("showUsedPercentage", this.ShowUsedPercentage.ToString(), new CookieOptions
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1),
                 HttpOnly = false,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.Strict,
             });
         }
-        else if (Request.Cookies.TryGetValue("showUsedPercentage", out var cookieValue) && bool.TryParse(cookieValue, out var cookiePref))
+        else if (this.Request.Cookies.TryGetValue("showUsedPercentage", out var cookieValue) && bool.TryParse(cookieValue, out var cookiePref))
         {
-            ShowUsedPercentage = cookiePref;
+            this.ShowUsedPercentage = cookiePref;
         }
         else
         {
-            ShowUsedPercentage = false; // Default to showing remaining percentage
+            this.ShowUsedPercentage = false; // Default to showing remaining percentage.
         }
 
-        if (Request.Query.TryGetValue("showInactive", out var showInactiveQuery) &&
+        if (this.Request.Query.TryGetValue("showInactive", out var showInactiveQuery) &&
             bool.TryParse(showInactiveQuery, out var showInactive))
         {
-            ShowInactiveProviders = showInactive;
-            Response.Cookies.Append("showInactiveProviders", ShowInactiveProviders.ToString(), new CookieOptions
+            this.ShowInactiveProviders = showInactive;
+            this.Response.Cookies.Append("showInactiveProviders", this.ShowInactiveProviders.ToString(), new CookieOptions
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1),
                 HttpOnly = false,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.Strict,
             });
         }
-        else if (Request.Cookies.TryGetValue("showInactiveProviders", out var inactiveCookieValue) &&
+        else if (this.Request.Cookies.TryGetValue("showInactiveProviders", out var inactiveCookieValue) &&
                  bool.TryParse(inactiveCookieValue, out var inactiveCookiePref))
         {
-            ShowInactiveProviders = inactiveCookiePref;
+            this.ShowInactiveProviders = inactiveCookiePref;
         }
         else
         {
-            ShowInactiveProviders = false; // Default to hiding inactive providers
+            this.ShowInactiveProviders = false; // Default to hiding inactive providers.
         }
 
-        if (Request.Query.TryGetValue("expAnomaly", out var expAnomalyQuery) &&
+        if (this.Request.Query.TryGetValue("expAnomaly", out var expAnomalyQuery) &&
             bool.TryParse(expAnomalyQuery, out var expAnomaly))
         {
-            EnableExperimentalAnomalyDetection = expAnomaly;
-            Response.Cookies.Append("expAnomaly", EnableExperimentalAnomalyDetection.ToString(), new CookieOptions
+            this.EnableExperimentalAnomalyDetection = expAnomaly;
+            this.Response.Cookies.Append("expAnomaly", this.EnableExperimentalAnomalyDetection.ToString(), new CookieOptions
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1),
                 HttpOnly = false,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.Strict,
             });
         }
-        else if (Request.Cookies.TryGetValue("expAnomaly", out var expAnomalyCookie) &&
+        else if (this.Request.Cookies.TryGetValue("expAnomaly", out var expAnomalyCookie) &&
                  bool.TryParse(expAnomalyCookie, out var expAnomalyCookiePref))
         {
-            EnableExperimentalAnomalyDetection = expAnomalyCookiePref;
+            this.EnableExperimentalAnomalyDetection = expAnomalyCookiePref;
         }
         else
         {
-            EnableExperimentalAnomalyDetection = false;
+            this.EnableExperimentalAnomalyDetection = false;
         }
 
         // Budget and comparison are always enabled (experimental)
-        EnableExperimentalBudgetPolicies = true;
-        EnableExperimentalComparison = true;
+        this.EnableExperimentalBudgetPolicies = true;
+        this.EnableExperimentalComparison = true;
 
-        if (IsDatabaseAvailable)
+        if (this.IsDatabaseAvailable)
         {
-            var latestUsageTask = _dbService.GetLatestUsageAsync(includeInactive: ShowInactiveProviders);
-            var summaryTask = _dbService.GetUsageSummaryAsync();
+            var latestUsageTask = this._dbService.GetLatestUsageAsync(includeInactive: this.ShowInactiveProviders);
+            var summaryTask = this._dbService.GetUsageSummaryAsync();
 
             await Task.WhenAll(latestUsageTask, summaryTask);
 
-            LatestUsage = await latestUsageTask;
-            Summary = await summaryTask;
+            this.LatestUsage = await latestUsageTask;
+            this.Summary = await summaryTask;
 
-            if (LatestUsage.Count > 0)
+            if (this.LatestUsage.Count > 0)
             {
-                var providerIds = LatestUsage.Select(x => x.ProviderId).ToList();
-                var forecastTask = _analyticsService.GetBurnRateForecastsAsync(providerIds);
-                var reliabilityTask = _analyticsService.GetProviderReliabilityAsync(providerIds);
+                var providerIds = this.LatestUsage.Select(x => x.ProviderId).ToList();
+                var forecastTask = this._analyticsService.GetBurnRateForecastsAsync(providerIds);
+                var reliabilityTask = this._analyticsService.GetProviderReliabilityAsync(providerIds);
                 Task<IReadOnlyDictionary<string, UsageAnomalySnapshot>>? anomalyTask = null;
-                if (EnableExperimentalAnomalyDetection)
+                if (this.EnableExperimentalAnomalyDetection)
                 {
-                    anomalyTask = _analyticsService.GetUsageAnomaliesAsync(providerIds);
+                    anomalyTask = this._analyticsService.GetUsageAnomaliesAsync(providerIds);
                     await Task.WhenAll(forecastTask, reliabilityTask, anomalyTask);
                 }
                 else
@@ -131,20 +146,20 @@ public class IndexModel : PageModel
                     await Task.WhenAll(forecastTask, reliabilityTask);
                 }
 
-                ForecastsByProvider = await forecastTask;
-                ReliabilityByProvider = await reliabilityTask;
+                this.ForecastsByProvider = await forecastTask;
+                this.ReliabilityByProvider = await reliabilityTask;
                 var anomalies = anomalyTask != null ? (await anomalyTask).ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.OrdinalIgnoreCase) : null;
-                AnomaliesByProvider = anomalies ?? new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
+                this.AnomaliesByProvider = anomalies ?? new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
 
                 // Load experimental features
-                if (EnableExperimentalBudgetPolicies)
+                if (this.EnableExperimentalBudgetPolicies)
                 {
-                    BudgetStatuses = (await _analyticsService.GetBudgetStatusesAsync(providerIds)).ToList();
+                    this.BudgetStatuses = (await this._analyticsService.GetBudgetStatusesAsync(providerIds)).ToList();
                 }
 
-                if (EnableExperimentalComparison)
+                if (this.EnableExperimentalComparison)
                 {
-                    UsageComparisons = (await _analyticsService.GetUsageComparisonsAsync(providerIds)).ToList();
+                    this.UsageComparisons = (await this._analyticsService.GetUsageComparisonsAsync(providerIds)).ToList();
                 }
             }
         }

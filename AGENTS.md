@@ -101,6 +101,17 @@ $env:DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER = "1"
 - Avoid raw `dotnet test` for suspected hangs, because it may re-enter restore/build paths and ignore the intended timeout budget.
 - Build once under the stabilized environment, then run tiny test slices with hard wall-clock caps.
 - If a test command exceeds the timeout budget, kill the full process tree and report the overrun explicitly.
+- Quick stable one-liner entrypoint:
+  ```powershell
+  ./scripts/run-local-tests-stable.ps1 -Suites web -Configuration Debug -MaxParallel 8 -TotalTimeoutMinutes 10
+  ```
+- What it does:
+  - sets environment flags used for deterministic local runs:
+    - `$env:MSBuildEnableWorkloadResolver="false"`
+    - `$env:MSBUILDDISABLENODEREUSE="1"`
+    - `$env:DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER="1"`
+    - `$env:DOTNET_CLI_TELEMETRY_OPTOUT="1"`
+  - runs `scripts/run-local-tests-safe.ps1` with the configured suite list, parallelism, and timeout
 
 ### Running the Monitor
 ```bash

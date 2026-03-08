@@ -59,8 +59,8 @@ public class SettingsViewModel : BaseViewModel
         StatusMessage = "Loading settings...";
         try
         {
-            Configs = await _monitorService.GetConfigsAsync();
-            _usages = await _monitorService.GetUsageAsync();
+            Configs = (await _monitorService.GetConfigsAsync().ConfigureAwait(false)).ToList();
+            _usages = (await _monitorService.GetUsageAsync().ConfigureAwait(false)).ToList();
             
             if (Configs.Count == 0)
             {
@@ -90,6 +90,6 @@ public class SettingsViewModel : BaseViewModel
 
     public async Task<string> ExportDataAsync()
     {
-        return await _exportService.ExportHistoryToCsvAsync();
+        return await _exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);
     }
 }

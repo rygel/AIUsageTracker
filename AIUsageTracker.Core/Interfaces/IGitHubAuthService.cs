@@ -7,7 +7,7 @@ public interface IGitHubAuthService
     /// <summary>
     /// Initiates the Device Flow. Returns the user code, device code, and verification URI.
     /// </summary>
-    Task<(string deviceCode, string userCode, string verificationUri, int expiresIn, int interval)> InitiateDeviceFlowAsync();
+    Task<(string DeviceCode, string UserCode, string VerificationUri, int ExpiresIn, int Interval)> InitiateDeviceFlowAsync();
 
     /// <summary>
     /// Polls GitHub for the access token using the device code.

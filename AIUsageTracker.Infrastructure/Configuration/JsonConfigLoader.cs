@@ -28,7 +28,7 @@ public class JsonConfigLoader : IConfigLoader
 
     private string GetProvidersConfigPath() => _pathProvider.GetProviderConfigFilePath();
 
-    public async Task<List<ProviderConfig>> LoadConfigAsync()
+    public async Task<IReadOnlyList<ProviderConfig>> LoadConfigAsync()
     {
         var authPaths = new[] { GetTrackerConfigPath() }
             .Concat(GetCompatibilityAuthPaths())
@@ -159,7 +159,7 @@ public class JsonConfigLoader : IConfigLoader
         return result;
     }
 
-    public async Task SaveConfigAsync(List<ProviderConfig> configs)
+    public async Task SaveConfigAsync(IEnumerable<ProviderConfig> configs)
     {
         var authPath = GetTrackerConfigPath();
         var providersPath = GetProvidersConfigPath();

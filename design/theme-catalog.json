@@ -1,8 +1,8 @@
 {
   "defaultTheme": "Dark",
   "sourcePolicy": {
-    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for MA0016 PR (no theme changes).",
-    "updatedAt": "2026-03-07",
+    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for screenshot and smoke-test maintenance changes; no theme definitions changed.",
+    "updatedAt": "2026-03-08",
     "references": [
       "https://catppuccin.com/palette/",
       "https://code.visualstudio.com/docs/getstarted/themes"

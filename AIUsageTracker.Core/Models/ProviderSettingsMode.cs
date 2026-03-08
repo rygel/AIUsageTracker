@@ -5,5 +5,5 @@ public enum ProviderSettingsMode
     StandardApiKey,
     AutoDetectedStatus,
     ExternalAuthStatus,
-    SessionAuthStatus
+    SessionAuthStatus,
 }

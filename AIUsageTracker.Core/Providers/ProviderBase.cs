@@ -16,7 +16,7 @@ public abstract class ProviderBase : IProviderService
     /// </summary>
     protected static readonly JsonSerializerOptions JsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
     };
 
     public abstract string ProviderId { get; }
@@ -28,11 +28,11 @@ public abstract class ProviderBase : IProviderService
     }
 
     public abstract Task<IEnumerable<ProviderUsage>> GetUsageAsync(
-        ProviderConfig config, 
+        ProviderConfig config,
         Action<ProviderUsage>? progressCallback = null);
 
     protected virtual ProviderUsage CreateUnavailableUsage(
-        string description, 
+        string description,
         int httpStatus = 0,
         string? authSource = null,
         PlanType planType = PlanType.Coding,
@@ -52,7 +52,7 @@ public abstract class ProviderBase : IProviderService
             HttpStatus = httpStatus,
             RequestsPercentage = 0,
             RequestsUsed = 0,
-            RequestsAvailable = 0
+            RequestsAvailable = 0,
         };
     }
 
@@ -62,7 +62,7 @@ public abstract class ProviderBase : IProviderService
     }
 
     protected virtual ProviderUsage CreateUnavailableUsageFromStatus(
-        HttpResponseMessage response, 
+        HttpResponseMessage response,
         string? authSource = null)
     {
         var statusCode = (int)response.StatusCode;
@@ -70,35 +70,35 @@ public abstract class ProviderBase : IProviderService
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             return CreateUnavailableUsage(
-                $"Authentication failed ({statusCode})", 
-                statusCode, 
+                $"Authentication failed ({statusCode})",
+                statusCode,
                 authSource);
         }
         
         if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
         {
             return CreateUnavailableUsage(
-                $"Access denied ({statusCode})", 
-                statusCode, 
+                $"Access denied ({statusCode})",
+                statusCode,
                 authSource);
         }
         
         if ((int)response.StatusCode >= 500)
         {
             return CreateUnavailableUsage(
-                $"Server error ({statusCode})", 
-                statusCode, 
+                $"Server error ({statusCode})",
+                statusCode,
                 authSource);
         }
         
         return CreateUnavailableUsage(
-            $"Request failed ({statusCode})", 
-            statusCode, 
+            $"Request failed ({statusCode})",
+            statusCode,
             authSource);
     }
 
     protected virtual ProviderUsage CreateUnavailableUsageFromException(
-        Exception ex, 
+        Exception ex,
         string context = "Provider check failed",
         string? authSource = null)
     {
@@ -107,7 +107,7 @@ public abstract class ProviderBase : IProviderService
             HttpRequestException => "Connection failed - check network",
             TaskCanceledException => "Request timed out",
             InvalidOperationException => $"Invalid operation: {ex.Message}",
-            _ => $"{context}: {ex.Message}"
+            _ => $"{context}: {ex.Message}",
         };
 
         return CreateUnavailableUsage(message, 0, authSource);
@@ -128,7 +128,7 @@ public abstract class ProviderBase : IProviderService
             ProviderErrorType.ConfigurationError => "Configuration error",
             ProviderErrorType.DeserializationError => "Failed to parse response",
             ProviderErrorType.InvalidResponseError => "Invalid response from provider",
-            _ => ex.Message
+            _ => ex.Message,
         };
 
         return CreateUnavailableUsage(

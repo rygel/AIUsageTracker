@@ -277,6 +277,73 @@ public class MonitorServiceTests
         Assert.Contains("Ensure it is running", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task GetUsageByProviderAsync_RequestFails_ReturnsNull()
+    {
+        // Arrange
+        _mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("connection refused"));
+
+        // Act
+        var result = await _service.GetUsageByProviderAsync("openai");
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task ScanForKeysAsync_Success_ReturnsDiscoveredConfigs()
+    {
+        // Arrange
+        SetupMockResponse(
+            HttpStatusCode.OK,
+            new
+            {
+                discovered = 2,
+                configs = new[]
+                {
+                    new { providerId = "openai", providerName = "OpenAI" },
+                    new { providerId = "anthropic", providerName = "Anthropic" },
+                }
+            });
+
+        // Act
+        var result = await _service.ScanForKeysAsync();
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result.Configs.Count);
+        VerifyPath("/api/scan-keys");
+    }
+
+    [Fact]
+    public async Task ScanForKeysAsync_InvalidJson_ReturnsEmptyResult()
+    {
+        // Arrange
+        _mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{not-valid-json}", System.Text.Encoding.UTF8, "application/json"),
+            });
+
+        // Act
+        var result = await _service.ScanForKeysAsync();
+
+        // Assert
+        Assert.Equal(0, result.Count);
+        Assert.Empty(result.Configs);
+        VerifyPath("/api/scan-keys");
+    }
+
     private void SetupMockResponse(HttpStatusCode status, object body)
     {
         _mockHandler.Protected()

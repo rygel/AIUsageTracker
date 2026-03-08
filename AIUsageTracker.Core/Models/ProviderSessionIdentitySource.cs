@@ -4,5 +4,5 @@ public enum ProviderSessionIdentitySource
 {
     None,
     OpenAi,
-    Codex
+    Codex,
 }

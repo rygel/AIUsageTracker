@@ -38,7 +38,7 @@ public class ProviderConfig
     public bool EnableNotifications { get; set; } = false; // Default to disabled
 
     [JsonPropertyName("enabled_sub_trays")]
-    public List<string> EnabledSubTrays { get; set; } = new();
+    public IReadOnlyList<string> EnabledSubTrays { get; set; } = [];
 
     [JsonIgnore]
     [StringLength(100)]
@@ -48,5 +48,5 @@ public class ProviderConfig
     public string? Description { get; set; }
 
     [JsonPropertyName("models")]
-    public List<AIModelConfig> Models { get; set; } = new();
+    public IReadOnlyList<AIModelConfig> Models { get; set; } = [];
 }

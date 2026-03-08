@@ -9,19 +9,19 @@ public interface IMonitorService
     IReadOnlyList<string> LastAgentErrors { get; }
     Task RefreshAgentInfoAsync();
     Task RefreshPortAsync();
-    Task<List<ProviderUsage>> GetUsageAsync();
+    Task<IReadOnlyList<ProviderUsage>> GetUsageAsync();
     Task<ProviderUsage?> GetUsageByProviderAsync(string providerId);
-    Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100);
-    Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100);
+    Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100);
+    Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100);
     Task<bool> TriggerRefreshAsync();
-    Task<List<ProviderConfig>> GetConfigsAsync();
+    Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync();
     Task<bool> SaveConfigAsync(ProviderConfig config);
     Task<bool> RemoveConfigAsync(string providerId);
     Task<AppPreferences> GetPreferencesAsync();
     Task<bool> SavePreferencesAsync(AppPreferences preferences);
     Task<bool> SendTestNotificationAsync();
     Task<AgentTestNotificationResult> SendTestNotificationDetailedAsync();
-    Task<(int count, List<ProviderConfig> configs)> ScanForKeysAsync();
+    Task<(int Count, IReadOnlyList<ProviderConfig> Configs)> ScanForKeysAsync();
     Task<bool> CheckHealthAsync();
     Task<AgentContractHandshakeResult> CheckApiContractAsync();
     Task<string> ExportDataAsync(string format);

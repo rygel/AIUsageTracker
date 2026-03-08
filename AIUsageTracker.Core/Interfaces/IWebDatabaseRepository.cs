@@ -4,6 +4,6 @@ namespace AIUsageTracker.Core.Interfaces;
 
 public interface IWebDatabaseRepository
 {
-    Task<List<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples);
-    Task<List<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0);
+    Task<IReadOnlyList<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples);
+    Task<IReadOnlyList<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0);
 }

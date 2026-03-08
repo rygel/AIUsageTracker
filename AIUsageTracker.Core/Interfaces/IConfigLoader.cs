@@ -4,8 +4,8 @@ namespace AIUsageTracker.Core.Interfaces;
 
 public interface IConfigLoader
 {
-    Task<List<ProviderConfig>> LoadConfigAsync();
-    Task SaveConfigAsync(List<ProviderConfig> configs);
+    Task<IReadOnlyList<ProviderConfig>> LoadConfigAsync();
+    Task SaveConfigAsync(IEnumerable<ProviderConfig> configs);
     Task<AppPreferences> LoadPreferencesAsync();
     Task SavePreferencesAsync(AppPreferences preferences);
 }

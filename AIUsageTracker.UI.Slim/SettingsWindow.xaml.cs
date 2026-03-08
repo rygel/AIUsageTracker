@@ -99,8 +99,8 @@ public partial class SettingsWindow : Window
         {
             _isDeterministicScreenshotMode = false;
             
-            _configs = await _monitorService.GetConfigsAsync();
-            _usages = await _monitorService.GetUsageAsync();
+            _configs = (await _monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
+            _usages = (await _monitorService.GetUsageAsync().ConfigureAwait(true)).ToList();
             
             if (_configs.Count == 0)
             {
@@ -709,14 +709,18 @@ public partial class SettingsWindow : Window
         {
             if (!config.EnabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase))
             {
-                config.EnabledSubTrays.Add(detailName);
+                var enabledSubTrays = config.EnabledSubTrays.ToList();
+                enabledSubTrays.Add(detailName);
+                config.EnabledSubTrays = enabledSubTrays;
             }
 
             MarkSettingsChanged(refreshTrayIcons: true);
         };
         checkBox.Unchecked += (_, _) =>
         {
-            config.EnabledSubTrays.RemoveAll(name => name.Equals(detailName, StringComparison.OrdinalIgnoreCase));
+            var enabledSubTrays = config.EnabledSubTrays.ToList();
+            enabledSubTrays.RemoveAll(name => name.Equals(detailName, StringComparison.OrdinalIgnoreCase));
+            config.EnabledSubTrays = enabledSubTrays;
             MarkSettingsChanged(refreshTrayIcons: true);
         };
         return checkBox;

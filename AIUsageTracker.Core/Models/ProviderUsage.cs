@@ -15,12 +15,12 @@ public class ProviderUsage
     public bool IsAvailable { get; set; } = true;
     public string Description { get; set; } = string.Empty;
     public string AuthSource { get; set; } = string.Empty;
-    public List<ProviderUsageDetail>? Details { get; set; }
-    
+    public IReadOnlyList<ProviderUsageDetail>? Details { get; set; }
+
     // Temporary property for database serialization - not serialized to JSON
     [System.Text.Json.Serialization.JsonIgnore]
     public string? DetailsJson { get; set; }
-    
+
     public string AccountName { get; set; } = string.Empty;
     public string ConfigKey { get; set; } = string.Empty;
     public DateTime? NextResetTime { get; set; }

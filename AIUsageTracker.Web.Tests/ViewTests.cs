@@ -1,11 +1,14 @@
-using Microsoft.Playwright;
-using Microsoft.Playwright.MSTest;
+using System.Net;
+using System.Text.RegularExpressions;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AIUsageTracker.Web.Tests;
 
 [TestClass]
 public class ViewTests : WebTestBase
 {
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+
     [TestMethod]
     [DataRow("/")]
     [DataRow("/providers")]
@@ -14,191 +17,224 @@ public class ViewTests : WebTestBase
     [DataRow("/reliability")]
     public async Task Page_LoadsSuccessfully(string path)
     {
-        var response = await Page.GotoAsync($"{ServerUrl}{path}");
+        using var client = CreateClient();
+        using var response = await client.GetAsync(path);
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     [TestMethod]
     public async Task Dashboard_HasExpectedElements()
     {
-        await Page.GotoAsync(ServerUrl);
-        
-        // Check for common layout elements
-        var sidebar = await Page.QuerySelectorAsync(".sidebar");
-        Assert.IsNotNull(sidebar, "Sidebar should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/");
+        var html = await ReadBodyAsync(response);
 
-        var mainContent = await Page.QuerySelectorAsync("main");
-        Assert.IsNotNull(mainContent, "Main content area should be present");
+        Assert.IsNotNull(response);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(HasClass(html, "sidebar"), "Sidebar should be present");
+
+        Assert.IsTrue(html.Contains("<main", StringComparison.OrdinalIgnoreCase), "Main content area should be present");
     }
 
     [TestMethod]
     public async Task Dashboard_ModelBinding_WithShowUsedParameter()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}?showUsed=true");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/?showUsed=true");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(ResponseSetCookieContains(response.Headers, "showUsedPercentage"), "showUsedPercentage cookie should be set");
 
-        var uri = new Uri(ServerUrl);
-        var cookies = await Page.Context.CookiesAsync(new[] { uri.AbsoluteUri });
-        var showUsedCookie = cookies.FirstOrDefault(c => c.Name == "showUsedPercentage");
-        Assert.IsNotNull(showUsedCookie, "showUsedPercentage cookie should be set");
+        var html = await ReadBodyAsync(response);
+        Assert.IsTrue(html.Contains("showUsed", StringComparison.OrdinalIgnoreCase), "UI should render with showUsed enabled.");
     }
 
     [TestMethod]
     public async Task Dashboard_ModelBinding_WithShowInactiveParameter()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}?showInactive=true");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/?showInactive=true");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
+        Assert.IsTrue(ResponseSetCookieContains(response.Headers, "showInactiveProviders"), "showInactiveProviders cookie should be set");
 
-        var uri = new Uri(ServerUrl);
-        var cookies = await Page.Context.CookiesAsync(new[] { uri.AbsoluteUri });
-        var showInactiveCookie = cookies.FirstOrDefault(c => c.Name == "showInactiveProviders");
-        Assert.IsNotNull(showInactiveCookie, "showInactiveProviders cookie should be set");
+        var html = await ReadBodyAsync(response);
+        Assert.IsTrue(html.Contains("showInactive", StringComparison.OrdinalIgnoreCase), "UI should render with showInactive enabled.");
     }
 
     [TestMethod]
     public async Task ProvidersPage_LoadsSuccessfully()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}/providers");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/providers");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     [TestMethod]
     public async Task ProvidersPage_HasTableStructure()
     {
-        await Page.GotoAsync($"{ServerUrl}/providers");
-        
-        var table = await Page.QuerySelectorAsync("table");
-        Assert.IsNotNull(table, "Providers table should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/providers");
+        var html = await ReadBodyAsync(response);
 
-        var tableHeaders = await table.QuerySelectorAllAsync("th");
-        Assert.IsTrue(tableHeaders.Count > 0, "Table should have headers");
+        Assert.IsTrue(html.Contains("<table", StringComparison.OrdinalIgnoreCase), "Providers table should be present");
+        Assert.IsTrue(html.Contains("<th", StringComparison.OrdinalIgnoreCase), "Table should have headers");
     }
 
     [TestMethod]
     public async Task ChartsPage_LoadsSuccessfully()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}/charts");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/charts");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     [TestMethod]
     public async Task ChartsPage_HasChartElements()
     {
-        await Page.GotoAsync($"{ServerUrl}/charts");
-        
-        var canvas = await Page.QuerySelectorAsync("canvas");
-        Assert.IsNotNull(canvas, "Chart canvas should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/charts");
+        var html = await ReadBodyAsync(response);
+        Assert.IsTrue(
+            html.Contains("<canvas", StringComparison.OrdinalIgnoreCase),
+            "Chart canvas should be present");
     }
 
     [TestMethod]
     public async Task HistoryPage_LoadsSuccessfully()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}/history");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/history");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     [TestMethod]
     public async Task HistoryPage_HasTableStructure()
     {
-        await Page.GotoAsync($"{ServerUrl}/history");
-        
-        var table = await Page.QuerySelectorAsync("table");
-        Assert.IsNotNull(table, "History table should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/history");
+        var html = await ReadBodyAsync(response);
 
-        var tableHeaders = await table.QuerySelectorAllAsync("th");
-        Assert.IsTrue(tableHeaders.Count > 0, "Table should have headers");
+        Assert.IsTrue(html.Contains("<table", StringComparison.OrdinalIgnoreCase), "History table should be present");
+        Assert.IsTrue(html.Contains("<th", StringComparison.OrdinalIgnoreCase), "Table should have headers");
     }
 
     [TestMethod]
     public async Task ProviderPage_LoadsSuccessfully()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}/provider?providerId=openai");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/provider/openai");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     [TestMethod]
     public async Task ProviderPage_HasProviderDetails()
     {
-        await Page.GotoAsync($"{ServerUrl}/provider?providerId=openai");
-        
-        var providerCard = await Page.QuerySelectorAsync(".provider-card");
-        Assert.IsNotNull(providerCard, "Provider card should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/provider/openai");
+        var html = await ReadBodyAsync(response);
+        Assert.IsTrue(html.Contains("Usage History", StringComparison.OrdinalIgnoreCase), "Usage history heading should be present");
+        Assert.IsTrue(html.Contains("<table", StringComparison.OrdinalIgnoreCase), "Provider detail table should be present");
     }
 
     [TestMethod]
     public async Task ReliabilityPage_LoadsSuccessfully()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}/reliability");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/reliability");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     [TestMethod]
     public async Task ReliabilityPage_HasReliabilityElements()
     {
-        await Page.GotoAsync($"{ServerUrl}/reliability");
-        
-        var reliabilityTable = await Page.QuerySelectorAsync("table");
-        Assert.IsNotNull(reliabilityTable, "Reliability table should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/reliability");
+        var html = await ReadBodyAsync(response);
+        Assert.IsTrue(HasClass(html, "reliability-grid"), "Reliability grid should be present");
     }
 
     [TestMethod]
     public async Task ErrorPage_LoadsSuccessfully()
     {
-        var response = await Page.GotoAsync($"{ServerUrl}/error");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/error");
         Assert.IsNotNull(response);
-        Assert.AreEqual(200, response.Status);
+        Assert.AreEqual(HttpStatusCode.OK, response.StatusCode);
     }
 
     [TestMethod]
     public async Task ErrorPage_HasErrorMessage()
     {
-        await Page.GotoAsync($"{ServerUrl}/error?message=TestError");
-        
-        var errorMessage = await Page.QuerySelectorAsync(".error-message");
-        Assert.IsNotNull(errorMessage, "Error message should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/error?message=TestError");
+        var html = await ReadBodyAsync(response);
+        Assert.IsTrue(HasClass(html, "error-message"), "Error message should be present");
     }
 
     [TestMethod]
     public async Task Layout_HasConsistentNavigation()
     {
-        await Page.GotoAsync(ServerUrl);
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/");
+        var html = await ReadBodyAsync(response);
 
-        var navLinks = await Page.QuerySelectorAllAsync("nav a[href]");
-        Assert.IsTrue(navLinks.Count > 0, "Navigation should have links");
+        var navMatches = Regex.Matches(
+            html,
+            @"href\s*=\s*""(?<href>[^""]+)""",
+            RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture,
+            RegexTimeout);
+        Assert.IsTrue(navMatches.Count > 0, "Navigation should have links");
 
         bool hasProvidersLink = false;
         bool hasChartsLink = false;
         bool hasHistoryLink = false;
 
-        foreach (var link in navLinks)
+        foreach (var match in navMatches.Cast<Match>())
         {
-            var href = await link.GetAttributeAsync("href");
-            if (href?.Contains("/providers") == true)
+            var href = match.Groups["href"].Value;
+            if (href.Contains("/providers", StringComparison.OrdinalIgnoreCase))
+            {
                 hasProvidersLink = true;
-            if (href?.Contains("/charts") == true)
+            }
+
+            if (href.Contains("/charts", StringComparison.OrdinalIgnoreCase))
+            {
                 hasChartsLink = true;
-            if (href?.Contains("/history") == true)
+            }
+
+            if (href.Contains("/history", StringComparison.OrdinalIgnoreCase))
+            {
                 hasHistoryLink = true;
+            }
         }
 
-        Assert.IsTrue(hasProvidersLink || hasChartsLink || hasHistoryLink,
+        Assert.IsTrue(
+            hasProvidersLink || hasChartsLink || hasHistoryLink,
             "Should have navigation to main sections");
     }
 
     [TestMethod]
     public async Task Layout_HasThemeToggle()
     {
-        await Page.GotoAsync(ServerUrl);
-        
-        var themeToggle = await Page.QuerySelectorAsync(".theme-toggle");
-        Assert.IsNotNull(themeToggle, "Theme toggle should be present");
+        using var client = CreateClient();
+        using var response = await client.GetAsync("/");
+        var html = await ReadBodyAsync(response);
+        Assert.IsTrue(HasClass(html, "theme-toggle"), "Theme selector should expose the theme-toggle compatibility class");
+    }
+
+    private static bool HasClass(string html, string className)
+    {
+        return Regex.IsMatch(
+            html,
+            $"class\\s*=\\\"[^\\\"]*\\b{Regex.Escape(className)}\\b[^\\\"]*\\\"",
+            RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture,
+            RegexTimeout);
     }
 }

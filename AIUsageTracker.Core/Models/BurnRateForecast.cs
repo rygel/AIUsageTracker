@@ -21,7 +21,7 @@ public sealed class BurnRateForecast
         return new BurnRateForecast
         {
             IsAvailable = false,
-            Reason = reason
+            Reason = reason,
         };
     }
 }
@@ -31,19 +31,19 @@ public enum BurnRateForecastMethod
     SimpleAverage,
     LinearRegression,
     MovingAverage,
-    ExponentialSmoothing
+    ExponentialSmoothing,
 }
 
 public enum ConfidenceLevel
 {
     Low,
     Medium,
-    High
+    High,
 }
 
 public enum TrendDirection
 {
     Increasing,
     Decreasing,
-    Stable
+    Stable,
 }

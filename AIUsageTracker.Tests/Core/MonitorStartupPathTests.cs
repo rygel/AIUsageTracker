@@ -110,6 +110,26 @@ public sealed class MonitorStartupPathTests : IDisposable
         Assert.Single(Directory.GetFiles(_tempDirectory, "monitor.json.stale.*", SearchOption.TopDirectoryOnly));
     }
 
+    [Fact]
+    public async Task IsAgentRunningWithPortAsync_ReturnsHealthyMetadataPort()
+    {
+        var infoPath = await CreateMonitorInfoAsync(new MonitorInfo
+        {
+            Port = 5666,
+            ProcessId = 3333,
+        });
+
+        using var _ = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: new[] { infoPath },
+            healthCheckAsync: port => Task.FromResult(port == 5666),
+            processRunningAsync: processId => Task.FromResult(processId == 3333));
+
+        var result = await MonitorLauncher.IsAgentRunningWithPortAsync();
+
+        Assert.True(result.IsRunning);
+        Assert.Equal(5666, result.Port);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))

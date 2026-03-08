@@ -498,8 +498,9 @@ public partial class Program
             // Add startup status if provided
             if (!string.IsNullOrEmpty(startupStatus))
             {
-                info.Errors ??= new List<string>();
-                info.Errors.Add($"Startup status: {startupStatus}");
+                var errors = info.Errors?.ToList() ?? new List<string>();
+                errors.Add($"Startup status: {startupStatus}");
+                info.Errors = errors;
             }
 
             var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
@@ -540,8 +541,9 @@ public partial class Program
                 var info = JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (info != null)
                 {
-                    info.Errors ??= new List<string>();
-                    info.Errors.Add(message);
+                    var errors = info.Errors?.ToList() ?? new List<string>();
+                    errors.Add(message);
+                    info.Errors = errors;
                     var updatedJson = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
                     File.WriteAllText(jsonFile, updatedJson);
                 }

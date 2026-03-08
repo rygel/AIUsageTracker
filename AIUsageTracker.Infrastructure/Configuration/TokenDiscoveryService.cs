@@ -18,16 +18,16 @@ public class TokenDiscoveryService
         _pathProvider = pathProvider;
     }
 
-    private string GetUserProfilePath() => _pathProvider.GetUserProfileRoot();
-    private string GetAppDataPath() => Path.Combine(GetUserProfilePath(), "AppData", "Roaming");
-    private string GetLocalAppDataPath() => Path.Combine(GetUserProfilePath(), "AppData", "Local");
+    private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
+    private string GetAppDataPath() => Path.Combine(this.GetUserProfilePath(), "AppData", "Roaming");
+    private string GetLocalAppDataPath() => Path.Combine(this.GetUserProfilePath(), "AppData", "Local");
 
-    public async Task<List<ProviderConfig>> DiscoverTokensAsync()
+    public async Task<IReadOnlyList<ProviderConfig>> DiscoverTokensAsync()
     {
         var discoveredConfigs = new List<ProviderConfig>();
 
         // 1. Start with well-known supported providers (ensure they show up in --all)
-        AddWellKnownProviders(discoveredConfigs);
+        this.AddWellKnownProviders(discoveredConfigs);
 
         // 2. Discover from environment variables
         var envVars = Environment.GetEnvironmentVariables();
@@ -39,26 +39,26 @@ public class TokenDiscoveryService
 
             if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value)) continue;
 
-            TryAddEnvironmentVariable(discoveredConfigs, key, value);
+            this.TryAddEnvironmentVariable(discoveredConfigs, key, value);
         }
 
         // 3. Discover from Kilo Code
-        await DiscoverKiloCodeTokensAsync(discoveredConfigs);
+        await this.DiscoverKiloCodeTokensAsync(discoveredConfigs).ConfigureAwait(false);
 
         // 4. Discover from Roo Code
-        await DiscoverRooCodeTokensAsync(discoveredConfigs);
+        await this.DiscoverRooCodeTokensAsync(discoveredConfigs).ConfigureAwait(false);
 
         // 5. Discover from providers.json (to get IDs user might have added)
-        await DiscoverFromProvidersFileAsync(discoveredConfigs);
+        await this.DiscoverFromProvidersFileAsync(discoveredConfigs).ConfigureAwait(false);
 
         // 6. Discover from Claude Code
-        await DiscoverClaudeCodeTokenAsync(discoveredConfigs);
+        await this.DiscoverClaudeCodeTokenAsync(discoveredConfigs).ConfigureAwait(false);
 
         // 7. Discover native Codex session token
-        await DiscoverCodexSessionTokenAsync(discoveredConfigs);
+        await this.DiscoverCodexSessionTokenAsync(discoveredConfigs).ConfigureAwait(false);
 
         // 8. Discover OpenAI session token from OpenCode auth files
-        await DiscoverOpenAiSessionTokenAsync(discoveredConfigs);
+        await this.DiscoverOpenAiSessionTokenAsync(discoveredConfigs).ConfigureAwait(false);
 
         return discoveredConfigs;
     }
@@ -67,7 +67,7 @@ public class TokenDiscoveryService
     {
         try
         {
-            foreach (var path in GetCodexAuthCandidates())
+            foreach (var path in this.GetCodexAuthCandidates())
             {
                 if (!File.Exists(path))
                 {
@@ -83,7 +83,7 @@ public class TokenDiscoveryService
                     continue;
                 }
 
-                AddOrUpdate(configs, CodexProvider.StaticDefinition.ProviderId, token, "Discovered in Codex auth", $"Config: {path}");
+                this.AddOrUpdate(configs, CodexProvider.StaticDefinition.ProviderId, token, "Discovered in Codex auth", $"Config: {path}");
                 return;
             }
         }
@@ -97,7 +97,7 @@ public class TokenDiscoveryService
     {
         try
         {
-            foreach (var path in GetOpenCodeAuthCandidates())
+            foreach (var path in this.GetOpenCodeAuthCandidates())
             {
                 if (!File.Exists(path))
                 {
@@ -113,7 +113,7 @@ public class TokenDiscoveryService
                 }
 
                 // Session-based OpenAI access should be represented by the canonical session provider.
-                AddOrUpdate(
+                this.AddOrUpdate(
                     configs,
                     OpenAIProvider.StaticDefinition.SessionAuthCanonicalProviderId ?? CodexProvider.StaticDefinition.ProviderId,
                     token,
@@ -132,7 +132,7 @@ public class TokenDiscoveryService
     {
         try
         {
-            foreach (var path in GetCandidatePaths(ClaudeCodeProvider.StaticDefinition))
+            foreach (var path in this.GetCandidatePaths(ClaudeCodeProvider.StaticDefinition))
             {
                 if (!File.Exists(path))
                 {
@@ -147,7 +147,7 @@ public class TokenDiscoveryService
                     continue;
                 }
 
-                AddOrUpdate(
+                this.AddOrUpdate(
                     configs,
                     ClaudeCodeProvider.StaticDefinition.ProviderId,
                     token,
@@ -170,13 +170,13 @@ public class TokenDiscoveryService
 
         foreach (var id in wellKnownIds)
         {
-            AddIfNotExists(configs, id, "", "Well-known provider", "System Default");
+            this.AddIfNotExists(configs, id, string.Empty, "Well-known provider", "System Default");
         }
     }
 
     private async Task DiscoverFromProvidersFileAsync(List<ProviderConfig> configs)
     {
-        var providersPath = _pathProvider.GetProviderConfigFilePath();
+        var providersPath = this._pathProvider.GetProviderConfigFilePath();
 
         _logger.LogDebug("[OpenCode Discovery] Checking for providers.json at: {Path}", providersPath);
 
@@ -199,7 +199,7 @@ public class TokenDiscoveryService
                     {
                         _logger.LogDebug("[OpenCode Discovery] Found provider: {ProviderId}, Key present: {HasKey}",
                             id, !string.IsNullOrEmpty(known[id]));
-                        AddIfNotExists(configs, id, known[id], "Discovered in providers.json", "Config: providers.json");
+                        this.AddIfNotExists(configs, id, known[id], "Discovered in providers.json", "Config: providers.json");
                     }
                 }
                 else
@@ -220,13 +220,13 @@ public class TokenDiscoveryService
 
     private IEnumerable<string> GetCodexAuthCandidates()
     {
-        return GetCandidatePaths(CodexProvider.StaticDefinition);
+        return this.GetCandidatePaths(CodexProvider.StaticDefinition);
     }
 
     private IEnumerable<string> GetOpenCodeAuthCandidates()
     {
-        return new[] { _pathProvider.GetAuthFilePath() }
-            .Concat(GetCandidatePaths(OpenAIProvider.StaticDefinition))
+        return new[] { this._pathProvider.GetAuthFilePath() }
+            .Concat(this.GetCandidatePaths(OpenAIProvider.StaticDefinition))
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -262,7 +262,7 @@ public class TokenDiscoveryService
     private IEnumerable<string> GetCandidatePaths(ProviderDefinition definition)
     {
         return definition.AuthIdentityCandidatePathTemplates
-            .Select(ResolvePathTemplate)
+            .Select(this.ResolvePathTemplate)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)!;
     }
@@ -309,7 +309,7 @@ public class TokenDiscoveryService
     private async Task DiscoverKiloCodeTokensAsync(List<ProviderConfig> configs)
     {
         // 1. Try VS Code extension secrets.json
-        var kiloSecretsPath = Path.Combine(GetUserProfilePath(), ".kilocode", "secrets.json");
+        var kiloSecretsPath = Path.Combine(this.GetUserProfilePath(), ".kilocode", "secrets.json");
         if (File.Exists(kiloSecretsPath))
         {
             try
@@ -324,7 +324,7 @@ public class TokenDiscoveryService
                         var rooJson = rooProp.GetString();
                         if (!string.IsNullOrEmpty(rooJson))
                         {
-                            ParseRooConfig(configs, rooJson);
+                            this.ParseRooConfig(configs, rooJson);
                         }
                     }
                 }
@@ -341,7 +341,7 @@ public class TokenDiscoveryService
         try
         {
             // Roo Code stores its config in VS Code globalStorage
-            var vscodePath = GetVSCodeGlobalStoragePath();
+            var vscodePath = this.GetVSCodeGlobalStoragePath();
             if (!string.IsNullOrEmpty(vscodePath))
             {
                 var rooStoragePath = Path.Combine(vscodePath, "roovetgit.roo-code");
@@ -375,7 +375,7 @@ public class TokenDiscoveryService
             }
 
             // Also check for standalone Roo Code config directory (similar to Kilo Code)
-            var rooConfigPath = Path.Combine(GetUserProfilePath(), ".roo");
+            var rooConfigPath = Path.Combine(this.GetUserProfilePath(), ".roo");
             if (Directory.Exists(rooConfigPath))
             {
                 var secretsPath = Path.Combine(rooConfigPath, "secrets.json");
@@ -383,7 +383,7 @@ public class TokenDiscoveryService
                 {
                     try
                     {
-                        var json = await File.ReadAllTextAsync(secretsPath);
+                        var json = await File.ReadAllTextAsync(secretsPath).ConfigureAwait(false);
                         using var doc = JsonDocument.Parse(json);
 
                         // Parse similar structure to Kilo Code
@@ -394,7 +394,7 @@ public class TokenDiscoveryService
                                 foreach (var configPair in configsProp.EnumerateObject())
                                 {
                                     var config = configPair.Value;
-                                    TryAddRooKeys(configs, config);
+                                    this.TryAddRooKeys(configs, config);
                                 }
                             }
                         }
@@ -419,19 +419,19 @@ public class TokenDiscoveryService
             // Windows
             if (OperatingSystem.IsWindows())
             {
-                var appData = GetAppDataPath();
+                var appData = this.GetAppDataPath();
                 return Path.Combine(appData, "Code", "User", "globalStorage");
             }
             // macOS
             else if (OperatingSystem.IsMacOS())
             {
-                var home = GetUserProfilePath();
+                var home = this.GetUserProfilePath();
                 return Path.Combine(home, "Library", "Application Support", "Code", "User", "globalStorage");
             }
             // Linux
             else
             {
-                var home = GetUserProfilePath();
+                var home = this.GetUserProfilePath();
                 var configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ?? Path.Combine(home, ".config");
                 return Path.Combine(configHome, "Code", "User", "globalStorage");
             }
@@ -456,7 +456,7 @@ public class TokenDiscoveryService
                     var config = configPair.Value;
 
                     // Logic for common providers in Roo Cline
-                    TryAddRooKeys(configs, config);
+                    this.TryAddRooKeys(configs, config);
                 }
             }
         }
@@ -474,7 +474,7 @@ public class TokenDiscoveryService
             return;
         }
 
-        AddOrUpdate(
+        this.AddOrUpdate(
             configs,
             definition.ProviderId,
             value,
@@ -488,7 +488,7 @@ public class TokenDiscoveryService
         {
             foreach (var propertyName in definition.RooConfigPropertyNames)
             {
-                TryAddRooKey(configs, config, propertyName, definition.ProviderId);
+                this.TryAddRooKey(configs, config, propertyName, definition.ProviderId);
             }
         }
     }
@@ -500,7 +500,7 @@ public class TokenDiscoveryService
             var key = keyProp.GetString();
             if (!string.IsNullOrEmpty(key))
             {
-                AddIfNotExists(configs, providerId, key, "Discovered in Kilo Code (Roo Config)", "Kilo Code Roo Config");
+                this.AddIfNotExists(configs, providerId, key, "Discovered in Kilo Code (Roo Config)", "Kilo Code Roo Config");
             }
         }
     }

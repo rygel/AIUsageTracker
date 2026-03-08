@@ -549,7 +549,7 @@ public partial class MainWindow : Window
                 {
                     LogDiagnostic("[DIAGNOSTIC] Data available, rendering...");
                     // Data is available - render and stop rapid polling
-                    _usages = usages;
+                    _usages = usages.ToList();
                     RenderProviders();
                     _lastMonitorUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
@@ -875,7 +875,7 @@ public partial class MainWindow : Window
             var latestUsages = await _monitorService.GetUsageAsync();
             if (latestUsages.Any())
             {
-                _usages = latestUsages;
+                _usages = latestUsages.ToList();
                 RenderProviders();
                 _lastMonitorUpdate = DateTime.Now;
                 ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
@@ -1675,7 +1675,7 @@ public partial class MainWindow : Window
                 if (usages.Any())
                 {
                     // Fresh data received - update UI
-                    _usages = usages;
+                    _usages = usages.ToList();
                     RenderProviders();
                     _lastMonitorUpdate = DateTime.Now;
                     ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
@@ -1790,7 +1790,7 @@ public partial class MainWindow : Window
 
             if (shouldRefreshConfigs)
             {
-                _configs = await _monitorService.GetConfigsAsync();
+                _configs = (await _monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
                 _lastTrayConfigRefresh = DateTime.UtcNow;
             }
 

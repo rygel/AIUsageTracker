@@ -373,7 +373,7 @@ public static class UsageMath
             DaysUntilExhausted = daysRemaining,
             EstimatedExhaustionUtc = last.FetchedAt.ToUniversalTime().AddDays(daysRemaining),
             SampleCount = cycleSamples.Count,
-            TrendDirection = TrendDirection.Stable
+            TrendDirection = TrendDirection.Stable,
         };
     }
 
@@ -412,7 +412,7 @@ public static class UsageMath
             AverageLatencyMs = averageLatencyMs,
             LastLatencyMs = lastLatencyMs,
             LastSuccessfulSyncUtc = samples.LastOrDefault(x => x.IsAvailable)?.FetchedAt.ToUniversalTime(),
-            LastSeenUtc = samples[^1].FetchedAt.ToUniversalTime()
+            LastSeenUtc = samples[^1].FetchedAt.ToUniversalTime(),
         };
     }
 
@@ -527,7 +527,7 @@ public static class UsageMath
             LatestRatePerDay = latest.RatePerDay,
             DeviationSigma = double.IsFinite(sigmaDistance) ? sigmaDistance : 999,
             SampleCount = cycleSamples.Count,
-            LastDetectedUtc = hasAnomaly ? latest.FetchedAt.ToUniversalTime() : null
+            LastDetectedUtc = hasAnomaly ? latest.FetchedAt.ToUniversalTime() : null,
         };
     }
 
@@ -615,7 +615,7 @@ public static class UsageMath
         {
             >= 6 => "High",
             >= 4 => "Medium",
-            _ => "Low"
+            _ => "Low",
         };
     }
 }

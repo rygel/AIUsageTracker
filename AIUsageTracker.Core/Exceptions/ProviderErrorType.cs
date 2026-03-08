@@ -14,5 +14,5 @@ public enum ProviderErrorType
     RateLimitError,
     ServerError,
     DeserializationError,
-    InvalidResponseError
+    InvalidResponseError,
 }

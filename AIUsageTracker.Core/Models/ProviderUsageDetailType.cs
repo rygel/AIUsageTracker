@@ -6,5 +6,5 @@ public enum ProviderUsageDetailType
     QuotaWindow = 1,
     Credit = 2,
     Model = 3,
-    Other = 4
+    Other = 4,
 }

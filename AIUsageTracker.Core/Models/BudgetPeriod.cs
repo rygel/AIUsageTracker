@@ -5,5 +5,5 @@ public enum BudgetPeriod
     Daily,
     Weekly,
     Monthly,
-    Yearly
+    Yearly,
 }
