@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
+
 using System.IO.Compression;
 
 var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
@@ -56,7 +57,7 @@ try
             "application/json",
             "text/css",
             "text/html",
-            "image/svg+xml"
+            "image/svg+xml",
         });
     });
     builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
@@ -73,14 +74,14 @@ try
     builder.Services.AddSingleton<WebDatabaseService>();
     builder.Services.AddSingleton<IWebDatabaseRepository>(sp => sp.GetRequiredService<WebDatabaseService>());
     builder.Services.AddSingleton<IUsageAnalyticsService, UsageAnalyticsService>();
-    builder.Services.AddSingleton<IDataExportService>(sp => 
+    builder.Services.AddSingleton<IDataExportService>(sp =>
     {
         var repo = sp.GetRequiredService<IWebDatabaseRepository>();
         var logger = sp.GetRequiredService<ILogger<DataExportService>>();
         var dbPath = sp.GetRequiredService<WebDatabaseService>().GetDatabasePath();
         return new DataExportService(repo, logger, dbPath);
     });
-    
+
     builder.Services.AddSingleton<MonitorProcessService>();
     builder.Services.AddSingleton<IConfigLoader, AIUsageTracker.Infrastructure.Configuration.JsonConfigLoader>();
 
@@ -97,7 +98,8 @@ try
     {
         if (isDevelopment)
         {
-            context.Response.Headers.Append("Content-Security-Policy",
+            context.Response.Headers.Append(
+                "Content-Security-Policy",
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; " +
                 "style-src 'self' 'unsafe-inline' https://unpkg.com; " +
@@ -107,7 +109,8 @@ try
         }
         else
         {
-            context.Response.Headers.Append("Content-Security-Policy",
+            context.Response.Headers.Append(
+                "Content-Security-Policy",
                 "default-src 'self'; " +
                 "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; " +
                 "style-src 'self' 'unsafe-inline' https://unpkg.com; " +
@@ -115,7 +118,7 @@ try
                 "font-src 'self'; " +
                 "connect-src 'self';");
         }
-        await next();
+        await next().ConfigureAwait(false);
     });
 
     app.UseHttpsRedirection();
@@ -125,7 +128,7 @@ try
     var webRootCandidates = new[]
     {
         Path.Combine(app.Environment.ContentRootPath, "wwwroot"),
-        Path.Combine(AppContext.BaseDirectory, "wwwroot")
+        Path.Combine(AppContext.BaseDirectory, "wwwroot"),
     };
     var webRootPath = webRootCandidates.FirstOrDefault(Directory.Exists);
 
@@ -147,7 +150,7 @@ try
                 {
                     context.Context.Response.Headers.CacheControl = "public,max-age=604800";
                 }
-            }
+            },
         });
         Log.Information("Serving static assets from: {WebRootPath}", webRootPath);
     }
@@ -161,19 +164,19 @@ try
 
     app.MapGet("/api/monitor/status", async (MonitorProcessService agentService) =>
     {
-        var (isRunning, port, message, error) = await agentService.GetAgentStatusDetailedAsync();
+        var (isRunning, port, message, error) = await agentService.GetAgentStatusDetailedAsync().ConfigureAwait(false);
         return Results.Ok(new { isRunning, port, message, error });
     });
 
     app.MapGet("/api/agent/status", async (MonitorProcessService agentService) =>
     {
-        var (isRunning, port, message, error) = await agentService.GetAgentStatusDetailedAsync();
+        var (isRunning, port, message, error) = await agentService.GetAgentStatusDetailedAsync().ConfigureAwait(false);
         return Results.Ok(new { isRunning, port, message, error });
     });
 
     app.MapPost("/api/monitor/start", async (MonitorProcessService agentService) =>
     {
-        var (success, message) = await agentService.StartAgentDetailedAsync();
+        var (success, message) = await agentService.StartAgentDetailedAsync().ConfigureAwait(false);
         return success
             ? Results.Ok(new { message })
             : Results.BadRequest(new { message });
@@ -181,7 +184,7 @@ try
 
     app.MapPost("/api/agent/start", async (MonitorProcessService agentService) =>
     {
-        var (success, message) = await agentService.StartAgentDetailedAsync();
+        var (success, message) = await agentService.StartAgentDetailedAsync().ConfigureAwait(false);
         return success
             ? Results.Ok(new { message })
             : Results.BadRequest(new { message });
@@ -189,7 +192,7 @@ try
 
     app.MapPost("/api/monitor/stop", async (MonitorProcessService agentService) =>
     {
-        var (success, message) = await agentService.StopAgentDetailedAsync();
+        var (success, message) = await agentService.StopAgentDetailedAsync().ConfigureAwait(false);
         return success
             ? Results.Ok(new { message })
             : Results.BadRequest(new { message });
@@ -197,7 +200,7 @@ try
 
     app.MapPost("/api/agent/stop", async (MonitorProcessService agentService) =>
     {
-        var (success, message) = await agentService.StopAgentDetailedAsync();
+        var (success, message) = await agentService.StopAgentDetailedAsync().ConfigureAwait(false);
         return success
             ? Results.Ok(new { message })
             : Results.BadRequest(new { message });
@@ -206,24 +209,28 @@ try
     // Data export endpoints
     app.MapGet("/api/export/csv", async (IDataExportService exportService) =>
     {
-        var csv = await exportService.ExportHistoryToCsvAsync();
+        var csv = await exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);
         if (string.IsNullOrEmpty(csv))
+        {
             return Results.NotFound("No data to export");
+        }
 
         return Results.Text(csv, "text/csv", System.Text.Encoding.UTF8);
     });
 
     app.MapGet("/api/export/json", async (IDataExportService exportService) =>
     {
-        var json = await exportService.ExportHistoryToJsonAsync();
+        var json = await exportService.ExportHistoryToJsonAsync().ConfigureAwait(false);
         return Results.Text(json, "application/json", System.Text.Encoding.UTF8);
     });
 
     app.MapGet("/api/export/backup", async (IDataExportService exportService) =>
     {
-        var backup = await exportService.CreateDatabaseBackupAsync();
+        var backup = await exportService.CreateDatabaseBackupAsync().ConfigureAwait(false);
         if (backup == null)
+        {
             return Results.NotFound("No database to backup");
+        }
 
         return Results.File(backup, "application/octet-stream", $"usage_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db");
     });
@@ -252,7 +259,7 @@ finally
     Log.CloseAndFlush();
 }
 
-public partial class Program 
+public partial class Program
 {
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
