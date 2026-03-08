@@ -81,7 +81,9 @@ public class UsageAnalyticsService : IUsageAnalyticsService
 
         foreach (var group in data.GroupBy(r => r.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            var samples = group.Where(x => x.IsAvailable).ToList();
+            var samples = group
+                .Where(x => x.FetchedAt != default)
+                .ToList();
             snapshots[group.Key] = UsageMath.CalculateReliabilitySnapshot(samples);
         }
 

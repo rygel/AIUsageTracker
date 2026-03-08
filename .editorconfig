@@ -40,7 +40,7 @@ dot_diagnostic.MA0023.severity = suggestion
 dot_diagnostic.MA0039.severity = warning
 dot_diagnostic.MA0009.severity = warning
 dot_diagnostic.MA0048.severity = warning
-dot_diagnostic.MA0051.severity = none
+dot_diagnostic.MA0051.severity = suggestion
 dot_diagnostic.SA*.severity = none
 dot_diagnostic.SA1000.severity = warning
 dot_diagnostic.SA1003.severity = warning
@@ -53,7 +53,7 @@ dot_style_diagnostics.xml_header = false
 dot_style_diagnostics.separate_multiple_def_lines = false
 
 [AIUsageTracker.Tests/**/*.cs]
-dot_diagnostic.MA0074.severity = none
+dot_diagnostic.MA0074.severity = warning
 dot_diagnostic.MA0004.severity = none
 dot_diagnostic.MA0006.severity = none
 dot_diagnostic.MA0011.severity = none
@@ -63,4 +63,4 @@ dot_diagnostic.MA0009.severity = warning
 
 
 # Suppress method length warnings - 60 line limit is arbitrary
-dot_diagnostic.MA0051.severity = none
+dot_diagnostic.MA0051.severity = suggestion
