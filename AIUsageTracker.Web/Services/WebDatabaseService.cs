@@ -110,29 +110,14 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
-        var sql = $@"
-            SELECT h.*, p.provider_name as ProviderName
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
-
         return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(sql)).ConfigureAwait(false);
+            connection => connection.QueryAsync<dynamic>(BuildHistoryQuery(limit))).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
     {
-        var sql = $@"
-            SELECT h.*, p.provider_name as ProviderName
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            WHERE h.provider_id = @ProviderId
-            ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
-
         return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(sql, new { ProviderId = providerId })).ConfigureAwait(false);
+            connection => connection.QueryAsync<dynamic>(BuildProviderHistoryQuery(limit), new { ProviderId = providerId })).ConfigureAwait(false);
     }
 
     public async Task<UsageSummary> GetUsageSummaryAsync()
@@ -205,19 +190,8 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     public async Task<IReadOnlyList<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0)
     {
-        string sql = @"
-            SELECT h.*, p.provider_name as ProviderName
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            ORDER BY h.fetched_at DESC";
-
-        if (limit > 0)
-        {
-            sql += $" LIMIT {limit}";
-        }
-
         return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(sql)).ConfigureAwait(false);
+            connection => connection.QueryAsync<dynamic>(BuildExportHistoryQuery(limit))).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ChartDataPoint>> GetChartDataAsync(int hours = 24)
@@ -234,21 +208,8 @@ public class WebDatabaseService : IWebDatabaseRepository
         };
         var bucketSeconds = bucketMinutes * 60;
 
-        const string sql = @"
-            SELECT
-                h.provider_id AS ProviderId,
-                MIN(p.provider_name) AS ProviderName,
-                datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
-                AVG(h.requests_percentage) AS RequestsPercentage,
-                MAX(h.requests_used) AS RequestsUsed
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            WHERE h.fetched_at >= @CutoffUtc
-            GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
-            ORDER BY Timestamp ASC";
-
         var list = await this.QueryIfDatabaseAvailableAsync(
-            async connection => (await connection.QueryAsync<ChartDataPoint>(sql, new
+            async connection => (await connection.QueryAsync<ChartDataPoint>(ChartDataSql, new
             {
                 CutoffUtc = cutoffUtc,
                 BucketSeconds = bucketSeconds,
@@ -271,21 +232,8 @@ public class WebDatabaseService : IWebDatabaseRepository
 
         var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
-        const string sql = @"
-            SELECT 
-                id AS Id, 
-                provider_id AS ProviderId, 
-                provider_name AS ProviderName,
-                previous_usage AS PreviousUsage, 
-                new_usage AS NewUsage,
-                reset_type AS ResetType, 
-                timestamp AS Timestamp
-            FROM reset_events
-            WHERE timestamp >= @CutoffUtc
-            ORDER BY timestamp ASC";
-
         var results = await this.QueryIfDatabaseAvailableAsync(
-            async connection => (await connection.QueryAsync<ResetEvent>(sql, new { CutoffUtc = cutoffUtc }).ConfigureAwait(false)).ToList(),
+            async connection => (await connection.QueryAsync<ResetEvent>(RecentResetEventsSql, new { CutoffUtc = cutoffUtc }).ConfigureAwait(false)).ToList(),
             []).ConfigureAwait(false);
         ApplyProviderDisplayNames(results);
         return results;
@@ -293,22 +241,8 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
-        const string sql = @"
-            SELECT 
-                id AS Id, 
-                provider_id AS ProviderId, 
-                provider_name AS ProviderName,
-                previous_usage AS PreviousUsage, 
-                new_usage AS NewUsage,
-                reset_type AS ResetType, 
-                timestamp AS Timestamp
-            FROM reset_events
-            WHERE provider_id = @ProviderId
-            ORDER BY timestamp DESC
-            LIMIT @Limit";
-
         var results = await this.QueryIfDatabaseAvailableAsync(
-            async connection => (await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId, Limit = limit }).ConfigureAwait(false)).ToList(),
+            async connection => (await connection.QueryAsync<ResetEvent>(ProviderResetEventsSql, new { ProviderId = providerId, Limit = limit }).ConfigureAwait(false)).ToList(),
             []).ConfigureAwait(false);
         ApplyProviderDisplayNames(results);
         return results;
@@ -335,6 +269,46 @@ public class WebDatabaseService : IWebDatabaseRepository
     }
 
     public string GetDatabasePath() => this._connectionFactory.GetDatabasePath();
+
+    private const string ChartDataSql = @"
+            SELECT
+                h.provider_id AS ProviderId,
+                MIN(p.provider_name) AS ProviderName,
+                datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
+                AVG(h.requests_percentage) AS RequestsPercentage,
+                MAX(h.requests_used) AS RequestsUsed
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.fetched_at >= @CutoffUtc
+            GROUP BY h.provider_id, (strftime('%s', h.fetched_at) / @BucketSeconds)
+            ORDER BY Timestamp ASC";
+
+    private const string RecentResetEventsSql = @"
+            SELECT 
+                id AS Id, 
+                provider_id AS ProviderId, 
+                provider_name AS ProviderName,
+                previous_usage AS PreviousUsage, 
+                new_usage AS NewUsage,
+                reset_type AS ResetType, 
+                timestamp AS Timestamp
+            FROM reset_events
+            WHERE timestamp >= @CutoffUtc
+            ORDER BY timestamp ASC";
+
+    private const string ProviderResetEventsSql = @"
+            SELECT 
+                id AS Id, 
+                provider_id AS ProviderId, 
+                provider_name AS ProviderName,
+                previous_usage AS PreviousUsage, 
+                new_usage AS NewUsage,
+                reset_type AS ResetType, 
+                timestamp AS Timestamp
+            FROM reset_events
+            WHERE provider_id = @ProviderId
+            ORDER BY timestamp DESC
+            LIMIT @Limit";
 
     private async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
@@ -382,6 +356,43 @@ public class WebDatabaseService : IWebDatabaseRepository
                 return rows.Select(WebProviderUsageMapper.Map).ToList();
             },
             []).ConfigureAwait(false);
+    }
+
+    private static string BuildHistoryQuery(int limit)
+    {
+        return $@"
+            SELECT h.*, p.provider_name as ProviderName
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            ORDER BY h.fetched_at DESC
+            LIMIT {limit}";
+    }
+
+    private static string BuildProviderHistoryQuery(int limit)
+    {
+        return $@"
+            SELECT h.*, p.provider_name as ProviderName
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.provider_id = @ProviderId
+            ORDER BY h.fetched_at DESC
+            LIMIT {limit}";
+    }
+
+    private static string BuildExportHistoryQuery(int limit)
+    {
+        var sql = @"
+            SELECT h.*, p.provider_name as ProviderName
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            ORDER BY h.fetched_at DESC";
+
+        if (limit > 0)
+        {
+            sql += $" LIMIT {limit}";
+        }
+
+        return sql;
     }
 
     private static void ApplyProviderDisplayNames(IEnumerable<ProviderInfo> providers)
