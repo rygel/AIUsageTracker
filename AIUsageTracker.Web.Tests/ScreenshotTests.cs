@@ -78,7 +78,7 @@ public class ScreenshotTests : WebTestBase
         this._outputDir = Path.Combine(this._projectRoot, "docs");
         this._themeOutputDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "web-theme-smoke");
 
-        var catalog = LoadThemeCatalog(this._projectRoot);
+        var catalog = ScreenshotTests.LoadThemeCatalog(this._projectRoot);
         this._expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
         this._representativeThemeTokens = catalog.Themes
             .Where(t => t.Representative)
@@ -106,7 +106,7 @@ public class ScreenshotTests : WebTestBase
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
     public static void EnsureFactoryInitialized(TestContext context)
     {
-        InitializeFactory(context);
+        WebTestBase.InitializeFactory(context);
     }
 
     private static ThemeCatalog LoadThemeCatalog(string projectRoot)
@@ -196,7 +196,7 @@ public class ScreenshotTests : WebTestBase
             Console.WriteLine($"[SKIP] Playwright unavailable for {testName}: {ex.Message}");
             return null;
         }
-        catch (Win32Exception ex) when (IsPermissionError(ex))
+        catch (Win32Exception ex) when (ScreenshotTests.IsPermissionError(ex))
         {
             Console.WriteLine($"[SKIP] Playwright unavailable for {testName}: {ex.Message}");
             return null;
@@ -211,11 +211,11 @@ public class ScreenshotTests : WebTestBase
     [TestMethod]
     public async Task Dashboard_StylesheetAssetsLoadAndStylesApply()
     {
-        await using var browserSession = await TryCreateBrowserSessionAsync(
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
             nameof(Dashboard_StylesheetAssetsLoadAndStylesApply));
         if (browserSession is null)
         {
-            SkipBrowserTest(nameof(Dashboard_StylesheetAssetsLoadAndStylesApply));
+            ScreenshotTests.SkipBrowserTest(nameof(Dashboard_StylesheetAssetsLoadAndStylesApply));
             return;
         }
 
@@ -263,11 +263,11 @@ public class ScreenshotTests : WebTestBase
     [TestMethod]
     public async Task Dashboard_ReliabilityPanelStylesAndMarkupArePresent()
     {
-        await using var browserSession = await TryCreateBrowserSessionAsync(
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
             nameof(Dashboard_ReliabilityPanelStylesAndMarkupArePresent));
         if (browserSession is null)
         {
-            SkipBrowserTest(nameof(Dashboard_ReliabilityPanelStylesAndMarkupArePresent));
+            ScreenshotTests.SkipBrowserTest(nameof(Dashboard_ReliabilityPanelStylesAndMarkupArePresent));
             return;
         }
 
@@ -318,10 +318,10 @@ public class ScreenshotTests : WebTestBase
     [TestMethod]
     public async Task CaptureWebScreenshots()
     {
-        await using var browserSession = await TryCreateBrowserSessionAsync(nameof(CaptureWebScreenshots));
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(nameof(CaptureWebScreenshots));
         if (browserSession is null)
         {
-            SkipBrowserTest(nameof(CaptureWebScreenshots));
+            ScreenshotTests.SkipBrowserTest(nameof(CaptureWebScreenshots));
             return;
         }
 
@@ -357,10 +357,10 @@ public class ScreenshotTests : WebTestBase
     [TestMethod]
     public async Task ThemeSelector_AppliesAllThemes()
     {
-        await using var browserSession = await TryCreateBrowserSessionAsync(nameof(ThemeSelector_AppliesAllThemes));
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(nameof(ThemeSelector_AppliesAllThemes));
         if (browserSession is null)
         {
-            SkipBrowserTest(nameof(ThemeSelector_AppliesAllThemes));
+            ScreenshotTests.SkipBrowserTest(nameof(ThemeSelector_AppliesAllThemes));
             return;
         }
 
@@ -406,11 +406,11 @@ public class ScreenshotTests : WebTestBase
     [TestMethod]
     public async Task RepresentativeThemes_RenderDistinctVisualSnapshots()
     {
-        await using var browserSession = await TryCreateBrowserSessionAsync(
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
             nameof(RepresentativeThemes_RenderDistinctVisualSnapshots));
         if (browserSession is null)
         {
-            SkipBrowserTest(nameof(RepresentativeThemes_RenderDistinctVisualSnapshots));
+            ScreenshotTests.SkipBrowserTest(nameof(RepresentativeThemes_RenderDistinctVisualSnapshots));
             return;
         }
 
@@ -469,11 +469,11 @@ public class ScreenshotTests : WebTestBase
     [TestMethod]
     public async Task RepresentativeThemes_ExposeExpectedCssTokens()
     {
-        await using var browserSession = await TryCreateBrowserSessionAsync(
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
             nameof(RepresentativeThemes_ExposeExpectedCssTokens));
         if (browserSession is null)
         {
-            SkipBrowserTest(nameof(RepresentativeThemes_ExposeExpectedCssTokens));
+            ScreenshotTests.SkipBrowserTest(nameof(RepresentativeThemes_ExposeExpectedCssTokens));
             return;
         }
 
@@ -518,7 +518,7 @@ public class ScreenshotTests : WebTestBase
             Assert.AreEqual(expectedTokens.BgPrimary, tokens[0], $"Theme '{theme}' unexpected --bg-primary.");
             Assert.AreEqual(expectedTokens.AccentPrimary, tokens[1], $"Theme '{theme}' unexpected --accent-primary.");
 
-            var contrast = ContrastRatio(tokens[2], tokens[0]);
+            var contrast = ScreenshotTests.ContrastRatio(tokens[2], tokens[0]);
             Assert.IsTrue(contrast >= 4.5, $"Theme '{theme}' has insufficient text/background contrast ({contrast:F2}).");
         }
     }
