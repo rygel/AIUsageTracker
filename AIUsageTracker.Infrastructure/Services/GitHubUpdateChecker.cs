@@ -157,28 +157,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             }
 
             // Run the installer
-            _logger.LogInformation("Starting installer...");
-            var process = new System.Diagnostics.Process
-            {
-                StartInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = downloadPath,
-                    Arguments = "/CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
-                    UseShellExecute = true,
-                    Verb = "runas" // Run as administrator
-                }
-            };
-
-            if (process.Start())
-            {
-                _logger.LogInformation("Installer started successfully. Application will restart.");
-                return true;
-            }
-            else
-            {
-                _logger.LogError("Failed to start installer");
-                return false;
-            }
+            return StartInstaller(downloadPath);
         }
         catch (Exception ex)
         {
@@ -217,6 +196,37 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         {
             _logger.LogWarning(ex, "Failed to fetch release notes from GitHub API");
             return string.Empty;
+        }
+    }
+
+    private bool StartInstaller(string installerPath)
+    {
+        _logger.LogInformation("Starting installer from {Path}", installerPath);
+
+        var startInfo = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = installerPath,
+            Arguments = "/CLOSEAPPLICATIONS /RESTARTAPPLICATIONS",
+            UseShellExecute = true,
+            Verb = "runas", // Run as administrator
+        };
+
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(startInfo);
+            if (process == null)
+            {
+                _logger.LogError("Installer launch returned no process for {Path}", installerPath);
+                return false;
+            }
+
+            _logger.LogInformation("Installer started successfully from {Path} (PID {ProcessId}).", installerPath, process.Id);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start installer from {Path}", installerPath);
+            return false;
         }
     }
 }
