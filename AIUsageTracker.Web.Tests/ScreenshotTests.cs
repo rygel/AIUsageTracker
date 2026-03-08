@@ -221,7 +221,7 @@ public class ScreenshotTests : WebTestBase
 
         var page = browserSession.Page;
         await page.SetViewportSizeAsync(1280, 800);
-        await page.GotoAsync(ServerUrl);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
         await page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var siteCssStatus = await page.EvaluateAsync<int>("""
@@ -273,7 +273,7 @@ public class ScreenshotTests : WebTestBase
 
         var page = browserSession.Page;
         await page.SetViewportSizeAsync(1280, 800);
-        await page.GotoAsync(ServerUrl);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
         await page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var cssText = await page.EvaluateAsync<string>("""
@@ -334,19 +334,19 @@ public class ScreenshotTests : WebTestBase
 
         // 2. Dashboard
         Console.WriteLine("[TEST] Navigating to Dashboard...");
-        await page.GotoAsync(ServerUrl);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
         await page.WaitForSelectorAsync(".stat-card, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_dashboard.png"), FullPage = true });
 
         // 3. Providers List
         Console.WriteLine("[TEST] Navigating to Providers...");
-        await page.GotoAsync($"{ServerUrl}/providers");
+        await page.GotoAsync($"{ScreenshotTests.ServerUrl}/providers");
         await page.WaitForSelectorAsync("table, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_providers.png"), FullPage = true });
 
         // 4. Charts
         Console.WriteLine("[TEST] Navigating to Charts...");
-        await page.GotoAsync($"{ServerUrl}/charts");
+        await page.GotoAsync($"{ScreenshotTests.ServerUrl}/charts");
 
         await page.WaitForSelectorAsync(".chart-container, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await Task.Delay(2000);
@@ -366,7 +366,7 @@ public class ScreenshotTests : WebTestBase
 
         var page = browserSession.Page;
         await page.SetViewportSizeAsync(1280, 800);
-        await page.GotoAsync(ServerUrl);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
         await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var availableThemes = await page.EvaluateAsync<string[]>("""
@@ -416,7 +416,7 @@ public class ScreenshotTests : WebTestBase
 
         var page = browserSession.Page;
         await page.SetViewportSizeAsync(1280, 800);
-        await page.GotoAsync(ServerUrl);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
         await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         var representativeThemes = this._representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
@@ -438,7 +438,7 @@ public class ScreenshotTests : WebTestBase
                 """,
                 theme);
 
-            await Task.Delay(ThemeSwitchDelayMs);
+            await Task.Delay(ScreenshotTests.ThemeSwitchDelayMs);
 
             var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
@@ -451,7 +451,9 @@ public class ScreenshotTests : WebTestBase
 
             var fileInfo = new FileInfo(filePath);
             Assert.IsTrue(fileInfo.Exists, $"Screenshot not created for theme '{theme}'.");
-            Assert.IsTrue(fileInfo.Length > MinThemeScreenshotBytes, $"Screenshot too small for theme '{theme}', likely render failure.");
+            Assert.IsTrue(
+                fileInfo.Length > ScreenshotTests.MinThemeScreenshotBytes,
+                $"Screenshot too small for theme '{theme}', likely render failure.");
         }
 
         var distinctHashes = new HashSet<string>(StringComparer.Ordinal);
@@ -479,7 +481,7 @@ public class ScreenshotTests : WebTestBase
 
         var page = browserSession.Page;
         await page.SetViewportSizeAsync(1280, 800);
-        await page.GotoAsync(ServerUrl);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
         await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
         foreach (var (theme, expectedTokens) in this._representativeThemeTokens)
