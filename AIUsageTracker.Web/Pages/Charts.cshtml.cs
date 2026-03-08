@@ -11,6 +11,7 @@ namespace AIUsageTracker.Web.Pages;
 public class ChartsModel : PageModel
 {
     private const string ProviderColorsCacheKey = "charts-provider-colors-v1";
+
     private readonly AIUsageTracker.Core.Interfaces.IConfigLoader _configLoader;
     private readonly WebDatabaseService _dbService;
     private readonly IMemoryCache _memoryCache;
@@ -25,8 +26,10 @@ public class ChartsModel : PageModel
         this._memoryCache = memoryCache;
     }
 
-    public List<ChartDataPoint>? ChartData { get; set; }
-    public Dictionary<string, string> ProviderColors { get; set; } = new(StringComparer.Ordinal);
+    public IReadOnlyList<ChartDataPoint>? ChartData { get; set; }
+
+    public IReadOnlyDictionary<string, string> ProviderColors { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
+
     public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
     public async Task OnGetAsync(int hours = 24)
@@ -76,9 +79,9 @@ public class ChartsModel : PageModel
         });
     }
 
-    private Task<Dictionary<string, string>> GetProviderColorsAsync()
+    private async Task<IReadOnlyDictionary<string, string>> GetProviderColorsAsync()
     {
-        return this._memoryCache.GetOrCreateAsync(ProviderColorsCacheKey, async entry =>
+        return await this._memoryCache.GetOrCreateAsync(ProviderColorsCacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
 
@@ -101,7 +104,8 @@ public class ChartsModel : PageModel
             }
 
             return colors;
-        })!;
+        }).ConfigureAwait(false) ?? new Dictionary<string, string>(StringComparer.Ordinal);
     }
 }
+
 
