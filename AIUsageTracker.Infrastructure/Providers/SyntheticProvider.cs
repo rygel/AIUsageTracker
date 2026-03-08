@@ -28,8 +28,8 @@ public sealed class SyntheticProvider : ProviderBase
 
     public SyntheticProvider(HttpClient httpClient, ILogger<SyntheticProvider> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(

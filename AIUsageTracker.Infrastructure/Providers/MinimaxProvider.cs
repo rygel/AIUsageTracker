@@ -35,8 +35,8 @@ public class MinimaxProvider : ProviderBase
 
     public MinimaxProvider(HttpClient httpClient, ILogger<MinimaxProvider> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

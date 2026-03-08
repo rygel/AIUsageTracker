@@ -29,8 +29,8 @@ public class OpenRouterProvider : ProviderBase
 
     public OpenRouterProvider(HttpClient httpClient, ILogger<OpenRouterProvider> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

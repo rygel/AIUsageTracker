@@ -32,9 +32,9 @@ public class GitHubCopilotProvider : ProviderBase
 
     public GitHubCopilotProvider(HttpClient httpClient, ILogger<GitHubCopilotProvider> logger, IGitHubAuthService authService)
     {
-        _httpClient = httpClient;
-        _logger = logger;
-        _authService = authService;
+        this._httpClient = httpClient;
+        this._logger = logger;
+        this._authService = authService;
     }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

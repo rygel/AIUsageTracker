@@ -51,8 +51,9 @@ public class OpenAIProvider : ProviderBase
     private readonly string? _authFilePath;
 
     public OpenAIProvider(HttpClient httpClient, ILogger<OpenAIProvider> logger)
-        : this(httpClient, logger, null)
     {
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
     public OpenAIProvider(HttpClient httpClient, ILogger<OpenAIProvider> logger, string? authFilePath)

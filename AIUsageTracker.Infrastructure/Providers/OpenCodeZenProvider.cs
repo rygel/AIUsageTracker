@@ -23,11 +23,17 @@ public class OpenCodeZenProvider : ProviderBase
 
     public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger)
     {
-        _logger = logger;
+        this._logger = logger;
         // Default path - should be configurable in real app
-        _cliPath = OperatingSystem.IsWindows()
+        this._cliPath = OperatingSystem.IsWindows()
             ? @"C:\Users\Alexander\AppData\Roaming\npm\opencode.cmd"
             : "opencode";
+    }
+
+    public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger, string cliPath) : this(logger)
+    {
+        this._logger = logger;
+        this._cliPath = cliPath;
     }
 
     public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger, string cliPath) : this(logger)

@@ -56,8 +56,9 @@ public class CodexProvider : ProviderBase
     private readonly string? _authFilePath;
 
     public CodexProvider(HttpClient httpClient, ILogger<CodexProvider> logger)
-        : this(httpClient, logger, null)
     {
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
     public CodexProvider(HttpClient httpClient, ILogger<CodexProvider> logger, string? authFilePath)
