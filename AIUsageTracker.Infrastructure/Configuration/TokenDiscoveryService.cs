@@ -191,17 +191,18 @@ public class TokenDiscoveryService
                 var json = await File.ReadAllTextAsync(providersPath).ConfigureAwait(false);
                 _logger.LogDebug("[OpenCode Discovery] Read {Length} bytes from providers.json", json.Length);
 
-                var known = JsonSerializer.Deserialize<Dictionary<string, string>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                var known = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                 if (known != null)
                 {
                     _logger.LogInformation("[OpenCode Discovery] Parsed {Count} providers from providers.json", known.Count);
 
-                    foreach (var id in known.Keys)
+                    foreach (var (id, element) in known)
                     {
+                        var key = TryReadProviderFileKey(element);
                         _logger.LogDebug("[OpenCode Discovery] Found provider: {ProviderId}, Key present: {HasKey}",
-                            id, !string.IsNullOrEmpty(known[id]));
-                        this.AddIfNotExists(configs, id, known[id], "Discovered in providers.json", "Config: providers.json");
+                            id, !string.IsNullOrEmpty(key));
+                        this.AddIfNotExists(configs, id, key, "Discovered in providers.json", "Config: providers.json");
                     }
                 }
                 else
@@ -240,6 +241,23 @@ public class TokenDiscoveryService
     private static string? TryReadOpenAiSessionAccessToken(JsonElement root)
     {
         return TryReadAccessToken(root, OpenAIProvider.StaticDefinition);
+    }
+
+    private static string? TryReadProviderFileKey(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            return element.GetString();
+        }
+
+        if (element.ValueKind == JsonValueKind.Object &&
+            element.TryGetProperty("key", out var keyElement) &&
+            keyElement.ValueKind == JsonValueKind.String)
+        {
+            return keyElement.GetString();
+        }
+
+        return null;
     }
 
     private static string? TryReadAccessToken(JsonElement root, ProviderDefinition definition)

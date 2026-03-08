@@ -63,7 +63,7 @@ public class MonitorProcessService
     public async Task<(bool Success, string Message)> StopAgentDetailedAsync()
     {
         var status = await this.GetAgentStatusSnapshotAsync().ConfigureAwait(false);
-        if (!status.IsRunning && status.Error == "agent-info-missing")
+        if (!status.IsRunning && string.Equals(status.Error, AgentStatusSnapshot.InfoMissingError, StringComparison.Ordinal))
         {
             return (true, "Monitor already stopped (info file missing).");
         }
@@ -76,11 +76,6 @@ public class MonitorProcessService
 
         this._logger.LogWarning("Monitor stop request failed.");
         return (false, "Failed to stop monitor.");
-    }
-
-    private string? ResolveExistingAgentInfoPath()
-    {
-        return MonitorInfoPathCatalog.ResolveExistingReadPath();
     }
 
     private async Task<AgentStatusSnapshot> GetAgentStatusSnapshotAsync()
@@ -97,13 +92,16 @@ public class MonitorProcessService
             return AgentStatusSnapshot.Healthy(port);
         }
 
-        return this.ResolveExistingAgentInfoPath() == null
+        return MonitorInfoPathCatalog.ResolveExistingReadPath() == null
             ? AgentStatusSnapshot.InfoMissing(port)
             : AgentStatusSnapshot.Unreachable(port);
     }
 
     private readonly record struct AgentStatusSnapshot(bool IsRunning, int Port, string Message, string? Error)
     {
+        public const string InfoMissingError = "agent-info-missing";
+        public const string UnreachableError = "monitor-unreachable";
+
         public static AgentStatusSnapshot Healthy(int port)
         {
             return new(true, port, $"Healthy on port {port}.", null);
@@ -111,12 +109,12 @@ public class MonitorProcessService
 
         public static AgentStatusSnapshot InfoMissing(int port)
         {
-            return new(false, port, "Monitor info file not found. Start Monitor to initialize it.", "agent-info-missing");
+            return new(false, port, "Monitor info file not found. Start Monitor to initialize it.", InfoMissingError);
         }
 
         public static AgentStatusSnapshot Unreachable(int port)
         {
-            return new(false, port, $"Monitor not reachable on port {port}.", "monitor-unreachable");
+            return new(false, port, $"Monitor not reachable on port {port}.", UnreachableError);
         }
     }
 }
