@@ -22,9 +22,9 @@ public class ProviderModel : PageModel
 
     public string? ProviderName { get; set; }
 
-    public List<ProviderUsage>? ProviderHistory { get; set; }
+    public IReadOnlyList<ProviderUsage>? ProviderHistory { get; set; }
 
-    public List<ResetEvent>? ResetEvents { get; set; }
+    public IReadOnlyList<ResetEvent>? ResetEvents { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {

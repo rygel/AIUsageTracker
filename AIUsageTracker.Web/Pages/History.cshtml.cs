@@ -13,7 +13,7 @@ public class HistoryModel : PageModel
         this._dbService = dbService;
     }
 
-    public List<ProviderUsage>? History { get; set; }
+    public IReadOnlyList<ProviderUsage>? History { get; set; }
 
     public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 

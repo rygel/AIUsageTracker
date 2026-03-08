@@ -13,7 +13,7 @@ public class ProvidersModel : PageModel
         this._dbService = dbService;
     }
 
-    public List<ProviderInfo>? Providers { get; set; }
+    public IReadOnlyList<ProviderInfo>? Providers { get; set; }
 
     public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
