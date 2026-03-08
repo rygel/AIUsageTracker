@@ -85,8 +85,10 @@ public class WebDatabaseService : IWebDatabaseRepository
         {
             p.ProviderName = ProviderMetadataCatalog.GetDisplayName(p.ProviderId, p.ProviderName);
         }
-        this._logger.LogInformation("WebDB GetProvidersAsync count={Count} elapsedMs={ElapsedMs}",
-            results.Count, sw.ElapsedMilliseconds);
+        this._logger.LogInformation(
+            "WebDB GetProvidersAsync count={Count} elapsedMs={ElapsedMs}",
+            results.Count,
+            sw.ElapsedMilliseconds);
         return results;
     }
 
@@ -115,8 +117,11 @@ public class WebDatabaseService : IWebDatabaseRepository
         var results = await connection.QueryAsync<dynamic>(sql).ConfigureAwait(false);
         var list = results.Select(this.MapToProviderUsage).ToList();
 
-        this._logger.LogInformation("WebDB GetLatestUsageAsync count={Count} includeInactive={IncludeInactive} elapsedMs={ElapsedMs}",
-            list.Count, includeInactive, sw.ElapsedMilliseconds);
+        this._logger.LogInformation(
+            "WebDB GetLatestUsageAsync count={Count} includeInactive={IncludeInactive} elapsedMs={ElapsedMs}",
+            list.Count,
+            includeInactive,
+            sw.ElapsedMilliseconds);
         return list;
     }
 
@@ -192,8 +197,10 @@ public class WebDatabaseService : IWebDatabaseRepository
 
         var result = await connection.QuerySingleOrDefaultAsync<UsageSummary>(sql).ConfigureAwait(false) ?? new UsageSummary();
         this._cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
-        this._logger.LogInformation("WebDB GetUsageSummaryAsync providerCount={ProviderCount} elapsedMs={ElapsedMs}",
-            result.ProviderCount, sw.ElapsedMilliseconds);
+        this._logger.LogInformation(
+            "WebDB GetUsageSummaryAsync providerCount={ProviderCount} elapsedMs={ElapsedMs}",
+            result.ProviderCount,
+            sw.ElapsedMilliseconds);
         return result;
     }
 
@@ -253,29 +260,6 @@ public class WebDatabaseService : IWebDatabaseRepository
         return rows.Select(this.MapToProviderUsage).ToList();
     }
 
-    private ProviderUsage MapToProviderUsage(dynamic row)
-    {
-        var usage = new ProviderUsage
-        {
-            ProviderId = row.provider_id ?? row.ProviderId,
-            ProviderName = row.ProviderName,
-            IsAvailable = row.is_available == 1 || (row.IsAvailable != null && row.IsAvailable == 1),
-            Description = row.status_message ?? string.Empty,
-            RequestsUsed = (double)(row.requests_used ?? row.RequestsUsed ?? 0.0),
-            RequestsAvailable = (double)(row.requests_available ?? row.RequestsAvailable ?? 0.0),
-            RequestsPercentage = (double)(row.requests_percentage ?? row.RequestsPercentage ?? 0.0),
-            ResponseLatencyMs = (double)(row.response_latency_ms ?? row.ResponseLatencyMs ?? 0.0),
-            FetchedAt = DateTime.Parse(row.fetched_at ?? row.FetchedAt),
-        };
-
-        if (row.next_reset_time != null)
-        {
-            usage.NextResetTime = DateTime.Parse(row.next_reset_time);
-        }
-
-        return usage;
-    }
-
     public async Task<List<ChartDataPoint>> GetChartDataAsync(int hours = 24)
     {
         if (!this.IsDatabaseAvailable())
@@ -295,7 +279,7 @@ public class WebDatabaseService : IWebDatabaseRepository
             <= 24 => 1,
             <= 72 => 5,
             <= 168 => 15,
-            _ => 60
+            _ => 60,
         };
         var bucketSeconds = bucketMinutes * 60;
 
@@ -322,8 +306,12 @@ public class WebDatabaseService : IWebDatabaseRepository
         {
             point.ProviderName = ProviderMetadataCatalog.GetDisplayName(point.ProviderId, point.ProviderName);
         }
-        this._logger.LogInformation("WebDB GetChartDataAsync hours={Hours} bucketMinutes={BucketMinutes} rows={Count} elapsedMs={ElapsedMs}",
-            hours, bucketMinutes, list.Count, sw.ElapsedMilliseconds);
+        this._logger.LogInformation(
+            "WebDB GetChartDataAsync hours={Hours} bucketMinutes={BucketMinutes} rows={Count} elapsedMs={ElapsedMs}",
+            hours,
+            bucketMinutes,
+            list.Count,
+            sw.ElapsedMilliseconds);
         return list;
     }
 
@@ -393,27 +381,27 @@ public class WebDatabaseService : IWebDatabaseRepository
         return results;
     }
 
-    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("providers", page, pageSize).ConfigureAwait(false);
     }
 
-    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
-    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
-    public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
     }
 
-    private async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
+    private async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -458,6 +446,31 @@ public class WebDatabaseService : IWebDatabaseRepository
         }
     }
 
+    public string GetDatabasePath() => this._dbPath;
+
+    private ProviderUsage MapToProviderUsage(dynamic row)
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = row.provider_id ?? row.ProviderId,
+            ProviderName = row.ProviderName,
+            IsAvailable = row.is_available == 1 || (row.IsAvailable != null && row.IsAvailable == 1),
+            Description = row.status_message ?? string.Empty,
+            RequestsUsed = (double)(row.requests_used ?? row.RequestsUsed ?? 0.0),
+            RequestsAvailable = (double)(row.requests_available ?? row.RequestsAvailable ?? 0.0),
+            RequestsPercentage = (double)(row.requests_percentage ?? row.RequestsPercentage ?? 0.0),
+            ResponseLatencyMs = (double)(row.response_latency_ms ?? row.ResponseLatencyMs ?? 0.0),
+            FetchedAt = DateTime.Parse(row.fetched_at ?? row.FetchedAt),
+        };
+
+        if (row.next_reset_time != null)
+        {
+            usage.NextResetTime = DateTime.Parse(row.next_reset_time);
+        }
+
+        return usage;
+    }
+
     private static async Task EnsureChartIndexesAsync(SqliteConnection connection)
     {
         if (Interlocked.CompareExchange(ref _chartIndexesEnsured, 1, 0) != 0)
@@ -479,6 +492,4 @@ public class WebDatabaseService : IWebDatabaseRepository
     {
         return new SqliteConnection(this._readConnectionString);
     }
-
-    public string GetDatabasePath() => this._dbPath;
 }

@@ -10,17 +10,18 @@ public class ProvidersModel : PageModel
 
     public ProvidersModel(WebDatabaseService dbService)
     {
-        _dbService = dbService;
+        this._dbService = dbService;
     }
 
     public List<ProviderInfo>? Providers { get; set; }
-    public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
+
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
     public async Task OnGetAsync()
     {
-        if (IsDatabaseAvailable)
+        if (this.IsDatabaseAvailable)
         {
-            Providers = await _dbService.GetProvidersAsync();
+            this.Providers = await this._dbService.GetProvidersAsync().ConfigureAwait(false);
         }
     }
 }

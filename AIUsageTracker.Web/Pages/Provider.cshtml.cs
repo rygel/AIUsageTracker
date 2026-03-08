@@ -11,7 +11,7 @@ public class ProviderModel : PageModel
 
     public ProviderModel(WebDatabaseService dbService)
     {
-        _dbService = dbService;
+        this._dbService = dbService;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -21,30 +21,32 @@ public class ProviderModel : PageModel
     public string? ProviderIdQuery { get; set; }
 
     public string? ProviderName { get; set; }
+
     public List<ProviderUsage>? ProviderHistory { get; set; }
+
     public List<ResetEvent>? ResetEvents { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
-        if (string.IsNullOrWhiteSpace(Id) && !string.IsNullOrWhiteSpace(ProviderIdQuery))
+        if (string.IsNullOrWhiteSpace(this.Id) && !string.IsNullOrWhiteSpace(this.ProviderIdQuery))
         {
-            Id = ProviderIdQuery;
+            this.Id = this.ProviderIdQuery;
         }
 
-        if (string.IsNullOrEmpty(Id))
+        if (string.IsNullOrEmpty(this.Id))
         {
             return RedirectToPage("/Providers");
         }
 
-        ProviderHistory = await _dbService.GetProviderHistoryAsync(Id, 100);
+        this.ProviderHistory = await this._dbService.GetProviderHistoryAsync(this.Id, 100).ConfigureAwait(false);
 
-        if (ProviderHistory?.Any() != true)
+        if (this.ProviderHistory?.Any() != true)
         {
             return Page();
         }
 
-        ProviderName = ProviderHistory.First().ProviderName;
-        ResetEvents = await _dbService.GetResetEventsAsync(Id, 50);
+        this.ProviderName = this.ProviderHistory.First().ProviderName;
+        this.ResetEvents = await this._dbService.GetResetEventsAsync(this.Id, 50).ConfigureAwait(false);
 
         return Page();
     }
