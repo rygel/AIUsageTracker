@@ -47,18 +47,18 @@ public class ScreenshotTests : WebTestBase
 
         public PlaywrightSession(IPlaywright playwright, IBrowser browser, IBrowserContext context, IPage page)
         {
-            _playwright = playwright;
-            _browser = browser;
-            _context = context;
-            Page = page;
+            this._playwright = playwright;
+            this._browser = browser;
+            this._context = context;
+            this.Page = page;
         }
 
         public async ValueTask DisposeAsync()
         {
-            await Page.CloseAsync().ConfigureAwait(false);
-            await _context.CloseAsync().ConfigureAwait(false);
-            await _browser.CloseAsync().ConfigureAwait(false);
-            _playwright.Dispose();
+            await this.Page.CloseAsync().ConfigureAwait(false);
+            await this._context.CloseAsync().ConfigureAwait(false);
+            await this._browser.CloseAsync().ConfigureAwait(false);
+            this._playwright.Dispose();
         }
     }
 
@@ -80,13 +80,13 @@ public class ScreenshotTests : WebTestBase
     public ScreenshotTests()
     {
         var binPath = AppContext.BaseDirectory;
-        _projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../"));
-        _outputDir = Path.Combine(_projectRoot, "docs");
-        _themeOutputDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "web-theme-smoke");
+        this._projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../"));
+        this._outputDir = Path.Combine(this._projectRoot, "docs");
+        this._themeOutputDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "web-theme-smoke");
 
-        var catalog = LoadThemeCatalog(_projectRoot);
-        _expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
-        _representativeThemeTokens = catalog.Themes
+        var catalog = LoadThemeCatalog(this._projectRoot);
+        this._expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
+        this._representativeThemeTokens = catalog.Themes
             .Where(t => t.Representative)
             .Where(t => t.Tokens is not null)
             .ToDictionary(
@@ -96,16 +96,16 @@ public class ScreenshotTests : WebTestBase
                     t.Tokens!.AccentPrimary.Trim().ToLowerInvariant()),
                 StringComparer.Ordinal);
 
-        Console.WriteLine($"[TEST] Output directory: {_outputDir}");
+        Console.WriteLine($"[TEST] Output directory: {this._outputDir}");
 
-        if (!Directory.Exists(_outputDir))
+        if (!Directory.Exists(this._outputDir))
         {
-            Directory.CreateDirectory(_outputDir);
+            Directory.CreateDirectory(this._outputDir);
         }
 
-        if (!Directory.Exists(_themeOutputDir))
+        if (!Directory.Exists(this._themeOutputDir))
         {
-            Directory.CreateDirectory(_themeOutputDir);
+            Directory.CreateDirectory(this._themeOutputDir);
         }
     }
 
@@ -165,7 +165,7 @@ public class ScreenshotTests : WebTestBase
             var r = ToLinear(rgb.R);
             var g = ToLinear(rgb.G);
             var b = ToLinear(rgb.B);
-            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            return (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
         }
 
         var l1 = Luminance(ParseHex(hex1));
@@ -334,13 +334,13 @@ public class ScreenshotTests : WebTestBase
         Console.WriteLine("[TEST] Navigating to Dashboard...");
         await page.GotoAsync(ServerUrl);
         await page.WaitForSelectorAsync(".stat-card, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
-        await page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_dashboard.png"), FullPage = true });
+        await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_dashboard.png"), FullPage = true });
 
         // 3. Providers List
         Console.WriteLine("[TEST] Navigating to Providers...");
         await page.GotoAsync($"{ServerUrl}/providers");
         await page.WaitForSelectorAsync("table, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
-        await page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_providers.png"), FullPage = true });
+        await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_providers.png"), FullPage = true });
 
         // 4. Charts
         Console.WriteLine("[TEST] Navigating to Charts...");
@@ -348,7 +348,7 @@ public class ScreenshotTests : WebTestBase
 
         await page.WaitForSelectorAsync(".chart-container, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await Task.Delay(2000);
-        await page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_charts.png"), FullPage = true });
+        await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_charts.png"), FullPage = true });
         Console.WriteLine("[TEST] Completed all screenshots.");
     }
 
@@ -371,9 +371,9 @@ public class ScreenshotTests : WebTestBase
             () => Array.from(document.querySelectorAll('#theme-select option')).map(o => o.value)
             """);
 
-        CollectionAssert.AreEquivalent(_expectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
+        CollectionAssert.AreEquivalent(this._expectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
 
-        foreach (var theme in _expectedThemes)
+        foreach (var theme in this._expectedThemes)
         {
             await page.EvaluateAsync("""
                 (theme) => {
@@ -385,7 +385,8 @@ public class ScreenshotTests : WebTestBase
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                """, theme);
+                """,
+                theme);
 
             var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
@@ -414,7 +415,7 @@ public class ScreenshotTests : WebTestBase
         await page.GotoAsync(ServerUrl);
         await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
-        var representativeThemes = _representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
+        var representativeThemes = this._representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
         var screenshotPaths = new List<string>();
 
         foreach (var theme in representativeThemes)
@@ -429,7 +430,8 @@ public class ScreenshotTests : WebTestBase
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                """, theme);
+                """,
+                theme);
 
             await Task.Delay(ThemeSwitchDelayMs);
 
@@ -438,7 +440,7 @@ public class ScreenshotTests : WebTestBase
                 """);
             Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
 
-            var filePath = Path.Combine(_themeOutputDir, $"screenshot_web_theme_{theme}.png");
+            var filePath = Path.Combine(this._themeOutputDir, $"screenshot_web_theme_{theme}.png");
             await page.ScreenshotAsync(new() { Path = filePath, FullPage = true });
             screenshotPaths.Add(filePath);
 
@@ -474,7 +476,7 @@ public class ScreenshotTests : WebTestBase
         await page.GotoAsync(ServerUrl);
         await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
-        foreach (var (theme, expectedTokens) in _representativeThemeTokens)
+        foreach (var (theme, expectedTokens) in this._representativeThemeTokens)
         {
             await page.EvaluateAsync("""
                 (theme) => {
@@ -486,7 +488,8 @@ public class ScreenshotTests : WebTestBase
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                """, theme);
+                """,
+                theme);
 
             var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''

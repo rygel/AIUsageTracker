@@ -49,17 +49,19 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     public bool IsDatabaseAvailable()
     {
-        return File.Exists(_dbPath);
+        return File.Exists(this._dbPath);
     }
 
     public async Task<List<ProviderInfo>> GetProvidersAsync()
     {
         if (!IsDatabaseAvailable())
+        {
             return new List<ProviderInfo>();
+        }
 
         var sw = Stopwatch.StartNew();
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         const string sql = @"
             SELECT 
@@ -78,12 +80,12 @@ public class WebDatabaseService : IWebDatabaseRepository
             ) h ON p.provider_id = h.provider_id
             WHERE p.is_active = 1";
 
-        var results = (await connection.QueryAsync<ProviderInfo>(sql)).ToList();
+        var results = (await connection.QueryAsync<ProviderInfo>(sql).ConfigureAwait(false)).ToList();
         foreach (var p in results)
         {
             p.ProviderName = ProviderMetadataCatalog.GetDisplayName(p.ProviderId, p.ProviderName);
         }
-        _logger.LogInformation("WebDB GetProvidersAsync count={Count} elapsedMs={ElapsedMs}",
+        this._logger.LogInformation("WebDB GetProvidersAsync count={Count} elapsedMs={ElapsedMs}",
             results.Count, sw.ElapsedMilliseconds);
         return results;
     }
@@ -91,11 +93,13 @@ public class WebDatabaseService : IWebDatabaseRepository
     public async Task<List<ProviderUsage>> GetLatestUsageAsync(bool includeInactive = false)
     {
         if (!IsDatabaseAvailable())
+        {
             return new List<ProviderUsage>();
+        }
 
         var sw = Stopwatch.StartNew();
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         string sql = @"
             SELECT h.*, p.provider_name as ProviderName 
@@ -108,10 +112,10 @@ public class WebDatabaseService : IWebDatabaseRepository
             sql += " AND p.is_active = 1 AND h.is_available = 1";
         }
 
-        var results = await connection.QueryAsync<dynamic>(sql);
+        var results = await connection.QueryAsync<dynamic>(sql).ConfigureAwait(false);
         var list = results.Select(MapToProviderUsage).ToList();
-        
-        _logger.LogInformation("WebDB GetLatestUsageAsync count={Count} includeInactive={IncludeInactive} elapsedMs={ElapsedMs}",
+
+        this._logger.LogInformation("WebDB GetLatestUsageAsync count={Count} includeInactive={IncludeInactive} elapsedMs={ElapsedMs}",
             list.Count, includeInactive, sw.ElapsedMilliseconds);
         return list;
     }
@@ -119,10 +123,12 @@ public class WebDatabaseService : IWebDatabaseRepository
     public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         if (!IsDatabaseAvailable())
+        {
             return new List<ProviderUsage>();
+        }
 
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         var sql = $@"
             SELECT h.*, p.provider_name as ProviderName
@@ -131,17 +137,19 @@ public class WebDatabaseService : IWebDatabaseRepository
             ORDER BY h.fetched_at DESC
             LIMIT {limit}";
 
-        var results = await connection.QueryAsync<dynamic>(sql);
+        var results = await connection.QueryAsync<dynamic>(sql).ConfigureAwait(false);
         return results.Select(MapToProviderUsage).ToList();
     }
 
     public async Task<List<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
     {
         if (!IsDatabaseAvailable())
+        {
             return new List<ProviderUsage>();
+        }
 
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         var sql = $@"
             SELECT h.*, p.provider_name as ProviderName
@@ -151,24 +159,26 @@ public class WebDatabaseService : IWebDatabaseRepository
             ORDER BY h.fetched_at DESC
             LIMIT {limit}";
 
-        var results = await connection.QueryAsync<dynamic>(sql, new { ProviderId = providerId });
+        var results = await connection.QueryAsync<dynamic>(sql, new { ProviderId = providerId }).ConfigureAwait(false);
         return results.Select(MapToProviderUsage).ToList();
     }
 
     public async Task<UsageSummary> GetUsageSummaryAsync()
     {
         var cacheKey = "db:usage-summary";
-        if (_cache.TryGetValue<UsageSummary>(cacheKey, out var cached) && cached != null)
+        if (this._cache.TryGetValue<UsageSummary>(cacheKey, out var cached) && cached != null)
         {
             return cached;
         }
 
         if (!IsDatabaseAvailable())
+        {
             return new UsageSummary();
+        }
 
         var sw = Stopwatch.StartNew();
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         const string sql = @"
             SELECT 
@@ -180,17 +190,17 @@ public class WebDatabaseService : IWebDatabaseRepository
                 SELECT MAX(id) FROM provider_history GROUP BY provider_id
             )";
 
-        var result = await connection.QuerySingleOrDefaultAsync<UsageSummary>(sql) ?? new UsageSummary();
-        _cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
-        _logger.LogInformation("WebDB GetUsageSummaryAsync providerCount={ProviderCount} elapsedMs={ElapsedMs}",
+        var result = await connection.QuerySingleOrDefaultAsync<UsageSummary>(sql).ConfigureAwait(false) ?? new UsageSummary();
+        this._cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
+        this._logger.LogInformation("WebDB GetUsageSummaryAsync providerCount={ProviderCount} elapsedMs={ElapsedMs}",
             result.ProviderCount, sw.ElapsedMilliseconds);
         return result;
     }
 
     public async Task<List<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples)
     {
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         var cutoffUtc = DateTime.UtcNow
             .AddHours(-lookbackHours)
@@ -218,15 +228,15 @@ public class WebDatabaseService : IWebDatabaseRepository
             ProviderIds = providerIds,
             CutoffUtc = cutoffUtc,
             MaxSamples = maxSamples
-        });
+        }).ConfigureAwait(false);
 
         return rows.Select(MapToProviderUsage).ToList();
     }
 
     public async Task<List<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0)
     {
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         string sql = @"
             SELECT h.*, p.provider_name as ProviderName
@@ -234,9 +244,12 @@ public class WebDatabaseService : IWebDatabaseRepository
             JOIN providers p ON h.provider_id = p.provider_id
             ORDER BY h.fetched_at DESC";
 
-        if (limit > 0) sql += $" LIMIT {limit}";
+        if (limit > 0)
+        {
+            sql += $" LIMIT {limit}";
+        }
 
-        var rows = await connection.QueryAsync<dynamic>(sql);
+        var rows = await connection.QueryAsync<dynamic>(sql).ConfigureAwait(false);
         return rows.Select(MapToProviderUsage).ToList();
     }
 
@@ -266,13 +279,15 @@ public class WebDatabaseService : IWebDatabaseRepository
     public async Task<List<ChartDataPoint>> GetChartDataAsync(int hours = 24)
     {
         if (!IsDatabaseAvailable())
+        {
             return new List<ChartDataPoint>();
+        }
 
         var sw = Stopwatch.StartNew();
 
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
-        await EnsureChartIndexesAsync(connection);
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
+        await EnsureChartIndexesAsync(connection).ConfigureAwait(false);
 
         var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         var bucketMinutes = hours switch
@@ -301,13 +316,13 @@ public class WebDatabaseService : IWebDatabaseRepository
         {
             CutoffUtc = cutoffUtc,
             BucketSeconds = bucketSeconds
-        });
+        }).ConfigureAwait(false);
         var list = results.ToList();
         foreach (var point in list)
         {
             point.ProviderName = ProviderMetadataCatalog.GetDisplayName(point.ProviderId, point.ProviderName);
         }
-        _logger.LogInformation("WebDB GetChartDataAsync hours={Hours} bucketMinutes={BucketMinutes} rows={Count} elapsedMs={ElapsedMs}",
+        this._logger.LogInformation("WebDB GetChartDataAsync hours={Hours} bucketMinutes={BucketMinutes} rows={Count} elapsedMs={ElapsedMs}",
             hours, bucketMinutes, list.Count, sw.ElapsedMilliseconds);
         return list;
     }
@@ -315,11 +330,13 @@ public class WebDatabaseService : IWebDatabaseRepository
     public async Task<List<ResetEvent>> GetRecentResetEventsAsync(int hours = 24)
     {
         if (!IsDatabaseAvailable())
+        {
             return new List<ResetEvent>();
+        }
 
         var sw = Stopwatch.StartNew();
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
 
@@ -336,7 +353,7 @@ public class WebDatabaseService : IWebDatabaseRepository
             WHERE timestamp >= @CutoffUtc
             ORDER BY timestamp ASC";
 
-        var results = (await connection.QueryAsync<ResetEvent>(sql, new { CutoffUtc = cutoffUtc })).ToList();
+        var results = (await connection.QueryAsync<ResetEvent>(sql, new { CutoffUtc = cutoffUtc }).ConfigureAwait(false)).ToList();
         foreach (var reset in results)
         {
             reset.ProviderName = ProviderMetadataCatalog.GetDisplayName(reset.ProviderId, reset.ProviderName);
@@ -347,10 +364,12 @@ public class WebDatabaseService : IWebDatabaseRepository
     public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
         if (!IsDatabaseAvailable())
+        {
             return new List<ResetEvent>();
+        }
 
-        using var connection = CreateReadConnection();
-        await connection.OpenAsync();
+        using var connection = this.CreateReadConnection();
+        await connection.OpenAsync().ConfigureAwait(false);
 
         const string sql = @"
             SELECT 
@@ -366,7 +385,7 @@ public class WebDatabaseService : IWebDatabaseRepository
             ORDER BY timestamp DESC
             LIMIT @Limit";
 
-        var results = (await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId, Limit = limit })).ToList();
+        var results = (await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId, Limit = limit }).ConfigureAwait(false)).ToList();
         foreach (var reset in results)
         {
             reset.ProviderName = ProviderMetadataCatalog.GetDisplayName(reset.ProviderId, reset.ProviderName);
@@ -376,55 +395,58 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("providers", page, pageSize);
+        return await GetTableRawAsync("providers", page, pageSize).ConfigureAwait(false);
     }
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC");
+        return await GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC");
+        return await GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC");
+        return await GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
     }
 
     private async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
         if (!IsDatabaseAvailable())
+        {
             return (new List<Dictionary<string, object?>>(), 0);
+        }
 
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = CreateReadConnection();
-            await connection.OpenAsync();
+            using var connection = this.CreateReadConnection();
+            await connection.OpenAsync().ConfigureAwait(false);
 
             var offset = (page - 1) * pageSize;
-            var orderClause = string.IsNullOrEmpty(orderBy) ? "" : $"ORDER BY {orderBy}";
+            var orderClause = string.IsNullOrEmpty(orderBy) ? string.Empty : $"ORDER BY {orderBy}";
 
-            var totalCount = await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM {tableName}");
+            var totalCount = await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM {tableName}").ConfigureAwait(false);
 
             var sql = $"SELECT * FROM {tableName} {orderClause} LIMIT {pageSize} OFFSET {offset}";
             var rows = new List<Dictionary<string, object?>>();
 
             using var cmd = connection.CreateCommand();
             cmd.CommandText = sql;
-            using var reader = await cmd.ExecuteReaderAsync();
+            using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
 
-            while (await reader.ReadAsync())
+            while (await reader.ReadAsync().ConfigureAwait(false))
             {
                 var row = new Dictionary<string, object?>();
                 for (int i = 0; i < reader.FieldCount; i++)
                 {
-                    var value = await reader.IsDBNullAsync(i) ? null : reader.GetValue(i);
+                    var value = await reader.IsDBNullAsync(i).ConfigureAwait(false) ? null : reader.GetValue(i);
                     row[reader.GetName(i)] = value;
                 }
+
                 rows.Add(row);
             }
 
@@ -432,7 +454,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
@@ -450,13 +472,13 @@ public class WebDatabaseService : IWebDatabaseRepository
 
         using var command = connection.CreateCommand();
         command.CommandText = sql;
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
     private SqliteConnection CreateReadConnection()
     {
-        return new SqliteConnection(_readConnectionString);
+        return new SqliteConnection(this._readConnectionString);
     }
 
-    public string GetDatabasePath() => _dbPath;
+    public string GetDatabasePath() => this._dbPath;
 }
