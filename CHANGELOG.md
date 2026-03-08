@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.20] - 2026-03-08
+
+### Added
+- **Burn Rate Forecasting**: Added forecast methods, confidence levels, and trend detection for provider usage projections.
+- **OpenCode CLI Detail Capture**: Expanded the OpenCode CLI provider to return richer usage detail data.
+- **Web View Coverage**: Added comprehensive Razor Page rendering and model-binding tests, plus a more stable local web test harness.
+- **Release Validation Workflow**: Added a stable local test runner and clearer pre-push validation guidance for release prep and CI troubleshooting.
+
+### Fixed
+- **Monitor Startup and Contract Checks**: Hardened monitor startup metadata validation, monitor-service state handling, and OpenAPI contract verification.
+- **Burn Rate Reliability**: Fixed burn-rate forecast availability/state handling and related test expectations.
+- **Web Test Execution**: Fixed web-test artifact path resolution and test assembly fallback handling in CI/local workflows.
+
+### Refactored
+- **Analyzer Compliance Sweep**: Applied a broad analyzer cleanup across Core, Infrastructure, Monitor, Web, Tests, and Slim UI, including stricter async, comparer, and collection-abstraction rules.
+- **Mechanical Cleanup Pass**: Consolidated monitor service flows, cleaned up web/database abstractions, and simplified screenshot/test helper structure without changing release behavior.
+
 ## [2.2.28-beta.19] - 2026-03-06
 
 ### Added
