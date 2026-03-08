@@ -213,11 +213,11 @@ public class MonitorProcessService
             }
         }
         catch (Exception ex)
-    {
-        this._logger.LogWarning(ex, "Failed to read agent.info");
-    }
+        {
+            this._logger.LogWarning(ex, "Failed to read agent.info");
+        }
 
-    return null;
+        return null;
     }
 }
 
