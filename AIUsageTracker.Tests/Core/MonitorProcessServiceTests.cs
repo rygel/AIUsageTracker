@@ -35,7 +35,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAgentStatusDetailedAsync_ReturnsUnreachable_WhenMonitorInfoExistsButMonitorIsDown()
+    public async Task GetAgentStatusDetailedAsync_ReturnsUnreachable_WhenStaleMonitorInfoIsQuarantined()
     {
         var infoPath = await CreateMonitorInfoAsync(new MonitorInfo
         {
@@ -53,7 +53,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
         var result = await service.GetAgentStatusDetailedAsync();
 
         Assert.False(result.IsRunning);
-        Assert.Equal(5000, result.Port);
+        Assert.Equal(6111, result.Port);
         Assert.Equal("monitor-unreachable", result.Error);
     }
 

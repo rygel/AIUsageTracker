@@ -5,6 +5,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace AIUsageTracker.Web.Tests;
 
 [TestClass]
+[DoNotParallelize]
 public class ViewTests : WebTestBase
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);

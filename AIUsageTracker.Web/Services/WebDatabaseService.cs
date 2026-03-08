@@ -13,44 +13,35 @@ namespace AIUsageTracker.Web.Services;
 
 public class WebDatabaseService : IWebDatabaseRepository
 {
-    private static int _chartIndexesEnsured;
-
-    private readonly string _dbPath;
-    private readonly string _readConnectionString;
+    private readonly WebDatabaseConnectionFactory _connectionFactory;
     private readonly IMemoryCache _cache;
     private readonly ILogger<WebDatabaseService> _logger;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     public WebDatabaseService(IMemoryCache cache, ILogger<WebDatabaseService> logger, IAppPathProvider pathProvider)
-        : this(cache, logger, pathProvider, databasePathOverride: null)
+        : this(cache, logger, pathProvider, connectionFactory: null, databasePathOverride: null)
     {
     }
 
-    public WebDatabaseService(
+    internal WebDatabaseService(
         IMemoryCache cache,
         ILogger<WebDatabaseService> logger,
         IAppPathProvider pathProvider,
+        WebDatabaseConnectionFactory? connectionFactory,
         string? databasePathOverride)
     {
         this._cache = cache;
         this._logger = logger;
-        this._dbPath = !string.IsNullOrWhiteSpace(databasePathOverride)
-            ? databasePathOverride
-            : pathProvider.GetDatabasePath();
-
-        this._readConnectionString = new SqliteConnectionStringBuilder
-        {
-            DataSource = this._dbPath,
-            Mode = SqliteOpenMode.ReadWrite,
-            Cache = SqliteCacheMode.Shared,
-            Pooling = true,
-            DefaultTimeout = 10,
-        }.ToString();
+        this._connectionFactory = connectionFactory
+            ?? new WebDatabaseConnectionFactory(
+                !string.IsNullOrWhiteSpace(databasePathOverride)
+                    ? databasePathOverride
+                    : pathProvider.GetDatabasePath());
     }
 
     public bool IsDatabaseAvailable()
     {
-        return File.Exists(this._dbPath);
+        return this._connectionFactory.IsDatabaseAvailable();
     }
 
     public async Task<IReadOnlyList<ProviderInfo>> GetProvidersAsync()
@@ -273,7 +264,6 @@ public class WebDatabaseService : IWebDatabaseRepository
 
         using var connection = this.CreateReadConnection();
         await connection.OpenAsync().ConfigureAwait(false);
-        await EnsureChartIndexesAsync(connection).ConfigureAwait(false);
 
         var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         var bucketMinutes = hours switch
@@ -406,24 +396,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
     }
 
-    public string GetDatabasePath() => this._dbPath;
-
-    private static async Task EnsureChartIndexesAsync(SqliteConnection connection)
-    {
-        if (Interlocked.CompareExchange(ref _chartIndexesEnsured, 1, 0) != 0)
-        {
-            return;
-        }
-
-        const string sql = @"
-            CREATE INDEX IF NOT EXISTS idx_history_fetched_at_asc ON provider_history(fetched_at ASC);
-            CREATE INDEX IF NOT EXISTS idx_reset_timestamp_asc ON reset_events(timestamp ASC);
-        ";
-
-        using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
-    }
+    public string GetDatabasePath() => this._connectionFactory.GetDatabasePath();
 
     private async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
@@ -495,6 +468,6 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     private SqliteConnection CreateReadConnection()
     {
-        return new SqliteConnection(this._readConnectionString);
+        return this._connectionFactory.CreateReadConnection();
     }
 }
