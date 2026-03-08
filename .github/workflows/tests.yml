@@ -390,6 +390,9 @@ jobs:
             docs/screenshot_web_dashboard.png
             docs/screenshot_web_providers.png
             docs/screenshot_web_charts.png
+            _ci_test_binaries/docs/screenshot_web_dashboard.png
+            _ci_test_binaries/docs/screenshot_web_providers.png
+            _ci_test_binaries/docs/screenshot_web_charts.png
           if-no-files-found: ignore
           retention-days: 3
 
