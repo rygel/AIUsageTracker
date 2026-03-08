@@ -289,63 +289,79 @@ public class TokenDiscoveryService
     {
         try
         {
-            var vscodePath = this.GetVSCodeGlobalStoragePath();
-            if (!string.IsNullOrEmpty(vscodePath))
-            {
-                var rooStoragePath = Path.Combine(vscodePath, "roovetgit.roo-code");
-                if (Directory.Exists(rooStoragePath))
-                {
-                    var stateFiles = Directory.GetFiles(rooStoragePath, "*.json");
-                    foreach (var stateFile in stateFiles)
-                    {
-                        try
-                        {
-                            var json = await File.ReadAllTextAsync(stateFile).ConfigureAwait(false);
-                            using var doc = JsonDocument.Parse(json);
-                            this.TryProcessRooApiConfigs(
-                                configs,
-                                doc.RootElement,
-                                "Discovered in Roo Code state",
-                                $"Roo Code: {stateFile}");
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogDebug(ex, "Failed to parse Roo Code state file {Path}", stateFile);
-                        }
-                    }
-                }
-            }
-
-            // Also check for standalone Roo Code config directory (similar to Kilo Code)
-            var rooConfigPath = Path.Combine(this.GetUserProfilePath(), ".roo");
-            if (Directory.Exists(rooConfigPath))
-            {
-                var secretsPath = Path.Combine(rooConfigPath, "secrets.json");
-                if (File.Exists(secretsPath))
-                {
-                    try
-                    {
-                        var json = await File.ReadAllTextAsync(secretsPath).ConfigureAwait(false);
-                        using var doc = JsonDocument.Parse(json);
-                        if (doc.RootElement.TryGetProperty("roo", out var rooEntry))
-                        {
-                            this.TryProcessRooApiConfigs(
-                                configs,
-                                rooEntry,
-                                "Discovered in Roo Code secrets",
-                                $"Roo Code: {secretsPath}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex, "Failed to parse Roo secrets from {Path}", secretsPath);
-                    }
-                }
-            }
+            await this.DiscoverRooStateTokensAsync(configs).ConfigureAwait(false);
+            await this.DiscoverStandaloneRooTokensAsync(configs).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "Roo Code token discovery failed");
+        }
+    }
+
+    private async Task DiscoverRooStateTokensAsync(List<ProviderConfig> configs)
+    {
+        var vscodePath = this.GetVSCodeGlobalStoragePath();
+        if (string.IsNullOrEmpty(vscodePath))
+        {
+            return;
+        }
+
+        var rooStoragePath = Path.Combine(vscodePath, "roovetgit.roo-code");
+        if (!Directory.Exists(rooStoragePath))
+        {
+            return;
+        }
+
+        var stateFiles = Directory.GetFiles(rooStoragePath, "*.json");
+        foreach (var stateFile in stateFiles)
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(stateFile).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+                this.TryProcessRooApiConfigs(
+                    configs,
+                    doc.RootElement,
+                    "Discovered in Roo Code state",
+                    $"Roo Code: {stateFile}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to parse Roo Code state file {Path}", stateFile);
+            }
+        }
+    }
+
+    private async Task DiscoverStandaloneRooTokensAsync(List<ProviderConfig> configs)
+    {
+        var rooConfigPath = Path.Combine(this.GetUserProfilePath(), ".roo");
+        if (!Directory.Exists(rooConfigPath))
+        {
+            return;
+        }
+
+        var secretsPath = Path.Combine(rooConfigPath, "secrets.json");
+        if (!File.Exists(secretsPath))
+        {
+            return;
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(secretsPath).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("roo", out var rooEntry))
+            {
+                this.TryProcessRooApiConfigs(
+                    configs,
+                    rooEntry,
+                    "Discovered in Roo Code secrets",
+                    $"Roo Code: {secretsPath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to parse Roo secrets from {Path}", secretsPath);
         }
     }
 
@@ -384,8 +400,7 @@ public class TokenDiscoveryService
     {
         try
         {
-            using var rooDoc = JsonDocument.Parse(rooJson);
-            this.TryProcessRooApiConfigs(configs, rooDoc.RootElement, description, source);
+            this.AddRooTokens(configs, RooTokenConfigParser.Parse(rooJson), description, source);
         }
         catch (Exception ex)
         {
@@ -411,43 +426,18 @@ public class TokenDiscoveryService
 
     private void TryProcessRooApiConfigs(List<ProviderConfig> configs, JsonElement root, string description, string source)
     {
-        if (!root.TryGetProperty("apiConfigs", out var configsProp) || configsProp.ValueKind != JsonValueKind.Object)
-        {
-            return;
-        }
-
-        foreach (var configPair in configsProp.EnumerateObject())
-        {
-            this.TryAddRooKeys(configs, configPair.Value, description, source);
-        }
+        this.AddRooTokens(configs, RooTokenConfigParser.Parse(root), description, source);
     }
 
-    private void TryAddRooKeys(List<ProviderConfig> configs, JsonElement config, string description, string source)
-    {
-        foreach (var definition in ProviderMetadataCatalog.Definitions.Where(d => d.RooConfigPropertyNames.Count > 0))
-        {
-            foreach (var propertyName in definition.RooConfigPropertyNames)
-            {
-                this.TryAddRooKey(configs, config, propertyName, definition.ProviderId, description, source);
-            }
-        }
-    }
-
-    private void TryAddRooKey(
+    private void AddRooTokens(
         List<ProviderConfig> configs,
-        JsonElement config,
-        string propName,
-        string providerId,
+        IReadOnlyList<RooTokenConfigParser.DiscoveredProviderToken> tokens,
         string description,
         string source)
     {
-        if (config.TryGetProperty(propName, out var keyProp))
+        foreach (var token in tokens)
         {
-            var key = keyProp.GetString();
-            if (!string.IsNullOrEmpty(key))
-            {
-                this.AddIfNotExists(configs, providerId, key, description, source);
-            }
+            this.AddIfNotExists(configs, token.ProviderId, token.ApiKey, description, source);
         }
     }
 

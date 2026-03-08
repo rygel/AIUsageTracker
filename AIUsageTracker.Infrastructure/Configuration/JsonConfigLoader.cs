@@ -33,250 +33,346 @@ public class JsonConfigLoader : IConfigLoader
 
     public async Task<IReadOnlyList<ProviderConfig>> LoadConfigAsync()
     {
-        var authPaths = new[] { GetTrackerConfigPath() }
-            .Concat(GetLegacyTrackerAuthPaths())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        var providerPaths = new[] { GetProvidersConfigPath() }
-            .Concat(GetLegacyTrackerProvidersPaths())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        // Dictionary to merge configs: ProviderId -> Config
-        var mergedConfigs = new Dictionary<string, ProviderConfig>(StringComparer.OrdinalIgnoreCase);
-
-        // helper to process a file and merge into dictionary
-        async Task ProcessFile(string path, bool isAuthFile)
-        {
-            if (!File.Exists(path)) return;
-            try
-            {
-                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                var rawConfigs = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (rawConfigs != null)
-                {
-                    foreach (var kvp in rawConfigs)
-                    {
-                        var providerId = ProviderMetadataCatalog.GetCanonicalProviderId(kvp.Key);
-                        if (providerId.Equals("app_settings", StringComparison.OrdinalIgnoreCase)) continue;
-
-                        if (!mergedConfigs.TryGetValue(providerId, out var config))
-                        {
-                            config = new ProviderConfig { ProviderId = providerId };
-                            mergedConfigs[providerId] = config;
-                        }
-
-                        var element = kvp.Value;
-                        
-                        // Auth file takes precedence for keys
-                        if (element.TryGetProperty("key", out var keyProp) && (isAuthFile || string.IsNullOrEmpty(config.ApiKey))) 
-                        {
-                            var val = keyProp.GetString();
-                            if (!string.IsNullOrEmpty(val)) config.ApiKey = val;
-                        }
-
-                        // Provider file takes precedence for settings, but fallback to auth file if not set
-                        if (element.TryGetProperty("type", out var typeProp)) config.Type = typeProp.GetString() ?? config.Type;
-                        if (element.TryGetProperty("base_url", out var urlProp)) config.BaseUrl = urlProp.GetString() ?? config.BaseUrl;
-                        if (element.TryGetProperty("show_in_tray", out var showProp)) config.ShowInTray = showProp.ValueKind == JsonValueKind.True;
-                        if (element.TryGetProperty("enable_notifications", out var notifyProp)) config.EnableNotifications = notifyProp.ValueKind == JsonValueKind.True;
-
-                        if (element.TryGetProperty("enabled_sub_trays", out var subProp) && subProp.ValueKind == JsonValueKind.Array)
-                        {
-                             var list = new List<string>();
-                             foreach (var sub in subProp.EnumerateArray()) 
-                             {
-                                 var val = sub.GetString();
-                                 if (val != null) list.Add(val);
-                             }
-                             config.EnabledSubTrays = list;
-                        }
-
-                        if (element.TryGetProperty("models", out var modelsProp) && modelsProp.ValueKind == JsonValueKind.Array)
-                        {
-                            try
-                            {
-                                config.Models = JsonSerializer.Deserialize<List<AIModelConfig>>(modelsProp.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AIModelConfig>();
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
-                            }
-                        }
-                        
-                        // Append source
-                        if (string.IsNullOrEmpty(config.AuthSource)) config.AuthSource = $"Config: {Path.GetFileName(path)}";
-                        else config.AuthSource += $", {Path.GetFileName(path)}";
-                    }
-                }
-            }
-            catch (Exception ex) 
-            { 
-                _logger.LogDebug("Failed to process config file {Path}: {Message}", path, ex.Message);
-            }
-        }
-
-        // Load Auth Files first
-        foreach (var path in authPaths) await ProcessFile(path, true);
-        
-        // Load Provider Files next (overwriting settings, keeping keys if missing or whatever logic above)
-        // actually logic above says: key from auth file takes precedence. Settings overwrite.
-        // So we should verify priority.
-        // If I load auth first, then providers:
-        // Key: Auth file sets it. Provider file only sets if empty. -> Correct (Auth file is source of truth for keys)
-        // Settings: Auth file sets defaults. Provider file overwrite. -> Correct (Provider file is source of truth for settings)
-        
-        foreach (var path in providerPaths) await ProcessFile(path, false);
-
+        var mergedConfigs = await this.LoadMergedConfigsAsync().ConfigureAwait(false);
         var result = mergedConfigs.Values.ToList();
 
-        var discoveryService = new TokenDiscoveryService(_tokenDiscoveryLogger, _pathProvider);
-        var discovered = await discoveryService.DiscoverTokensAsync();
-        
-        foreach (var d in discovered)
-        {
-            var existing = result.FirstOrDefault(r => r.ProviderId.Equals(d.ProviderId, StringComparison.OrdinalIgnoreCase));
-            if (existing == null)
-            {
-                result.Add(d);
-            }
-            else
-            {
-                if (string.IsNullOrEmpty(existing.ApiKey) && !string.IsNullOrEmpty(d.ApiKey))
-                {
-                    existing.ApiKey = d.ApiKey;
-                    existing.Description = d.Description;
-                    existing.AuthSource = d.AuthSource;
-                    if (string.IsNullOrEmpty(existing.BaseUrl)) existing.BaseUrl = d.BaseUrl;
-                }
-
-                // Always keep discovered classification defaults in sync.
-                existing.PlanType = d.PlanType;
-                existing.Type = d.Type;
-            }
-        }
+        await this.ApplyDiscoveredTokensAsync(result).ConfigureAwait(false);
 
         ProviderMetadataCatalog.NormalizeCanonicalConfigurations(result);
 
         return result;
     }
 
-    public async Task SaveConfigAsync(IEnumerable<ProviderConfig> configs)
+    private async Task<Dictionary<string, ProviderConfig>> LoadMergedConfigsAsync()
     {
-        var authPath = GetTrackerConfigPath();
-        var providersPath = GetProvidersConfigPath();
+        var mergedConfigs = new Dictionary<string, ProviderConfig>(StringComparer.OrdinalIgnoreCase);
 
-        var authDir = Path.GetDirectoryName(authPath);
-        if (authDir != null && !Directory.Exists(authDir)) Directory.CreateDirectory(authDir);
-
-        var provDir = Path.GetDirectoryName(providersPath);
-        if (provDir != null && !Directory.Exists(provDir)) Directory.CreateDirectory(provDir);
-
-        // Prepare dictionaries
-        var exportAuth = new Dictionary<string, object>(StringComparer.Ordinal);
-        var exportProviders = new Dictionary<string, object>(StringComparer.Ordinal);
-
-        // Load existing files to preserve extra data (like app_settings in auth.json, or other props)
-        if (File.Exists(authPath))
+        foreach (var path in this.GetAuthConfigPaths())
         {
-            try
+            await this.MergeConfigFileAsync(mergedConfigs, path, isAuthFile: true).ConfigureAwait(false);
+        }
+
+        foreach (var path in this.GetProviderConfigPaths())
+        {
+            await this.MergeConfigFileAsync(mergedConfigs, path, isAuthFile: false).ConfigureAwait(false);
+        }
+
+        return mergedConfigs;
+    }
+
+    private async Task MergeConfigFileAsync(Dictionary<string, ProviderConfig> mergedConfigs, string path, bool isAuthFile)
+    {
+        if (!File.Exists(path))
+        {
+            return;
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+            var rawConfigs = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (rawConfigs == null)
             {
-                var json = await File.ReadAllTextAsync(authPath).ConfigureAwait(false);
-                var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-                if (existing != null) exportAuth = existing;
+                return;
             }
-            catch (Exception ex)
+
+            foreach (var entry in rawConfigs)
             {
-                _logger.LogDebug(ex, "Failed to load existing auth config from {Path}; continuing with a clean export payload", authPath);
+                this.MergeConfigEntry(mergedConfigs, entry, path, isAuthFile);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("Failed to process config file {Path}: {Message}", path, ex.Message);
+        }
+    }
+
+    private void MergeConfigEntry(
+        Dictionary<string, ProviderConfig> mergedConfigs,
+        KeyValuePair<string, JsonElement> entry,
+        string path,
+        bool isAuthFile)
+    {
+        var providerId = ProviderMetadataCatalog.GetCanonicalProviderId(entry.Key);
+        if (providerId.Equals("app_settings", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (!mergedConfigs.TryGetValue(providerId, out var config))
+        {
+            config = new ProviderConfig { ProviderId = providerId };
+            mergedConfigs[providerId] = config;
+        }
+
+        this.ApplyElementToConfig(config, entry.Value, providerId, path, isAuthFile);
+        this.AppendConfigSource(config, path);
+    }
+
+    private void ApplyElementToConfig(
+        ProviderConfig config,
+        JsonElement element,
+        string providerId,
+        string path,
+        bool isAuthFile)
+    {
+        if (element.TryGetProperty("key", out var keyProp) && (isAuthFile || string.IsNullOrEmpty(config.ApiKey)))
+        {
+            var value = keyProp.GetString();
+            if (!string.IsNullOrEmpty(value))
+            {
+                config.ApiKey = value;
             }
         }
 
-        if (File.Exists(providersPath))
+        if (element.TryGetProperty("type", out var typeProp))
         {
-            try
+            config.Type = typeProp.GetString() ?? config.Type;
+        }
+
+        if (element.TryGetProperty("base_url", out var urlProp))
+        {
+            config.BaseUrl = urlProp.GetString() ?? config.BaseUrl;
+        }
+
+        if (element.TryGetProperty("show_in_tray", out var showProp))
+        {
+            config.ShowInTray = showProp.ValueKind == JsonValueKind.True;
+        }
+
+        if (element.TryGetProperty("enable_notifications", out var notifyProp))
+        {
+            config.EnableNotifications = notifyProp.ValueKind == JsonValueKind.True;
+        }
+
+        if (element.TryGetProperty("enabled_sub_trays", out var subTraysProp) && subTraysProp.ValueKind == JsonValueKind.Array)
+        {
+            config.EnabledSubTrays = this.ReadStringList(subTraysProp);
+        }
+
+        if (element.TryGetProperty("models", out var modelsProp) && modelsProp.ValueKind == JsonValueKind.Array)
+        {
+            config.Models = this.TryReadModelConfigs(modelsProp, providerId, path);
+        }
+    }
+
+    private List<AIModelConfig> TryReadModelConfigs(JsonElement modelsProp, string providerId, string path)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<AIModelConfig>>(
+                       modelsProp.GetRawText(),
+                       new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                   ?? new List<AIModelConfig>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
+            return new List<AIModelConfig>();
+        }
+    }
+
+    private List<string> ReadStringList(JsonElement arrayElement)
+    {
+        var values = new List<string>();
+        foreach (var item in arrayElement.EnumerateArray())
+        {
+            var value = item.GetString();
+            if (value != null)
             {
-                var json = await File.ReadAllTextAsync(providersPath).ConfigureAwait(false);
-                var existing = JsonSerializer.Deserialize<Dictionary<string, object>>(json);
-                if (existing != null) exportProviders = existing;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to load existing provider config from {Path}; continuing with a clean export payload", providersPath);
+                values.Add(value);
             }
         }
 
-        foreach (var providerId in exportAuth.Keys.ToList())
+        return values;
+    }
+
+    private void AppendConfigSource(ProviderConfig config, string path)
+    {
+        if (string.IsNullOrEmpty(config.AuthSource))
         {
-            if (!ProviderMetadataCatalog.ShouldPersistProviderId(providerId))
-            {
-                exportAuth.Remove(providerId);
-            }
+            config.AuthSource = $"Config: {Path.GetFileName(path)}";
+            return;
         }
 
-        foreach (var providerId in exportProviders.Keys.ToList())
-        {
-            if (!ProviderMetadataCatalog.ShouldPersistProviderId(providerId))
-            {
-                exportProviders.Remove(providerId);
-            }
-        }
+        config.AuthSource += $", {Path.GetFileName(path)}";
+    }
 
-        foreach (var config in configs)
+    private async Task ApplyDiscoveredTokensAsync(List<ProviderConfig> configs)
+    {
+        var discoveryService = new TokenDiscoveryService(_tokenDiscoveryLogger, _pathProvider);
+        var discovered = await discoveryService.DiscoverTokensAsync().ConfigureAwait(false);
+
+        foreach (var discoveredConfig in discovered)
         {
-            if (!ProviderMetadataCatalog.ShouldPersistProviderId(config.ProviderId))
+            var existing = configs.FirstOrDefault(config =>
+                config.ProviderId.Equals(discoveredConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
+
+            if (existing == null)
             {
+                configs.Add(discoveredConfig);
                 continue;
             }
 
-            // 1. Update Auth (Key)
-            if (exportAuth.TryGetValue(config.ProviderId, out var existingAuthObj) && existingAuthObj is JsonElement existingAuthEl)
+            if (string.IsNullOrEmpty(existing.ApiKey) && !string.IsNullOrEmpty(discoveredConfig.ApiKey))
             {
-                // Deserialize to dict to modify
-                var dict = JsonSerializer.Deserialize<Dictionary<string, object?>>(existingAuthEl.GetRawText()) ?? new Dictionary<string, object?>(StringComparer.Ordinal);
-                dict["key"] = config.ApiKey;
-                exportAuth[config.ProviderId] = dict;
-            }
-            else if (exportAuth.TryGetValue(config.ProviderId, out var existingAuthDictObj) && existingAuthDictObj is Dictionary<string, object?> existingAuthDict)
-            {
-                 existingAuthDict["key"] = config.ApiKey;
-            }
-            else
-            {
-                // Create new entry
-                exportAuth[config.ProviderId] = new Dictionary<string, object?>(StringComparer.Ordinal) { { "key", config.ApiKey } };
+                existing.ApiKey = discoveredConfig.ApiKey;
+                existing.Description = discoveredConfig.Description;
+                existing.AuthSource = discoveredConfig.AuthSource;
+                if (string.IsNullOrEmpty(existing.BaseUrl))
+                {
+                    existing.BaseUrl = discoveredConfig.BaseUrl;
+                }
             }
 
-            // 2. Update Providers (Settings)
-            Dictionary<string, object?> provDict;
-            if (exportProviders.TryGetValue(config.ProviderId, out var existingProvObj) && existingProvObj is JsonElement existingProvEl)
-            {
-                 provDict = JsonSerializer.Deserialize<Dictionary<string, object?>>(existingProvEl.GetRawText()) ?? new Dictionary<string, object?>(StringComparer.Ordinal);
-            }
-            else if (exportProviders.TryGetValue(config.ProviderId, out var existingProvDictObj) && existingProvDictObj is Dictionary<string, object?> existingProvDict)
-            {
-                 provDict = existingProvDict;
-            }
-            else
-            {
-                provDict = new Dictionary<string, object?>(StringComparer.Ordinal);
-            }
+            existing.PlanType = discoveredConfig.PlanType;
+            existing.Type = discoveredConfig.Type;
+        }
+    }
 
-            provDict["type"] = config.Type;
-            provDict["show_in_tray"] = config.ShowInTray;
-            provDict["enable_notifications"] = config.EnableNotifications;
-            provDict["enabled_sub_trays"] = config.EnabledSubTrays;
-            if (!string.IsNullOrEmpty(config.BaseUrl)) provDict["base_url"] = config.BaseUrl;
-            
-            // Note: We don't currently serialize Models back to disk in this method as UI doesn't edit them yet.
-            // But if we did, it would go here.
-            
-            exportProviders[config.ProviderId] = provDict;
+    private IReadOnlyList<string> GetAuthConfigPaths()
+    {
+        return new[] { this.GetTrackerConfigPath() }
+            .Concat(this.GetLegacyTrackerAuthPaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private IReadOnlyList<string> GetProviderConfigPaths()
+    {
+        return new[] { this.GetProvidersConfigPath() }
+            .Concat(this.GetLegacyTrackerProvidersPaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task SaveConfigAsync(IEnumerable<ProviderConfig> configs)
+    {
+        var authPath = this.GetTrackerConfigPath();
+        var providersPath = this.GetProvidersConfigPath();
+
+        this.EnsureParentDirectoryExists(authPath);
+        this.EnsureParentDirectoryExists(providersPath);
+
+        var exportAuth = await this.LoadExportPayloadAsync(
+            authPath,
+            "auth config").ConfigureAwait(false);
+        var exportProviders = await this.LoadExportPayloadAsync(
+            providersPath,
+            "provider config").ConfigureAwait(false);
+
+        this.RemoveNonPersistedProviders(exportAuth);
+        this.RemoveNonPersistedProviders(exportProviders);
+
+        foreach (var config in configs)
+        {
+            this.MergeProviderConfig(exportAuth, exportProviders, config);
         }
 
-        var opts = new JsonSerializerOptions { WriteIndented = true };
-        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(exportAuth, opts)).ConfigureAwait(false);
-        await File.WriteAllTextAsync(providersPath, JsonSerializer.Serialize(exportProviders, opts)).ConfigureAwait(false);
+        await this.WriteExportPayloadAsync(authPath, exportAuth).ConfigureAwait(false);
+        await this.WriteExportPayloadAsync(providersPath, exportProviders).ConfigureAwait(false);
+    }
+
+    private void EnsureParentDirectoryExists(string path)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (directory != null && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+    }
+
+    private async Task<Dictionary<string, object>> LoadExportPayloadAsync(string path, string payloadDescription)
+    {
+        if (!File.Exists(path))
+        {
+            return new Dictionary<string, object>(StringComparer.Ordinal);
+        }
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+            return JsonSerializer.Deserialize<Dictionary<string, object>>(json)
+                   ?? new Dictionary<string, object>(StringComparer.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(
+                ex,
+                "Failed to load existing {PayloadDescription} from {Path}; continuing with a clean export payload",
+                payloadDescription,
+                path);
+            return new Dictionary<string, object>(StringComparer.Ordinal);
+        }
+    }
+
+    private void RemoveNonPersistedProviders(Dictionary<string, object> payload)
+    {
+        foreach (var providerId in payload.Keys.ToList())
+        {
+            if (!ProviderMetadataCatalog.ShouldPersistProviderId(providerId))
+            {
+                payload.Remove(providerId);
+            }
+        }
+    }
+
+    private void MergeProviderConfig(
+        Dictionary<string, object> exportAuth,
+        Dictionary<string, object> exportProviders,
+        ProviderConfig config)
+    {
+        if (!ProviderMetadataCatalog.ShouldPersistProviderId(config.ProviderId))
+        {
+            return;
+        }
+
+        var authDict = this.GetMutablePayloadEntry(exportAuth, config.ProviderId);
+        authDict["key"] = config.ApiKey;
+        exportAuth[config.ProviderId] = authDict;
+
+        var providerDict = this.GetMutablePayloadEntry(exportProviders, config.ProviderId);
+        providerDict["type"] = config.Type;
+        providerDict["show_in_tray"] = config.ShowInTray;
+        providerDict["enable_notifications"] = config.EnableNotifications;
+        providerDict["enabled_sub_trays"] = config.EnabledSubTrays;
+
+        if (!string.IsNullOrEmpty(config.BaseUrl))
+        {
+            providerDict["base_url"] = config.BaseUrl;
+        }
+
+        exportProviders[config.ProviderId] = providerDict;
+    }
+
+    private Dictionary<string, object?> GetMutablePayloadEntry(Dictionary<string, object> payload, string providerId)
+    {
+        if (!payload.TryGetValue(providerId, out var existingValue))
+        {
+            return new Dictionary<string, object?>(StringComparer.Ordinal);
+        }
+
+        if (existingValue is JsonElement existingElement)
+        {
+            return JsonSerializer.Deserialize<Dictionary<string, object?>>(existingElement.GetRawText())
+                   ?? new Dictionary<string, object?>(StringComparer.Ordinal);
+        }
+
+        if (existingValue is Dictionary<string, object?> existingDictionary)
+        {
+            return existingDictionary;
+        }
+
+        return new Dictionary<string, object?>(StringComparer.Ordinal);
+    }
+
+    private async Task WriteExportPayloadAsync(string path, Dictionary<string, object> payload)
+    {
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        await File.WriteAllTextAsync(path, JsonSerializer.Serialize(payload, options)).ConfigureAwait(false);
     }
 
     public async Task<AppPreferences> LoadPreferencesAsync()
