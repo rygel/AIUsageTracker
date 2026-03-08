@@ -35,20 +35,20 @@ public class ProviderModel : PageModel
 
         if (string.IsNullOrEmpty(this.Id))
         {
-            return RedirectToPage("/Providers");
+            return this.RedirectToPage("/Providers");
         }
 
         this.ProviderHistory = await this._dbService.GetProviderHistoryAsync(this.Id, 100).ConfigureAwait(false);
 
         if (this.ProviderHistory?.Any() != true)
         {
-            return Page();
+            return this.Page();
         }
 
         this.ProviderName = this.ProviderHistory.First().ProviderName;
         this.ResetEvents = await this._dbService.GetResetEventsAsync(this.Id, 50).ConfigureAwait(false);
 
-        return Page();
+        return this.Page();
     }
 }
 

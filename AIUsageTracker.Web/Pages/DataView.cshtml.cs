@@ -61,7 +61,7 @@ public class DataViewModel : PageModel
 
         if (!this.IsDatabaseAvailable)
         {
-            return Page();
+            return this.Page();
         }
 
         var (rows, totalCount) = actualTable switch
@@ -82,12 +82,12 @@ public class DataViewModel : PageModel
             this.Columns = this.Rows.First().Keys.ToList();
         }
 
-        return Page();
+        return this.Page();
     }
 
     public async Task<IActionResult> OnGetExportCsvAsync()
     {
         var csv = await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);
-        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "history.csv");
+        return this.File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "history.csv");
     }
 }

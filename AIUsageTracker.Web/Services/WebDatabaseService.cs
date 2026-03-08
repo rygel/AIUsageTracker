@@ -349,6 +349,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         {
             reset.ProviderName = ProviderMetadataCatalog.GetDisplayName(reset.ProviderId, reset.ProviderName);
         }
+
         return results;
     }
 
@@ -381,6 +382,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         {
             reset.ProviderName = ProviderMetadataCatalog.GetDisplayName(reset.ProviderId, reset.ProviderName);
         }
+
         return results;
     }
 
@@ -405,6 +407,23 @@ public class WebDatabaseService : IWebDatabaseRepository
     }
 
     public string GetDatabasePath() => this._dbPath;
+
+    private static async Task EnsureChartIndexesAsync(SqliteConnection connection)
+    {
+        if (Interlocked.CompareExchange(ref _chartIndexesEnsured, 1, 0) != 0)
+        {
+            return;
+        }
+
+        const string sql = @"
+            CREATE INDEX IF NOT EXISTS idx_history_fetched_at_asc ON provider_history(fetched_at ASC);
+            CREATE INDEX IF NOT EXISTS idx_reset_timestamp_asc ON reset_events(timestamp ASC);
+        ";
+
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
 
     private async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
@@ -472,23 +491,6 @@ public class WebDatabaseService : IWebDatabaseRepository
         }
 
         return usage;
-    }
-
-    private static async Task EnsureChartIndexesAsync(SqliteConnection connection)
-    {
-        if (Interlocked.CompareExchange(ref _chartIndexesEnsured, 1, 0) != 0)
-        {
-            return;
-        }
-
-        const string sql = @"
-            CREATE INDEX IF NOT EXISTS idx_history_fetched_at_asc ON provider_history(fetched_at ASC);
-            CREATE INDEX IF NOT EXISTS idx_reset_timestamp_asc ON reset_events(timestamp ASC);
-        ";
-
-        using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        await command.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
     private SqliteConnection CreateReadConnection()
