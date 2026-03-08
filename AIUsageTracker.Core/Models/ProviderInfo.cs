@@ -11,3 +11,4 @@ public class ProviderInfo
     public double LatestUsage { get; set; }
     public DateTime? NextResetTime { get; set; }
 }
+

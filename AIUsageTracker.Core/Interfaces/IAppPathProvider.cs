@@ -8,7 +8,7 @@ public interface IAppPathProvider
     string GetAuthFilePath();
     string GetPreferencesFilePath();
     string GetProviderConfigFilePath();
-    
+
     // Discovery root for external tools (e.g., .claude, .codex)
     string GetUserProfileRoot();
 }
