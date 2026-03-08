@@ -1,13 +1,13 @@
-using AIUsageTracker.Web.Services;
-using AIUsageTracker.Infrastructure.Services;
-using AIUsageTracker.Infrastructure.Helpers;
+using System.IO.Compression;
+
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Infrastructure.Helpers;
+using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
-
-using System.IO.Compression;
 
 var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
 var logDir = Path.Combine(appData, "AIUsageTracker", "logs");

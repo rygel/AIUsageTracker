@@ -1,8 +1,8 @@
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
 using Dapper;
 using Microsoft.Data.Sqlite;
-using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
@@ -53,7 +53,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return File.Exists(this._dbPath);
     }
 
-    public async Task<List<ProviderInfo>> GetProvidersAsync()
+    public async Task<IReadOnlyList<ProviderInfo>> GetProvidersAsync()
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -94,7 +94,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return results;
     }
 
-    public async Task<List<ProviderUsage>> GetLatestUsageAsync(bool includeInactive = false)
+    public async Task<IReadOnlyList<ProviderUsage>> GetLatestUsageAsync(bool includeInactive = false)
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -127,7 +127,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return list;
     }
 
-    public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
+    public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -148,7 +148,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return results.Select(this.MapToProviderUsage).ToList();
     }
 
-    public async Task<List<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
+    public async Task<IReadOnlyList<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -262,7 +262,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return rows.Select(this.MapToProviderUsage).ToList();
     }
 
-    public async Task<List<ChartDataPoint>> GetChartDataAsync(int hours = 24)
+    public async Task<IReadOnlyList<ChartDataPoint>> GetChartDataAsync(int hours = 24)
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -318,7 +318,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return list;
     }
 
-    public async Task<List<ResetEvent>> GetRecentResetEventsAsync(int hours = 24)
+    public async Task<IReadOnlyList<ResetEvent>> GetRecentResetEventsAsync(int hours = 24)
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -353,7 +353,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return results;
     }
 
-    public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
+    public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
         if (!this.IsDatabaseAvailable())
         {
@@ -386,22 +386,22 @@ public class WebDatabaseService : IWebDatabaseRepository
         return results;
     }
 
-    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("providers", page, pageSize).ConfigureAwait(false);
     }
 
-    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
-    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
-    public async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
     {
         return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
     }
@@ -425,7 +425,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
     }
 
-    private async Task<(List<Dictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
+    private async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
         if (!this.IsDatabaseAvailable())
         {
