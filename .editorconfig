@@ -26,8 +26,11 @@ dot_diagnostic.VSTHRD002.severity = warning
 dot_diagnostic.VSTHRD103.severity = warning
 dot_diagnostic.VSTHRD105.severity = warning
 dot_diagnostic.VSTHRD110.severity = warning
-dot_diagnostic.VSTHRD111.severity = none
+dot_diagnostic.VSTHRD109.severity = error
+dot_diagnostic.VSTHRD111.severity = error
 dot_diagnostic.VSTHRD200.severity = error
+dot_diagnostic.CA2016.severity = error
+dot_diagnostic.CA2254.severity = error
 dot_diagnostic.MA0002.severity = warning
 dot_diagnostic.MA0004.severity = warning
 dot_diagnostic.MA0006.severity = warning
@@ -56,7 +59,6 @@ dot_diagnostic.MA0006.severity = none
 dot_diagnostic.MA0011.severity = none
 dot_diagnostic.MA0016.severity = none
 dot_diagnostic.MA0002.severity = none
-dot_diagnostic.VSTHRD200.severity = none
 dot_diagnostic.MA0009.severity = warning
 
 
