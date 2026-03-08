@@ -62,6 +62,21 @@ public sealed class MonitorStartupPathTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAndValidateMonitorInfoAsync_InvalidatesMonitorInfo_WhenMetadataIsMalformed()
+    {
+        var infoPath = await CreateMonitorInfoContentAsync("{ not valid json");
+
+        using var _ = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: new[] { infoPath });
+
+        var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+
+        Assert.Null(result);
+        Assert.False(File.Exists(infoPath));
+        Assert.Single(Directory.GetFiles(_tempDirectory, "monitor.json.stale.*", SearchOption.TopDirectoryOnly));
+    }
+
+    [Fact]
     public async Task RefreshAgentInfoAsync_UsesValidMonitorInfoPortAndErrors()
     {
         var infoPath = await CreateMonitorInfoAsync(new MonitorInfo
@@ -130,6 +145,42 @@ public sealed class MonitorStartupPathTests : IDisposable
         Assert.Equal(5666, result.Port);
     }
 
+    [Fact]
+    public async Task EnsureAgentRunningAsync_ReturnsTrue_WhenMonitorIsAlreadyHealthy()
+    {
+        var infoPath = await CreateMonitorInfoAsync(new MonitorInfo
+        {
+            Port = 5777,
+            ProcessId = 4444,
+        });
+
+        using var _ = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: new[] { infoPath },
+            healthCheckAsync: port => Task.FromResult(port == 5777),
+            processRunningAsync: processId => Task.FromResult(processId == 4444));
+
+        var result = await MonitorLauncher.EnsureAgentRunningAsync();
+
+        Assert.True(result);
+        Assert.True(File.Exists(infoPath));
+    }
+
+    [Fact]
+    public async Task WaitForAgentAsync_ReturnsFalse_WhenCancelled()
+    {
+        using var _ = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: Array.Empty<string>(),
+            healthCheckAsync: _ => Task.FromResult(false),
+            processRunningAsync: _ => Task.FromResult(false));
+
+        using var cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.Cancel();
+
+        var result = await MonitorLauncher.WaitForAgentAsync(cancellationTokenSource.Token);
+
+        Assert.False(result);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -145,9 +196,14 @@ public sealed class MonitorStartupPathTests : IDisposable
 
     private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)
     {
-        var path = Path.Combine(_tempDirectory, "monitor.json");
         var json = JsonSerializer.Serialize(info);
-        await File.WriteAllTextAsync(path, json);
+        return await CreateMonitorInfoContentAsync(json);
+    }
+
+    private async Task<string> CreateMonitorInfoContentAsync(string content)
+    {
+        var path = Path.Combine(_tempDirectory, "monitor.json");
+        await File.WriteAllTextAsync(path, content);
         return path;
     }
 }

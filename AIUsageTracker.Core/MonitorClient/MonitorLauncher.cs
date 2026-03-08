@@ -56,23 +56,54 @@ public class MonitorLauncher
 
     private static async Task<MonitorInfo?> GetAgentInfoAsync()
     {
+        string? path = null;
+
         try
         {
-            var path = GetExistingAgentInfoPath();
+            path = GetExistingAgentInfoPath();
 
             if (path != null)
             {
                 var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                return JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
+                var info = JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
+
+                if (info != null)
+                {
+                    return info;
+                }
+
+                MonitorService.LogDiagnostic($"Monitor metadata at '{path}' was empty or invalid; invalidating metadata.");
+                InvalidateMonitorInfoPath(path);
             }
             
             return null;
         }
+        catch (JsonException ex)
+        {
+            MonitorService.LogDiagnostic($"Failed to parse monitor metadata: {ex.Message}");
+            if (path != null)
+            {
+                InvalidateMonitorInfoPath(path);
+            }
+
+            return null;
+        }
+        catch (IOException ex)
+        {
+            MonitorService.LogDiagnostic($"Failed to read monitor metadata: {ex.Message}");
+            return null;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            MonitorService.LogDiagnostic($"Access denied reading monitor metadata: {ex.Message}");
+            return null;
+        }
         catch
         {
+            MonitorService.LogDiagnostic("Failed to load monitor metadata for an unknown reason.");
             return null;
         }
     }
@@ -148,8 +179,19 @@ public class MonitorLauncher
             var response = await client.GetAsync($"http://localhost:{port}/api/health").ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
+        catch (HttpRequestException ex)
+        {
+            MonitorService.LogDiagnostic($"Health check request failed on port {port}: {ex.Message}");
+            return false;
+        }
+        catch (TaskCanceledException ex)
+        {
+            MonitorService.LogDiagnostic($"Health check timed out on port {port}: {ex.Message}");
+            return false;
+        }
         catch
         {
+            MonitorService.LogDiagnostic($"Health check failed on port {port} for an unknown reason.");
             return false;
         }
     }
@@ -173,10 +215,12 @@ public class MonitorLauncher
         }
         catch (ArgumentException)
         {
+            MonitorService.LogDiagnostic($"Monitor process {processId} was not found.");
             return Task.FromResult(false);
         }
         catch
         {
+            MonitorService.LogDiagnostic($"Failed to query monitor process {processId}.");
             return Task.FromResult(false);
         }
     }
@@ -212,9 +256,7 @@ public class MonitorLauncher
         {
             foreach (var infoPath in GetExistingAgentInfoPaths())
             {
-                var backupPath = infoPath + ".stale." + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-                File.Move(infoPath, backupPath, overwrite: true);
-                MonitorService.LogDiagnostic($"Backed up stale metadata to: {backupPath}");
+                InvalidateMonitorInfoPath(infoPath);
             }
         }
         catch (Exception ex)
@@ -223,6 +265,13 @@ public class MonitorLauncher
         }
 
         return Task.CompletedTask;
+    }
+
+    private static void InvalidateMonitorInfoPath(string infoPath)
+    {
+        var backupPath = infoPath + ".stale." + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        File.Move(infoPath, backupPath, overwrite: true);
+        MonitorService.LogDiagnostic($"Backed up stale metadata to: {backupPath}");
     }
 
     public static async Task<bool> StartAgentAsync()
@@ -283,8 +332,7 @@ public class MonitorLauncher
                     psi.Environment["MSBUILDDISABLENODEREUSE"] = "1";
                     psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
 
-                    Process.Start(psi);
-                    return true;
+                    return TryStartMonitorProcess(psi, "dotnet run");
                 }
 
                 MonitorService.LogDiagnostic("Could not find Monitor executable or project directory.");
@@ -302,9 +350,7 @@ public class MonitorLauncher
                 WorkingDirectory = Path.GetDirectoryName(agentPath),
             };
 
-            Process.Start(startInfo);
-            MonitorService.LogDiagnostic("Monitor process started.");
-            return true;
+            return TryStartMonitorProcess(startInfo, agentPath);
         }
         catch (Exception ex)
         {
@@ -315,6 +361,45 @@ public class MonitorLauncher
         {
             StartupSemaphore.Release();
         }
+    }
+
+    private static bool TryStartMonitorProcess(ProcessStartInfo startInfo, string launchTarget)
+    {
+        try
+        {
+            using var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                MonitorService.LogDiagnostic($"Monitor launch returned no process for target '{launchTarget}'.");
+                return false;
+            }
+
+            MonitorService.LogDiagnostic($"Monitor process started via '{launchTarget}' (PID {process.Id}).");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            MonitorService.LogDiagnostic($"Failed to launch Monitor via '{launchTarget}': {ex.Message}");
+            return false;
+        }
+    }
+
+    public static async Task<bool> EnsureAgentRunningAsync(CancellationToken cancellationToken = default)
+    {
+        var (isRunning, port) = await IsAgentRunningWithPortAsync().ConfigureAwait(false);
+        if (isRunning)
+        {
+            MonitorService.LogDiagnostic($"Monitor already ready on port {port}; no startup needed.");
+            return true;
+        }
+
+        var started = await StartAgentAsync().ConfigureAwait(false);
+        if (!started)
+        {
+            return false;
+        }
+
+        return await WaitForAgentAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public static async Task<bool> StopAgentAsync()
@@ -410,25 +495,34 @@ public class MonitorLauncher
     public static async Task<bool> WaitForAgentAsync(CancellationToken cancellationToken = default)
     {
         MonitorService.LogDiagnostic($"Waiting for Monitor to start (max {MaxWaitSeconds}s)...");
-        var startTime = DateTime.Now;
+        var stopwatch = Stopwatch.StartNew();
         int attempt = 0;
-        while ((DateTime.Now - startTime).TotalSeconds < MaxWaitSeconds)
+        while (stopwatch.Elapsed < TimeSpan.FromSeconds(MaxWaitSeconds))
         {
             attempt++;
             var (isRunning, port) = await IsAgentRunningWithPortAsync().ConfigureAwait(false);
             if (isRunning)
             {
-                MonitorService.LogDiagnostic($"Monitor is ready on port {port} after {(DateTime.Now - startTime).TotalSeconds:F1}s.");
+                MonitorService.LogDiagnostic($"Monitor is ready on port {port} after {stopwatch.Elapsed.TotalSeconds:F1}s.");
                 return true;
             }
 
             if (attempt % 5 == 0) // Log status every 1 second (5 * 200ms)
             {
-                MonitorService.LogDiagnostic($"Still waiting for Monitor... (elapsed: {(DateTime.Now - startTime).TotalSeconds:F1}s)");
+                MonitorService.LogDiagnostic($"Still waiting for Monitor... (elapsed: {stopwatch.Elapsed.TotalSeconds:F1}s)");
             }
 
-            await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                MonitorService.LogDiagnostic($"Monitor wait cancelled after {stopwatch.Elapsed.TotalSeconds:F1}s.");
+                return false;
+            }
         }
+
         MonitorService.LogDiagnostic("Timed out waiting for Monitor.");
         return false;
     }

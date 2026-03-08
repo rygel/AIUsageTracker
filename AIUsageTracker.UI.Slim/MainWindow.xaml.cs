@@ -454,26 +454,13 @@ public partial class MainWindow : Window
                     {
                         Dispatcher.Invoke(() => ShowStatus("Monitor not running. Starting monitor...", StatusType.Warning));
 
-                        if (await MonitorLauncher.StartAgentAsync())
-                        {
-                            Dispatcher.Invoke(() => ShowStatus("Waiting for monitor...", StatusType.Warning));
-                            var monitorReady = await MonitorLauncher.WaitForAgentAsync();
-
-                            if (!monitorReady)
-                            {
-                                Dispatcher.Invoke(() => {
-                                    ShowStatus("Monitor failed to start", StatusType.Error);
-                                    ShowErrorState("Monitor failed to start.\n\nPlease ensure AIUsageTracker.Monitor is installed and try again.");
-                                });
-                                return false;
-                            }
-
-                        }
-                        else
+                        Dispatcher.Invoke(() => ShowStatus("Waiting for monitor...", StatusType.Warning));
+                        var monitorReady = await MonitorLauncher.EnsureAgentRunningAsync();
+                        if (!monitorReady)
                         {
                             Dispatcher.Invoke(() => {
-                                ShowStatus("Could not start monitor", StatusType.Error);
-                                ShowErrorState("Could not start monitor automatically.\n\nPlease start it manually:\n\ndotnet run --project AIUsageTracker.Monitor");
+                                ShowStatus("Monitor failed to start", StatusType.Error);
+                                ShowErrorState("Monitor failed to start.\n\nPlease ensure AIUsageTracker.Monitor is installed and try again.");
                             });
                             return false;
                         }
@@ -2567,18 +2554,15 @@ public partial class MainWindow : Window
             ShowStatus("Restarting monitor...", StatusType.Warning);
 
             // Try to start agent
-            if (await MonitorLauncher.StartAgentAsync())
+            var monitorReady = await MonitorLauncher.EnsureAgentRunningAsync();
+            if (monitorReady)
             {
-                var monitorReady = await MonitorLauncher.WaitForAgentAsync();
-                if (monitorReady)
-                {
-                    ShowStatus("Monitor restarted", StatusType.Success);
-                    await RefreshDataAsync();
-                }
-                else
-                {
-                    ShowStatus("Monitor restart failed", StatusType.Error);
-                }
+                ShowStatus("Monitor restarted", StatusType.Success);
+                await RefreshDataAsync();
+            }
+            else
+            {
+                ShowStatus("Monitor restart failed", StatusType.Error);
             }
         }
         catch (Exception ex)
@@ -2613,24 +2597,16 @@ public partial class MainWindow : Window
             {
                 // Start the monitor
                 ShowStatus("Starting monitor...", StatusType.Warning);
-                if (await MonitorLauncher.StartAgentAsync())
+                var monitorReady = await MonitorLauncher.EnsureAgentRunningAsync();
+                if (monitorReady)
                 {
-                    var monitorReady = await MonitorLauncher.WaitForAgentAsync();
-                    if (monitorReady)
-                    {
-                        ShowStatus("Monitor started", StatusType.Success);
-                        UpdateMonitorToggleButton(true);
-                        await RefreshDataAsync();
-                    }
-                    else
-                    {
-                        ShowStatus("Monitor failed to start", StatusType.Error);
-                        UpdateMonitorToggleButton(false);
-                    }
+                    ShowStatus("Monitor started", StatusType.Success);
+                    UpdateMonitorToggleButton(true);
+                    await RefreshDataAsync();
                 }
                 else
                 {
-                    ShowStatus("Could not start monitor", StatusType.Error);
+                    ShowStatus("Monitor failed to start", StatusType.Error);
                     UpdateMonitorToggleButton(false);
                 }
             }

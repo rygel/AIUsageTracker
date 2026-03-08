@@ -1254,7 +1254,7 @@ public partial class SettingsWindow : Window
             await Task.Delay(1000);
             
             // Restart agent
-            if (await MonitorLauncher.StartAgentAsync())
+            if (await MonitorLauncher.EnsureAgentRunningAsync())
             {
                 MessageBox.Show("Monitor restarted successfully.", "Restart Complete", 
                     MessageBoxButton.OK, MessageBoxImage.Information);

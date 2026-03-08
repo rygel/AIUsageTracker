@@ -81,13 +81,18 @@ Write-Host ""
 # Step 4: Check for compile errors and new warnings
 Write-Host "[4/4] Checking for build issues..." -ForegroundColor Yellow
 $buildCheck = dotnet build AIUsageTracker.sln --configuration Release --verbosity minimal 2>&1
-$errors = $buildCheck | Select-String "error "
+$errors = $buildCheck | Select-String '(:|\s)error\s+(CS|MSB|NETSDK|NU)\d+:'
+$nonFatalWarnings = $buildCheck | Select-String "warning NU1900:"
 
 if ($errors) {
     Write-Host "Build errors found:" -ForegroundColor Red
     Write-Host $errors
     $hadFailure = $true
 } else {
+    if ($nonFatalWarnings) {
+        Write-Host "Ignoring non-fatal NuGet audit warnings (NU1900) during local validation." -ForegroundColor Yellow
+    }
+
     Write-Host "PASSED" -ForegroundColor Green
 }
 
