@@ -31,19 +31,19 @@ public class WebDatabaseService : IWebDatabaseRepository
         IAppPathProvider pathProvider,
         string? databasePathOverride)
     {
-        _cache = cache;
-        _logger = logger;
-        _dbPath = !string.IsNullOrWhiteSpace(databasePathOverride) 
-            ? databasePathOverride 
+        this._cache = cache;
+        this._logger = logger;
+        this._dbPath = !string.IsNullOrWhiteSpace(databasePathOverride)
+            ? databasePathOverride
             : pathProvider.GetDatabasePath();
 
-        _readConnectionString = new SqliteConnectionStringBuilder
+        this._readConnectionString = new SqliteConnectionStringBuilder
         {
-            DataSource = _dbPath,
+            DataSource = this._dbPath,
             Mode = SqliteOpenMode.ReadWrite,
             Cache = SqliteCacheMode.Shared,
             Pooling = true,
-            DefaultTimeout = 10
+            DefaultTimeout = 10,
         }.ToString();
     }
 
@@ -205,7 +205,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         var cutoffUtc = DateTime.UtcNow
             .AddHours(-lookbackHours)
             .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-            
+
         const string sql = @"
             WITH ranked AS (
                 SELECT h.provider_id AS ProviderId,
@@ -227,7 +227,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         {
             ProviderIds = providerIds,
             CutoffUtc = cutoffUtc,
-            MaxSamples = maxSamples
+            MaxSamples = maxSamples,
         }).ConfigureAwait(false);
 
         return rows.Select(MapToProviderUsage).ToList();
@@ -315,7 +315,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         var results = await connection.QueryAsync<ChartDataPoint>(sql, new
         {
             CutoffUtc = cutoffUtc,
-            BucketSeconds = bucketSeconds
+            BucketSeconds = bucketSeconds,
         }).ConfigureAwait(false);
         var list = results.ToList();
         foreach (var point in list)
@@ -395,22 +395,22 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("providers", page, pageSize).ConfigureAwait(false);
+        return await this.GetTableRawAsync("providers", page, pageSize).ConfigureAwait(false);
     }
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
+        return await this.GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
+        return await this.GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
     }
 
     public async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
     {
-        return await GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
+        return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
     }
 
     private async Task<(List<Dictionary<string, object?>> rows, int totalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
@@ -440,7 +440,7 @@ public class WebDatabaseService : IWebDatabaseRepository
 
             while (await reader.ReadAsync().ConfigureAwait(false))
             {
-                var row = new Dictionary<string, object?>();
+                var row = new Dictionary<string, object?>(StringComparer.Ordinal);
                 for (int i = 0; i < reader.FieldCount; i++)
                 {
                     var value = await reader.IsDBNullAsync(i).ConfigureAwait(false) ? null : reader.GetValue(i);
