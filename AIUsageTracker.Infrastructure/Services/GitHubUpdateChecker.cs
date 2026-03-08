@@ -4,6 +4,7 @@ using NetSparkleUpdater.Enums;
 using NetSparkleUpdater.SignatureVerifiers;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Updates;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
@@ -12,21 +13,6 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     private readonly ILogger<GitHubUpdateChecker> _logger;
     private readonly UpdateChannel _channel;
     
-    // Architecture-specific appcast URLs
-    private static readonly Dictionary<string, string> STABLE_APPCAST_URLS = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["x64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_x64.xml",
-        ["x86"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_x86.xml",
-        ["arm64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_arm64.xml",
-    };
-
-    private static readonly Dictionary<string, string> BETA_APPCAST_URLS = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["x64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_beta_x64.xml",
-        ["x86"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_beta_x86.xml",
-        ["arm64"] = "https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_beta_arm64.xml",
-    };
-
     private string GetAppcastUrlForCurrentArchitecture()
     {
         var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
@@ -42,19 +28,14 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         
         var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
         
-        // Select URL based on channel
-        var appcastUrls = _channel == UpdateChannel.Beta ? BETA_APPCAST_URLS : STABLE_APPCAST_URLS;
-        var channelSuffix = _channel.ToAppcastSuffix();
-        
-        if (appcastUrls.TryGetValue(targetArch, out var url))
+        if (!archMapping.ContainsKey(currentArch))
         {
-            _logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, _channel, url);
-            return url;
+            _logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
         }
-        
-        // Fallback to x64 if unknown
-        _logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
-        return appcastUrls["x64"];
+
+        var url = ReleaseUrlCatalog.GetAppcastUrl(targetArch, _channel == UpdateChannel.Beta);
+        _logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, _channel, url);
+        return url;
     }
 
     public GitHubUpdateChecker(ILogger<GitHubUpdateChecker> logger, UpdateChannel channel = UpdateChannel.Stable)
@@ -99,7 +80,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                         return new AIUsageTracker.Core.Interfaces.UpdateInfo
                         {
                             Version = latest.Version ?? latestVersion.ToString(),
-                            ReleaseUrl = latest.ReleaseNotesLink ?? $"https://github.com/rygel/AIConsumptionTracker/releases/tag/v{latestVersion}",
+                            ReleaseUrl = latest.ReleaseNotesLink ?? ReleaseUrlCatalog.GetReleaseTagUrl(latestVersion.ToString()),
                             DownloadUrl = latest.DownloadLink ?? string.Empty,
                             ReleaseNotes = releaseNotes,
                             PublishedAt = latest.PublicationDate,
@@ -208,7 +189,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             using var client = new System.Net.Http.HttpClient();
             client.DefaultRequestHeaders.Add("User-Agent", "AIUsageTracker");
             
-            var url = $"https://api.github.com/repos/rygel/AIConsumptionTracker/releases/tags/v{version}";
+            var url = ReleaseUrlCatalog.GetGitHubReleaseApiUrl(version);
             _logger.LogDebug("Fetching release notes from: {Url}", url);
             
             var response = await client.GetAsync(url);

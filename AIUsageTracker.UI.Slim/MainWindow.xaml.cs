@@ -17,6 +17,7 @@ using Microsoft.Win32;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Updates;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
@@ -2152,7 +2153,7 @@ public partial class MainWindow : Window
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = "https://github.com/rygel/AIConsumptionTracker/releases",
+                FileName = ReleaseUrlCatalog.GetReleasesPageUrl(),
                 UseShellExecute = true
             });
             return;
@@ -2472,7 +2473,7 @@ public partial class MainWindow : Window
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = "https://github.com/rygel/AIConsumptionTracker/releases/latest",
+                FileName = ReleaseUrlCatalog.GetLatestReleasePageUrl(),
                 UseShellExecute = true
             });
             return;
