@@ -96,28 +96,29 @@ try
     var isDevelopment = app.Environment.IsDevelopment();
     app.Use(async (context, next) =>
     {
+        var contentSecurityPolicy = isDevelopment
+            ? "default-src 'self'; " +
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; " +
+              "style-src 'self' 'unsafe-inline' https://unpkg.com; " +
+              "img-src 'self' data:; " +
+              "font-src 'self'; " +
+              "connect-src 'self' ws: wss:;"
+            : "default-src 'self'; " +
+              "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; " +
+              "style-src 'self' 'unsafe-inline' https://unpkg.com; " +
+              "img-src 'self' data:; " +
+              "font-src 'self'; " +
+              "connect-src 'self';";
+
         if (isDevelopment)
         {
-            context.Response.Headers.Append(
-                "Content-Security-Policy",
-                "default-src 'self'; " +
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; " +
-                "style-src 'self' 'unsafe-inline' https://unpkg.com; " +
-                "img-src 'self' data:; " +
-                "font-src 'self'; " +
-                "connect-src 'self' ws: wss:;");
+            context.Response.Headers.Append("Content-Security-Policy", contentSecurityPolicy);
         }
         else
         {
-            context.Response.Headers.Append(
-                "Content-Security-Policy",
-                "default-src 'self'; " +
-                "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; " +
-                "style-src 'self' 'unsafe-inline' https://unpkg.com; " +
-                "img-src 'self' data:; " +
-                "font-src 'self'; " +
-                "connect-src 'self';");
+            context.Response.Headers.Append("Content-Security-Policy", contentSecurityPolicy);
         }
+
         await next().ConfigureAwait(false);
     });
 

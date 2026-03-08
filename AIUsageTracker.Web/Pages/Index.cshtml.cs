@@ -47,7 +47,7 @@ public class IndexModel : PageModel
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1),
                 HttpOnly = false,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.Strict,
             });
         }
         else if (this.Request.Cookies.TryGetValue("showUsedPercentage", out var cookieValue) && bool.TryParse(cookieValue, out var cookiePref))
@@ -67,7 +67,7 @@ public class IndexModel : PageModel
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1),
                 HttpOnly = false,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.Strict,
             });
         }
         else if (this.Request.Cookies.TryGetValue("showInactiveProviders", out var inactiveCookieValue) &&
@@ -88,7 +88,7 @@ public class IndexModel : PageModel
             {
                 Expires = DateTimeOffset.UtcNow.AddYears(1),
                 HttpOnly = false,
-                SameSite = SameSiteMode.Strict
+                SameSite = SameSiteMode.Strict,
             });
         }
         else if (this.Request.Cookies.TryGetValue("expAnomaly", out var expAnomalyCookie) &&
