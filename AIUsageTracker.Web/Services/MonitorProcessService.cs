@@ -97,24 +97,12 @@ public class MonitorProcessService
 
     private string? ResolveExistingAgentInfoPath()
     {
-        return GetMonitorInfoCandidatePaths().ToList()
+        var appDataRoot = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var userProfileRoot = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        return MonitorInfoPathCatalog.GetReadCandidatePaths(appDataRoot, userProfileRoot)
+            .ToList()
             .Where(File.Exists)
             .OrderByDescending(path => File.GetLastWriteTimeUtc(path))
             .FirstOrDefault();
     }
-
-    private static IEnumerable<string> GetMonitorInfoCandidatePaths()
-    {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return new[]
-        {
-            Path.Combine(appData, "AIUsageTracker", "monitor.json"),
-            Path.Combine(appData, "AIUsageTracker", "Monitor", "monitor.json"),
-            Path.Combine(appData, "AIUsageTracker", "Agent", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Monitor", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Agent", "monitor.json"),
-        };
-    }
-
 }

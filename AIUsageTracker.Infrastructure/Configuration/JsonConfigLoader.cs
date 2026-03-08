@@ -1,6 +1,7 @@
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,8 @@ public class JsonConfigLoader : IConfigLoader
     private string GetTrackerConfigPath() => this._pathProvider.GetAuthFilePath();
 
     private string GetProvidersConfigPath() => this._pathProvider.GetProviderConfigFilePath();
+
+    private string GetPreferencesPath() => this._pathProvider.GetPreferencesFilePath();
 
     public async Task<IReadOnlyList<ProviderConfig>> LoadConfigAsync()
     {
@@ -276,11 +279,23 @@ public class JsonConfigLoader : IConfigLoader
         await File.WriteAllTextAsync(providersPath, JsonSerializer.Serialize(exportProviders, opts)).ConfigureAwait(false);
     }
 
-    private string GetPreferencesPath() => _pathProvider.GetPreferencesFilePath();
-
     public async Task<AppPreferences> LoadPreferencesAsync()
     {
-        // 1. Try loading from auth.json (app_settings) first
+        // preferences.json is the canonical store. auth.json app_settings is read-only legacy fallback.
+        var path = this.GetPreferencesPath();
+        if (File.Exists(path))
+        {
+            try
+            {
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+                return JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to load preferences from {Path}; falling back to legacy auth settings", path);
+            }
+        }
+
         var authPath = GetTrackerConfigPath();
         if (File.Exists(authPath))
         {
@@ -299,62 +314,44 @@ public class JsonConfigLoader : IConfigLoader
             }
         }
 
-        // 2. Fallback to old preferences.json
-        var path = GetPreferencesPath();
-        if (File.Exists(path))
-        {
-            try
-            {
-                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                return JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to load legacy preferences from {Path}; falling back to defaults", path);
-            }
-        }
         return new AppPreferences();
     }
 
     public async Task SavePreferencesAsync(AppPreferences preferences)
     {
-        // Save to auth.json under "app_settings"
         var path = GetTrackerConfigPath();
-        var directory = Path.GetDirectoryName(path);
+        var preferencesPath = this.GetPreferencesPath();
+        var directory = Path.GetDirectoryName(preferencesPath);
         if (directory != null && !Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        Dictionary<string, object> root;
+        var output = JsonSerializer.Serialize(preferences, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(preferencesPath, output).ConfigureAwait(false);
+
         if (File.Exists(path))
         {
-             try
-             {
-                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                root = JsonSerializer.Deserialize<Dictionary<string, object>>(json) ?? new Dictionary<string, object>(StringComparer.Ordinal);
-             }
-             catch (Exception ex)
-             {
-                _logger.LogDebug(ex, "Failed to load existing preferences container from {Path}; rebuilding it", path);
-                 root = new Dictionary<string, object>(StringComparer.Ordinal);
-             }
+            _logger.LogDebug("Preferences were written to canonical path {Path}; auth.json app_settings is deprecated.", preferencesPath);
         }
-        else
-        {
-            root = new Dictionary<string, object>(StringComparer.Ordinal);
-        }
-
-        root["app_settings"] = preferences;
-
-        var output = JsonSerializer.Serialize(root, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(path, output).ConfigureAwait(false);
     }
 
     private IEnumerable<string> GetCompatibilityAuthPaths()
     {
         return OpenAIProvider.StaticDefinition.AuthIdentityCandidatePathTemplates
-            .Select(ResolvePathTemplate);
+            .Select(ResolvePathTemplate)
+            .Concat(GetLegacyTrackerAuthPaths())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private IEnumerable<string> GetLegacyTrackerAuthPaths()
+    {
+        return DeprecatedPathCatalog.GetAuthFilePaths(this._pathProvider.GetUserProfileRoot());
+    }
+
+    private IEnumerable<string> GetLegacyTrackerProvidersPaths()
+    {
+        return DeprecatedPathCatalog.GetProviderConfigPaths(this._pathProvider.GetUserProfileRoot());
     }
 
     private IEnumerable<string> GetCompatibilityProvidersPaths()
@@ -364,14 +361,20 @@ public class JsonConfigLoader : IConfigLoader
             {
                 var directory = Path.GetDirectoryName(path) ?? string.Empty;
                 return Path.Combine(directory, "providers.json");
-            });
+            })
+            .Concat(GetLegacyTrackerProvidersPaths())
+            .Select(ResolvePathTemplate);
     }
 
     private string ResolvePathTemplate(string pathTemplate)
     {
+        var userProfileRoot = _pathProvider.GetUserProfileRoot();
+        var appDataRoot = Path.Combine(userProfileRoot, "AppData", "Roaming");
+        var localAppDataRoot = Path.Combine(userProfileRoot, "AppData", "Local");
+
         return pathTemplate
-            .Replace("%USERPROFILE%", _pathProvider.GetUserProfileRoot(), StringComparison.OrdinalIgnoreCase)
-            .Replace("%APPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), StringComparison.OrdinalIgnoreCase)
-            .Replace("%LOCALAPPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StringComparison.OrdinalIgnoreCase);
+            .Replace("%USERPROFILE%", userProfileRoot, StringComparison.OrdinalIgnoreCase)
+            .Replace("%APPDATA%", appDataRoot, StringComparison.OrdinalIgnoreCase)
+            .Replace("%LOCALAPPDATA%", localAppDataRoot, StringComparison.OrdinalIgnoreCase);
     }
 }

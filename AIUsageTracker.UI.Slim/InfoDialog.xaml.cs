@@ -7,14 +7,17 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.IO;
 using System.Threading.Tasks;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AIUsageTracker.UI.Slim
 {
     public partial class InfoDialog : Window
     {
         private readonly ILogger<InfoDialog> _logger;
+        private readonly IAppPathProvider _pathProvider;
         private bool _isPrivacyMode = false;
         private string? _realUserName;
         private string? _realConfigDir;
@@ -24,6 +27,7 @@ namespace AIUsageTracker.UI.Slim
         {
             InitializeComponent();
             _logger = App.CreateLogger<InfoDialog>();
+            _pathProvider = App.Host.Services.GetRequiredService<IAppPathProvider>();
             
             // In Slim UI, we rely on App.Preferences or direct theme resources
             // No need for complex theme loading or IConfigLoader here
@@ -68,10 +72,10 @@ namespace AIUsageTracker.UI.Slim
             _realUserName = Environment.UserName;
             
             // Configuration Directory path (without auth.json)
-            _realConfigDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".ai-consumption-tracker");
+            _realConfigDir = Path.GetDirectoryName(_pathProvider.GetAuthFilePath());
             
             // Data Directory path
-            _realDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker");
+            _realDataDir = _pathProvider.GetAppDataRoot();
             
             UpdatePrivacyUI();
         }
@@ -120,7 +124,7 @@ namespace AIUsageTracker.UI.Slim
             ArchitectureText.Text = "X64";
             MachineNameText.Text = "WORKSTATION";
             UserNameText.Text = "d***r";
-            ConfigDirText.Text = @"C:\Users\***\...\ai-consumption-tracker";
+            ConfigDirText.Text = @"C:\Users\***\...\.opencode";
             DataDirText.Text = @"C:\Users\***\...\AIUsageTracker";
             PrivacyBtn.Foreground = Brushes.Gold;
         }
