@@ -131,7 +131,7 @@ public abstract class ProviderBase : IProviderService
             _ => ex.Message,
         };
 
-        return CreateUnavailableUsage(
+        return this.CreateUnavailableUsage(
             description,
             ex.HttpStatusCode ?? 0,
             authSource);

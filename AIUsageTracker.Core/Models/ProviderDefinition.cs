@@ -117,9 +117,9 @@ public sealed class ProviderDefinition
             }
         }
 
-        _handledProviderIds = normalizedHandledIds;
-        HandledProviderIds = normalizedHandledIds.ToArray();
-        DisplayNameOverrides = displayNameOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        this._handledProviderIds = normalizedHandledIds;
+        this.HandledProviderIds = normalizedHandledIds.ToArray();
+        this.DisplayNameOverrides = displayNameOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public bool HandlesProviderId(string providerId)
