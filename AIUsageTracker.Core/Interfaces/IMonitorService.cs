@@ -21,7 +21,7 @@ public interface IMonitorService
     Task<bool> SavePreferencesAsync(AppPreferences preferences);
     Task<bool> SendTestNotificationAsync();
     Task<AgentTestNotificationResult> SendTestNotificationDetailedAsync();
-    Task<(int count, IReadOnlyList<ProviderConfig> configs)> ScanForKeysAsync();
+    Task<(int Count, IReadOnlyList<ProviderConfig> Configs)> ScanForKeysAsync();
     Task<bool> CheckHealthAsync();
     Task<AgentContractHandshakeResult> CheckApiContractAsync();
     Task<string> ExportDataAsync(string format);

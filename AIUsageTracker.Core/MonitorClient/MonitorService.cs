@@ -421,7 +421,7 @@ public class MonitorService : IMonitorService
     }
 
     // Scan for keys endpoint
-    public async Task<(int count, IReadOnlyList<ProviderConfig> configs)> ScanForKeysAsync()
+    public async Task<(int Count, IReadOnlyList<ProviderConfig> Configs)> ScanForKeysAsync()
     {
         try
         {
@@ -588,7 +588,7 @@ public class MonitorService : IMonitorService
     }
 
     // Diagnostics & Export
-    public async Task<(bool success, string message)> CheckProviderAsync(string providerId)
+    public async Task<(bool Success, string Message)> CheckProviderAsync(string providerId)
     {
         try
         {
