@@ -136,41 +136,14 @@ public class MonitorLauncher
 
     public static async Task<bool> IsAgentRunningAsync()
     {
-        var (info, port, isRunning) = await ResolveMonitorStateAsync().ConfigureAwait(false);
-        if (info != null)
-        {
-            MonitorService.LogDiagnostic($"Monitor is running on port {info.Port}");
-            return true;
-        }
-
-        MonitorService.LogDiagnostic($"Checking Monitor status on port: {port}");
-        if (isRunning)
-        {
-            MonitorService.LogDiagnostic($"Monitor is running on port {port}");
-            return true;
-        }
-
-        MonitorService.LogDiagnostic($"Monitor not found on port {port}.");
-        return false;
+        var readyPort = await GetReadyPortAsync().ConfigureAwait(false);
+        return readyPort.HasValue;
     }
     
     public static async Task<(bool IsRunning, int Port)> IsAgentRunningWithPortAsync()
     {
-        var (info, port, isRunning) = await ResolveMonitorStateAsync().ConfigureAwait(false);
-        if (info != null)
-        {
-            return (true, info.Port);
-        }
-
-        MonitorService.LogDiagnostic($"Probing Monitor port: {port}");
-
-        if (isRunning)
-        {
-            return (true, port);
-        }
-        
-        MonitorService.LogDiagnostic($"Monitor not found on port {port}.");
-        return (false, port);
+        var (port, isRunning) = await GetReadyStateAsync().ConfigureAwait(false);
+        return (isRunning, port);
     }
 
     private static async Task<bool> CheckHealthAsync(int port)
@@ -299,54 +272,13 @@ public class MonitorLauncher
                 return true;
             }
 
-            var monitorExeName = OperatingSystem.IsWindows()
-                ? "AIUsageTracker.Monitor.exe"
-                : "AIUsageTracker.Monitor";
-            var possiblePaths = MonitorExecutableCatalog.GetExecutableCandidates(AppContext.BaseDirectory, monitorExeName);
-
-            MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Count} common locations)...");
-            var agentPath = possiblePaths.FirstOrDefault(File.Exists);
-
-            if (agentPath == null)
+            var launchPlan = TryResolveLaunchPlan(port);
+            if (launchPlan == null)
             {
-                MonitorService.LogDiagnostic("Monitor executable not found. Searching for project directory for 'dotnet run'...");
-                var agentProjectDir = MonitorExecutableCatalog.FindProjectDirectory(AppContext.BaseDirectory);
-                if (agentProjectDir != null)
-                {
-                    MonitorService.LogDiagnostic($"Found Monitor project at: {agentProjectDir}. Launching via 'dotnet run'...");
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = "dotnet",
-                        Arguments = $"run --project \"{agentProjectDir}\" --urls \"http://localhost:{port}\" -- --debug",
-                        UseShellExecute = false,
-                        CreateNoWindow = true,
-                        WindowStyle = ProcessWindowStyle.Hidden,
-                        WorkingDirectory = agentProjectDir,
-                    };
-
-                    // Prevent MSBuild from leaving zombie processes that hold file locks
-                    psi.Environment["MSBUILDDISABLENODEREUSE"] = "1";
-                    psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
-
-                    return TryStartMonitorProcess(psi, "dotnet run");
-                }
-
-                MonitorService.LogDiagnostic("Could not find Monitor executable or project directory.");
                 return false;
             }
 
-            MonitorService.LogDiagnostic($"Monitor executable found at: {agentPath}. Launching...");
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = agentPath,
-                Arguments = $"--urls \"http://localhost:{port}\" --debug",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden,
-                WorkingDirectory = Path.GetDirectoryName(agentPath),
-            };
-
-            return TryStartMonitorProcess(startInfo, agentPath);
+            return TryStartMonitorProcess(launchPlan.Value.StartInfo, launchPlan.Value.LaunchTarget);
         }
         catch (Exception ex)
         {
@@ -357,6 +289,65 @@ public class MonitorLauncher
         {
             StartupSemaphore.Release();
         }
+    }
+
+    private static (ProcessStartInfo StartInfo, string LaunchTarget)? TryResolveLaunchPlan(int port)
+    {
+        var monitorExeName = OperatingSystem.IsWindows()
+            ? "AIUsageTracker.Monitor.exe"
+            : "AIUsageTracker.Monitor";
+        var possiblePaths = MonitorExecutableCatalog.GetExecutableCandidates(AppContext.BaseDirectory, monitorExeName);
+
+        MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Count} common locations)...");
+        var agentPath = possiblePaths.FirstOrDefault(File.Exists);
+
+        if (agentPath != null)
+        {
+            MonitorService.LogDiagnostic($"Monitor executable found at: {agentPath}. Launching...");
+            return (CreateExecutableLaunchInfo(agentPath, port), agentPath);
+        }
+
+        MonitorService.LogDiagnostic("Monitor executable not found. Searching for project directory for 'dotnet run'...");
+        var agentProjectDir = MonitorExecutableCatalog.FindProjectDirectory(AppContext.BaseDirectory);
+        if (agentProjectDir == null)
+        {
+            MonitorService.LogDiagnostic("Could not find Monitor executable or project directory.");
+            return null;
+        }
+
+        MonitorService.LogDiagnostic($"Found Monitor project at: {agentProjectDir}. Launching via 'dotnet run'...");
+        return (CreateProjectLaunchInfo(agentProjectDir, port), "dotnet run");
+    }
+
+    private static ProcessStartInfo CreateExecutableLaunchInfo(string agentPath, int port)
+    {
+        return new ProcessStartInfo
+        {
+            FileName = agentPath,
+            Arguments = $"--urls \"http://localhost:{port}\" --debug",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
+            WorkingDirectory = Path.GetDirectoryName(agentPath),
+        };
+    }
+
+    private static ProcessStartInfo CreateProjectLaunchInfo(string agentProjectDir, int port)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = $"run --project \"{agentProjectDir}\" --urls \"http://localhost:{port}\" -- --debug",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
+            WorkingDirectory = agentProjectDir,
+        };
+
+        // Prevent MSBuild from leaving zombie processes that hold file locks
+        startInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+        return startInfo;
     }
 
     private static bool TryStartMonitorProcess(ProcessStartInfo startInfo, string launchTarget)
@@ -382,10 +373,10 @@ public class MonitorLauncher
 
     public static async Task<bool> EnsureAgentRunningAsync(CancellationToken cancellationToken = default)
     {
-        var (isRunning, port) = await IsAgentRunningWithPortAsync().ConfigureAwait(false);
-        if (isRunning)
+        var readyPort = await GetReadyPortAsync().ConfigureAwait(false);
+        if (readyPort.HasValue)
         {
-            MonitorService.LogDiagnostic($"Monitor already ready on port {port}; no startup needed.");
+            MonitorService.LogDiagnostic($"Monitor already ready on port {readyPort.Value}; no startup needed.");
             return true;
         }
 
@@ -496,10 +487,10 @@ public class MonitorLauncher
         while (stopwatch.Elapsed < TimeSpan.FromSeconds(MaxWaitSeconds))
         {
             attempt++;
-            var (isRunning, port) = await IsAgentRunningWithPortAsync().ConfigureAwait(false);
-            if (isRunning)
+            var readyPort = await GetReadyPortAsync().ConfigureAwait(false);
+            if (readyPort.HasValue)
             {
-                MonitorService.LogDiagnostic($"Monitor is ready on port {port} after {stopwatch.Elapsed.TotalSeconds:F1}s.");
+                MonitorService.LogDiagnostic($"Monitor is ready on port {readyPort.Value} after {stopwatch.Elapsed.TotalSeconds:F1}s.");
                 return true;
             }
 
@@ -521,6 +512,32 @@ public class MonitorLauncher
 
         MonitorService.LogDiagnostic("Timed out waiting for Monitor.");
         return false;
+    }
+
+    private static async Task<int?> GetReadyPortAsync()
+    {
+        var (port, isRunning) = await GetReadyStateAsync().ConfigureAwait(false);
+        return isRunning ? port : null;
+    }
+
+    private static async Task<(int Port, bool IsRunning)> GetReadyStateAsync()
+    {
+        var (info, port, isRunning) = await ResolveMonitorStateAsync().ConfigureAwait(false);
+        if (info != null)
+        {
+            MonitorService.LogDiagnostic($"Monitor is running on port {info.Port}");
+            return (info.Port, true);
+        }
+
+        MonitorService.LogDiagnostic($"Checking Monitor status on port: {port}");
+        if (isRunning)
+        {
+            MonitorService.LogDiagnostic($"Monitor is running on port {port}");
+            return (port, true);
+        }
+
+        MonitorService.LogDiagnostic($"Monitor not found on port {port}.");
+        return (port, false);
     }
 
     private static string? GetExistingAgentInfoPath()
