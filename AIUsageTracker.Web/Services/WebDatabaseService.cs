@@ -44,11 +44,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return this._connectionFactory.IsDatabaseAvailable();
     }
 
-    public async Task<IReadOnlyList<ProviderInfo>> GetProvidersAsync()
-    {
-        var sw = Stopwatch.StartNew();
-
-        const string sql = @"
+    private const string ProvidersSql = @"
             SELECT 
                 p.provider_id AS ProviderId, 
                 p.provider_name AS ProviderName, 
@@ -65,77 +61,7 @@ public class WebDatabaseService : IWebDatabaseRepository
             ) h ON p.provider_id = h.provider_id
             WHERE p.is_active = 1";
 
-        var results = await this.QueryIfDatabaseAvailableAsync(
-            async connection => (await connection.QueryAsync<ProviderInfo>(sql).ConfigureAwait(false)).ToList(),
-            []).ConfigureAwait(false);
-        ApplyProviderDisplayNames(results);
-
-        this._logger.LogInformation(
-            "WebDB GetProvidersAsync count={Count} elapsedMs={ElapsedMs}",
-            results.Count,
-            sw.ElapsedMilliseconds);
-        return results;
-    }
-
-    public async Task<IReadOnlyList<ProviderUsage>> GetLatestUsageAsync(bool includeInactive = false)
-    {
-        var sw = Stopwatch.StartNew();
-
-        string sql = @"
-            SELECT h.*, p.provider_name as ProviderName 
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            WHERE h.id IN (SELECT MAX(id) FROM provider_history GROUP BY provider_id)";
-
-        if (!includeInactive)
-        {
-            sql += " AND p.is_active = 1 AND h.is_available = 1";
-        }
-
-        var list = await this.QueryIfDatabaseAvailableAsync(
-            async connection =>
-            {
-                var results = await connection.QueryAsync<dynamic>(sql).ConfigureAwait(false);
-                return results.Select(WebProviderUsageMapper.Map).ToList();
-            },
-            []).ConfigureAwait(false);
-
-        this._logger.LogInformation(
-            "WebDB GetLatestUsageAsync count={Count} includeInactive={IncludeInactive} elapsedMs={ElapsedMs}",
-            list.Count,
-            includeInactive,
-            sw.ElapsedMilliseconds);
-        return list;
-    }
-
-    public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
-    {
-        return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(BuildHistoryQuery(limit))).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
-    {
-        return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(BuildProviderHistoryQuery(limit), new { ProviderId = providerId })).ConfigureAwait(false);
-    }
-
-    public async Task<UsageSummary> GetUsageSummaryAsync()
-    {
-        var cacheKey = "db:usage-summary";
-        if (this._cache.TryGetValue<UsageSummary>(cacheKey, out var cached) && cached != null)
-        {
-            return cached;
-        }
-
-        if (!this.IsDatabaseAvailable())
-        {
-            return new UsageSummary();
-        }
-
-        var sw = Stopwatch.StartNew();
-
-        const string sql = @"
+    private const string UsageSummarySql = @"
             SELECT 
                 COUNT(DISTINCT provider_id) as ProviderCount,
                 AVG(requests_percentage) as AverageUsage,
@@ -145,24 +71,7 @@ public class WebDatabaseService : IWebDatabaseRepository
                 SELECT MAX(id) FROM provider_history GROUP BY provider_id
             )";
 
-        var result = await this.QueryIfDatabaseAvailableAsync(
-            async connection => await connection.QuerySingleOrDefaultAsync<UsageSummary>(sql).ConfigureAwait(false) ?? new UsageSummary(),
-            new UsageSummary()).ConfigureAwait(false);
-        this._cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
-        this._logger.LogInformation(
-            "WebDB GetUsageSummaryAsync providerCount={ProviderCount} elapsedMs={ElapsedMs}",
-            result.ProviderCount,
-            sw.ElapsedMilliseconds);
-        return result;
-    }
-
-    public async Task<IReadOnlyList<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples)
-    {
-        var cutoffUtc = DateTime.UtcNow
-            .AddHours(-lookbackHours)
-            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-
-        const string sql = @"
+    private const string HistorySamplesSql = @"
             WITH ranked AS (
                 SELECT h.provider_id AS ProviderId,
                        h.requests_used AS RequestsUsed,
@@ -178,97 +87,6 @@ public class WebDatabaseService : IWebDatabaseRepository
             SELECT * FROM ranked
             WHERE RowNum <= @MaxSamples
             ORDER BY ProviderId, datetime(FetchedAt) ASC";
-
-        return await this.QueryUsageListIfDatabaseAvailableAsync(
-            async connection => await connection.QueryAsync<dynamic>(sql, new
-            {
-                ProviderIds = providerIds,
-                CutoffUtc = cutoffUtc,
-                MaxSamples = maxSamples,
-            }).ConfigureAwait(false)).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0)
-    {
-        return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(BuildExportHistoryQuery(limit))).ConfigureAwait(false);
-    }
-
-    public async Task<IReadOnlyList<ChartDataPoint>> GetChartDataAsync(int hours = 24)
-    {
-        var sw = Stopwatch.StartNew();
-
-        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-        var bucketMinutes = hours switch
-        {
-            <= 24 => 1,
-            <= 72 => 5,
-            <= 168 => 15,
-            _ => 60,
-        };
-        var bucketSeconds = bucketMinutes * 60;
-
-        var list = await this.QueryIfDatabaseAvailableAsync(
-            async connection => (await connection.QueryAsync<ChartDataPoint>(ChartDataSql, new
-            {
-                CutoffUtc = cutoffUtc,
-                BucketSeconds = bucketSeconds,
-            }).ConfigureAwait(false)).ToList(),
-            []).ConfigureAwait(false);
-        ApplyProviderDisplayNames(list);
-
-        this._logger.LogInformation(
-            "WebDB GetChartDataAsync hours={Hours} bucketMinutes={BucketMinutes} rows={Count} elapsedMs={ElapsedMs}",
-            hours,
-            bucketMinutes,
-            list.Count,
-            sw.ElapsedMilliseconds);
-        return list;
-    }
-
-    public async Task<IReadOnlyList<ResetEvent>> GetRecentResetEventsAsync(int hours = 24)
-    {
-        var sw = Stopwatch.StartNew();
-
-        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-
-        var results = await this.QueryIfDatabaseAvailableAsync(
-            async connection => (await connection.QueryAsync<ResetEvent>(RecentResetEventsSql, new { CutoffUtc = cutoffUtc }).ConfigureAwait(false)).ToList(),
-            []).ConfigureAwait(false);
-        ApplyProviderDisplayNames(results);
-        return results;
-    }
-
-    public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
-    {
-        var results = await this.QueryIfDatabaseAvailableAsync(
-            async connection => (await connection.QueryAsync<ResetEvent>(ProviderResetEventsSql, new { ProviderId = providerId, Limit = limit }).ConfigureAwait(false)).ToList(),
-            []).ConfigureAwait(false);
-        ApplyProviderDisplayNames(results);
-        return results;
-    }
-
-    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
-    {
-        return await this.GetTableRawAsync("providers", page, pageSize).ConfigureAwait(false);
-    }
-
-    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
-    {
-        return await this.GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
-    }
-
-    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
-    {
-        return await this.GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
-    }
-
-    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
-    {
-        return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
-    }
-
-    public string GetDatabasePath() => this._connectionFactory.GetDatabasePath();
 
     private const string ChartDataSql = @"
             SELECT
@@ -309,6 +127,174 @@ public class WebDatabaseService : IWebDatabaseRepository
             WHERE provider_id = @ProviderId
             ORDER BY timestamp DESC
             LIMIT @Limit";
+
+    public async Task<IReadOnlyList<ProviderInfo>> GetProvidersAsync()
+    {
+        var sw = Stopwatch.StartNew();
+
+        var results = await this.QueryIfDatabaseAvailableAsync(
+            async connection => (await connection.QueryAsync<ProviderInfo>(ProvidersSql).ConfigureAwait(false)).ToList(),
+            []).ConfigureAwait(false);
+        ApplyProviderDisplayNames(results);
+
+        this._logger.LogInformation(
+            "WebDB GetProvidersAsync count={Count} elapsedMs={ElapsedMs}",
+            results.Count,
+            sw.ElapsedMilliseconds);
+        return results;
+    }
+
+    public async Task<IReadOnlyList<ProviderUsage>> GetLatestUsageAsync(bool includeInactive = false)
+    {
+        var sw = Stopwatch.StartNew();
+
+        var list = await this.QueryUsageListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<dynamic>(BuildLatestUsageQuery(includeInactive))).ConfigureAwait(false);
+
+        this._logger.LogInformation(
+            "WebDB GetLatestUsageAsync count={Count} includeInactive={IncludeInactive} elapsedMs={ElapsedMs}",
+            list.Count,
+            includeInactive,
+            sw.ElapsedMilliseconds);
+        return list;
+    }
+
+    public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
+    {
+        return await this.QueryUsageListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<dynamic>(BuildHistoryQuery(limit))).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
+    {
+        return await this.QueryUsageListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<dynamic>(BuildProviderHistoryQuery(limit), new { ProviderId = providerId })).ConfigureAwait(false);
+    }
+
+    public async Task<UsageSummary> GetUsageSummaryAsync()
+    {
+        var cacheKey = "db:usage-summary";
+        if (this._cache.TryGetValue<UsageSummary>(cacheKey, out var cached) && cached != null)
+        {
+            return cached;
+        }
+
+        if (!this.IsDatabaseAvailable())
+        {
+            return new UsageSummary();
+        }
+
+        var sw = Stopwatch.StartNew();
+
+        var result = await this.QuerySingleIfDatabaseAvailableAsync(
+            connection => connection.QuerySingleOrDefaultAsync<UsageSummary>(UsageSummarySql),
+            new UsageSummary()).ConfigureAwait(false);
+        this._cache.Set(cacheKey, result, TimeSpan.FromMinutes(5));
+        this._logger.LogInformation(
+            "WebDB GetUsageSummaryAsync providerCount={ProviderCount} elapsedMs={ElapsedMs}",
+            result.ProviderCount,
+            sw.ElapsedMilliseconds);
+        return result;
+    }
+
+    public async Task<IReadOnlyList<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples)
+    {
+        var cutoffUtc = DateTime.UtcNow
+            .AddHours(-lookbackHours)
+            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        return await this.QueryUsageListIfDatabaseAvailableAsync(
+            async connection => await connection.QueryAsync<dynamic>(HistorySamplesSql, new
+            {
+                ProviderIds = providerIds,
+                CutoffUtc = cutoffUtc,
+                MaxSamples = maxSamples,
+            }).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0)
+    {
+        return await this.QueryUsageListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<dynamic>(BuildExportHistoryQuery(limit))).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<ChartDataPoint>> GetChartDataAsync(int hours = 24)
+    {
+        var sw = Stopwatch.StartNew();
+
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        var bucketMinutes = hours switch
+        {
+            <= 24 => 1,
+            <= 72 => 5,
+            <= 168 => 15,
+            _ => 60,
+        };
+        var bucketSeconds = bucketMinutes * 60;
+
+        var list = await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<ChartDataPoint>(ChartDataSql, new
+            {
+                CutoffUtc = cutoffUtc,
+                BucketSeconds = bucketSeconds,
+            }),
+            []).ConfigureAwait(false);
+
+        this._logger.LogInformation(
+            "WebDB GetChartDataAsync hours={Hours} bucketMinutes={BucketMinutes} rows={Count} elapsedMs={ElapsedMs}",
+            hours,
+            bucketMinutes,
+            list.Count,
+            sw.ElapsedMilliseconds);
+        return list;
+    }
+
+    public async Task<IReadOnlyList<ResetEvent>> GetRecentResetEventsAsync(int hours = 24)
+    {
+        var sw = Stopwatch.StartNew();
+
+        var cutoffUtc = DateTime.UtcNow.AddHours(-hours).ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+        var results = await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<ResetEvent>(RecentResetEventsSql, new { CutoffUtc = cutoffUtc }),
+            []).ConfigureAwait(false);
+        this._logger.LogInformation(
+            "WebDB GetRecentResetEventsAsync hours={Hours} count={Count} elapsedMs={ElapsedMs}",
+            hours,
+            results.Count,
+            sw.ElapsedMilliseconds);
+        return results;
+    }
+
+    public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
+    {
+        var results = await this.QueryDisplayNamedListIfDatabaseAvailableAsync(
+            connection => connection.QueryAsync<ResetEvent>(ProviderResetEventsSql, new { ProviderId = providerId, Limit = limit }),
+            []).ConfigureAwait(false);
+        return results;
+    }
+
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetProvidersRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await this.GetTableRawAsync("providers", page, pageSize).ConfigureAwait(false);
+    }
+
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetProviderHistoryRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await this.GetTableRawAsync("provider_history", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
+    }
+
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetRawSnapshotsRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await this.GetTableRawAsync("raw_snapshots", page, pageSize, "fetched_at DESC").ConfigureAwait(false);
+    }
+
+    public async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetResetEventsRawAsync(int page = 1, int pageSize = 100)
+    {
+        return await this.GetTableRawAsync("reset_events", page, pageSize, "timestamp DESC").ConfigureAwait(false);
+    }
+
+    public string GetDatabasePath() => this._connectionFactory.GetDatabasePath();
 
     private async Task<(IReadOnlyList<IReadOnlyDictionary<string, object?>> Rows, int TotalCount)> GetTableRawAsync(string tableName, int page, int pageSize, string? orderBy = null)
     {
@@ -358,6 +344,46 @@ public class WebDatabaseService : IWebDatabaseRepository
             []).ConfigureAwait(false);
     }
 
+    private async Task<T> QuerySingleIfDatabaseAvailableAsync<T>(
+        Func<SqliteConnection, Task<T?>> queryAsync,
+        T unavailableValue)
+        where T : class
+    {
+        return await this.QueryIfDatabaseAvailableAsync(
+            async connection => await queryAsync(connection).ConfigureAwait(false) ?? unavailableValue,
+            unavailableValue).ConfigureAwait(false);
+    }
+
+    private async Task<IReadOnlyList<T>> QueryDisplayNamedListIfDatabaseAvailableAsync<T>(
+        Func<SqliteConnection, Task<IEnumerable<T>>> queryAsync,
+        IReadOnlyList<T> unavailableValue)
+    {
+        return await this.QueryIfDatabaseAvailableAsync<IReadOnlyList<T>>(
+            async connection =>
+            {
+                var results = (await queryAsync(connection).ConfigureAwait(false)).ToList();
+                ApplyProviderDisplayNames(results);
+                return results;
+            },
+            unavailableValue).ConfigureAwait(false);
+    }
+
+    private static string BuildLatestUsageQuery(bool includeInactive)
+    {
+        var sql = @"
+            SELECT h.*, p.provider_name as ProviderName 
+            FROM provider_history h
+            JOIN providers p ON h.provider_id = p.provider_id
+            WHERE h.id IN (SELECT MAX(id) FROM provider_history GROUP BY provider_id)";
+
+        if (!includeInactive)
+        {
+            sql += " AND p.is_active = 1 AND h.is_available = 1";
+        }
+
+        return sql;
+    }
+
     private static string BuildHistoryQuery(int limit)
     {
         return $@"
@@ -400,6 +426,22 @@ public class WebDatabaseService : IWebDatabaseRepository
         foreach (var provider in providers)
         {
             provider.ProviderName = ProviderMetadataCatalog.GetDisplayName(provider.ProviderId, provider.ProviderName);
+        }
+    }
+
+    private static void ApplyProviderDisplayNames<T>(IReadOnlyList<T> results)
+    {
+        switch (results)
+        {
+            case IReadOnlyList<ProviderInfo> providers:
+                ApplyProviderDisplayNames(providers);
+                break;
+            case IReadOnlyList<ChartDataPoint> points:
+                ApplyProviderDisplayNames(points);
+                break;
+            case IReadOnlyList<ResetEvent> resetEvents:
+                ApplyProviderDisplayNames(resetEvents);
+                break;
         }
     }
 
