@@ -104,7 +104,7 @@ public class MonitorLauncher
         return false;
     }
     
-    public static async Task<(bool isRunning, int port)> IsAgentRunningWithPortAsync()
+    public static async Task<(bool IsRunning, int Port)> IsAgentRunningWithPortAsync()
     {
         var info = await GetAndValidateMonitorInfoAsync().ConfigureAwait(false);
         if (info != null)
@@ -150,7 +150,11 @@ public class MonitorLauncher
             return _processRunningOverride(processId);
         }
 
-        if (processId <= 0) return Task.FromResult(false);
+        if (processId <= 0)
+        {
+            return Task.FromResult(false);
+        }
+
         try
         {
             var process = Process.GetProcessById(processId);
@@ -169,7 +173,10 @@ public class MonitorLauncher
     public static async Task<MonitorInfo?> GetAndValidateMonitorInfoAsync()
     {
         var info = await GetAgentInfoAsync().ConfigureAwait(false);
-        if (info == null) return null;
+        if (info == null)
+        {
+            return null;
+        }
 
         var port = info.Port;
         var processId = info.ProcessId;
@@ -255,9 +262,9 @@ public class MonitorLauncher
                         UseShellExecute = false,
                         CreateNoWindow = true,
                         WindowStyle = ProcessWindowStyle.Hidden,
-                        WorkingDirectory = agentProjectDir
+                        WorkingDirectory = agentProjectDir,
                     };
-                    
+
                     // Prevent MSBuild from leaving zombie processes that hold file locks
                     psi.Environment["MSBUILDDISABLENODEREUSE"] = "1";
                     psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
@@ -278,7 +285,7 @@ public class MonitorLauncher
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden,
-                WorkingDirectory = Path.GetDirectoryName(agentPath)
+                WorkingDirectory = Path.GetDirectoryName(agentPath),
             };
 
             Process.Start(startInfo);
@@ -300,7 +307,7 @@ public class MonitorLauncher
     {
         try
         {
-        var info = await GetAgentInfoAsync().ConfigureAwait(false);
+            var info = await GetAgentInfoAsync().ConfigureAwait(false);
             var targetPort = info?.Port > 0 ? info.Port : await GetAgentPortAsync().ConfigureAwait(false);
             if (info?.ProcessId > 0)
             {
@@ -309,7 +316,7 @@ public class MonitorLauncher
                     return true;
                 }
             }
-            
+
             // Fallback: try to find and kill by process name
             var processes = Process.GetProcessesByName("AIUsageTracker.Monitor")
                 .ToArray();
@@ -324,7 +331,7 @@ public class MonitorLauncher
                     }
                 }
             }
-            
+
             if (stoppedAny)
             {
                 return true;
@@ -402,7 +409,9 @@ public class MonitorLauncher
             }
 
             if (attempt % 5 == 0) // Log status every 1 second (5 * 200ms)
+            {
                 MonitorService.LogDiagnostic($"Still waiting for Monitor... (elapsed: {(DateTime.Now - startTime).TotalSeconds:F1}s)");
+            }
 
             await Task.Delay(200, cancellationToken).ConfigureAwait(false);
         }
@@ -417,10 +426,16 @@ public class MonitorLauncher
         {
             var agentDir = Path.Combine(currentDir, "AIUsageTracker.Monitor");
             if (Directory.Exists(agentDir) && File.Exists(Path.Combine(agentDir, "AIUsageTracker.Monitor.csproj")))
+            {
                 return agentDir;
+            }
 
             var parent = Directory.GetParent(currentDir);
-            if (parent == null) break;
+            if (parent == null)
+            {
+                break;
+            }
+
             currentDir = parent.FullName;
         }
 
@@ -433,11 +448,16 @@ public class MonitorLauncher
 
         foreach (var root in possibleRoots)
         {
-            if (!Directory.Exists(root)) continue;
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
 
             var agentDir = Path.Combine(root, "AIUsageTracker.Monitor");
             if (Directory.Exists(agentDir) && File.Exists(Path.Combine(agentDir, "AIUsageTracker.Monitor.csproj")))
+            {
                 return agentDir;
+            }
         }
 
         return null;
@@ -474,20 +494,18 @@ public class MonitorLauncher
 
         public TestOverrideScope(Action reset)
         {
-            _reset = reset;
+            this._reset = reset;
         }
 
         public void Dispose()
         {
-            if (_disposed)
+            if (this._disposed)
             {
                 return;
             }
 
-            _disposed = true;
-            _reset();
+            this._disposed = true;
+            this._reset();
         }
     }
 }
-
-

@@ -8,22 +8,22 @@ public class ResilientHttpClientOptions
     public double BackoffBase { get; set; } = 2;
     public TimeSpan CircuitBreakerDuration { get; set; } = TimeSpan.FromSeconds(30);
     public int CircuitBreakerFailureThreshold { get; set; } = 5;
-    
-    public IReadOnlyList<HttpStatusCode> RetryStatusCodes { get; set; } = new List<HttpStatusCode>
-    {
+
+    public IReadOnlyList<HttpStatusCode> RetryStatusCodes { get; set; } =
+    [
         HttpStatusCode.RequestTimeout,
         HttpStatusCode.TooManyRequests,
         HttpStatusCode.InternalServerError,
         HttpStatusCode.BadGateway,
         HttpStatusCode.ServiceUnavailable,
-        HttpStatusCode.GatewayTimeout
-    };
-    
-    public IReadOnlyList<HttpStatusCode> CircuitBreakerStatusCodes { get; set; } = new List<HttpStatusCode>
-    {
+        HttpStatusCode.GatewayTimeout,
+    ];
+
+    public IReadOnlyList<HttpStatusCode> CircuitBreakerStatusCodes { get; set; } =
+    [
         HttpStatusCode.InternalServerError,
         HttpStatusCode.BadGateway,
         HttpStatusCode.ServiceUnavailable,
-        HttpStatusCode.GatewayTimeout
-    };
+        HttpStatusCode.GatewayTimeout,
+    ];
 }
