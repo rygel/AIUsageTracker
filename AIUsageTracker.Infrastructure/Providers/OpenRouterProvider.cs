@@ -35,11 +35,11 @@ public class OpenRouterProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
-        _logger.LogDebug("Starting OpenRouter usage fetch for provider {ProviderId}", config.ProviderId);
+        this._logger.LogDebug("Starting OpenRouter usage fetch for provider {ProviderId}", config.ProviderId);
 
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            _logger.LogWarning("OpenRouter API key is missing for provider {ProviderId}", config.ProviderId);
+            this._logger.LogWarning("OpenRouter API key is missing for provider {ProviderId}", config.ProviderId);
             return new[] { CreateUnavailableUsage(
                 "API Key missing - please configure OPENROUTER_API_KEY",
                 planType: PlanType.Usage,
@@ -53,16 +53,16 @@ public class OpenRouterProvider : ProviderBase
         
         try
         {
-            _logger.LogDebug("Calling OpenRouter credits API: https://openrouter.ai/api/v1/credits");
+            this._logger.LogDebug("Calling OpenRouter credits API: https://openrouter.ai/api/v1/credits");
             
             var request = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/credits");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
-            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             httpStatus = (int)response.StatusCode;
             creditsResponseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-            _logger.LogDebug("OpenRouter credits API response status: {StatusCode}", response.StatusCode);
+            this._logger.LogDebug("OpenRouter credits API response status: {StatusCode}", response.StatusCode);
             _logger.LogTrace("OpenRouter credits API response body: {ResponseBody}", creditsResponseBody);
             
             if (!response.IsSuccessStatusCode)
@@ -94,7 +94,7 @@ public class OpenRouterProvider : ProviderBase
                     isQuotaBased: false) };
             }
 
-            _logger.LogDebug("Successfully parsed credits data - Total: {Total}, Usage: {Usage}", 
+            this._logger.LogDebug("Successfully parsed credits data - Total: {Total}, Usage: {Usage}", 
                 creditsData.Data.TotalCredits, creditsData.Data.TotalUsage);
         }
         catch (Exception ex)
@@ -111,15 +111,15 @@ public class OpenRouterProvider : ProviderBase
         
         try 
         {
-            _logger.LogDebug("Calling OpenRouter key API: https://openrouter.ai/api/v1/key");
+            this._logger.LogDebug("Calling OpenRouter key API: https://openrouter.ai/api/v1/key");
             
             var keyRequest = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/key");
             keyRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
-            var keyResponse = await _httpClient.SendAsync(keyRequest).ConfigureAwait(false);
+            var keyResponse = await this._httpClient.SendAsync(keyRequest).ConfigureAwait(false);
             var keyResponseBody = await keyResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-            _logger.LogDebug("OpenRouter key API response status: {StatusCode}", keyResponse.StatusCode);
+            this._logger.LogDebug("OpenRouter key API response status: {StatusCode}", keyResponse.StatusCode);
             _logger.LogTrace("OpenRouter key API response body: {ResponseBody}", keyResponseBody);
             
             if (keyResponse.IsSuccessStatusCode)
@@ -132,13 +132,13 @@ public class OpenRouterProvider : ProviderBase
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to deserialize OpenRouter key response. Response: {Response}", keyResponseBody);
+                    this._logger.LogWarning(ex, "Failed to deserialize OpenRouter key response. Response: {Response}", keyResponseBody);
                 }
                 
                 if (keyData?.Data != null)
                 {
                     label = keyData.Data.Label ?? "OpenRouter";
-                    _logger.LogDebug("OpenRouter key label: {Label}, Limit: {Limit}, IsFreeTier: {IsFreeTier}",
+                    this._logger.LogDebug("OpenRouter key label: {Label}, Limit: {Limit}, IsFreeTier: {IsFreeTier}",
                         label, keyData.Data.Limit, keyData.Data.IsFreeTier);
                     
                     if (keyData.Data.Limit > 0)
@@ -148,7 +148,7 @@ public class OpenRouterProvider : ProviderBase
                         
                         if (!string.IsNullOrEmpty(keyData.Data.LimitReset))
                         {
-                            _logger.LogDebug("Parsing limit reset time: {LimitReset}", keyData.Data.LimitReset);
+                            this._logger.LogDebug("Parsing limit reset time: {LimitReset}", keyData.Data.LimitReset);
                             
                             if (DateTime.TryParse(keyData.Data.LimitReset, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt))
                             {
@@ -157,12 +157,12 @@ public class OpenRouterProvider : ProviderBase
                                 {
                                     resetStr = $" (Resets: ({dt.ToLocalTime():MMM dd HH:mm}))";
                                     nextResetTime = dt.ToLocalTime();
-                                    _logger.LogDebug("Limit reset time parsed successfully: {ResetTime}", nextResetTime);
+                                    this._logger.LogDebug("Limit reset time parsed successfully: {ResetTime}", nextResetTime);
                                 }
                             }
                             else
                             {
-                                _logger.LogWarning("Failed to parse limit reset time: {LimitReset}", keyData.Data.LimitReset);
+                                this._logger.LogWarning("Failed to parse limit reset time: {LimitReset}", keyData.Data.LimitReset);
                             }
                         }
 
@@ -178,7 +178,7 @@ public class OpenRouterProvider : ProviderBase
                     }
                     else
                     {
-                        _logger.LogDebug("No spending limit set for this key");
+                        this._logger.LogDebug("No spending limit set for this key");
                     }
 
                     details.Add(new ProviderUsageDetail {
@@ -191,18 +191,18 @@ public class OpenRouterProvider : ProviderBase
                 }
                 else
                 {
-                    _logger.LogWarning("OpenRouter key API response missing 'data' field. Response: {Response}", keyResponseBody);
+                    this._logger.LogWarning("OpenRouter key API response missing 'data' field. Response: {Response}", keyResponseBody);
                 }
             }
             else
             {
-                _logger.LogWarning("OpenRouter key API returned {StatusCode}. Key info unavailable. Response: {Response}",
+                this._logger.LogWarning("OpenRouter key API returned {StatusCode}. Key info unavailable. Response: {Response}",
                     keyResponse.StatusCode, keyResponseBody);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Exception while calling OpenRouter key API - continuing with credits data only");
+            this._logger.LogWarning(ex, "Exception while calling OpenRouter key API - continuing with credits data only");
         }
 
         // Calculate usage statistics
