@@ -3,31 +3,57 @@ namespace AIUsageTracker.Core.Models;
 public sealed class ProviderDefinition
 {
     public string ProviderId { get; }
+
     public string DisplayName { get; }
+
     public PlanType PlanType { get; }
+
     public bool IsQuotaBased { get; }
+
     public string DefaultConfigType { get; }
+
     public bool AutoIncludeWhenUnconfigured { get; }
+
     public bool IncludeInWellKnownProviders { get; }
+
     public bool SupportsChildProviderIds { get; }
+
     public IReadOnlyCollection<string> HandledProviderIds { get; }
+
     public IReadOnlyDictionary<string, string> DisplayNameOverrides { get; }
+
     public IReadOnlyCollection<string> DiscoveryEnvironmentVariables { get; }
+
     public IReadOnlyCollection<string> RooConfigPropertyNames { get; }
+
     public IReadOnlyCollection<string> NonPersistedProviderIds { get; }
+
     public IReadOnlyCollection<string> VisibleDerivedProviderIds { get; }
+
     public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; }
+
     public string? SessionAuthCanonicalProviderId { get; }
+
     public string? SessionAuthMigrationDescription { get; }
+
     public ProviderSettingsMode SettingsMode { get; }
+
     public bool UseSessionAuthStatusWhenQuotaBasedOrSessionToken { get; }
+
     public string? SessionStatusLabel { get; }
+
     public ProviderSessionIdentitySource SessionIdentitySource { get; }
+
     public bool RefreshOnStartupWithCachedData { get; }
+
     public string? IconAssetName { get; }
+
     public string? FallbackBadgeColorHex { get; }
+
     public string? FallbackBadgeInitial { get; }
+
     public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; }
+
     public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; }
 
     private readonly HashSet<string> _handledProviderIds;
