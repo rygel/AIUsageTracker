@@ -67,14 +67,22 @@ dot_style_diagnostics.use_slashes_for_doc_comments = false
 dot_style_diagnostics.xml_header = false
 dot_style_diagnostics.separate_multiple_def_lines = false
 
+# Policy alignment with AGENTS.md conventions
+# - underscore-prefixed private fields are intentional in this repository
+# - file headers are not required for local development flow
+# - using directives should stay outside namespace for file-scoped namespaces
+dotnet_diagnostic.SA1309.severity = none
+dotnet_diagnostic.SA1633.severity = none
+dotnet_diagnostic.SA1200.severity = none
+
 # Formatting rules that dotnet format can enforce (aligns with the mechanical cleanup focus)
 csharp_new_line_between_members = true
 dotnet_style_qualification_for_field = true:warning
 dotnet_style_qualification_for_property = true:warning
 dotnet_style_qualification_for_method = true:warning
 dotnet_style_qualification_for_event = true:warning
-csharp_using_directive_placement = inside_namespace:warning
-csharp_style_namespace_declarations = block_scoped:warning
+csharp_using_directive_placement = outside_namespace:warning
+csharp_style_namespace_declarations = file_scoped:warning
 
 [AIUsageTracker.Tests/**/*.cs]
 dot_diagnostic.MA0074.severity = warning
