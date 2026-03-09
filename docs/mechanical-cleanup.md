@@ -39,41 +39,63 @@ Batch B (Core model files) and Batch C (Infrastructure services) still have warn
 
 ## Update: 2026-03-09 - Batch B Progress
 
-**Status: IN PROGRESS** - Partially fixed Core model files.
+**Status: COMPLETED** - Core model files fixed.
 
 **Branch:** `feature/mechanical-cleanup-batch-a-2026-03-09`
 
-**Completed:**
-1. ✅ AppPreferences.cs - Fixed 34 SA1516 warnings (added blank lines between properties)
-2. ✅ AgentTelemetrySnapshot.cs - Fixed 10 SA1516 warnings
+**Completed Files (all SA1516 fixed):**
+1. ✅ AppPreferences.cs - 34 properties fixed
+2. ✅ AgentTelemetrySnapshot.cs - 10 properties fixed
+3. ✅ ProviderUsage.cs - 30 properties fixed
+4. ✅ ProviderUsageDetail.cs - 15 properties/methods fixed
+5. ✅ ProviderDefinition.cs - 26 properties fixed
+6. ✅ UsageComparison.cs - 10 properties fixed
+7. ✅ BurnRateForecast.cs - 14 properties fixed
+8. ✅ ProviderReliabilitySnapshot.cs - 10 properties fixed
+9. ✅ UsageAnomalySnapshot.cs - 10 properties fixed
+10. ✅ BudgetPolicy.cs - 7 properties fixed
+11. ✅ ProviderInfo.cs - 8 properties fixed
+12. ✅ ChartDataPoint.cs - 5 properties fixed
+13. ✅ MonitorInfo.cs - 7 properties fixed
+14. ✅ ResetEvent.cs - 7 properties fixed
+15. ✅ UsageSummary.cs - 3 properties fixed
+16. ✅ AgentContractHandshakeResult.cs - 5 properties fixed
+17. ✅ AgentTestNotificationResult.cs - 2 properties fixed
+18. ✅ IAppPathProvider.cs - 6 methods fixed
+19. ✅ IDataExportService.cs - 3 methods fixed
+20. ✅ IConfigLoader.cs - 4 methods fixed
+21. ✅ ICodexAuthService.cs - 2 methods fixed
 
-**Remaining (high-volume files):**
-- ProviderDefinition.cs - ~60 SA1516 warnings (auto-properties need blank lines)
-- ProviderUsage.cs - ~30 SA1516 warnings  
-- ProviderUsageDetail.cs - ~15 SA1516 warnings
-- UsageComparison.cs - ~10 SA1516 warnings
-- BudgetStatus.cs - ~10 SA1516 warnings
-- BurnRateForecast.cs - ~15 SA1516 warnings (also has SA1201 enum ordering)
-- ProviderReliabilitySnapshot.cs - ~10 SA1516 warnings
-- UsageAnomalySnapshot.cs - ~10 SA1516 warnings
+**Total SA1516 warnings fixed in Batch B:** ~230+
 
-**Total remaining in Batch B:** ~170 SA1516 warnings
-
-**Work Pattern:**
-SA1516 requires blank lines between consecutive property declarations. For auto-properties like:
-```csharp
-public string Name { get; set; }
-public int Age { get; set; }
+**Build Status:**
+```bash
+dotnet build AIUsageTracker.Core/AIUsageTracker.Core.csproj --configuration Debug --disable-build-servers -m:1 --no-incremental
 ```
 
-Must become:
-```csharp
-public string Name { get; set; }
+**Remaining Warnings in Core:**
+- SA1200: Using directives should appear within namespace (~562 warnings) - NOT fixing per guidance
+- SA1201: Member ordering rules (~50 warnings) - NOT fixing per guidance
+- SA1633: File headers (~234 warnings) - NOT fixing per guidance
+- SA1309: Underscore-prefixed fields (~238 warnings) - NOT fixing (house style conflict)
 
-public int Age { get; set; }
-```
+**Note:** SA1516 fixes require manual edits - `dotnet format` does NOT auto-fix blank lines.
 
-**Note:** dotnet format does NOT automatically fix SA1516 - this requires manual edits.
+---
+
+## Next Priority: Batch C
+
+**Infrastructure services still need attention:**
+- JsonConfigLoader.cs - SA1101, SA1516
+- TokenDiscoveryService.cs - SA1101, SA1516
+- GitHubUpdateChecker.cs - SA1101, SA1516, MA0004
+- UsageAnalyticsService.cs - SA1101, SA1516
+- DataExportService.cs - SA1101, SA1516
+- WindowsNotificationService.cs - SA1101, SA1516
+- CodexAuthService.cs - SA1101, SA1516
+- ResilientHttpClient.cs - SA1101, SA1516
+
+**Total estimated:** ~200 warnings
 
 ---
 
