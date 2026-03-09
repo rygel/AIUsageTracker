@@ -145,7 +145,7 @@ public class CodexProvider : ProviderBase
         {
             Headers =
             {
-                Authorization = new AuthenticationHeaderValue("Bearer", accessToken)
+                Authorization = new AuthenticationHeaderValue("Bearer", accessToken),
             },
         };
 
@@ -218,7 +218,7 @@ public class CodexProvider : ProviderBase
                 NextResetTime = nextResetTime,
                 Details = details,
                 RawJson = rawJson,
-                HttpStatus = httpStatus
+                HttpStatus = httpStatus,
             },
         };
 
@@ -262,7 +262,7 @@ public class CodexProvider : ProviderBase
                     Used = $"{remainingPercent:F0}% remaining ({usedPercent:F0}% used)",
                     Description = "Model quota",
                     DetailType = ProviderUsageDetailType.Model,
-                    WindowKind = WindowKind.Spark
+                    WindowKind = WindowKind.Spark,
                 },
                 new()
                 {
@@ -272,7 +272,7 @@ public class CodexProvider : ProviderBase
                     NextResetTime = ResolveDetailResetTime(sparkWindow.ResetAfterSeconds),
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     WindowKind = WindowKind.Spark
-                }
+                },
             },
         };
     }
@@ -467,7 +467,7 @@ public class CodexProvider : ProviderBase
                 Description = FormatResetDescription(primaryResetSeconds),
                 NextResetTime = ResolveDetailResetTime(primaryResetSeconds),
                 DetailType = ProviderUsageDetailType.QuotaWindow,
-                WindowKind = WindowKind.Primary
+                WindowKind = WindowKind.Primary,
             },
         };
 
