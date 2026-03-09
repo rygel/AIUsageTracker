@@ -23,7 +23,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var tempDir = Path.Combine(Path.GetTempPath(), $"gemini-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(tempDir);
         var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
-        
+
         await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
         {
             accounts = new[]
@@ -64,7 +64,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Assert.Contains("20", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture));
         Assert.Contains("80", usage.Description);
-        
+
         Directory.Delete(tempDir, recursive: true);
     }
 }

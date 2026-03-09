@@ -147,12 +147,12 @@ public class KimiProvider : ProviderBase
 
                     details.Add(new ProviderUsageDetail
                     {
-                         Name = name,
-                         Used = $"{itemUsedPercentage.ToString("F1", CultureInfo.InvariantCulture)}% used",
-                         Description = $"{det.Remaining} / {det.Limit} remaining (Resets: {resetDisplay})",
-                         NextResetTime = itemResetDt,
-                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                         WindowKind = windowKind
+                        Name = name,
+                        Used = $"{itemUsedPercentage.ToString("F1", CultureInfo.InvariantCulture)}% used",
+                        Description = $"{det.Remaining} / {det.Limit} remaining (Resets: {resetDisplay})",
+                        NextResetTime = itemResetDt,
+                        DetailType = ProviderUsageDetailType.QuotaWindow,
+                        WindowKind = windowKind
                     });
                 }
             }
@@ -188,12 +188,12 @@ public class KimiProvider : ProviderBase
         }
     }
 
-     private string FormatDuration(long duration, string unit)
+    private string FormatDuration(long duration, string unit)
     {
-         if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal)) return duration == 60 ? "Hourly" : $"{duration}m";
-         if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal)) return $"{duration}h";
-         if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal)) return $"{duration}d";
-         return unit;
+        if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal)) return duration == 60 ? "Hourly" : $"{duration}m";
+        if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal)) return $"{duration}h";
+        if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal)) return $"{duration}d";
+        return unit;
     }
 
     private string FormatResetTime(string resetTime)
@@ -283,13 +283,13 @@ public class KimiProvider : ProviderBase
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]
     private class KimiLimitDetail
     {
-         [JsonPropertyName("limit")]
-         public long Limit { get; set; }
+        [JsonPropertyName("limit")]
+        public long Limit { get; set; }
 
-         [JsonPropertyName("remaining")]
-         public long Remaining { get; set; }
+        [JsonPropertyName("remaining")]
+        public long Remaining { get; set; }
 
-         [JsonPropertyName("resetTime")]
-         public string? ResetTime { get; set; }
+        [JsonPropertyName("resetTime")]
+        public string? ResetTime { get; set; }
     }
 }

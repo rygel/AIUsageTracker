@@ -26,38 +26,51 @@ dot_diagnostic.VSTHRD002.severity = warning
 dot_diagnostic.VSTHRD103.severity = warning
 dot_diagnostic.VSTHRD105.severity = warning
 dot_diagnostic.VSTHRD110.severity = warning
-<<<<<<< HEAD
-dot_diagnostic.VSTHRD111.severity = error
-dot_diagnostic.VSTHRD109.severity = error
-dot_diagnostic.CA2016.severity = error
-dot_diagnostic.CA2254.severity = error
-=======
-dot_diagnostic.VSTHRD109.severity = error
 dot_diagnostic.VSTHRD109.severity = error
 dot_diagnostic.VSTHRD111.severity = error
 dot_diagnostic.VSTHRD200.severity = error
 dot_diagnostic.CA2016.severity = error
 dot_diagnostic.CA2254.severity = error
+
+# Analyzer configurations for mechanical cleanup
 dot_diagnostic.MA0002.severity = warning
 dot_diagnostic.MA0004.severity = warning
 dot_diagnostic.MA0006.severity = warning
-dot_diagnostic.MA0016.severity = error
 dot_diagnostic.MA0011.severity = warning
+dot_diagnostic.MA0016.severity = warning
 dot_diagnostic.MA0023.severity = suggestion
 dot_diagnostic.MA0039.severity = warning
 dot_diagnostic.MA0009.severity = warning
 dot_diagnostic.MA0048.severity = warning
 dot_diagnostic.MA0051.severity = suggestion
-dot_diagnostic.SA*.severity = none
+
+# StyleCop analyzers - enabled for mechanical cleanup
+dot_diagnostic.SA1101.severity = warning
+dot_diagnostic.SA1516.severity = warning
 dot_diagnostic.SA1000.severity = warning
 dot_diagnostic.SA1003.severity = warning
 dot_diagnostic.SA1008.severity = warning
 dot_diagnostic.SA1009.severity = warning
 dot_diagnostic.SA1024.severity = warning
 dot_diagnostic.SA1025.severity = warning
+dot_diagnostic.SA1413.severity = warning
+dot_diagnostic.SA1028.severity = warning
+dot_diagnostic.SA1500.severity = warning
+dot_diagnostic.SA1503.severity = warning
+dot_diagnostic.SA1013.severity = warning
+dot_diagnostic.SA1513.severity = warning
+dot_diagnostic.SA1515.severity = warning
+dot_diagnostic.SA1518.severity = warning
 dot_style_diagnostics.use_slashes_for_doc_comments = false
 dot_style_diagnostics.xml_header = false
 dot_style_diagnostics.separate_multiple_def_lines = false
+
+# Formatting rules that dotnet format can enforce (aligns with the mechanical cleanup focus)
+csharp_new_line_between_members = true
+dotnet_style_qualification_for_field = true:warning
+dotnet_style_qualification_for_property = true:warning
+dotnet_style_qualification_for_method = true:warning
+dotnet_style_qualification_for_event = true:warning
 
 [AIUsageTracker.Tests/**/*.cs]
 dot_diagnostic.MA0074.severity = warning

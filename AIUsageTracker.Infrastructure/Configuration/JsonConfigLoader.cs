@@ -164,7 +164,7 @@ public class JsonConfigLoader : IConfigLoader
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
+            this._logger.LogDebug(ex, "Failed to parse model configuration for provider {ProviderId} from {Path}", providerId, path);
             return new List<AIModelConfig>();
         }
     }
@@ -197,7 +197,7 @@ public class JsonConfigLoader : IConfigLoader
 
     private async Task ApplyDiscoveredTokensAsync(List<ProviderConfig> configs)
     {
-        var discoveryService = new TokenDiscoveryService(_tokenDiscoveryLogger, _pathProvider);
+        var discoveryService = new TokenDiscoveryService(this._tokenDiscoveryLogger, this._pathProvider);
         var discovered = await discoveryService.DiscoverTokensAsync().ConfigureAwait(false);
 
         foreach (var discoveredConfig in discovered)
@@ -296,7 +296,7 @@ public class JsonConfigLoader : IConfigLoader
 
     public async Task SavePreferencesAsync(AppPreferences preferences)
     {
-        var path = GetTrackerConfigPath();
+        var path = this.GetTrackerConfigPath();
         var preferencesPath = this.GetPreferencesPath();
         var directory = Path.GetDirectoryName(preferencesPath);
         if (directory != null && !Directory.Exists(directory))
@@ -308,7 +308,7 @@ public class JsonConfigLoader : IConfigLoader
 
         if (File.Exists(path))
         {
-            _logger.LogDebug("Preferences were written to canonical path {Path}; auth.json remains provider config only.", preferencesPath);
+            this._logger.LogDebug("Preferences were written to canonical path {Path}; auth.json remains provider config only.", preferencesPath);
         }
     }
 }

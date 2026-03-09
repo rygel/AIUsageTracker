@@ -20,7 +20,7 @@ public class MainViewModelTests
         _analyticsServiceMock = new Mock<IUsageAnalyticsService>();
         _loggerMock = new Mock<ILogger<MainViewModel>>();
         _viewModel = new MainViewModel(
-            _monitorServiceMock.Object, 
+            _monitorServiceMock.Object,
             _analyticsServiceMock.Object,
             _loggerMock.Object);
     }

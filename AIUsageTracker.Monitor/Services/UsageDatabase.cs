@@ -21,7 +21,7 @@ public class UsageDatabase : IUsageDatabase
         _logger = logger;
         _pathProvider = pathProvider;
         _dbPath = _pathProvider.GetDatabasePath();
-        
+
         var dbDir = Path.GetDirectoryName(_dbPath);
         if (!string.IsNullOrEmpty(dbDir))
         {
@@ -29,7 +29,7 @@ public class UsageDatabase : IUsageDatabase
         }
 
         _logger.LogInformation("Database path: {DbPath}", _dbPath);
-        
+
         _connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = _dbPath,
@@ -47,7 +47,7 @@ public class UsageDatabase : IUsageDatabase
 
     private void RunMigrations()
     {
-        var migrationService = new DatabaseMigrationService(_dbPath, 
+        var migrationService = new DatabaseMigrationService(_dbPath,
             LoggerFactory.Create(builder => builder.AddProvider(new LoggerProvider(_logger))).CreateLogger<DatabaseMigrationService>());
         migrationService.RunMigrations();
     }
@@ -533,7 +533,7 @@ public class UsageDatabase : IUsageDatabase
             using var connection = new SqliteConnection(_connectionString);
             await connection.OpenAsync();
 
-            await connection.ExecuteAsync("UPDATE providers SET is_active = @IsActive, updated_at = CURRENT_TIMESTAMP WHERE provider_id = @ProviderId", 
+            await connection.ExecuteAsync("UPDATE providers SET is_active = @IsActive, updated_at = CURRENT_TIMESTAMP WHERE provider_id = @ProviderId",
                 new { ProviderId = providerId, IsActive = isActive ? 1 : 0 });
         }
         finally

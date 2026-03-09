@@ -44,11 +44,11 @@ public class ConfigService : IConfigService
         try
         {
             var configs = (await _configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
-            
+
             // Update or add
-            var existing = configs.FirstOrDefault(c => 
+            var existing = configs.FirstOrDefault(c =>
                 c.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
-            
+
             if (existing != null)
             {
                 var index = configs.IndexOf(existing);
@@ -58,7 +58,7 @@ public class ConfigService : IConfigService
             {
                 configs.Add(config);
             }
-            
+
             await _configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
             _logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
         }
@@ -118,13 +118,13 @@ public class ConfigService : IConfigService
         {
             var discovered = await _tokenDiscovery.DiscoverTokensAsync().ConfigureAwait(false);
             var existing = (await _configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
-            
+
             // Merge discovered with existing
             foreach (var newConfig in discovered)
             {
-                var existingConfig = existing.FirstOrDefault(c => 
+                var existingConfig = existing.FirstOrDefault(c =>
                     c.ProviderId.Equals(newConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
-                
+
                 if (existingConfig == null)
                 {
                     existing.Add(newConfig);
@@ -140,7 +140,7 @@ public class ConfigService : IConfigService
             }
 
             ProviderMetadataCatalog.NormalizeCanonicalConfigurations(existing);
-            
+
             await _configLoader.SaveConfigAsync(existing).ConfigureAwait(false);
             return discovered.ToList();
         }

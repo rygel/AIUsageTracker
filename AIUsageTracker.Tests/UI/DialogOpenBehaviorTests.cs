@@ -81,21 +81,21 @@ public class DialogOpenBehaviorTests
             var dialogWindow = new Window();
 
             mainWindow.Show();
-            
+
             // Set initial position and preferences
             var initialLeft = 500.0;
             var initialTop = 300.0;
             mainWindow.Left = initialLeft;
             mainWindow.Top = initialTop;
-            
-            SetPrivateField(mainWindow, "_preferences", new AppPreferences 
-            { 
+
+            SetPrivateField(mainWindow, "_preferences", new AppPreferences
+            {
                 AlwaysOnTop = true,
                 WindowLeft = 100.0,  // Different from current position
                 WindowTop = 200.0
             });
             SetPrivateField(mainWindow, "_preferencesLoaded", true);
-            
+
             mainWindow.SettingsDialogFactory = () => (dialogWindow, () => false);
             mainWindow.ShowOwnedDialog = _ => true;
 

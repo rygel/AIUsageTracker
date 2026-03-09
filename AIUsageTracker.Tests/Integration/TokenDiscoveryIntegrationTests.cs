@@ -16,7 +16,7 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
     {
         var mockPathProvider = new Mock<IAppPathProvider>();
         mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(TestRootPath);
-        
+
         _service = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
     }
 

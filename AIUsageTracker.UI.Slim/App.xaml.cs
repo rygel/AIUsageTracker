@@ -25,7 +25,7 @@ public partial class App : Application
     public static bool IsPrivacyMode { get; set; } = false;
 
     public static ILogger<T> CreateLogger<T>() => Host.Services.GetRequiredService<ILogger<T>>();
-    
+
     private TaskbarIcon? _trayIcon;
     private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new();
     private MainWindow? _mainWindow;
@@ -52,15 +52,15 @@ public partial class App : Application
         services.AddSingleton<IDataExportService, NoOpDataExportService>();
         services.AddSingleton<IUpdateCheckerService, GitHubUpdateChecker>();
         services.AddSingleton<HttpClient>();
-        
+
         // ViewModels
         services.AddSingleton<MainViewModel>();
         services.AddTransient<SettingsViewModel>();
-        
+
         // Windows
         services.AddSingleton<MainWindow>();
         services.AddTransient<SettingsWindow>();
-        
+
         services.AddLogging(builder =>
         {
             builder.ClearProviders();
@@ -81,8 +81,8 @@ public partial class App : Application
         if (e.Args.Contains("--test", StringComparer.OrdinalIgnoreCase) &&
             e.Args.Contains("--screenshot", StringComparer.OrdinalIgnoreCase))
         {
-            ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            _ = RunHeadlessScreenshotCaptureAsync(e.Args);
+            this.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            _ = this.RunHeadlessScreenshotCaptureAsync(e.Args);
             return;
         }
 
@@ -90,28 +90,28 @@ public partial class App : Application
         {
             var preferencesStore = Host.Services.GetRequiredService<UiPreferencesStore>();
             Preferences = await preferencesStore.LoadAsync();
-            ApplyTheme(Preferences.Theme);
+            App.ApplyTheme(Preferences.Theme);
             IsPrivacyMode = Preferences.IsPrivacyMode;
         }
         catch
         {
-            ApplyTheme(AppTheme.Dark);
+            App.ApplyTheme(AppTheme.Dark);
         }
 
-        InitializeTrayIcon();
+        this.InitializeTrayIcon();
 
-        _mainWindow = Host.Services.GetRequiredService<MainWindow>();
-        _mainWindow.Show();
+        this._mainWindow = Host.Services.GetRequiredService<MainWindow>();
+        this._mainWindow.Show();
     }
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        _trayIcon?.Dispose();
-        foreach (var tray in _providerTrayIcons.Values)
+        this._trayIcon?.Dispose();
+        foreach (var tray in this._providerTrayIcons.Values)
         {
             tray.Dispose();
         }
-        _providerTrayIcons.Clear();
+        this._providerTrayIcons.Clear();
 
         using (_host)
         {
@@ -128,11 +128,11 @@ public partial class App : Application
     }
 
     // Testing Support
-    public void SetMainWindowForTesting(MainWindow window) => _mainWindow = window;
+    public void SetMainWindowForTesting(MainWindow window) => this._mainWindow = window;
     public Func<bool> IsMainWindowVisible { get; set; } = () => Current.MainWindow?.IsVisible ?? false;
     public Func<Window> InfoDialogFactory { get; set; } = () => new InfoDialog();
     public Action<Window> ShowInfoDialogAction { get; set; } = dialog => dialog.ShowDialog();
-    public void OpenInfoDialog() => ShowInfoDialogAction(InfoDialogFactory());
+    public void OpenInfoDialog() => this.ShowInfoDialogAction(this.InfoDialogFactory());
 }
 
 public class NoOpUsageAnalyticsService : IUsageAnalyticsService

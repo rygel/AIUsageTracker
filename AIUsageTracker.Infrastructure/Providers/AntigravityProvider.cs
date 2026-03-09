@@ -67,28 +67,29 @@ public class AntigravityProvider : ProviderBase
         try
         {
             // 1. Find All Processes
-            var processInfos = FindProcessInfos();
+            var processInfos = this.FindProcessInfos();
             if (!processInfos.Any())
             {
-                if (_cachedUsage != null)
+                if (this._cachedUsage != null)
                 {
-                    var timeSinceRefresh = DateTime.Now - _cacheTimestamp;
+                    var timeSinceRefresh = DateTime.Now - this._cacheTimestamp;
                     var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
                     var description = $"Last refreshed: {minutesAgo}m ago";
 
                     // Check if any cached reset times have passed and update if so
-                    if (_cachedUsage.Details != null && _cachedUsage.Details.Any(d => d.NextResetTime.HasValue))
+                    if (this._cachedUsage.Details != null && this._cachedUsage.Details.Any(d => d.NextResetTime.HasValue))
                     {
-                        var anyResetPassed = _cachedUsage.Details
+                        var anyResetPassed = this._cachedUsage.Details
                             .Where(d => d.NextResetTime.HasValue)
-                            .Any(d => {
+                            .Any(d =>
+                            {
                                 var dt = d.NextResetTime!.Value;
                                 return dt <= DateTime.Now;
                             });
 
                         if (anyResetPassed)
                         {
-                            _logger.LogDebug("Antigravity reset time passed while offline; status is unknown until reconnect");
+                            this._logger.LogDebug("Antigravity reset time passed while offline; status is unknown until reconnect");
                             description += " (Status unknown until next Antigravity refresh)";
 
                             return new[] { new ProviderUsage
@@ -98,9 +99,9 @@ public class AntigravityProvider : ProviderBase
                                 IsAvailable = true,
                                 RequestsPercentage = 0,
                                 RequestsUsed = 0,
-                                RequestsAvailable = _cachedUsage.RequestsAvailable,
+                                RequestsAvailable = this._cachedUsage.RequestsAvailable,
                                 Details = null,
-                                AccountName = _cachedUsage.AccountName,
+                                AccountName = this._cachedUsage.AccountName,
                                 Description = description,
                                 IsQuotaBased = true,
                                 PlanType = PlanType.Coding
@@ -121,9 +122,9 @@ public class AntigravityProvider : ProviderBase
                         IsAvailable = true,
                         RequestsPercentage = 0,
                         RequestsUsed = 0,
-                        RequestsAvailable = _cachedUsage.RequestsAvailable,
+                        RequestsAvailable = this._cachedUsage.RequestsAvailable,
                         Details = null,
-                        AccountName = _cachedUsage.AccountName,
+                        AccountName = this._cachedUsage.AccountName,
                         Description = description,
                         IsQuotaBased = true,
                         PlanType = PlanType.Coding
@@ -155,7 +156,7 @@ public class AntigravityProvider : ProviderBase
                 {
                     var (pid, csrfToken, commandLinePort) = info;
                     var tokenPreview = csrfToken.Length > 8 ? csrfToken[..8] : csrfToken;
-                    _logger.LogDebug("Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
+                    this._logger.LogDebug("Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
                         pid, tokenPreview, commandLinePort?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none");
 
                     // 2. Resolve candidate ports (extension port hint + all listening loopback ports)
@@ -191,7 +192,7 @@ public class AntigravityProvider : ProviderBase
                         catch (Exception ex)
                         {
                             lastPortException = ex;
-                            _logger.LogDebug(ex, "Antigravity PID={Pid} probe failed on port {Port}", pid, candidatePort);
+                            this._logger.LogDebug(ex, "Antigravity PID={Pid} probe failed on port {Port}", pid, candidatePort);
                         }
                     }
 
@@ -205,7 +206,7 @@ public class AntigravityProvider : ProviderBase
                     // Check for duplicates based on AccountName (Email) for the MAIN item
                     // Assuming the first item is the summary
                     var mainItem = usageItems.FirstOrDefault(u => string.Equals(u.ProviderId, ProviderId, StringComparison.Ordinal));
-                    
+
                     if (mainItem != null && results.Any(r => string.Equals(r.ProviderId, ProviderId, StringComparison.Ordinal) && string.Equals(r.AccountName, mainItem.AccountName, StringComparison.Ordinal)))
                     {
                         continue;
@@ -215,7 +216,7 @@ public class AntigravityProvider : ProviderBase
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, $"Failed to check Antigravity PID {info.Pid}");
+                    this._logger.LogWarning(ex, $"Failed to check Antigravity PID {info.Pid}");
                 }
             }
 
@@ -238,34 +239,34 @@ public class AntigravityProvider : ProviderBase
             // Cache the results for next refresh
             if (results.Any())
             {
-                _cachedUsage = results.FirstOrDefault();
-                _cacheTimestamp = DateTime.Now;
+                this._cachedUsage = results.FirstOrDefault();
+                this._cacheTimestamp = DateTime.Now;
             }
 
             // Start with just the summary
             // But we can't just return results list here because we build it differently now
             // The loop above adds to 'results'
-            
+
             // Wait, previous logic was:
             // 1. Find processes
             // 2. Add to results
             // 3. Return results
-            
+
             // New logic inside FetchUsage returns a list (or we need to change FetchUsage signature)
             // Let's change FetchUsage to return IEnumerable<ProviderUsage>
-            
+
             // For now, let's keep FetchUsage returning single and split it here?
             // No, FetchUsage has the context (details list). 
-            
+
             // Refactoring FetchUsage to return List<ProviderUsage>
-            
+
             // ... (See below for FetchUsage refactor)
-            
+
             return results;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Antigravity check failed");
+            this._logger.LogWarning(ex, "Antigravity check failed");
             return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
@@ -285,17 +286,17 @@ public class AntigravityProvider : ProviderBase
 
     private List<(int Pid, string Token, int? Port)> FindProcessInfos()
     {
-        if (DateTime.Now - _lastProcessCheck < TimeSpan.FromSeconds(30) && _cachedProcessInfos != null)
+        if (DateTime.Now - this._lastProcessCheck < TimeSpan.FromSeconds(30) && this._cachedProcessInfos != null)
         {
-            return _cachedProcessInfos;
+            return this._cachedProcessInfos;
         }
 
         var candidates = new List<(int Pid, string Token, int? Port)>();
 
         if (OperatingSystem.IsWindows())
         {
-             try 
-             {
+            try
+            {
                 using var searcher = new ManagementObjectSearcher(
                     "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE 'language_server%'");
                 using var collection = searcher.Get();
@@ -325,20 +326,20 @@ public class AntigravityProvider : ProviderBase
                     var port = ParseExtensionServerPort(cmdLine);
                     candidates.Add((pid, token, port));
                 }
-             }
-             catch (Exception ex)
-             {
-                 _logger.LogError(ex, "Process discovery failed");
-             }
+            }
+            catch (Exception ex)
+            {
+                this._logger.LogError(ex, "Process discovery failed");
+            }
         }
-        
+
         candidates = candidates
             .GroupBy(c => c.Pid)
             .Select(g => g.First())
             .ToList();
 
-        _cachedProcessInfos = candidates;
-        _lastProcessCheck = DateTime.Now;
+        this._cachedProcessInfos = candidates;
+        this._lastProcessCheck = DateTime.Now;
         return candidates;
     }
 
@@ -442,12 +443,12 @@ public class AntigravityProvider : ProviderBase
 
             try
             {
-                var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+                var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
                 response.EnsureSuccessStatusCode();
 
                 httpStatus = (int)response.StatusCode;
                 responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                _logger.LogDebug(
+                this._logger.LogDebug(
                     "[Antigravity] Raw response from {Scheme} port {Port}: {Response}",
                     scheme.ToUpperInvariant(),
                     port,
@@ -457,7 +458,7 @@ public class AntigravityProvider : ProviderBase
             catch (Exception ex)
             {
                 lastRequestException = ex;
-                _logger.LogDebug(ex, "[Antigravity] Request failed for {Scheme}://127.0.0.1:{Port}", scheme, port);
+                this._logger.LogDebug(ex, "[Antigravity] Request failed for {Scheme}://127.0.0.1:{Port}", scheme, port);
             }
         }
 
@@ -465,13 +466,13 @@ public class AntigravityProvider : ProviderBase
         {
             throw new HttpRequestException($"No successful Antigravity response on port {port}", lastRequestException);
         }
-        
+
         var data = JsonSerializer.Deserialize<AntigravityResponse>(responseString);
 
         if (data?.UserStatus == null) throw new Exception("Invalid Antigravity response");
 
-        _logger.LogDebug("[Antigravity] Email: {Email}, Models: {ModelCount}", 
-            PrivacyHelper.MaskContent(data.UserStatus.Email ?? ""), 
+        this._logger.LogDebug("[Antigravity] Email: {Email}, Models: {ModelCount}",
+            PrivacyHelper.MaskContent(data.UserStatus.Email ?? ""),
             data.UserStatus.CascadeModelConfigData?.ClientModelConfigs?.Count ?? 0);
 
         var modelConfigs = data.UserStatus.CascadeModelConfigData?.ClientModelConfigs ?? new List<ClientModelConfig>();
@@ -514,8 +515,8 @@ public class AntigravityProvider : ProviderBase
 
         if (!minRemaining.HasValue)
         {
-            _cachedUsage = null;
-            _cacheTimestamp = DateTime.Now;
+            this._cachedUsage = null;
+            this._cacheTimestamp = DateTime.Now;
             return new List<ProviderUsage>
             {
                 new ProviderUsage
@@ -542,8 +543,8 @@ public class AntigravityProvider : ProviderBase
         var results = BuildChildUsages(sortedDetails, configMap, config, data.UserStatus.Email ?? string.Empty);
         results.Insert(0, summary);
 
-        _cachedUsage = summary;
-        _cacheTimestamp = DateTime.Now;
+        this._cachedUsage = summary;
+        this._cacheTimestamp = DateTime.Now;
 
         return results;
     }
@@ -608,11 +609,11 @@ public class AntigravityProvider : ProviderBase
     {
         if (modelConfig == null)
         {
-            _logger.LogDebug("[Antigravity] Model {Label} not found in config map, usage unknown", label);
+            this._logger.LogDebug("[Antigravity] Model {Label} not found in config map, usage unknown", label);
             return null;
         }
 
-        _logger.LogDebug("[Antigravity] Model {Label}: RemainingFraction={Rem}, TotalRequests={Total}, UsedRequests={Used}",
+        this._logger.LogDebug("[Antigravity] Model {Label}: RemainingFraction={Rem}, TotalRequests={Total}, UsedRequests={Used}",
             label,
             modelConfig.QuotaInfo?.RemainingFraction?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null",
             modelConfig.QuotaInfo?.TotalRequests?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null",
@@ -631,7 +632,7 @@ public class AntigravityProvider : ProviderBase
             return Math.Max(0, Math.Min(100, remainingPct));
         }
 
-        _logger.LogDebug("[Antigravity] Model {Label} missing quota fields, usage unknown", label);
+        this._logger.LogDebug("[Antigravity] Model {Label} missing quota fields, usage unknown", label);
         return null;
     }
 
@@ -1001,7 +1002,7 @@ public class AntigravityProvider : ProviderBase
     {
         [JsonPropertyName("availablePromptCredits")]
         public int AvailablePromptCredits { get; set; }
-        
+
         [JsonPropertyName("availableFlowCredits")]
         public int AvailableFlowCredits { get; set; }
 
@@ -1082,7 +1083,7 @@ public class AntigravityProvider : ProviderBase
 
         [JsonPropertyName("modelOrAlias")]
         public ModelOrAlias? ModelOrAlias { get; set; }
-        
+
         [JsonPropertyName("quotaInfo")]
         public QuotaInfo? QuotaInfo { get; set; }
 
@@ -1109,10 +1110,10 @@ public class AntigravityProvider : ProviderBase
     {
         [JsonPropertyName("remainingFraction")]
         public double? RemainingFraction { get; set; }
-        
+
         [JsonPropertyName("totalRequests")]
         public int? TotalRequests { get; set; }
-        
+
         [JsonPropertyName("usedRequests")]
         public int? UsedRequests { get; set; }
 

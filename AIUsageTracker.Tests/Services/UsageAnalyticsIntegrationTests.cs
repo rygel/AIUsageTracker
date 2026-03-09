@@ -27,10 +27,10 @@ public class UsageAnalyticsIntegrationTests
         {
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
-            
+
             var mockPathProvider = new Mock<IAppPathProvider>();
             mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
-            
+
             var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
@@ -65,10 +65,10 @@ public class UsageAnalyticsIntegrationTests
         {
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
-            
+
             var mockPathProvider = new Mock<IAppPathProvider>();
             mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
-            
+
             var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
@@ -103,10 +103,10 @@ public class UsageAnalyticsIntegrationTests
         {
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
-            
+
             var mockPathProvider = new Mock<IAppPathProvider>();
             mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
-            
+
             var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
@@ -114,10 +114,10 @@ public class UsageAnalyticsIntegrationTests
 
             Assert.True(forecasts.TryGetValue("steady-p", out var forecast));
             Assert.True(forecast.IsAvailable);
-            
+
             // Burn rate: 10/hour = 240/day
             Assert.Equal(240.0, forecast.BurnRatePerDay, 1);
-            
+
             // Remaining: 1000 - 550 = 450
             // Days until exhausted: 450 / 240 = 1.875 days
             Assert.Equal(1.875, forecast.DaysUntilExhausted, 1);

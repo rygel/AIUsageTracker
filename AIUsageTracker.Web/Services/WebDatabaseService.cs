@@ -421,7 +421,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         return sql;
     }
 
-    private static void ApplyProviderDisplayNames(IEnumerable<ProviderInfo> providers)
+    private static void ApplyProviderInfoDisplayNames(IEnumerable<ProviderInfo> providers)
     {
         foreach (var provider in providers)
         {
@@ -434,18 +434,18 @@ public class WebDatabaseService : IWebDatabaseRepository
         switch (results)
         {
             case IReadOnlyList<ProviderInfo> providers:
-                ApplyProviderDisplayNames(providers);
+                ApplyProviderInfoDisplayNames(providers);
                 break;
             case IReadOnlyList<ChartDataPoint> points:
-                ApplyProviderDisplayNames(points);
+                ApplyChartDataDisplayNames(points);
                 break;
             case IReadOnlyList<ResetEvent> resetEvents:
-                ApplyProviderDisplayNames(resetEvents);
+                ApplyResetEventDisplayNames(resetEvents);
                 break;
         }
     }
 
-    private static void ApplyProviderDisplayNames(IEnumerable<ChartDataPoint> points)
+    private static void ApplyChartDataDisplayNames(IEnumerable<ChartDataPoint> points)
     {
         foreach (var point in points)
         {
@@ -453,7 +453,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         }
     }
 
-    private static void ApplyProviderDisplayNames(IEnumerable<ResetEvent> resetEvents)
+    private static void ApplyResetEventDisplayNames(IEnumerable<ResetEvent> resetEvents)
     {
         foreach (var resetEvent in resetEvents)
         {

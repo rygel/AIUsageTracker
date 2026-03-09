@@ -102,7 +102,7 @@ public class ProviderRefreshService : BackgroundService
             // Database has existing data — serve it immediately WITHOUT refreshing all providers.
             // Do NOT hammer 3rd party APIs on startup. The scheduled interval will refresh on time.
             _logger.LogInformation("Startup: serving cached data from database (next refresh in {Minutes}m).", _refreshInterval.TotalMinutes);
-            
+
             // Only do targeted refresh for system providers that need immediate correctness
             // All other providers will be refreshed on the normal scheduled interval
             _ = Task.Run(async () =>
@@ -229,11 +229,11 @@ public class ProviderRefreshService : BackgroundService
             }
 
             _logger.LogInformation("Refreshing {Count} configured providers", activeConfigs.Count);
-            
+
             // Debug: log which providers we're about to refresh
             foreach (var config in activeConfigs.OrderBy(c => c.ProviderId))
             {
-                _logger.LogDebug("Active config: {ProviderId} (Key present: {HasKey})", 
+                _logger.LogDebug("Active config: {ProviderId} (Key present: {HasKey})",
                     config.ProviderId, !string.IsNullOrEmpty(config.ApiKey));
             }
 
@@ -273,11 +273,11 @@ public class ProviderRefreshService : BackgroundService
                 _logger.LogDebug("Validated {Count} usage results after detail contract check", validatedUsages.Count);
 
                 var activeProviderIds = refreshableConfigs.Select(c => c.ProviderId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                
+
                 // Allow dynamic children (e.g. antigravity.* / codex.*) through the filter
                 // when their parent provider is active.
                 // Filter out entries where the API Key was missing to prevent logging empty data over and over.
-                var filteredUsages = validatedUsages.Where(u => 
+                var filteredUsages = validatedUsages.Where(u =>
                     IsUsageForAnyActiveProvider(activeProviderIds, u.ProviderId) &&
                     // Drop unconfigured providers that returned no usage
                     // Check regardless of description - if no usage data and not available, it's a placeholder
@@ -309,7 +309,7 @@ public class ProviderRefreshService : BackgroundService
                         {
                             _logger.LogInformation("Auto-registering dynamic provider: {ProviderId}", usage.ProviderId);
                         }
-                        
+
                         var dynamicConfig = new ProviderConfig
                         {
                             ProviderId = usage.ProviderId,
@@ -317,9 +317,9 @@ public class ProviderRefreshService : BackgroundService
                             AuthSource = usage.AuthSource,
                             ApiKey = "dynamic" // Placeholder to mark as active
                         };
-                        
+
                         await _database.StoreProviderAsync(dynamicConfig, usage.ProviderName);
-                        
+
                         if (!activeProviderIds.Contains(usage.ProviderId))
                         {
                             activeProviderIds.Add(usage.ProviderId);
@@ -776,7 +776,7 @@ public class ProviderRefreshService : BackgroundService
             {
                 var usages = await _providerManager.GetUsageAsync(providerId);
                 var usage = usages.FirstOrDefault();
-                
+
                 if (usage == null)
                     return (false, "No usage data returned", 404);
 

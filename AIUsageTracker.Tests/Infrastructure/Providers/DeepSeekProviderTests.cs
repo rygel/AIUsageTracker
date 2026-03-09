@@ -56,11 +56,11 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
         Assert.True(usage.IsAvailable);
         Assert.Equal("Balance: ¥150.50", usage.Description);
         Assert.Equal(2, usage.Details?.Count);
-        
+
         var cnyDetail = usage.Details?.FirstOrDefault(d => d.Name == "Balance (CNY)");
         Assert.NotNull(cnyDetail);
         Assert.Equal("¥150.50", cnyDetail.Used);
-        
+
         var usdDetail = usage.Details?.FirstOrDefault(d => d.Name == "Balance (USD)");
         Assert.NotNull(usdDetail);
         Assert.Equal("$10.00", usdDetail.Used);
@@ -70,9 +70,9 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
     public async Task GetUsageAsync_ApiError_ReturnsUnavailable()
     {
         // Arrange
-        SetupHttpResponse("https://api.deepseek.com/user/balance", new HttpResponseMessage 
-        { 
-            StatusCode = HttpStatusCode.Unauthorized 
+        SetupHttpResponse("https://api.deepseek.com/user/balance", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.Unauthorized
         });
 
         // Act

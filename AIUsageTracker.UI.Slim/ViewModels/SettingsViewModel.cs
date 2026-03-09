@@ -42,7 +42,7 @@ public class SettingsViewModel : BaseViewModel
     }
 
     public SettingsViewModel(
-        IMonitorService monitorService, 
+        IMonitorService monitorService,
         IUsageAnalyticsService analyticsService,
         IDataExportService exportService,
         ILogger<SettingsViewModel> logger)
@@ -61,7 +61,7 @@ public class SettingsViewModel : BaseViewModel
         {
             Configs = (await _monitorService.GetConfigsAsync().ConfigureAwait(false)).ToList();
             _usages = (await _monitorService.GetUsageAsync().ConfigureAwait(false)).ToList();
-            
+
             if (Configs.Count == 0)
             {
                 StatusMessage = "No providers found.";

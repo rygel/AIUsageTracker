@@ -47,7 +47,7 @@ public class MainViewModel : BaseViewModel
     }
 
     public MainViewModel(
-        IMonitorService monitorService, 
+        IMonitorService monitorService,
         IUsageAnalyticsService analyticsService,
         ILogger<MainViewModel> logger)
     {
@@ -67,7 +67,7 @@ public class MainViewModel : BaseViewModel
         {
             await _monitorService.RefreshPortAsync();
             var results = await _monitorService.GetUsageAsync();
-            
+
             Usages.Clear();
             foreach (var usage in results)
             {

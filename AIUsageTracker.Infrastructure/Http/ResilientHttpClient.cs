@@ -19,13 +19,13 @@ public class ResilientHttpClient : IResilientHttpClient, IDisposable
         ILogger<ResilientHttpClient> logger,
         ResilientHttpClientOptions? options = null)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this._httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         var opts = options ?? new ResilientHttpClientOptions();
-        
+
         // Create retry policy with exponential backoff
-        _retryPolicy = Policy<HttpResponseMessage>
+        this._retryPolicy = Policy<HttpResponseMessage>
             .Handle<HttpRequestException>()
             .OrResult(r => opts.RetryStatusCodes.Contains(r.StatusCode))
             .WaitAndRetryAsync(
@@ -34,7 +34,7 @@ public class ResilientHttpClient : IResilientHttpClient, IDisposable
                 onRetry: (outcome, timeSpan, retryCount, context) =>
                 {
                     var statusCode = outcome.Result?.StatusCode ?? HttpStatusCode.ServiceUnavailable;
-                    _logger.LogWarning(
+                    this._logger.LogWarning(
                         "HTTP request failed with {StatusCode}. Retrying {RetryCount}/{MaxRetries} in {Delay}s...",
                         statusCode,
                         retryCount,
@@ -43,7 +43,7 @@ public class ResilientHttpClient : IResilientHttpClient, IDisposable
                 });
 
         // Create circuit breaker policy
-        _circuitBreakerPolicy = Policy<HttpResponseMessage>
+        this._circuitBreakerPolicy = Policy<HttpResponseMessage>
             .Handle<HttpRequestException>()
             .OrResult(r => opts.CircuitBreakerStatusCodes.Contains(r.StatusCode))
             .CircuitBreakerAsync(
@@ -51,31 +51,31 @@ public class ResilientHttpClient : IResilientHttpClient, IDisposable
                 opts.CircuitBreakerDuration,
                 onBreak: (outcome, duration) =>
                 {
-                    _logger.LogError(
+                    this._logger.LogError(
                         "Circuit breaker opened for {Duration} due to {StatusCode}. Subsequent requests will fail fast.",
                         duration,
                         outcome.Result?.StatusCode ?? HttpStatusCode.ServiceUnavailable);
                 },
-                onReset: () => _logger.LogInformation("Circuit breaker closed. Requests will be attempted again."),
-                onHalfOpen: () => _logger.LogDebug("Circuit breaker half-open. Testing if service has recovered..."));
+                onReset: () => this._logger.LogInformation("Circuit breaker closed. Requests will be attempted again."),
+                onHalfOpen: () => this._logger.LogDebug("Circuit breaker half-open. Testing if service has recovered..."));
     }
 
     public async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
-        if (_disposed)
+        if (this._disposed)
             throw new ObjectDisposedException(nameof(ResilientHttpClient));
 
-        return await _circuitBreakerPolicy
-            .WrapAsync(_retryPolicy)
-            .ExecuteAsync(async ct => await _httpClient.SendAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        return await this._circuitBreakerPolicy
+            .WrapAsync(this._retryPolicy)
+            .ExecuteAsync(async ct => await this._httpClient.SendAsync(request, ct).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()
     {
-        if (!_disposed)
+        if (!this._disposed)
         {
-            _httpClient.Dispose();
-            _disposed = true;
+            this._httpClient.Dispose();
+            this._disposed = true;
         }
     }
 }

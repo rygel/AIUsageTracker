@@ -95,12 +95,12 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         Assert.Equal(54.5, usage.RequestsPercentage); // 100 - 45.5
         Assert.Equal(45.5, usage.RequestsUsed);
         Assert.Contains("Plan: plus", usage.Description);
-        
+
         // Regression test for Dual Progress Bars
         Assert.NotNull(usage.Details);
         var primary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
         var secondary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
-        
+
         Assert.NotNull(primary);
         Assert.Equal("5-hour quota", primary.Name);
         Assert.Contains("46% used", primary.Used);

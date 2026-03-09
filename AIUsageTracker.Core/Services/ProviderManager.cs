@@ -157,7 +157,7 @@ public class ProviderManager : IDisposable
     {
         var configs = await this.GetConfigsAsync(forceRefresh: false).ConfigureAwait(false);
         var config = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
-        
+
         if (config == null)
         {
             var definition = this._providers
@@ -336,7 +336,7 @@ public class ProviderManager : IDisposable
                 definition.PlanType,
                 definition.ResolveDisplayName(providerId) ?? definition.DisplayName);
         }
-        
+
         this._logger.LogWarning(
             "Provider metadata missing for {ProviderId}. Identification defaults are disabled.",
             providerId);

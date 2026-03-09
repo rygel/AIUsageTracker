@@ -32,7 +32,7 @@ public class GitHubAuthService : IGitHubAuthService
         {
             var request = new HttpRequestMessage(HttpMethod.Post, AUTH_URL);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-            
+
             var content = new FormUrlEncodedContent(new[]
             {
                 new KeyValuePair<string, string>("client_id", CLIENT_ID),

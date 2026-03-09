@@ -26,7 +26,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
     {
         // Arrange
         _authService.Setup(s => s.GetCurrentToken()).Returns("test-key");
-        
+
         var profileData = new { login = "user123" };
         var quotaData = new
         {

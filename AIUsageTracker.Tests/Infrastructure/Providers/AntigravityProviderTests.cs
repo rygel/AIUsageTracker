@@ -23,7 +23,7 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
         // Act
         var method = typeof(AntigravityProvider).GetMethod("CreateLocalhostClient", BindingFlags.Static | BindingFlags.NonPublic);
         Assert.NotNull(method);
-        
+
         using var client = (HttpClient)method.Invoke(null, null)!;
 
         // Assert

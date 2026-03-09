@@ -23,7 +23,7 @@ public class SettingsViewModelTests
         _exportServiceMock = new Mock<IDataExportService>();
         _loggerMock = new Mock<ILogger<SettingsViewModel>>();
         _viewModel = new SettingsViewModel(
-            _monitorServiceMock.Object, 
+            _monitorServiceMock.Object,
             _analyticsServiceMock.Object,
             _exportServiceMock.Object,
             _loggerMock.Object);

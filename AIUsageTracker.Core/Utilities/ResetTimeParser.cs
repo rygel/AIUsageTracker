@@ -259,7 +259,7 @@ public static class ResetTimeParser
         }
 
         var referenceTime = now ?? DateTime.Now;
-        
+
         if (resetTime.Value <= referenceTime)
         {
             return TimeSpan.Zero;

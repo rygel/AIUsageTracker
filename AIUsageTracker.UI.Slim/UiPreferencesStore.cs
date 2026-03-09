@@ -19,23 +19,23 @@ public class UiPreferencesStore
 
     public UiPreferencesStore(ILogger<UiPreferencesStore> logger, IAppPathProvider pathProvider)
     {
-        _logger = logger;
-        _pathProvider = pathProvider;
+        this._logger = logger;
+        this._pathProvider = pathProvider;
     }
 
     internal void SetPreferencesPathOverrideForTesting(string? path)
     {
-        _preferencesPathOverride = string.IsNullOrWhiteSpace(path) ? null : path;
+        this._preferencesPathOverride = string.IsNullOrWhiteSpace(path) ? null : path;
     }
 
     private string GetPreferencesPath()
     {
-        if (!string.IsNullOrWhiteSpace(_preferencesPathOverride))
+        if (!string.IsNullOrWhiteSpace(this._preferencesPathOverride))
         {
-            return _preferencesPathOverride;
+            return this._preferencesPathOverride;
         }
 
-        return _pathProvider.GetPreferencesFilePath();
+        return this._pathProvider.GetPreferencesFilePath();
     }
 
     public async Task<AppPreferences> LoadAsync()
@@ -54,15 +54,15 @@ public class UiPreferencesStore
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Failed to parse Slim preferences");
+            this._logger.LogWarning(ex, "Failed to parse Slim preferences");
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "Failed to read Slim preferences");
+            this._logger.LogWarning(ex, "Failed to read Slim preferences");
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Access denied reading Slim preferences");
+            this._logger.LogWarning(ex, "Access denied reading Slim preferences");
         }
 
         return new AppPreferences();
@@ -74,7 +74,7 @@ public class UiPreferencesStore
         var directory = Path.GetDirectoryName(path);
         if (string.IsNullOrWhiteSpace(directory))
         {
-            _logger.LogWarning("Failed to resolve Slim preferences directory");
+            this._logger.LogWarning("Failed to resolve Slim preferences directory");
             return false;
         }
 
@@ -87,11 +87,11 @@ public class UiPreferencesStore
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "Failed to write Slim preferences");
+            this._logger.LogWarning(ex, "Failed to write Slim preferences");
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Access denied writing Slim preferences");
+            this._logger.LogWarning(ex, "Access denied writing Slim preferences");
         }
 
         return false;
@@ -124,15 +124,15 @@ public class UiPreferencesStore
             }
             catch (JsonException ex)
             {
-                _logger.LogWarning(ex, "Failed to parse legacy Slim preferences from {Path}", legacyPath);
+                this._logger.LogWarning(ex, "Failed to parse legacy Slim preferences from {Path}", legacyPath);
             }
             catch (IOException ex)
             {
-                _logger.LogWarning(ex, "Failed to read legacy Slim preferences from {Path}", legacyPath);
+                this._logger.LogWarning(ex, "Failed to read legacy Slim preferences from {Path}", legacyPath);
             }
             catch (UnauthorizedAccessException ex)
             {
-                _logger.LogWarning(ex, "Access denied reading legacy Slim preferences from {Path}", legacyPath);
+                this._logger.LogWarning(ex, "Access denied reading legacy Slim preferences from {Path}", legacyPath);
             }
         }
 
@@ -141,7 +141,7 @@ public class UiPreferencesStore
 
     private IEnumerable<string> GetLegacyPreferenceCandidates()
     {
-        var userProfileRoot = _pathProvider.GetUserProfileRoot();
+        var userProfileRoot = this._pathProvider.GetUserProfileRoot();
 
         return DeprecatedPathCatalog.GetPreferencesFilePaths(userProfileRoot);
     }

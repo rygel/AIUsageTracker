@@ -42,7 +42,7 @@ public partial class App
                 IsPrivacyMode = true,
                 Theme = selectedTheme
             };
-            
+
             ApplyTheme(Preferences.Theme);
             SetPrivacyMode(true);
 
@@ -55,13 +55,13 @@ public partial class App
             if (isThemeSmokeMode)
             {
                 var smokeFileName = $"theme_smoke_{selectedTheme.ToString().ToLowerInvariant()}.png";
-                await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName));
+                await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName));
                 return;
             }
 
-            await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
-            await CaptureSettingsScreenshotsAsync(screenshotsDir);
-            CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
+            await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
+            await this.CaptureSettingsScreenshotsAsync(screenshotsDir);
+            this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
         }
         catch (Exception ex)
         {
@@ -70,7 +70,7 @@ public partial class App
         }
         finally
         {
-            Shutdown();
+            this.Shutdown();
         }
     }
 
@@ -194,7 +194,7 @@ public partial class App
 
     private void CaptureInfoScreenshot(string outputPath)
     {
-        var window = InfoDialogFactory();
+        var window = this.InfoDialogFactory();
         try
         {
             if (window is InfoDialog infoDialog)

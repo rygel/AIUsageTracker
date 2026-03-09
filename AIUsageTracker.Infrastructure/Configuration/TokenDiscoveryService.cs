@@ -85,7 +85,7 @@ public class TokenDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug("Codex session discovery failed: {Message}", ex.Message);
+            this._logger.LogDebug("Codex session discovery failed: {Message}", ex.Message);
         }
     }
 
@@ -120,7 +120,7 @@ public class TokenDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug("OpenCode session discovery failed: {Message}", ex.Message);
+            this._logger.LogDebug("OpenCode session discovery failed: {Message}", ex.Message);
         }
     }
 
@@ -154,7 +154,7 @@ public class TokenDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug("Claude Code discovery failed: {Message}", ex.Message);
+            this._logger.LogDebug("Claude Code discovery failed: {Message}", ex.Message);
         }
     }
 
@@ -231,7 +231,7 @@ public class TokenDiscoveryService
                 authSource: source,
                 description: description))
         {
-            _logger.LogWarning("Skipping token discovery for unsupported provider id '{ProviderId}'.", providerId);
+            this._logger.LogWarning("Skipping token discovery for unsupported provider id '{ProviderId}'.", providerId);
             return;
         }
 
@@ -280,7 +280,7 @@ public class TokenDiscoveryService
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to parse Kilo Code secrets from {Path}", kiloSecretsPath);
+                this._logger.LogDebug(ex, "Failed to parse Kilo Code secrets from {Path}", kiloSecretsPath);
             }
         }
     }
@@ -294,7 +294,7 @@ public class TokenDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Roo Code token discovery failed");
+            this._logger.LogDebug(ex, "Roo Code token discovery failed");
         }
     }
 
@@ -327,7 +327,7 @@ public class TokenDiscoveryService
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to parse Roo Code state file {Path}", stateFile);
+                this._logger.LogDebug(ex, "Failed to parse Roo Code state file {Path}", stateFile);
             }
         }
     }
@@ -361,7 +361,7 @@ public class TokenDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to parse Roo secrets from {Path}", secretsPath);
+            this._logger.LogDebug(ex, "Failed to parse Roo secrets from {Path}", secretsPath);
         }
     }
 
@@ -391,7 +391,7 @@ public class TokenDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug("VS Code config path discovery failed: {Message}", ex.Message);
+            this._logger.LogDebug("VS Code config path discovery failed: {Message}", ex.Message);
             return null;
         }
     }
@@ -404,7 +404,7 @@ public class TokenDiscoveryService
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to parse Roo config during token discovery");
+            this._logger.LogDebug(ex, "Failed to parse Roo config during token discovery");
         }
     }
 
@@ -450,7 +450,7 @@ public class TokenDiscoveryService
                 authSource: source,
                 description: description))
         {
-            _logger.LogDebug("Ignoring unsupported provider id '{ProviderId}' from discovery source '{Source}'.", providerId, source);
+            this._logger.LogDebug("Ignoring unsupported provider id '{ProviderId}' from discovery source '{Source}'.", providerId, source);
             return;
         }
 

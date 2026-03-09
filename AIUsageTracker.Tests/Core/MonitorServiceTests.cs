@@ -354,9 +354,9 @@ public class MonitorServiceTests
             .ReturnsAsync(new HttpResponseMessage
             {
                 StatusCode = status,
-                Content = JsonContent.Create(body, options: new JsonSerializerOptions 
-                { 
-                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower 
+                Content = JsonContent.Create(body, options: new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
                 })
             });
     }
@@ -366,8 +366,8 @@ public class MonitorServiceTests
         _mockHandler.Protected().Verify(
             "SendAsync",
             Times.AtLeastOnce(),
-            ItExpr.Is<HttpRequestMessage>(req => 
-                req.RequestUri != null && 
+            ItExpr.Is<HttpRequestMessage>(req =>
+                req.RequestUri != null &&
                 req.RequestUri.AbsolutePath == path &&
                 queryParts.All(qp => req.RequestUri.Query.Contains(qp))),
             ItExpr.IsAny<CancellationToken>());

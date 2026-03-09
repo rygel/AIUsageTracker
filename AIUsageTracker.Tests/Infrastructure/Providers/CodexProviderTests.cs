@@ -105,7 +105,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         var headerJson = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });
         var payloadJson = JsonSerializer.Serialize(new Dictionary<string, object?>
         {
-            [ "https://api.openai.com/profile" ] = new Dictionary<string, object?>
+            ["https://api.openai.com/profile"] = new Dictionary<string, object?>
             {
                 ["email"] = email
             },

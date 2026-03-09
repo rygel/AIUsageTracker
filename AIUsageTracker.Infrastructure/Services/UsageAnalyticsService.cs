@@ -19,9 +19,9 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         IMemoryCache cache,
         ILogger<UsageAnalyticsService> logger)
     {
-        _repository = repository;
-        _cache = cache;
-        _logger = logger;
+        this._repository = repository;
+        this._cache = cache;
+        this._logger = logger;
     }
 
     public async Task<IReadOnlyDictionary<string, BurnRateForecast>> GetBurnRateForecastsAsync(
@@ -33,13 +33,13 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         if (!normalizedIds.Any()) return new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, BurnRateForecast>;
 
         var cacheKey = $"analytics:burn-rate:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
-        if (_cache.TryGetValue<Dictionary<string, BurnRateForecast>>(cacheKey, out var cached) && cached != null)
+        if (this._cache.TryGetValue<Dictionary<string, BurnRateForecast>>(cacheKey, out var cached) && cached != null)
         {
             return cached;
         }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
+        var data = await this._repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var forecasts = normalizedIds.ToDictionary(
             id => id,
@@ -52,8 +52,8 @@ public class UsageAnalyticsService : IUsageAnalyticsService
             forecasts[group.Key] = UsageMath.CalculateBurnRateForecast(samples);
         }
 
-        _cache.Set(cacheKey, forecasts, TimeSpan.FromMinutes(10));
-        _logger.LogInformation("Analytics: GetBurnRateForecastsAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
+        this._cache.Set(cacheKey, forecasts, TimeSpan.FromMinutes(10));
+        this._logger.LogInformation("Analytics: GetBurnRateForecastsAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
         return forecasts as IReadOnlyDictionary<string, BurnRateForecast>;
     }
 
@@ -66,13 +66,13 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         if (!normalizedIds.Any()) return new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, ProviderReliabilitySnapshot>;
 
         var cacheKey = $"analytics:reliability:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
-        if (_cache.TryGetValue<Dictionary<string, ProviderReliabilitySnapshot>>(cacheKey, out var cached) && cached != null)
+        if (this._cache.TryGetValue<Dictionary<string, ProviderReliabilitySnapshot>>(cacheKey, out var cached) && cached != null)
         {
             return cached;
         }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
+        var data = await this._repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var snapshots = normalizedIds.ToDictionary(
             id => id,
@@ -87,8 +87,8 @@ public class UsageAnalyticsService : IUsageAnalyticsService
             snapshots[group.Key] = UsageMath.CalculateReliabilitySnapshot(samples);
         }
 
-        _cache.Set(cacheKey, snapshots, TimeSpan.FromMinutes(10));
-        _logger.LogInformation("Analytics: GetProviderReliabilityAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
+        this._cache.Set(cacheKey, snapshots, TimeSpan.FromMinutes(10));
+        this._logger.LogInformation("Analytics: GetProviderReliabilityAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
         return snapshots as IReadOnlyDictionary<string, ProviderReliabilitySnapshot>;
     }
 
@@ -101,13 +101,13 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         if (!normalizedIds.Any()) return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, UsageAnomalySnapshot>;
 
         var cacheKey = $"analytics:anomalies:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
-        if (_cache.TryGetValue<Dictionary<string, UsageAnomalySnapshot>>(cacheKey, out var cached) && cached != null)
+        if (this._cache.TryGetValue<Dictionary<string, UsageAnomalySnapshot>>(cacheKey, out var cached) && cached != null)
         {
             return cached;
         }
 
         var sw = Stopwatch.StartNew();
-        var data = await _repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
+        var data = await this._repository.GetHistorySamplesAsync(normalizedIds, lookbackHours, maxSamplesPerProvider).ConfigureAwait(false);
 
         var anomalies = normalizedIds.ToDictionary(
             id => id,
@@ -120,8 +120,8 @@ public class UsageAnalyticsService : IUsageAnalyticsService
             anomalies[group.Key] = UsageMath.CalculateUsageAnomalySnapshot(samples);
         }
 
-        _cache.Set(cacheKey, anomalies, TimeSpan.FromMinutes(10));
-        _logger.LogInformation("Analytics: GetUsageAnomaliesAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
+        this._cache.Set(cacheKey, anomalies, TimeSpan.FromMinutes(10));
+        this._logger.LogInformation("Analytics: GetUsageAnomaliesAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
         return anomalies as IReadOnlyDictionary<string, UsageAnomalySnapshot>;
     }
 

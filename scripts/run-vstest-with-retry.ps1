@@ -45,7 +45,7 @@ $testCaseFilter = $null
 if (Test-Path -LiteralPath $QuarantineFile) {
     $quarantinedTests = Get-Content -LiteralPath $QuarantineFile |
         ForEach-Object { $_.Trim() } |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and -not $_.StartsWith("#", [System.StringComparison]::Ordinal) }
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and -not $_.StartsWith("#", [System.StringComparison]::Ordinal) } |
         ForEach-Object {
             $parts = $_ -split "\|"
             $parts[0].Trim()

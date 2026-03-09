@@ -37,7 +37,7 @@ public class ConfigLoaderTests : IntegrationTestBase
     [Fact]
     public async Task LoadConfigAsync_PreservesConfiguredApiKey_WhenDiscoveryFindsEnvironmentKey()
     {
-        var authPath = CreateFile("config/auth.json", "{\"openai\":{\"key\":\"configured-key\"}}");
+        var authPath = CreateFile("config/auth.json", "{\"openai\":{\"key\":\"sk-configured-key\"}}");
         var providersPath = CreateFile("config/providers.json", "{}");
 
         var mockPathProvider = new Mock<IAppPathProvider>();
@@ -57,12 +57,12 @@ public class ConfigLoaderTests : IntegrationTestBase
         var priorValue = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         try
         {
-            Environment.SetEnvironmentVariable("OPENAI_API_KEY", "env-key");
+            Environment.SetEnvironmentVariable("OPENAI_API_KEY", "sk-env-key");
 
             var configs = await loader.LoadConfigAsync();
 
             var openAi = Assert.Single(configs, config => config.ProviderId == "openai");
-            Assert.Equal("configured-key", openAi.ApiKey);
+            Assert.Equal("sk-configured-key", openAi.ApiKey);
             Assert.Equal("Config: auth.json", openAi.AuthSource);
         }
         finally
@@ -94,12 +94,12 @@ public class ConfigLoaderTests : IntegrationTestBase
         var priorValue = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
         try
         {
-            Environment.SetEnvironmentVariable("OPENAI_API_KEY", "env-key");
+            Environment.SetEnvironmentVariable("OPENAI_API_KEY", "sk-env-key");
 
             var configs = await loader.LoadConfigAsync();
 
             var openAi = Assert.Single(configs, config => config.ProviderId == "openai");
-            Assert.Equal("env-key", openAi.ApiKey);
+            Assert.Equal("sk-env-key", openAi.ApiKey);
             Assert.Equal("https://configured", openAi.BaseUrl);
             Assert.Equal("quota-based", openAi.Type);
             Assert.Equal("Env: OPENAI_API_KEY", openAi.AuthSource);

@@ -20,7 +20,7 @@ public class DualProgressBarLogicTests
     public void ParsePercent_HandlesFormatsCorrectly(string? input, double? expected)
     {
         var result = UsageMath.ParsePercent(input);
-        
+
         if (expected == null)
             Assert.Null(result);
         else
@@ -44,19 +44,19 @@ public class DualProgressBarLogicTests
         {
             Details = new List<ProviderUsageDetail>
             {
-                new ProviderUsageDetail 
-                { 
-                    Name = "Hourly", 
-                    Used = "10% used", 
-                    DetailType = ProviderUsageDetailType.QuotaWindow, 
-                    WindowKind = WindowKind.Primary 
+                new ProviderUsageDetail
+                {
+                    Name = "Hourly",
+                    Used = "10% used",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Primary
                 },
-                new ProviderUsageDetail 
-                { 
-                    Name = "Weekly", 
-                    Used = "80% remaining", 
-                    DetailType = ProviderUsageDetailType.QuotaWindow, 
-                    WindowKind = WindowKind.Secondary 
+                new ProviderUsageDetail
+                {
+                    Name = "Weekly",
+                    Used = "80% remaining",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Secondary
                 }
             }
         };

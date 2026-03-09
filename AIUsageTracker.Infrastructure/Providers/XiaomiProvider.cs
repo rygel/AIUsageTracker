@@ -55,16 +55,16 @@ public class XiaomiProvider : ProviderBase
 
             var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
-            
+
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var data = JsonSerializer.Deserialize<XiaomiResponse>(content);
-            
+
             if (data == null || data.Data == null) throw new Exception("Invalid response from Xiaomi API");
 
             double balance = data.Data.Balance;
             // Assuming quota is available in response or unlimited
-            double quota = data.Data.Quota; 
-            
+            double quota = data.Data.Quota;
+
             // If quota is 0, treat as pay-as-you-go balance only
             double percentage = 0;
             var used = quota > 0 ? Math.Max(0, quota - balance) : 0;
@@ -79,13 +79,13 @@ public class XiaomiProvider : ProviderBase
                 ProviderName = "Xiaomi",
                 RequestsPercentage = percentage,
                 RequestsUsed = used,
-                RequestsAvailable = quota > 0 ? quota : balance, 
+                RequestsAvailable = quota > 0 ? quota : balance,
                 UsageUnit = "Points",
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 IsAvailable = true,
-                Description = quota > 0 
-                    ? $"{balance} remaining / {quota} total" 
+                Description = quota > 0
+                    ? $"{balance} remaining / {quota} total"
                     : $"Balance: {balance}",
                 RawJson = content,
                 HttpStatus = (int)response.StatusCode
@@ -108,18 +108,18 @@ public class XiaomiProvider : ProviderBase
 
     private class XiaomiResponse
     {
-         [JsonPropertyName("data")]
-         public XiaomiData? Data { get; set; }
-         
-         [JsonPropertyName("code")]
-         public int Code { get; set; }
+        [JsonPropertyName("data")]
+        public XiaomiData? Data { get; set; }
+
+        [JsonPropertyName("code")]
+        public int Code { get; set; }
     }
-    
+
     private class XiaomiData
     {
         [JsonPropertyName("balance")]
         public double Balance { get; set; }
-        
+
         [JsonPropertyName("quota")]
         public double Quota { get; set; }
     }

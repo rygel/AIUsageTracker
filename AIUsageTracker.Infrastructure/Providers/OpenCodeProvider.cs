@@ -30,12 +30,12 @@ public class OpenCodeProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
-        _logger.LogDebug("OpenCode GetUsageAsync called for provider {ProviderId}", ProviderId);
+        this._logger.LogDebug("OpenCode GetUsageAsync called for provider {ProviderId}", ProviderId);
         var displayName = Definition.DisplayName;
-        
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            _logger.LogInformation("OpenCode API key not configured - returning unavailable state");
+            this._logger.LogInformation("OpenCode API key not configured - returning unavailable state");
             return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
@@ -53,12 +53,12 @@ public class OpenCodeProvider : ProviderBase
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
-            var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             var httpStatus = (int)response.StatusCode;
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("OpenCode API failed with status {StatusCode}", response.StatusCode);
+                this._logger.LogWarning("OpenCode API failed with status {StatusCode}", response.StatusCode);
                 var errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 return new[] { new ProviderUsage
                 {
@@ -75,13 +75,13 @@ public class OpenCodeProvider : ProviderBase
 
             var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var result = ParseJsonResponse(responseString, httpStatus);
-            _logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.RequestsUsed);
-            
+            this._logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.RequestsUsed);
+
             return new[] { result };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to call OpenCode API. Message: {Message}", ex.Message);
+            this._logger.LogError(ex, "Failed to call OpenCode API. Message: {Message}", ex.Message);
             return new[] { new ProviderUsage
             {
                 ProviderId = ProviderId,
@@ -102,7 +102,7 @@ public class OpenCodeProvider : ProviderBase
             // Check if response is empty or not JSON
             if (string.IsNullOrWhiteSpace(json))
             {
-                _logger.LogWarning("OpenCode API returned empty response");
+                this._logger.LogWarning("OpenCode API returned empty response");
                 return new ProviderUsage
                 {
                     ProviderId = ProviderId,
@@ -117,11 +117,11 @@ public class OpenCodeProvider : ProviderBase
             }
 
             // Log the raw response for debugging
-            _logger.LogDebug("OpenCode raw response: {Response}", json.Length > 200 ? json.Substring(0, 200) + "..." : json);
+            this._logger.LogDebug("OpenCode raw response: {Response}", json.Length > 200 ? json.Substring(0, 200) + "..." : json);
 
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var response = JsonSerializer.Deserialize<CreditsResponse>(json, options);
-            
+
             double totalCost = 0;
             if (response?.Data != null)
             {
@@ -145,7 +145,7 @@ public class OpenCodeProvider : ProviderBase
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "Failed to parse OpenCode JSON response. Response started with: {Start}", 
+            this._logger.LogError(ex, "Failed to parse OpenCode JSON response. Response started with: {Start}",
                 json.Length > 50 ? json.Substring(0, 50) : json);
             return new ProviderUsage
             {
@@ -159,7 +159,7 @@ public class OpenCodeProvider : ProviderBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to parse OpenCode response");
+            this._logger.LogError(ex, "Failed to parse OpenCode response");
             return new ProviderUsage
             {
                 ProviderId = ProviderId,

@@ -50,7 +50,7 @@ public class DeepSeekProvider : ProviderBase
 
             var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("DeepSeek API error: {StatusCode} - {ErrorContent}", response.StatusCode, content);
@@ -72,7 +72,7 @@ public class DeepSeekProvider : ProviderBase
             }
 
             var result = JsonSerializer.Deserialize<DeepSeekBalanceResponse>(content);
-            
+
             if (result == null)
             {
                 return new[] { CreateUnavailableUsage(

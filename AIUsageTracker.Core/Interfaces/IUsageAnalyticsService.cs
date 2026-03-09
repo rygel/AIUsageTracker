@@ -20,6 +20,6 @@ public interface IUsageAnalyticsService
         int maxSamplesPerProvider = 720);
 
     Task<IReadOnlyList<BudgetStatus>> GetBudgetStatusesAsync(IEnumerable<string> providerIds);
-    
+
     Task<IReadOnlyList<UsageComparison>> GetUsageComparisonsAsync(IEnumerable<string> providerIds);
 }

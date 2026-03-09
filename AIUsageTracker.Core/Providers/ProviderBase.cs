@@ -66,7 +66,7 @@ public abstract class ProviderBase : IProviderService
         string? authSource = null)
     {
         var statusCode = (int)response.StatusCode;
-        
+
         if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
             return this.CreateUnavailableUsage(

@@ -97,14 +97,14 @@ public partial class SettingsWindow : Window
     {
         _isLoadingSettings = true;
         string? loadError = null;
-        
+
         try
         {
             _isDeterministicScreenshotMode = false;
-            
+
             _configs = (await _monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
             _usages = (await _monitorService.GetUsageAsync().ConfigureAwait(true)).ToList();
-            
+
             if (_configs.Count == 0)
             {
                 loadError = "No providers found. This may indicate:\n" +
@@ -113,7 +113,7 @@ public partial class SettingsWindow : Window
                            "- No providers configured in Monitor\n\n" +
                            "Try clicking 'Refresh Data' or restarting the Monitor.";
             }
-            
+
             _gitHubAuthUsername = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(_logger);
             _openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(_logger);
             _codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(_logger);
@@ -143,10 +143,10 @@ public partial class SettingsWindow : Window
         finally
         {
             _isLoadingSettings = false;
-            
+
             if (loadError != null)
             {
-                MessageBox.Show(loadError, "Connection Error", 
+                MessageBox.Show(loadError, "Connection Error",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
@@ -365,15 +365,15 @@ public partial class SettingsWindow : Window
         {
             // Check if agent is running
             var isRunning = await MonitorLauncher.IsAgentRunningAsync();
-            
+
             // Get the actual port from the agent
             int port = await MonitorLauncher.GetAgentPortAsync();
-            
+
             if (MonitorStatusText != null)
             {
                 MonitorStatusText.Text = isRunning ? "Running" : "Not Running";
             }
-            
+
             // Update port display
             if (FindName("MonitorPortText") is TextBlock portText)
             {
@@ -917,16 +917,16 @@ public partial class SettingsWindow : Window
         ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
         ThemeCombo.ItemsSource = GetThemeOptions();
         ThemeCombo.SelectedValue = _preferences.Theme;
-        
-        UpdateChannelCombo.ItemsSource = new[] 
-        { 
+
+        UpdateChannelCombo.ItemsSource = new[]
+        {
             new { Label = "Stable", Value = UpdateChannel.Stable },
             new { Label = "Beta", Value = UpdateChannel.Beta }
         };
         UpdateChannelCombo.DisplayMemberPath = "Label";
         UpdateChannelCombo.SelectedValuePath = "Value";
         UpdateChannelCombo.SelectedValue = _preferences.UpdateChannel;
-        
+
         EnableWindowsNotificationsCheck.IsChecked = _agentPreferences.EnableNotifications;
         NotificationThresholdBox.Text = _agentPreferences.NotificationThreshold.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
         NotifyUsageThresholdCheck.IsChecked = _agentPreferences.NotifyOnUsageThreshold;
@@ -938,13 +938,13 @@ public partial class SettingsWindow : Window
         ApplyNotificationControlsState();
         YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString(System.Globalization.CultureInfo.InvariantCulture);
         RedThreshold.Text = _preferences.ColorThresholdRed.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        
+
         // Font settings
         PopulateFontComboBox();
-            FontFamilyCombo.SelectedItem = _preferences.FontFamily;
-            FontSizeBox.Text = _preferences.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            FontBoldCheck.IsChecked = _preferences.FontBold;
-            FontItalicCheck.IsChecked = _preferences.FontItalic;
+        FontFamilyCombo.SelectedItem = _preferences.FontFamily;
+        FontSizeBox.Text = _preferences.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        FontBoldCheck.IsChecked = _preferences.FontBold;
+        FontItalicCheck.IsChecked = _preferences.FontItalic;
         UpdateFontPreview();
     }
 
@@ -976,7 +976,7 @@ public partial class SettingsWindow : Window
             .Select(ff => ff.FamilyNames.FirstOrDefault().Value ?? ff.Source)
             .OrderBy(f => f)
             .ToList();
-        
+
         // If no fonts from pack URI, try alternative method
         if (fonts.Count == 0)
         {
@@ -985,7 +985,7 @@ public partial class SettingsWindow : Window
                 .OrderBy(f => f)
                 .ToList();
         }
-        
+
         // Fallback to common fonts if still empty
         if (fonts.Count == 0)
         {
@@ -996,26 +996,26 @@ public partial class SettingsWindow : Window
                 "Trebuchet MS", "Verdana"
             }.OrderBy(f => f).ToList();
         }
-        
+
         FontFamilyCombo.ItemsSource = fonts;
     }
 
     private void UpdateFontPreview()
     {
         if (FontPreviewText == null) return;
-        
+
         // Update font family
         if (!string.IsNullOrEmpty(_preferences.FontFamily))
         {
             FontPreviewText.FontFamily = new System.Windows.Media.FontFamily(_preferences.FontFamily);
         }
-        
+
         // Update font size
         FontPreviewText.FontSize = _preferences.FontSize > 0 ? _preferences.FontSize : 12;
-        
+
         // Update font weight
         FontPreviewText.FontWeight = _preferences.FontBold ? FontWeights.Bold : FontWeights.Normal;
-        
+
         // Update font style
         FontPreviewText.FontStyle = _preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
     }
@@ -1090,24 +1090,24 @@ public partial class SettingsWindow : Window
         {
             ScanBtn.IsEnabled = false;
             ScanBtn.Content = "Scanning...";
-            
+
             var (count, configs) = await _monitorService.ScanForKeysAsync();
-            
+
             if (count > 0)
             {
-                MessageBox.Show($"Found {count} new API key(s). They have been added to your configuration.", 
+                MessageBox.Show($"Found {count} new API key(s). They have been added to your configuration.",
                     "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
                 await LoadDataAsync();
             }
             else
             {
-                MessageBox.Show("No new API keys found.", 
+                MessageBox.Show("No new API keys found.",
                     "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to scan for keys: {ex.Message}", 
+            MessageBox.Show($"Failed to scan for keys: {ex.Message}",
                 "Scan Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -1123,19 +1123,19 @@ public partial class SettingsWindow : Window
         {
             // Trigger refresh on agent
             await _monitorService.TriggerRefreshAsync();
-            
+
             // Wait a moment for refresh to complete
             await Task.Delay(2000);
-            
+
             // Reload data
             await LoadDataAsync();
-            
-            MessageBox.Show("Data refreshed successfully.", "Refresh Complete", 
+
+            MessageBox.Show("Data refreshed successfully.", "Refresh Complete",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to refresh data: {ex.Message}", "Refresh Error", 
+            MessageBox.Show($"Failed to refresh data: {ex.Message}", "Refresh Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1146,16 +1146,16 @@ public partial class SettingsWindow : Window
         {
             var history = await _monitorService.GetHistoryAsync(100);
             HistoryDataGrid.ItemsSource = history;
-            
+
             if (history.Count == 0)
             {
-                MessageBox.Show("No history data available. The agent may not have collected any data yet.", 
+                MessageBox.Show("No history data available. The agent may not have collected any data yet.",
                     "No Data", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to load history: {ex.Message}", "History Error", 
+            MessageBox.Show($"Failed to load history: {ex.Message}", "History Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1173,7 +1173,7 @@ public partial class SettingsWindow : Window
             var csv = await _monitorService.ExportDataAsync("csv");
             if (string.IsNullOrEmpty(csv))
             {
-                MessageBox.Show("No data to export or Monitor is not running.", "Export", 
+                MessageBox.Show("No data to export or Monitor is not running.", "Export",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -1188,13 +1188,13 @@ public partial class SettingsWindow : Window
             if (dialog.ShowDialog() == true)
             {
                 await File.WriteAllTextAsync(dialog.FileName, csv);
-                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete", 
+                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Export failed: {ex.Message}", "Export Error", 
+            MessageBox.Show($"Export failed: {ex.Message}", "Export Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1207,7 +1207,7 @@ public partial class SettingsWindow : Window
             var json = await _monitorService.ExportDataAsync("json");
             if (string.Equals(json, "[]", StringComparison.Ordinal) || string.IsNullOrEmpty(json))
             {
-                MessageBox.Show("No data to export or Monitor is not running.", "Export", 
+                MessageBox.Show("No data to export or Monitor is not running.", "Export",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -1222,13 +1222,13 @@ public partial class SettingsWindow : Window
             if (dialog.ShowDialog() == true)
             {
                 await File.WriteAllTextAsync(dialog.FileName, json);
-                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete", 
+                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Export failed: {ex.Message}", "Export Error", 
+            MessageBox.Show($"Export failed: {ex.Message}", "Export Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1251,19 +1251,19 @@ public partial class SettingsWindow : Window
                 if (File.Exists(dbPath))
                 {
                     File.Copy(dbPath, dialog.FileName, true);
-                    MessageBox.Show($"Backup saved to {dialog.FileName}", "Backup Complete", 
+                    MessageBox.Show($"Backup saved to {dialog.FileName}", "Backup Complete",
                         MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Database file not found.", "Backup Error", 
+                    MessageBox.Show("Database file not found.", "Backup Error",
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                 }
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Backup failed: {ex.Message}", "Backup Error", 
+            MessageBox.Show($"Backup failed: {ex.Message}", "Backup Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1285,24 +1285,24 @@ public partial class SettingsWindow : Window
                     _logger.LogDebug(ex, "Failed to terminate monitor process {ProcessId}", process.Id);
                 }
             }
-            
+
             await Task.Delay(1000);
-            
+
             // Restart agent
             if (await MonitorLauncher.EnsureAgentRunningAsync())
             {
-                MessageBox.Show("Monitor restarted successfully.", "Restart Complete", 
+                MessageBox.Show("Monitor restarted successfully.", "Restart Complete",
                     MessageBoxButton.OK, MessageBoxImage.Information);
             }
             else
             {
-                MessageBox.Show("Failed to restart Monitor.", "Restart Error", 
+                MessageBox.Show("Failed to restart Monitor.", "Restart Error",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to restart Monitor: {ex.Message}", "Restart Error", 
+            MessageBox.Show($"Failed to restart Monitor: {ex.Message}", "Restart Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -1317,13 +1317,13 @@ public partial class SettingsWindow : Window
         {
             var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
             var status = isRunning ? "Running" : "Not Running";
-            
-            MessageBox.Show($"Monitor Status: {status}\n\nPort: {port}", "Health Check", 
+
+            MessageBox.Show($"Monitor Status: {status}\n\nPort: {port}", "Health Check",
                 MessageBoxButton.OK, isRunning ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to check health: {ex.Message}", "Health Check Error", 
+            MessageBox.Show($"Failed to check health: {ex.Message}", "Health Check Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally

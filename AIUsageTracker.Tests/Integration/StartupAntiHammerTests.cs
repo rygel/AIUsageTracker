@@ -125,9 +125,9 @@ public class StartupAntiHammerTests
     {
         var type = typeof(ProviderRefreshService);
         var executeMethod = type.GetMethod("ExecuteAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        
+
         Assert.NotNull(executeMethod);
-        Assert.True(executeMethod.ReturnType == typeof(Task), 
+        Assert.True(executeMethod.ReturnType == typeof(Task),
             "ExecuteAsync should return Task");
     }
 
@@ -136,10 +136,10 @@ public class StartupAntiHammerTests
     {
         var type = typeof(ProviderRefreshService);
         var method = type.GetMethod("TriggerRefreshAsync");
-        
+
         Assert.NotNull(method);
         var parameters = method.GetParameters();
-        
+
         var includeProviderIdsParam = parameters.FirstOrDefault(p => p.Name == "includeProviderIds");
         Assert.NotNull(includeProviderIdsParam);
         Assert.True(includeProviderIdsParam.ParameterType == typeof(IReadOnlyCollection<string>),

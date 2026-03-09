@@ -13,11 +13,11 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     private readonly ILogger<GitHubUpdateChecker> _logger;
     private readonly HttpClient _httpClient;
     private readonly UpdateChannel _channel;
-    
+
     private string GetAppcastUrlForCurrentArchitecture()
     {
         var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
-        
+
         // Map architecture names
         var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -26,28 +26,28 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             ["arm64"] = "arm64",
             ["arm"] = "arm64",
         };
-        
+
         var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
-        
+
         if (!archMapping.ContainsKey(currentArch))
         {
-            _logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
+            this._logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
         }
 
-        var url = ReleaseUrlCatalog.GetAppcastUrl(targetArch, _channel == UpdateChannel.Beta);
-        _logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, _channel, url);
+        var url = ReleaseUrlCatalog.GetAppcastUrl(targetArch, this._channel == UpdateChannel.Beta);
+        this._logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, this._channel, url);
         return url;
     }
 
     public GitHubUpdateChecker(ILogger<GitHubUpdateChecker> logger, HttpClient httpClient, UpdateChannel channel = UpdateChannel.Stable)
     {
-        _logger = logger;
-        _httpClient = httpClient;
-        _channel = channel;
+        this._logger = logger;
+        this._httpClient = httpClient;
+        this._channel = channel;
 
-        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
+        if (!this._httpClient.DefaultRequestHeaders.UserAgent.Any())
         {
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AIUsageTracker");
+            this._httpClient.DefaultRequestHeaders.Add("User-Agent", "AIUsageTracker");
         }
     }
 
@@ -56,33 +56,33 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         try
         {
             // Get the appcast URL for current architecture
-            var appcastUrl = GetAppcastUrlForCurrentArchitecture();
-            
+            var appcastUrl = this.GetAppcastUrlForCurrentArchitecture();
+
             // Initialize SparkleUpdater with the architecture-specific appcast URL
             using var sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe));
-            
-            _logger.LogDebug("Checking for updates via NetSparkle appcast: {Url}", appcastUrl);
-            
+
+            this._logger.LogDebug("Checking for updates via NetSparkle appcast: {Url}", appcastUrl);
+
             // Check for updates quietly (no UI)
-            var updateInfo = await sparkle.CheckForUpdatesQuietly();
-            
+            var updateInfo = await sparkle.CheckForUpdatesQuietly().ConfigureAwait(false);
+
             if (updateInfo?.Updates?.Any() == true)
             {
                 var latest = updateInfo.Updates.First();
                 var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
-                
+
                 // Parse version (handle 'v' prefix)
                 var latestVersionStr = latest.Version?.TrimStart('v') ?? "0.0.0";
-                
+
                 if (Version.TryParse(latestVersionStr, out var latestVersion))
                 {
                     if (latestVersion > currentVersion)
                     {
-                        _logger.LogInformation("New version available: {LatestVersion} (Current: {CurrentVersion})", 
+                        this._logger.LogInformation("New version available: {LatestVersion} (Current: {CurrentVersion})",
                             latestVersion, currentVersion);
 
                         // Fetch release notes from GitHub API
-                        var releaseNotes = await FetchReleaseNotesFromGitHub(latestVersionStr);
+                        var releaseNotes = await this.FetchReleaseNotesFromGitHub(latestVersionStr).ConfigureAwait(false);
 
                         return new AIUsageTracker.Core.Interfaces.UpdateInfo
                         {
@@ -95,13 +95,13 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                     }
                 }
             }
-            
-            _logger.LogDebug("No updates available or already on latest version");
+
+            this._logger.LogDebug("No updates available or already on latest version");
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to check for updates via NetSparkle appcast");
+            this._logger.LogWarning(ex, "Failed to check for updates via NetSparkle appcast");
             return null;
         }
     }
@@ -110,26 +110,26 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     {
         try
         {
-            _logger.LogInformation("Starting download and install for version {Version}", updateInfo.Version);
+            this._logger.LogInformation("Starting download and install for version {Version}", updateInfo.Version);
 
             if (string.IsNullOrEmpty(updateInfo.DownloadUrl))
             {
-                _logger.LogWarning("No download URL available for update");
+                this._logger.LogWarning("No download URL available for update");
                 return false;
             }
 
             var downloadPath = GetInstallerDownloadPath(updateInfo.Version);
-            var downloadSucceeded = await DownloadInstallerAsync(updateInfo.DownloadUrl, downloadPath, progress).ConfigureAwait(false);
+            var downloadSucceeded = await this.DownloadInstallerAsync(updateInfo.DownloadUrl, downloadPath, progress).ConfigureAwait(false);
             if (!downloadSucceeded)
             {
                 return false;
             }
 
-            return StartInstaller(downloadPath);
+            return this.StartInstaller(downloadPath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error during download and install");
+            this._logger.LogError(ex, "Error during download and install");
             return false;
         }
     }
@@ -144,19 +144,19 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     private async Task<bool> DownloadInstallerAsync(string downloadUrl, string downloadPath, IProgress<double>? progress)
     {
         var partialDownloadPath = $"{downloadPath}.partial";
-        _logger.LogInformation("Downloading from {Url} to {Path}", downloadUrl, downloadPath);
+        this._logger.LogInformation("Downloading from {Url} to {Path}", downloadUrl, downloadPath);
         DeleteIfExists(downloadPath);
         DeleteIfExists(partialDownloadPath);
 
-        using var response = await _httpClient.GetAsync(downloadUrl, System.Net.Http.HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+        using var response = await this._httpClient.GetAsync(downloadUrl, System.Net.Http.HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 
         var totalBytes = response.Content.Headers.ContentLength ?? -1L;
         var downloadedBytes = 0L;
         var buffer = new byte[8192];
 
-        await using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-        await using var fileStream = new FileStream(partialDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None);
+        using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+        using var fileStream = new FileStream(partialDownloadPath, FileMode.Create, FileAccess.Write, FileShare.None);
 
         int read;
         while ((read = await stream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
@@ -172,14 +172,14 @@ public class GitHubUpdateChecker : IUpdateCheckerService
 
         await fileStream.FlushAsync().ConfigureAwait(false);
         File.Move(partialDownloadPath, downloadPath, overwrite: true);
-        _logger.LogInformation("Download completed successfully to {Path}", downloadPath);
+        this._logger.LogInformation("Download completed successfully to {Path}", downloadPath);
 
         if (File.Exists(downloadPath))
         {
             return true;
         }
 
-        _logger.LogError("Downloaded file not found at {Path}", downloadPath);
+        this._logger.LogError("Downloaded file not found at {Path}", downloadPath);
         return false;
     }
 
@@ -196,37 +196,37 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         try
         {
             var url = ReleaseUrlCatalog.GetGitHubReleaseApiUrl(version);
-            _logger.LogDebug("Fetching release notes from: {Url}", url);
-            
-            using var response = await _httpClient.GetAsync(url);
+            this._logger.LogDebug("Fetching release notes from: {Url}", url);
+
+            using var response = await this._httpClient.GetAsync(url).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Failed to fetch release notes: {StatusCode}", response.StatusCode);
+                this._logger.LogWarning("Failed to fetch release notes: {StatusCode}", response.StatusCode);
                 return string.Empty;
             }
-            
-            var content = await response.Content.ReadAsStringAsync();
+
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = System.Text.Json.JsonDocument.Parse(content);
-            
+
             if (doc.RootElement.TryGetProperty("body", out var bodyElement))
             {
                 var releaseNotes = bodyElement.GetString() ?? string.Empty;
-                _logger.LogDebug("Successfully fetched release notes ({Length} chars)", releaseNotes.Length);
+                this._logger.LogDebug("Successfully fetched release notes ({Length} chars)", releaseNotes.Length);
                 return releaseNotes;
             }
-            
+
             return string.Empty;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to fetch release notes from GitHub API");
+            this._logger.LogWarning(ex, "Failed to fetch release notes from GitHub API");
             return string.Empty;
         }
     }
 
     private bool StartInstaller(string installerPath)
     {
-        _logger.LogInformation("Starting installer from {Path}", installerPath);
+        this._logger.LogInformation("Starting installer from {Path}", installerPath);
 
         var startInfo = new System.Diagnostics.ProcessStartInfo
         {
@@ -241,16 +241,16 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             using var process = System.Diagnostics.Process.Start(startInfo);
             if (process == null)
             {
-                _logger.LogError("Installer launch returned no process for {Path}", installerPath);
+                this._logger.LogError("Installer launch returned no process for {Path}", installerPath);
                 return false;
             }
 
-            _logger.LogInformation("Installer started successfully from {Path} (PID {ProcessId}).", installerPath, process.Id);
+            this._logger.LogInformation("Installer started successfully from {Path} (PID {ProcessId}).", installerPath, process.Id);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start installer from {Path}", installerPath);
+            this._logger.LogError(ex, "Failed to start installer from {Path}", installerPath);
             return false;
         }
     }

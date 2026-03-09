@@ -42,7 +42,7 @@ public class ProviderConfig
 
     [JsonIgnore]
     [StringLength(100)]
-    public string AuthSource { get; set; } = "Unknown";
+    public string AuthSource { get; set; } = string.Empty;
 
     [JsonIgnore]
     public string? Description { get; set; }

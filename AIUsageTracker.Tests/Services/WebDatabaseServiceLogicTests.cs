@@ -67,10 +67,10 @@ public class WebDatabaseServiceLogicTests : DatabaseTestBase
 
         // Assert
         Assert.Equal(2, results.Count);
-        
+
         var openai = results.First(r => r.ProviderId == "openai");
         Assert.Equal(20, openai.RequestsUsed);
-        
+
         var anthropic = results.First(r => r.ProviderId == "anthropic");
         Assert.Equal(15, anthropic.RequestsUsed);
     }

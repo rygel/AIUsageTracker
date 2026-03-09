@@ -23,7 +23,7 @@ public class ExportService
         // Estimate limit based on days (assuming ~100 requests/day max for safety)
         var limit = days * 100;
         var history = await _database.GetHistoryAsync(limit);
-        
+
         // Filter by date
         var cutoff = DateTime.UtcNow.AddDays(-days);
         history = history.Where(h => h.FetchedAt >= cutoff).ToList();
@@ -42,7 +42,7 @@ public class ExportService
             {
                 var time = item.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                 var provider = EscapeCsv(item.ProviderName);
-                
+
                 if (item.Details != null && item.Details.Any())
                 {
                     foreach (var detail in item.Details)
@@ -60,7 +60,7 @@ public class ExportService
                     csv.AppendLine($"{time},{provider},(Total),{used},,{item.UsageUnit},{item.PlanType}");
                 }
             }
-            
+
             return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");
         }
     }

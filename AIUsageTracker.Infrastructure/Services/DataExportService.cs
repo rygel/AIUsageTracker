@@ -22,10 +22,10 @@ public class DataExportService : IDataExportService
 
     public async Task<string> ExportHistoryToCsvAsync()
     {
-            try
+        try
         {
-            var history = await _repository.GetAllHistoryForExportAsync().ConfigureAwait(false);
-            
+            var history = await this._repository.GetAllHistoryForExportAsync().ConfigureAwait(false);
+
             var sb = new StringBuilder();
             sb.AppendLine("provider_id,provider_name,requests_used,requests_available,requests_percentage,is_available,status_message,fetched_at,next_reset_time");
 
@@ -39,21 +39,21 @@ public class DataExportService : IDataExportService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error exporting to CSV");
+            this._logger.LogError(ex, "Error exporting to CSV");
             return string.Empty;
         }
     }
 
     public async Task<string> ExportHistoryToJsonAsync()
     {
-            try
+        try
         {
-            var history = await _repository.GetAllHistoryForExportAsync(limit: 10000).ConfigureAwait(false);
+            var history = await this._repository.GetAllHistoryForExportAsync(limit: 10000).ConfigureAwait(false);
             return JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error exporting to JSON");
+            this._logger.LogError(ex, "Error exporting to JSON");
             return "[]";
         }
     }
@@ -62,12 +62,12 @@ public class DataExportService : IDataExportService
     {
         try
         {
-            if (!File.Exists(_dbPath)) return null;
-            return await File.ReadAllBytesAsync(_dbPath).ConfigureAwait(false);
+            if (!File.Exists(this._dbPath)) return null;
+            return await File.ReadAllBytesAsync(this._dbPath).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating database backup");
+            this._logger.LogError(ex, "Error creating database backup");
             return null;
         }
     }

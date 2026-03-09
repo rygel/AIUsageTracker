@@ -14,7 +14,7 @@ public static class ProviderEndpoints
         public const string BaseUrl = "https://api.openai.com";
         public const string Models = "https://api.openai.com/v1/models";
         public const string WhamUsage = "https://chatgpt.com/backend-api/wham/usage";
-        
+
         // JWT claim keys
         public const string ProfileClaimKey = "https://api.openai.com/profile";
         public const string AuthClaimKey = "https://api.openai.com/auth";

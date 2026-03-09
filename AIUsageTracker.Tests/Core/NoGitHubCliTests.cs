@@ -30,11 +30,11 @@ public class NoGitHubCliTests
         {
             var content = File.ReadAllText(file);
             var lines = content.Split('\n');
-            
+
             for (int i = 0; i < lines.Length; i++)
             {
                 var line = lines[i];
-                
+
                 if (Regex.IsMatch(line, @"FileName\s*=\s*[""']gh[""']", RegexOptions.IgnoreCase) ||
                     Regex.IsMatch(line, @"Arguments\s*=\s*[""'].*gh.*[""']", RegexOptions.IgnoreCase) ||
                     Regex.IsMatch(line, @"gh\s+auth\s+token", RegexOptions.IgnoreCase) ||

@@ -31,10 +31,18 @@ fi
 echo -e "${GREEN}✅ Tests passed${NC}"
 
 echo ""
-echo "🎨 Step 3: Checking code formatting..."
+echo "🎨 Step 3: Applying dotnet format style rules..."
+if ! dotnet format --fix-style --severity info; then
+    echo -e "${RED}❌ dotnet format failed!${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✅ dotnet format applied style fixes${NC}"
+
+echo ""
+echo "🎨 Step 4: Checking code formatting..."
 dotnet format --verify-no-changes --severity warn
 if [ $? -ne 0 ]; then
-    echo -e "${YELLOW}⚠️  Code formatting issues found${NC}"
+    echo -e "${YELLOW}⚠️  Additional code formatting issues found${NC}"
     echo "Run 'dotnet format' to fix automatically"
     # Don't exit - just warn
 else
