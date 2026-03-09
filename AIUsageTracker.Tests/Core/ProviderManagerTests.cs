@@ -2,106 +2,101 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Core
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Services;
+using AIUsageTracker.Tests.Mocks;
+using Microsoft.Extensions.Logging;
+using Moq;
+
+namespace AIUsageTracker.Tests.Core;
+
+public class ProviderManagerTests
 {
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Core.Services;
-    using Microsoft.Extensions.Logging;
-    using Moq;
-    using AIUsageTracker.Tests.Mocks;
+    private readonly Mock<ILogger<ProviderManager>> _mockLogger;
+    private readonly Mock<IConfigLoader> _mockConfigLoader;
 
-    public class ProviderManagerTests
+    public ProviderManagerTests()
     {
-        private readonly Mock<ILogger<ProviderManager>> _mockLogger;
-        private readonly Mock<IConfigLoader> _mockConfigLoader;
-
-        public ProviderManagerTests()
-        {
-            this._mockLogger = new Mock<ILogger<ProviderManager>>();
-            this._mockConfigLoader = new Mock<IConfigLoader>();
-        }
-
-        [Fact]
-        public async Task GetAllUsageAsync_LoadsConfigAndFetchesUsageFromMocks()
-        {
-            // Arrange
-            var providers = new List<IProviderService>
-            {
-                MockProviderService.CreateOpenAIMock(),
-                MockProviderService.CreateGeminiMock()
-            };
-
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "openai" },
-                new ProviderConfig { ProviderId = "gemini" }
-            };
-
-            this._mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(configs);
-
-            var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
-
-            // Act
-            var result = await manager.GetAllUsageAsync();
-
-            // Assert
-            // We expect at least our 2 mocks, plus possibly auto-added system ones
-            Assert.True(result.Count(r => r.IsAvailable) >= 2);
-            Assert.Contains(result, r => r.PlanType == PlanType.Usage && r.ProviderId == "openai");
-            Assert.Contains(result, r => r.PlanType == PlanType.Coding && r.ProviderId == "gemini");
-        }
-
-        [Fact]
-        public async Task GetAllUsageAsync_WhenProviderIntegrationMissing_ReturnsUnavailableUsage()
-        {
-            // Arrange
-            var providers = new List<IProviderService>();
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "unknown-api", Type = "api" }
-            };
-
-            this._mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(configs);
-            var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
-
-            // Act
-            var result = await manager.GetAllUsageAsync();
-
-            // Assert
-            Assert.Contains(result, r =>
-                r.ProviderId == "unknown-api" &&
-                !r.IsAvailable &&
-                r.Description == "Usage unknown (provider integration missing)");
-        }
-
-        [Fact]
-        public async Task GetAllUsageAsync_WhenIncludeProviderIdsProvided_FetchesOnlyIncludedProviders()
-        {
-            // Arrange
-            var providers = new List<IProviderService>
-            {
-                MockProviderService.CreateOpenAIMock(),
-                MockProviderService.CreateGeminiMock()
-            };
-
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "openai" },
-                new ProviderConfig { ProviderId = "gemini" }
-            };
-
-            this._mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(configs);
-            var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
-
-            // Act
-            var result = await manager.GetAllUsageAsync(
-                includeProviderIds: new[] { "openai" });
-
-            // Assert
-            Assert.Contains(result, r => r.ProviderId == "openai");
-            Assert.DoesNotContain(result, r => r.ProviderId == "gemini");
-        }
+        this._mockLogger = new Mock<ILogger<ProviderManager>>();
+        this._mockConfigLoader = new Mock<IConfigLoader>();
     }
 
+    [Fact]
+    public async Task GetAllUsageAsync_LoadsConfigAndFetchesUsageFromMocksAsync()
+    {
+        var providers = new List<IProviderService>
+        {
+            MockProviderService.CreateOpenAIMock(),
+            MockProviderService.CreateGeminiMock(),
+        };
+
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "openai" },
+            new() { ProviderId = "gemini" },
+        };
+
+        this._mockConfigLoader.Setup(configLoader => configLoader.LoadConfigAsync()).ReturnsAsync(configs);
+
+        var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
+
+        var result = await manager.GetAllUsageAsync().ConfigureAwait(false);
+
+        Assert.True(result.Count(usage => usage.IsAvailable) >= 2);
+        Assert.Contains(
+            result,
+            usage => usage.PlanType == PlanType.Usage &&
+                string.Equals(usage.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.Contains(
+            result,
+            usage => usage.PlanType == PlanType.Coding &&
+                string.Equals(usage.ProviderId, "gemini", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GetAllUsageAsync_WhenProviderIntegrationMissing_ReturnsUnavailableUsageAsync()
+    {
+        var providers = new List<IProviderService>();
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "unknown-api", Type = "api" },
+        };
+
+        this._mockConfigLoader.Setup(configLoader => configLoader.LoadConfigAsync()).ReturnsAsync(configs);
+        var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
+
+        var result = await manager.GetAllUsageAsync().ConfigureAwait(false);
+
+        Assert.Contains(
+            result,
+            usage =>
+                string.Equals(usage.ProviderId, "unknown-api", StringComparison.Ordinal) &&
+                !usage.IsAvailable &&
+                string.Equals(usage.Description, "Usage unknown (provider integration missing)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GetAllUsageAsync_WhenIncludeProviderIdsProvided_FetchesOnlyIncludedProvidersAsync()
+    {
+        var providers = new List<IProviderService>
+        {
+            MockProviderService.CreateOpenAIMock(),
+            MockProviderService.CreateGeminiMock(),
+        };
+
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "openai" },
+            new() { ProviderId = "gemini" },
+        };
+
+        this._mockConfigLoader.Setup(configLoader => configLoader.LoadConfigAsync()).ReturnsAsync(configs);
+        var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
+
+        var result = await manager.GetAllUsageAsync(includeProviderIds: new[] { "openai" }).ConfigureAwait(false);
+
+        Assert.Contains(result, usage => string.Equals(usage.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.DoesNotContain(result, usage => string.Equals(usage.ProviderId, "gemini", StringComparison.Ordinal));
+    }
 }

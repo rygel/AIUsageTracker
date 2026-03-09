@@ -2,27 +2,29 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.UI.Slim.ViewModels
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+
+namespace AIUsageTracker.UI.Slim.ViewModels;
+
+public abstract class BaseViewModel : INotifyPropertyChanged
 {
-    using System.ComponentModel;
-    using System.Runtime.CompilerServices;
+    public event PropertyChangedEventHandler? PropertyChanged;
 
-    public abstract class BaseViewModel : INotifyPropertyChanged
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
-        public event PropertyChangedEventHandler? PropertyChanged;
+        this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
-        protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
         {
-            this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            return false;
         }
-    
 
-        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-            field = value;
-            this.OnPropertyChanged(propertyName);
-            return true;
-        }
+        field = value;
+        this.OnPropertyChanged(propertyName);
+        return true;
     }
 }

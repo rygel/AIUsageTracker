@@ -2,235 +2,270 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.UI.Slim
+using System.IO;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+
+using AIUsageTracker.Core.Models;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace AIUsageTracker.UI.Slim;
+
+public partial class App
 {
-    using System.IO;
-    using System.Windows;
-    using System.Windows.Media;
-    using System.Windows.Media.Imaging;
-    using System.Windows.Threading;
-    using AIUsageTracker.Core.Models;
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Logging;
+    private const double ScreenshotScaleFactor = 2.0;
+    private const double ScreenshotDpi = 96.0 * ScreenshotScaleFactor;
 
-    public partial class App
+    public static void RenderWindowContent(Window window, string outputPath)
     {
-        private const double ScreenshotScaleFactor = 2.0;
-        private const double ScreenshotDpi = 96.0 * ScreenshotScaleFactor;
-
-        private async Task RunHeadlessScreenshotCaptureAsync(string[] args)
+        if (window.Content is not FrameworkElement root)
         {
-            var logger = CreateLogger<App>();
-            try
-            {
-                var selectedTheme = AppTheme.Dark;
-                var themeArg = GetArgumentValue(args, "--theme");
-                if (!string.IsNullOrWhiteSpace(themeArg) && !Enum.TryParse<AppTheme>(themeArg, ignoreCase: true, out selectedTheme))
-                {
-                    throw new ArgumentException($"Unknown theme '{themeArg}'.", nameof(args));
-                }
-
-                var isThemeSmokeMode = args.Contains("--theme-smoke", StringComparer.OrdinalIgnoreCase);
-
-                Preferences = new AppPreferences
-                {
-                    AlwaysOnTop = true,
-                    InvertProgressBar = true,
-                    InvertCalculations = false,
-                    ColorThresholdYellow = 60,
-                    ColorThresholdRed = 80,
-                    FontFamily = "Segoe UI",
-                    FontSize = 12,
-                    FontBold = false,
-                    FontItalic = false,
-                    IsPrivacyMode = true,
-                    Theme = selectedTheme
-                };
-
-                ApplyTheme(Preferences.Theme);
-                SetPrivacyMode(true);
-
-                var outputDirectoryArg = GetArgumentValue(args, "--output-dir");
-                var screenshotsDir = string.IsNullOrWhiteSpace(outputDirectoryArg)
-                    ? ResolveScreenshotsDirectory()
-                    : outputDirectoryArg;
-                Directory.CreateDirectory(screenshotsDir);
-
-                if (isThemeSmokeMode)
-                {
-                    var smokeFileName = $"theme_smoke_{selectedTheme.ToString().ToLowerInvariant()}.png";
-                    await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName));
-                    return;
-                }
-
-                await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
-                await this.CaptureSettingsScreenshotsAsync(screenshotsDir);
-                this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Headless screenshot capture failed");
-                Environment.ExitCode = 1;
-            }
-            finally
-            {
-                this.Shutdown();
-            }
+            throw new InvalidOperationException("Window content is not a FrameworkElement.");
         }
-    
 
-        private static string ResolveScreenshotsDirectory()
+        var (width, height) = MeasureWindowContent(window, root);
+        root.Measure(new Size(width, height));
+        root.Arrange(new Rect(0, 0, width, height));
+        root.UpdateLayout();
+        root.SetValue(TextOptions.TextFormattingModeProperty, TextFormattingMode.Display);
+        root.SetValue(TextOptions.TextHintingModeProperty, TextHintingMode.Fixed);
+        root.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.ClearType);
+        root.SetValue(RenderOptions.ClearTypeHintProperty, ClearTypeHint.Enabled);
+
+        var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * ScreenshotScaleFactor));
+        var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * ScreenshotScaleFactor));
+        var opaqueBitmap = ComposeOpaqueBitmap(window, root, width, height, pixelWidth, pixelHeight);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(opaqueBitmap));
+        using var stream = File.Create(outputPath);
+        encoder.Save(stream);
+    }
+
+    private static (double Width, double Height) MeasureWindowContent(Window window, FrameworkElement root)
+    {
+        var width = window.Width;
+        if (double.IsNaN(width) || width <= 0)
         {
-            var currentDocs = Path.Combine(Environment.CurrentDirectory, "docs");
-            if (Directory.Exists(currentDocs))
-            {
-                return currentDocs;
-            }
+            width = root.Width;
+        }
 
-            var directory = new DirectoryInfo(AppContext.BaseDirectory);
-            while (directory != null)
-            {
-                var candidate = Path.Combine(directory.FullName, "docs");
-                if (Directory.Exists(candidate))
-                {
-                    return candidate;
-                }
+        if (double.IsNaN(width) || width <= 0)
+        {
+            width = Math.Max(1, root.ActualWidth);
+        }
 
-                directory = directory.Parent;
-            }
+        if (width <= 0)
+        {
+            width = 380;
+        }
 
+        var height = window.Height;
+        if (double.IsNaN(height) || height <= 0)
+        {
+            root.Measure(new Size(width, double.PositiveInfinity));
+            height = Math.Max(1, root.DesiredSize.Height);
+        }
+
+        return (width, height);
+    }
+
+    private static BitmapSource ComposeOpaqueBitmap(
+        Window window,
+        FrameworkElement root,
+        double width,
+        double height,
+        int pixelWidth,
+        int pixelHeight)
+    {
+        var backgroundBrush = CreateBackgroundBrush(window);
+        var contentBitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
+        contentBitmap.Render(root);
+        contentBitmap.Freeze();
+
+        var composedVisual = new DrawingVisual();
+        using (var dc = composedVisual.RenderOpen())
+        {
+            dc.DrawRectangle(backgroundBrush, null, new Rect(0, 0, width, height));
+            dc.DrawImage(contentBitmap, new Rect(0, 0, width, height));
+        }
+
+        var bitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
+        bitmap.Render(composedVisual);
+        bitmap.Freeze();
+
+        var opaqueBitmap = new FormatConvertedBitmap(bitmap, PixelFormats.Bgr24, null, 0);
+        opaqueBitmap.Freeze();
+        return opaqueBitmap;
+    }
+
+    private static Brush CreateBackgroundBrush(Window window)
+    {
+        var backgroundBrush = window.Background is SolidColorBrush solidBackground
+            ? new SolidColorBrush(Color.FromRgb(solidBackground.Color.R, solidBackground.Color.G, solidBackground.Color.B))
+            : Brushes.Black;
+        backgroundBrush.Freeze();
+        return backgroundBrush;
+    }
+
+    private static string ResolveScreenshotsDirectory()
+    {
+        var currentDocs = Path.Combine(Environment.CurrentDirectory, "docs");
+        if (Directory.Exists(currentDocs))
+        {
             return currentDocs;
         }
-    
 
-        public static void RenderWindowContent(Window window, string outputPath)
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
         {
-            if (window.Content is not FrameworkElement root)
+            var candidate = Path.Combine(directory.FullName, "docs");
+            if (Directory.Exists(candidate))
             {
-                throw new InvalidOperationException("Window content is not a FrameworkElement.");
+                return candidate;
             }
 
-            var width = window.Width;
-            if (double.IsNaN(width) || width <= 0)
-            {
-                width = root.Width;
-            }
-            if (double.IsNaN(width) || width <= 0)
-            {
-                width = Math.Max(1, root.ActualWidth);
-            }
-            if (width <= 0)
-            {
-                width = 380;
-            }
-
-            var height = window.Height;
-            if (double.IsNaN(height) || height <= 0)
-            {
-                root.Measure(new Size(width, double.PositiveInfinity));
-                height = Math.Max(1, root.DesiredSize.Height);
-            }
-
-            root.Measure(new Size(width, height));
-            root.Arrange(new Rect(0, 0, width, height));
-            root.UpdateLayout();
-            root.SetValue(TextOptions.TextFormattingModeProperty, TextFormattingMode.Display);
-            root.SetValue(TextOptions.TextHintingModeProperty, TextHintingMode.Fixed);
-            root.SetValue(TextOptions.TextRenderingModeProperty, TextRenderingMode.ClearType);
-            root.SetValue(RenderOptions.ClearTypeHintProperty, ClearTypeHint.Enabled);
-
-            var pixelWidth = Math.Max(1, (int)Math.Ceiling(width * ScreenshotScaleFactor));
-            var pixelHeight = Math.Max(1, (int)Math.Ceiling(height * ScreenshotScaleFactor));
-            var backgroundBrush = window.Background is SolidColorBrush solidBackground
-                ? new SolidColorBrush(Color.FromRgb(solidBackground.Color.R, solidBackground.Color.G, solidBackground.Color.B))
-                : Brushes.Black;
-            backgroundBrush.Freeze();
-
-            var contentBitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
-            contentBitmap.Render(root);
-            contentBitmap.Freeze();
-
-            var composedVisual = new DrawingVisual();
-            using (var dc = composedVisual.RenderOpen())
-            {
-                dc.DrawRectangle(backgroundBrush, null, new Rect(0, 0, width, height));
-                dc.DrawImage(contentBitmap, new Rect(0, 0, width, height));
-            }
-
-            var bitmap = new RenderTargetBitmap(pixelWidth, pixelHeight, ScreenshotDpi, ScreenshotDpi, PixelFormats.Pbgra32);
-            bitmap.Render(composedVisual);
-            bitmap.Freeze();
-
-            var opaqueBitmap = new FormatConvertedBitmap(bitmap, PixelFormats.Bgr24, null, 0);
-            opaqueBitmap.Freeze();
-
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(opaqueBitmap));
-            using var stream = File.Create(outputPath);
-            encoder.Save(stream);
+            directory = directory.Parent;
         }
-    
 
-        private async Task CaptureMainWindowScreenshotAsync(string outputPath)
+        return currentDocs;
+    }
+
+    private static string? GetArgumentValue(IReadOnlyList<string> args, string argumentName)
+    {
+        for (var i = 0; i < args.Count - 1; i++)
         {
-            var window = Host.Services.GetRequiredService<MainWindow>();
-            try
+            if (string.Equals(args[i], argumentName, StringComparison.OrdinalIgnoreCase))
             {
-                await window.PrepareForHeadlessScreenshotAsync(deterministic: true);
-                await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-                RenderWindowContent(window, outputPath);
-            }
-            finally
-            {
-                window.Close();
+                return args[i + 1];
             }
         }
-    
 
-        private async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
+        return null;
+    }
+
+    private async Task RunHeadlessScreenshotCaptureAsync(string[] args)
+    {
+        var logger = CreateLogger<App>();
+        try
         {
-            var window = Host.Services.GetRequiredService<SettingsWindow>();
-            try
+            var selectedTheme = AppTheme.Dark;
+            var themeArg = GetArgumentValue(args, "--theme");
+            if (!string.IsNullOrWhiteSpace(themeArg) && !Enum.TryParse<AppTheme>(themeArg, ignoreCase: true, out selectedTheme))
             {
-                await window.CaptureHeadlessTabScreenshotsAsync(outputDirectory);
+                throw new ArgumentException($"Unknown theme '{themeArg}'.", nameof(args));
             }
-            finally
+
+            var isThemeSmokeMode = args.Contains("--theme-smoke", StringComparer.OrdinalIgnoreCase);
+            this.ConfigureHeadlessScreenshotPreferences(selectedTheme);
+            var screenshotsDir = this.ResolveOutputDirectory(args);
+            Directory.CreateDirectory(screenshotsDir);
+
+            if (isThemeSmokeMode)
             {
-                window.Close();
+                var smokeFileName = $"theme_smoke_{selectedTheme.ToString().ToLowerInvariant()}.png";
+                await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName));
+                return;
             }
+
+            await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
+            await this.CaptureSettingsScreenshotsAsync(screenshotsDir);
+            this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
         }
-    
-
-        private void CaptureInfoScreenshot(string outputPath)
+        catch (Exception ex)
         {
-            var window = this.InfoDialogFactory();
-            try
-            {
-                if (window is InfoDialog infoDialog)
-                {
-                    infoDialog.PrepareForHeadlessScreenshot();
-                }
-                window.UpdateLayout();
-                RenderWindowContent(window, outputPath);
-            }
-            finally
-            {
-                window.Close();
-            }
+            logger.LogError(ex, "Headless screenshot capture failed");
+            Environment.ExitCode = 1;
         }
-    
-
-        private static string? GetArgumentValue(IReadOnlyList<string> args, string argumentName)
+        finally
         {
-            for (var i = 0; i < args.Count - 1; i++)
+            this.Shutdown();
+        }
+    }
+
+    private string ResolveOutputDirectory(IReadOnlyList<string> args)
+    {
+        var outputDirectoryArg = GetArgumentValue(args, "--output-dir");
+        return string.IsNullOrWhiteSpace(outputDirectoryArg)
+            ? ResolveScreenshotsDirectory()
+            : outputDirectoryArg;
+    }
+
+    private void ConfigureHeadlessScreenshotPreferences(AppTheme selectedTheme)
+    {
+        Preferences = new AppPreferences
+        {
+            AlwaysOnTop = true,
+            InvertProgressBar = true,
+            InvertCalculations = false,
+            ColorThresholdYellow = 60,
+            ColorThresholdRed = 80,
+            FontFamily = "Segoe UI",
+            FontSize = 12,
+            FontBold = false,
+            FontItalic = false,
+            IsPrivacyMode = true,
+            Theme = selectedTheme,
+        };
+
+        ApplyTheme(Preferences.Theme);
+        SetPrivacyMode(true);
+    }
+
+    private async Task CaptureMainWindowScreenshotAsync(string outputPath)
+    {
+        var window = Host.Services.GetRequiredService<MainWindow>();
+        try
+        {
+            await window.PrepareForHeadlessScreenshotAsync(deterministic: true);
+            await this.WaitForDispatcherIdleAsync(window);
+            RenderWindowContent(window, outputPath);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
+    {
+        var window = Host.Services.GetRequiredService<SettingsWindow>();
+        try
+        {
+            await window.CaptureHeadlessTabScreenshotsAsync(outputDirectory);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private async Task WaitForDispatcherIdleAsync(Window window)
+    {
+#pragma warning disable VSTHRD001 // WPF screenshot capture needs the window dispatcher to reach idle before rendering.
+        await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+#pragma warning restore VSTHRD001
+    }
+
+    private void CaptureInfoScreenshot(string outputPath)
+    {
+        var window = this.InfoDialogFactory();
+        try
+        {
+            if (window is InfoDialog infoDialog)
             {
-                if (string.Equals(args[i], argumentName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return args[i + 1];
-                }
+                infoDialog.PrepareForHeadlessScreenshot();
             }
 
-            return null;
+            window.UpdateLayout();
+            RenderWindowContent(window, outputPath);
+        }
+        finally
+        {
+            window.Close();
         }
     }
 }

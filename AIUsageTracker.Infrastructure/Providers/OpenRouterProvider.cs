@@ -273,7 +273,7 @@ public class OpenRouterProvider : ProviderBase
             NextResetTime = spendingLimitResetTime,
             Details = details,
             RawJson = creditsResponseBody,
-            HttpStatus = httpStatus
+            HttpStatus = httpStatus,
         },
         };
     }

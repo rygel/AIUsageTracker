@@ -2,31 +2,30 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Web.Pages
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Web.Services;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace AIUsageTracker.Web.Pages;
+
+public class ProvidersModel : PageModel
 {
-    using AIUsageTracker.Web.Services;
-    using AIUsageTracker.Core.Models;
-    using Microsoft.AspNetCore.Mvc.RazorPages;
+    private readonly WebDatabaseService _dbService;
 
-    public class ProvidersModel : PageModel
+    public ProvidersModel(WebDatabaseService dbService)
     {
-        private readonly WebDatabaseService _dbService;
+        this._dbService = dbService;
+    }
 
-        public ProvidersModel(WebDatabaseService dbService)
+    public IReadOnlyList<ProviderInfo>? Providers { get; set; }
+
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
+
+    public async Task OnGetAsync()
+    {
+        if (this.IsDatabaseAvailable)
         {
-            this._dbService = dbService;
-        }
-
-        public IReadOnlyList<ProviderInfo>? Providers { get; set; }
-
-        public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
-
-        public async Task OnGetAsync()
-        {
-            if (this.IsDatabaseAvailable)
-            {
-                this.Providers = await this._dbService.GetProvidersAsync().ConfigureAwait(false);
-            }
+            this.Providers = await this._dbService.GetProvidersAsync().ConfigureAwait(false);
         }
     }
 }

@@ -2,104 +2,103 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Core
+using System.Net;
+using System.Reflection;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+using Moq.Protected;
+using Xunit;
+
+namespace AIUsageTracker.Tests.Core;
+
+public class MonitorClientTests
 {
-    using AIUsageTracker.Core.MonitorClient;
-    using AIUsageTracker.Core.Models;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Moq;
-    using Moq.Protected;
-    using System.Net;
-    using System.Reflection;
-    using Xunit;
-
-    public class MonitorClientTests
+    [Fact]
+    public async Task MonitorService_GetConfigsAsync_ReturnsEmptyList_WhenMonitorNotAvailableAsync()
     {
-        [Fact]
-        public async Task MonitorService_GetConfigsAsync_ReturnsEmptyList_WhenMonitorNotAvailable()
+        // Arrange
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("Connection refused"));
+
+        var httpClient = new HttpClient(mockHandler.Object)
         {
-            // Arrange
-            var mockHandler = new Mock<HttpMessageHandler>();
-            mockHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ThrowsAsync(new HttpRequestException("Connection refused"));
+            BaseAddress = new Uri("http://localhost:9999"),
+        };
 
-            var httpClient = new HttpClient(mockHandler.Object)
-            {
-                BaseAddress = new Uri("http://localhost:9999")
-            };
+        var service = new MonitorService(httpClient, NullLogger<MonitorService>.Instance);
+        service.AgentUrl = "http://localhost:9999";
 
-            var service = new MonitorService(httpClient, NullLogger<MonitorService>.Instance);
-            service.AgentUrl = "http://localhost:9999";
+        // Act
+        var configs = await service.GetConfigsAsync();
 
-            // Act
-            var configs = await service.GetConfigsAsync();
+        // Assert
+        Assert.NotNull(configs);
+        Assert.Empty(configs);
+    }
 
-            // Assert
-            Assert.NotNull(configs);
-            Assert.Empty(configs);
-        }
+    [Fact]
+    public async Task MonitorService_GetUsageAsync_ReturnsEmptyList_WhenMonitorNotAvailableAsync()
+    {
+        // Arrange
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("Connection refused"));
 
-        [Fact]
-        public async Task MonitorService_GetUsageAsync_ReturnsEmptyList_WhenMonitorNotAvailable()
+        var httpClient = new HttpClient(mockHandler.Object)
         {
-            // Arrange
-            var mockHandler = new Mock<HttpMessageHandler>();
-            mockHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ThrowsAsync(new HttpRequestException("Connection refused"));
+            BaseAddress = new Uri("http://localhost:9999"),
+        };
 
-            var httpClient = new HttpClient(mockHandler.Object)
-            {
-                BaseAddress = new Uri("http://localhost:9999")
-            };
+        var service = new MonitorService(httpClient, NullLogger<MonitorService>.Instance);
+        service.AgentUrl = "http://localhost:9999";
 
-            var service = new MonitorService(httpClient, NullLogger<MonitorService>.Instance);
-            service.AgentUrl = "http://localhost:9999";
+        // Act
+        var usages = await service.GetUsageAsync();
 
-            // Act
-            var usages = await service.GetUsageAsync();
+        // Assert
+        Assert.NotNull(usages);
+        Assert.Empty(usages);
+    }
 
-            // Assert
-            Assert.NotNull(usages);
-            Assert.Empty(usages);
-        }
+    [Fact]
+    public void MonitorLauncher_HasRequiredMethods()
+    {
+        var type = typeof(MonitorLauncher);
 
-        [Fact]
-        public void MonitorLauncher_HasRequiredMethods()
-        {
-            var type = typeof(MonitorLauncher);
+        Assert.NotNull(type.GetMethod("StartAgentAsync", BindingFlags.Public | BindingFlags.Static));
+        Assert.NotNull(type.GetMethod("StopAgentAsync", BindingFlags.Public | BindingFlags.Static));
+        Assert.NotNull(type.GetMethod("IsAgentRunningAsync", BindingFlags.Public | BindingFlags.Static));
+        Assert.NotNull(type.GetMethod("WaitForAgentAsync", BindingFlags.Public | BindingFlags.Static));
+    }
 
-            Assert.NotNull(type.GetMethod("StartAgentAsync", BindingFlags.Public | BindingFlags.Static));
-            Assert.NotNull(type.GetMethod("StopAgentAsync", BindingFlags.Public | BindingFlags.Static));
-            Assert.NotNull(type.GetMethod("IsAgentRunningAsync", BindingFlags.Public | BindingFlags.Static));
-            Assert.NotNull(type.GetMethod("WaitForAgentAsync", BindingFlags.Public | BindingFlags.Static));
-        }
+    [Fact]
+    public async Task MonitorLauncher_GetAndValidateMonitorInfo_ReturnsNull_WhenHealthFailsAsync()
+    {
+        using var _ = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: Array.Empty<string>(),
+            healthCheckAsync: _ => Task.FromResult(false),
+            processRunningAsync: _ => Task.FromResult(false));
 
-        [Fact]
-        public async Task MonitorLauncher_GetAndValidateMonitorInfo_ReturnsNull_WhenHealthFails()
-        {
-            using var _ = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: Array.Empty<string>(),
-                healthCheckAsync: _ => Task.FromResult(false),
-                processRunningAsync: _ => Task.FromResult(false));
+        var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
 
-            var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+        Assert.Null(result);
+    }
 
-            Assert.Null(result);
-        }
-
-        [Fact]
-        public async Task MonitorLauncher_InvalidateMonitorInfo_DoesNotThrow_WhenFileMissing()
-        {
-            // Act & Assert
-            await MonitorLauncher.InvalidateMonitorInfoAsync();
-        }
+    [Fact]
+    public async Task MonitorLauncher_InvalidateMonitorInfo_DoesNotThrow_WhenFileMissingAsync()
+    {
+        // Act & Assert
+        await MonitorLauncher.InvalidateMonitorInfoAsync();
     }
 }

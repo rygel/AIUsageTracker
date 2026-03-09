@@ -2,73 +2,63 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.UI.Slim
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
+
+namespace AIUsageTracker.UI.Slim;
+
+internal static class ProviderSettingsDisplayCatalog
 {
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Infrastructure.Providers;
-
-    internal sealed record ProviderSettingsDisplayItem(ProviderConfig Config, bool IsDerived);
-    
-
-    internal static class ProviderSettingsDisplayCatalog
+    public static IReadOnlyList<ProviderSettingsDisplayItem> CreateDisplayItems(
+        IReadOnlyCollection<ProviderConfig> configs,
+        IReadOnlyCollection<ProviderUsage> usages)
     {
-        public static IReadOnlyList<ProviderSettingsDisplayItem> CreateDisplayItems(
-            IReadOnlyCollection<ProviderConfig> configs,
-            IReadOnlyCollection<ProviderUsage> usages)
+        var displayItems = configs
+            .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false))
+            .ToList();
+        var configuredProviderIds = configs
+            .Select(config => config.ProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var defaultItems = ProviderMetadataCatalog.Definitions
+            .Select(definition => definition.ProviderId)
+            .Where(providerId => !configuredProviderIds.Contains(providerId))
+            .Select(CreateDefaultDisplayConfig)
+            .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
+        var derivedItems = usages
+            .Where(usage =>
+                ProviderSettingsCatalog.IsDerivedProviderVisible(usage.ProviderId) &&
+                !configuredProviderIds.Contains(usage.ProviderId))
+            .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
+
+        displayItems.AddRange(defaultItems);
+        displayItems.AddRange(derivedItems);
+
+        return displayItems
+            .OrderBy(item => ProviderMetadataCatalog.GetDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static ProviderConfig CreateDefaultDisplayConfig(string providerId)
+    {
+        if (ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config))
         {
-            var displayItems = configs
-                .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false))
-                .ToList();
-
-            var configuredProviderIds = configs
-                .Select(config => config.ProviderId)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-            var defaultItems = ProviderMetadataCatalog.Definitions
-                .Select(definition => definition.ProviderId)
-                .Where(providerId => !configuredProviderIds.Contains(providerId))
-                .Select(CreateDefaultDisplayConfig)
-                .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
-
-            displayItems.AddRange(defaultItems);
-
-            var derivedItems = usages
-                .Where(usage =>
-                    ProviderSettingsCatalog.IsDerivedProviderVisible(usage.ProviderId) &&
-                    !configuredProviderIds.Contains(usage.ProviderId))
-                .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
-
-            displayItems.AddRange(derivedItems);
-
-            return displayItems
-                .OrderBy(item => ProviderMetadataCatalog.GetDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
-                .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            return config;
         }
-    
 
-        private static ProviderConfig CreateDefaultDisplayConfig(string providerId)
+        return new ProviderConfig
         {
-            if (ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config))
-            {
-                return config;
-            }
+            ProviderId = providerId,
+        };
+    }
 
-            return new ProviderConfig
-            {
-                ProviderId = providerId
-            };
-        }
-    
-
-        private static ProviderConfig CreateDerivedConfig(ProviderUsage usage)
+    private static ProviderConfig CreateDerivedConfig(ProviderUsage usage)
+    {
+        return new ProviderConfig
         {
-            return new ProviderConfig
-            {
-                ProviderId = usage.ProviderId,
-                Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
-                PlanType = usage.PlanType
-            };
-        }
+            ProviderId = usage.ProviderId,
+            Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
+            PlanType = usage.PlanType,
+        };
     }
 }

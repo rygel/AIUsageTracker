@@ -2,28 +2,27 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.UI.Slim
+namespace AIUsageTracker.UI.Slim;
+
+internal static class ProviderApiKeyPresentationCatalog
 {
-    internal static class ProviderApiKeyPresentationCatalog
+    public static string GetDisplayApiKey(string? apiKey, bool isPrivacyMode)
     {
-        public static string GetDisplayApiKey(string? apiKey, bool isPrivacyMode)
+        if (string.IsNullOrEmpty(apiKey))
         {
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                return apiKey ?? string.Empty;
-            }
-
-            if (!isPrivacyMode)
-            {
-                return apiKey;
-            }
-
-            if (apiKey.Length > 8)
-            {
-                return apiKey[..4] + "****" + apiKey[^4..];
-            }
-
-            return "****";
+            return apiKey ?? string.Empty;
         }
+
+        if (!isPrivacyMode)
+        {
+            return apiKey;
+        }
+
+        if (apiKey.Length > 8)
+        {
+            return apiKey[..4] + "****" + apiKey[^4..];
+        }
+
+        return "****";
     }
 }

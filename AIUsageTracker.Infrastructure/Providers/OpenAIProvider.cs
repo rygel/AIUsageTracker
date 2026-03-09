@@ -102,7 +102,7 @@ public class OpenAIProvider : ProviderBase
                     IsAvailable = false,
                     Description = "OpenAI API key or OpenCode session not found.",
                     IsQuotaBased = true,
-                    PlanType = PlanType.Coding
+                    PlanType = PlanType.Coding,
                 },
             };
         }
@@ -131,7 +131,7 @@ public class OpenAIProvider : ProviderBase
                     IsAvailable = false,
                     Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
                     IsQuotaBased = true,
-                    PlanType = PlanType.Coding
+                    PlanType = PlanType.Coding,
                 },
             };
         }
@@ -155,7 +155,7 @@ public class OpenAIProvider : ProviderBase
                         IsQuotaBased = true,
                         PlanType = PlanType.Coding,
                         Description = "Connected (API Key)",
-                        UsageUnit = "Status"
+                        UsageUnit = "Status",
                     },
                 };
             }
@@ -169,7 +169,7 @@ public class OpenAIProvider : ProviderBase
                     IsAvailable = false,
                     Description = $"Invalid Key ({response.StatusCode})",
                     IsQuotaBased = true,
-                    PlanType = PlanType.Coding
+                    PlanType = PlanType.Coding,
                 },
             };
         }
@@ -185,7 +185,7 @@ public class OpenAIProvider : ProviderBase
                     IsAvailable = false,
                     Description = "Connection Failed",
                     IsQuotaBased = true,
-                    PlanType = PlanType.Coding
+                    PlanType = PlanType.Coding,
                 },
             };
         }

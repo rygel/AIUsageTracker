@@ -2,162 +2,159 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.UI
+using System.Reflection;
+using System.Threading;
+using System.Windows;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim;
+
+namespace AIUsageTracker.Tests.UI;
+
+public class DialogOpenBehaviorTests
 {
-    using System.Reflection;
-    using System.Threading;
-    using System.Windows;
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.UI.Slim;
+    private static readonly TimeSpan StaTestTimeout = TimeSpan.FromSeconds(15);
 
-    public class DialogOpenBehaviorTests
+    [Fact]
+    public Task OpenSettingsDialogAsync_ShowsOwnedDialog_WithoutTopmostToggleAsync()
     {
-        private static readonly TimeSpan StaTestTimeout = TimeSpan.FromSeconds(15);
-
-        [Fact]
-        public Task OpenSettingsDialogAsync_ShowsOwnedDialog_WithoutTopmostToggle()
+        return RunInStaAsync(async () =>
         {
-            return RunInStaAsync(async () =>
+            EnsureAppCreated();
+
+            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var dialogWindow = new Window();
+            var shown = 0;
+
+            mainWindow.Show();
+
+            SetPrivateField(mainWindow, "_preferences", new AppPreferences { AlwaysOnTop = true });
+            mainWindow.Topmost = true;
+            mainWindow.SettingsDialogFactory = () => (dialogWindow, () => false);
+            mainWindow.ShowOwnedDialog = dialog =>
             {
-                EnsureAppCreated();
-
-                var mainWindow = new MainWindow(skipUiInitialization: true);
-                var dialogWindow = new Window();
-                var shown = 0;
-
-                mainWindow.Show();
-
-                SetPrivateField(mainWindow, "_preferences", new AppPreferences { AlwaysOnTop = true });
-                mainWindow.Topmost = true;
-                mainWindow.SettingsDialogFactory = () => (dialogWindow, () => false);
-                mainWindow.ShowOwnedDialog = dialog =>
-                {
-                    shown++;
-                    Assert.True(mainWindow.Topmost);
-                    return true;
-                };
-
-                await mainWindow.OpenSettingsDialogAsync();
-
-                Assert.Equal(1, shown);
+                shown++;
                 Assert.True(mainWindow.Topmost);
+                return true;
+            };
 
-                dialogWindow.Close();
-                mainWindow.Close();
+            await mainWindow.OpenSettingsDialogAsync().ConfigureAwait(false);
+
+            Assert.Equal(1, shown);
+            Assert.True(mainWindow.Topmost);
+
+            dialogWindow.Close();
+            mainWindow.Close();
+        });
+    }
+
+    [Fact]
+    public Task OpenInfoDialog_UsesConfiguredDialogHost_WhenMainWindowNotVisibleAsync()
+    {
+        return RunInStaAsync(() =>
+        {
+            var app = EnsureAppCreated();
+            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var infoDialog = new Window();
+            var shown = 0;
+
+            app.SetMainWindowForTesting(mainWindow);
+            app.IsMainWindowVisible = () => false;
+            app.InfoDialogFactory = () => infoDialog;
+            app.ShowInfoDialogAction = _ => shown++;
+
+            app.OpenInfoDialog();
+
+            Assert.Equal(1, shown);
+            Assert.Null(infoDialog.Owner);
+
+            infoDialog.Close();
+            mainWindow.Close();
+
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public Task CloseSettingsDialog_DoesNotMoveWindowPositionAsync()
+    {
+        return RunInStaAsync(async () =>
+        {
+            EnsureAppCreated();
+
+            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var dialogWindow = new Window();
+
+            mainWindow.Show();
+
+            // Set initial position and preferences
+            var initialLeft = 500.0;
+            var initialTop = 300.0;
+            mainWindow.Left = initialLeft;
+            mainWindow.Top = initialTop;
+
+            SetPrivateField(mainWindow, "_preferences", new AppPreferences
+            {
+                AlwaysOnTop = true,
+                WindowLeft = 100.0,  // Different from current position
+                WindowTop = 200.0,
             });
+            SetPrivateField(mainWindow, "_preferencesLoaded", true);
+
+            mainWindow.SettingsDialogFactory = () => (dialogWindow, () => false);
+            mainWindow.ShowOwnedDialog = _ => true;
+
+            // Open and close settings dialog
+            await mainWindow.OpenSettingsDialogAsync().ConfigureAwait(false);
+
+            // Verify window position hasn't changed
+            Assert.Equal(initialLeft, mainWindow.Left);
+            Assert.Equal(initialTop, mainWindow.Top);
+
+            dialogWindow.Close();
+            mainWindow.Close();
+        });
+    }
+
+    private static App EnsureAppCreated()
+    {
+        if (Application.Current is App app)
+        {
+            return app;
         }
 
-        [Fact]
-        public Task OpenInfoDialog_UsesConfiguredDialogHost_WhenMainWindowNotVisible()
+        var newApp = new App();
+
+        // Use reflection to initialize Host if needed, or rely on App.xaml.cs default init
+        return newApp;
+    }
+
+    private static void SetPrivateField(object target, string fieldName, object value)
+    {
+        var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        field.SetValue(target, value);
+    }
+
+    private static Task RunInStaAsync(Func<Task> testBody)
+    {
+        var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var thread = new Thread(() =>
         {
-            return RunInStaAsync(() =>
+            try
             {
-                var app = EnsureAppCreated();
-                var mainWindow = new MainWindow(skipUiInitialization: true);
-                var infoDialog = new Window();
-                var shown = 0;
-
-                app.SetMainWindowForTesting(mainWindow);
-                app.IsMainWindowVisible = () => false;
-                app.InfoDialogFactory = () => infoDialog;
-                app.ShowInfoDialogAction = _ => shown++;
-
-                app.OpenInfoDialog();
-
-                Assert.Equal(1, shown);
-                Assert.Null(infoDialog.Owner);
-
-                infoDialog.Close();
-                mainWindow.Close();
-
-                return Task.CompletedTask;
-            });
-        }
-
-        [Fact]
-        public Task CloseSettingsDialog_DoesNotMoveWindowPosition()
-        {
-            return RunInStaAsync(async () =>
-            {
-                EnsureAppCreated();
-
-                var mainWindow = new MainWindow(skipUiInitialization: true);
-                var dialogWindow = new Window();
-
-                mainWindow.Show();
-
-                // Set initial position and preferences
-                var initialLeft = 500.0;
-                var initialTop = 300.0;
-                mainWindow.Left = initialLeft;
-                mainWindow.Top = initialTop;
-
-                SetPrivateField(mainWindow, "_preferences", new AppPreferences
-                {
-                    AlwaysOnTop = true,
-                    WindowLeft = 100.0,  // Different from current position
-                    WindowTop = 200.0
-                });
-                SetPrivateField(mainWindow, "_preferencesLoaded", true);
-
-                mainWindow.SettingsDialogFactory = () => (dialogWindow, () => false);
-                mainWindow.ShowOwnedDialog = _ => true;
-
-                // Open and close settings dialog
-                await mainWindow.OpenSettingsDialogAsync();
-
-                // Verify window position hasn't changed
-                Assert.Equal(initialLeft, mainWindow.Left);
-                Assert.Equal(initialTop, mainWindow.Top);
-
-                dialogWindow.Close();
-                mainWindow.Close();
-            });
-        }
-    
-
-        private static App EnsureAppCreated()
-        {
-            if (Application.Current is App app)
-            {
-                return app;
+                testBody().WaitAsync(StaTestTimeout).GetAwaiter().GetResult();
+                tcs.SetResult(null);
             }
-
-            var newApp = new App();
-            // Use reflection to initialize Host if needed, or rely on App.xaml.cs default init
-            return newApp;
-        }
-    
-
-        private static void SetPrivateField(object target, string fieldName, object value)
-        {
-            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.NotNull(field);
-            field.SetValue(target, value);
-        }
-    
-
-        private static Task RunInStaAsync(Func<Task> testBody)
-        {
-            var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            var thread = new Thread(() =>
+            catch (Exception ex)
             {
-                try
-                {
-                    testBody().WaitAsync(StaTestTimeout).GetAwaiter().GetResult();
-                    tcs.SetResult(null);
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            });
+                tcs.SetException(ex);
+            }
+        });
 
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
 
-            return tcs.Task;
-        }
+        return tcs.Task;
     }
 }

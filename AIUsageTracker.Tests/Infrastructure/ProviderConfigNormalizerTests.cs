@@ -2,95 +2,94 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Infrastructure
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
+
+namespace AIUsageTracker.Tests.Infrastructure;
+
+public class ProviderMetadataCatalogCanonicalizationTests
 {
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Infrastructure.Providers;
-
-    public class ProviderMetadataCatalogCanonicalizationTests
+    [Fact]
+    public void NormalizeCanonicalConfigurations_MigratesOpenAiSessionTokenToCodex()
     {
-        [Fact]
-        public void NormalizeCanonicalConfigurations_MigratesOpenAiSessionTokenToCodex()
+        var configs = new List<ProviderConfig>
         {
-            var configs = new List<ProviderConfig>
+            new()
             {
-                new()
-                {
-                    ProviderId = "openai",
-                    ApiKey = "session-token",
-                    AuthSource = "OpenCode",
-                    Description = "session"
-                }
-            };
+                ProviderId = "openai",
+                ApiKey = "session-token",
+                AuthSource = "OpenCode",
+                Description = "session"
+            },
+        };
 
-            ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 
-            var codex = Assert.Single(configs);
-            Assert.Equal("codex", codex.ProviderId);
-            Assert.Equal("session-token", codex.ApiKey);
-            Assert.Equal(PlanType.Coding, codex.PlanType);
-            Assert.Equal("quota-based", codex.Type);
-            Assert.Equal("OpenCode", codex.AuthSource);
-            Assert.Equal("Migrated from OpenAI session config", codex.Description);
-        }
+        var codex = Assert.Single(configs);
+        Assert.Equal("codex", codex.ProviderId);
+        Assert.Equal("session-token", codex.ApiKey);
+        Assert.Equal(PlanType.Coding, codex.PlanType);
+        Assert.Equal("quota-based", codex.Type);
+        Assert.Equal("OpenCode", codex.AuthSource);
+        Assert.Equal("Migrated from OpenAI session config", codex.Description);
+    }
 
-        [Fact]
-        public void NormalizeCanonicalConfigurations_MergesCodexSparkIntoCodex()
+    [Fact]
+    public void NormalizeCanonicalConfigurations_MergesCodexSparkIntoCodex()
+    {
+        var configs = new List<ProviderConfig>
         {
-            var configs = new List<ProviderConfig>
+            new()
             {
-                new()
-                {
-                    ProviderId = "codex.spark",
-                    ApiKey = "spark-token",
-                    AuthSource = "Spark",
-                    Description = "spark",
-                    BaseUrl = "https://example.invalid",
-                    ShowInTray = true,
-                    EnableNotifications = true
-                }
-            };
+                ProviderId = "codex.spark",
+                ApiKey = "spark-token",
+                AuthSource = "Spark",
+                Description = "spark",
+                BaseUrl = "https://example.invalid",
+                ShowInTray = true,
+                EnableNotifications = true
+            },
+        };
 
-            ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 
-            var codex = Assert.Single(configs);
-            Assert.Equal("codex", codex.ProviderId);
-            Assert.Equal("spark-token", codex.ApiKey);
-            Assert.Equal("Spark", codex.AuthSource);
-            Assert.Equal("spark", codex.Description);
-            Assert.Equal("https://example.invalid", codex.BaseUrl);
-            Assert.True(codex.ShowInTray);
-            Assert.True(codex.EnableNotifications);
-            Assert.Equal(PlanType.Coding, codex.PlanType);
-            Assert.Equal("quota-based", codex.Type);
-        }
+        var codex = Assert.Single(configs);
+        Assert.Equal("codex", codex.ProviderId);
+        Assert.Equal("spark-token", codex.ApiKey);
+        Assert.Equal("Spark", codex.AuthSource);
+        Assert.Equal("spark", codex.Description);
+        Assert.Equal("https://example.invalid", codex.BaseUrl);
+        Assert.True(codex.ShowInTray);
+        Assert.True(codex.EnableNotifications);
+        Assert.Equal(PlanType.Coding, codex.PlanType);
+        Assert.Equal("quota-based", codex.Type);
+    }
 
-        [Fact]
-        public void ShouldSuppressOpenAiSession_ReturnsTrue_WhenCodexHasKeyAndOpenAiIsSessionOnly()
+    [Fact]
+    public void ShouldSuppressOpenAiSession_ReturnsTrue_WhenCodexHasKeyAndOpenAiIsSessionOnly()
+    {
+        var configs = new List<ProviderConfig>
         {
-            var configs = new List<ProviderConfig>
-            {
-                new() { ProviderId = "codex", ApiKey = "codex-session" },
-                new() { ProviderId = "openai", ApiKey = "legacy-session-token" }
-            };
+            new() { ProviderId = "codex", ApiKey = "codex-session" },
+            new() { ProviderId = "openai", ApiKey = "legacy-session-token" },
+        };
 
-            var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
+        var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
 
-            Assert.True(result);
-        }
+        Assert.True(result);
+    }
 
-        [Fact]
-        public void ShouldSuppressOpenAiSession_ReturnsFalse_WhenOpenAiHasExplicitApiKey()
+    [Fact]
+    public void ShouldSuppressOpenAiSession_ReturnsFalse_WhenOpenAiHasExplicitApiKey()
+    {
+        var configs = new List<ProviderConfig>
         {
-            var configs = new List<ProviderConfig>
-            {
-                new() { ProviderId = "codex", ApiKey = "codex-session" },
-                new() { ProviderId = "openai", ApiKey = "sk-openai-live" }
-            };
+            new() { ProviderId = "codex", ApiKey = "codex-session" },
+            new() { ProviderId = "openai", ApiKey = "sk-openai-live" },
+        };
 
-            var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
+        var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
 
-            Assert.False(result);
-        }
+        Assert.False(result);
     }
 }

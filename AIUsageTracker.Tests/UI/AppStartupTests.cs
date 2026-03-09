@@ -2,157 +2,156 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.UI
+using System.Text.Json;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+using Xunit;
+
+namespace AIUsageTracker.Tests.UI;
+
+public class AppStartupTests : IDisposable
 {
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.UI.Slim;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Moq;
-    using System.Text.Json;
-    using Xunit;
+    private readonly string _testPreferencesDirectory;
+    private readonly string _testPreferencesPath;
+    private readonly UiPreferencesStore _store;
+    private readonly Mock<IAppPathProvider> _mockPathProvider;
 
-    public class AppStartupTests : IDisposable
+    public AppStartupTests()
     {
-        private readonly string _testPreferencesDirectory;
-        private readonly string _testPreferencesPath;
-        private readonly UiPreferencesStore _store;
-        private readonly Mock<IAppPathProvider> _mockPathProvider;
+        this._testPreferencesDirectory = Path.Combine(Path.GetTempPath(), $"AIUsageTracker_Test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(this._testPreferencesDirectory);
+        this._testPreferencesPath = Path.Combine(this._testPreferencesDirectory, "preferences.json");
 
-        public AppStartupTests()
+        this._mockPathProvider = new Mock<IAppPathProvider>();
+        this._mockPathProvider.Setup(p => p.GetPreferencesFilePath()).Returns(this._testPreferencesPath);
+        this._mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(Path.Combine(this._testPreferencesDirectory, "auth.json"));
+        this._mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this._testPreferencesDirectory);
+
+        this._store = new UiPreferencesStore(NullLogger<UiPreferencesStore>.Instance, this._mockPathProvider.Object);
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(this._testPreferencesDirectory))
         {
-            this._testPreferencesDirectory = Path.Combine(Path.GetTempPath(), $"AIUsageTracker_Test_{Guid.NewGuid():N}");
-            Directory.CreateDirectory(this._testPreferencesDirectory);
-            this._testPreferencesPath = Path.Combine(this._testPreferencesDirectory, "preferences.json");
-
-            this._mockPathProvider = new Mock<IAppPathProvider>();
-            this._mockPathProvider.Setup(p => p.GetPreferencesFilePath()).Returns(this._testPreferencesPath);
-            this._mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(Path.Combine(this._testPreferencesDirectory, "auth.json"));
-            this._mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this._testPreferencesDirectory);
-
-            this._store = new UiPreferencesStore(NullLogger<UiPreferencesStore>.Instance, this._mockPathProvider.Object);
+            Directory.Delete(this._testPreferencesDirectory, true);
         }
-    
+    }
 
-        public void Dispose()
+    [Fact]
+    public async Task LoadPreferencesAsync_DoesNotBlockThreadAsync()
+    {
+        var startTime = DateTime.UtcNow;
+        var loadTask = this._store.LoadAsync();
+
+        var completed = await Task.WhenAny(loadTask, Task.Delay(TimeSpan.FromSeconds(5)));
+        var endTime = DateTime.UtcNow;
+
+        Assert.Same(loadTask, completed);
+        Assert.True(
+            endTime - startTime < TimeSpan.FromSeconds(5),
+            "Loading preferences took too long - possible blocking call");
+    }
+
+    [Fact]
+    public async Task LoadPreferencesAsync_WhenFileDoesNotExist_ReturnsDefaultsAsync()
+    {
+        var preferences = await this._store.LoadAsync();
+
+        Assert.NotNull(preferences);
+        Assert.True(
+            Enum.IsDefined(typeof(AppTheme), preferences.Theme),
+            $"Theme value {preferences.Theme} should be a valid enum value");
+    }
+
+    [Fact]
+    public async Task LoadPreferencesAsync_WithLightTheme_PreservesLightThemeAsync()
+    {
+        var preferences = new AppPreferences
         {
-            if (Directory.Exists(this._testPreferencesDirectory))
-            {
-                Directory.Delete(this._testPreferencesDirectory, true);
-            }
+            Theme = AppTheme.Light,
+            WindowWidth = 420,
+            WindowHeight = 600,
+        };
+
+        var json = JsonSerializer.Serialize(preferences);
+        await File.WriteAllTextAsync(this._testPreferencesPath, json);
+
+        var loaded = await this._store.LoadAsync();
+        Assert.Equal(AppTheme.Light, loaded.Theme);
+    }
+
+    [Fact]
+    public async Task SavePreferencesAsync_ThenLoadAsync_RoundTripsCorrectlyAsync()
+    {
+        var original = new AppPreferences
+        {
+            Theme = AppTheme.Dracula,
+            WindowLeft = 100,
+            WindowTop = 200,
+            WindowWidth = 500,
+            WindowHeight = 700,
+            AlwaysOnTop = false,
+            IsPrivacyMode = true,
+        };
+
+        var saved = await this._store.SaveAsync(original);
+        var loaded = await this._store.LoadAsync();
+
+        Assert.True(saved);
+        Assert.Equal(original.Theme, loaded.Theme);
+        Assert.Equal(original.WindowLeft, loaded.WindowLeft);
+        Assert.Equal(original.WindowTop, loaded.WindowTop);
+        Assert.Equal(original.WindowWidth, loaded.WindowWidth);
+        Assert.Equal(original.WindowHeight, loaded.WindowHeight);
+        Assert.Equal(original.AlwaysOnTop, loaded.AlwaysOnTop);
+        Assert.Equal(original.IsPrivacyMode, loaded.IsPrivacyMode);
+    }
+
+    [Fact]
+    public void ApplyTheme_WithNullResources_DoesNotThrow()
+    {
+        var theme = AppTheme.Dark;
+
+        try
+        {
+            App.ApplyTheme(theme);
         }
-
-        [Fact]
-        public async Task LoadPreferencesAsync_DoesNotBlockThread()
+        catch (NullReferenceException)
         {
-            var startTime = DateTime.UtcNow;
-            var loadTask = this._store.LoadAsync();
-
-            var completed = await Task.WhenAny(loadTask, Task.Delay(TimeSpan.FromSeconds(5)));
-            var endTime = DateTime.UtcNow;
-
-            Assert.Same(loadTask, completed);
-            Assert.True(endTime - startTime < TimeSpan.FromSeconds(5),
-                "Loading preferences took too long - possible blocking call");
+            // Expected in test context since Application.Current is null
         }
+    }
 
-        [Fact]
-        public async Task LoadPreferencesAsync_WhenFileDoesNotExist_ReturnsDefaults()
+    [Fact]
+    public async Task PreferencesStore_SaveLoad_NoDeadlockAsync()
+    {
+        var preferences = new AppPreferences { Theme = AppTheme.Nord };
+
+        for (int i = 0; i < 10; i++)
         {
-            var preferences = await this._store.LoadAsync();
-
-            Assert.NotNull(preferences);
-            Assert.True(Enum.IsDefined(typeof(AppTheme), preferences.Theme),
-                $"Theme value {preferences.Theme} should be a valid enum value");
-        }
-
-        [Fact]
-        public async Task LoadPreferencesAsync_WithLightTheme_PreservesLightTheme()
-        {
-            var preferences = new AppPreferences
-            {
-                Theme = AppTheme.Light,
-                WindowWidth = 420,
-                WindowHeight = 600
-            };
-
-            var json = JsonSerializer.Serialize(preferences);
-            await File.WriteAllTextAsync(this._testPreferencesPath, json);
-
-            var loaded = await this._store.LoadAsync();
-            Assert.Equal(AppTheme.Light, loaded.Theme);
-        }
-
-        [Fact]
-        public async Task SavePreferencesAsync_ThenLoadAsync_RoundTripsCorrectly()
-        {
-            var original = new AppPreferences
-            {
-                Theme = AppTheme.Dracula,
-                WindowLeft = 100,
-                WindowTop = 200,
-                WindowWidth = 500,
-                WindowHeight = 700,
-                AlwaysOnTop = false,
-                IsPrivacyMode = true
-            };
-
-            var saved = await this._store.SaveAsync(original);
-            var loaded = await this._store.LoadAsync();
-
-            Assert.True(saved);
-            Assert.Equal(original.Theme, loaded.Theme);
-            Assert.Equal(original.WindowLeft, loaded.WindowLeft);
-            Assert.Equal(original.WindowTop, loaded.WindowTop);
-            Assert.Equal(original.WindowWidth, loaded.WindowWidth);
-            Assert.Equal(original.WindowHeight, loaded.WindowHeight);
-            Assert.Equal(original.AlwaysOnTop, loaded.AlwaysOnTop);
-            Assert.Equal(original.IsPrivacyMode, loaded.IsPrivacyMode);
-        }
-
-        [Fact]
-        public void ApplyTheme_WithNullResources_DoesNotThrow()
-        {
-            var theme = AppTheme.Dark;
-
-            try
-            {
-                App.ApplyTheme(theme);
-            }
-            catch (NullReferenceException)
-            {
-                // Expected in test context since Application.Current is null
-            }
-        }
-
-        [Fact]
-        public async Task PreferencesStore_SaveLoad_NoDeadlock()
-        {
-            var preferences = new AppPreferences { Theme = AppTheme.Nord };
-
-            for (int i = 0; i < 10; i++)
-            {
-                preferences.Theme = (AppTheme)((i % 4) + 1);
-                var saved = await this._store.SaveAsync(preferences);
-                var loaded = await this._store.LoadAsync();
-
-                Assert.True(saved);
-                Assert.NotNull(loaded);
-            }
-        }
-
-        [Fact]
-        public async Task ThemeCombo_SelectedValue_PreservesNonDefaultTheme()
-        {
-            var preferences = new AppPreferences { Theme = AppTheme.Light };
-
-            preferences.Theme = AppTheme.Midnight;
+            preferences.Theme = (AppTheme)((i % 4) + 1);
             var saved = await this._store.SaveAsync(preferences);
             var loaded = await this._store.LoadAsync();
 
             Assert.True(saved);
-            Assert.Equal(AppTheme.Midnight, loaded.Theme);
+            Assert.NotNull(loaded);
         }
+    }
 
+    [Fact]
+    public async Task ThemeCombo_SelectedValue_PreservesNonDefaultThemeAsync()
+    {
+        var preferences = new AppPreferences { Theme = AppTheme.Light };
+
+        preferences.Theme = AppTheme.Midnight;
+        var saved = await this._store.SaveAsync(preferences);
+        var loaded = await this._store.LoadAsync();
+
+        Assert.True(saved);
+        Assert.Equal(AppTheme.Midnight, loaded.Theme);
     }
 }

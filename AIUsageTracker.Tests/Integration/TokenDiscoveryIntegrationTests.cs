@@ -2,131 +2,130 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Integration
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Tests.Infrastructure;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+using Xunit;
+
+namespace AIUsageTracker.Tests.Integration;
+
+[Collection("TokenDiscovery")]
+public class TokenDiscoveryIntegrationTests : IntegrationTestBase
 {
-    using AIUsageTracker.Infrastructure.Configuration;
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Tests.Infrastructure;
-    using Microsoft.Extensions.Logging.Abstractions;
-    using Moq;
-    using Xunit;
+    private readonly TokenDiscoveryService _service;
 
-    [Collection("TokenDiscovery")]
-    public class TokenDiscoveryIntegrationTests : IntegrationTestBase
+    public TokenDiscoveryIntegrationTests()
     {
-        private readonly TokenDiscoveryService _service;
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this.TestRootPath);
 
-        public TokenDiscoveryIntegrationTests()
+        this._service = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
+    }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_FindsClaudeCodeTokenAsync()
+    {
+        // Arrange
+        var content = "{\"claudeAiOauth\": {\"accessToken\": \"test-claude-token\"}}";
+        this.CreateFile(".claude/.credentials.json", content);
+
+        // Act
+        var configs = await this._service.DiscoverTokensAsync();
+
+        // Assert
+        var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "claude-code", StringComparison.Ordinal));
+        Assert.NotNull(config);
+        Assert.Equal("test-claude-token", config.ApiKey);
+        Assert.Contains("Claude Code", config.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_FindsKiloCodeSecretsAsync()
+    {
+        // Arrange
+        var rooConfig = "{\"apiConfigs\": {\"default\": {\"openAiApiKey\": \"roo-openai-key\"}}}";
+        var content = $"{{\"kilo code.kilo-code\": {{\"roo_cline_config_api_config\": {System.Text.Json.JsonSerializer.Serialize(rooConfig)}}}}}";
+        this.CreateFile(".kilocode/secrets.json", content);
+
+        // Act
+        var configs = await this._service.DiscoverTokensAsync();
+
+        // Assert
+        var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.NotNull(config);
+        Assert.Equal("roo-openai-key", config.ApiKey);
+    }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_FindsOpenCodeAuthAsync()
+    {
+        // Arrange
+        var content = "{\"openai\": {\"access\": \"opencode-session-token\"}}";
+        this.CreateFile(".opencode/auth.json", content);
+
+        // Act
+        var configs = await this._service.DiscoverTokensAsync();
+
+        // Assert
+        var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "codex", StringComparison.Ordinal));
+        Assert.NotNull(config);
+        Assert.Equal("opencode-session-token", config.ApiKey);
+    }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_FindsEnvironmentVariablesAsync()
+    {
+        // Arrange
+        Environment.SetEnvironmentVariable("MINIMAX_API_KEY", "env-minimax-key");
+
+        try
         {
-            var mockPathProvider = new Mock<IAppPathProvider>();
-            mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this.TestRootPath);
-
-            this._service = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
-        }
-
-        [Fact]
-        public async Task DiscoverTokensAsync_FindsClaudeCodeToken()
-        {
-            // Arrange
-            var content = "{\"claudeAiOauth\": {\"accessToken\": \"test-claude-token\"}}";
-            this.CreateFile(".claude/.credentials.json", content);
-
             // Act
             var configs = await this._service.DiscoverTokensAsync();
 
             // Assert
-            var config = configs.FirstOrDefault(c => c.ProviderId == "claude-code");
+            var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "minimax", StringComparison.Ordinal));
             Assert.NotNull(config);
-            Assert.Equal("test-claude-token", config.ApiKey);
-            Assert.Contains("Claude Code", config.Description);
+            Assert.Equal("env-minimax-key", config.ApiKey);
         }
-
-        [Fact]
-        public async Task DiscoverTokensAsync_FindsKiloCodeSecrets()
+        finally
         {
-            // Arrange
-            var rooConfig = "{\"apiConfigs\": {\"default\": {\"openAiApiKey\": \"roo-openai-key\"}}}";
-            var content = $"{{\"kilo code.kilo-code\": {{\"roo_cline_config_api_config\": {System.Text.Json.JsonSerializer.Serialize(rooConfig)}}}}}";
-            this.CreateFile(".kilocode/secrets.json", content);
+            Environment.SetEnvironmentVariable("MINIMAX_API_KEY", null);
+        }
+    }
 
-            // Act
+    [Fact]
+    public async Task DiscoverTokensAsync_FindsEnvironmentVariableAliasesFromProviderMetadataAsync()
+    {
+        Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", "env-kimi-key");
+
+        try
+        {
             var configs = await this._service.DiscoverTokensAsync();
 
-            // Assert
-            var config = configs.FirstOrDefault(c => c.ProviderId == "openai");
+            var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "kimi", StringComparison.Ordinal));
             Assert.NotNull(config);
-            Assert.Equal("roo-openai-key", config.ApiKey);
+            Assert.Equal("env-kimi-key", config.ApiKey);
         }
-
-        [Fact]
-        public async Task DiscoverTokensAsync_FindsOpenCodeAuth()
+        finally
         {
-            // Arrange
-            var content = "{\"openai\": {\"access\": \"opencode-session-token\"}}";
-            this.CreateFile(".opencode/auth.json", content);
-
-            // Act
-            var configs = await this._service.DiscoverTokensAsync();
-
-            // Assert
-            var config = configs.FirstOrDefault(c => c.ProviderId == "codex");
-            Assert.NotNull(config);
-            Assert.Equal("opencode-session-token", config.ApiKey);
+            Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", null);
         }
+    }
 
-        [Fact]
-        public async Task DiscoverTokensAsync_FindsEnvironmentVariables()
-        {
-            // Arrange
-            Environment.SetEnvironmentVariable("MINIMAX_API_KEY", "env-minimax-key");
+    [Fact]
+    public async Task DiscoverTokensAsync_FindsStandaloneRooSecretsAsync()
+    {
+        var content = "{\"roo\":{\"apiConfigs\":{\"default\":{\"openAiApiKey\":\"roo-secret-key\"}}}}";
+        this.CreateFile(".roo/secrets.json", content);
 
-            try
-            {
-                // Act
-                var configs = await this._service.DiscoverTokensAsync();
+        var configs = await this._service.DiscoverTokensAsync();
 
-                // Assert
-                var config = configs.FirstOrDefault(c => c.ProviderId == "minimax");
-                Assert.NotNull(config);
-                Assert.Equal("env-minimax-key", config.ApiKey);
-            }
-            finally
-            {
-                Environment.SetEnvironmentVariable("MINIMAX_API_KEY", null);
-            }
-        }
-
-        [Fact]
-        public async Task DiscoverTokensAsync_FindsEnvironmentVariableAliasesFromProviderMetadata()
-        {
-            Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", "env-kimi-key");
-
-            try
-            {
-                var configs = await this._service.DiscoverTokensAsync();
-
-                var config = configs.FirstOrDefault(c => c.ProviderId == "kimi");
-                Assert.NotNull(config);
-                Assert.Equal("env-kimi-key", config.ApiKey);
-            }
-            finally
-            {
-                Environment.SetEnvironmentVariable("MOONSHOT_API_KEY", null);
-            }
-        }
-
-        [Fact]
-        public async Task DiscoverTokensAsync_FindsStandaloneRooSecrets()
-        {
-            var content = "{\"roo\":{\"apiConfigs\":{\"default\":{\"openAiApiKey\":\"roo-secret-key\"}}}}";
-            this.CreateFile(".roo/secrets.json", content);
-
-            var configs = await this._service.DiscoverTokensAsync();
-
-            var config = configs.FirstOrDefault(c => c.ProviderId == "openai");
-            Assert.NotNull(config);
-            Assert.Equal("roo-secret-key", config.ApiKey);
-            Assert.Equal("Roo Code: " + Path.Combine(this.TestRootPath, ".roo", "secrets.json"), config.AuthSource);
-        }
+        var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.NotNull(config);
+        Assert.Equal("roo-secret-key", config.ApiKey);
+        Assert.Equal("Roo Code: " + Path.Combine(this.TestRootPath, ".roo", "secrets.json"), config.AuthSource);
     }
 }

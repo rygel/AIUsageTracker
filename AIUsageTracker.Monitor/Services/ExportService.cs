@@ -2,84 +2,93 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Monitor.Services
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
+using AIUsageTracker.Core.Models;
+
+namespace AIUsageTracker.Monitor.Services;
+
+public class ExportService
 {
-    using AIUsageTracker.Core.Models;
-    using System.Globalization;
-    using System.Text;
-    using System.Text.Json;
+    private readonly IUsageDatabase _database;
 
-    public class ExportService
+    public ExportService(IUsageDatabase database)
     {
-        private readonly IUsageDatabase _database;
+        this._database = database;
+    }
 
-        public ExportService(IUsageDatabase database)
+    public async Task<(byte[] content, string contentType, string fileName)> ExportAsync(string format, int days)
+    {
+        // Limit days to reasonable range
+        if (days < 1)
         {
-            this._database = database;
+            days = 1;
         }
-    
 
-        public async Task<(byte[] content, string contentType, string fileName)> ExportAsync(string format, int days)
+        if (days > 365)
         {
-            // Limit days to reasonable range
-            if (days < 1) days = 1;
-            if (days > 365) days = 365;
+            days = 365;
+        }
 
-            // Estimate limit based on days (assuming ~100 requests/day max for safety)
-            var limit = days * 100;
-            var history = await this._database.GetHistoryAsync(limit);
+        // Estimate limit based on days (assuming ~100 requests/day max for safety)
+        var limit = days * 100;
+        var history = await this._database.GetHistoryAsync(limit).ConfigureAwait(false);
 
-            // Filter by date
-            var cutoff = DateTime.UtcNow.AddDays(-days);
-            history = history.Where(h => h.FetchedAt >= cutoff).ToList();
+        // Filter by date
+        var cutoff = DateTime.UtcNow.AddDays(-days);
+        history = history.Where(h => h.FetchedAt >= cutoff).ToList();
 
-            if (format.Equals("json", StringComparison.OrdinalIgnoreCase))
+        if (format.Equals("json", StringComparison.OrdinalIgnoreCase))
+        {
+            var json = JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
+            return (Encoding.UTF8.GetBytes(json), "application/json", $"usage_export_{DateTime.Now:yyyyMMdd}.json");
+        }
+        else
+        {
+            var csv = new StringBuilder();
+            csv.AppendLine("Time,Provider,Model,Used,Cost,Unit,PlanType");
+
+            foreach (var item in history)
             {
-                var json = JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
-                return (Encoding.UTF8.GetBytes(json), "application/json", $"usage_export_{DateTime.Now:yyyyMMdd}.json");
-            }
-            else
-            {
-                var csv = new StringBuilder();
-                csv.AppendLine("Time,Provider,Model,Used,Cost,Unit,PlanType");
+                var time = item.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
+                var provider = EscapeCsv(item.ProviderName);
 
-                foreach (var item in history)
+                if (item.Details != null && item.Details.Any())
                 {
-                    var time = item.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
-                    var provider = EscapeCsv(item.ProviderName);
+                    foreach (var detail in item.Details)
+                    {
+                        var model = EscapeCsv(detail.Name);
+                        var used = EscapeCsv(detail.Used);
 
-                    if (item.Details != null && item.Details.Any())
-                    {
-                        foreach (var detail in item.Details)
-                        {
-                            var model = EscapeCsv(detail.Name);
-                            var used = EscapeCsv(detail.Used);
-                            // Try to parse cost if possible, or just dump used
-                            // The detail.Used often contains the unit, so we might inevitably duplicate it or just leave it as string
-                            csv.AppendLine($"{time},{provider},{model},{used},,{item.UsageUnit},{item.PlanType}");
-                        }
-                    }
-                    else
-                    {
-                        var used = item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
-                        csv.AppendLine($"{time},{provider},(Total),{used},,{item.UsageUnit},{item.PlanType}");
+                        // Try to parse cost if possible, or just dump used
+                        // The detail.Used often contains the unit, so we might inevitably duplicate it or just leave it as string
+                        csv.AppendLine($"{time},{provider},{model},{used},,{item.UsageUnit},{item.PlanType}");
                     }
                 }
-
-                return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");
+                else
+                {
+                    var used = item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
+                    csv.AppendLine($"{time},{provider},(Total),{used},,{item.UsageUnit},{item.PlanType}");
+                }
             }
-        }
-    
 
-        private static string EscapeCsv(string field)
-        {
-            if (string.IsNullOrEmpty(field)) return string.Empty;
-            if (field.Contains(",") || field.Contains("\"") || field.Contains("\n"))
-            {
-                return $"\"{field.Replace("\"", "\"\"")}\"";
-            }
-            return field;
+            return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");
         }
     }
 
+    private static string EscapeCsv(string field)
+    {
+        if (string.IsNullOrEmpty(field))
+        {
+            return string.Empty;
+        }
+
+        if (field.Contains(",") || field.Contains("\"") || field.Contains("\n"))
+        {
+            return $"\"{field.Replace("\"", "\"\"")}\"";
+        }
+
+        return field;
+    }
 }

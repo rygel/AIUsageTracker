@@ -24,6 +24,8 @@ public class ProviderRefreshService : BackgroundService
     private readonly IConfigService _configService;
     private readonly IAppPathProvider _pathProvider;
     private readonly IEnumerable<IProviderService> _providers;
+    private readonly UsageAlertsService _usageAlertsService;
+    private readonly ProviderRefreshCircuitBreakerService _providerCircuitBreakerService;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private static bool _debugMode = false;
@@ -33,22 +35,8 @@ public class ProviderRefreshService : BackgroundService
     private long _refreshTotalLatencyMs;
     private long _lastRefreshLatencyMs;
     private readonly object _telemetryLock = new();
-    private readonly object _providerFailureLock = new();
-    private readonly Dictionary<string, ProviderFailureState> _providerFailureStates = new(StringComparer.OrdinalIgnoreCase);
     private DateTime? _lastRefreshCompletedUtc;
     private string? _lastRefreshError;
-    private const int CircuitBreakerFailureThreshold = 3;
-    private static readonly TimeSpan CircuitBreakerBaseBackoff = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
-
-    private sealed class ProviderFailureState
-    {
-        public int ConsecutiveFailures { get; set; }
-
-        public DateTime? CircuitOpenUntilUtc { get; set; }
-
-        public string? LastError { get; set; }
-    }
 
     public static void SetDebugMode(bool debug)
     {
@@ -63,7 +51,9 @@ public class ProviderRefreshService : BackgroundService
         IHttpClientFactory httpClientFactory,
         IConfigService configService,
         IAppPathProvider pathProvider,
-        IEnumerable<IProviderService> providers)
+        IEnumerable<IProviderService> providers,
+        UsageAlertsService usageAlertsService,
+        ProviderRefreshCircuitBreakerService providerCircuitBreakerService)
     {
         this._logger = logger;
         this._loggerFactory = loggerFactory;
@@ -73,6 +63,8 @@ public class ProviderRefreshService : BackgroundService
         this._configService = configService;
         this._pathProvider = pathProvider;
         this._providers = providers;
+        this._usageAlertsService = usageAlertsService;
+        this._providerCircuitBreakerService = providerCircuitBreakerService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -211,7 +203,7 @@ public class ProviderRefreshService : BackgroundService
 
             var refreshableConfigs = bypassCircuitBreaker
                 ? activeConfigs
-                : this.GetRefreshableConfigs(activeConfigs, forceAll);
+                : this._providerCircuitBreakerService.GetRefreshableConfigs(activeConfigs, forceAll);
             var circuitSkippedCount = activeConfigs.Count - refreshableConfigs.Count;
             if (circuitSkippedCount > 0)
             {
@@ -354,13 +346,13 @@ public class ProviderRefreshService : BackgroundService
             this._logger.LogDebug("  {ProviderId}: [{Status}] {Message}", usage.ProviderId, status, message);
         }
 
-        this.UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
+        this._providerCircuitBreakerService.UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
         await this.UpsertDynamicProvidersAsync(filteredUsages, activeProviderIds).ConfigureAwait(false);
         await this.StoreUsageHistoryAndSnapshotsAsync(filteredUsages).ConfigureAwait(false);
 
-        await this.DetectResetEventsAsync(filteredUsages).ConfigureAwait(false);
+        await this._usageAlertsService.DetectResetEventsAsync(filteredUsages).ConfigureAwait(false);
         var prefs = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
-        this.CheckUsageAlerts(filteredUsages, prefs, allConfigs);
+        this._usageAlertsService.CheckUsageAlerts(filteredUsages, prefs, allConfigs);
 
         this._logger.LogInformation("Done: {Count} records", filteredUsages.Count);
         this._logger.LogDebug("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
@@ -482,115 +474,6 @@ public class ProviderRefreshService : BackgroundService
         }
     }
 
-    private List<ProviderConfig> GetRefreshableConfigs(List<ProviderConfig> activeConfigs, bool forceAll)
-    {
-        if (forceAll || activeConfigs.Count == 0)
-        {
-            return activeConfigs;
-        }
-
-        var now = DateTime.UtcNow;
-        var refreshable = new List<ProviderConfig>(activeConfigs.Count);
-
-        lock (this._providerFailureLock)
-        {
-            foreach (var config in activeConfigs)
-            {
-                if (!this._providerFailureStates.TryGetValue(config.ProviderId, out var state))
-                {
-                    refreshable.Add(config);
-                    continue;
-                }
-
-                if (state.CircuitOpenUntilUtc.HasValue && state.CircuitOpenUntilUtc.Value > now)
-                {
-                    this._logger.LogDebug(
-                        "Circuit open for {ProviderId}; skipping until {RetryUtc:HH:mm:ss} UTC",
-                        config.ProviderId,
-                        state.CircuitOpenUntilUtc.Value);
-                    continue;
-                }
-
-                state.CircuitOpenUntilUtc = null;
-                refreshable.Add(config);
-            }
-        }
-
-        return refreshable;
-    }
-
-    private void UpdateProviderFailureStates(IReadOnlyCollection<ProviderConfig> queriedConfigs, IReadOnlyCollection<ProviderUsage> usages)
-    {
-        if (queriedConfigs.Count == 0)
-        {
-            return;
-        }
-
-        lock (this._providerFailureLock)
-        {
-            var now = DateTime.UtcNow;
-            foreach (var config in queriedConfigs)
-            {
-                var providerUsages = usages
-                    .Where(u => IsUsageForProvider(config.ProviderId, u.ProviderId))
-                    .ToList();
-                var isSuccess = providerUsages.Any(IsSuccessfulUsage);
-
-                if (isSuccess)
-                {
-                    if (this._providerFailureStates.Remove(config.ProviderId))
-                    {
-                        this._logger.LogDebug("Circuit reset for {ProviderId}", config.ProviderId);
-                    }
-
-                    continue;
-                }
-
-                if (!this._providerFailureStates.TryGetValue(config.ProviderId, out var state))
-                {
-                    state = new ProviderFailureState();
-                    this._providerFailureStates[config.ProviderId] = state;
-                }
-
-                state.ConsecutiveFailures++;
-                state.LastError = GetFailureMessage(providerUsages);
-
-                if (state.ConsecutiveFailures >= CircuitBreakerFailureThreshold)
-                {
-                    var backoffDelay = GetCircuitBreakerDelay(state.ConsecutiveFailures);
-                    state.CircuitOpenUntilUtc = now.Add(backoffDelay);
-
-                    this._logger.LogWarning(
-                        "Circuit opened for {ProviderId} after {Failures} failures; retry at {RetryUtc:HH:mm:ss} UTC ({DelayMinutes:F1} min). Last error: {Error}",
-                        config.ProviderId,
-                        state.ConsecutiveFailures,
-                        state.CircuitOpenUntilUtc.Value,
-                        backoffDelay.TotalMinutes,
-                        state.LastError);
-                }
-                else
-                {
-                    this._logger.LogDebug(
-                        "Provider {ProviderId} failure {Failures}/{Threshold}: {Error}",
-                        config.ProviderId,
-                        state.ConsecutiveFailures,
-                        CircuitBreakerFailureThreshold,
-                        state.LastError);
-                }
-            }
-        }
-    }
-
-    private static bool IsUsageForProvider(string providerId, string usageProviderId)
-    {
-        if (usageProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
-    }
-
     private void EnsureAutoIncludedConfigs(List<ProviderConfig> configs)
     {
         var configuredProviderIds = configs
@@ -631,200 +514,20 @@ public class ProviderRefreshService : BackgroundService
         return activeProviderIds.Any(providerId => IsUsageForProvider(providerId, usageProviderId));
     }
 
-    private static bool IsDynamicChildOfAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
+    private static bool IsUsageForProvider(string providerId, string usageProviderId)
     {
-        return activeProviderIds.Any(providerId =>
-            usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool IsSuccessfulUsage(ProviderUsage usage)
-    {
-        if (!usage.IsAvailable)
-        {
-            return false;
-        }
-
-        if (usage.HttpStatus >= 400)
-        {
-            return false;
-        }
-
-        return string.IsNullOrWhiteSpace(usage.Description) ||
-               !usage.Description.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string GetFailureMessage(IReadOnlyCollection<ProviderUsage> providerUsages)
-    {
-        if (providerUsages.Count == 0)
-        {
-            return "No usage data returned";
-        }
-
-        var failedUsage = providerUsages.FirstOrDefault(u => !IsSuccessfulUsage(u));
-        if (failedUsage != null && !string.IsNullOrWhiteSpace(failedUsage.Description))
-        {
-            return failedUsage.Description;
-        }
-
-        return "Provider returned no successful usage entries";
-    }
-
-    private static TimeSpan GetCircuitBreakerDelay(int consecutiveFailures)
-    {
-        var backoffLevel = Math.Max(0, consecutiveFailures - CircuitBreakerFailureThreshold);
-        var exponent = Math.Min(backoffLevel, 6);
-        var seconds = CircuitBreakerBaseBackoff.TotalSeconds * Math.Pow(2, exponent);
-        return TimeSpan.FromSeconds(Math.Min(seconds, CircuitBreakerMaxBackoff.TotalSeconds));
-    }
-
-    private static bool IsInQuietHours(AppPreferences prefs)
-    {
-        if (!prefs.EnableQuietHours)
-        {
-            return false;
-        }
-
-        if (!TimeSpan.TryParse(prefs.QuietHoursStart, out var start) ||
-            !TimeSpan.TryParse(prefs.QuietHoursEnd, out var end))
-        {
-            return false;
-        }
-
-        var now = DateTime.Now.TimeOfDay;
-        if (start == end)
+        if (usageProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        if (start < end)
-        {
-            return now >= start && now < end;
-        }
-
-        return now >= start || now < end;
+        return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
     }
 
-    public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)
+    private static bool IsDynamicChildOfAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
     {
-        if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
-        {
-            return;
-        }
-
-        foreach (var usage in usages)
-        {
-            var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
-            var usedPercentage = UsageMath.GetEffectiveUsedPercent(usage);
-            if (config != null && config.EnableNotifications && usedPercentage >= prefs.NotificationThreshold)
-            {
-                this._notificationService.ShowUsageAlert(usage.ProviderName, usedPercentage);
-            }
-        }
-    }
-
-    private async Task DetectResetEventsAsync(List<ProviderUsage> currentUsages)
-    {
-        this._logger.LogDebug("Checking for reset events...");
-
-        // Batch load history for all relevant providers (latest 2 records for each)
-        var allHistory = await this._database.GetRecentHistoryAsync(2).ConfigureAwait(false);
-        var historyMap = allHistory.GroupBy(h => h.ProviderId, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
-
-        foreach (var usage in currentUsages)
-        {
-            try
-            {
-                if (!historyMap.TryGetValue(usage.ProviderId, out var history) || history.Count < 2)
-                {
-                    // For sub-providers (models) or providers with explicit reset times,
-                    // lack of history is expected and shouldn't be noisy.
-                    if (usage.ProviderId.Contains('.') || usage.NextResetTime != null)
-                    {
-                        this._logger.LogTrace("{ProviderId}: Initial record stored, waiting for history", usage.ProviderId);
-                    }
-                    else
-                    {
-                        this._logger.LogDebug("{ProviderId}: Not enough history for reset detection", usage.ProviderId);
-                    }
-
-                    continue;
-                }
-
-                var current = history[0];
-                var previous = history[1];
-
-                bool isReset = false;
-                string resetReason = string.Empty;
-
-                // 1. Explicit Reset Detection (via NextResetTime moving forward)
-                if (current.NextResetTime.HasValue && previous.NextResetTime.HasValue)
-                {
-                    if (current.NextResetTime.Value > previous.NextResetTime.Value.AddMinutes(1)) // Use small buffer
-                    {
-                        isReset = true;
-                        resetReason = $"Reset detected via schedule: {previous.NextResetTime:HH:mm} -> {current.NextResetTime:HH:mm}";
-                    }
-                }
-
-                // 2. Heuristic Reset Detection (if not already detected)
-                if (!isReset)
-                {
-                    if (usage.IsQuotaBased)
-                    {
-                        var previousUsedPercent = UsageMath.GetEffectiveUsedPercent(previous);
-                        var currentUsedPercent = UsageMath.GetEffectiveUsedPercent(current);
-
-                        if (previousUsedPercent > 50 && currentUsedPercent < previousUsedPercent * 0.3)
-                        {
-                            isReset = true;
-                            resetReason = $"Quota reset: {previousUsedPercent:F1}% -> {currentUsedPercent:F1}% used";
-                        }
-                    }
-                    else
-                    {
-                        if (previous.RequestsUsed > current.RequestsUsed)
-                        {
-                            var dropPercent = (previous.RequestsUsed - current.RequestsUsed) / previous.RequestsUsed * 100;
-                            if (dropPercent > 20)
-                            {
-                                isReset = true;
-                                resetReason = $"Usage reset: ${previous.RequestsUsed:F2} -> ${current.RequestsUsed:F2} ({dropPercent:F0}% drop)";
-                            }
-                        }
-                    }
-                }
-
-                if (isReset)
-                {
-                    await this._database.StoreResetEventAsync(
-                        usage.ProviderId,
-                        usage.ProviderName,
-                        previous.RequestsUsed,
-                        current.RequestsUsed,
-                        usage.IsQuotaBased ? "quota" : "usage").ConfigureAwait(false);
-
-                    var prefs = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
-                    var configs = await this._configService.GetConfigsAsync().ConfigureAwait(false);
-                    var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
-
-                    if (prefs.EnableNotifications &&
-                        prefs.NotifyOnQuotaExceeded &&
-                        !IsInQuietHours(prefs) &&
-                        config != null &&
-                        config.EnableNotifications)
-                    {
-                        var details = usage.IsQuotaBased ? "Quota reset detected." : "Usage reset detected.";
-                        this._notificationService.ShowQuotaExceeded(usage.ProviderName, details);
-                    }
-
-                    this._logger.LogInformation("{ProviderId} reset: {Reason}", usage.ProviderId, resetReason);
-                }
-            }
-            catch (Exception ex)
-            {
-                this._logger.LogWarning(ex, "Reset check failed for {ProviderId}: {Message}", usage.ProviderId, ex.Message);
-            }
-        }
+        return activeProviderIds.Any(providerId =>
+            usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<(bool success, string message, int status)> CheckProviderAsync(string providerId)

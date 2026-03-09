@@ -2,67 +2,69 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Core
+using System.IO;
+using System.Text.RegularExpressions;
+using Xunit;
+
+namespace AIUsageTracker.Tests.Core;
+
+public class NoGitHubCliTests
 {
-    using System.IO;
-    using System.Text.RegularExpressions;
-    using Xunit;
-
-    public class NoGitHubCliTests
+    private static readonly string[] ExcludedPaths = new[]
     {
-        private static readonly string[] ExcludedPaths = new[]
+        "release-",
+        "ci-hang-",
+        "synthetic-hotfix-",
+        "appcast-sync-",
+        "node_modules",
+        ".git",
+    };
+
+    [Fact]
+    public void NoGitHubCliSpawnsInSourceCode()
+    {
+        var repoRoot = GetRepoRoot();
+        var csFiles = Directory.GetFiles(repoRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !ExcludedPaths.Any(e => f.Contains(e)))
+            .ToList();
+
+        var violations = new List<string>();
+
+        foreach (var file in csFiles)
         {
-            "release-",
-            "ci-hang-",
-            "synthetic-hotfix-",
-            "appcast-sync-",
-            "node_modules",
-            ".git"
-        };
+            var content = File.ReadAllText(file);
+            var lines = content.Split('\n');
 
-        [Fact]
-        public void NoGitHubCliSpawnsInSourceCode()
-        {
-            var repoRoot = GetRepoRoot();
-            var csFiles = Directory.GetFiles(repoRoot, "*.cs", SearchOption.AllDirectories)
-                .Where(f => !ExcludedPaths.Any(e => f.Contains(e)))
-                .ToList();
-
-            var violations = new List<string>();
-
-            foreach (var file in csFiles)
+            for (int i = 0; i < lines.Length; i++)
             {
-                var content = File.ReadAllText(file);
-                var lines = content.Split('\n');
+                var line = lines[i];
 
-                for (int i = 0; i < lines.Length; i++)
+                if (Regex.IsMatch(line, @"FileName\s*=\s*[string.Empty']gh[string.Empty']", RegexOptions.IgnoreCase) ||
+                    Regex.IsMatch(line, @"Arguments\s*=\s*[string.Empty'].*gh.*[string.Empty']", RegexOptions.IgnoreCase) ||
+                    Regex.IsMatch(line, @"gh\s+auth\s+token", RegexOptions.IgnoreCase) ||
+                    Regex.IsMatch(line, @"Process\.Start.*gh", RegexOptions.IgnoreCase))
                 {
-                    var line = lines[i];
-
-                    if (Regex.IsMatch(line, @"FileName\s*=\s*[string.Empty']gh[string.Empty']", RegexOptions.IgnoreCase) ||
-                        Regex.IsMatch(line, @"Arguments\s*=\s*[string.Empty'].*gh.*[string.Empty']", RegexOptions.IgnoreCase) ||
-                        Regex.IsMatch(line, @"gh\s+auth\s+token", RegexOptions.IgnoreCase) ||
-                        Regex.IsMatch(line, @"Process\.Start.*gh", RegexOptions.IgnoreCase))
-                    {
-                        violations.Add($"{file}:{i + 1}: {line.Trim()}");
-                    }
+                    violations.Add($"{file}:{i + 1}: {line.Trim()}");
                 }
             }
-
-            Assert.Empty(violations);
         }
-    
 
-        private static string GetRepoRoot()
+        Assert.Empty(violations);
+    }
+
+    private static string GetRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+        while (dir != null)
         {
-            var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
-            while (dir != null)
+            if (File.Exists(Path.Combine(dir.FullName, "Directory.Build.props")))
             {
-                if (File.Exists(Path.Combine(dir.FullName, "Directory.Build.props")))
-                    return dir.FullName;
-                dir = dir.Parent;
+                return dir.FullName;
             }
-            throw new InvalidOperationException("Could not find repo root");
+
+            dir = dir.Parent;
         }
+
+        throw new InvalidOperationException("Could not find repo root");
     }
 }

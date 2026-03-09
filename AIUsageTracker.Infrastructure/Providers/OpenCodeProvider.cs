@@ -54,7 +54,7 @@ public class OpenCodeProvider : ProviderBase
                 IsAvailable = false,
                 Description = "No API key configured",
                 IsQuotaBased = false,
-                PlanType = PlanType.Usage
+                PlanType = PlanType.Usage,
             },
             };
         }
@@ -83,7 +83,7 @@ public class OpenCodeProvider : ProviderBase
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     RawJson = errorContent,
-                    HttpStatus = httpStatus
+                    HttpStatus = httpStatus,
                 },
                 };
             }
@@ -106,7 +106,7 @@ public class OpenCodeProvider : ProviderBase
                 IsAvailable = false,
                 Description = $"API Call Failed: {ex.Message}",
                 IsQuotaBased = false,
-                PlanType = PlanType.Usage
+                PlanType = PlanType.Usage,
             },
             };
         }

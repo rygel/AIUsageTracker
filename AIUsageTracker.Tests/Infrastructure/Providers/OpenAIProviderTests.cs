@@ -2,183 +2,182 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Infrastructure.Providers
+using System.Net;
+using System.Text.Json;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Tests.Infrastructure;
+using Moq;
+using Moq.Protected;
+using Xunit;
+
+namespace AIUsageTracker.Tests.Infrastructure.Providers;
+
+public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
 {
-    using System.Net;
-    using System.Text.Json;
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Infrastructure.Providers;
-    using AIUsageTracker.Tests.Infrastructure;
-    using Moq;
-    using Moq.Protected;
-    using Xunit;
+    private readonly OpenAIProvider _provider;
 
-    public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
+    public OpenAIProviderTests()
     {
-        private readonly OpenAIProvider _provider;
+        this._provider = new OpenAIProvider(this.HttpClient, this.Logger.Object);
+    }
 
-        public OpenAIProviderTests()
+    [Fact]
+    public async Task GetUsageAsync_StandardApiKey_ReturnsConnectedStatusAsync()
+    {
+        // Arrange
+        this.Config.ApiKey = "sk-test-key";
+        this.SetupHttpResponse("https://api.openai.com/v1/models", new HttpResponseMessage
         {
-            this._provider = new OpenAIProvider(this.HttpClient, this.Logger.Object);
-        }
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("{\"data\":[]}"),
+        });
 
-        [Fact]
-        public async Task GetUsageAsync_StandardApiKey_ReturnsConnectedStatus()
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal("OpenAI", usage.ProviderName);
+        Assert.Equal("Connected (API Key)", usage.Description);
+        Assert.Equal(200, usage.HttpStatus);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_ProjectApiKey_ReturnsNotSupportedMessageAsync()
+    {
+        // Arrange
+        this.Config.ApiKey = "sk-proj-test-key";
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("Project keys (sk-proj-...) not supported", usage.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_NativeSession_ParsesQuotaCorrectlyAsync()
+    {
+        // Arrange
+        this.Config.ApiKey = "session-token"; // Not starting with sk-
+        var responseData = new
         {
-            // Arrange
-            this.Config.ApiKey = "sk-test-key";
-            this.SetupHttpResponse("https://api.openai.com/v1/models", new HttpResponseMessage
+            plan_type = "plus",
+            email = "user@example.com",
+            rate_limit = new
             {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent("{\"data\":[]}")
-            });
-
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
-
-            // Assert
-            var usage = result.Single();
-            Assert.True(usage.IsAvailable);
-            Assert.Equal("OpenAI", usage.ProviderName);
-            Assert.Equal("Connected (API Key)", usage.Description);
-            Assert.Equal(200, usage.HttpStatus);
-        }
-
-        [Fact]
-        public async Task GetUsageAsync_ProjectApiKey_ReturnsNotSupportedMessage()
-        {
-            // Arrange
-            this.Config.ApiKey = "sk-proj-test-key";
-
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
-
-            // Assert
-            var usage = result.Single();
-            Assert.False(usage.IsAvailable);
-            Assert.Contains("Project keys (sk-proj-...) not supported", usage.Description);
-        }
-
-        [Fact]
-        public async Task GetUsageAsync_NativeSession_ParsesQuotaCorrectly()
-        {
-            // Arrange
-            this.Config.ApiKey = "session-token"; // Not starting with sk-
-            var responseData = new
-            {
-                plan_type = "plus",
-                email = "user@example.com",
-                rate_limit = new
+                primary_window = new
                 {
-                    primary_window = new
-                    {
-                        used_percent = 45.5,
-                        reset_after_seconds = 3600
-                    },
-                    secondary_window = new
-                    {
-                        used_percent = 10.0,
-                        reset_after_seconds = 86400
-                    }
+                    used_percent = 45.5,
+                    reset_after_seconds = 3600
+                },
+                secondary_window = new
+                {
+                    used_percent = 10.0,
+                    reset_after_seconds = 86400
                 }
-            };
+            },
+        };
 
-            this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent(JsonSerializer.Serialize(responseData))
-            });
-
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
-
-            // Assert
-            var usage = result.Single();
-            Assert.True(usage.IsAvailable);
-            Assert.Equal("user@example.com", usage.AccountName);
-            Assert.Equal(54.5, usage.RequestsPercentage); // 100 - 45.5
-            Assert.Equal(45.5, usage.RequestsUsed);
-            Assert.Contains("Plan: plus", usage.Description);
-
-            // Regression test for Dual Progress Bars
-            Assert.NotNull(usage.Details);
-            var primary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
-            var secondary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
-
-            Assert.NotNull(primary);
-            Assert.Equal("5-hour quota", primary.Name);
-            Assert.Contains("46% used", primary.Used);
-
-            Assert.NotNull(secondary);
-            Assert.Equal("Weekly quota", secondary.Name);
-            Assert.Contains("10% used", secondary.Used);
-        }
-
-        [Fact]
-        public async Task GetUsageAsync_LoadsSessionAuthFromMetadataDefinedAuthFile()
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
         {
-            var tempDir = Path.Combine(Path.GetTempPath(), $"openai-auth-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tempDir);
-            var authPath = Path.Combine(tempDir, "auth.json");
-            await File.WriteAllTextAsync(authPath, """
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
+        });
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal("user@example.com", usage.AccountName);
+        Assert.Equal(54.5, usage.RequestsPercentage); // 100 - 45.5
+        Assert.Equal(45.5, usage.RequestsUsed);
+        Assert.Contains("Plan: plus", usage.Description, StringComparison.Ordinal);
+
+        // Regression test for Dual Progress Bars
+        Assert.NotNull(usage.Details);
+        var primary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
+        var secondary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
+
+        Assert.NotNull(primary);
+        Assert.Equal("5-hour quota", primary.Name);
+        Assert.Contains("46% used", primary.Used, StringComparison.Ordinal);
+
+        Assert.NotNull(secondary);
+        Assert.Equal("Weekly quota", secondary.Name);
+        Assert.Contains("10% used", secondary.Used, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_LoadsSessionAuthFromMetadataDefinedAuthFileAsync()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"openai-auth-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var authPath = Path.Combine(tempDir, "auth.json");
+        await File.WriteAllTextAsync(authPath, """
+        {
+          "openai": {
+            "access": "session-from-file",
+            "accountId": "acct-from-file"
+          }
+        }
+        """);
+
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("""
             {
-              "openai": {
-                "access": "session-from-file",
-                "accountId": "acct-from-file"
+              "rate_limit": {
+                "primary_window": {
+                  "used_percent": 20,
+                  "reset_after_seconds": 3600
+                }
               }
             }
-            """);
+            """),
+        });
 
-            this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent("""
-                {
-                  "rate_limit": {
-                    "primary_window": {
-                      "used_percent": 20,
-                      "reset_after_seconds": 3600
-                    }
-                  }
-                }
-                """)
-            });
+        var provider = new OpenAIProvider(this.HttpClient, this.Logger.Object, authPath);
 
-            var provider = new OpenAIProvider(this.HttpClient, this.Logger.Object, authPath);
-
-            try
-            {
-                var result = await provider.GetUsageAsync(new ProviderConfig { ProviderId = "openai" });
-
-                var usage = result.Single();
-                Assert.True(usage.IsAvailable);
-                Assert.Equal("acct-from-file", usage.AccountName);
-                Assert.Equal("OpenCode Session", usage.AuthSource);
-            }
-            finally
-            {
-                Directory.Delete(tempDir, recursive: true);
-            }
-        }
-
-        [Fact]
-        public async Task GetUsageAsync_InvalidSession_ReturnsUnavailable()
+        try
         {
-            // Arrange
-            this.Config.ApiKey = "expired-session";
-            this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.Unauthorized
-            });
+            var result = await provider.GetUsageAsync(new ProviderConfig { ProviderId = "openai" });
 
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
-
-            // Assert
             var usage = result.Single();
-            Assert.False(usage.IsAvailable);
-            Assert.Equal(401, usage.HttpStatus);
-            Assert.Contains("Session invalid", usage.Description);
+            Assert.True(usage.IsAvailable);
+            Assert.Equal("acct-from-file", usage.AccountName);
+            Assert.Equal("OpenCode Session", usage.AuthSource);
         }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_InvalidSession_ReturnsUnavailableAsync()
+    {
+        // Arrange
+        this.Config.ApiKey = "expired-session";
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.Unauthorized,
+        });
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Equal(401, usage.HttpStatus);
+        Assert.Contains("Session invalid", usage.Description, StringComparison.Ordinal);
     }
 }

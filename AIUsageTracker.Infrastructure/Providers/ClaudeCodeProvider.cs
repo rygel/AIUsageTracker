@@ -68,7 +68,7 @@ public class ClaudeCodeProvider : ProviderBase
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 RawJson = "{\"source\":\"claude-code\",\"status\":\"api_key_missing\"}",
-                HttpStatus = 401
+                HttpStatus = 401,
             },
             };
         }
@@ -244,7 +244,7 @@ public class ClaudeCodeProvider : ProviderBase
                         IsQuotaBased = false,
                         PlanType = PlanType.Usage,
                         RawJson = "{\"source\":\"claude-cli\",\"status\":\"process_start_failed\"}",
-                        HttpStatus = 503
+                        HttpStatus = 503,
                     },
                     };
                 }
@@ -281,7 +281,7 @@ public class ClaudeCodeProvider : ProviderBase
                         IsQuotaBased = false,
                         PlanType = PlanType.Usage,
                         RawJson = string.IsNullOrWhiteSpace(error) ? "{\"source\":\"claude-cli\",\"status\":\"failed\"}" : error,
-                        HttpStatus = 500
+                        HttpStatus = 500,
                     },
                     };
                 }
@@ -305,7 +305,7 @@ public class ClaudeCodeProvider : ProviderBase
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     RawJson = ex.ToString(),
-                    HttpStatus = 500
+                    HttpStatus = 500,
                 },
                 };
             }

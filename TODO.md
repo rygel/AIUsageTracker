@@ -14,6 +14,21 @@
 ### Up Next
 All architecture streamlining tasks completed! See remaining feature backlog below.
 
+### Cleanup Queue (Added: 2026-03-09)
+- [ ] Formatter-first mechanical pass (Priority: P1, Effort: M): Run repo-wide formatting and style normalization to reduce the largest warning buckets (`IDE0065`, `IDE0161`, `SA1028`, `SA1507`).
+- [ ] Initializer and layout consistency (Priority: P1, Effort: M): Fix multi-line initializer/list formatting and spacing (`SA1413`, `SA1117`, `SA1508`, `SA1516`).
+- [ ] Member ordering normalization (Priority: P1, Effort: M): Resolve ordering/layout warnings (`SA1201`, `SA1202`, `SA1204`) in highest-churn files first.
+- [ ] Semantic analyzer fixes (Priority: P1, Effort: M): Address correctness/readability warnings (`MA0074`, `MA0006`, `MA0004`) in non-UI/core paths first.
+- [ ] File structure cleanup (Priority: P2, Effort: M): Split multi-type files and align file/type names (`SA1402`, `SA1649`).
+- [ ] Guardrail hardening (Priority: P1, Effort: S): Add/strengthen pre-commit and pre-push checks to enforce `dotnet format` + analyzer hygiene.
+
+#### High-Volume Target Files
+- `AIUsageTracker.UI.Slim/App.xaml.cs`
+- `AIUsageTracker.Tests/Mocks/MockProviderService.cs`
+- `AIUsageTracker.UI.Slim/SettingsWindowDeterministicFixture.cs`
+- `AIUsageTracker.UI.Slim/App.TrayIcon.cs`
+- `AIUsageTracker.Monitor.Tests/ProviderRefreshServiceTests.cs`
+
 ### Analyzer Follow-Up
 - [x] Add third-party analyzer packages (Priority: P1, Effort: S/M): Evaluate and enable `Microsoft.VisualStudio.Threading.Analyzers`, `Meziantou.Analyzer`, and optionally `StyleCop.Analyzers` with repo-specific severities after the current MSBuild/test invocation issues are stabilized.
   - Goal: catch sync-over-async, brittle async patterns, and consistency issues earlier in CI

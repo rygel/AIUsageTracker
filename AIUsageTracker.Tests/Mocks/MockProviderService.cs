@@ -2,171 +2,171 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Mocks
+using System;
+using System.Threading.Tasks;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+
+namespace AIUsageTracker.Tests.Mocks;
+
+public class MockProviderService : IProviderService
 {
-    using System;
-    using System.Threading.Tasks;
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Core.Models;
+    private readonly Dictionary<string, ProviderUsage> _mockResponses;
+    private string _providerId = "mock-provider";
 
-    public class MockProviderService : IProviderService
+    public MockProviderService()
+        : this(new Dictionary<string, ProviderUsage>(StringComparer.Ordinal))
     {
-        private string _providerId = "mock-provider";
-        public string ProviderId
+    }
+
+    public MockProviderService(IReadOnlyDictionary<string, ProviderUsage> mockResponses)
+    {
+        this._mockResponses = new Dictionary<string, ProviderUsage>(mockResponses, StringComparer.Ordinal);
+        this.Definition = CreateDefinition(this._providerId);
+    }
+
+    public string ProviderId
+    {
+        get => this._providerId;
+        set
         {
-            get => this._providerId;
-            set
-            {
-                this._providerId = value;
-                this.Definition = new ProviderDefinition(
-                    providerId: value,
-                    displayName: value,
-                    planType: PlanType.Usage,
-                    isQuotaBased: false,
-                    defaultConfigType: "pay-as-you-go");
-            }
-        }
-    
-
-        public ProviderDefinition Definition { get; set; } = new(
-            providerId: "mock-provider",
-            displayName: "mock-provider",
-            planType: PlanType.Usage,
-            isQuotaBased: false,
-            defaultConfigType: "pay-as-you-go");
-
-        public Func<ProviderConfig, Task<IEnumerable<ProviderUsage>>>? UsageHandler { get; set; }
-
-        // Added for the new GetUsageAsync implementation
-        private readonly Dictionary<string, ProviderUsage> _mockResponses = new();
-
-        public MockProviderService() { }
-
-        // Constructor to allow populating _mockResponses
-        public MockProviderService(Dictionary<string, ProviderUsage> mockResponses)
-        {
-            this._mockResponses = mockResponses;
-        }
-    
-
-        public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
-        {
-            if (this.UsageHandler != null)
-            {
-                return this.UsageHandler(config);
-            }
-
-            if (this._mockResponses.TryGetValue(config.ProviderId, out var usage))
-            {
-                return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { usage });
-            }
-            return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage { ProviderId = config.ProviderId, IsAvailable = false, Description = "Mock not configured" } });
-        }
-    
-
-        public static MockProviderService CreateOpenAIMock()
-        {
-            return new MockProviderService
-            {
-                ProviderId = "openai",
-                UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
-                {
-                    ProviderId = "openai",
-                    ProviderName = "OpenAI",
-                    RequestsPercentage = 25,
-                    RequestsUsed = 2.5,
-                    RequestsAvailable = 10,
-                    PlanType = PlanType.Usage,
-                    UsageUnit = "USD",
-                    Description = "$2.50 / $10.00 used",
-                    IsAvailable = true
-                }})
-            };
-        }
-    
-
-        public static MockProviderService CreateGeminiMock()
-        {
-            return new MockProviderService
-            {
-                ProviderId = "gemini",
-                UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
-                {
-                    ProviderId = "gemini",
-                    ProviderName = "Gemini",
-                    RequestsPercentage = 10,
-                    RequestsUsed = 150,
-                    RequestsAvailable = 1500,
-                    PlanType = PlanType.Coding,
-                    UsageUnit = "Requests",
-                    Description = "150 / 1500 requests",
-                    IsAvailable = true
-                }})
-            };
-        }
-    
-
-        public static MockProviderService CreateGeminiCliMock()
-        {
-            return new MockProviderService
-            {
-                ProviderId = "gemini-cli",
-                UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
-                {
-                    ProviderId = "gemini-cli",
-                    ProviderName = "Gemini CLI",
-                    RequestsPercentage = 5,
-                    RequestsUsed = 500,
-                    RequestsAvailable = 10000,
-                    PlanType = PlanType.Coding,
-                    UsageUnit = "Tokens",
-                    Description = "500 / 10,000 tokens",
-                    IsAvailable = true
-                }})
-            };
-        }
-    
-
-        public static MockProviderService CreateAntigravityMock()
-        {
-            return new MockProviderService
-            {
-                ProviderId = "antigravity",
-                UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
-                {
-                    ProviderId = "antigravity",
-                    ProviderName = "Antigravity",
-                    RequestsPercentage = 40,
-                    RequestsUsed = 4,
-                    RequestsAvailable = 10,
-                    PlanType = PlanType.Usage,
-                    UsageUnit = "USD",
-                    Description = "$6.00 remaining",
-                    IsAvailable = true
-                }})
-            };
-        }
-    
-
-        public static MockProviderService CreateOpenCodeZenMock()
-        {
-            return new MockProviderService
-            {
-                ProviderId = "opencode-zen",
-                UsageHandler = config => Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage
-                {
-                    ProviderId = "opencode-zen",
-                    ProviderName = "OpenCode Zen",
-                    RequestsPercentage = 20,
-                    RequestsUsed = 1,
-                    RequestsAvailable = 5,
-                    PlanType = PlanType.Coding,
-                    UsageUnit = "Requests",
-                    Description = "1 / 5 requests",
-                    IsAvailable = true
-                }})
-            };
+            this._providerId = value;
+            this.Definition = CreateDefinition(value);
         }
     }
 
+    public ProviderDefinition Definition { get; private set; }
+
+    public Func<ProviderConfig, Task<IEnumerable<ProviderUsage>>>? UsageHandler { get; set; }
+
+    public static MockProviderService CreateOpenAIMock()
+    {
+        return CreateFixedUsageMock(
+            providerId: "openai",
+            providerName: "OpenAI",
+            requestsPercentage: 25,
+            requestsUsed: 2.5,
+            requestsAvailable: 10,
+            planType: PlanType.Usage,
+            usageUnit: "USD",
+            description: "$2.50 / $10.00 used");
+    }
+
+    public static MockProviderService CreateGeminiMock()
+    {
+        return CreateFixedUsageMock(
+            providerId: "gemini",
+            providerName: "Gemini",
+            requestsPercentage: 10,
+            requestsUsed: 150,
+            requestsAvailable: 1500,
+            planType: PlanType.Coding,
+            usageUnit: "Requests",
+            description: "150 / 1500 requests");
+    }
+
+    public static MockProviderService CreateGeminiCliMock()
+    {
+        return CreateFixedUsageMock(
+            providerId: "gemini-cli",
+            providerName: "Gemini CLI",
+            requestsPercentage: 5,
+            requestsUsed: 500,
+            requestsAvailable: 10000,
+            planType: PlanType.Coding,
+            usageUnit: "Tokens",
+            description: "500 / 10,000 tokens");
+    }
+
+    public static MockProviderService CreateAntigravityMock()
+    {
+        return CreateFixedUsageMock(
+            providerId: "antigravity",
+            providerName: "Antigravity",
+            requestsPercentage: 40,
+            requestsUsed: 4,
+            requestsAvailable: 10,
+            planType: PlanType.Usage,
+            usageUnit: "USD",
+            description: "$6.00 remaining");
+    }
+
+    public static MockProviderService CreateOpenCodeZenMock()
+    {
+        return CreateFixedUsageMock(
+            providerId: "opencode-zen",
+            providerName: "OpenCode Zen",
+            requestsPercentage: 20,
+            requestsUsed: 1,
+            requestsAvailable: 5,
+            planType: PlanType.Coding,
+            usageUnit: "Requests",
+            description: "1 / 5 requests");
+    }
+
+    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    {
+        if (this.UsageHandler != null)
+        {
+            return this.UsageHandler(config);
+        }
+
+        if (this._mockResponses.TryGetValue(config.ProviderId, out var usage))
+        {
+            return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { usage });
+        }
+
+        return Task.FromResult<IEnumerable<ProviderUsage>>(
+            new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = config.ProviderId,
+                    IsAvailable = false,
+                    Description = "Mock not configured",
+                },
+            });
+    }
+
+    private static ProviderDefinition CreateDefinition(string providerId)
+    {
+        return new ProviderDefinition(
+            providerId: providerId,
+            displayName: providerId,
+            planType: PlanType.Usage,
+            isQuotaBased: false,
+            defaultConfigType: "pay-as-you-go");
+    }
+
+    private static MockProviderService CreateFixedUsageMock(
+        string providerId,
+        string providerName,
+        double requestsPercentage,
+        double requestsUsed,
+        double requestsAvailable,
+        PlanType planType,
+        string usageUnit,
+        string description)
+    {
+        return new MockProviderService
+        {
+            ProviderId = providerId,
+            UsageHandler = _ => Task.FromResult<IEnumerable<ProviderUsage>>(
+                new[]
+                {
+                    new ProviderUsage
+                    {
+                        ProviderId = providerId,
+                        ProviderName = providerName,
+                        RequestsPercentage = requestsPercentage,
+                        RequestsUsed = requestsUsed,
+                        RequestsAvailable = requestsAvailable,
+                        PlanType = planType,
+                        UsageUnit = usageUnit,
+                        Description = description,
+                        IsAvailable = true,
+                    },
+                }),
+        };
+    }
 }

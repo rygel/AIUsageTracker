@@ -2,110 +2,106 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Monitor.Services
+using EvolveDb;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
+
+namespace AIUsageTracker.Monitor.Services;
+
+public class DatabaseMigrationService
 {
-    using EvolveDb;
-    using Microsoft.Data.Sqlite;
-    using Microsoft.Extensions.Logging;
+    private readonly string _connectionString;
+    private readonly ILogger<DatabaseMigrationService> _logger;
 
-    public class DatabaseMigrationService
+    public DatabaseMigrationService(string dbPath, ILogger<DatabaseMigrationService> logger)
     {
-        private readonly string _connectionString;
-        private readonly ILogger<DatabaseMigrationService> _logger;
+        this._connectionString = $"Data Source={dbPath}";
+        this._logger = logger;
+    }
 
-        public DatabaseMigrationService(string dbPath, ILogger<DatabaseMigrationService> logger)
+    public void RunMigrations()
+    {
+        try
         {
-            this._connectionString = $"Data Source={dbPath}";
-            this._logger = logger;
-        }
-    
+            using var connection = new SqliteConnection(this._connectionString);
+            connection.Open();
 
-        public void RunMigrations()
-        {
+            if (HasApplicationTables(connection) && !HasAppliedEvolveMigrations(connection))
+            {
+                this._logger.LogWarning(
+                    "Existing database found without applied Evolve metadata. Applying compatibility bootstrap and skipping Evolve migrations.");
+                this.EnsureSchemaCompatibility(connection);
+                this.ApplyPerformancePragmas(connection);
+                return;
+            }
+
+            var evolve = new Evolve(connection, msg => this._logger.LogInformation("{Message}", msg))
+            {
+                EmbeddedResourceAssemblies = new[] { typeof(DatabaseMigrationService).Assembly },
+                EmbeddedResourceFilters = new[] { "AIUsageTracker.Monitor.Migrations" },
+            };
+
             try
             {
-                using var connection = new SqliteConnection(this._connectionString);
-                connection.Open();
-
-                if (HasApplicationTables(connection) && !HasAppliedEvolveMigrations(connection))
-                {
-                    this._logger.LogWarning(
-                        "Existing database found without applied Evolve metadata. Applying compatibility bootstrap and skipping Evolve migrations.");
-                    this.EnsureSchemaCompatibility(connection);
-                    this.ApplyPerformancePragmas(connection);
-                    return;
-                }
-
-                var evolve = new Evolve(connection, msg => this._logger.LogInformation("{Message}", msg))
-                {
-                    EmbeddedResourceAssemblies = new[] { typeof(DatabaseMigrationService).Assembly },
-                    EmbeddedResourceFilters = new[] { "AIUsageTracker.Monitor.Migrations" }
-                };
-
-                try
-                {
-                    evolve.Migrate();
-                }
-                catch (EvolveException ex) when (HasApplicationTables(connection) && IsExistingSchemaConflict(ex))
-                {
-                    this._logger.LogWarning(
-                        "Evolve migration conflicted with an existing schema ({Message}). Applying compatibility bootstrap instead.",
-                        ex.Message);
-                    this.EnsureSchemaCompatibility(connection);
-                    this.ApplyPerformancePragmas(connection);
-                    return;
-                }
-
-                this.ApplyPerformancePragmas(connection);
-
-                this._logger.LogInformation("DB migrated ({Count} applied)", evolve.NbMigration);
+                evolve.Migrate();
             }
-            catch (Exception ex)
+            catch (EvolveException ex) when (HasApplicationTables(connection) && IsExistingSchemaConflict(ex))
             {
-                this._logger.LogError(ex, "Database migration failed: {Message}", ex.Message);
-                throw;
+                this._logger.LogWarning(
+                    "Evolve migration conflicted with an existing schema ({Message}). Applying compatibility bootstrap instead.",
+                    ex.Message);
+                this.EnsureSchemaCompatibility(connection);
+                this.ApplyPerformancePragmas(connection);
+                return;
             }
-        }
-    
 
-        private static bool HasApplicationTables(SqliteConnection connection)
+            this.ApplyPerformancePragmas(connection);
+
+            this._logger.LogInformation("DB migrated ({Count} applied)", evolve.NbMigration);
+        }
+        catch (Exception ex)
         {
-            const string sql = @"
+            this._logger.LogError(ex, "Database migration failed: {Message}", ex.Message);
+            throw;
+        }
+    }
+
+    private static bool HasApplicationTables(SqliteConnection connection)
+    {
+        const string sql = @"
             SELECT COUNT(*)
             FROM sqlite_master
             WHERE type = 'table'
               AND lower(name) IN ('providers', 'provider_history', 'raw_snapshots', 'reset_events')";
 
-            using var command = connection.CreateCommand();
-            command.CommandText = sql;
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        var count = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+        return count > 0;
+    }
+
+    private static bool HasAppliedEvolveMigrations(SqliteConnection connection)
+    {
+        const string sql = @"
+            SELECT COUNT(*) FROM changelog";
+
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+
+        try
+        {
             var count = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
             return count > 0;
         }
-    
-
-        private static bool HasAppliedEvolveMigrations(SqliteConnection connection)
+        catch (SqliteException)
         {
-            const string sql = @"
-            SELECT COUNT(*) FROM changelog";
-
-            using var command = connection.CreateCommand();
-            command.CommandText = sql;
-
-            try
-            {
-                var count = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
-                return count > 0;
-            }
-            catch (SqliteException)
-            {
-                return false;
-            }
+            return false;
         }
-    
+    }
 
-        private void EnsureSchemaCompatibility(SqliteConnection connection)
-        {
-            ExecuteNonQuery(connection, @"
+    private void EnsureSchemaCompatibility(SqliteConnection connection)
+    {
+        ExecuteNonQuery(connection, @"
             CREATE TABLE IF NOT EXISTS providers (
                 provider_id TEXT PRIMARY KEY,
                 provider_name TEXT,
@@ -152,18 +148,18 @@ namespace AIUsageTracker.Monitor.Services
             );
         ");
 
-            EnsureColumn(connection, "providers", "provider_name", "TEXT");
-            EnsureColumn(connection, "providers", "account_name", "TEXT");
-            EnsureColumn(connection, "providers", "created_at", "TEXT");
-            EnsureColumn(connection, "providers", "updated_at", "TEXT");
-            EnsureColumn(connection, "providers", "is_active", "INTEGER NOT NULL DEFAULT 1");
-            EnsureColumn(connection, "providers", "config_json", "TEXT");
-            EnsureColumn(connection, "providers", "auth_source", "TEXT DEFAULT 'manual'");
-            EnsureColumn(connection, "providers", "plan_type", "TEXT DEFAULT 'usage'");
-            EnsureColumn(connection, "provider_history", "details_json", "TEXT");
-            EnsureColumn(connection, "provider_history", "response_latency_ms", "REAL NOT NULL DEFAULT 0");
+        EnsureColumn(connection, "providers", "provider_name", "TEXT");
+        EnsureColumn(connection, "providers", "account_name", "TEXT");
+        EnsureColumn(connection, "providers", "created_at", "TEXT");
+        EnsureColumn(connection, "providers", "updated_at", "TEXT");
+        EnsureColumn(connection, "providers", "is_active", "INTEGER NOT NULL DEFAULT 1");
+        EnsureColumn(connection, "providers", "config_json", "TEXT");
+        EnsureColumn(connection, "providers", "auth_source", "TEXT DEFAULT 'manual'");
+        EnsureColumn(connection, "providers", "plan_type", "TEXT DEFAULT 'usage'");
+        EnsureColumn(connection, "provider_history", "details_json", "TEXT");
+        EnsureColumn(connection, "provider_history", "response_latency_ms", "REAL NOT NULL DEFAULT 0");
 
-            ExecuteNonQuery(connection, @"
+        ExecuteNonQuery(connection, @"
             CREATE INDEX IF NOT EXISTS idx_history_provider_time ON provider_history(provider_id, fetched_at);
             CREATE INDEX IF NOT EXISTS idx_raw_fetched ON raw_snapshots(fetched_at);
             CREATE INDEX IF NOT EXISTS idx_reset_provider_time ON reset_events(provider_id, timestamp);
@@ -173,66 +169,62 @@ namespace AIUsageTracker.Monitor.Services
             CREATE INDEX IF NOT EXISTS idx_history_provider_fetched_desc ON provider_history(provider_id, fetched_at DESC);
         ");
 
-            this._logger.LogInformation("Legacy database compatibility bootstrap completed.");
-        }
-    
+        this._logger.LogInformation("Legacy database compatibility bootstrap completed.");
+    }
 
-        private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
+    private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
+    {
+        using var infoCommand = connection.CreateCommand();
+        infoCommand.CommandText = $"PRAGMA table_info({tableName});";
+
+        var exists = false;
+        using (var reader = infoCommand.ExecuteReader())
         {
-            using var infoCommand = connection.CreateCommand();
-            infoCommand.CommandText = $"PRAGMA table_info({tableName});";
-
-            var exists = false;
-            using (var reader = infoCommand.ExecuteReader())
+            while (reader.Read())
             {
-                while (reader.Read())
+                if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        exists = true;
-                        break;
-                    }
+                    exists = true;
+                    break;
                 }
             }
+        }
 
-            if (exists)
+        if (exists)
+        {
+            return;
+        }
+
+        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
+    }
+
+    private static void ExecuteNonQuery(SqliteConnection connection, string sql)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    private static bool IsExistingSchemaConflict(Exception ex)
+    {
+        var current = ex;
+        while (current != null)
+        {
+            if (current.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
+                current.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
             {
-                return;
+                return true;
             }
 
-            ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
+            current = current.InnerException!;
         }
-    
 
-        private static void ExecuteNonQuery(SqliteConnection connection, string sql)
-        {
-            using var command = connection.CreateCommand();
-            command.CommandText = sql;
-            command.ExecuteNonQuery();
-        }
-    
+        return false;
+    }
 
-        private static bool IsExistingSchemaConflict(Exception ex)
-        {
-            var current = ex;
-            while (current != null)
-            {
-                if (current.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
-                    current.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-
-                current = current.InnerException!;
-            }
-
-            return false;
-        }
-    
-
-        private void ApplyPerformancePragmas(SqliteConnection connection)
-        {
-            ExecuteNonQuery(connection, @"
+    private void ApplyPerformancePragmas(SqliteConnection connection)
+    {
+        ExecuteNonQuery(connection, @"
             PRAGMA journal_mode=WAL;
             PRAGMA synchronous=NORMAL;
             PRAGMA busy_timeout=5000;
@@ -240,8 +232,6 @@ namespace AIUsageTracker.Monitor.Services
             PRAGMA foreign_keys=ON;
         ");
 
-            this._logger.LogInformation("SQLite performance pragmas applied (WAL/NORMAL/shared read optimization).");
-        }
+        this._logger.LogInformation("SQLite performance pragmas applied (WAL/NORMAL/shared read optimization).");
     }
-
 }

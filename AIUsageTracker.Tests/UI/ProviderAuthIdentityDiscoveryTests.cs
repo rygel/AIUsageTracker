@@ -2,46 +2,52 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.UI
+using System.Text;
+using System.Text.Json;
+using AIUsageTracker.UI.Slim;
+using Microsoft.Extensions.Logging;
+using Moq;
+
+namespace AIUsageTracker.Tests.UI;
+
+public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 {
-    using System.Text;
-    using System.Text.Json;
-    using AIUsageTracker.UI.Slim;
-    using Microsoft.Extensions.Logging;
-    using Moq;
+    private readonly string _tempDirectory;
+    private readonly ILogger _logger = Mock.Of<ILogger>();
 
-    public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
+    public ProviderAuthIdentityDiscoveryTests()
     {
-        private readonly string _tempDirectory;
-        private readonly ILogger _logger = Mock.Of<ILogger>();
+        this._tempDirectory = Path.Combine(
+            Path.GetTempPath(),
+            "provider-auth-tests",
+            Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(this._tempDirectory);
+    }
 
-        public ProviderAuthIdentityDiscoveryTests()
-        {
-            this._tempDirectory = Path.Combine(Path.GetTempPath(), "provider-auth-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(this._tempDirectory);
-        }
-
-        [Fact]
-        public async Task TryGetGitHubUsernameAsync_ReadsHostsFileLogin()
-        {
-            var hostsPath = this.CreateFile(
-                "hosts.yml",
-                """
+    [Fact]
+    public async Task TryGetGitHubUsernameAsync_ReadsHostsFileLoginAsync()
+    {
+        var hostsPath = this.CreateFile(
+            "hosts.yml",
+            """
             github.com:
               user: octocat
             """);
 
-            var username = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(this._logger, new[] { hostsPath });
+        var username = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(
+                this._logger,
+                new[] { hostsPath })
+            .ConfigureAwait(false);
 
-            Assert.Equal("octocat", username);
-        }
+        Assert.Equal("octocat", username);
+    }
 
-        [Fact]
-        public async Task TryGetOpenAiUsernameAsync_ReadsOpenAiEmailClaim()
-        {
-            var authPath = this.CreateFile(
-                "openai-auth.json",
-                """
+    [Fact]
+    public async Task TryGetOpenAiUsernameAsync_ReadsOpenAiEmailClaimAsync()
+    {
+        var authPath = this.CreateFile(
+            "openai-auth.json",
+            """
             {
               "openai": {
                 "email": "user@example.com"
@@ -49,80 +55,84 @@ namespace AIUsageTracker.Tests.UI
             }
             """);
 
-            var username = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger, new[] { authPath });
+        var username = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(
+                this._logger,
+                new[] { authPath })
+            .ConfigureAwait(false);
 
-            Assert.Equal("user@example.com", username);
-        }
+        Assert.Equal("user@example.com", username);
+    }
 
-        [Fact]
-        public async Task TryGetCodexUsernameAsync_ReadsNativeCodexJwtIdentity()
-        {
-            var authPath = this.CreateFile(
-                "codex-auth.json",
-                $$"""
+    [Fact]
+    public async Task TryGetCodexUsernameAsync_ReadsNativeCodexJwtIdentityAsync()
+    {
+        var authPath = this.CreateFile(
+            "codex-auth.json",
+            $$"""
             {
               "tokens": {
-                "id_token": "{{CreateJwt(new { preferred_username = "codex@example.com" })}}"
+                "id_token": "{{this.CreateJwt(new { preferred_username = "codex@example.com" })}}"
               }
             }
             """);
 
-            var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger, new[] { authPath });
+        var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(
+                this._logger,
+                new[] { authPath })
+            .ConfigureAwait(false);
 
-            Assert.Equal("codex@example.com", username);
-        }
+        Assert.Equal("codex@example.com", username);
+    }
 
-        [Fact]
-        public async Task TryGetCodexUsernameAsync_ReadsOpenCodeCompatibilityToken()
-        {
-            var authPath = this.CreateFile(
-                "opencode-auth.json",
-                $$"""
+    [Fact]
+    public async Task TryGetCodexUsernameAsync_ReadsOpenCodeCompatibilityTokenAsync()
+    {
+        var authPath = this.CreateFile(
+            "opencode-auth.json",
+            $$"""
             {
               "openai": {
-                "access": "{{CreateJwt(new { email = "openai@example.com" })}}"
+                "access": "{{this.CreateJwt(new { email = "openai@example.com" })}}"
               }
             }
             """);
 
-            var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger, new[] { authPath });
+        var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(
+                this._logger,
+                new[] { authPath })
+            .ConfigureAwait(false);
 
-            Assert.Equal("openai@example.com", username);
-        }
-    
+        Assert.Equal("openai@example.com", username);
+    }
 
-        public void Dispose()
+    public void Dispose()
+    {
+        if (Directory.Exists(this._tempDirectory))
         {
-            if (Directory.Exists(this._tempDirectory))
-            {
-                Directory.Delete(this._tempDirectory, recursive: true);
-            }
+            Directory.Delete(this._tempDirectory, recursive: true);
         }
-    
+    }
 
-        private string CreateFile(string relativePath, string content)
-        {
-            var fullPath = Path.Combine(this._tempDirectory, relativePath);
-            Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-            File.WriteAllText(fullPath, content);
-            return fullPath;
-        }
-    
+    private string CreateFile(string relativePath, string content)
+    {
+        var fullPath = Path.Combine(this._tempDirectory, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        File.WriteAllText(fullPath, content);
+        return fullPath;
+    }
 
-        private static string CreateJwt(object payload)
-        {
-            var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
-            var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
-            return $"{header}.{body}.";
-        }
-    
+    private string CreateJwt(object payload)
+    {
+        var header = this.Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
+        var body = this.Base64UrlEncode(JsonSerializer.Serialize(payload));
+        return $"{header}.{body}.";
+    }
 
-        private static string Base64UrlEncode(string value)
-        {
-            return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
-                .TrimEnd('=')
-                .Replace('+', '-')
-                .Replace('/', '_');
-        }
+    private string Base64UrlEncode(string value)
+    {
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 }

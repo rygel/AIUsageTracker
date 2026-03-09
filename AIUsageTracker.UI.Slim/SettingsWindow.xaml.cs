@@ -24,17 +24,13 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
-    private sealed class ThemeOption
-    {
-        public AppTheme Value { get; init; }
-
-        public string Label { get; init; } = string.Empty;
-    }
-
     private readonly IMonitorService _monitorService;
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
+    private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
+    private readonly DispatcherTimer _autoSaveTimer;
+
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
     private string? _gitHubAuthUsername;
@@ -45,10 +41,6 @@ public partial class SettingsWindow : Window
     private bool _isDeterministicScreenshotMode;
     private bool _isLoadingSettings;
     private bool _hasPendingAutoSave;
-    private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
-    private readonly DispatcherTimer _autoSaveTimer;
-
-    public bool SettingsChanged { get; private set; }
 
     public SettingsWindow(IMonitorService monitorService, ILogger<SettingsWindow> logger, UiPreferencesStore preferencesStore, IAppPathProvider pathProvider)
     {
@@ -78,6 +70,9 @@ public partial class SettingsWindow : Window
     {
     }
 
+    internal bool SettingsChanged { get; private set; }
+
+#pragma warning disable VSTHRD100 // WPF event handlers require async void signatures.
     private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
     {
         try
@@ -150,12 +145,16 @@ public partial class SettingsWindow : Window
 
             if (loadError != null)
             {
-                MessageBox.Show(loadError, "Connection Error",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    loadError,
+                    "Connection Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
         }
     }
 
+#pragma warning disable VSTHRD001 // Headless screenshot capture intentionally waits for dispatcher idle before rendering.
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
     {
         if (deterministic)
@@ -194,7 +193,7 @@ public partial class SettingsWindow : Window
             await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             this.UpdateLayout();
 
-            var tabSlug = BuildTabSlug(header, index);
+            var tabSlug = this.BuildTabSlug(header, index);
             var fileName = $"screenshot_settings_{tabSlug}_privacy.png";
             App.RenderWindowContent(this, Path.Combine(outputDirectory, fileName));
             capturedFiles.Add(fileName);
@@ -206,6 +205,7 @@ public partial class SettingsWindow : Window
 
         return capturedFiles;
     }
+#pragma warning restore VSTHRD001
 
     private void ApplyHeadlessCaptureWindowSize(string? tabHeader)
     {
@@ -275,7 +275,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private static string BuildTabSlug(string? header, int index)
+    private string BuildTabSlug(string? header, int index)
     {
         if (string.IsNullOrWhiteSpace(header))
         {
@@ -332,16 +332,16 @@ public partial class SettingsWindow : Window
         this._autoSaveTimer.Start();
     }
 
-    private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
+    private void OnPrivacyChanged(object? sender, PrivacyChangedEventArgs e)
     {
         if (!this.Dispatcher.CheckAccess())
         {
-            this.Dispatcher.Invoke(() => this.OnPrivacyChanged(sender, isPrivacyMode));
+            _ = this.Dispatcher.BeginInvoke(new Action(() => this.OnPrivacyChanged(sender, e)));
             return;
         }
 
-        this._isPrivacyMode = isPrivacyMode;
-        this._preferences.IsPrivacyMode = isPrivacyMode;
+        this._isPrivacyMode = e.IsPrivacyMode;
+        this._preferences.IsPrivacyMode = e.IsPrivacyMode;
         this.UpdatePrivacyButtonState();
         this.PopulateProviders();
     }
@@ -601,7 +601,7 @@ public partial class SettingsWindow : Window
 
         if (settingsBehavior.IsInactive)
         {
-            headerPanel.Children.Add(CreateInactiveBadge());
+            headerPanel.Children.Add(this.CreateInactiveBadge());
         }
 
         return headerPanel;
@@ -630,7 +630,7 @@ public partial class SettingsWindow : Window
         return checkBox;
     }
 
-    private static Border CreateInactiveBadge()
+    private Border CreateInactiveBadge()
     {
         var status = new Border
         {
@@ -787,12 +787,12 @@ public partial class SettingsWindow : Window
             return existing;
         }
 
-        var tracked = CloneConfig(config);
+        var tracked = this.CloneConfig(config);
         this._configs.Add(tracked);
         return tracked;
     }
 
-    private static ProviderConfig CloneConfig(ProviderConfig config)
+    private ProviderConfig CloneConfig(ProviderConfig config)
     {
         return new ProviderConfig
         {
@@ -813,7 +813,7 @@ public partial class SettingsWindow : Window
                     Id = model.Id,
                     Name = model.Name,
                     Matches = model.Matches.ToList(),
-                    Color = model.Color
+                    Color = model.Color,
                 })
                 .ToList(),
         };
@@ -915,7 +915,7 @@ public partial class SettingsWindow : Window
         this.InvertCalculationsCheck.IsChecked = this._preferences.InvertCalculations;
         this.ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
         this.ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
-        this.ThemeCombo.ItemsSource = GetThemeOptions();
+        this.ThemeCombo.ItemsSource = this.GetThemeOptions();
         this.ThemeCombo.SelectedValue = this._preferences.Theme;
 
         this.UpdateChannelCombo.ItemsSource = new[]
@@ -948,7 +948,7 @@ public partial class SettingsWindow : Window
         this.UpdateFontPreview();
     }
 
-    private static IReadOnlyList<ThemeOption> GetThemeOptions()
+    private IReadOnlyList<ThemeOption> GetThemeOptions()
     {
         return new List<ThemeOption>
         {
@@ -1100,21 +1100,27 @@ public partial class SettingsWindow : Window
             {
                 MessageBox.Show(
                     $"Found {count} new API key(s). They have been added to your configuration.",
-                    "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "Scan Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 await this.LoadDataAsync();
             }
             else
             {
                 MessageBox.Show(
                     "No new API keys found.",
-                    "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "Scan Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
             MessageBox.Show(
                 $"Failed to scan for keys: {ex.Message}",
-                "Scan Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                "Scan Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1136,13 +1142,19 @@ public partial class SettingsWindow : Window
             // Reload data
             await this.LoadDataAsync();
 
-            MessageBox.Show("Data refreshed successfully.", "Refresh Complete",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                "Data refreshed successfully.",
+                "Refresh Complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to refresh data: {ex.Message}", "Refresh Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to refresh data: {ex.Message}",
+                "Refresh Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1157,13 +1169,18 @@ public partial class SettingsWindow : Window
             {
                 MessageBox.Show(
                     "No history data available. The agent may not have collected any data yet.",
-                    "No Data", MessageBoxButton.OK, MessageBoxImage.Information);
+                    "No Data",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to load history: {ex.Message}", "History Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to load history: {ex.Message}",
+                "History Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1180,8 +1197,11 @@ public partial class SettingsWindow : Window
             var csv = await this._monitorService.ExportDataAsync("csv");
             if (string.IsNullOrEmpty(csv))
             {
-                MessageBox.Show("No data to export or Monitor is not running.", "Export",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    "No data to export or Monitor is not running.",
+                    "Export",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
                 return;
             }
 
@@ -1195,14 +1215,20 @@ public partial class SettingsWindow : Window
             if (dialog.ShowDialog() == true)
             {
                 await File.WriteAllTextAsync(dialog.FileName, csv);
-                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    $"Exported to {dialog.FileName}",
+                    "Export Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Export failed: {ex.Message}", "Export Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Export failed: {ex.Message}",
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1214,8 +1240,11 @@ public partial class SettingsWindow : Window
             var json = await this._monitorService.ExportDataAsync("json");
             if (string.Equals(json, "[]", StringComparison.Ordinal) || string.IsNullOrEmpty(json))
             {
-                MessageBox.Show("No data to export or Monitor is not running.", "Export",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    "No data to export or Monitor is not running.",
+                    "Export",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
                 return;
             }
 
@@ -1229,14 +1258,20 @@ public partial class SettingsWindow : Window
             if (dialog.ShowDialog() == true)
             {
                 await File.WriteAllTextAsync(dialog.FileName, json);
-                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    $"Exported to {dialog.FileName}",
+                    "Export Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Export failed: {ex.Message}", "Export Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Export failed: {ex.Message}",
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1258,20 +1293,29 @@ public partial class SettingsWindow : Window
                 if (File.Exists(dbPath))
                 {
                     File.Copy(dbPath, dialog.FileName, true);
-                    MessageBox.Show($"Backup saved to {dialog.FileName}", "Backup Complete",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(
+                        $"Backup saved to {dialog.FileName}",
+                        "Backup Complete",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Database file not found.", "Backup Error",
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(
+                        "Database file not found.",
+                        "Backup Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
                 }
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Backup failed: {ex.Message}", "Backup Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Backup failed: {ex.Message}",
+                "Backup Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1298,19 +1342,28 @@ public partial class SettingsWindow : Window
             // Restart agent
             if (await MonitorLauncher.EnsureAgentRunningAsync())
             {
-                MessageBox.Show("Monitor restarted successfully.", "Restart Complete",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    "Monitor restarted successfully.",
+                    "Restart Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
             else
             {
-                MessageBox.Show("Failed to restart Monitor.", "Restart Error",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(
+                    "Failed to restart Monitor.",
+                    "Restart Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to restart Monitor: {ex.Message}", "Restart Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to restart Monitor: {ex.Message}",
+                "Restart Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1325,13 +1378,19 @@ public partial class SettingsWindow : Window
             var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
             var status = isRunning ? "Running" : "Not Running";
 
-            MessageBox.Show($"Monitor Status: {status}\n\nPort: {port}", "Health Check",
-                MessageBoxButton.OK, isRunning ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            MessageBox.Show(
+                $"Monitor Status: {status}\n\nPort: {port}",
+                "Health Check",
+                MessageBoxButton.OK,
+                isRunning ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to check health: {ex.Message}", "Health Check Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to check health: {ex.Message}",
+                "Health Check Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1374,11 +1433,11 @@ public partial class SettingsWindow : Window
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Health ===");
-            bundle.AppendLine(FormatJsonForBundle(healthDetails));
+            bundle.AppendLine(this.FormatJsonForBundle(healthDetails));
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Diagnostics ===");
-            bundle.AppendLine(FormatJsonForBundle(diagnosticsDetails));
+            bundle.AppendLine(this.FormatJsonForBundle(diagnosticsDetails));
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Errors (monitor.json) ===");
@@ -1400,11 +1459,19 @@ public partial class SettingsWindow : Window
             bundle.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
                 "Usage: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
-                telemetry.UsageRequestCount, telemetry.UsageAverageLatencyMs, telemetry.UsageLastLatencyMs, telemetry.UsageErrorCount, telemetry.UsageErrorRatePercent);
+                telemetry.UsageRequestCount,
+                telemetry.UsageAverageLatencyMs,
+                telemetry.UsageLastLatencyMs,
+                telemetry.UsageErrorCount,
+                telemetry.UsageErrorRatePercent);
             bundle.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
                 "Refresh: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
-                telemetry.RefreshRequestCount, telemetry.RefreshAverageLatencyMs, telemetry.RefreshLastLatencyMs, telemetry.RefreshErrorCount, telemetry.RefreshErrorRatePercent);
+                telemetry.RefreshRequestCount,
+                telemetry.RefreshAverageLatencyMs,
+                telemetry.RefreshLastLatencyMs,
+                telemetry.RefreshErrorCount,
+                telemetry.RefreshErrorRatePercent);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Slim Diagnostics Log ===");
@@ -1422,13 +1489,19 @@ public partial class SettingsWindow : Window
             }
 
             await File.WriteAllTextAsync(saveDialog.FileName, bundle.ToString());
-            MessageBox.Show($"Diagnostics bundle saved to:\n{saveDialog.FileName}", "Export Complete",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                $"Diagnostics bundle saved to:\n{saveDialog.FileName}",
+                "Export Complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to export diagnostics bundle: {ex.Message}", "Export Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to export diagnostics bundle: {ex.Message}",
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1436,7 +1509,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private static string FormatJsonForBundle(string content)
+    private string FormatJsonForBundle(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -1523,8 +1596,8 @@ public partial class SettingsWindow : Window
             this._preferences.NotifyOnQuotaExceeded = this.NotifyQuotaExceededCheck.IsChecked ?? true;
             this._preferences.NotifyOnProviderErrors = this.NotifyProviderErrorsCheck.IsChecked ?? false;
             this._preferences.EnableQuietHours = this.EnableQuietHoursCheck.IsChecked ?? false;
-            this._preferences.QuietHoursStart = NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
-            this._preferences.QuietHoursEnd = NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
+            this._preferences.QuietHoursStart = this.NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
+            this._preferences.QuietHoursEnd = this.NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
 
             var prefsSaved = await this.SaveUiPreferencesAsync(showErrorDialog);
             if (!prefsSaved)
@@ -1576,7 +1649,11 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             this._logger.LogError(ex, "CancelBtn_Click failed");
-            MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to save settings: {ex.Message}",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1686,7 +1763,7 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private static string NormalizeQuietHour(string value, string fallback)
+    private string NormalizeQuietHour(string value, string fallback)
     {
         if (TimeSpan.TryParse(value, out var parsed))
         {
@@ -1718,6 +1795,7 @@ public partial class SettingsWindow : Window
             this.NotificationTestStatusText.Text = $"Error: {ex.Message}";
         }
     }
+#pragma warning restore VSTHRD100
 
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {

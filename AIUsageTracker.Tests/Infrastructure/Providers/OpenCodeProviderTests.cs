@@ -2,74 +2,73 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Infrastructure.Providers
+using System.Net;
+using System.Text.Json;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Tests.Infrastructure;
+using Xunit;
+
+namespace AIUsageTracker.Tests.Infrastructure.Providers;
+
+public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
 {
-    using System.Net;
-    using System.Text.Json;
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Infrastructure.Providers;
-    using AIUsageTracker.Tests.Infrastructure;
-    using Xunit;
+    private readonly OpenCodeProvider _provider;
 
-    public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
+    public OpenCodeProviderTests()
     {
-        private readonly OpenCodeProvider _provider;
+        this._provider = new OpenCodeProvider(this.HttpClient, this.Logger.Object);
+        this.Config.ApiKey = "test-opencode-key";
+    }
 
-        public OpenCodeProviderTests()
+    [Fact]
+    public async Task GetUsageAsync_ValidResponse_ParsesCreditsCorrectlyAsync()
+    {
+        // Arrange
+        var responseData = new
         {
-            this._provider = new OpenCodeProvider(this.HttpClient, this.Logger.Object);
-            this.Config.ApiKey = "test-opencode-key";
-        }
+            data = new
+            {
+                total_credits = 100.0,
+                used_credits = 12.34
+            },
+        };
 
-        [Fact]
-        public async Task GetUsageAsync_ValidResponse_ParsesCreditsCorrectly()
+        this.SetupHttpResponse("https://api.opencode.ai/v1/credits", new HttpResponseMessage
         {
-            // Arrange
-            var responseData = new
-            {
-                data = new
-                {
-                    total_credits = 100.0,
-                    used_credits = 12.34
-                }
-            };
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
+        });
 
-            this.SetupHttpResponse("https://api.opencode.ai/v1/credits", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent(JsonSerializer.Serialize(responseData))
-            });
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
 
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal(OpenCodeProvider.StaticDefinition.DisplayName, usage.ProviderName);
+        Assert.Equal(12.34, usage.RequestsUsed);
+        Assert.Equal("USD", usage.UsageUnit);
+        Assert.Equal("$12.34 used (7 days)", usage.Description);
+    }
 
-            // Assert
-            var usage = result.Single();
-            Assert.True(usage.IsAvailable);
-            Assert.Equal(OpenCodeProvider.StaticDefinition.DisplayName, usage.ProviderName);
-            Assert.Equal(12.34, usage.RequestsUsed);
-            Assert.Equal("USD", usage.UsageUnit);
-            Assert.Equal("$12.34 used (7 days)", usage.Description);
-        }
-
-        [Fact]
-        public async Task GetUsageAsync_ApiError_ReturnsUnavailable()
+    [Fact]
+    public async Task GetUsageAsync_ApiError_ReturnsUnavailableAsync()
+    {
+        // Arrange
+        this.SetupHttpResponse("https://api.opencode.ai/v1/credits", new HttpResponseMessage
         {
-            // Arrange
-            this.SetupHttpResponse("https://api.opencode.ai/v1/credits", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.BadRequest,
-                Content = new StringContent("{\"error\":\"bad_request\"}")
-            });
+            StatusCode = HttpStatusCode.BadRequest,
+            Content = new StringContent("{\"error\":\"bad_request\"}"),
+        });
 
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
 
-            // Assert
-            var usage = result.Single();
-            Assert.False(usage.IsAvailable);
-            Assert.Equal(400, usage.HttpStatus);
-            Assert.Contains("API Error", usage.Description);
-        }
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Equal(400, usage.HttpStatus);
+        Assert.Contains("API Error", usage.Description, StringComparison.Ordinal);
     }
 }

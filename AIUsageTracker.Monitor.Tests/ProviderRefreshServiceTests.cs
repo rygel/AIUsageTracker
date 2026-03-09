@@ -2,286 +2,88 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Monitor.Tests
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Monitor.Services;
+using Microsoft.Extensions.Logging;
+using Moq;
+using Xunit;
+
+namespace AIUsageTracker.Monitor.Tests;
+
+public class ProviderRefreshServiceTests
 {
-    using AIUsageTracker.Monitor.Services;
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Core.Models;
-    using Microsoft.Extensions.Logging;
-    using Moq;
-    using System.Collections.Generic;
-    using System.Linq;
-    using System.Threading.Tasks;
-    using Xunit;
+    private readonly Mock<ILogger<ProviderRefreshService>> _mockLogger;
+    private readonly Mock<ILoggerFactory> _mockLoggerFactory;
+    private readonly Mock<IUsageDatabase> _mockDatabase;
+    private readonly Mock<INotificationService> _mockNotificationService;
+    private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
+    private readonly Mock<IAppPathProvider> _mockPathProvider;
+    private readonly Mock<ConfigService> _mockConfigService;
+    private readonly UsageAlertsService _usageAlertsService;
+    private readonly ProviderRefreshCircuitBreakerService _providerRefreshCircuitBreakerService;
+    private readonly ProviderRefreshService _service;
 
-    public class ProviderRefreshServiceTests
+    public ProviderRefreshServiceTests()
     {
-        private readonly Mock<ILogger<ProviderRefreshService>> _mockLogger;
-        private readonly Mock<ILoggerFactory> _mockLoggerFactory;
-        private readonly Mock<IUsageDatabase> _mockDatabase;
-        private readonly Mock<INotificationService> _mockNotificationService;
-        private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
-        private readonly Mock<IAppPathProvider> _mockPathProvider;
-        private readonly Mock<ConfigService> _mockConfigService;
-        private readonly ProviderRefreshService _service;
+        this._mockLogger = new Mock<ILogger<ProviderRefreshService>>();
+        this._mockLoggerFactory = new Mock<ILoggerFactory>();
+        this._mockDatabase = new Mock<IUsageDatabase>();
+        this._mockNotificationService = new Mock<INotificationService>();
+        this._mockHttpClientFactory = new Mock<IHttpClientFactory>();
+        this._mockPathProvider = new Mock<IAppPathProvider>();
 
-        public ProviderRefreshServiceTests()
-        {
-            this._mockLogger = new Mock<ILogger<ProviderRefreshService>>();
-            this._mockLoggerFactory = new Mock<ILoggerFactory>();
-            this._mockDatabase = new Mock<IUsageDatabase>();
-            this._mockNotificationService = new Mock<INotificationService>();
-            this._mockHttpClientFactory = new Mock<IHttpClientFactory>();
-            this._mockPathProvider = new Mock<IAppPathProvider>();
+        // ConfigService needs a logger and path provider, using NullLogger
+        var configLogger = new Mock<ILogger<ConfigService>>();
+        this._mockConfigService = new Mock<ConfigService>(configLogger.Object, this._mockPathProvider.Object);
+        var alertsLogger = new Mock<ILogger<UsageAlertsService>>();
+        this._usageAlertsService = new UsageAlertsService(
+            alertsLogger.Object,
+            this._mockDatabase.Object,
+            this._mockNotificationService.Object,
+            this._mockConfigService.Object);
+        var circuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
+        this._providerRefreshCircuitBreakerService = new ProviderRefreshCircuitBreakerService(circuitBreakerLogger.Object);
 
-            // ConfigService needs a logger and path provider, using NullLogger
-            var configLogger = new Mock<ILogger<ConfigService>>();
-            this._mockConfigService = new Mock<ConfigService>(configLogger.Object, this._mockPathProvider.Object);
-
-            this._service = new ProviderRefreshService(
-                this._mockLogger.Object,
-                this._mockLoggerFactory.Object,
-                this._mockDatabase.Object,
-                this._mockNotificationService.Object,
-                this._mockHttpClientFactory.Object,
-                this._mockConfigService.Object,
-                this._mockPathProvider.Object,
-                Enumerable.Empty<IProviderService>());
-        }
-
-        [Fact]
-        public void CheckUsageAlertsAsync_UsageAboveThreshold_TriggersNotification()
-        {
-            // Arrange
-            var prefs = new AppPreferences { EnableNotifications = true, NotificationThreshold = 90.0 };
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "test", EnableNotifications = true }
-            };
-            var usages = new List<ProviderUsage>
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "test",
-                    ProviderName = "Test Provider",
-                    RequestsPercentage = 95.0,
-                    IsAvailable = true
-                }
-            };
-
-            // Act
-            this._service.CheckUsageAlerts(usages, prefs, configs);
-
-            // Assert
-            this._mockNotificationService.Verify(n => n.ShowUsageAlert("Test Provider", 95.0), Times.Once);
-        }
-
-        [Fact]
-        public void CheckUsageAlertsAsync_QuotaRemainingLow_TriggersNotificationFromUsedPercent()
-        {
-            // Arrange
-            var prefs = new AppPreferences { EnableNotifications = true, NotificationThreshold = 90.0 };
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "test", EnableNotifications = true }
-            };
-            var usages = new List<ProviderUsage>
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "test",
-                    ProviderName = "Test Provider",
-                    RequestsPercentage = 5.0, // remaining %
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    IsAvailable = true
-                }
-            };
-
-            // Act
-            this._service.CheckUsageAlerts(usages, prefs, configs);
-
-            // Assert
-            this._mockNotificationService.Verify(n => n.ShowUsageAlert("Test Provider", 95.0), Times.Once);
-        }
-
-        [Fact]
-        public void CheckUsageAlertsAsync_QuotaRemainingHigh_DoesNotTriggerNotification()
-        {
-            // Arrange
-            var prefs = new AppPreferences { EnableNotifications = true, NotificationThreshold = 90.0 };
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "test", EnableNotifications = true }
-            };
-            var usages = new List<ProviderUsage>
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "test",
-                    ProviderName = "Test Provider",
-                    RequestsPercentage = 30.0, // remaining %, 70% used
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
-                    IsAvailable = true
-                }
-            };
-
-            // Act
-            this._service.CheckUsageAlerts(usages, prefs, configs);
-
-            // Assert
-            this._mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
-        }
-
-        [Fact]
-        public void CheckUsageAlertsAsync_NotificationsDisabledGlobally_DoesNotTrigger()
-        {
-            // Arrange
-            var prefs = new AppPreferences { EnableNotifications = false, NotificationThreshold = 90.0 };
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "test", EnableNotifications = true }
-            };
-            var usages = new List<ProviderUsage>
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "test",
-                    ProviderName = "Test Provider",
-                    RequestsPercentage = 95.0,
-                    IsAvailable = true
-                }
-            };
-
-            // Act
-            this._service.CheckUsageAlerts(usages, prefs, configs);
-
-            // Assert
-            this._mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
-        }
-
-        [Fact]
-        public void CheckUsageAlertsAsync_ProviderNotificationsDisabled_DoesNotTrigger()
-        {
-            // Arrange
-            var prefs = new AppPreferences { EnableNotifications = true, NotificationThreshold = 90.0 };
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "test", EnableNotifications = false }
-            };
-            var usages = new List<ProviderUsage>
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "test",
-                    ProviderName = "Test Provider",
-                    RequestsPercentage = 95.0,
-                    IsAvailable = true
-                }
-            };
-
-            // Act
-            this._service.CheckUsageAlerts(usages, prefs, configs);
-
-            // Assert
-            this._mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
-        }
-
-        [Fact]
-        public void CheckUsageAlertsAsync_UsageThresholdNotificationsDisabled_DoesNotTrigger()
-        {
-            // Arrange
-            var prefs = new AppPreferences
-            {
-                EnableNotifications = true,
-                NotifyOnUsageThreshold = false,
-                NotificationThreshold = 90.0
-            };
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "test", EnableNotifications = true }
-            };
-            var usages = new List<ProviderUsage>
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "test",
-                    ProviderName = "Test Provider",
-                    RequestsPercentage = 95.0,
-                    IsAvailable = true
-                }
-            };
-
-            // Act
-            this._service.CheckUsageAlerts(usages, prefs, configs);
-
-            // Assert
-            this._mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
-        }
-
-        [Fact]
-        public void CheckUsageAlertsAsync_QuietHoursAlwaysEnabled_DoesNotTrigger()
-        {
-            // Arrange
-            var prefs = new AppPreferences
-            {
-                EnableNotifications = true,
-                NotifyOnUsageThreshold = true,
-                NotificationThreshold = 90.0,
-                EnableQuietHours = true,
-                QuietHoursStart = "22:00",
-                QuietHoursEnd = "22:00"
-            };
-            var configs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "test", EnableNotifications = true }
-            };
-            var usages = new List<ProviderUsage>
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "test",
-                    ProviderName = "Test Provider",
-                    RequestsPercentage = 95.0,
-                    IsAvailable = true
-                }
-            };
-
-            // Act
-            this._service.CheckUsageAlerts(usages, prefs, configs);
-
-            // Assert
-            this._mockNotificationService.Verify(n => n.ShowUsageAlert(It.IsAny<string>(), It.IsAny<double>()), Times.Never);
-        }
-
-        [Fact]
-        public void GetRefreshTelemetrySnapshot_InitialState_IsZeroed()
-        {
-            var telemetry = this._service.GetRefreshTelemetrySnapshot();
-
-            Assert.Equal(0, telemetry.RefreshCount);
-            Assert.Equal(0, telemetry.RefreshSuccessCount);
-            Assert.Equal(0, telemetry.RefreshFailureCount);
-            Assert.Equal(0, telemetry.ErrorRatePercent);
-            Assert.Equal(0, telemetry.AverageLatencyMs);
-            Assert.Null(telemetry.LastError);
-        }
-
-        [Fact]
-        public async Task TriggerRefreshAsync_WhenProviderManagerMissing_RecordsFailureTelemetry()
-        {
-            await this._service.TriggerRefreshAsync();
-            var telemetry = this._service.GetRefreshTelemetrySnapshot();
-
-            Assert.Equal(1, telemetry.RefreshCount);
-            Assert.Equal(0, telemetry.RefreshSuccessCount);
-            Assert.Equal(1, telemetry.RefreshFailureCount);
-            Assert.True(telemetry.ErrorRatePercent > 0);
-            Assert.Equal("ProviderManager not ready", telemetry.LastError);
-        }
+        this._service = new ProviderRefreshService(
+            this._mockLogger.Object,
+            this._mockLoggerFactory.Object,
+            this._mockDatabase.Object,
+            this._mockNotificationService.Object,
+            this._mockHttpClientFactory.Object,
+            this._mockConfigService.Object,
+            this._mockPathProvider.Object,
+            Enumerable.Empty<IProviderService>(),
+            this._usageAlertsService,
+            this._providerRefreshCircuitBreakerService);
     }
 
+    [Fact]
+    public void GetRefreshTelemetrySnapshot_InitialState_IsZeroed()
+    {
+        var telemetry = this._service.GetRefreshTelemetrySnapshot();
 
+        Assert.Equal(0, telemetry.RefreshCount);
+        Assert.Equal(0, telemetry.RefreshSuccessCount);
+        Assert.Equal(0, telemetry.RefreshFailureCount);
+        Assert.Equal(0, telemetry.ErrorRatePercent);
+        Assert.Equal(0, telemetry.AverageLatencyMs);
+        Assert.Null(telemetry.LastError);
+    }
 
+    [Fact]
+    public async Task TriggerRefreshAsync_WhenProviderManagerMissing_RecordsFailureTelemetryAsync()
+    {
+        await this._service.TriggerRefreshAsync();
+        var telemetry = this._service.GetRefreshTelemetrySnapshot();
+
+        Assert.Equal(1, telemetry.RefreshCount);
+        Assert.Equal(0, telemetry.RefreshSuccessCount);
+        Assert.Equal(1, telemetry.RefreshFailureCount);
+        Assert.True(telemetry.ErrorRatePercent > 0);
+        Assert.Equal("ProviderManager not ready", telemetry.LastError);
+    }
 }

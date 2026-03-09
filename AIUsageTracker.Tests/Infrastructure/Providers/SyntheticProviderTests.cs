@@ -2,101 +2,100 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Infrastructure.Providers
+using System.Net;
+using System.Text.Json;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Tests.Infrastructure;
+using Xunit;
+
+namespace AIUsageTracker.Tests.Infrastructure.Providers;
+
+public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
 {
-    using System.Net;
-    using System.Text.Json;
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Infrastructure.Providers;
-    using AIUsageTracker.Tests.Infrastructure;
-    using Xunit;
+    private readonly SyntheticProvider _provider;
 
-    public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
+    public SyntheticProviderTests()
     {
-        private readonly SyntheticProvider _provider;
+        this._provider = new SyntheticProvider(this.HttpClient, this.Logger.Object);
+        this.Config.ApiKey = "test-synthetic-key";
+    }
 
-        public SyntheticProviderTests()
+    [Fact]
+    public async Task GetUsageAsync_StandardPayload_ParsesCreditsCorrectlyAsync()
+    {
+        // Arrange
+        var responseData = new
         {
-            this._provider = new SyntheticProvider(this.HttpClient, this.Logger.Object);
-            this.Config.ApiKey = "test-synthetic-key";
-        }
+            subscription = new
+            {
+                limit = 1000.0,
+                usage = 250.0,
+                resetAt = "2026-03-10T12:00:00Z"
+            },
+        };
 
-        [Fact]
-        public async Task GetUsageAsync_StandardPayload_ParsesCreditsCorrectly()
+        this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
         {
-            // Arrange
-            var responseData = new
-            {
-                subscription = new
-                {
-                    limit = 1000.0,
-                    usage = 250.0,
-                    resetAt = "2026-03-10T12:00:00Z"
-                }
-            };
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
+        });
 
-            this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent(JsonSerializer.Serialize(responseData))
-            });
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
 
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal("Synthetic", usage.ProviderName);
+        Assert.Equal(75.0, usage.RequestsPercentage); // (1000-250)/1000 * 100
+        Assert.Equal(250.0, usage.RequestsUsed);
+        Assert.Contains("250 / 1000 credits", usage.Description, StringComparison.Ordinal);
+        Assert.NotNull(usage.NextResetTime);
+    }
 
-            // Assert
-            var usage = result.Single();
-            Assert.True(usage.IsAvailable);
-            Assert.Equal("Synthetic", usage.ProviderName);
-            Assert.Equal(75.0, usage.RequestsPercentage); // (1000-250)/1000 * 100
-            Assert.Equal(250.0, usage.RequestsUsed);
-            Assert.Contains("250 / 1000 credits", usage.Description);
-            Assert.NotNull(usage.NextResetTime);
-        }
-
-        [Fact]
-        public async Task GetUsageAsync_FlatPayload_ParsesSuccessfully()
+    [Fact]
+    public async Task GetUsageAsync_FlatPayload_ParsesSuccessfullyAsync()
+    {
+        // Arrange
+        var responseData = new
         {
-            // Arrange
-            var responseData = new
-            {
-                total = 500.0,
-                consumed = 100.0
-            };
+            total = 500.0,
+            consumed = 100.0,
+        };
 
-            this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent(JsonSerializer.Serialize(responseData))
-            });
-
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
-
-            // Assert
-            var usage = result.Single();
-            Assert.True(usage.IsAvailable);
-            Assert.Equal(80.0, usage.RequestsPercentage);
-            Assert.Equal(100.0, usage.RequestsUsed);
-        }
-
-        [Fact]
-        public async Task GetUsageAsync_NotFoundContent_ReturnsUnavailable()
+        this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
         {
-            // Arrange
-            this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK, // API sometimes returns 200 with "Not Found" string
-                Content = new StringContent("Not Found")
-            });
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
+        });
 
-            // Act
-            var result = await this._provider.GetUsageAsync(this.Config);
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
 
-            // Assert
-            var usage = result.Single();
-            Assert.False(usage.IsAvailable);
-            Assert.Contains("Invalid key or quota endpoint", usage.Description);
-        }
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal(80.0, usage.RequestsPercentage);
+        Assert.Equal(100.0, usage.RequestsUsed);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_NotFoundContent_ReturnsUnavailableAsync()
+    {
+        // Arrange
+        this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK, // API sometimes returns 200 with "Not Found" string
+            Content = new StringContent("Not Found"),
+        });
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Contains("Invalid key or quota endpoint", usage.Description, StringComparison.Ordinal);
     }
 }

@@ -2,91 +2,90 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.UI
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.UI.Slim.ViewModels;
+using Microsoft.Extensions.Logging;
+using Moq;
+using Xunit;
+
+namespace AIUsageTracker.Tests.UI;
+
+public class SettingsViewModelTests
 {
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Core.MonitorClient;
-    using AIUsageTracker.UI.Slim.ViewModels;
-    using Microsoft.Extensions.Logging;
-    using Moq;
-    using Xunit;
+    private readonly Mock<IMonitorService> _monitorServiceMock;
+    private readonly Mock<IUsageAnalyticsService> _analyticsServiceMock;
+    private readonly Mock<IDataExportService> _exportServiceMock;
+    private readonly Mock<ILogger<SettingsViewModel>> _loggerMock;
+    private readonly SettingsViewModel _viewModel;
 
-    public class SettingsViewModelTests
+    public SettingsViewModelTests()
     {
-        private readonly Mock<IMonitorService> _monitorServiceMock;
-        private readonly Mock<IUsageAnalyticsService> _analyticsServiceMock;
-        private readonly Mock<IDataExportService> _exportServiceMock;
-        private readonly Mock<ILogger<SettingsViewModel>> _loggerMock;
-        private readonly SettingsViewModel _viewModel;
+        this._monitorServiceMock = new Mock<IMonitorService>();
+        this._analyticsServiceMock = new Mock<IUsageAnalyticsService>();
+        this._exportServiceMock = new Mock<IDataExportService>();
+        this._loggerMock = new Mock<ILogger<SettingsViewModel>>();
+        this._viewModel = new SettingsViewModel(
+            this._monitorServiceMock.Object,
+            this._analyticsServiceMock.Object,
+            this._exportServiceMock.Object,
+            this._loggerMock.Object);
+    }
 
-        public SettingsViewModelTests()
+    [Fact]
+    public void TogglePrivacyMode_UpdatesStateAndMessage()
+    {
+        // Arrange
+        this._viewModel.IsPrivacyMode = false;
+
+        // Act
+        this._viewModel.TogglePrivacyMode();
+
+        // Assert
+        Assert.True(this._viewModel.IsPrivacyMode);
+        Assert.Contains("Enabled", this._viewModel.StatusMessage, StringComparison.Ordinal);
+
+        // Act again
+        this._viewModel.TogglePrivacyMode();
+
+        // Assert
+        Assert.False(this._viewModel.IsPrivacyMode);
+        Assert.Contains("Disabled", this._viewModel.StatusMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LoadDataAsync_PopulatesConfigs_WhenSuccessfulAsync()
+    {
+        // Arrange
+        var testConfigs = new List<ProviderConfig>
         {
-            this._monitorServiceMock = new Mock<IMonitorService>();
-            this._analyticsServiceMock = new Mock<IUsageAnalyticsService>();
-            this._exportServiceMock = new Mock<IDataExportService>();
-            this._loggerMock = new Mock<ILogger<SettingsViewModel>>();
-            this._viewModel = new SettingsViewModel(
-                this._monitorServiceMock.Object,
-                this._analyticsServiceMock.Object,
-                this._exportServiceMock.Object,
-                this._loggerMock.Object);
-        }
+            new ProviderConfig { ProviderId = "codex", ApiKey = "key1" },
+            new ProviderConfig { ProviderId = "claude-code", ApiKey = "key2" },
+        };
+        this._monitorServiceMock.Setup(m => m.GetConfigsAsync()).ReturnsAsync(testConfigs);
+        this._monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(new List<ProviderUsage>());
 
-        [Fact]
-        public void TogglePrivacyMode_UpdatesStateAndMessage()
-        {
-            // Arrange
-            this._viewModel.IsPrivacyMode = false;
+        // Act
+        await this._viewModel.LoadDataAsync();
 
-            // Act
-            this._viewModel.TogglePrivacyMode();
+        // Assert
+        Assert.Equal(2, this._viewModel.Configs.Count);
+        Assert.Equal("Loaded 2 providers.", this._viewModel.StatusMessage);
+        Assert.False(this._viewModel.IsLoading);
+    }
 
-            // Assert
-            Assert.True(this._viewModel.IsPrivacyMode);
-            Assert.Contains("Enabled", this._viewModel.StatusMessage);
+    [Fact]
+    public async Task LoadDataAsync_SetsErrorMessage_WhenServiceFailsAsync()
+    {
+        // Arrange
+        this._monitorServiceMock.Setup(m => m.GetConfigsAsync()).ThrowsAsync(new Exception("Network error"));
 
-            // Act again
-            this._viewModel.TogglePrivacyMode();
+        // Act
+        await this._viewModel.LoadDataAsync();
 
-            // Assert
-            Assert.False(this._viewModel.IsPrivacyMode);
-            Assert.Contains("Disabled", this._viewModel.StatusMessage);
-        }
-
-        [Fact]
-        public async Task LoadDataAsync_PopulatesConfigs_WhenSuccessful()
-        {
-            // Arrange
-            var testConfigs = new List<ProviderConfig>
-            {
-                new ProviderConfig { ProviderId = "codex", ApiKey = "key1" },
-                new ProviderConfig { ProviderId = "claude-code", ApiKey = "key2" }
-            };
-            this._monitorServiceMock.Setup(m => m.GetConfigsAsync()).ReturnsAsync(testConfigs);
-            this._monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(new List<ProviderUsage>());
-
-            // Act
-            await this._viewModel.LoadDataAsync();
-
-            // Assert
-            Assert.Equal(2, this._viewModel.Configs.Count);
-            Assert.Equal("Loaded 2 providers.", this._viewModel.StatusMessage);
-            Assert.False(this._viewModel.IsLoading);
-        }
-
-        [Fact]
-        public async Task LoadDataAsync_SetsErrorMessage_WhenServiceFails()
-        {
-            // Arrange
-            this._monitorServiceMock.Setup(m => m.GetConfigsAsync()).ThrowsAsync(new Exception("Network error"));
-
-            // Act
-            await this._viewModel.LoadDataAsync();
-
-            // Assert
-            Assert.Equal("Error loading settings.", this._viewModel.StatusMessage);
-            Assert.False(this._viewModel.IsLoading);
-        }
+        // Assert
+        Assert.Equal("Error loading settings.", this._viewModel.StatusMessage);
+        Assert.False(this._viewModel.IsLoading);
     }
 }

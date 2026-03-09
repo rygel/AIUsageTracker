@@ -2,97 +2,96 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Web.Pages
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Web.Services;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace AIUsageTracker.Web.Pages;
+
+public class DataViewModel : PageModel
 {
-    using AIUsageTracker.Web.Services;
-    using AIUsageTracker.Core.Interfaces;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.AspNetCore.Mvc.RazorPages;
+    private const int PageSize = 100;
 
-    public class DataViewModel : PageModel
+    private readonly WebDatabaseService _dbService;
+    private readonly IDataExportService _exportService;
+
+    public DataViewModel(WebDatabaseService dbService, IDataExportService exportService)
     {
-        private const int PageSize = 100;
+        this._dbService = dbService;
+        this._exportService = exportService;
+    }
 
-        private readonly WebDatabaseService _dbService;
-        private readonly IDataExportService _exportService;
+    public string? TableName { get; set; }
 
-        public DataViewModel(WebDatabaseService dbService, IDataExportService exportService)
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>>? Rows { get; set; }
+
+    public IReadOnlyList<string> Columns { get; set; } = [];
+
+    public int TotalCount { get; set; }
+
+    public int PageNumber { get; set; } = 1;
+
+    public int TotalPages { get; set; }
+
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
+
+    public async Task<IActionResult> OnGetAsync(string? tableName, int page = 1)
+    {
+        if (page < 1)
         {
-            this._dbService = dbService;
-            this._exportService = exportService;
+            page = 1;
         }
 
-        public string? TableName { get; set; }
+        this.PageNumber = page;
 
-        public IReadOnlyList<IReadOnlyDictionary<string, object?>>? Rows { get; set; }
-
-        public IReadOnlyList<string> Columns { get; set; } = [];
-
-        public int TotalCount { get; set; }
-
-        public int PageNumber { get; set; } = 1;
-
-        public int TotalPages { get; set; }
-
-        public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
-
-        public async Task<IActionResult> OnGetAsync(string? tableName, int page = 1)
+        // Map URL-friendly names to actual table names
+        var actualTable = tableName?.ToLower(System.Globalization.CultureInfo.InvariantCulture) switch
         {
-            if (page < 1)
-            {
-                page = 1;
-            }
+            "providers" => "providers",
+            "history" => "provider_history",
+            "snapshots" => "raw_snapshots",
+            "resets" => "reset_events",
+            _ => null,
+        };
 
-            this.PageNumber = page;
+        if (actualTable == null)
+        {
+            tableName = "providers";
+            actualTable = "providers";
+        }
 
-            // Map URL-friendly names to actual table names
-            var actualTable = tableName?.ToLower(System.Globalization.CultureInfo.InvariantCulture) switch
-            {
-                "providers" => "providers",
-                "history" => "provider_history",
-                "snapshots" => "raw_snapshots",
-                "resets" => "reset_events",
-                _ => null,
-            };
+        this.TableName = tableName;
 
-            if (actualTable == null)
-            {
-                tableName = "providers";
-                actualTable = "providers";
-            }
-
-            this.TableName = tableName;
-
-            if (!this.IsDatabaseAvailable)
-            {
-                return this.Page();
-            }
-
-            var (rows, totalCount) = actualTable switch
-            {
-                "providers" => await this._dbService.GetProvidersRawAsync(page, PageSize).ConfigureAwait(false),
-                "provider_history" => await this._dbService.GetProviderHistoryRawAsync(page, PageSize).ConfigureAwait(false),
-                "raw_snapshots" => await this._dbService.GetRawSnapshotsRawAsync(page, PageSize).ConfigureAwait(false),
-                "reset_events" => await this._dbService.GetResetEventsRawAsync(page, PageSize).ConfigureAwait(false),
-                _ => ([], 0),
-            };
-
-            this.Rows = rows;
-            this.TotalCount = totalCount;
-            this.TotalPages = (int)Math.Ceiling(totalCount / (double)PageSize);
-
-            if (this.Rows.Any())
-            {
-                this.Columns = this.Rows.First().Keys.ToList();
-            }
-
+        if (!this.IsDatabaseAvailable)
+        {
             return this.Page();
         }
 
-        public async Task<IActionResult> OnGetExportCsvAsync()
+        var (rows, totalCount) = actualTable switch
         {
-            var csv = await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);
-            return this.File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "history.csv");
+            "providers" => await this._dbService.GetProvidersRawAsync(page, PageSize).ConfigureAwait(false),
+            "provider_history" => await this._dbService.GetProviderHistoryRawAsync(page, PageSize).ConfigureAwait(false),
+            "raw_snapshots" => await this._dbService.GetRawSnapshotsRawAsync(page, PageSize).ConfigureAwait(false),
+            "reset_events" => await this._dbService.GetResetEventsRawAsync(page, PageSize).ConfigureAwait(false),
+            _ => ([], 0),
+        };
+
+        this.Rows = rows;
+        this.TotalCount = totalCount;
+        this.TotalPages = (int)Math.Ceiling(totalCount / (double)PageSize);
+
+        if (this.Rows.Any())
+        {
+            this.Columns = this.Rows.First().Keys.ToList();
         }
+
+        return this.Page();
+    }
+
+    public async Task<IActionResult> OnGetExportCsvAsync()
+    {
+        var csv = await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);
+        return this.File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "history.csv");
     }
 }

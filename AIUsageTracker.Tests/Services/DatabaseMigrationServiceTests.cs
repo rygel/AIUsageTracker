@@ -2,92 +2,91 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Services
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Monitor.Services;
+using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace AIUsageTracker.Tests.Services;
+
+public sealed class DatabaseMigrationServiceTests : IDisposable
 {
-    using AIUsageTracker.Monitor.Services;
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Core.Models;
-    using Microsoft.Data.Sqlite;
-    using Microsoft.Extensions.Logging.Abstractions;
+    private readonly string _dbPath;
 
-    public sealed class DatabaseMigrationServiceTests : IDisposable
+    public DatabaseMigrationServiceTests()
     {
-        private readonly string _dbPath;
+        this._dbPath = Path.Combine(Path.GetTempPath(), $"ai-migration-tests-{Guid.NewGuid():N}.db");
+    }
 
-        public DatabaseMigrationServiceTests()
+    [Fact]
+    public void RunMigrations_LegacyDatabaseWithoutEvolveMetadata_AddsMissingProviderColumns()
+    {
+        this.CreateLegacySchemaWithoutEvolveMetadata();
+
+        var service = new DatabaseMigrationService(this._dbPath, NullLogger<DatabaseMigrationService>.Instance);
+
+        service.RunMigrations();
+
+        var providerColumns = this.GetColumnNames("providers");
+        Assert.Contains("created_at", providerColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("updated_at", providerColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("is_active", providerColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("config_json", providerColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("auth_source", providerColumns, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("plan_type", providerColumns, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UsageDatabase_StoreProviderAsync_WorksAfterLegacySchemaCompatibilityBootstrapAsync()
+    {
+        this.CreateLegacySchemaWithoutEvolveMetadata();
+
+        var migrationService = new DatabaseMigrationService(this._dbPath, NullLogger<DatabaseMigrationService>.Instance);
+        migrationService.RunMigrations();
+
+        var pathProvider = new TestAppPathProvider(this._dbPath);
+        var database = new UsageDatabase(NullLogger<UsageDatabase>.Instance, pathProvider);
+
+        await database.StoreProviderAsync(
+            new ProviderConfig
         {
-            this._dbPath = Path.Combine(Path.GetTempPath(), $"ai-migration-tests-{Guid.NewGuid():N}.db");
-        }
+            ProviderId = "antigravity",
+            Type = "quota-based",
+            AuthSource = "antigravity",
+            ApiKey = "dynamic",
+        }, friendlyName: "Google Antigravity");
 
-        [Fact]
-        public void RunMigrations_LegacyDatabaseWithoutEvolveMetadata_AddsMissingProviderColumns()
+        await using var connection = new SqliteConnection($"Data Source={this._dbPath}");
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT provider_name FROM providers WHERE provider_id = 'antigravity'";
+        var name = (string?)await command.ExecuteScalarAsync();
+
+        Assert.Equal("Google Antigravity", name);
+    }
+
+    public void Dispose()
+    {
+        try
         {
-            this.CreateLegacySchemaWithoutEvolveMetadata();
-
-            var service = new DatabaseMigrationService(this._dbPath, NullLogger<DatabaseMigrationService>.Instance);
-
-            service.RunMigrations();
-
-            var providerColumns = this.GetColumnNames("providers");
-            Assert.Contains("created_at", providerColumns, StringComparer.OrdinalIgnoreCase);
-            Assert.Contains("updated_at", providerColumns, StringComparer.OrdinalIgnoreCase);
-            Assert.Contains("is_active", providerColumns, StringComparer.OrdinalIgnoreCase);
-            Assert.Contains("config_json", providerColumns, StringComparer.OrdinalIgnoreCase);
-            Assert.Contains("auth_source", providerColumns, StringComparer.OrdinalIgnoreCase);
-            Assert.Contains("plan_type", providerColumns, StringComparer.OrdinalIgnoreCase);
-        }
-
-        [Fact]
-        public async Task UsageDatabase_StoreProviderAsync_WorksAfterLegacySchemaCompatibilityBootstrap()
-        {
-            this.CreateLegacySchemaWithoutEvolveMetadata();
-
-            var migrationService = new DatabaseMigrationService(this._dbPath, NullLogger<DatabaseMigrationService>.Instance);
-            migrationService.RunMigrations();
-
-            var pathProvider = new TestAppPathProvider(this._dbPath);
-            var database = new UsageDatabase(NullLogger<UsageDatabase>.Instance, pathProvider);
-
-            await database.StoreProviderAsync(new ProviderConfig
+            if (File.Exists(this._dbPath))
             {
-                ProviderId = "antigravity",
-                Type = "quota-based",
-                AuthSource = "antigravity",
-                ApiKey = "dynamic"
-            }, friendlyName: "Google Antigravity");
-
-            await using var connection = new SqliteConnection($"Data Source={this._dbPath}");
-            await connection.OpenAsync();
-            await using var command = connection.CreateCommand();
-            command.CommandText = "SELECT provider_name FROM providers WHERE provider_id = 'antigravity'";
-            var name = (string?)await command.ExecuteScalarAsync();
-
-            Assert.Equal("Google Antigravity", name);
-        }
-    
-
-        public void Dispose()
-        {
-            try
-            {
-                if (File.Exists(this._dbPath))
-                {
-                    File.Delete(this._dbPath);
-                }
-            }
-            catch
-            {
-                // Ignore cleanup failures for temp db files.
+                File.Delete(this._dbPath);
             }
         }
-    
-
-        private void CreateLegacySchemaWithoutEvolveMetadata()
+        catch
         {
-            using var connection = new SqliteConnection($"Data Source={this._dbPath}");
-            connection.Open();
+            // Ignore cleanup failures for temp db files.
+        }
+    }
 
-            const string sql = @"
+    private void CreateLegacySchemaWithoutEvolveMetadata()
+    {
+        using var connection = new SqliteConnection($"Data Source={this._dbPath}");
+        connection.Open();
+
+        const string sql = @"
             CREATE TABLE providers (
                 provider_id TEXT PRIMARY KEY,
                 provider_name TEXT,
@@ -123,58 +122,54 @@ namespace AIUsageTracker.Tests.Services
                 timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );";
 
-            using var command = connection.CreateCommand();
-            command.CommandText = sql;
-            command.ExecuteNonQuery();
-        }
-    
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
 
-        private HashSet<string> GetColumnNames(string tableName)
+    private HashSet<string> GetColumnNames(string tableName)
+    {
+        using var connection = new SqliteConnection($"Data Source={this._dbPath}");
+        connection.Open();
+
+        using var command = connection.CreateCommand();
+        command.CommandText = $"PRAGMA table_info({tableName});";
+
+        using var reader = command.ExecuteReader();
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (reader.Read())
         {
-            using var connection = new SqliteConnection($"Data Source={this._dbPath}");
-            connection.Open();
-
-            using var command = connection.CreateCommand();
-            command.CommandText = $"PRAGMA table_info({tableName});";
-
-            using var reader = command.ExecuteReader();
-            var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            while (reader.Read())
+            var name = reader["name"]?.ToString();
+            if (!string.IsNullOrWhiteSpace(name))
             {
-                var name = reader["name"]?.ToString();
-                if (!string.IsNullOrWhiteSpace(name))
-                {
-                    columns.Add(name);
-                }
+                columns.Add(name);
             }
-
-            return columns;
         }
-    
 
-        private sealed class TestAppPathProvider : IAppPathProvider
+        return columns;
+    }
+
+    private sealed class TestAppPathProvider : IAppPathProvider
+    {
+        private readonly string _dbPath;
+
+        public TestAppPathProvider(string dbPath)
         {
-            private readonly string _dbPath;
-
-            public TestAppPathProvider(string dbPath)
-            {
-                this._dbPath = dbPath;
-            }
-    
-
-            public string GetAppDataRoot() => Path.GetDirectoryName(this._dbPath)!;
-
-            public string GetDatabasePath() => this._dbPath;
-
-            public string GetLogDirectory() => Path.Combine(this.GetAppDataRoot(), "logs");
-
-            public string GetAuthFilePath() => Path.Combine(this.GetAppDataRoot(), "auth.json");
-
-            public string GetPreferencesFilePath() => Path.Combine(this.GetAppDataRoot(), "preferences.json");
-
-            public string GetProviderConfigFilePath() => Path.Combine(this.GetAppDataRoot(), "providers.json");
-
-            public string GetUserProfileRoot() => this.GetAppDataRoot();
+            this._dbPath = dbPath;
         }
+
+        public string GetAppDataRoot() => Path.GetDirectoryName(this._dbPath)!;
+
+        public string GetDatabasePath() => this._dbPath;
+
+        public string GetLogDirectory() => Path.Combine(this.GetAppDataRoot(), "logs");
+
+        public string GetAuthFilePath() => Path.Combine(this.GetAppDataRoot(), "auth.json");
+
+        public string GetPreferencesFilePath() => Path.Combine(this.GetAppDataRoot(), "preferences.json");
+
+        public string GetProviderConfigFilePath() => Path.Combine(this.GetAppDataRoot(), "providers.json");
+
+        public string GetUserProfileRoot() => this.GetAppDataRoot();
     }
 }

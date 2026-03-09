@@ -2,78 +2,75 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Infrastructure
+using AIUsageTracker.Infrastructure.Services;
+using Microsoft.Extensions.Logging;
+using Moq;
+
+namespace AIUsageTracker.Tests.Infrastructure;
+
+public sealed class CodexAuthServiceTests : IDisposable
 {
-    using AIUsageTracker.Infrastructure.Services;
-    using Microsoft.Extensions.Logging;
-    using Moq;
+    private readonly string _tempDirectory;
+    private readonly ILogger<CodexAuthService> _logger = Mock.Of<ILogger<CodexAuthService>>();
 
-    public sealed class CodexAuthServiceTests : IDisposable
+    public CodexAuthServiceTests()
     {
-        private readonly string _tempDirectory;
-        private readonly ILogger<CodexAuthService> _logger = Mock.Of<ILogger<CodexAuthService>>();
+        this._tempDirectory = Path.Combine(Path.GetTempPath(), "codex-auth-service-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(this._tempDirectory);
+    }
 
-        public CodexAuthServiceTests()
+    [Fact]
+    public void GetAccessToken_ReadsNativeCodexAuth()
+    {
+        var authPath = this.CreateFile(
+            "codex-auth.json",
+            """
         {
-            this._tempDirectory = Path.Combine(Path.GetTempPath(), "codex-auth-service-tests", Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(this._tempDirectory);
+          "tokens": {
+            "access_token": "native-token",
+            "account_id": "acct-native"
+          }
         }
+        """);
 
-        [Fact]
-        public void GetAccessToken_ReadsNativeCodexAuth()
+        var service = new CodexAuthService(this._logger, authPath);
+
+        Assert.Equal("native-token", service.GetAccessToken());
+        Assert.Equal("acct-native", service.GetAccountId());
+    }
+
+    [Fact]
+    public void GetAccessToken_ReadsCompatibilityAuth()
+    {
+        var authPath = this.CreateFile(
+            "opencode-auth.json",
+            """
         {
-            var authPath = this.CreateFile(
-                "codex-auth.json",
-                """
-            {
-              "tokens": {
-                "access_token": "native-token",
-                "account_id": "acct-native"
-              }
-            }
-            """);
-
-            var service = new CodexAuthService(this._logger, authPath);
-
-            Assert.Equal("native-token", service.GetAccessToken());
-            Assert.Equal("acct-native", service.GetAccountId());
+          "openai": {
+            "access": "compat-token",
+            "accountId": "acct-compat"
+          }
         }
+        """);
 
-        [Fact]
-        public void GetAccessToken_ReadsCompatibilityAuth()
+        var service = new CodexAuthService(this._logger, authPath);
+
+        Assert.Equal("compat-token", service.GetAccessToken());
+        Assert.Equal("acct-compat", service.GetAccountId());
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(this._tempDirectory))
         {
-            var authPath = this.CreateFile(
-                "opencode-auth.json",
-                """
-            {
-              "openai": {
-                "access": "compat-token",
-                "accountId": "acct-compat"
-              }
-            }
-            """);
-
-            var service = new CodexAuthService(this._logger, authPath);
-
-            Assert.Equal("compat-token", service.GetAccessToken());
-            Assert.Equal("acct-compat", service.GetAccountId());
+            Directory.Delete(this._tempDirectory, recursive: true);
         }
-    
+    }
 
-        public void Dispose()
-        {
-            if (Directory.Exists(this._tempDirectory))
-            {
-                Directory.Delete(this._tempDirectory, recursive: true);
-            }
-        }
-    
-
-        private string CreateFile(string relativePath, string content)
-        {
-            var fullPath = Path.Combine(this._tempDirectory, relativePath);
-            File.WriteAllText(fullPath, content);
-            return fullPath;
-        }
+    private string CreateFile(string relativePath, string content)
+    {
+        var fullPath = Path.Combine(this._tempDirectory, relativePath);
+        File.WriteAllText(fullPath, content);
+        return fullPath;
     }
 }
