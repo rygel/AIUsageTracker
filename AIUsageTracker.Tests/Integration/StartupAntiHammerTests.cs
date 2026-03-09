@@ -25,8 +25,19 @@ public class StartupAntiHammerTests
             IConfigService configService,
             IAppPathProvider pathProvider,
             System.Collections.Generic.IEnumerable<IProviderService> providers,
-            UsageAlertsService usageAlertsService)
-            : base(logger, loggerFactory, database, notificationService, httpClientFactory, configService, pathProvider, providers, usageAlertsService)
+            UsageAlertsService usageAlertsService,
+            ProviderRefreshCircuitBreakerService providerCircuitBreakerService)
+            : base(
+                logger,
+                loggerFactory,
+                database,
+                notificationService,
+                httpClientFactory,
+                configService,
+                pathProvider,
+                providers,
+                usageAlertsService,
+                providerCircuitBreakerService)
         {
         }
 
@@ -58,11 +69,13 @@ public class StartupAntiHammerTests
         var mockConfigService = new Mock<IConfigService>();
         var mockPathProvider = new Mock<IAppPathProvider>();
         var mockUsageAlertsLogger = new Mock<ILogger<UsageAlertsService>>();
+        var mockCircuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         var usageAlertsService = new UsageAlertsService(
             mockUsageAlertsLogger.Object,
             mockDb.Object,
             mockNotificationService.Object,
             mockConfigService.Object);
+        var providerCircuitBreakerService = new ProviderRefreshCircuitBreakerService(mockCircuitBreakerLogger.Object);
 
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
             .ReturnsAsync(false);
@@ -79,7 +92,8 @@ public class StartupAntiHammerTests
             mockConfigService.Object,
             mockPathProvider.Object,
             Enumerable.Empty<IProviderService>(),
-            usageAlertsService);
+            usageAlertsService,
+            providerCircuitBreakerService);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
@@ -104,11 +118,13 @@ public class StartupAntiHammerTests
         var mockConfigService = new Mock<IConfigService>();
         var mockPathProvider = new Mock<IAppPathProvider>();
         var mockUsageAlertsLogger = new Mock<ILogger<UsageAlertsService>>();
+        var mockCircuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         var usageAlertsService = new UsageAlertsService(
             mockUsageAlertsLogger.Object,
             mockDb.Object,
             mockNotificationService.Object,
             mockConfigService.Object);
+        var providerCircuitBreakerService = new ProviderRefreshCircuitBreakerService(mockCircuitBreakerLogger.Object);
 
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
             .ReturnsAsync(true);
@@ -126,7 +142,8 @@ public class StartupAntiHammerTests
             mockConfigService.Object,
             mockPathProvider.Object,
             Enumerable.Empty<IProviderService>(),
-            usageAlertsService);
+            usageAlertsService,
+            providerCircuitBreakerService);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
