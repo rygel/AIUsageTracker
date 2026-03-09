@@ -34,7 +34,7 @@ namespace AIUsageTracker.Tests.Helpers
             // If the user manually set a font (e.g. via config file) that isn't in the list, 
             // we should probably preserve it or fallback. 
             // The Helper implementation returns the preference if not found.
-            
+
             var available = new[] { "Arial", "Segoe UI" };
             var preference = "MyCustomFont";
 
@@ -47,7 +47,7 @@ namespace AIUsageTracker.Tests.Helpers
         public void GetSelectedFont_ReturnsSegoeUI_WhenPreferenceEmpty()
         {
             var available = new[] { "Arial", "Segoe UI", "Tahoma" };
-            
+
             var result = FontSelectionHelper.GetSelectedFont(null, available);
             Assert.Equal("Segoe UI", result);
 
@@ -59,7 +59,7 @@ namespace AIUsageTracker.Tests.Helpers
         public void GetSelectedFont_ReturnsFirst_WhenPreferenceEmptyAndSegoeUIMissing()
         {
             var available = new[] { "Arial", "Tahoma" };
-            
+
             var result = FontSelectionHelper.GetSelectedFont("", available);
             Assert.Equal("Arial", result);
         }

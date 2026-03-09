@@ -152,7 +152,7 @@ public partial class MainWindow : Window
         _preferencesStore = preferencesStore ?? App.Host.Services.GetRequiredService<UiPreferencesStore>();
         _viewModel = viewModel ?? App.Host.Services.GetRequiredService<MainViewModel>();
         DataContext = _viewModel;
-        
+
         _updateCheckTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromMinutes(15)
@@ -444,14 +444,16 @@ public partial class MainWindow : Window
 
             // Offload the expensive discovery/startup logic to a background thread
             // to prevent UI freezing during port scans or agent startup waits.
-            var success = await Task.Run(async () => {
-                try {
+            var success = await Task.Run(async () =>
+            {
+                try
+                {
                     // Full port discovery: check monitor.json, then scan 5000-5010
                     await _monitorService.RefreshPortAsync();
-                    
+
                     // Check if Monitor is running on the discovered port
                     var isRunning = await _monitorService.CheckHealthAsync();
-                    
+
                     if (!isRunning)
                     {
                         Dispatcher.Invoke(() => ShowStatus("Monitor not running. Starting monitor...", StatusType.Warning));
@@ -460,7 +462,8 @@ public partial class MainWindow : Window
                         var monitorReady = await MonitorLauncher.EnsureAgentRunningAsync();
                         if (!monitorReady)
                         {
-                            Dispatcher.Invoke(() => {
+                            Dispatcher.Invoke(() =>
+                            {
                                 ShowStatus("Monitor failed to start", StatusType.Error);
                                 ShowErrorState("Monitor failed to start.\n\nPlease ensure AIUsageTracker.Monitor is installed and try again.");
                             });
@@ -472,7 +475,9 @@ public partial class MainWindow : Window
                     await UpdateMonitorToggleButtonStateAsync();
 
                     return true;
-                } catch (Exception ex) {
+                }
+                catch (Exception ex)
+                {
                     _logger.LogError(ex, "Background initialization failed");
                     return false;
                 }
@@ -514,7 +519,7 @@ public partial class MainWindow : Window
         LogDiagnostic("[DIAGNOSTIC] Checking Monitor health...");
         var isHealthy = await _monitorService.CheckHealthAsync();
         LogDiagnostic($"[DIAGNOSTIC] Monitor health: {isHealthy}");
-        
+
         if (!isHealthy)
         {
             ShowStatus("Monitor not reachable", StatusType.Error);
@@ -525,7 +530,7 @@ public partial class MainWindow : Window
         for (int attempt = 0; attempt < maxAttempts; attempt++)
         {
             LogDiagnostic($"[DIAGNOSTIC] Poll attempt {attempt + 1}/{maxAttempts}");
-            
+
             try
             {
                 // Try to get cached data from monitor
@@ -548,7 +553,7 @@ public partial class MainWindow : Window
                 }
 
                 LogDiagnostic("[DIAGNOSTIC] No data available");
-                
+
                 // No data yet - on first attempt, trigger a background refresh
                 // and keep polling so data appears as soon as refresh completes.
                 if (attempt == 0)
@@ -566,7 +571,7 @@ public partial class MainWindow : Window
                             LogDiagnostic($"[DIAGNOSTIC] Background refresh failed: {ex.Message}");
                         }
                     });
-                    
+
                     // Show UI immediately with empty state
                     LogDiagnostic("[DIAGNOSTIC] Showing empty state...");
                     ShowStatus("Scanning for providers...", StatusType.Info);
@@ -598,7 +603,7 @@ public partial class MainWindow : Window
                 }
             }
         }
-        
+
         LogDiagnostic("[DIAGNOSTIC] Max attempts reached, no data available");
         ShowStatus("No data available", StatusType.Error);
         ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually or check Settings > Monitor.");
@@ -631,15 +636,15 @@ public partial class MainWindow : Window
         ShowUsedToggle.IsChecked = _preferences.InvertProgressBar;
         UpdatePrivacyButtonState();
         EnsureAlwaysOnTop();
-        
+
         // Reinitialize update checker with correct channel
         InitializeUpdateChecker();
     }
-    
+
     private void InitializeUpdateChecker()
     {
         if (_preferences == null) return;
-        
+
         var channel = _preferences.UpdateChannel;
         _updateChecker = new GitHubUpdateChecker(
             NullLogger<GitHubUpdateChecker>.Instance,
@@ -991,14 +996,15 @@ public partial class MainWindow : Window
                     var sectionTitle = currentIsQuota.Value ? "Plans & Quotas" : "Pay As You Go";
                     var sectionColor = currentIsQuota.Value ? Brushes.DeepSkyBlue : Brushes.MediumSeaGreen;
                     var sectionKey = currentIsQuota.Value ? "PlansAndQuotas" : "PayAsYouGo";
-                    
+
                     var (header, container) = CreateCollapsibleHeader(
                         sectionTitle,
                         sectionColor,
                         isGroupHeader: true,
                         groupKey: sectionKey,
                         () => currentIsQuota.Value ? _preferences.IsPlansAndQuotasCollapsed : _preferences.IsPayAsYouGoCollapsed,
-                        v => {
+                        v =>
+                        {
                             if (currentIsQuota.Value) _preferences.IsPlansAndQuotasCollapsed = v;
                             else _preferences.IsPayAsYouGoCollapsed = v;
                         });
@@ -1662,7 +1668,7 @@ public partial class MainWindow : Window
             try
             {
                 var usages = await _monitorService.GetUsageAsync();
-                
+
                 // Show all providers from monitor (filtering already done in database)
                 if (usages.Any())
                 {
@@ -1701,11 +1707,11 @@ public partial class MainWindow : Window
                             "Polling returned empty, refresh cooldown active ({SecondsSinceLastRefresh:F0}s ago)",
                             secondsSinceLastRefresh);
                     }
-                    
+
                     // Wait a moment and retry getting data
                     await Task.Delay(1000);
                     var retryUsages = await _monitorService.GetUsageAsync();
-                    
+
                     if (retryUsages.Any())
                     {
                         _usages = retryUsages.ToList();
@@ -2124,8 +2130,8 @@ public partial class MainWindow : Window
 
     private async void Compact_Checked(object sender, RoutedEventArgs e)
     {
-       // No-op (Field removed from UI)
-       await Task.CompletedTask;
+        // No-op (Field removed from UI)
+        await Task.CompletedTask;
     }
 
     private async void ShowUsedToggle_Checked(object sender, RoutedEventArgs e)

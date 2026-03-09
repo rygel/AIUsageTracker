@@ -25,7 +25,7 @@ public partial class App : Application
     public static bool IsPrivacyMode { get; set; } = false;
 
     public static ILogger<T> CreateLogger<T>() => Host.Services.GetRequiredService<ILogger<T>>();
-    
+
     private TaskbarIcon? _trayIcon;
     private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new();
     private MainWindow? _mainWindow;
@@ -52,15 +52,15 @@ public partial class App : Application
         services.AddSingleton<IDataExportService, NoOpDataExportService>();
         services.AddSingleton<IUpdateCheckerService, GitHubUpdateChecker>();
         services.AddSingleton<HttpClient>();
-        
+
         // ViewModels
         services.AddSingleton<MainViewModel>();
         services.AddTransient<SettingsViewModel>();
-        
+
         // Windows
         services.AddSingleton<MainWindow>();
         services.AddTransient<SettingsWindow>();
-        
+
         services.AddLogging(builder =>
         {
             builder.ClearProviders();

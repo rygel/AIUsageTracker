@@ -23,7 +23,7 @@ public class ResilientHttpClient : IResilientHttpClient, IDisposable
         this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         var opts = options ?? new ResilientHttpClientOptions();
-        
+
         // Create retry policy with exponential backoff
         this._retryPolicy = Policy<HttpResponseMessage>
             .Handle<HttpRequestException>()

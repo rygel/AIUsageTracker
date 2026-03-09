@@ -13,11 +13,11 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     private readonly ILogger<GitHubUpdateChecker> _logger;
     private readonly HttpClient _httpClient;
     private readonly UpdateChannel _channel;
-    
+
     private string GetAppcastUrlForCurrentArchitecture()
     {
         var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
-        
+
         // Map architecture names
         var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -26,9 +26,9 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             ["arm64"] = "arm64",
             ["arm"] = "arm64",
         };
-        
+
         var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
-        
+
         if (!archMapping.ContainsKey(currentArch))
         {
             this._logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
@@ -57,28 +57,28 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         {
             // Get the appcast URL for current architecture
             var appcastUrl = this.GetAppcastUrlForCurrentArchitecture();
-            
+
             // Initialize SparkleUpdater with the architecture-specific appcast URL
             using var sparkle = new SparkleUpdater(appcastUrl, new Ed25519Checker(SecurityMode.Unsafe));
-            
+
             this._logger.LogDebug("Checking for updates via NetSparkle appcast: {Url}", appcastUrl);
-            
+
             // Check for updates quietly (no UI)
             var updateInfo = await sparkle.CheckForUpdatesQuietly().ConfigureAwait(false);
-            
+
             if (updateInfo?.Updates?.Any() == true)
             {
                 var latest = updateInfo.Updates.First();
                 var currentVersion = System.Reflection.Assembly.GetEntryAssembly()?.GetName()?.Version ?? new Version(1, 0, 0);
-                
+
                 // Parse version (handle 'v' prefix)
                 var latestVersionStr = latest.Version?.TrimStart('v') ?? "0.0.0";
-                
+
                 if (Version.TryParse(latestVersionStr, out var latestVersion))
                 {
                     if (latestVersion > currentVersion)
                     {
-                        this._logger.LogInformation("New version available: {LatestVersion} (Current: {CurrentVersion})", 
+                        this._logger.LogInformation("New version available: {LatestVersion} (Current: {CurrentVersion})",
                             latestVersion, currentVersion);
 
                         // Fetch release notes from GitHub API
@@ -95,7 +95,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                     }
                 }
             }
-            
+
             this._logger.LogDebug("No updates available or already on latest version");
             return null;
         }
@@ -207,14 +207,14 @@ public class GitHubUpdateChecker : IUpdateCheckerService
 
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = System.Text.Json.JsonDocument.Parse(content);
-            
+
             if (doc.RootElement.TryGetProperty("body", out var bodyElement))
             {
                 var releaseNotes = bodyElement.GetString() ?? string.Empty;
                 this._logger.LogDebug("Successfully fetched release notes ({Length} chars)", releaseNotes.Length);
                 return releaseNotes;
             }
-            
+
             return string.Empty;
         }
         catch (Exception ex)

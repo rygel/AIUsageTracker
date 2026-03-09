@@ -23,7 +23,7 @@ public interface IGitHubAuthService
     /// Gets the currently authenticated token, if any.
     /// </summary>
     string? GetCurrentToken();
-    
+
     /// <summary>
     /// Logs out by clearing the stored token.
     /// </summary>
@@ -33,7 +33,7 @@ public interface IGitHubAuthService
     /// Initializes the service with a previously stored token.
     /// </summary>
     void InitializeToken(string token);
-    
+
     /// <summary>
     /// Checks if the user is currently authenticated.
     /// </summary>

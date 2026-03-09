@@ -63,7 +63,7 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
         Assert.Equal(2.5, usage.RequestsUsed);
         Assert.Equal("Credits", usage.UsageUnit);
         Assert.Equal("7.50 Credits Remaining", usage.Description);
-        
+
         Assert.Contains(usage.Details!, d => d.Name == "Spending Limit" && d.Description.StartsWith("100.00"));
         Assert.Contains(usage.Details!, d => d.Name == "Free Tier" && d.Description == "No");
     }

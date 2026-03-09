@@ -118,259 +118,261 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-// Configure URLs with the available port
-builder.WebHost.UseUrls($"http://localhost:{port}");
+    // Configure URLs with the available port
+    builder.WebHost.UseUrls($"http://localhost:{port}");
 
-// Suppress default console logging in debug mode (we handle our own)
-if (isDebugMode)
-{
-    builder.Logging.SetMinimumLevel(LogLevel.Information);
-}
-
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
+    // Suppress default console logging in debug mode (we handle our own)
+    if (isDebugMode)
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
+        builder.Logging.SetMinimumLevel(LogLevel.Information);
+    }
 
-// Configure JSON serialization with snake_case naming
-builder.Services.ConfigureHttpJsonOptions(options =>
-{
-    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-    options.SerializerOptions.PropertyNameCaseInsensitive = true;
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
-});
-
-if (isDebugMode) logger.LogDebug("Registering services...");
-builder.Services.AddSingleton(loggerFactory);
-builder.Services.AddSingleton(pathProvider);
-builder.Services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
-builder.Services.AddSingleton<UsageDatabase>();
-builder.Services.AddSingleton<IUsageDatabase>(sp => sp.GetRequiredService<UsageDatabase>());
-if (OperatingSystem.IsWindows())
-{
-    builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
-}
-else
-{
-    builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
-}
-builder.Services.AddSingleton<IConfigService, ConfigService>();
-builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
-builder.Services.AddProvidersFromAssembly();
-builder.Services.AddSingleton<ProviderRefreshService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
-
-// Configure HTTP clients with resilience policies
-builder.Services.AddHttpClient();
-builder.Services.AddResilientHttpClient();
-
-// Enable debug mode in refresh service
-if (isDebugMode)
-{
-    ProviderRefreshService.SetDebugMode(true);
-}
-
-var app = builder.Build();
-
-// Async database initialization
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<UsageDatabase>();
-    await db.InitializeAsync();
-}
-
-app.UseCors();
-
-if (isDebugMode)
-{
-    logger.LogDebug("Registering API endpoints...");
-}
-
-const string apiContractVersion = "1";
-var agentVersion = typeof(UsageDatabase).Assembly.GetName().Version?.ToString() ?? "unknown";
-
-// Health endpoint (check if agent is running)
-app.MapGet("/api/health", (ILogger<Program> logger) => 
-{
-    if (isDebugMode) logger.LogDebug("GET /api/health");
-    return Results.Ok(new { 
-        status = "healthy", 
-        timestamp = DateTime.UtcNow,
-        port = port,
-        processId = Environment.ProcessId,
-        agentVersion = agentVersion,
-        apiContractVersion = apiContractVersion
-    });
-});
-
-// Diagnostics endpoint
-app.MapGet("/api/diagnostics", (EndpointDataSource endpointDataSource, ProviderRefreshService refreshService, ILogger<Program> logger) => 
-{
-    if (isDebugMode) logger.LogDebug("GET /api/diagnostics");
-
-    var apiEndpoints = endpointDataSource.Endpoints
-        .OfType<RouteEndpoint>()
-        .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) == true)
-        .GroupBy(endpoint => endpoint.RoutePattern.RawText!, StringComparer.OrdinalIgnoreCase)
-        .Select(group => new
+    builder.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(policy =>
         {
-            route = group.Key,
-            methods = group
-                .SelectMany(endpoint => endpoint.Metadata
-                    .OfType<HttpMethodMetadata>()
-                    .SelectMany(metadata => metadata.HttpMethods))
-                .Where(method => !string.IsNullOrWhiteSpace(method))
-                .Select(method => method.ToUpperInvariant())
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(method => method)
-                .ToArray()
-        })
-        .OrderBy(endpoint => endpoint.route)
-        .ToList();
-
-    return Results.Ok(new {
-        port = port,
-        processId = Environment.ProcessId,
-        workingDir = Directory.GetCurrentDirectory(),
-        baseDir = AppDomain.CurrentDomain.BaseDirectory,
-        startedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
-        os = Environment.OSVersion.ToString(),
-        runtime = Environment.Version.ToString(),
-        args = args,
-        endpoints = apiEndpoints,
-        refreshTelemetry = refreshService.GetRefreshTelemetrySnapshot()
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        });
     });
-});
 
-// Provider usage endpoints
-app.MapGet("/api/usage", async (UsageDatabase db, IConfigService configService, ILogger<Program> logger) =>
-{
-    var usage = await db.GetLatestHistoryAsync();
+    // Configure JSON serialization with snake_case naming
+    builder.Services.ConfigureHttpJsonOptions(options =>
+    {
+        options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+        options.SerializerOptions.PropertyNameCaseInsensitive = true;
+        options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
+    });
 
-    var configs = await configService.GetConfigsAsync();
-    usage = usage
-        .Where(u => !ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, u.ProviderId))
-        .ToList();
+    if (isDebugMode) logger.LogDebug("Registering services...");
+    builder.Services.AddSingleton(loggerFactory);
+    builder.Services.AddSingleton(pathProvider);
+    builder.Services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
+    builder.Services.AddSingleton<UsageDatabase>();
+    builder.Services.AddSingleton<IUsageDatabase>(sp => sp.GetRequiredService<UsageDatabase>());
+    if (OperatingSystem.IsWindows())
+    {
+        builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
+    }
+    else
+    {
+        builder.Services.AddSingleton<INotificationService, NoOpNotificationService>();
+    }
+    builder.Services.AddSingleton<IConfigService, ConfigService>();
+    builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
+    builder.Services.AddProvidersFromAssembly();
+    builder.Services.AddSingleton<ProviderRefreshService>();
+    builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
 
-    logger.LogDebug("GET /api/usage returning {Count} providers: {Providers}", 
-        usage.Count, string.Join(", ", usage.Select(u => u.ProviderId)));
-    
-    return Results.Ok(usage);
-});
+    // Configure HTTP clients with resilience policies
+    builder.Services.AddHttpClient();
+    builder.Services.AddResilientHttpClient();
 
-app.MapGet("/api/usage/{providerId}", async (string providerId, UsageDatabase db, ILogger<Program> logger) =>
-{
-    logger.LogDebug("GET /api/usage/{ProviderId}", providerId);
-    var usage = await db.GetHistoryByProviderAsync(providerId, 1);
-    var result = usage.FirstOrDefault();
-    return result != null ? Results.Ok(result) : Results.NotFound();
-});
+    // Enable debug mode in refresh service
+    if (isDebugMode)
+    {
+        ProviderRefreshService.SetDebugMode(true);
+    }
 
-app.MapPost("/api/refresh", async ([FromServices] ProviderRefreshService refreshService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("POST /api/refresh");
-    await refreshService.TriggerRefreshAsync();
-    return Results.Ok(new { message = "Refresh triggered" });
-});
+    var app = builder.Build();
 
-app.MapPost("/api/notifications/test", ([FromServices] INotificationService notificationService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("POST /api/notifications/test");
-    notificationService.ShowNotification(
-        "AI Usage Tracker",
-        "This is a test notification from Slim Settings.",
-        "openSettings",
-        "notifications");
-    return Results.Ok(new { message = "Test notification sent" });
-});
+    // Async database initialization
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<UsageDatabase>();
+        await db.InitializeAsync();
+    }
 
-// Config endpoints
-app.MapGet("/api/config", async (IConfigService configService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("GET /api/config");
-    var configs = await configService.GetConfigsAsync();
-    return Results.Ok(configs);
-});
+    app.UseCors();
 
-app.MapPost("/api/config", async (ProviderConfig config, IConfigService configService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("POST /api/config ({ProviderId})", config.ProviderId);
-    await configService.SaveConfigAsync(config);
-    return Results.Ok(new { message = "Config saved" });
-});
+    if (isDebugMode)
+    {
+        logger.LogDebug("Registering API endpoints...");
+    }
 
-app.MapDelete("/api/config/{providerId}", async (string providerId, IConfigService configService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("DELETE /api/config/{ProviderId}", providerId);
-    await configService.RemoveConfigAsync(providerId);
-    return Results.Ok(new { message = "Config removed" });
-});
+    const string apiContractVersion = "1";
+    var agentVersion = typeof(UsageDatabase).Assembly.GetName().Version?.ToString() ?? "unknown";
 
-// Preferences endpoints (deprecated: legacy compatibility only)
-const string preferencesApiDeprecationMessage =
-    "/api/preferences is deprecated and reserved for legacy clients; UI preferences must be managed locally by each UI.";
-const string preferencesApiSunsetDate = "Wed, 31 Dec 2026 00:00:00 GMT";
+    // Health endpoint (check if agent is running)
+    app.MapGet("/api/health", (ILogger<Program> logger) =>
+    {
+        if (isDebugMode) logger.LogDebug("GET /api/health");
+        return Results.Ok(new
+        {
+            status = "healthy",
+            timestamp = DateTime.UtcNow,
+            port = port,
+            processId = Environment.ProcessId,
+            agentVersion = agentVersion,
+            apiContractVersion = apiContractVersion
+        });
+    });
 
-app.MapGet("/api/preferences", async (HttpContext httpContext, IConfigService configService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("GET /api/preferences");
-    httpContext.Response.Headers.Append("Deprecation", "true");
-    httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
-    var prefs = await configService.GetPreferencesAsync();
-    return Results.Ok(prefs);
-})
-.WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
+    // Diagnostics endpoint
+    app.MapGet("/api/diagnostics", (EndpointDataSource endpointDataSource, ProviderRefreshService refreshService, ILogger<Program> logger) =>
+    {
+        if (isDebugMode) logger.LogDebug("GET /api/diagnostics");
 
-app.MapPost("/api/preferences", async (HttpContext httpContext, AppPreferences preferences, IConfigService configService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("POST /api/preferences");
-    httpContext.Response.Headers.Append("Deprecation", "true");
-    httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
-    await configService.SavePreferencesAsync(preferences);
-    return Results.Ok(new { message = "Preferences saved" });
-})
-.WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
+        var apiEndpoints = endpointDataSource.Endpoints
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) == true)
+            .GroupBy(endpoint => endpoint.RoutePattern.RawText!, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new
+            {
+                route = group.Key,
+                methods = group
+                    .SelectMany(endpoint => endpoint.Metadata
+                        .OfType<HttpMethodMetadata>()
+                        .SelectMany(metadata => metadata.HttpMethods))
+                    .Where(method => !string.IsNullOrWhiteSpace(method))
+                    .Select(method => method.ToUpperInvariant())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(method => method)
+                    .ToArray()
+            })
+            .OrderBy(endpoint => endpoint.route)
+            .ToList();
 
-// Scan for keys endpoint
-app.MapPost("/api/scan-keys", async ([FromServices] IConfigService configService, [FromServices] ProviderRefreshService refreshService, ILogger<Program> logger) =>
-{
-    logger.LogDebug("POST /api/scan-keys");
-    var discovered = await configService.ScanForKeysAsync();
-    logger.LogDebug("Discovered {Count} keys", discovered.Count);
+        return Results.Ok(new
+        {
+            port = port,
+            processId = Environment.ProcessId,
+            workingDir = Directory.GetCurrentDirectory(),
+            baseDir = AppDomain.CurrentDomain.BaseDirectory,
+            startedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
+            os = Environment.OSVersion.ToString(),
+            runtime = Environment.Version.ToString(),
+            args = args,
+            endpoints = apiEndpoints,
+            refreshTelemetry = refreshService.GetRefreshTelemetrySnapshot()
+        });
+    });
 
-    // Immediately refresh so newly discovered keys appear in /api/usage within seconds
-    _ = Task.Run(async () => await refreshService.TriggerRefreshAsync(forceAll: true));
+    // Provider usage endpoints
+    app.MapGet("/api/usage", async (UsageDatabase db, IConfigService configService, ILogger<Program> logger) =>
+    {
+        var usage = await db.GetLatestHistoryAsync();
 
-    return Results.Ok(new { discovered = discovered.Count, configs = discovered });
-});
+        var configs = await configService.GetConfigsAsync();
+        usage = usage
+            .Where(u => !ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, u.ProviderId))
+            .ToList();
 
-// History endpoints
-app.MapGet("/api/history", async (UsageDatabase db, int? limit, ILogger<Program> logger) =>
-{
-    logger.LogDebug("GET /api/history (limit={Limit})", limit ?? 100);
-    var history = await db.GetHistoryAsync(limit ?? 100);
-    return Results.Ok(history);
-});
+        logger.LogDebug("GET /api/usage returning {Count} providers: {Providers}",
+            usage.Count, string.Join(", ", usage.Select(u => u.ProviderId)));
 
-app.MapGet("/api/history/{providerId}", async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
-{
-    logger.LogDebug("GET /api/history/{ProviderId}", providerId);
-    var history = await db.GetHistoryByProviderAsync(providerId, limit ?? 100);
-    return Results.Ok(history);
-});
+        return Results.Ok(usage);
+    });
 
-// Reset events endpoint
-app.MapGet("/api/resets/{providerId}", async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
-{
-    logger.LogDebug("GET /api/resets/{ProviderId}", providerId);
-    var resets = await db.GetResetEventsAsync(providerId, limit ?? 50);
-    return Results.Ok(resets);
-});
+    app.MapGet("/api/usage/{providerId}", async (string providerId, UsageDatabase db, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("GET /api/usage/{ProviderId}", providerId);
+        var usage = await db.GetHistoryByProviderAsync(providerId, 1);
+        var result = usage.FirstOrDefault();
+        return result != null ? Results.Ok(result) : Results.NotFound();
+    });
+
+    app.MapPost("/api/refresh", async ([FromServices] ProviderRefreshService refreshService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("POST /api/refresh");
+        await refreshService.TriggerRefreshAsync();
+        return Results.Ok(new { message = "Refresh triggered" });
+    });
+
+    app.MapPost("/api/notifications/test", ([FromServices] INotificationService notificationService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("POST /api/notifications/test");
+        notificationService.ShowNotification(
+            "AI Usage Tracker",
+            "This is a test notification from Slim Settings.",
+            "openSettings",
+            "notifications");
+        return Results.Ok(new { message = "Test notification sent" });
+    });
+
+    // Config endpoints
+    app.MapGet("/api/config", async (IConfigService configService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("GET /api/config");
+        var configs = await configService.GetConfigsAsync();
+        return Results.Ok(configs);
+    });
+
+    app.MapPost("/api/config", async (ProviderConfig config, IConfigService configService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("POST /api/config ({ProviderId})", config.ProviderId);
+        await configService.SaveConfigAsync(config);
+        return Results.Ok(new { message = "Config saved" });
+    });
+
+    app.MapDelete("/api/config/{providerId}", async (string providerId, IConfigService configService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("DELETE /api/config/{ProviderId}", providerId);
+        await configService.RemoveConfigAsync(providerId);
+        return Results.Ok(new { message = "Config removed" });
+    });
+
+    // Preferences endpoints (deprecated: legacy compatibility only)
+    const string preferencesApiDeprecationMessage =
+        "/api/preferences is deprecated and reserved for legacy clients; UI preferences must be managed locally by each UI.";
+    const string preferencesApiSunsetDate = "Wed, 31 Dec 2026 00:00:00 GMT";
+
+    app.MapGet("/api/preferences", async (HttpContext httpContext, IConfigService configService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("GET /api/preferences");
+        httpContext.Response.Headers.Append("Deprecation", "true");
+        httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
+        var prefs = await configService.GetPreferencesAsync();
+        return Results.Ok(prefs);
+    })
+    .WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
+
+    app.MapPost("/api/preferences", async (HttpContext httpContext, AppPreferences preferences, IConfigService configService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("POST /api/preferences");
+        httpContext.Response.Headers.Append("Deprecation", "true");
+        httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
+        await configService.SavePreferencesAsync(preferences);
+        return Results.Ok(new { message = "Preferences saved" });
+    })
+    .WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
+
+    // Scan for keys endpoint
+    app.MapPost("/api/scan-keys", async ([FromServices] IConfigService configService, [FromServices] ProviderRefreshService refreshService, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("POST /api/scan-keys");
+        var discovered = await configService.ScanForKeysAsync();
+        logger.LogDebug("Discovered {Count} keys", discovered.Count);
+
+        // Immediately refresh so newly discovered keys appear in /api/usage within seconds
+        _ = Task.Run(async () => await refreshService.TriggerRefreshAsync(forceAll: true));
+
+        return Results.Ok(new { discovered = discovered.Count, configs = discovered });
+    });
+
+    // History endpoints
+    app.MapGet("/api/history", async (UsageDatabase db, int? limit, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("GET /api/history (limit={Limit})", limit ?? 100);
+        var history = await db.GetHistoryAsync(limit ?? 100);
+        return Results.Ok(history);
+    });
+
+    app.MapGet("/api/history/{providerId}", async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("GET /api/history/{ProviderId}", providerId);
+        var history = await db.GetHistoryByProviderAsync(providerId, limit ?? 100);
+        return Results.Ok(history);
+    });
+
+    // Reset events endpoint
+    app.MapGet("/api/resets/{providerId}", async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
+    {
+        logger.LogDebug("GET /api/resets/{ProviderId}", providerId);
+        var resets = await db.GetResetEventsAsync(providerId, limit ?? 50);
+        return Results.Ok(resets);
+    });
 
     await app.StartAsync();
 
@@ -435,8 +437,8 @@ static int ResolveCanonicalPort(int preferredPort, bool debug, ILogger logger)
                 continue;
             }
 
-                logger.LogWarning("Preferred port {Port} is unavailable after {Attempts} attempts.", preferredPort, maxAttempts);
-                break;
+            logger.LogWarning("Preferred port {Port} is unavailable after {Attempts} attempts.", preferredPort, maxAttempts);
+            break;
         }
     }
 
@@ -473,7 +475,7 @@ static int GetRandomHighPort(ILogger logger)
 }
 
 // Define partial Program class to hold static methods needed by other files
-public partial class Program 
+public partial class Program
 {
     // P/Invoke to allocate console window
     [DllImport("kernel32.dll", SetLastError = true)]

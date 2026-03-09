@@ -96,10 +96,10 @@ public class GeminiProvider : ProviderBase
                         string name = "Quota Bucket";
                         if (bucket.ExtensionData != null && bucket.ExtensionData.TryGetValue("quotaId", out var qidElement))
                         {
-                           var qid = qidElement;
-                           name = System.Text.RegularExpressions.Regex.Replace(name, "(?<lower>[a-z])(?<upper>[A-Z])", "${lower} ${upper}", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-                           name = name.Replace("Requests Per Day", "(Day)").Replace("Requests Per Minute", "(Min)");
-                       }
+                            var qid = qidElement;
+                            name = System.Text.RegularExpressions.Regex.Replace(name, "(?<lower>[a-z])(?<upper>[A-Z])", "${lower} ${upper}", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+                            name = name.Replace("Requests Per Day", "(Day)").Replace("Requests Per Minute", "(Min)");
+                        }
 
                         var bucketRemainingPercentage = UsageMath.ClampPercent(bucket.RemainingFraction * 100.0);
                         string? resetTime = bucket.ResetTime;
@@ -119,13 +119,13 @@ public class GeminiProvider : ProviderBase
                         {
                             if (DateTime.TryParse(resetTime, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt))
                             {
-                                 var diff = dt.ToLocalTime() - DateTime.Now;
-                                 if (diff.TotalSeconds > 0)
-                                 {
-                                     resetStr = $" (Resets: ({dt.ToLocalTime():MMM dd HH:mm}))";
-                                     itemResetDt = dt.ToLocalTime();
-                                     bucket.ResetTime = resetTime;
-                                 }
+                                var diff = dt.ToLocalTime() - DateTime.Now;
+                                if (diff.TotalSeconds > 0)
+                                {
+                                    resetStr = $" (Resets: ({dt.ToLocalTime():MMM dd HH:mm}))";
+                                    itemResetDt = dt.ToLocalTime();
+                                    bucket.ResetTime = resetTime;
+                                }
                             }
                         }
 
@@ -156,8 +156,8 @@ public class GeminiProvider : ProviderBase
                     var diff = sdt.ToLocalTime() - DateTime.Now;
                     if (diff.TotalSeconds > 0)
                     {
-                         mainResetStr = $" (Resets: ({sdt.ToLocalTime():MMM dd HH:mm}))";
-                         soonestResetDt = sdt.ToLocalTime();
+                        mainResetStr = $" (Resets: ({sdt.ToLocalTime():MMM dd HH:mm}))";
+                        soonestResetDt = sdt.ToLocalTime();
                     }
                 }
 
@@ -200,7 +200,7 @@ public class GeminiProvider : ProviderBase
 
         if (!results.Any())
         {
-             return new[] { new ProviderUsage
+            return new[] { new ProviderUsage
              {
                  ProviderId = ProviderId,
                  ProviderName = "Gemini CLI",

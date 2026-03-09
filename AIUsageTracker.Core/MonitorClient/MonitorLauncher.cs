@@ -87,7 +87,7 @@ public class MonitorLauncher
         var readyState = await GetReadyStateAsync().ConfigureAwait(false);
         return readyState.IsRunning;
     }
-    
+
     public static async Task<(bool IsRunning, int Port)> IsAgentRunningWithPortAsync()
     {
         var readyState = await GetReadyStateAsync().ConfigureAwait(false);

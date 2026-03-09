@@ -81,7 +81,8 @@ public class AntigravityProvider : ProviderBase
                     {
                         var anyResetPassed = this._cachedUsage.Details
                             .Where(d => d.NextResetTime.HasValue)
-                            .Any(d => {
+                            .Any(d =>
+                            {
                                 var dt = d.NextResetTime!.Value;
                                 return dt <= DateTime.Now;
                             });
@@ -205,7 +206,7 @@ public class AntigravityProvider : ProviderBase
                     // Check for duplicates based on AccountName (Email) for the MAIN item
                     // Assuming the first item is the summary
                     var mainItem = usageItems.FirstOrDefault(u => string.Equals(u.ProviderId, ProviderId, StringComparison.Ordinal));
-                    
+
                     if (mainItem != null && results.Any(r => string.Equals(r.ProviderId, ProviderId, StringComparison.Ordinal) && string.Equals(r.AccountName, mainItem.AccountName, StringComparison.Ordinal)))
                     {
                         continue;
@@ -245,22 +246,22 @@ public class AntigravityProvider : ProviderBase
             // Start with just the summary
             // But we can't just return results list here because we build it differently now
             // The loop above adds to 'results'
-            
+
             // Wait, previous logic was:
             // 1. Find processes
             // 2. Add to results
             // 3. Return results
-            
+
             // New logic inside FetchUsage returns a list (or we need to change FetchUsage signature)
             // Let's change FetchUsage to return IEnumerable<ProviderUsage>
-            
+
             // For now, let's keep FetchUsage returning single and split it here?
             // No, FetchUsage has the context (details list). 
-            
+
             // Refactoring FetchUsage to return List<ProviderUsage>
-            
+
             // ... (See below for FetchUsage refactor)
-            
+
             return results;
         }
         catch (Exception ex)
@@ -294,8 +295,8 @@ public class AntigravityProvider : ProviderBase
 
         if (OperatingSystem.IsWindows())
         {
-             try 
-             {
+            try
+            {
                 using var searcher = new ManagementObjectSearcher(
                     "SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE 'language_server%'");
                 using var collection = searcher.Get();
@@ -325,13 +326,13 @@ public class AntigravityProvider : ProviderBase
                     var port = ParseExtensionServerPort(cmdLine);
                     candidates.Add((pid, token, port));
                 }
-             }
-             catch (Exception ex)
-             {
-                 this._logger.LogError(ex, "Process discovery failed");
-             }
+            }
+            catch (Exception ex)
+            {
+                this._logger.LogError(ex, "Process discovery failed");
+            }
         }
-        
+
         candidates = candidates
             .GroupBy(c => c.Pid)
             .Select(g => g.First())
@@ -465,13 +466,13 @@ public class AntigravityProvider : ProviderBase
         {
             throw new HttpRequestException($"No successful Antigravity response on port {port}", lastRequestException);
         }
-        
+
         var data = JsonSerializer.Deserialize<AntigravityResponse>(responseString);
 
         if (data?.UserStatus == null) throw new Exception("Invalid Antigravity response");
 
-        this._logger.LogDebug("[Antigravity] Email: {Email}, Models: {ModelCount}", 
-            PrivacyHelper.MaskContent(data.UserStatus.Email ?? ""), 
+        this._logger.LogDebug("[Antigravity] Email: {Email}, Models: {ModelCount}",
+            PrivacyHelper.MaskContent(data.UserStatus.Email ?? ""),
             data.UserStatus.CascadeModelConfigData?.ClientModelConfigs?.Count ?? 0);
 
         var modelConfigs = data.UserStatus.CascadeModelConfigData?.ClientModelConfigs ?? new List<ClientModelConfig>();
@@ -1001,7 +1002,7 @@ public class AntigravityProvider : ProviderBase
     {
         [JsonPropertyName("availablePromptCredits")]
         public int AvailablePromptCredits { get; set; }
-        
+
         [JsonPropertyName("availableFlowCredits")]
         public int AvailableFlowCredits { get; set; }
 
@@ -1082,7 +1083,7 @@ public class AntigravityProvider : ProviderBase
 
         [JsonPropertyName("modelOrAlias")]
         public ModelOrAlias? ModelOrAlias { get; set; }
-        
+
         [JsonPropertyName("quotaInfo")]
         public QuotaInfo? QuotaInfo { get; set; }
 
@@ -1109,10 +1110,10 @@ public class AntigravityProvider : ProviderBase
     {
         [JsonPropertyName("remainingFraction")]
         public double? RemainingFraction { get; set; }
-        
+
         [JsonPropertyName("totalRequests")]
         public int? TotalRequests { get; set; }
-        
+
         [JsonPropertyName("usedRequests")]
         public int? UsedRequests { get; set; }
 

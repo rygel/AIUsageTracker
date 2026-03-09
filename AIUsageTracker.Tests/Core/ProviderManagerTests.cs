@@ -22,8 +22,8 @@ public class ProviderManagerTests
     public async Task GetAllUsageAsync_LoadsConfigAndFetchesUsageFromMocks()
     {
         // Arrange
-        var providers = new List<IProviderService> 
-        { 
+        var providers = new List<IProviderService>
+        {
             MockProviderService.CreateOpenAIMock(),
             MockProviderService.CreateGeminiMock()
         };
@@ -35,7 +35,7 @@ public class ProviderManagerTests
         };
 
         _mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(configs);
-        
+
         var manager = new ProviderManager(providers, _mockConfigLoader.Object, _mockLogger.Object);
 
         // Act

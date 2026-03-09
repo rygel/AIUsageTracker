@@ -21,7 +21,7 @@ public abstract class DatabaseTestBase : IDisposable
         // Use a real file for WebDatabaseService because it creates its own connections
         DbPath = Path.Combine(Path.GetTempPath(), $"ai-tracker-test-{Guid.NewGuid():N}.db");
         ConnectionString = $"Data Source={DbPath}";
-        
+
         // Ensure directory exists
         var dir = Path.GetDirectoryName(DbPath);
         if (dir != null && !Directory.Exists(dir))
@@ -115,9 +115,9 @@ public abstract class DatabaseTestBase : IDisposable
             ) VALUES (
                 $id, $used, $available, $pct, $at, $avail, $latency
             )";
-        
+
         var pct = available > 0 ? (1.0 - (used / available)) * 100.0 : 0;
-        
+
         command.Parameters.AddWithValue("$id", providerId);
         command.Parameters.AddWithValue("$used", used);
         command.Parameters.AddWithValue("$available", available);

@@ -208,7 +208,7 @@ public class MonitorService : IMonitorService
             return default;
         }
     }
-    
+
     public async Task RefreshAgentInfoAsync()
     {
         LogDiagnostic("Refreshing Monitor Info from file...");
@@ -286,12 +286,12 @@ public class MonitorService : IMonitorService
                 return usage ?? new List<ProviderUsage>();
             }
             catch (HttpRequestException)
-                {
-                    stopwatch.Stop();
-                    RecordUsageTelemetry(stopwatch.Elapsed, false);
-                    LogDiagnostic($"Failed to fetch usage from {this.AgentUrl} after port refresh: Connection error");
-                    return new List<ProviderUsage>();
-                }
+            {
+                stopwatch.Stop();
+                RecordUsageTelemetry(stopwatch.Elapsed, false);
+                LogDiagnostic($"Failed to fetch usage from {this.AgentUrl} after port refresh: Connection error");
+                return new List<ProviderUsage>();
+            }
         }
         catch (TaskCanceledException)
         {

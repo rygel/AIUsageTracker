@@ -42,7 +42,7 @@ public partial class App
                 IsPrivacyMode = true,
                 Theme = selectedTheme
             };
-            
+
             ApplyTheme(Preferences.Theme);
             SetPrivacyMode(true);
 

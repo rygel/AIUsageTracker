@@ -51,10 +51,12 @@ public class MonitorResilienceTests
         finally
         {
             // Manual cleanup
-            try {
+            try
+            {
                 using var cleanup = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
                 // Just testing we can bind again after failure
-            } catch { }
+            }
+            catch { }
         }
 
         Assert.Null(boundPort);

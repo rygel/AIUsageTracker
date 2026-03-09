@@ -32,7 +32,7 @@ public class OpenCodeProvider : ProviderBase
     {
         this._logger.LogDebug("OpenCode GetUsageAsync called for provider {ProviderId}", ProviderId);
         var displayName = Definition.DisplayName;
-        
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
             this._logger.LogInformation("OpenCode API key not configured - returning unavailable state");
@@ -76,7 +76,7 @@ public class OpenCodeProvider : ProviderBase
             var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             var result = ParseJsonResponse(responseString, httpStatus);
             this._logger.LogInformation("OpenCode usage retrieved successfully - Total Cost: ${TotalCost:F2}", result.RequestsUsed);
-            
+
             return new[] { result };
         }
         catch (Exception ex)
@@ -121,7 +121,7 @@ public class OpenCodeProvider : ProviderBase
 
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var response = JsonSerializer.Deserialize<CreditsResponse>(json, options);
-            
+
             double totalCost = 0;
             if (response?.Data != null)
             {
@@ -145,7 +145,7 @@ public class OpenCodeProvider : ProviderBase
         }
         catch (JsonException ex)
         {
-            this._logger.LogError(ex, "Failed to parse OpenCode JSON response. Response started with: {Start}", 
+            this._logger.LogError(ex, "Failed to parse OpenCode JSON response. Response started with: {Start}",
                 json.Length > 50 ? json.Substring(0, 50) : json);
             return new ProviderUsage
             {

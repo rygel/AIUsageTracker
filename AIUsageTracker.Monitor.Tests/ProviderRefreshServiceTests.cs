@@ -50,16 +50,16 @@ public class ProviderRefreshServiceTests
     {
         // Arrange
         var prefs = new AppPreferences { EnableNotifications = true, NotificationThreshold = 90.0 };
-        var configs = new List<ProviderConfig> 
-        { 
-            new ProviderConfig { ProviderId = "test", EnableNotifications = true } 
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "test", EnableNotifications = true }
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage 
-            { 
-                ProviderId = "test", 
-                ProviderName = "Test Provider", 
+            new ProviderUsage
+            {
+                ProviderId = "test",
+                ProviderName = "Test Provider",
                 RequestsPercentage = 95.0,
                 IsAvailable = true
             }
@@ -135,16 +135,16 @@ public class ProviderRefreshServiceTests
     {
         // Arrange
         var prefs = new AppPreferences { EnableNotifications = false, NotificationThreshold = 90.0 };
-        var configs = new List<ProviderConfig> 
-        { 
-            new ProviderConfig { ProviderId = "test", EnableNotifications = true } 
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "test", EnableNotifications = true }
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage 
-            { 
-                ProviderId = "test", 
-                ProviderName = "Test Provider", 
+            new ProviderUsage
+            {
+                ProviderId = "test",
+                ProviderName = "Test Provider",
                 RequestsPercentage = 95.0,
                 IsAvailable = true
             }
@@ -162,16 +162,16 @@ public class ProviderRefreshServiceTests
     {
         // Arrange
         var prefs = new AppPreferences { EnableNotifications = true, NotificationThreshold = 90.0 };
-        var configs = new List<ProviderConfig> 
-        { 
-            new ProviderConfig { ProviderId = "test", EnableNotifications = false } 
+        var configs = new List<ProviderConfig>
+        {
+            new ProviderConfig { ProviderId = "test", EnableNotifications = false }
         };
         var usages = new List<ProviderUsage>
         {
-            new ProviderUsage 
-            { 
-                ProviderId = "test", 
-                ProviderName = "Test Provider", 
+            new ProviderUsage
+            {
+                ProviderId = "test",
+                ProviderName = "Test Provider",
                 RequestsPercentage = 95.0,
                 IsAvailable = true
             }

@@ -40,7 +40,7 @@ public static partial class PrivacyHelper
         // we only do this if it was historically called as generic masking.
         // However, if we want to preserve context, we should NOT generic mask the whole string anymore.
         // In the new approach, if input == accountName, step 2 handles it.
-        
+
         return result;
     }
 
@@ -48,7 +48,7 @@ public static partial class PrivacyHelper
     {
         if (string.IsNullOrEmpty(input)) return input;
         if (input.Length <= 2) return new string('*', input.Length);
-        
+
         return input.Substring(0, 1) + new string('*', Math.Min(input.Length - 2, 5)) + input.Substring(input.Length - 1);
     }
 

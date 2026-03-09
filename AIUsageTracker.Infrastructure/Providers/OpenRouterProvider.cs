@@ -50,11 +50,11 @@ public class OpenRouterProvider : ProviderBase
         OpenRouterCreditsResponse? creditsData = null;
         string? creditsResponseBody = null;
         int httpStatus = 200;
-        
+
         try
         {
             this._logger.LogDebug("Calling OpenRouter credits API: https://openrouter.ai/api/v1/credits");
-            
+
             var request = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/credits");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
@@ -64,7 +64,7 @@ public class OpenRouterProvider : ProviderBase
 
             this._logger.LogDebug("OpenRouter credits API response status: {StatusCode}", response.StatusCode);
             _logger.LogTrace("OpenRouter credits API response body: {ResponseBody}", creditsResponseBody);
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError("OpenRouter credits API failed with status {StatusCode}. Response: {Response}",
@@ -84,7 +84,7 @@ public class OpenRouterProvider : ProviderBase
                     planType: PlanType.Usage,
                     isQuotaBased: false) };
             }
-            
+
             if (creditsData?.Data == null)
             {
                 _logger.LogError("OpenRouter credits response missing 'data' field. Response: {Response}", creditsResponseBody);
@@ -94,7 +94,7 @@ public class OpenRouterProvider : ProviderBase
                     isQuotaBased: false) };
             }
 
-            this._logger.LogDebug("Successfully parsed credits data - Total: {Total}, Usage: {Usage}", 
+            this._logger.LogDebug("Successfully parsed credits data - Total: {Total}, Usage: {Usage}",
                 creditsData.Data.TotalCredits, creditsData.Data.TotalUsage);
         }
         catch (Exception ex)
@@ -108,11 +108,11 @@ public class OpenRouterProvider : ProviderBase
         // Try to fetch additional key info (optional - for limits, labels, etc.)
         var details = new List<ProviderUsageDetail>();
         string label = "OpenRouter";
-        
-        try 
+
+        try
         {
             this._logger.LogDebug("Calling OpenRouter key API: https://openrouter.ai/api/v1/key");
-            
+
             var keyRequest = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/key");
             keyRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
 
@@ -121,11 +121,11 @@ public class OpenRouterProvider : ProviderBase
 
             this._logger.LogDebug("OpenRouter key API response status: {StatusCode}", keyResponse.StatusCode);
             _logger.LogTrace("OpenRouter key API response body: {ResponseBody}", keyResponseBody);
-            
+
             if (keyResponse.IsSuccessStatusCode)
             {
                 OpenRouterKeyResponse? keyData = null;
-                
+
                 try
                 {
                     keyData = System.Text.Json.JsonSerializer.Deserialize<OpenRouterKeyResponse>(keyResponseBody);
@@ -134,22 +134,22 @@ public class OpenRouterProvider : ProviderBase
                 {
                     this._logger.LogWarning(ex, "Failed to deserialize OpenRouter key response. Response: {Response}", keyResponseBody);
                 }
-                
+
                 if (keyData?.Data != null)
                 {
                     label = keyData.Data.Label ?? "OpenRouter";
                     this._logger.LogDebug("OpenRouter key label: {Label}, Limit: {Limit}, IsFreeTier: {IsFreeTier}",
                         label, keyData.Data.Limit, keyData.Data.IsFreeTier);
-                    
+
                     if (keyData.Data.Limit > 0)
                     {
                         string resetStr = "";
                         DateTime? nextResetTime = null;
-                        
+
                         if (!string.IsNullOrEmpty(keyData.Data.LimitReset))
                         {
                             this._logger.LogDebug("Parsing limit reset time: {LimitReset}", keyData.Data.LimitReset);
-                            
+
                             if (DateTime.TryParse(keyData.Data.LimitReset, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt))
                             {
                                 var diff = dt.ToLocalTime() - DateTime.Now;
@@ -181,7 +181,8 @@ public class OpenRouterProvider : ProviderBase
                         this._logger.LogDebug("No spending limit set for this key");
                     }
 
-                    details.Add(new ProviderUsageDetail {
+                    details.Add(new ProviderUsageDetail
+                    {
                         Name = "Free Tier",
                         Description = keyData.Data.IsFreeTier ? "Yes" : "No",
                         Used = "",
@@ -210,10 +211,10 @@ public class OpenRouterProvider : ProviderBase
         var used = creditsData.Data.TotalUsage;
         var remainingPercentage = UsageMath.CalculateRemainingPercent(used, total);
         var remaining = total - used;
-        
+
         _logger.LogInformation("OpenRouter usage calculated - Total: {Total}, Used: {Used}, Remaining: {Remaining}, RemainingPercentage: {RemainingPercentage}%",
             total, used, remaining, remainingPercentage);
-        
+
         // Find spending limit detail for reset time (use typed fields, not string matching)
         string mainReset = "";
         DateTime? spendingLimitResetTime = null;
@@ -275,7 +276,7 @@ public class OpenRouterProvider : ProviderBase
 
         [JsonPropertyName("limit_reset")]
         public string? LimitReset { get; set; }
-        
+
         [JsonPropertyName("is_free_tier")]
         public bool IsFreeTier { get; set; }
     }

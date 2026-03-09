@@ -22,10 +22,10 @@ public class DataExportService : IDataExportService
 
     public async Task<string> ExportHistoryToCsvAsync()
     {
-            try
+        try
         {
             var history = await this._repository.GetAllHistoryForExportAsync().ConfigureAwait(false);
-            
+
             var sb = new StringBuilder();
             sb.AppendLine("provider_id,provider_name,requests_used,requests_available,requests_percentage,is_available,status_message,fetched_at,next_reset_time");
 
@@ -46,7 +46,7 @@ public class DataExportService : IDataExportService
 
     public async Task<string> ExportHistoryToJsonAsync()
     {
-            try
+        try
         {
             var history = await this._repository.GetAllHistoryForExportAsync(limit: 10000).ConfigureAwait(false);
             return JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });

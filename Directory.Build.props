@@ -6,7 +6,7 @@
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
-    <NoWarn>$(NoWarn)</NoWarn>
+    <NoWarn>$(NoWarn);1516</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

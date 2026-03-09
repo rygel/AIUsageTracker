@@ -129,7 +129,7 @@ public class OpenCodeZenProvider : ProviderBase
     private ProviderUsage ParseOutput(string output, ProviderConfig config)
     {
         var cleaned = CleanAnsiOutput(output);
-        
+
         var totalCost = ParseValue<double>(cleaned, @"Total Cost\s+\$([0-9.]+)");
         var sessions = ParseValue<int>(cleaned, @"Sessions\s+([0-9,]+)");
         var messages = ParseValue<int>(cleaned, @"Messages\s+([0-9,]+)");
@@ -143,7 +143,7 @@ public class OpenCodeZenProvider : ProviderBase
         var cacheWrite = ParseValue<double>(cleaned, @"Cache Write\s+([0-9.,KM]+)");
 
         var details = new List<ProviderUsageDetail>();
-        
+
         // Add overview details
         details.Add(new ProviderUsageDetail
         {
@@ -152,7 +152,7 @@ public class OpenCodeZenProvider : ProviderBase
             DetailType = ProviderUsageDetailType.Other,
             WindowKind = WindowKind.None
         });
-        
+
         details.Add(new ProviderUsageDetail
         {
             Name = "Messages",
@@ -160,7 +160,7 @@ public class OpenCodeZenProvider : ProviderBase
             DetailType = ProviderUsageDetailType.Other,
             WindowKind = WindowKind.None
         });
-        
+
         details.Add(new ProviderUsageDetail
         {
             Name = "Avg Cost/Day",
@@ -177,7 +177,7 @@ public class OpenCodeZenProvider : ProviderBase
             DetailType = ProviderUsageDetailType.Other,
             WindowKind = WindowKind.None
         });
-        
+
         details.Add(new ProviderUsageDetail
         {
             Name = "Output Tokens",
@@ -185,7 +185,7 @@ public class OpenCodeZenProvider : ProviderBase
             DetailType = ProviderUsageDetailType.Other,
             WindowKind = WindowKind.None
         });
-        
+
         details.Add(new ProviderUsageDetail
         {
             Name = "Cache Read",
@@ -193,7 +193,7 @@ public class OpenCodeZenProvider : ProviderBase
             DetailType = ProviderUsageDetailType.Other,
             WindowKind = WindowKind.None
         });
-        
+
         details.Add(new ProviderUsageDetail
         {
             Name = "Cache Write",
@@ -263,7 +263,7 @@ public class OpenCodeZenProvider : ProviderBase
         if (match.Success && match.Groups.Count > 1)
         {
             var valueStr = match.Groups[1].Value.Replace(",", "");
-            
+
             if (typeof(T) == typeof(double))
             {
                 if (double.TryParse(valueStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
@@ -302,7 +302,7 @@ public class OpenCodeZenProvider : ProviderBase
         if (string.IsNullOrEmpty(modelBlocks)) return models;
 
         var modelPattern = new Regex(@"(?<model>[^\n]+)\s+Messages\s+(?<messages>[0-9,]+)\s+Input Tokens\s+(?<input>[0-9.,KM]+)\s+Output Tokens\s+(?<output>[0-9.,KM]+)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        
+
         foreach (Match match in modelPattern.Matches(modelBlocks))
         {
             var model = new ModelUsage
@@ -329,7 +329,7 @@ public class OpenCodeZenProvider : ProviderBase
         if (string.IsNullOrEmpty(toolBlocks)) return tools;
 
         var toolPattern = new Regex(@"(?<tool>\w+)\s+[█]+(?<count>[0-9]+)\s+\((?<percentage>[\d.]+)%\)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        
+
         foreach (Match match in toolPattern.Matches(toolBlocks))
         {
             var tool = new ToolUsage
@@ -347,12 +347,12 @@ public class OpenCodeZenProvider : ProviderBase
     private double ParseTokenCount(string value)
     {
         if (string.IsNullOrEmpty(value)) return 0;
-        
+
         var cleaned = value.Replace(",", "");
         if (cleaned.EndsWith("B")) return double.Parse(cleaned[..^1]) * 1_000_000_000;
         if (cleaned.EndsWith("M")) return double.Parse(cleaned[..^1]) * 1_000_000;
         if (cleaned.EndsWith("K")) return double.Parse(cleaned[..^1]) * 1_000;
-        
+
         return double.Parse(cleaned);
     }
 

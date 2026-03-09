@@ -69,7 +69,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
                     {
                         type = "TOKENS_LIMIT",
                         currentValue = 1000000L,
-                        usage = (long?)null, 
+                        usage = (long?)null,
                         remaining = (long?)null
                     }
                 }

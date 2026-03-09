@@ -17,23 +17,23 @@ public partial class App
     {
         // Create context menu
         var contextMenu = new ContextMenu();
-        
+
         // Show menu item
         var showMenuItem = new MenuItem { Header = "Show" };
         showMenuItem.Click += (s, e) => ShowMainWindow();
         contextMenu.Items.Add(showMenuItem);
-        
+
         // Separator
         contextMenu.Items.Add(new Separator());
-        
+
         // Info menu item
         var infoMenuItem = new MenuItem { Header = "Info" };
         infoMenuItem.Click += (s, e) => OpenInfoDialog();
         contextMenu.Items.Add(infoMenuItem);
-        
+
         // Separator
         contextMenu.Items.Add(new Separator());
-        
+
         // Exit menu item
         var exitMenuItem = new MenuItem { Header = "Exit" };
         exitMenuItem.Click += (s, e) =>
@@ -41,7 +41,7 @@ public partial class App
             Shutdown();
         };
         contextMenu.Items.Add(exitMenuItem);
-        
+
         // Create tray icon
         var trayIconPath = ResolveTrayIconPath();
         var trayIcon = File.Exists(trayIconPath)

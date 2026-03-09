@@ -28,23 +28,24 @@ namespace AIUsageTracker.UI.Slim
             InitializeComponent();
             _logger = App.CreateLogger<InfoDialog>();
             _pathProvider = App.Host.Services.GetRequiredService<IAppPathProvider>();
-            
+
             // In Slim UI, we rely on App.Preferences or direct theme resources
             // No need for complex theme loading or IConfigLoader here
-            
+
             LoadInfo();
         }
-        
+
         private void LoadInfo()
         {
             // Subscribe to global privacy changes
             if (Application.Current is App)
             {
-                App.PrivacyChanged += (s, isPrivate) => {
+                App.PrivacyChanged += (s, isPrivate) =>
+                {
                     _isPrivacyMode = isPrivate;
                     UpdatePrivacyUI();
                 };
-                
+
                 // Set initial privacy state
                 _isPrivacyMode = App.IsPrivacyMode;
             }
@@ -70,13 +71,13 @@ namespace AIUsageTracker.UI.Slim
 
             // Current user
             _realUserName = Environment.UserName;
-            
+
             // Configuration Directory path (without auth.json)
             _realConfigDir = Path.GetDirectoryName(_pathProvider.GetAuthFilePath());
-            
+
             // Data Directory path
             _realDataDir = _pathProvider.GetAppDataRoot();
-            
+
             UpdatePrivacyUI();
         }
 
@@ -97,7 +98,7 @@ namespace AIUsageTracker.UI.Slim
                 PrivacyBtn.Foreground = Brushes.Gray;
             }
         }
-        
+
         // Helper methods for masking (since we don't reference Infrastructure directly in some Slim logic ideally)
         // Or we could duplicate the PrivacyHelper logic here to keep Slim independent
         private string MaskString(string input)
@@ -136,7 +137,7 @@ namespace AIUsageTracker.UI.Slim
             try
             {
                 _isPrivacyMode = !_isPrivacyMode;
-                App.SetPrivacyMode(_isPrivacyMode); 
+                App.SetPrivacyMode(_isPrivacyMode);
                 // App.PrivacyChanged event will handle UI update
                 await Task.CompletedTask;
             }
@@ -163,7 +164,7 @@ namespace AIUsageTracker.UI.Slim
         {
             if (Directory.Exists(_realConfigDir))
             {
-                try 
+                try
                 {
                     Process.Start(new ProcessStartInfo
                     {

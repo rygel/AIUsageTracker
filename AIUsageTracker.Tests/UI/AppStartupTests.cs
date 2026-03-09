@@ -20,12 +20,12 @@ public class AppStartupTests : IDisposable
         _testPreferencesDirectory = Path.Combine(Path.GetTempPath(), $"AIUsageTracker_Test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_testPreferencesDirectory);
         _testPreferencesPath = Path.Combine(_testPreferencesDirectory, "preferences.json");
-        
+
         _mockPathProvider = new Mock<IAppPathProvider>();
         _mockPathProvider.Setup(p => p.GetPreferencesFilePath()).Returns(_testPreferencesPath);
         _mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(Path.Combine(_testPreferencesDirectory, "auth.json"));
         _mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(_testPreferencesDirectory);
-        
+
         _store = new UiPreferencesStore(NullLogger<UiPreferencesStore>.Instance, _mockPathProvider.Object);
     }
 

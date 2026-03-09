@@ -64,14 +64,14 @@ public class MinimaxProvider : ProviderBase
         else
         {
             // Determine endpoint based on ID suffix
-            if (config.ProviderId.EndsWith("-io", StringComparison.OrdinalIgnoreCase) || 
+            if (config.ProviderId.EndsWith("-io", StringComparison.OrdinalIgnoreCase) ||
                 config.ProviderId.EndsWith("-global", StringComparison.OrdinalIgnoreCase))
             {
-               url = "https://api.minimax.io/v1/user/usage";
+                url = "https://api.minimax.io/v1/user/usage";
             }
             else
             {
-               url = "https://api.minimax.chat/v1/user/usage";
+                url = "https://api.minimax.chat/v1/user/usage";
             }
         }
 
@@ -80,7 +80,7 @@ public class MinimaxProvider : ProviderBase
 
         var response = await _httpClient.SendAsync(request).ConfigureAwait(false);
         var httpStatus = (int)response.StatusCode;
-        
+
         if (!response.IsSuccessStatusCode)
         {
             var errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -98,7 +98,7 @@ public class MinimaxProvider : ProviderBase
         }
 
         var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        
+
         double used = 0;
         double total = 0;
 
@@ -108,11 +108,11 @@ public class MinimaxProvider : ProviderBase
             if (minimax?.Usage != null)
             {
                 used = minimax.Usage.TokensUsed;
-                total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0; 
+                total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0;
             }
             else
             {
-             return new[] { new ProviderUsage
+                return new[] { new ProviderUsage
              {
                  ProviderId = config.ProviderId,
                  ProviderName = "Minimax",
@@ -150,25 +150,25 @@ public class MinimaxProvider : ProviderBase
             RequestsUsed = used,
             RequestsAvailable = total,
             PlanType = PlanType.Coding,
-            UsageUnit = "Tokens", 
+            UsageUnit = "Tokens",
             IsQuotaBased = true,
             Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : ""),
             RawJson = responseString,
             HttpStatus = httpStatus
         }};
     }
-    
+
     private class MinimaxResponse
     {
         [JsonPropertyName("usage")]
         public MinimaxUsage? Usage { get; set; }
     }
-    
+
     private class MinimaxUsage
     {
         [JsonPropertyName("tokens_used")]
         public double TokensUsed { get; set; }
-        
+
         [JsonPropertyName("tokens_limit")]
         public double TokensLimit { get; set; }
     }

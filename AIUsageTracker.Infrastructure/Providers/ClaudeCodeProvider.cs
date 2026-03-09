@@ -95,21 +95,21 @@ public class ClaudeCodeProvider : ProviderBase
 
             // Extract rate limit information from headers
             var rateLimitHeaders = ExtractRateLimitInfo(testResponse.Headers);
-            
+
             // Log response for debugging
             _logger.LogDebug($"Claude API test call: Status={testResponse.StatusCode}, RPM={rateLimitHeaders.RequestsRemaining}/{rateLimitHeaders.RequestsLimit}");
-            
+
             // Even if the request fails (e.g., 429 rate limited), we can still get rate limit headers
             if (rateLimitHeaders.RequestsLimit > 0)
             {
                 // Calculate usage percentage based on rate limits
                 double usagePercentage = 0;
                 string? warningMessage = null;
-                
+
                 // Calculate percentage: (limit - remaining) / limit * 100
                 var used = rateLimitHeaders.RequestsLimit - rateLimitHeaders.RequestsRemaining;
                 usagePercentage = (used / (double)rateLimitHeaders.RequestsLimit) * 100.0;
-                
+
                 // Determine warning level
                 if (usagePercentage >= 90)
                 {
@@ -150,7 +150,7 @@ public class ClaudeCodeProvider : ProviderBase
                     HttpStatus = (int)testResponse.StatusCode
                 };
             }
-            
+
             // No rate limit headers found
             return null;
         }
@@ -164,7 +164,7 @@ public class ClaudeCodeProvider : ProviderBase
     private RateLimitInfo ExtractRateLimitInfo(System.Net.Http.Headers.HttpResponseHeaders headers)
     {
         var info = new RateLimitInfo();
-        
+
         if (headers.TryGetValues("anthropic-ratelimit-requests-limit", out var requestLimitValues))
         {
             if (int.TryParse(requestLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var limit))
@@ -188,7 +188,7 @@ public class ClaudeCodeProvider : ProviderBase
             if (int.TryParse(inputRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputRemaining))
                 info.InputTokensRemaining = inputRemaining;
         }
-        
+
         return info;
     }
 
@@ -321,7 +321,7 @@ public class ClaudeCodeProvider : ProviderBase
             IsQuotaBased = false,
             PlanType = PlanType.Usage,
             IsAvailable = true,
-            Description = budgetLimit > 0 
+            Description = budgetLimit > 0
                 ? $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used of ${budgetLimit.ToString("F2", CultureInfo.InvariantCulture)} limit"
                 : $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used",
             RawJson = output,

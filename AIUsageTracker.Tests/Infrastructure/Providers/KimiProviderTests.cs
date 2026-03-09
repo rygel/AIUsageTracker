@@ -27,7 +27,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var responseContent = JsonSerializer.Serialize(new
         {
             usage = new { limit = 100, used = 10, remaining = 90 },
-            limits = new object[] {} 
+            limits = new object[] { }
         });
 
         SetupHttpResponse("https://api.kimi.com/coding/v1/usages", new HttpResponseMessage
@@ -51,15 +51,15 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     [Fact]
     public async Task GetUsageAsync_WithLimitDetails_ParsesDetailsCorrectly()
     {
-         // Arrange
+        // Arrange
         var resetTime = DateTime.UtcNow.AddHours(1).ToString("o"); // ISO 8601
-        
+
         var responseData = new
         {
             usage = new { limit = 100, used = 50, remaining = 50 },
-            limits = new object[] 
+            limits = new object[]
             {
-                new 
+                new
                 {
                     window = new { duration = 60, timeUnit = "TIME_UNIT_MINUTE" },
                     detail = new { limit = 1000, remaining = 500, resetTime = resetTime }
@@ -67,15 +67,15 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
             }
         };
 
-        SetupHttpResponse("https://api.kimi.com/coding/v1/usages", new HttpResponseMessage 
-        { 
-            StatusCode = HttpStatusCode.OK, 
-            Content = new StringContent(JsonSerializer.Serialize(responseData)) 
+        SetupHttpResponse("https://api.kimi.com/coding/v1/usages", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(responseData))
         });
 
         // Act
         var result = await _provider.GetUsageAsync(Config);
-        
+
         // Assert
         var usage = result.Single();
         Assert.NotNull(usage.Details);
@@ -91,18 +91,18 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Arrange
         var hourlyResetTime = DateTime.UtcNow.AddMinutes(30).ToString("o");
         var weeklyResetTime = DateTime.UtcNow.AddDays(7).ToString("o");
-        
+
         var responseData = new
         {
             usage = new { limit = 100000, used = 25000, remaining = 75000 },
-            limits = new object[] 
+            limits = new object[]
             {
-                new 
+                new
                 {
                     window = new { duration = 60, timeUnit = "TIME_UNIT_MINUTE" },
                     detail = new { limit = 3000, remaining = 1800, resetTime = hourlyResetTime }
                 },
-                new 
+                new
                 {
                     window = new { duration = 7, timeUnit = "TIME_UNIT_DAY" },
                     detail = new { limit = 100000, remaining = 75000, resetTime = weeklyResetTime }
@@ -110,24 +110,24 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
             }
         };
 
-        SetupHttpResponse("https://api.kimi.com/coding/v1/usages", new HttpResponseMessage 
-        { 
-            StatusCode = HttpStatusCode.OK, 
-            Content = new StringContent(JsonSerializer.Serialize(responseData)) 
+        SetupHttpResponse("https://api.kimi.com/coding/v1/usages", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(responseData))
         });
 
         // Act
         var result = await _provider.GetUsageAsync(Config);
-        
+
         // Assert
         var usage = result.Single();
         Assert.NotNull(usage.Details);
         Assert.Equal(3, usage.Details.Count); // Weekly limit from usage + Hourly + Weekly from limits array
-        
+
         var hourlyDetail = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
         var weeklyDetailFromUsage = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary && d.Name == "Weekly Limit");
         var weeklyDetailFromLimits = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary && d.Name == "7d Limit");
-        
+
         Assert.NotNull(hourlyDetail);
         Assert.NotNull(weeklyDetailFromUsage);
         Assert.NotNull(weeklyDetailFromLimits);

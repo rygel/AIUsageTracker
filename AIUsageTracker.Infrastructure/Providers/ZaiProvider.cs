@@ -64,7 +64,7 @@ public class ZaiProvider : ProviderBase
         // Parse envelope
         var envelope = JsonSerializer.Deserialize<ZaiEnvelope<ZaiQuotaLimitResponse>>(responseString);
         this._logger.LogDebug("[ZAI] Parsed envelope - Data is null: {IsNull}", envelope?.Data == null);
-        
+
         string planDescription = "API";
 
         var limits = envelope?.Data?.Limits;
@@ -72,8 +72,8 @@ public class ZaiProvider : ProviderBase
 
         if (limits == null || !limits.Any())
         {
-             this._logger.LogDebug("[ZAI] No limits found in response");
-             return new[] { new ProviderUsage
+            this._logger.LogDebug("[ZAI] No limits found in response");
+            return new[] { new ProviderUsage
              {
                  ProviderId = this.ProviderId,
                  ProviderName = "Z.AI",
@@ -84,7 +84,7 @@ public class ZaiProvider : ProviderBase
                  RawJson = responseString,
                  HttpStatus = httpStatus
              }};
-         }
+        }
 
         // Log all limits for debugging
         foreach (var limit in limits)
@@ -96,26 +96,26 @@ public class ZaiProvider : ProviderBase
         // Helper to check if a limit is in the future (or has no expiry)
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        
-        bool IsFuture(long? resetTime) 
+
+        bool IsFuture(long? resetTime)
         {
             if (!resetTime.HasValue || resetTime.Value == 0) return true; // No reset time = always active
             var ts = resetTime.Value;
             // Heuristic to detect milliseconds vs seconds (similar to logic below)
-            if (ts > 10000000000) return ts > nowMs; 
+            if (ts > 10000000000) return ts > nowMs;
             return ts > nowSec;
         }
 
         var tokenLimits = limits.Where(l =>
             l.Type != null && (l.Type.Equals("TOKENS_LIMIT", StringComparison.OrdinalIgnoreCase) ||
                                l.Type.Equals("Tokens", StringComparison.OrdinalIgnoreCase))).ToList();
-                               
+
         // Prefer active limits (future reset time or no reset time)
         // If multiple active limits exist, pick the specific one that is most restrictive (lowest remaining)
         // If no active limits, fall back to any limit (historical)
         var tokenLimit = tokenLimits.Where(l => IsFuture(l.NextResetTime))
                                     .OrderBy(l => l.Remaining ?? long.MaxValue)
-                                    .FirstOrDefault() 
+                                    .FirstOrDefault()
                          ?? tokenLimits.FirstOrDefault();
 
         var mcpLimit = limits.FirstOrDefault(l =>
@@ -127,7 +127,7 @@ public class ZaiProvider : ProviderBase
 
         double? remainingPercent = null;
         string detailInfo = "";
-        
+
         // Define variables to hold real values if available, otherwise default to percentage logic
         double finalRequestsAvailable = 100;
         double finalRequestsUsedReal = 0;
@@ -148,7 +148,7 @@ public class ZaiProvider : ProviderBase
                     : remainingPercentVal;
                 detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
                 this._logger.LogDebug("[ZAI] Percentage-only mode: {Used}% used, {Remaining}% remaining", usedPercent, remainingPercentVal);
-                
+
                 finalRequestsUsedReal = 100 - remainingPercentVal;
             }
             else
@@ -157,10 +157,13 @@ public class ZaiProvider : ProviderBase
                 double usedVal = tokenLimit.CurrentValue ?? 0;
                 double remainingVal = tokenLimit.Remaining ?? (totalVal - usedVal);
 
-                if (tokenLimit.Total > 50000000) {
-                     planDescription = "Coding Plan (Ultra/Enterprise)";
-                } else if (tokenLimit.Total > 10000000) {
-                     planDescription = "Coding Plan (Pro)";
+                if (tokenLimit.Total > 50000000)
+                {
+                    planDescription = "Coding Plan (Ultra/Enterprise)";
+                }
+                else if (tokenLimit.Total > 10000000)
+                {
+                    planDescription = "Coding Plan (Pro)";
                 }
 
                 if (totalVal > 0)
@@ -264,7 +267,7 @@ public class ZaiProvider : ProviderBase
 
         this._logger.LogInformation("Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, RequestsPercentage: {RequestsPercentage}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
             this.ProviderId, $"Z.AI {planDescription}", finalRequestsPercentage, finalRequestsUsedReal, finalDescription, true);
-        
+
         return new[] { new ProviderUsage
         {
             ProviderId = this.ProviderId,
@@ -273,7 +276,7 @@ public class ZaiProvider : ProviderBase
             RequestsUsed = finalRequestsUsedReal,  // Store actual used count/percentage
             RequestsAvailable = finalRequestsAvailable, // Store actual total limit
             UsageUnit = finalRequestsAvailable > 100 ? "Tokens" : "Quota %",
-            IsQuotaBased = true, 
+            IsQuotaBased = true,
             PlanType = PlanType.Coding,
             DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
             Description = finalDescription,
@@ -309,10 +312,10 @@ public class ZaiProvider : ProviderBase
 
         [JsonPropertyName("usage")] // This is actually the total limit in Z.AI response
         public long? Total { get; set; }
-        
+
         [JsonPropertyName("remaining")]
         public long? Remaining { get; set; }
-        
+
         [JsonPropertyName("nextResetTime")]
         public long? NextResetTime { get; set; }
     }
