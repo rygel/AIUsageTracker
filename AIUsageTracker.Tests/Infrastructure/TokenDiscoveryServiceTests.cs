@@ -72,7 +72,11 @@ namespace AIUsageTracker.Tests.Infrastructure
                 var configs = await discovery.DiscoverTokensAsync();
 
                 var openAi = configs.FirstOrDefault(c => c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
-                Assert.True(openAi == null || string.IsNullOrEmpty(openAi.ApiKey));
+                Assert.True(
+                    openAi == null ||
+                    string.IsNullOrEmpty(openAi.ApiKey) ||
+                    !string.Equals(openAi.ApiKey, "config-only-key", StringComparison.Ordinal),
+                    "Token discovery should not read providers.json as an auth source.");
             }
             finally
             {

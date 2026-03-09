@@ -366,7 +366,7 @@ namespace AIUsageTracker.Monitor.Services
             catch (Exception ex)
             {
                 this._logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
-                Program.ReportError($"Refresh failed: {ex.Message}", this._pathProvider, this._logger);
+                MonitorInfoPersistence.ReportError($"Refresh failed: {ex.Message}", this._pathProvider, this._logger);
                 refreshError = ex.Message;
             }
             finally
