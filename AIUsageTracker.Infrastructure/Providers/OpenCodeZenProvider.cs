@@ -47,9 +47,9 @@ public class OpenCodeZenProvider : ProviderBase
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // Check if CLI exists first
-        var pathExists = string.Equals(_cliPath, "opencode", StringComparison.OrdinalIgnoreCase)
+        var pathExists = string.Equals(this._cliPath, "opencode", StringComparison.OrdinalIgnoreCase)
             ? await IsInPath("opencode")
-            : File.Exists(_cliPath);
+            : File.Exists(this._cliPath);
 
         if (!pathExists)
         {
@@ -64,7 +64,7 @@ public class OpenCodeZenProvider : ProviderBase
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     AuthSource = config.AuthSource,
-                    RawJson = $"CLI not found at path: {_cliPath}",
+                    RawJson = $"CLI not found at path: {this._cliPath}",
                     HttpStatus = 404
                 }
             };
@@ -77,7 +77,7 @@ public class OpenCodeZenProvider : ProviderBase
         }
         catch (Exception ex)
         {
-            _logger.LogWarning("OpenCode CLI failed: {Message}", ex.Message);
+            this._logger.LogWarning("OpenCode CLI failed: {Message}", ex.Message);
             return new[]
             {
                 new ProviderUsage
@@ -100,7 +100,7 @@ public class OpenCodeZenProvider : ProviderBase
     {
         var psi = new ProcessStartInfo
         {
-            FileName = _cliPath,
+            FileName = this._cliPath,
             Arguments = "stats --days 7 --models 10",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
