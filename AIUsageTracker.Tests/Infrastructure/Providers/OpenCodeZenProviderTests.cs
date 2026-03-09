@@ -1,3 +1,7 @@
+// <copyright file="OpenCodeZenProviderTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure.Providers
 {
     using AIUsageTracker.Core.Models;

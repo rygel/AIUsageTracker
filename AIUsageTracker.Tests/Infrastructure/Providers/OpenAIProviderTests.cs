@@ -1,3 +1,7 @@
+// <copyright file="OpenAIProviderTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure.Providers
 {
     using System.Net;
@@ -116,19 +120,19 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
             var tempDir = Path.Combine(Path.GetTempPath(), $"openai-auth-{Guid.NewGuid():N}");
             Directory.CreateDirectory(tempDir);
             var authPath = Path.Combine(tempDir, "auth.json");
-            await File.WriteAllTextAsync(authPath, """
+            await File.WriteAllTextAsync(authPath, string.Empty"
             {
               "openai": {
                 "access": "session-from-file",
                 "accountId": "acct-from-file"
               }
             }
-            """);
+            string.Empty");
 
             this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.OK,
-                Content = new StringContent("""
+                Content = new StringContent(string.Empty"
                 {
                   "rate_limit": {
                     "primary_window": {
@@ -137,7 +141,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
                     }
                   }
                 }
-                """)
+                string.Empty")
             });
 
             var provider = new OpenAIProvider(this.HttpClient, this.Logger.Object, authPath);

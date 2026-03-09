@@ -1,3 +1,7 @@
+// <copyright file="UpdateMapper.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Mappers
 {
     using NetSparkleUpdater;

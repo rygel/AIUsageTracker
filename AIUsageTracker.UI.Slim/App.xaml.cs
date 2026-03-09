@@ -1,3 +1,7 @@
+// <copyright file="App.xaml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using System.Windows;

@@ -1,3 +1,7 @@
+// <copyright file="UpdateChannelExtensions.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.Models
 {
     public static class UpdateChannelExtensions
@@ -6,9 +10,9 @@ namespace AIUsageTracker.Core.Models
         {
             return channel switch
             {
-                UpdateChannel.Stable => "",
+                UpdateChannel.Stable => string.Empty,
                 UpdateChannel.Beta => "_beta",
-                _ => ""
+                _ => string.Empty
             };
         }
 

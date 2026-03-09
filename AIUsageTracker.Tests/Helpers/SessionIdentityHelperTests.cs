@@ -1,3 +1,7 @@
+// <copyright file="SessionIdentityHelperTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Helpers
 {
     using System.Text;
@@ -33,12 +37,12 @@ namespace AIUsageTracker.Tests.Helpers
         [Fact]
         public void TryGetPreferredIdentity_PrefersDirectEmailClaim()
         {
-            using var doc = JsonDocument.Parse("""
+            using var doc = JsonDocument.Parse(string.Empty"
             {
               "email": "user@example.com",
               "login": "fallback-user"
             }
-            """);
+            string.Empty");
 
             var identity = SessionIdentityHelper.TryGetPreferredIdentity(doc.RootElement);
 
@@ -48,13 +52,13 @@ namespace AIUsageTracker.Tests.Helpers
         [Fact]
         public void TryGetPreferredIdentity_FallsBackToOpenAiProfileIdentity()
         {
-            using var doc = JsonDocument.Parse("""
+            using var doc = JsonDocument.Parse(string.Empty"
             {
               "https://api.openai.com/profile": {
                 "username": "profile-user"
               }
             }
-            """);
+            string.Empty");
 
             var identity = SessionIdentityHelper.TryGetPreferredIdentity(doc.RootElement);
 
@@ -64,13 +68,13 @@ namespace AIUsageTracker.Tests.Helpers
         [Fact]
         public void TryGetPreferredIdentity_FallsBackToRecursiveIdentitySearch()
         {
-            using var doc = JsonDocument.Parse("""
+            using var doc = JsonDocument.Parse(string.Empty"
             {
               "outer": {
                 "innerUser": "nested-user"
               }
             }
-            """);
+            string.Empty");
 
             var identity = SessionIdentityHelper.TryGetPreferredIdentity(doc.RootElement);
 
@@ -93,7 +97,7 @@ namespace AIUsageTracker.Tests.Helpers
         [Theory]
         [InlineData("user@example.com", true)]
         [InlineData("username", false)]
-        [InlineData("", false)]
+        [InlineData(string.Empty, false)]
         [InlineData(null, false)]
         public void IsEmailLike_ReturnsExpectedValue(string? value, bool expected)
         {
@@ -102,7 +106,7 @@ namespace AIUsageTracker.Tests.Helpers
     `n
         private static string CreateJwt(object payload)
         {
-            var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
+            var header = Base64UrlEncode(string.Empty"{"alg":"none","typ":"JWT"}string.Empty");
             var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
             return $"{header}.{body}.";
         }

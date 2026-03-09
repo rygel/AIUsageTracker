@@ -1,3 +1,7 @@
+// <copyright file="History.cshtml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Web.Pages
 {
     using AIUsageTracker.Core.Models;

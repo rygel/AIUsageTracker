@@ -1,3 +1,7 @@
+// <copyright file="MainWindow.xaml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using System.Diagnostics;
@@ -1287,7 +1291,7 @@ namespace AIUsageTracker.UI.Slim
 
             // Name (gets remaining space)
             var accountPart = string.IsNullOrWhiteSpace(usage.AccountName)
-                ? ""
+                ? string.Empty
                 : $" [{(this._isPrivacyMode ? ProviderStatusPresentationCatalog.MaskAccountIdentifier(usage.AccountName) : usage.AccountName)}]";
             AddDockedElement(
                 contentPanel,

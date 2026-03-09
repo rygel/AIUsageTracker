@@ -1,3 +1,7 @@
+// <copyright file="ReleaseUrlCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.Updates
 {
     public static class ReleaseUrlCatalog

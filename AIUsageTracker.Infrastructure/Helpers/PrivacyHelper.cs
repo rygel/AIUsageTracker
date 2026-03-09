@@ -1,3 +1,7 @@
+// <copyright file="PrivacyHelper.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Helpers
 {
     using System.Text.RegularExpressions;

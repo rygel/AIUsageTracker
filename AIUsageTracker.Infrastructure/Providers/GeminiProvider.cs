@@ -1,3 +1,7 @@
+// <copyright file="GeminiProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Providers
 {
     using System.Globalization;
@@ -86,7 +90,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                     var allBuckets = buckets ?? new List<Bucket>();
 
                     double minFrac = 1.0;
-                    string mainResetStr = "";
+                    string mainResetStr = string.Empty;
                     DateTime? soonestResetDt = null;
                     var details = new List<ProviderUsageDetail>();
 
@@ -115,7 +119,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                                     resetTime = DateTime.UtcNow.AddMinutes(1).ToString("o");
                             }
 
-                            string resetStr = "";
+                            string resetStr = string.Empty;
                             DateTime? itemResetDt = null;
                             if (!string.IsNullOrEmpty(resetTime))
                             {
@@ -280,7 +284,7 @@ namespace AIUsageTracker.Infrastructure.Providers
             var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 { "client_id", clientId },
-                { "client_secret", "" },
+                { "client_secret", string.Empty },
                 { "refresh_token", refreshToken },
                 { "grant_type", "refresh_token" }
             });
@@ -313,11 +317,11 @@ namespace AIUsageTracker.Infrastructure.Providers
 
         private class Account
         {
-            public string Email { get; set; } = "";
+            public string Email { get; set; } = string.Empty;
 
-            public string RefreshToken { get; set; } = "";
+            public string RefreshToken { get; set; } = string.Empty;
 
-            public string ProjectId { get; set; } = "";
+            public string ProjectId { get; set; } = string.Empty;
         }
 
         private class GeminiTokenResponse

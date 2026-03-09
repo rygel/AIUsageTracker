@@ -1,3 +1,7 @@
+// <copyright file="ProviderBase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.Providers
 {
     using System.Text.Json;

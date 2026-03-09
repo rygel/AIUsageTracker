@@ -1,3 +1,7 @@
+// <copyright file="FontSelectionHelper.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Helpers
 {
     public static class FontSelectionHelper

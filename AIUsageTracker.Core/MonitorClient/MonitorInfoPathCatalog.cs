@@ -1,3 +1,7 @@
+// <copyright file="MonitorInfoPathCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.MonitorClient
 {
     public static class MonitorInfoPathCatalog

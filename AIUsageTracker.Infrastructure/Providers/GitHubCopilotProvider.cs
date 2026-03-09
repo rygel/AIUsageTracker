@@ -1,3 +1,7 @@
+// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Providers
 {
     using Microsoft.Extensions.Logging;

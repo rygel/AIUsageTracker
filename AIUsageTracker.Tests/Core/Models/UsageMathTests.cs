@@ -1,3 +1,7 @@
+// <copyright file="UsageMathTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Models
 {
     using AIUsageTracker.Core.Models;

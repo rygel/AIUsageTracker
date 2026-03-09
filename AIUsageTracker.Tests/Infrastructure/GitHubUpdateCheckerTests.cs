@@ -1,3 +1,7 @@
+// <copyright file="GitHubUpdateCheckerTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure
 {
     using Xunit;

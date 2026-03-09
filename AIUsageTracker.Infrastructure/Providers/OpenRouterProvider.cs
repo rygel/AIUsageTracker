@@ -1,3 +1,7 @@
+// <copyright file="OpenRouterProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Providers
 {
     using System.Globalization;
@@ -145,7 +149,7 @@ namespace AIUsageTracker.Infrastructure.Providers
 
                         if (keyData.Data.Limit > 0)
                         {
-                            string resetStr = "";
+                            string resetStr = string.Empty;
                             DateTime? nextResetTime = null;
 
                             if (!string.IsNullOrEmpty(keyData.Data.LimitReset))
@@ -172,7 +176,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                             {
                                 Name = "Spending Limit",
                                 Description = $"{keyData.Data.Limit.ToString("F2", CultureInfo.InvariantCulture)}{resetStr}",
-                                Used = "",
+                                Used = string.Empty,
                                 NextResetTime = nextResetTime,
                                 DetailType = ProviderUsageDetailType.Other,
                                 WindowKind = WindowKind.None
@@ -187,7 +191,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                         {
                             Name = "Free Tier",
                             Description = keyData.Data.IsFreeTier ? "Yes" : "No",
-                            Used = "",
+                            Used = string.Empty,
                             DetailType = ProviderUsageDetailType.Other,
                             WindowKind = WindowKind.None
                         });
@@ -218,7 +222,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                 total, used, remaining, remainingPercentage);
 
             // Find spending limit detail for reset time (use typed fields, not string matching)
-            string mainReset = "";
+            string mainReset = string.Empty;
             DateTime? spendingLimitResetTime = null;
             var spendingLimitDetail = details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.Other && d.NextResetTime.HasValue);
             if (spendingLimitDetail != null && spendingLimitDetail.Description.Contains("(Resets:", StringComparison.Ordinal))

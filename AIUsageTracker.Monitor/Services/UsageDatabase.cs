@@ -1,3 +1,7 @@
+// <copyright file="UsageDatabase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Monitor.Services
 {
     using System.Text.Json;
@@ -179,7 +183,7 @@ namespace AIUsageTracker.Monitor.Services
                     RequestsAvailable = u.RequestsAvailable,
                     RequestsPercentage = u.RequestsPercentage,
                     IsAvailable = u.IsAvailable ? 1 : 0,
-                    StatusMessage = u.Description ?? "",
+                    StatusMessage = u.Description ?? string.Empty,
                     NextResetTime = u.NextResetTime?.ToString("O"),
                     FetchedAt = (u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt).ToString("O"),
                     DetailsJson = u.Details != null && u.Details.Any()

@@ -1,3 +1,7 @@
+// <copyright file="GitHubUpdateChecker.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Services
 {
     using Microsoft.Extensions.Logging;

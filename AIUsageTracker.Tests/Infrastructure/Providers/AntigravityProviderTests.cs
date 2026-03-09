@@ -1,3 +1,7 @@
+// <copyright file="AntigravityProviderTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure.Providers
 {
     using System.Net;
@@ -34,7 +38,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
         public async Task GetUsageAsync_WhenNotRunning_ReturnsQuotaPlanType()
         {
             // Arrange
-            this.Config.ApiKey = "";
+            this.Config.ApiKey = string.Empty;
 
             // Act - Antigravity is not running in test env        
             var result = await this._provider.GetUsageAsync(this.Config);
@@ -50,7 +54,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
         public async Task FetchUsage_MissingQuotaInfo_ReturnsUnknownUsage()
         {
             // Arrange
-            var snapshotJson = """
+            var snapshotJson = string.Empty"
         {
           "userStatus": {
             "email": "snapshot@example.com",
@@ -67,7 +71,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
             }
           }
         }
-        """;
+        string.Empty";
 
             this.SetupHttpResponse(_ => true, new HttpResponseMessage
             {

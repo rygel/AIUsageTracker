@@ -1,3 +1,7 @@
+// <copyright file="ProviderEndpoints.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Constants
 {
     /// <summary>

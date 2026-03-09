@@ -1,3 +1,7 @@
+// <copyright file="MainViewModel.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim.ViewModels
 {
     using AIUsageTracker.Core.Models;

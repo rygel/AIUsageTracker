@@ -1,3 +1,7 @@
+// <copyright file="CodexAuthServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure
 {
     using AIUsageTracker.Infrastructure.Services;
@@ -20,14 +24,14 @@ namespace AIUsageTracker.Tests.Infrastructure
         {
             var authPath = this.CreateFile(
                 "codex-auth.json",
-                """
+                string.Empty"
             {
               "tokens": {
                 "access_token": "native-token",
                 "account_id": "acct-native"
               }
             }
-            """);
+            string.Empty");
 
             var service = new CodexAuthService(this._logger, authPath);
 
@@ -40,14 +44,14 @@ namespace AIUsageTracker.Tests.Infrastructure
         {
             var authPath = this.CreateFile(
                 "opencode-auth.json",
-                """
+                string.Empty"
             {
               "openai": {
                 "access": "compat-token",
                 "accountId": "acct-compat"
               }
             }
-            """);
+            string.Empty");
 
             var service = new CodexAuthService(this._logger, authPath);
 

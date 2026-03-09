@@ -1,3 +1,7 @@
+// <copyright file="NoGitHubCliTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core
 {
     using System.IO;
@@ -35,8 +39,8 @@ namespace AIUsageTracker.Tests.Core
                 {
                     var line = lines[i];
 
-                    if (Regex.IsMatch(line, @"FileName\s*=\s*[""']gh[""']", RegexOptions.IgnoreCase) ||
-                        Regex.IsMatch(line, @"Arguments\s*=\s*[""'].*gh.*[""']", RegexOptions.IgnoreCase) ||
+                    if (Regex.IsMatch(line, @"FileName\s*=\s*[string.Empty']gh[string.Empty']", RegexOptions.IgnoreCase) ||
+                        Regex.IsMatch(line, @"Arguments\s*=\s*[string.Empty'].*gh.*[string.Empty']", RegexOptions.IgnoreCase) ||
                         Regex.IsMatch(line, @"gh\s+auth\s+token", RegexOptions.IgnoreCase) ||
                         Regex.IsMatch(line, @"Process\.Start.*gh", RegexOptions.IgnoreCase))
                     {

@@ -6,9 +6,17 @@
 
 ---
 
-## Overview
+## Branching and Pull Request Policy
 
-This document describes the design and implementation of progress bars in the AI Usage Tracker application.
+**CRITICAL RULE: All feature and fix branches MUST target the `develop` branch for Pull Requests.**
+
+1.  **Base Branch**: Always branch from `develop` for new features or bug fixes.
+2.  **PR Target**: Pull Requests should always target the `develop` branch, never `main` directly.
+3.  **Main Branch**: `main` is reserved for stable releases and is only merged into from `develop` after successful validation.
+
+---
+
+## Progress Bar Design Document
 
 ## Payment Type-Based Progress Bar Behavior
 

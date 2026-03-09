@@ -1,3 +1,7 @@
+// <copyright file="WebStartupServiceExtensions.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Web.Services
 {
     using System.IO.Compression;
