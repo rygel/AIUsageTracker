@@ -60,7 +60,7 @@ namespace AIUsageTracker.Core.Models
 
         public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; }
 
-        private readonly HashSet<string> this.;
+        private readonly HashSet<string> _handledProviderIds;
 
         public ProviderDefinition(
             string providerId,
