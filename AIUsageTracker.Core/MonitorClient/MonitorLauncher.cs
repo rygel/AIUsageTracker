@@ -1,3 +1,7 @@
+// <copyright file="MonitorLauncher.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.MonitorClient
 {
     using System.Diagnostics;
@@ -343,7 +347,7 @@ namespace AIUsageTracker.Core.MonitorClient
 
         private sealed class TestOverrideScope : IDisposable
         {
-            private readonly Action this.;
+            private readonly Action _reset;
             private bool _disposed;
 
             public TestOverrideScope(Action reset)

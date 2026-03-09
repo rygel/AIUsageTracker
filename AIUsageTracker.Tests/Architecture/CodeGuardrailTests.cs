@@ -1,3 +1,7 @@
+// <copyright file="CodeGuardrailTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Architecture
 {
     using System.Text.RegularExpressions;
@@ -142,7 +146,8 @@ namespace AIUsageTracker.Tests.Architecture
                 Environment.NewLine +
                 string.Join(Environment.NewLine, violations));
         }
-    `n
+    
+
         private static IEnumerable<string> EnumerateProductionSourceFiles(bool includeMarkup = false)
         {
             var repoRoot = GetRepoRoot();
@@ -173,7 +178,8 @@ namespace AIUsageTracker.Tests.Architecture
                 }
             }
         }
-    `n
+    
+
         private static string GetRepoRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -185,12 +191,14 @@ namespace AIUsageTracker.Tests.Architecture
             return directory?.FullName
                 ?? throw new DirectoryNotFoundException("Could not locate the repository root from the test output directory.");
         }
-    `n
+    
+
         private static string GetRelativePath(string path)
         {
             return Path.GetRelativePath(GetRepoRoot(), path);
         }
-    `n
+    
+
         private static HashSet<string> GetKnownProviderIds()
         {
             return ProviderMetadataCatalog.Definitions
@@ -199,13 +207,15 @@ namespace AIUsageTracker.Tests.Architecture
                     .Concat(definition.VisibleDerivedProviderIds))
                 .ToHashSet(StringComparer.Ordinal);
         }
-    `n
+    
+
         private static bool IsAllowedHardcodedProviderIdFile(string relativePath)
         {
             return relativePath.StartsWith(NormalizePath("AIUsageTracker.Infrastructure/Providers/"), StringComparison.OrdinalIgnoreCase) ||
                    AllowedHardcodedProviderIdFiles.Contains(relativePath);
         }
-    `n
+    
+
         private static string NormalizePath(string path)
         {
             return path.Replace('\\', '/');

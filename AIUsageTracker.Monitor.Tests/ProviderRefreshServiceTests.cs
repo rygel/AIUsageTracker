@@ -1,3 +1,7 @@
+// <copyright file="ProviderRefreshServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Monitor.Tests
 {
     using AIUsageTracker.Monitor.Services;

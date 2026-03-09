@@ -1,3 +1,7 @@
+// <copyright file="SettingsViewModel.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim.ViewModels
 {
     using AIUsageTracker.Core.Models;
@@ -22,25 +26,29 @@ namespace AIUsageTracker.UI.Slim.ViewModels
             get => this._isPrivacyMode;
             set => this.SetProperty(ref this._isPrivacyMode, value);
         }
-    `n
+    
+
         public string StatusMessage
         {
             get => this._statusMessage;
             set => this.SetProperty(ref this._statusMessage, value);
         }
-    `n
+    
+
         public bool IsLoading
         {
             get => this._isLoading;
             set => this.SetProperty(ref this._isLoading, value);
         }
-    `n
+    
+
         public List<ProviderConfig> Configs
         {
             get => this._configs;
             private set => this.SetProperty(ref this._configs, value);
         }
-    `n
+    
+
         public SettingsViewModel(
             IMonitorService monitorService,
             IUsageAnalyticsService analyticsService,
@@ -52,7 +60,8 @@ namespace AIUsageTracker.UI.Slim.ViewModels
             this._exportService = exportService;
             this._logger = logger;
         }
-    `n
+    
+
         public async Task LoadDataAsync()
         {
             this.IsLoading = true;
@@ -81,13 +90,15 @@ namespace AIUsageTracker.UI.Slim.ViewModels
                 this.IsLoading = false;
             }
         }
-    `n
+    
+
         public void TogglePrivacyMode()
         {
             this.IsPrivacyMode = !this.IsPrivacyMode;
             this.StatusMessage = this.IsPrivacyMode ? "Privacy Mode Enabled" : "Privacy Mode Disabled";
         }
-    `n
+    
+
         public async Task<string> ExportDataAsync()
         {
             return await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);

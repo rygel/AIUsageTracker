@@ -1,3 +1,7 @@
+// <copyright file="DeepSeekProviderTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure.Providers
 {
     using System.Net;
@@ -22,23 +26,25 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
         public async Task GetUsageAsync_ValidResponse_ParsesMultiCurrencyBalanceCorrectly()
         {
             // Arrange
-            var responseJson = @"{
-            ""is_available"": true,
-            ""balance_infos"": [
+            var responseJson = """
+            {
+              "is_available": true,
+              "balance_infos": [
                 {
-                    ""currency"": ""CNY"",
-                    ""total_balance"": 150.50,
-                    ""granted_balance"": 50.00,
-                    ""topped_up_balance"": 100.50
+                  "currency": "CNY",
+                  "total_balance": 150.50,
+                  "granted_balance": 50.00,
+                  "topped_up_balance": 100.50
                 },
                 {
-                    ""currency"": ""USD"",
-                    ""total_balance"": 10.00,
-                    ""granted_balance"": 0.00,
-                    ""topped_up_balance"": 10.00
+                  "currency": "USD",
+                  "total_balance": 10.00,
+                  "granted_balance": 0.00,
+                  "topped_up_balance": 10.00
                 }
-            ]
-        }";
+              ]
+            }
+            """;
 
             this.SetupHttpResponse("https://api.deepseek.com/user/balance", new HttpResponseMessage
             {

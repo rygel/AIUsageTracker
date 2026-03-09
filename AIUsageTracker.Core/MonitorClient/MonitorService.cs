@@ -1,3 +1,7 @@
+// <copyright file="MonitorService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.MonitorClient
 {
     using System.Net.Http;
@@ -12,7 +16,7 @@ namespace AIUsageTracker.Core.MonitorClient
 
     public class MonitorService : IMonitorService
     {
-        private readonly HttpClient this.;
+        private readonly HttpClient _httpClient;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly ILogger<MonitorService>? _logger;
         private const int UsageRequestTimeoutSeconds = 8;

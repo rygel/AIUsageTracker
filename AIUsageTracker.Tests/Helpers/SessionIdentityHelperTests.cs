@@ -1,3 +1,7 @@
+// <copyright file="SessionIdentityHelperTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Helpers
 {
     using System.Text;
@@ -99,14 +103,16 @@ namespace AIUsageTracker.Tests.Helpers
         {
             Assert.Equal(expected, SessionIdentityHelper.IsEmailLike(value));
         }
-    `n
+    
+
         private static string CreateJwt(object payload)
         {
             var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
             var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
             return $"{header}.{body}.";
         }
-    `n
+    
+
         private static string Base64UrlEncode(string value)
         {
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))

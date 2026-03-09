@@ -1,3 +1,7 @@
+// <copyright file="FileLoggerProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Monitor.Logging
 {
     public class FileLoggerProvider : ILoggerProvider

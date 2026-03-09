@@ -1,3 +1,7 @@
+// <copyright file="PrivacyHelperTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure
 {
     using AIUsageTracker.Infrastructure.Helpers;
@@ -16,8 +20,8 @@ namespace AIUsageTracker.Tests.Infrastructure
         [InlineData(null, null, null)]
         public void MaskContent_ShouldMaskCorrectly(string? input, string? accountName, string? expected)
         {
-            var result = PrivacyHelper.MaskContent(input ?? "", accountName);
-            Assert.Equal(expected ?? "", result);
+            var result = PrivacyHelper.MaskContent(input ?? string.Empty, accountName);
+            Assert.Equal(expected ?? string.Empty, result);
         }
 
         [Fact]

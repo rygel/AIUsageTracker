@@ -1,3 +1,7 @@
+// <copyright file="DatabaseTestBase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure
 {
     using Microsoft.Data.Sqlite;
@@ -12,10 +16,14 @@ namespace AIUsageTracker.Tests.Infrastructure
     {
         private readonly SqliteConnection _sharedConnection;
         protected string DbPath { get; }
-    `n    protected string ConnectionString { get; }
-    `n    protected IMemoryCache Cache { get; }
-    `n    protected WebDatabaseService DatabaseService { get; }
-    `n
+    
+    protected string ConnectionString { get; }
+    
+    protected IMemoryCache Cache { get; }
+    
+    protected WebDatabaseService DatabaseService { get; }
+    
+
         protected DatabaseTestBase()
         {
             // Use a real file for WebDatabaseService because it creates its own connections
@@ -41,7 +49,8 @@ namespace AIUsageTracker.Tests.Infrastructure
 
             this.DatabaseService = new WebDatabaseService(this.Cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
         }
-    `n
+    
+
         private void InitializeSchema()
         {
             const string schema = @"
@@ -94,7 +103,8 @@ namespace AIUsageTracker.Tests.Infrastructure
             command.CommandText = schema;
             command.ExecuteNonQuery();
         }
-    `n
+    
+
         protected void SeedProvider(string id, string name, string? account = null, bool isActive = true)
         {
             using var command = this._sharedConnection.CreateCommand();
@@ -105,7 +115,8 @@ namespace AIUsageTracker.Tests.Infrastructure
             command.Parameters.AddWithValue("$active", isActive ? 1 : 0);
             command.ExecuteNonQuery();
         }
-    `n
+    
+
         protected void SeedHistory(string providerId, double used, double available, DateTime fetchedAt, bool isAvailable = true, double latencyMs = 0)
         {
             using var command = this._sharedConnection.CreateCommand();
@@ -127,7 +138,8 @@ namespace AIUsageTracker.Tests.Infrastructure
             command.Parameters.AddWithValue("$latency", latencyMs);
             command.ExecuteNonQuery();
         }
-    `n
+    
+
         public virtual void Dispose()
         {
             this._sharedConnection.Close();

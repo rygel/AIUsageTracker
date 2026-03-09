@@ -1,3 +1,7 @@
+// <copyright file="FontSelectionHelperTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Helpers
 {
     using AIUsageTracker.Infrastructure.Helpers;
@@ -51,7 +55,7 @@ namespace AIUsageTracker.Tests.Helpers
             var result = FontSelectionHelper.GetSelectedFont(null, available);
             Assert.Equal("Segoe UI", result);
 
-            result = FontSelectionHelper.GetSelectedFont("", available);
+            result = FontSelectionHelper.GetSelectedFont(string.Empty, available);
             Assert.Equal("Segoe UI", result);
         }
 
@@ -60,7 +64,7 @@ namespace AIUsageTracker.Tests.Helpers
         {
             var available = new[] { "Arial", "Tahoma" };
 
-            var result = FontSelectionHelper.GetSelectedFont("", available);
+            var result = FontSelectionHelper.GetSelectedFont(string.Empty, available);
             Assert.Equal("Arial", result);
         }
     }

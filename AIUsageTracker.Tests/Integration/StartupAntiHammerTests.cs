@@ -1,3 +1,7 @@
+// <copyright file="StartupAntiHammerTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core
 {
     using AIUsageTracker.Core.Interfaces;
@@ -24,7 +28,8 @@ namespace AIUsageTracker.Tests.Core
                 : base(logger, loggerFactory, database, notificationService, httpClientFactory, configService, pathProvider, providers)
             {
             }
-    `n
+    
+
             public List<(bool ForceAll, IReadOnlyCollection<string>? IncludeProviderIds)> TriggerCalls { get; } = [];
 
             public override Task TriggerRefreshAsync(
@@ -35,7 +40,8 @@ namespace AIUsageTracker.Tests.Core
                 this.TriggerCalls.Add((forceAll, includeProviderIds));
                 return Task.CompletedTask;
             }
-    `n
+    
+
             public Task RunExecuteAsync(CancellationToken cancellationToken)
             {
                 return this.ExecuteAsync(cancellationToken);

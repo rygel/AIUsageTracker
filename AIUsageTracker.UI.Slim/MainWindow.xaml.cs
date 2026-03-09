@@ -1,3 +1,7 @@
+// <copyright file="MainWindow.xaml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using System.Diagnostics;
@@ -36,7 +40,8 @@ namespace AIUsageTracker.UI.Slim
         Warning,
         Error
     }
-    `n
+    
+
     public partial class MainWindow : Window
     {
         private static readonly Regex MarkdownTokenRegex = new(
@@ -116,7 +121,8 @@ namespace AIUsageTracker.UI.Slim
             : this(skipUiInitialization: false, viewModel, monitorService, logger, updateChecker, preferencesStore)
         {
         }
-    `n
+    
+
         public MainWindow()
             : this(App.Host.Services.GetRequiredService<MainViewModel>(),
                    App.Host.Services.GetRequiredService<IMonitorService>(),
@@ -125,12 +131,14 @@ namespace AIUsageTracker.UI.Slim
                    App.Host.Services.GetRequiredService<UiPreferencesStore>())
         {
         }
-    `n
+    
+
         internal MainWindow(bool skipUiInitialization)
             : this(skipUiInitialization, null, null, null, null, null)
         {
         }
-    `n
+    
+
         private MainWindow(
             bool skipUiInitialization,
             MainViewModel? viewModel,
@@ -262,7 +270,8 @@ namespace AIUsageTracker.UI.Slim
                 this.LogWindowFocusTransition($"IsVisibleChanged -> {this.IsVisible}");
             };
         }
-    `n
+    
+
         private void ApplyVersionDisplay()
         {
             var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
@@ -279,7 +288,8 @@ namespace AIUsageTracker.UI.Slim
             this.VersionText.Text = displayVersion;
             this.Title = $"AI Usage Tracker {displayVersion}";
         }
-    `n
+    
+
         private static string? GetPrereleaseLabel(Assembly assembly)
         {
             var informationalVersion = assembly
@@ -320,13 +330,15 @@ namespace AIUsageTracker.UI.Slim
 
             return suffix.Replace('.', ' ');
         }
-    `n
+    
+
         private void OnSourceInitialized(object? sender, EventArgs e)
         {
             this._windowSource = PresentationSource.FromVisual(this) as HwndSource;
             this._windowSource?.AddHook(this.WndProc);
         }
-    `n
+    
+
         private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             const int WM_ACTIVATEAPP = 0x001C;
@@ -339,14 +351,16 @@ namespace AIUsageTracker.UI.Slim
 
             return IntPtr.Zero;
         }
-    `n
+    
+
         private void LogWindowFocusTransition(string eventName)
         {
             var foregroundSummary = GetForegroundWindowSummary();
             var message = $"[WINDOW] evt={eventName} fg={foregroundSummary} vis={this.IsVisible} state={this.WindowState} top={this.Topmost}";
             this._logger.LogDebug("{WindowMessage}", message);
         }
-    `n
+    
+
         private static string GetForegroundWindowSummary()
         {
             var hwnd = GetForegroundWindow();
@@ -391,7 +405,8 @@ namespace AIUsageTracker.UI.Slim
 
             return $"pid={processId} proc={processName} title={title}";
         }
-    `n
+    
+
         private void PositionWindowNearTray()
         {
             // If saved position exists, use it
@@ -406,7 +421,8 @@ namespace AIUsageTracker.UI.Slim
                 this.Top = top;
             }
         }
-    `n
+    
+
         private async Task SaveWindowPositionAsync()
         {
             if (!this.IsLoaded || !this._preferencesLoaded) return;
@@ -420,7 +436,8 @@ namespace AIUsageTracker.UI.Slim
                 await this.SaveUiPreferencesAsync();
             }
         }
-    `n
+    
+
         private async Task InitializeAsync()
         {
             if (this._isLoading || this._monitorService == null)
@@ -506,7 +523,8 @@ namespace AIUsageTracker.UI.Slim
                 this._isLoading = false;
             }
         }
-    `n
+    
+
         private async Task RapidPollUntilDataAvailableAsync()
         {
             const int maxAttempts = 15;
@@ -608,7 +626,8 @@ namespace AIUsageTracker.UI.Slim
             this.ShowStatus("No data available", StatusType.Error);
             this.ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually or check Settings > Monitor.");
         }
-    `n
+    
+
         private void ApplyPreferences()
         {
             // Apply window settings
@@ -640,7 +659,8 @@ namespace AIUsageTracker.UI.Slim
             // Reinitialize update checker with correct channel
             this.InitializeUpdateChecker();
         }
-    `n
+    
+
         private void InitializeUpdateChecker()
         {
             if (this._preferences == null) return;
@@ -651,7 +671,8 @@ namespace AIUsageTracker.UI.Slim
                 App.Host.Services.GetRequiredService<HttpClient>(),
                 channel);
         }
-    `n
+    
+
         private async Task SaveUiPreferencesAsync()
         {
             App.Preferences = this._preferences;
@@ -661,7 +682,8 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogWarning("Failed to save Slim UI preferences");
             }
         }
-    `n
+    
+
         private void EnsureAlwaysOnTop()
         {
             if (this._isSettingsDialogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
@@ -676,7 +698,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.ApplyWin32Topmost(noActivate: true);
         }
-    `n
+    
+
         private void ApplyTopmostState(bool alwaysOnTop)
         {
             this.Topmost = alwaysOnTop;
@@ -686,7 +709,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ApplyWin32Topmost(noActivate: true, alwaysOnTop);
             }
         }
-    `n
+    
+
         private void ScheduleTopmostRecovery(int generation, TimeSpan delay)
         {
             _ = Task.Run(async () =>
@@ -704,7 +728,8 @@ namespace AIUsageTracker.UI.Slim
                 }, DispatcherPriority.Normal);
             });
         }
-    `n
+    
+
         private void ReassertTopmostWithoutFocus()
         {
             if (this._isSettingsDialogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
@@ -727,7 +752,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.ApplyWin32Topmost(noActivate: true);
         }
-    `n
+    
+
         private void ApplyWin32Topmost(bool noActivate, bool alwaysOnTop = true)
         {
             var handle = new WindowInteropHelper(this).Handle;
@@ -754,7 +780,8 @@ namespace AIUsageTracker.UI.Slim
                     noActivate);
             }
         }
-    `n
+    
+
         public void ShowAndActivate()
         {
             this.Show();
@@ -762,7 +789,8 @@ namespace AIUsageTracker.UI.Slim
             this.Activate();
             this.EnsureAlwaysOnTop();
         }
-    `n
+    
+
         internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
         {
             if (deterministic)
@@ -788,7 +816,8 @@ namespace AIUsageTracker.UI.Slim
                 await this.InitializeAsync();
             }
         }
-    `n
+    
+
         private void FitWindowHeightForHeadlessScreenshot()
         {
             if (this.Content is not FrameworkElement root)
@@ -823,7 +852,8 @@ namespace AIUsageTracker.UI.Slim
                 this.UpdateLayout();
             }
         }
-    `n
+    
+
         private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
         {
             if (!this.Dispatcher.CheckAccess())
@@ -841,7 +871,8 @@ namespace AIUsageTracker.UI.Slim
                 this.RenderProviders();
             }
         }
-    `n
+    
+
         private void UpdatePrivacyButtonState()
         {
             if (this.PrivacyBtn == null)
@@ -854,7 +885,8 @@ namespace AIUsageTracker.UI.Slim
                 ? Brushes.Gold
                 : (this.TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
         }
-    `n
+    
+
         private async Task RefreshDataAsync()
         {
             if (this._isLoading || this._monitorService == null)
@@ -911,7 +943,8 @@ namespace AIUsageTracker.UI.Slim
                 Margin = margin ?? new Thickness(0)
             };
         }
-    `n
+    
+
         private static Border CreateSeparator(Brush color, double opacity = 0.5, double height = 1)
         {
             return new Border
@@ -922,7 +955,8 @@ namespace AIUsageTracker.UI.Slim
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
-    `n
+    
+
         private static Grid CreateCollapsibleHeaderGrid(Thickness margin)
         {
             var header = new Grid { Margin = margin };
@@ -931,12 +965,14 @@ namespace AIUsageTracker.UI.Slim
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             return header;
         }
-    `n
+    
+
         private SolidColorBrush GetResourceBrush(string key, SolidColorBrush fallback)
         {
             return this.FindResource(key) as SolidColorBrush ?? fallback;
         }
-    `n
+    
+
         private void RenderProviders()
         {
             this.LogDiagnostic("[DIAGNOSTIC] RenderProviders called");
@@ -1055,7 +1091,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ApplyProviderListFontPreferences();
             }
         }
-    `n
+    
+
         private void ApplyProviderListFontPreferences()
         {
             if (this.ProvidersList == null)
@@ -1065,7 +1102,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.ApplyFontPreferencesToElement(this.ProvidersList);
         }
-    `n
+    
+
         private void ApplyFontPreferencesToElement(DependencyObject element)
         {
             if (element is TextBlock textBlock)
@@ -1113,7 +1151,8 @@ namespace AIUsageTracker.UI.Slim
                     break;
             }
         }
-    `n
+    
+
         private (UIElement Header, StackPanel Container) CreateCollapsibleHeader(
             string title, Brush accent, bool isGroupHeader, string? groupKey,
             Func<bool> getCollapsed, Action<bool> setCollapsed)
@@ -1181,7 +1220,8 @@ namespace AIUsageTracker.UI.Slim
 
             return (header, container);
         }
-    `n
+    
+
         private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
         {
             var providerId = usage.ProviderId ?? string.Empty;
@@ -1287,7 +1327,7 @@ namespace AIUsageTracker.UI.Slim
 
             // Name (gets remaining space)
             var accountPart = string.IsNullOrWhiteSpace(usage.AccountName)
-                ? ""
+                ? string.Empty
                 : $" [{(this._isPrivacyMode ? ProviderStatusPresentationCatalog.MaskAccountIdentifier(usage.AccountName) : usage.AccountName)}]";
             AddDockedElement(
                 contentPanel,
@@ -1310,7 +1350,8 @@ namespace AIUsageTracker.UI.Slim
 
             container.Children.Add(grid);
         }
-    `n
+    
+
         private void AddAntigravityModels(ProviderUsage usage, StackPanel container)
         {
             foreach (var modelUsage in ProviderUsageDisplayCatalog.CreateAntigravityModelUsages(usage))
@@ -1318,7 +1359,8 @@ namespace AIUsageTracker.UI.Slim
                 this.AddProviderCard(modelUsage, container);
             }
         }
-    `n
+    
+
         private void AddAntigravityUnavailableNotice(ProviderUsage usage, StackPanel container)
         {
             var reason = string.IsNullOrWhiteSpace(usage.Description)
@@ -1331,7 +1373,8 @@ namespace AIUsageTracker.UI.Slim
 
             container.Children.Add(this.CreateInfoTextBlock(message));
         }
-    `n
+    
+
         private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)
         {
             var toolTip = new ToolTip
@@ -1357,13 +1400,15 @@ namespace AIUsageTracker.UI.Slim
 
             return toolTip;
         }
-    `n
+    
+
         private static void AddDockedElement(DockPanel panel, UIElement element, Dock dock)
         {
             panel.Children.Add(element);
             DockPanel.SetDock(element, dock);
         }
-    `n
+    
+
         private TextBlock CreateDockedTextBlock(
             string text,
             double fontSize,
@@ -1383,7 +1428,8 @@ namespace AIUsageTracker.UI.Slim
                 TextTrimming = textTrimming
             };
         }
-    `n
+    
+
         private Border CreateBulletMarker()
         {
             return new Border
@@ -1396,20 +1442,23 @@ namespace AIUsageTracker.UI.Slim
                 VerticalAlignment = VerticalAlignment.Center
             };
         }
-    `n
+    
+
         private static void ConfigureCardToolTip(FrameworkElement target)
         {
             ToolTipService.SetInitialShowDelay(target, 100);
             ToolTipService.SetShowDuration(target, 15000);
         }
-    `n
+    
+
         private Grid CreateProgressLayer(double usedPercent, bool showUsed, double opacity)
         {
             var remainingPercent = Math.Max(0, 100 - usedPercent);
             var indicatorWidth = showUsed ? usedPercent : remainingPercent;
             return this.CreateSingleProgressLayer(usedPercent, indicatorWidth, opacity);
         }
-    `n
+    
+
         private Grid CreateSingleProgressLayer(double usedPercent, double indicatorWidth, double opacity)
         {
             var clampedWidth = Math.Clamp(indicatorWidth, 0, 100);
@@ -1427,7 +1476,8 @@ namespace AIUsageTracker.UI.Slim
 
             return layer;
         }
-    `n
+    
+
         private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container)
         {
             // Compact sub-item (child provider detail)
@@ -1493,7 +1543,8 @@ namespace AIUsageTracker.UI.Slim
             grid.Children.Add(bulletPanel);
             container.Children.Add(grid);
         }
-    `n
+    
+
         private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container)
         {
             if (usage.Details?.Any() != true) return;
@@ -1534,7 +1585,8 @@ namespace AIUsageTracker.UI.Slim
                 }
             }
         }
-    `n
+    
+
         private string GetRelativeTimeString(DateTime nextReset)
         {
             var diff = nextReset - DateTime.Now;
@@ -1544,7 +1596,8 @@ namespace AIUsageTracker.UI.Slim
             if (diff.TotalHours >= 1) return $"{diff.Hours}h {diff.Minutes}m";
             return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
         }
-    `n
+    
+
         private FrameworkElement CreateProviderIcon(string providerId)
         {
             var normalizedProviderId = ProviderVisualCatalog.GetCanonicalProviderId(providerId);
@@ -1602,7 +1655,8 @@ namespace AIUsageTracker.UI.Slim
             // Fallback: colored circle with initial
             return this.CreateFallbackIcon(normalizedProviderId);
         }
-    `n
+    
+
         private FrameworkElement CreateFallbackIcon(string providerId)
         {
             var (color, initial) = ProviderVisualCatalog.GetFallbackBadge(
@@ -1636,7 +1690,8 @@ namespace AIUsageTracker.UI.Slim
 
             return grid;
         }
-    `n
+    
+
         private Brush GetProgressBarColor(double usedPercentage)
         {
             var yellowThreshold = this._preferences.ColorThresholdYellow;
@@ -1646,7 +1701,8 @@ namespace AIUsageTracker.UI.Slim
             if (usedPercentage >= yellowThreshold) return this.GetResourceBrush("ProgressBarYellow", Brushes.Gold);
             return this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
         }
-    `n
+    
+
         private void StartPollingTimer()
         {
             this._pollingTimer?.Stop();
@@ -1766,7 +1822,8 @@ namespace AIUsageTracker.UI.Slim
 
             this._pollingTimer.Start();
         }
-    `n
+    
+
         private async Task UpdateTrayIconsAsync()
         {
             if (Application.Current is not App app)
@@ -1805,12 +1862,14 @@ namespace AIUsageTracker.UI.Slim
                 this._isTrayIconUpdateInProgress = false;
             }
         }
-    `n
+    
+
         private void LogDiagnostic(string message)
         {
             this._logger.LogInformation("{DiagnosticMessage}", message);
         }
-    `n
+    
+
         private void ShowStatus(string message, StatusType type)
         {
             if (type == StatusType.Success && !string.IsNullOrWhiteSpace(this._monitorContractWarningMessage))
@@ -1858,7 +1917,8 @@ namespace AIUsageTracker.UI.Slim
             };
             this._logger.Log(logLevel, "[{StatusType}] {StatusMessage}", type, message);
         }
-    `n
+    
+
         private void ApplyMonitorContractStatus(AgentContractHandshakeResult handshakeResult)
         {
             if (handshakeResult.IsCompatible)
@@ -1870,7 +1930,8 @@ namespace AIUsageTracker.UI.Slim
             this._monitorContractWarningMessage = handshakeResult.Message;
             this.ShowStatus(handshakeResult.Message, StatusType.Warning);
         }
-    `n
+    
+
         private void ShowErrorState(string message)
         {
             if (this._usages.Any())
@@ -1884,7 +1945,8 @@ namespace AIUsageTracker.UI.Slim
             this.ProvidersList.Children.Add(this.CreateInfoTextBlock(message));
             this.ShowStatus(message, StatusType.Error);
         }
-    `n
+    
+
         private TextBlock CreateInfoTextBlock(string text)
         {
             return new TextBlock
@@ -1910,7 +1972,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ShowStatus("Refresh failed", StatusType.Error);
             }
         }
-    `n
+    
+
         private async void SettingsBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1923,7 +1986,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ShowStatus("Settings failed", StatusType.Error);
             }
         }
-    `n
+    
+
         internal async Task OpenSettingsDialogAsync()
         {
             var settingsDialog = this.SettingsDialogFactory();
@@ -1957,18 +2021,21 @@ namespace AIUsageTracker.UI.Slim
                 }
             }
         }
-    `n
+    
+
         private static (Window Dialog, Func<bool> HasChanges) CreateDefaultSettingsDialog()
         {
             var settingsWindow = new SettingsWindow();
             return (settingsWindow, () => settingsWindow.SettingsChanged);
         }
-    `n
+    
+
         private async void WebBtn_Click(object sender, RoutedEventArgs e)
         {
             await this.OpenWebUIAsync();
         }
-    `n
+    
+
         private async Task OpenWebUIAsync()
         {
             try
@@ -1991,7 +2058,8 @@ namespace AIUsageTracker.UI.Slim
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private async Task StartWebServiceAsync()
         {
             try
@@ -2066,7 +2134,8 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogError(ex, "Failed to start Web service");
             }
         }
-    `n
+    
+
         private static string? FindProjectDirectory(string projectName)
         {
             var currentDir = AppContext.BaseDirectory;
@@ -2084,7 +2153,8 @@ namespace AIUsageTracker.UI.Slim
 
             return null;
         }
-    `n
+    
+
         private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -2099,12 +2169,14 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogError(ex, "PrivacyBtn_Click failed");
             }
         }
-    `n
+    
+
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
         {
             this.Hide();
         }
-    `n
+    
+
         private async void AlwaysOnTop_Checked(object sender, RoutedEventArgs e)
         {
             try
@@ -2127,13 +2199,15 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogError(ex, "AlwaysOnTop_Checked failed");
             }
         }
-    `n
+    
+
         private async void Compact_Checked(object sender, RoutedEventArgs e)
         {
             // No-op (Field removed from UI)
             await Task.CompletedTask;
         }
-    `n
+    
+
         private async void ShowUsedToggle_Checked(object sender, RoutedEventArgs e)
         {
             try
@@ -2151,12 +2225,14 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogError(ex, "ShowUsedToggle_Checked failed");
             }
         }
-    `n
+    
+
         private void RefreshData_NoArgs(object sender, RoutedEventArgs e)
         {
             _ = this.RefreshDataAsync();
         }
-    `n
+    
+
         private void ViewChangelogBtn_Click(object sender, RoutedEventArgs e)
         {
             if (this._latestUpdate == null)
@@ -2171,7 +2247,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.ShowChangelogWindow(this._latestUpdate);
         }
-    `n
+    
+
         private void ShowChangelogWindow(UpdateInfo updateInfo)
         {
             var changelogWindow = new Window
@@ -2197,7 +2274,8 @@ namespace AIUsageTracker.UI.Slim
             changelogWindow.Content = viewer;
             changelogWindow.ShowDialog();
         }
-    `n
+    
+
         private FlowDocument BuildMarkdownDocument(string markdown)
         {
             var document = new FlowDocument
@@ -2315,7 +2393,8 @@ namespace AIUsageTracker.UI.Slim
 
             return document;
         }
-    `n
+    
+
         private static int GetHeaderLevel(string trimmedLine)
         {
             var level = 0;
@@ -2326,7 +2405,8 @@ namespace AIUsageTracker.UI.Slim
 
             return level > 0 && level < trimmedLine.Length && trimmedLine[level] == ' ' ? level : 0;
         }
-    `n
+    
+
         private static bool TryParseNumberedItem(string line, out int number, out string content)
         {
             number = 0;
@@ -2347,7 +2427,8 @@ namespace AIUsageTracker.UI.Slim
             content = line[(dotIndex + 2)..];
             return !string.IsNullOrWhiteSpace(content);
         }
-    `n
+    
+
         private void AddCodeBlock(FlowDocument document, string codeText)
         {
             var codeParagraph = new Paragraph(new Run(codeText))
@@ -2361,7 +2442,8 @@ namespace AIUsageTracker.UI.Slim
             };
             document.Blocks.Add(codeParagraph);
         }
-    `n
+    
+
         private void AddMarkdownInlines(Paragraph paragraph, string text)
         {
             if (string.IsNullOrEmpty(text))
@@ -2413,7 +2495,8 @@ namespace AIUsageTracker.UI.Slim
                 paragraph.Inlines.Add(new Run(text[cursor..]));
             }
         }
-    `n
+    
+
         private bool TryCreateHyperlink(string token, out Hyperlink hyperlink)
         {
             hyperlink = null!;
@@ -2451,7 +2534,8 @@ namespace AIUsageTracker.UI.Slim
 
             return true;
         }
-    `n
+    
+
         private async Task CheckForUpdatesAsync()
         {
             if (this._isUpdateCheckInProgress)
@@ -2487,7 +2571,8 @@ namespace AIUsageTracker.UI.Slim
                 this._isUpdateCheckInProgress = false;
             }
         }
-    `n
+    
+
         private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
         {
             if (this._latestUpdate == null)
@@ -2567,7 +2652,8 @@ namespace AIUsageTracker.UI.Slim
                 MessageBox.Show($"Update error: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
 
         private async Task RestartMonitorAsync()
         {
@@ -2592,7 +2678,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ShowStatus($"Restart error: {ex.Message}", StatusType.Error);
             }
         }
-    `n
+    
+
 
         private async void MonitorToggleBtn_Click(object sender, RoutedEventArgs e)
         {
@@ -2639,7 +2726,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ShowStatus("Monitor toggle failed", StatusType.Error);
             }
         }
-    `n
+    
+
         private void UpdateMonitorToggleButton(bool isRunning)
         {
             if (this.MonitorToggleBtn != null && this.MonitorToggleIcon != null)
@@ -2649,13 +2737,15 @@ namespace AIUsageTracker.UI.Slim
                 this.MonitorToggleBtn.ToolTip = isRunning ? "Stop Monitor" : "Start Monitor";
             }
         }
-    `n
+    
+
         private async Task UpdateMonitorToggleButtonStateAsync()
         {
             var (isRunning, _) = await MonitorLauncher.IsAgentRunningWithPortAsync();
             this.Dispatcher.Invoke(() => this.UpdateMonitorToggleButton(isRunning));
         }
-    `n
+    
+
         private void OnKeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)

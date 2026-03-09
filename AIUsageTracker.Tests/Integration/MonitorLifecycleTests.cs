@@ -1,3 +1,7 @@
+// <copyright file="MonitorLifecycleTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core
 {
     using AIUsageTracker.Core.MonitorClient;
@@ -26,7 +30,8 @@ namespace AIUsageTracker.Tests.Core
                 throw new TimeoutException($"Operation '{operation}' exceeded {timeout.TotalSeconds:F0}s.", ex);
             }
         }
-    `n
+    
+
         private static async Task WithTimeoutAsync(Task task, TimeSpan timeout, string operation)
         {
             try
@@ -53,14 +58,16 @@ namespace AIUsageTracker.Tests.Core
                 TimeSpan.FromSeconds(90),
                 "Monitor lifecycle integration test");
         }
-    `n
+    
+
         private static bool IsIntegrationEnabled()
         {
             var value = Environment.GetEnvironmentVariable("RUN_MONITOR_LIFECYCLE_TESTS");
             return string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
         }
-    `n
+    
+
         private static async Task RunLifecycleScenarioAsync()
         {
             try

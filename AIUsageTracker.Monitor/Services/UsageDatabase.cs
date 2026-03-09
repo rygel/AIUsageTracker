@@ -1,3 +1,7 @@
+// <copyright file="UsageDatabase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Monitor.Services
 {
     using System.Text.Json;
@@ -39,19 +43,22 @@ namespace AIUsageTracker.Monitor.Services
                 DefaultTimeout = 15
             }.ToString();
         }
-    `n
+    
+
         public async Task InitializeAsync()
         {
             await Task.Run(() => this.RunMigrations());
         }
-    `n
+    
+
         private void RunMigrations()
         {
             var migrationService = new DatabaseMigrationService(this._dbPath,
                 LoggerFactory.Create(builder => builder.AddProvider(new LoggerProvider(this._logger))).CreateLogger<DatabaseMigrationService>());
             migrationService.RunMigrations();
         }
-    `n
+    
+
         private class LoggerProvider : ILoggerProvider
         {
             private readonly ILogger _logger;
@@ -59,7 +66,8 @@ namespace AIUsageTracker.Monitor.Services
             public ILogger CreateLogger(string categoryName) => this._logger;
             public void Dispose() { }
         }
-    `n
+    
+
         public async Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null)
         {
             await this._semaphore.WaitAsync();
@@ -103,7 +111,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
         {
             var validUsages = usages.Where(u =>
@@ -179,7 +188,7 @@ namespace AIUsageTracker.Monitor.Services
                     RequestsAvailable = u.RequestsAvailable,
                     RequestsPercentage = u.RequestsPercentage,
                     IsAvailable = u.IsAvailable ? 1 : 0,
-                    StatusMessage = u.Description ?? "",
+                    StatusMessage = u.Description ?? string.Empty,
                     NextResetTime = u.NextResetTime?.ToString("O"),
                     FetchedAt = (u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt).ToString("O"),
                     DetailsJson = u.Details != null && u.Details.Any()
@@ -195,7 +204,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus)
         {
             await this._semaphore.WaitAsync();
@@ -215,7 +225,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task CleanupOldSnapshotsAsync()
         {
             await this._semaphore.WaitAsync();
@@ -232,7 +243,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task OptimizeAsync()
         {
             await this._semaphore.WaitAsync();
@@ -247,7 +259,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task StoreResetEventAsync(string providerId, string providerName,
             double? previousUsage, double? newUsage, string resetType)
         {
@@ -278,7 +291,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task<List<ProviderUsage>> GetLatestHistoryAsync()
         {
             await this._semaphore.WaitAsync();
@@ -345,7 +359,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
         {
             await this._semaphore.WaitAsync();
@@ -388,7 +403,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
         {
             await this._semaphore.WaitAsync();
@@ -432,7 +448,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
         {
             await this._semaphore.WaitAsync();
@@ -482,7 +499,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
         {
             await this._semaphore.WaitAsync();
@@ -508,7 +526,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task<bool> IsHistoryEmptyAsync()
         {
             await this._semaphore.WaitAsync();
@@ -524,7 +543,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._semaphore.Release();
             }
         }
-    `n
+    
+
         public async Task SetProviderActiveAsync(string providerId, bool isActive)
         {
             await this._semaphore.WaitAsync();

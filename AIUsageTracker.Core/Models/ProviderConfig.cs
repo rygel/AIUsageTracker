@@ -1,3 +1,7 @@
+// <copyright file="ProviderConfig.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.Models
 {
     using System.ComponentModel.DataAnnotations;

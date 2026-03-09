@@ -1,3 +1,7 @@
+// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Providers
 {
     using System.Net.Http;
@@ -154,7 +158,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                 PlanType = PlanType.Coding,
                 UsageUnit = "Tokens",
                 IsQuotaBased = true,
-                Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : ""),
+                Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : string.Empty),
                 RawJson = responseString,
                 HttpStatus = httpStatus
             }};

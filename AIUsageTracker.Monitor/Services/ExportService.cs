@@ -1,3 +1,7 @@
+// <copyright file="ExportService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Monitor.Services
 {
     using AIUsageTracker.Core.Models;
@@ -13,7 +17,8 @@ namespace AIUsageTracker.Monitor.Services
         {
             this._database = database;
         }
-    `n
+    
+
         public async Task<(byte[] content, string contentType, string fileName)> ExportAsync(string format, int days)
         {
             // Limit days to reasonable range
@@ -64,10 +69,11 @@ namespace AIUsageTracker.Monitor.Services
                 return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");
             }
         }
-    `n
+    
+
         private static string EscapeCsv(string field)
         {
-            if (string.IsNullOrEmpty(field)) return "";
+            if (string.IsNullOrEmpty(field)) return string.Empty;
             if (field.Contains(",") || field.Contains("\"") || field.Contains("\n"))
             {
                 return $"\"{field.Replace("\"", "\"\"")}\"";

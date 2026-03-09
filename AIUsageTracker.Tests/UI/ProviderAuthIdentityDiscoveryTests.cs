@@ -1,3 +1,7 @@
+// <copyright file="ProviderAuthIdentityDiscoveryTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.UI
 {
     using System.Text;
@@ -85,7 +89,8 @@ namespace AIUsageTracker.Tests.UI
 
             Assert.Equal("openai@example.com", username);
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._tempDirectory))
@@ -93,7 +98,8 @@ namespace AIUsageTracker.Tests.UI
                 Directory.Delete(this._tempDirectory, recursive: true);
             }
         }
-    `n
+    
+
         private string CreateFile(string relativePath, string content)
         {
             var fullPath = Path.Combine(this._tempDirectory, relativePath);
@@ -101,14 +107,16 @@ namespace AIUsageTracker.Tests.UI
             File.WriteAllText(fullPath, content);
             return fullPath;
         }
-    `n
+    
+
         private static string CreateJwt(object payload)
         {
             var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
             var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
             return $"{header}.{body}.";
         }
-    `n
+    
+
         private static string Base64UrlEncode(string value)
         {
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))

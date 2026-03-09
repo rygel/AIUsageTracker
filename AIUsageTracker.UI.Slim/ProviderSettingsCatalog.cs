@@ -1,3 +1,7 @@
+// <copyright file="ProviderSettingsCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using AIUsageTracker.Core.Models;
@@ -11,14 +15,16 @@ namespace AIUsageTracker.UI.Slim
         GitHubCopilotAuthStatus,
         OpenAiSessionStatus
     }
-    `n
+    
+
     internal sealed record ProviderSettingsBehavior(
         ProviderInputMode InputMode,
         bool IsInactive,
         bool IsDerivedVisible,
         string? SessionProviderLabel,
         bool PreferCodexIdentity);
-    `n
+    
+
     internal static class ProviderSettingsCatalog
     {
         public static ProviderSettingsBehavior Resolve(ProviderConfig config, ProviderUsage? usage, bool isDerived)
@@ -51,18 +57,21 @@ namespace AIUsageTracker.UI.Slim
                 PreferCodexIdentity: inputMode == ProviderInputMode.OpenAiSessionStatus &&
                                      ProviderMetadataCatalog.GetSessionIdentitySource(canonicalProviderId) == ProviderSessionIdentitySource.Codex);
         }
-    `n
+    
+
         public static bool IsDerivedProviderVisible(string? providerId)
         {
             return ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId ?? string.Empty);
         }
-    `n
+    
+
         public static bool IsSessionToken(string? apiKey)
         {
             return !string.IsNullOrWhiteSpace(apiKey) &&
                    !apiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
         }
-    `n
+    
+
         private static ProviderInputMode ResolveInputMode(string canonicalProviderId, ProviderUsage? usage, bool hasSessionToken)
         {
             var settingsMode = ProviderMetadataCatalog.GetSettingsMode(canonicalProviderId);

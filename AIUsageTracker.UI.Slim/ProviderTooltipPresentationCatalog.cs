@@ -1,3 +1,7 @@
+// <copyright file="ProviderTooltipPresentationCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using System.Text;
@@ -36,12 +40,14 @@ namespace AIUsageTracker.UI.Slim
 
             return null;
         }
-    `n
+    
+
         private static string GetDetailDisplayName(ProviderUsageDetail detail)
         {
             return detail.Name;
         }
-    `n
+    
+
         private static int GetDetailSortOrder(ProviderUsageDetail detail)
         {
             return (detail.DetailType, detail.WindowKind) switch

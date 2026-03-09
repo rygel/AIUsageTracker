@@ -1,3 +1,7 @@
+// <copyright file="ProviderSubDetailPresentationCatalogTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.UI
 {
     using AIUsageTracker.Core.Models;
@@ -15,7 +19,7 @@ namespace AIUsageTracker.Tests.UI
                     new() { Name = "Beta", DetailType = ProviderUsageDetailType.Other },
                     new() { Name = "Alpha", DetailType = ProviderUsageDetailType.Model },
                     new() { Name = "Ignored", DetailType = ProviderUsageDetailType.Credit },
-                    new() { Name = "", DetailType = ProviderUsageDetailType.Model }
+                    new() { Name = string.Empty, DetailType = ProviderUsageDetailType.Model }
                 }
             };
 

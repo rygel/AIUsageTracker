@@ -1,3 +1,7 @@
+// <copyright file="SettingsWindow.xaml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using System.Diagnostics;
@@ -23,9 +27,11 @@ namespace AIUsageTracker.UI.Slim
         private sealed class ThemeOption
         {
             public AppTheme Value { get; init; }
-    `n        public string Label { get; init; } = string.Empty;
+    
+        public string Label { get; init; } = string.Empty;
         }
-    `n
+    
+
         private readonly IMonitorService _monitorService;
         private readonly ILogger<SettingsWindow> _logger;
         private readonly IAppPathProvider _pathProvider;
@@ -45,7 +51,8 @@ namespace AIUsageTracker.UI.Slim
         private readonly DispatcherTimer _autoSaveTimer;
 
         public bool SettingsChanged { get; private set; }
-    `n
+    
+
         public SettingsWindow(IMonitorService monitorService, ILogger<SettingsWindow> logger, UiPreferencesStore preferencesStore, IAppPathProvider pathProvider)
         {
             this._autoSaveTimer = new DispatcherTimer
@@ -64,7 +71,8 @@ namespace AIUsageTracker.UI.Slim
             Loaded += this.SettingsWindow_Loaded;
             this.UpdatePrivacyButtonState();
         }
-    `n
+    
+
         public SettingsWindow() : this(
             App.Host.Services.GetRequiredService<IMonitorService>(),
             App.Host.Services.GetRequiredService<ILogger<SettingsWindow>>(),
@@ -72,7 +80,8 @@ namespace AIUsageTracker.UI.Slim
             App.Host.Services.GetRequiredService<IAppPathProvider>())
         {
         }
-    `n
+    
+
         private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
         {
             try
@@ -92,7 +101,8 @@ namespace AIUsageTracker.UI.Slim
                 this.Close();
             }
         }
-    `n
+    
+
         private async Task LoadDataAsync()
         {
             this._isLoadingSettings = true;
@@ -151,7 +161,8 @@ namespace AIUsageTracker.UI.Slim
                 }
             }
         }
-    `n
+    
+
         internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
         {
             if (deterministic)
@@ -166,7 +177,8 @@ namespace AIUsageTracker.UI.Slim
             await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
             this.UpdateLayout();
         }
-    `n
+    
+
         internal async Task<IReadOnlyList<string>> CaptureHeadlessTabScreenshotsAsync(string outputDirectory)
         {
             await this.PrepareForHeadlessScreenshotAsync(deterministic: true);
@@ -206,7 +218,8 @@ namespace AIUsageTracker.UI.Slim
 
             return capturedFiles;
         }
-    `n
+    
+
         private void ApplyHeadlessCaptureWindowSize(string? tabHeader)
         {
             this.Width = 600;
@@ -227,7 +240,8 @@ namespace AIUsageTracker.UI.Slim
             var desiredContentHeight = this.ProvidersStack.DesiredSize.Height;
             this.Height = Math.Max(900, Math.Min(3200, desiredContentHeight + 260));
         }
-    `n
+    
+
         private void PrepareDeterministicScreenshotData()
         {
             this._isDeterministicScreenshotMode = true;
@@ -274,7 +288,8 @@ namespace AIUsageTracker.UI.Slim
                 this.MonitorLogsText.Text = fixture.MonitorLogsText;
             }
         }
-    `n
+    
+
         private static string BuildTabSlug(string? header, int index)
         {
             if (string.IsNullOrWhiteSpace(header))
@@ -300,13 +315,15 @@ namespace AIUsageTracker.UI.Slim
             var normalized = builder.ToString().Trim('-');
             return string.IsNullOrWhiteSpace(normalized) ? $"tab{index + 1}" : normalized;
         }
-    `n
+    
+
         private void SettingsWindow_Closed(object? sender, EventArgs e)
         {
             this._autoSaveTimer.Stop();
             App.PrivacyChanged -= this.OnPrivacyChanged;
         }
-    `n
+    
+
         private async void AutoSaveTimer_Tick(object? sender, EventArgs e)
         {
             try
@@ -319,7 +336,8 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogError(ex, "AutoSaveTimer_Tick failed");
             }
         }
-    `n
+    
+
         private void ScheduleAutoSave()
         {
             if (this._isLoadingSettings)
@@ -331,7 +349,8 @@ namespace AIUsageTracker.UI.Slim
             this._autoSaveTimer.Stop();
             this._autoSaveTimer.Start();
         }
-    `n
+    
+
         private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
         {
             if (!this.Dispatcher.CheckAccess())
@@ -345,7 +364,8 @@ namespace AIUsageTracker.UI.Slim
             this.UpdatePrivacyButtonState();
             this.PopulateProviders();
         }
-    `n
+    
+
         private void UpdatePrivacyButtonState()
         {
             if (this.PrivacyBtn == null)
@@ -358,7 +378,8 @@ namespace AIUsageTracker.UI.Slim
                 ? Brushes.Gold
                 : (this.TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
         }
-    `n
+    
+
         private async Task UpdateMonitorStatusAsync()
         {
             try
@@ -393,7 +414,8 @@ namespace AIUsageTracker.UI.Slim
                 this.RefreshDiagnosticsLog();
             }
         }
-    `n
+    
+
         private void RefreshDiagnosticsLog()
         {
             if (this.MonitorLogsText == null)
@@ -430,7 +452,8 @@ namespace AIUsageTracker.UI.Slim
             this.MonitorLogsText.Text = string.Join(Environment.NewLine, lines);
             this.MonitorLogsText.ScrollToEnd();
         }
-    `n
+    
+
         private async Task LoadHistoryAsync()
         {
             try
@@ -443,7 +466,8 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogWarning(ex, "Failed to load history");
             }
         }
-    `n
+    
+
         private void PopulateProviders()
         {
             this.ProvidersStack.Children.Clear();
@@ -457,7 +481,8 @@ namespace AIUsageTracker.UI.Slim
                 this.AddProviderCard(item.Config, usage, item.IsDerived);
             }
         }
-    `n
+    
+
         private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
         {
             var card = new Border
@@ -500,7 +525,8 @@ namespace AIUsageTracker.UI.Slim
             card.Child = grid;
             this.ProvidersStack.Children.Add(card);
         }
-    `n
+    
+
         private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
         {
             return settingsBehavior.InputMode switch
@@ -513,7 +539,8 @@ namespace AIUsageTracker.UI.Slim
                 _ => this.BuildApiKeyEditor(config)
             };
         }
-    `n
+    
+
         private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
         {
             var presentation = ProviderStatusPresentationCatalog.Create(
@@ -552,7 +579,8 @@ namespace AIUsageTracker.UI.Slim
 
             return panel;
         }
-    `n
+    
+
         private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)
         {
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
@@ -606,7 +634,8 @@ namespace AIUsageTracker.UI.Slim
 
             return headerPanel;
         }
-    `n
+    
+
         private CheckBox CreateProviderHeaderCheckBox(
             string content,
             bool isChecked,
@@ -629,7 +658,8 @@ namespace AIUsageTracker.UI.Slim
             checkBox.Unchecked += (_, _) => onCheckedChanged(false);
             return checkBox;
         }
-    `n
+    
+
         private static Border CreateInactiveBadge()
         {
             var status = new Border
@@ -649,7 +679,8 @@ namespace AIUsageTracker.UI.Slim
             };
             return status;
         }
-    `n
+    
+
         private void AddSubTraySection(Grid grid, ProviderConfig config, IReadOnlyList<ProviderUsageDetail> subTrayDetails)
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -684,7 +715,8 @@ namespace AIUsageTracker.UI.Slim
             Grid.SetRow(subTrayPanel, 3);
             grid.Children.Add(subTrayPanel);
         }
-    `n
+    
+
         private CheckBox CreateSubTrayCheckBox(ProviderConfig config, string detailName)
         {
             var enabledSubTrays = config.EnabledSubTrays ?? new List<string>();
@@ -721,7 +753,8 @@ namespace AIUsageTracker.UI.Slim
             };
             return checkBox;
         }
-    `n
+    
+
         private TextBox BuildApiKeyEditor(ProviderConfig config)
         {
             var keyBox = new TextBox
@@ -745,7 +778,8 @@ namespace AIUsageTracker.UI.Slim
 
             return keyBox;
         }
-    `n
+    
+
         private TextBlock CreateSecondaryStatusText(string text)
         {
             var statusText = new TextBlock
@@ -758,7 +792,8 @@ namespace AIUsageTracker.UI.Slim
             statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
             return statusText;
         }
-    `n
+    
+
         private void RefreshTrayIcons()
         {
             if (Application.Current is App app)
@@ -766,7 +801,8 @@ namespace AIUsageTracker.UI.Slim
                 app.UpdateProviderTrayIcons(this._usages, this._configs, this._preferences);
             }
         }
-    `n
+    
+
         private void MarkSettingsChanged(bool refreshTrayIcons = false)
         {
             this.SettingsChanged = true;
@@ -777,7 +813,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.ScheduleAutoSave();
         }
-    `n
+    
+
         private ProviderConfig GetOrCreateTrackedConfig(ProviderConfig config)
         {
             var existing = this._configs.FirstOrDefault(current =>
@@ -791,7 +828,8 @@ namespace AIUsageTracker.UI.Slim
             this._configs.Add(tracked);
             return tracked;
         }
-    `n
+    
+
         private static ProviderConfig CloneConfig(ProviderConfig config)
         {
             return new ProviderConfig
@@ -818,14 +856,16 @@ namespace AIUsageTracker.UI.Slim
                     .ToList()
             };
         }
-    `n
+    
+
         private void ApplyFontPreferenceChange(Action applyChange)
         {
             applyChange();
             this.UpdateFontPreview();
             this.ScheduleAutoSave();
         }
-    `n
+    
+
         private async Task<bool> SaveUiPreferencesAsync(bool showErrorDialog = false)
         {
             App.Preferences = this._preferences;
@@ -845,7 +885,8 @@ namespace AIUsageTracker.UI.Slim
 
             return saved;
         }
-    `n
+    
+
         private FrameworkElement CreateProviderIcon(string providerId)
         {
             // Map to SVG or create fallback
@@ -853,7 +894,8 @@ namespace AIUsageTracker.UI.Slim
             image.Source = this.GetProviderImageSource(providerId);
             return image;
         }
-    `n
+    
+
         private ImageSource GetProviderImageSource(string providerId)
         {
             try
@@ -890,7 +932,8 @@ namespace AIUsageTracker.UI.Slim
 
             return this.CreateFallbackIcon(providerId);
         }
-    `n
+    
+
         private ImageSource CreateFallbackIcon(string providerId)
         {
             // Create a simple colored circle as fallback
@@ -905,7 +948,8 @@ namespace AIUsageTracker.UI.Slim
             image.Freeze();
             return image;
         }
-    `n
+    
+
         private void PopulateLayoutSettings()
         {
             this.AlwaysOnTopCheck.IsChecked = this._preferences.AlwaysOnTop;
@@ -947,7 +991,8 @@ namespace AIUsageTracker.UI.Slim
             this.FontItalicCheck.IsChecked = this._preferences.FontItalic;
             this.UpdateFontPreview();
         }
-    `n
+    
+
         private static IReadOnlyList<ThemeOption> GetThemeOptions()
         {
             return new List<ThemeOption>
@@ -968,7 +1013,8 @@ namespace AIUsageTracker.UI.Slim
                 new() { Value = AppTheme.CatppuccinLatte, Label = "Catppuccin Latte" }
             };
         }
-    `n
+    
+
         private void PopulateFontComboBox()
         {
             // Get all system fonts
@@ -999,7 +1045,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.FontFamilyCombo.ItemsSource = fonts;
         }
-    `n
+    
+
         private void UpdateFontPreview()
         {
             if (this.FontPreviewText == null) return;
@@ -1019,7 +1066,8 @@ namespace AIUsageTracker.UI.Slim
             // Update font style
             this.FontPreviewText.FontStyle = this._preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
         }
-    `n
+    
+
         private void ResetFontBtn_Click(object sender, RoutedEventArgs e)
         {
             this.ApplyFontPreferenceChange(() =>
@@ -1035,7 +1083,8 @@ namespace AIUsageTracker.UI.Slim
                 this.FontItalicCheck.IsChecked = this._preferences.FontItalic;
             });
         }
-    `n
+    
+
         private void FontFamilyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (this.FontFamilyCombo.SelectedItem is string font)
@@ -1043,7 +1092,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ApplyFontPreferenceChange(() => this._preferences.FontFamily = font);
             }
         }
-    `n
+    
+
         private void FontSizeBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (int.TryParse(this.FontSizeBox.Text, System.Globalization.CultureInfo.InvariantCulture, out int size) && size > 0 && size <= 72)
@@ -1051,17 +1101,20 @@ namespace AIUsageTracker.UI.Slim
                 this.ApplyFontPreferenceChange(() => this._preferences.FontSize = size);
             }
         }
-    `n
+    
+
         private void FontBoldCheck_CheckedChanged(object sender, RoutedEventArgs e)
         {
             this.ApplyFontPreferenceChange(() => this._preferences.FontBold = this.FontBoldCheck.IsChecked ?? false);
         }
-    `n
+    
+
         private void FontItalicCheck_CheckedChanged(object sender, RoutedEventArgs e)
         {
             this.ApplyFontPreferenceChange(() => this._preferences.FontItalic = this.FontItalicCheck.IsChecked ?? false);
         }
-    `n
+    
+
         private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1078,12 +1131,14 @@ namespace AIUsageTracker.UI.Slim
                 MessageBox.Show($"Failed to update privacy mode: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
-    `n
+    
+
         private async void ScanBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1116,7 +1171,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ScanBtn.Content = "Scan for Keys";
             }
         }
-    `n
+    
+
         private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1139,7 +1195,8 @@ namespace AIUsageTracker.UI.Slim
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private async void RefreshHistoryBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1159,12 +1216,14 @@ namespace AIUsageTracker.UI.Slim
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private void ClearHistoryBtn_Click(object sender, RoutedEventArgs e)
         {
             this.HistoryDataGrid.ItemsSource = null;
         }
-    `n
+    
+
         private async void ExportCsvBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1198,7 +1257,8 @@ namespace AIUsageTracker.UI.Slim
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private async void ExportJsonBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1232,7 +1292,8 @@ namespace AIUsageTracker.UI.Slim
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private void BackupDbBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1267,7 +1328,8 @@ namespace AIUsageTracker.UI.Slim
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private async void RestartMonitorBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1310,7 +1372,8 @@ namespace AIUsageTracker.UI.Slim
                 this.RefreshDiagnosticsLog();
             }
         }
-    `n
+    
+
         private async void CheckHealthBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1331,7 +1394,8 @@ namespace AIUsageTracker.UI.Slim
                 this.RefreshDiagnosticsLog();
             }
         }
-    `n
+    
+
         private async void ExportDiagnosticsBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1425,7 +1489,8 @@ namespace AIUsageTracker.UI.Slim
                 this.RefreshDiagnosticsLog();
             }
         }
-    `n
+    
+
         private static string FormatJsonForBundle(string content)
         {
             if (string.IsNullOrWhiteSpace(content))
@@ -1446,7 +1511,8 @@ namespace AIUsageTracker.UI.Slim
                 return content;
             }
         }
-    `n
+    
+
         private async Task PersistAllSettingsAsync(bool showErrorDialog)
         {
             if (this._isLoadingSettings)
@@ -1569,7 +1635,8 @@ namespace AIUsageTracker.UI.Slim
                 this._autoSaveSemaphore.Release();
             }
         }
-    `n
+    
+
         private async void CancelBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1584,7 +1651,8 @@ namespace AIUsageTracker.UI.Slim
                 MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
-    `n
+    
+
         private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (this._isLoadingSettings)
@@ -1599,7 +1667,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ScheduleAutoSave();
             }
         }
-    `n
+    
+
         private void UpdateChannelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (this._isLoadingSettings)
@@ -1613,7 +1682,8 @@ namespace AIUsageTracker.UI.Slim
                 this.ScheduleAutoSave();
             }
         }
-    `n
+    
+
         private void LayoutSetting_Changed(object sender, RoutedEventArgs e)
         {
             if (!this.IsInitialized)
@@ -1624,7 +1694,8 @@ namespace AIUsageTracker.UI.Slim
             this.ApplyNotificationControlsState();
             this.ScheduleAutoSave();
         }
-    `n
+    
+
         private void LayoutSetting_TextChanged(object sender, TextChangedEventArgs e)
         {
             if (!this.IsInitialized)
@@ -1634,7 +1705,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.ScheduleAutoSave();
         }
-    `n
+    
+
         private void EnableWindowsNotificationsCheck_Changed(object sender, RoutedEventArgs e)
         {
             if (!this.IsInitialized)
@@ -1645,7 +1717,8 @@ namespace AIUsageTracker.UI.Slim
             this.ApplyNotificationControlsState();
             this.ScheduleAutoSave();
         }
-    `n
+    
+
         private void ApplyNotificationControlsState()
         {
             if (this.EnableWindowsNotificationsCheck == null)
@@ -1690,7 +1763,8 @@ namespace AIUsageTracker.UI.Slim
                 this.QuietHoursEndBox.IsEnabled = quietHoursEnabled;
             }
         }
-    `n
+    
+
         private static string NormalizeQuietHour(string value, string fallback)
         {
             if (TimeSpan.TryParse(value, out var parsed))
@@ -1701,7 +1775,8 @@ namespace AIUsageTracker.UI.Slim
 
             return fallback;
         }
-    `n
+    
+
         private async void SendTestNotificationBtn_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1723,7 +1798,8 @@ namespace AIUsageTracker.UI.Slim
                 this.NotificationTestStatusText.Text = $"Error: {ex.Message}";
             }
         }
-    `n
+    
+
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.Escape)

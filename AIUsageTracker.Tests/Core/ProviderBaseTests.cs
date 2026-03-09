@@ -1,3 +1,7 @@
+// <copyright file="ProviderBaseTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core
 {
     using System.Net;
@@ -36,7 +40,8 @@ namespace AIUsageTracker.Tests.Core
             public ProviderUsage TestCreateUnavailableUsageFromProviderException(ProviderException ex)
                 => this.CreateUnavailableUsageFromProviderException(ex);
         }
-    `n
+    
+
         private readonly TestProvider _provider = new();
 
         [Fact]

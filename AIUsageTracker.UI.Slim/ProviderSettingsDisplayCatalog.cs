@@ -1,10 +1,15 @@
+// <copyright file="ProviderSettingsDisplayCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using AIUsageTracker.Core.Models;
     using AIUsageTracker.Infrastructure.Providers;
 
     internal sealed record ProviderSettingsDisplayItem(ProviderConfig Config, bool IsDerived);
-    `n
+    
+
     internal static class ProviderSettingsDisplayCatalog
     {
         public static IReadOnlyList<ProviderSettingsDisplayItem> CreateDisplayItems(
@@ -40,7 +45,8 @@ namespace AIUsageTracker.UI.Slim
                 .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
-    `n
+    
+
         private static ProviderConfig CreateDefaultDisplayConfig(string providerId)
         {
             if (ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config))
@@ -53,7 +59,8 @@ namespace AIUsageTracker.UI.Slim
                 ProviderId = providerId
             };
         }
-    `n
+    
+
         private static ProviderConfig CreateDerivedConfig(ProviderUsage usage)
         {
             return new ProviderConfig

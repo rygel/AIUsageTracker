@@ -1,3 +1,7 @@
+// <copyright file="CodexProviderTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure.Providers
 {
     using System.Net;
@@ -99,7 +103,8 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
                 Directory.Delete(tempDir, recursive: true);
             }
         }
-    `n
+    
+
         private static string CreateJwt(string email, string planType)
         {
             var headerJson = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });
@@ -114,7 +119,8 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
 
             return $"{Base64UrlEncode(headerJson)}.{Base64UrlEncode(payloadJson)}.sig";
         }
-    `n
+    
+
         private static string Base64UrlEncode(string value)
         {
             var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(value));

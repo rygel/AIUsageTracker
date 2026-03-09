@@ -1,3 +1,7 @@
+// <copyright file="ProviderDualWindowPresentationCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using AIUsageTracker.Core.Models;
@@ -9,7 +13,8 @@ namespace AIUsageTracker.UI.Slim
         string SecondaryLabel,
         double SecondaryUsedPercent,
         DateTime? SecondaryResetTime);
-    `n
+    
+
     internal static class ProviderDualWindowPresentationCatalog
     {
         public static bool TryGetDualWindowUsedPercentages(ProviderUsage usage, out double hourlyUsed, out double weeklyUsed)
@@ -26,7 +31,8 @@ namespace AIUsageTracker.UI.Slim
             weeklyUsed = presentation.SecondaryUsedPercent;
             return true;
         }
-    `n
+    
+
         public static bool TryGetPresentation(ProviderUsage usage, out ProviderDualWindowPresentation presentation)
         {
             presentation = null!;
@@ -71,7 +77,8 @@ namespace AIUsageTracker.UI.Slim
                 SecondaryResetTime: weeklyDetail.NextResetTime);
             return true;
         }
-    `n
+    
+
         private static string SimplifyWindowLabel(string? rawLabel, string fallback)
         {
             if (string.IsNullOrWhiteSpace(rawLabel))

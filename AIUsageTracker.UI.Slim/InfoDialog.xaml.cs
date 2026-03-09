@@ -1,3 +1,7 @@
+// <copyright file="InfoDialog.xaml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using System;
@@ -34,7 +38,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.LoadInfo();
         }
-`n
+
+
         private void LoadInfo()
         {
             // Subscribe to global privacy changes
@@ -80,7 +85,8 @@ namespace AIUsageTracker.UI.Slim
 
             this.UpdatePrivacyUI();
         }
-`n
+
+
         private void UpdatePrivacyUI()
         {
             if (this._isPrivacyMode)
@@ -107,14 +113,16 @@ namespace AIUsageTracker.UI.Slim
             if (input.Length <= 2) return "**";
             return input.Substring(0, 1) + new string('*', Math.Min(input.Length - 2, 5)) + input.Substring(input.Length - 1);
         }
-`n
+
+
         private string MaskPath(string path)
         {
             if (string.IsNullOrEmpty(path)) return path;
             var filename = Path.GetFileName(path);
             return Path.Combine("C:\\Users\\***\\...", filename);
         }
-`n
+
+
         internal void PrepareForHeadlessScreenshot()
         {
             this._isPrivacyMode = true;
@@ -129,9 +137,11 @@ namespace AIUsageTracker.UI.Slim
             this.DataDirText.Text = @"C:\Users\***\...\AIUsageTracker";
             this.PrivacyBtn.Foreground = Brushes.Gold;
         }
-`n
+
+
         private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync(sender, e);
-`n
+
+
         internal async Task PrivacyBtn_ClickAsync(object sender, RoutedEventArgs e)
         {
             try
@@ -146,12 +156,14 @@ namespace AIUsageTracker.UI.Slim
                 this._logger.LogError(ex, "PrivacyBtn_ClickAsync failed");
             }
         }
-`n
+
+
         private void CloseBtn_Click(object sender, RoutedEventArgs e)
         {
             this.Close();
         }
-`n
+
+
         private void Header_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
@@ -159,7 +171,8 @@ namespace AIUsageTracker.UI.Slim
                 this.DragMove();
             }
         }
-`n
+
+
         private void ConfigDir_Click(object sender, RoutedEventArgs e)
         {
             if (Directory.Exists(this._realConfigDir))
@@ -179,7 +192,8 @@ namespace AIUsageTracker.UI.Slim
                 }
             }
         }
-`n
+
+
         private void DataDir_Click(object sender, RoutedEventArgs e)
         {
             if (Directory.Exists(this._realDataDir))

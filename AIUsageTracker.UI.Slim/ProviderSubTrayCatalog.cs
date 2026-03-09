@@ -1,3 +1,7 @@
+// <copyright file="ProviderSubTrayCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using System.Text.RegularExpressions;
@@ -22,7 +26,8 @@ namespace AIUsageTracker.UI.Slim
                 .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
-    `n
+    
+
         private static bool IsEligibleDetail(ProviderUsageDetail detail)
         {
             if (string.IsNullOrWhiteSpace(detail.Name))

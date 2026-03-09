@@ -1,3 +1,7 @@
+// <copyright file="TokenDiscoveryService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Configuration
 {
     using System.Collections;

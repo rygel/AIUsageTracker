@@ -1,3 +1,7 @@
+// <copyright file="ProviderDeserializationException.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.Exceptions
 {
     /// <summary>

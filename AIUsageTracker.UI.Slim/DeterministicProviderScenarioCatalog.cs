@@ -1,3 +1,7 @@
+// <copyright file="DeterministicProviderScenarioCatalog.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.UI.Slim
 {
     using AIUsageTracker.Infrastructure.Providers;
@@ -8,14 +12,16 @@ namespace AIUsageTracker.UI.Slim
         double RequestsAvailable = 0,
         string Description = "Connected",
         int? ResetHours = null);
-    `n
+    
+
     internal sealed record FixtureHistoryScenario(
         double UsagePercentage,
         double Used,
         double Limit,
         string Description,
         DateTime FetchedAt);
-    `n
+    
+
     internal sealed record DeterministicProviderScenario(
         string ProviderId,
         string ApiKey,
@@ -25,7 +31,8 @@ namespace AIUsageTracker.UI.Slim
         FixtureUsageScenario? MainWindowUsage = null,
         FixtureUsageScenario? SettingsWindowUsage = null,
         FixtureHistoryScenario? SettingsWindowHistory = null);
-    `n
+    
+
     internal static class DeterministicProviderScenarioCatalog
     {
         private static string MinimaxInternationalProviderId =>

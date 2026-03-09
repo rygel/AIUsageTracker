@@ -1,3 +1,7 @@
+// <copyright file="DatabaseMigrationService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Monitor.Services
 {
     using EvolveDb;
@@ -14,7 +18,8 @@ namespace AIUsageTracker.Monitor.Services
             this._connectionString = $"Data Source={dbPath}";
             this._logger = logger;
         }
-    `n
+    
+
         public void RunMigrations()
         {
             try
@@ -61,7 +66,8 @@ namespace AIUsageTracker.Monitor.Services
                 throw;
             }
         }
-    `n
+    
+
         private static bool HasApplicationTables(SqliteConnection connection)
         {
             const string sql = @"
@@ -75,7 +81,8 @@ namespace AIUsageTracker.Monitor.Services
             var count = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
             return count > 0;
         }
-    `n
+    
+
         private static bool HasAppliedEvolveMigrations(SqliteConnection connection)
         {
             const string sql = @"
@@ -94,7 +101,8 @@ namespace AIUsageTracker.Monitor.Services
                 return false;
             }
         }
-    `n
+    
+
         private void EnsureSchemaCompatibility(SqliteConnection connection)
         {
             ExecuteNonQuery(connection, @"
@@ -167,7 +175,8 @@ namespace AIUsageTracker.Monitor.Services
 
             this._logger.LogInformation("Legacy database compatibility bootstrap completed.");
         }
-    `n
+    
+
         private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
         {
             using var infoCommand = connection.CreateCommand();
@@ -193,14 +202,16 @@ namespace AIUsageTracker.Monitor.Services
 
             ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
         }
-    `n
+    
+
         private static void ExecuteNonQuery(SqliteConnection connection, string sql)
         {
             using var command = connection.CreateCommand();
             command.CommandText = sql;
             command.ExecuteNonQuery();
         }
-    `n
+    
+
         private static bool IsExistingSchemaConflict(Exception ex)
         {
             var current = ex;
@@ -217,7 +228,8 @@ namespace AIUsageTracker.Monitor.Services
 
             return false;
         }
-    `n
+    
+
         private void ApplyPerformancePragmas(SqliteConnection connection)
         {
             ExecuteNonQuery(connection, @"

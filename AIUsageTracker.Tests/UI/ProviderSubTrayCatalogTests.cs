@@ -1,3 +1,7 @@
+// <copyright file="ProviderSubTrayCatalogTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.UI
 {
     using AIUsageTracker.Core.Models;

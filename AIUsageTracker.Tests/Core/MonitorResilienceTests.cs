@@ -1,3 +1,7 @@
+// <copyright file="MonitorResilienceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core
 {
     using AIUsageTracker.Core.Models;
@@ -30,14 +34,16 @@ namespace AIUsageTracker.Tests.Core
             try
             {
                 using var listener1 = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
-    `n            listener1.Start();
+    
+            listener1.Start();
 
                 var thread = new System.Threading.Thread(() =>
                 {
                     try
                     {
                         using var listener2 = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
-    `n                    listener2.Start();
+    
+                    listener2.Start();
                         boundPort = preferredPort;
                     }
                     catch (System.Net.Sockets.SocketException)

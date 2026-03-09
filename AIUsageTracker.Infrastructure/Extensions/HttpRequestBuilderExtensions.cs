@@ -1,3 +1,7 @@
+// <copyright file="HttpRequestBuilderExtensions.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Extensions
 {
     using System;

@@ -1,3 +1,7 @@
+// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Providers
 {
     using System.Globalization;
@@ -128,7 +132,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                 tokenLimit != null, mcpLimit != null);
 
             double? remainingPercent = null;
-            string detailInfo = "";
+            string detailInfo = string.Empty;
 
             // Define variables to hold real values if available, otherwise default to percentage logic
             double finalRequestsAvailable = 100;
@@ -213,7 +217,7 @@ namespace AIUsageTracker.Infrastructure.Providers
             }
 
             DateTime? nextResetTime = null;
-            string resetStr = "";
+            string resetStr = string.Empty;
             var limitWithReset = limits
                 .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
                 .OrderBy(l => l.NextResetTime!.Value)

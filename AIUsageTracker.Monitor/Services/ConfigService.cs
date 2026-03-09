@@ -1,3 +1,7 @@
+// <copyright file="ConfigService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Monitor.Services
 {
     using AIUsageTracker.Core.Models;
@@ -24,7 +28,8 @@ namespace AIUsageTracker.Monitor.Services
                 pathProvider: this._pathProvider);
             this._tokenDiscovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, this._pathProvider);
         }
-    `n
+    
+
         public async Task<List<ProviderConfig>> GetConfigsAsync()
         {
             try
@@ -38,7 +43,8 @@ namespace AIUsageTracker.Monitor.Services
                 return new List<ProviderConfig>();
             }
         }
-    `n
+    
+
         public async Task SaveConfigAsync(ProviderConfig config)
         {
             try
@@ -68,7 +74,8 @@ namespace AIUsageTracker.Monitor.Services
                 throw;
             }
         }
-    `n
+    
+
         public async Task RemoveConfigAsync(string providerId)
         {
             try
@@ -84,7 +91,8 @@ namespace AIUsageTracker.Monitor.Services
                 throw;
             }
         }
-    `n
+    
+
         public async Task<AppPreferences> GetPreferencesAsync()
         {
             try
@@ -97,7 +105,8 @@ namespace AIUsageTracker.Monitor.Services
                 return new AppPreferences();
             }
         }
-    `n
+    
+
         public async Task SavePreferencesAsync(AppPreferences preferences)
         {
             try
@@ -111,7 +120,8 @@ namespace AIUsageTracker.Monitor.Services
                 throw;
             }
         }
-    `n
+    
+
         public async Task<List<ProviderConfig>> ScanForKeysAsync()
         {
             try

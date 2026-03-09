@@ -1,3 +1,7 @@
+// <copyright file="ViewTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Web.Tests
 {
     using System.Net;
@@ -188,7 +192,7 @@ namespace AIUsageTracker.Web.Tests
 
             var navMatches = Regex.Matches(
                 html,
-                @"href\s*=\s*""(?<href>[^""]+)""",
+                @"href\s*=\s*string.Empty(?<href>[^string.Empty]+)string.Empty",
                 RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture,
                 RegexTimeout);
             Assert.IsTrue(navMatches.Count > 0, "Navigation should have links");

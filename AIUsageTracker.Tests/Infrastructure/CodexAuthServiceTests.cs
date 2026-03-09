@@ -1,3 +1,7 @@
+// <copyright file="CodexAuthServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure
 {
     using AIUsageTracker.Infrastructure.Services;
@@ -54,7 +58,8 @@ namespace AIUsageTracker.Tests.Infrastructure
             Assert.Equal("compat-token", service.GetAccessToken());
             Assert.Equal("acct-compat", service.GetAccountId());
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._tempDirectory))
@@ -62,7 +67,8 @@ namespace AIUsageTracker.Tests.Infrastructure
                 Directory.Delete(this._tempDirectory, recursive: true);
             }
         }
-    `n
+    
+
         private string CreateFile(string relativePath, string content)
         {
             var fullPath = Path.Combine(this._tempDirectory, relativePath);

@@ -1,3 +1,7 @@
+// <copyright file="MockProviderService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Mocks
 {
     using System;
@@ -22,7 +26,8 @@ namespace AIUsageTracker.Tests.Mocks
                     defaultConfigType: "pay-as-you-go");
             }
         }
-    `n
+    
+
         public ProviderDefinition Definition { get; set; } = new(
             providerId: "mock-provider",
             displayName: "mock-provider",
@@ -42,7 +47,8 @@ namespace AIUsageTracker.Tests.Mocks
         {
             this._mockResponses = mockResponses;
         }
-    `n
+    
+
         public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
         {
             if (this.UsageHandler != null)
@@ -56,7 +62,8 @@ namespace AIUsageTracker.Tests.Mocks
             }
             return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage { ProviderId = config.ProviderId, IsAvailable = false, Description = "Mock not configured" } });
         }
-    `n
+    
+
         public static MockProviderService CreateOpenAIMock()
         {
             return new MockProviderService
@@ -76,7 +83,8 @@ namespace AIUsageTracker.Tests.Mocks
                 }})
             };
         }
-    `n
+    
+
         public static MockProviderService CreateGeminiMock()
         {
             return new MockProviderService
@@ -96,7 +104,8 @@ namespace AIUsageTracker.Tests.Mocks
                 }})
             };
         }
-    `n
+    
+
         public static MockProviderService CreateGeminiCliMock()
         {
             return new MockProviderService
@@ -116,7 +125,8 @@ namespace AIUsageTracker.Tests.Mocks
                 }})
             };
         }
-    `n
+    
+
         public static MockProviderService CreateAntigravityMock()
         {
             return new MockProviderService
@@ -136,7 +146,8 @@ namespace AIUsageTracker.Tests.Mocks
                 }})
             };
         }
-    `n
+    
+
         public static MockProviderService CreateOpenCodeZenMock()
         {
             return new MockProviderService

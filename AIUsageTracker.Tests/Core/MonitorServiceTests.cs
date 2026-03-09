@@ -1,3 +1,7 @@
+// <copyright file="MonitorServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core
 {
     using AIUsageTracker.Core.MonitorClient;
@@ -343,7 +347,8 @@ namespace AIUsageTracker.Tests.Core
             Assert.Empty(result.Configs);
             this.VerifyPath("/api/scan-keys");
         }
-    `n
+    
+
         private void SetupMockResponse(HttpStatusCode status, object body)
         {
             this._mockHandler.Protected()
@@ -360,7 +365,8 @@ namespace AIUsageTracker.Tests.Core
                     })
                 });
         }
-    `n
+    
+
         private void VerifyPath(string path, params string[] queryParts)
         {
             this._mockHandler.Protected().Verify(

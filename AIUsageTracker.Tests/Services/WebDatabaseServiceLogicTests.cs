@@ -1,3 +1,7 @@
+// <copyright file="WebDatabaseServiceLogicTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Services
 {
     using AIUsageTracker.Tests.Infrastructure;
@@ -43,7 +47,8 @@ namespace AIUsageTracker.Tests.Services
             Assert.Equal(10, stats.SampleCount);
         }
     }
-    `n
+    
+
     public class WebDatabaseServiceLogicTests : DatabaseTestBase
     {
         [Fact]

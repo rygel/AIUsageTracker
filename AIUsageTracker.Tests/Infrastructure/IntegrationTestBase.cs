@@ -1,15 +1,21 @@
+// <copyright file="IntegrationTestBase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Infrastructure
 {
     public abstract class IntegrationTestBase : IDisposable
     {
         protected string TestRootPath { get; }
-    `n
+    
+
         protected IntegrationTestBase()
         {
             this.TestRootPath = Path.Combine(Path.GetTempPath(), "ai-tracker-int-tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(this.TestRootPath);
         }
-    `n
+    
+
         protected string CreateFile(string relativePath, string content)
         {
             var fullPath = Path.Combine(this.TestRootPath, relativePath);
@@ -21,7 +27,8 @@ namespace AIUsageTracker.Tests.Infrastructure
             File.WriteAllText(fullPath, content);
             return fullPath;
         }
-    `n
+    
+
         public virtual void Dispose()
         {
             try

@@ -1,3 +1,7 @@
+// <copyright file="MonitorProcessServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core
 {
     using System.Text.Json;
@@ -94,7 +98,8 @@ namespace AIUsageTracker.Tests.Core
             Assert.True(result.Success);
             Assert.Equal("Monitor already stopped (info file missing).", result.Message);
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._tempDirectory))
@@ -102,12 +107,14 @@ namespace AIUsageTracker.Tests.Core
                 Directory.Delete(this._tempDirectory, recursive: true);
             }
         }
-    `n
+    
+
         private MonitorProcessService CreateService()
         {
             return new MonitorProcessService(NullLogger<MonitorProcessService>.Instance);
         }
-    `n
+    
+
         private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)
         {
             var path = Path.Combine(this._tempDirectory, "monitor.json");

@@ -1,3 +1,7 @@
+// <copyright file="MonitorInfoTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Core.Models
 {
     using System.Text.Json;

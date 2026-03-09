@@ -1,3 +1,7 @@
+// <copyright file="ProviderDefinition.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.Models
 {
     public sealed class ProviderDefinition
@@ -56,7 +60,7 @@ namespace AIUsageTracker.Core.Models
 
         public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; }
 
-        private readonly HashSet<string> this.;
+        private readonly HashSet<string> _handledProviderIds;
 
         public ProviderDefinition(
             string providerId,

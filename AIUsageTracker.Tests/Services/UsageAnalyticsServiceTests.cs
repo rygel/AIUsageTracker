@@ -1,3 +1,7 @@
+// <copyright file="UsageAnalyticsServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Tests.Services
 {
     using AIUsageTracker.Core.Interfaces;

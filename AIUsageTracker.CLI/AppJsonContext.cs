@@ -1,3 +1,7 @@
+// <copyright file="AppJsonContext.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.CLI
 {
     using System.Text.Json.Serialization;
