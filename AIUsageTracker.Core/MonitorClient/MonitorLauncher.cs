@@ -347,7 +347,7 @@ namespace AIUsageTracker.Core.MonitorClient
 
         private sealed class TestOverrideScope : IDisposable
         {
-            private readonly Action this.;
+            private readonly Action _reset;
             private bool _disposed;
 
             public TestOverrideScope(Action reset)
