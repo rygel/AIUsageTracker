@@ -12,6 +12,12 @@ namespace AIUsageTracker.Core.Providers
 
     public abstract class ProviderBase : IProviderService
     {
+        protected readonly IProviderDiscoveryService? DiscoveryService;
+
+        protected ProviderBase(IProviderDiscoveryService? discoveryService = null)
+        {
+            this.DiscoveryService = discoveryService;
+        }
         /// <summary>
         /// Shared JSON options for all providers. Case-insensitive property matching only.
         /// Do NOT add NumberHandling.AllowReadingFromString here — any API that returns numbers

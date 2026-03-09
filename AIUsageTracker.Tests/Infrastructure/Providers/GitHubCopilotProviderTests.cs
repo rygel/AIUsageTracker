@@ -6,6 +6,8 @@ using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Tests.Infrastructure;
 using Moq;
@@ -21,7 +23,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
     public GitHubCopilotProviderTests()
     {
         this._authService = new Mock<IGitHubAuthService>();
-        this._provider = new GitHubCopilotProvider(this.HttpClient, this.Logger.Object, this._authService.Object);
+        this._provider = new GitHubCopilotProvider(this.HttpClient, this.Logger.Object, this._authService.Object, new Mock<IProviderDiscoveryService>().Object);
         this.Config.ApiKey = "test-key";
     }
 

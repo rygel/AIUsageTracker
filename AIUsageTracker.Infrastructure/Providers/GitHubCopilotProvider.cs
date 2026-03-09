@@ -36,7 +36,8 @@ public class GitHubCopilotProvider : ProviderBase
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubCopilotProvider> _logger;
 
-    public GitHubCopilotProvider(HttpClient httpClient, ILogger<GitHubCopilotProvider> logger, IGitHubAuthService authService)
+    public GitHubCopilotProvider(HttpClient httpClient, ILogger<GitHubCopilotProvider> logger, IGitHubAuthService authService, IProviderDiscoveryService? discoveryService = null)
+        : base(discoveryService)
     {
         this._httpClient = httpClient;
         this._logger = logger;

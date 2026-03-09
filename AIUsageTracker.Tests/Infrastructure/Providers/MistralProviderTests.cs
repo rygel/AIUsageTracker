@@ -5,6 +5,8 @@
 using System.Net;
 using AIUsageTracker.Core.Exceptions;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Tests.Infrastructure;
 using Moq;
@@ -19,7 +21,7 @@ public class MistralProviderTests : HttpProviderTestBase<MistralProvider>
 
     public MistralProviderTests()
     {
-        this._provider = new MistralProvider(this.HttpClient, this.Logger.Object);
+        this._provider = new MistralProvider(this.HttpClient, this.Logger.Object, new Mock<IProviderDiscoveryService>().Object);
         this.Config.ApiKey = "test-mistral-key";
     }
 

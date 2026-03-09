@@ -5,6 +5,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,8 @@ public class MistralProvider : ProviderBase
     private readonly HttpClient _httpClient;
     private readonly ILogger<MistralProvider> _logger;
 
-    public MistralProvider(HttpClient httpClient, ILogger<MistralProvider> logger)
+    public MistralProvider(HttpClient httpClient, ILogger<MistralProvider> logger, IProviderDiscoveryService? discoveryService = null)
+        : base(discoveryService)
     {
         this._httpClient = httpClient;
         this._logger = logger;
@@ -42,7 +44,14 @@ public class MistralProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
-        if (string.IsNullOrEmpty(config.ApiKey))
+        var apiKey = config.ApiKey;
+
+        if (string.IsNullOrEmpty(apiKey) && this.DiscoveryService != null)
+        {
+            apiKey = this.DiscoveryService.GetEnvironmentVariable("MISTRAL_API_KEY");
+        }
+
+        if (string.IsNullOrEmpty(apiKey))
         {
             return new[] { this.CreateUnavailableUsage("API Key missing") };
         }
@@ -52,7 +61,7 @@ public class MistralProvider : ProviderBase
         try
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.mistral.ai/v1/models");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
 
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

@@ -5,6 +5,8 @@
 using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Tests.Infrastructure;
 using Moq;
@@ -16,10 +18,11 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
 {
     private readonly OpenAIProvider _provider;
+    private readonly Mock<IProviderDiscoveryService> _discoveryService = new();
 
     public OpenAIProviderTests()
     {
-        this._provider = new OpenAIProvider(this.HttpClient, this.Logger.Object);
+        this._provider = new OpenAIProvider(this.HttpClient, this.Logger.Object, this._discoveryService.Object);
     }
 
     [Fact]
@@ -115,19 +118,11 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_LoadsSessionAuthFromMetadataDefinedAuthFileAsync()
+    public async Task GetUsageAsync_LoadsSessionAuthFromDiscoveryServiceAsync()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), $"openai-auth-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
-        var authPath = Path.Combine(tempDir, "auth.json");
-        await File.WriteAllTextAsync(authPath, """
-        {
-          "openai": {
-            "access": "session-from-file",
-            "accountId": "acct-from-file"
-          }
-        }
-        """);
+        // Arrange
+        this._discoveryService.Setup(d => d.DiscoverAuthAsync(It.IsAny<ProviderDefinition>()))
+            .ReturnsAsync(new ProviderAuthData("session-from-mock", "acct-from-mock"));
 
         this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
         {
@@ -144,21 +139,14 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
             """),
         });
 
-        var provider = new OpenAIProvider(this.HttpClient, this.Logger.Object, authPath);
+        // Act
+        var result = await this._provider.GetUsageAsync(new ProviderConfig { ProviderId = "openai" }).ConfigureAwait(false);
 
-        try
-        {
-            var result = await provider.GetUsageAsync(new ProviderConfig { ProviderId = "openai" });
-
-            var usage = result.Single();
-            Assert.True(usage.IsAvailable);
-            Assert.Equal("acct-from-file", usage.AccountName);
-            Assert.Equal("OpenCode Session", usage.AuthSource);
-        }
-        finally
-        {
-            Directory.Delete(tempDir, recursive: true);
-        }
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal("acct-from-mock", usage.AccountName);
+        Assert.Equal("OpenCode Session", usage.AuthSource);
     }
 
     [Fact]

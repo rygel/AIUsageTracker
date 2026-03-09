@@ -177,6 +177,7 @@ public class Program
 
             builder.Services.AddSingleton<IConfigService, ConfigService>();
             builder.Services.AddSingleton<IGitHubAuthService, GitHubAuthService>();
+            builder.Services.AddSingleton<IProviderDiscoveryService, ProviderDiscoveryService>();
             builder.Services.AddProvidersFromAssembly();
             builder.Services.AddSingleton<UsageAlertsService>();
             builder.Services.AddSingleton<ProviderRefreshCircuitBreakerService>();
