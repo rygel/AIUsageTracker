@@ -210,16 +210,13 @@ namespace AIUsageTracker.Monitor
                 const string apiContractVersion = "1";
                 var agentVersion = typeof(UsageDatabase).Assembly.GetName().Version?.ToString() ?? "unknown";
 
-                MonitorDiagnosticsEndpoints.Map(
+                MonitorEndpointsRegistration.MapAll(
                     app,
                     isDebugMode,
                     port,
                     agentVersion,
                     apiContractVersion,
                     args);
-                MonitorUsageEndpoints.Map(app);
-                MonitorConfigEndpoints.Map(app);
-                MonitorHistoryEndpoints.Map(app);
 
                 await app.StartAsync();
 
