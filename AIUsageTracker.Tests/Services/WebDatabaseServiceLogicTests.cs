@@ -47,7 +47,8 @@ namespace AIUsageTracker.Tests.Services
             Assert.Equal(10, stats.SampleCount);
         }
     }
-    `n
+    
+
     public class WebDatabaseServiceLogicTests : DatabaseTestBase
     {
         [Fact]

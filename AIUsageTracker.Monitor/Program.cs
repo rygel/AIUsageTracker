@@ -14,6 +14,7 @@ namespace AIUsageTracker.Monitor
     using AIUsageTracker.Core.Models;
     using AIUsageTracker.Core.MonitorClient;
     using AIUsageTracker.Infrastructure.Configuration;
+    using AIUsageTracker.Infrastructure.Extensions;
     using AIUsageTracker.Infrastructure.Helpers;
     using AIUsageTracker.Infrastructure.Providers;
     using AIUsageTracker.Infrastructure.Services;

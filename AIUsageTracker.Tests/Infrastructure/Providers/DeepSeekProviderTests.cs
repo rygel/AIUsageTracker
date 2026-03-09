@@ -26,23 +26,25 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
         public async Task GetUsageAsync_ValidResponse_ParsesMultiCurrencyBalanceCorrectly()
         {
             // Arrange
-            var responseJson = @"{
-            string.Emptyis_availablestring.Empty: true,
-            string.Emptybalance_infosstring.Empty: [
+            var responseJson = """
+            {
+              "is_available": true,
+              "balance_infos": [
                 {
-                    string.Emptycurrencystring.Empty: string.EmptyCNYstring.Empty,
-                    string.Emptytotal_balancestring.Empty: 150.50,
-                    string.Emptygranted_balancestring.Empty: 50.00,
-                    string.Emptytopped_up_balancestring.Empty: 100.50
+                  "currency": "CNY",
+                  "total_balance": 150.50,
+                  "granted_balance": 50.00,
+                  "topped_up_balance": 100.50
                 },
                 {
-                    string.Emptycurrencystring.Empty: string.EmptyUSDstring.Empty,
-                    string.Emptytotal_balancestring.Empty: 10.00,
-                    string.Emptygranted_balancestring.Empty: 0.00,
-                    string.Emptytopped_up_balancestring.Empty: 10.00
+                  "currency": "USD",
+                  "total_balance": 10.00,
+                  "granted_balance": 0.00,
+                  "topped_up_balance": 10.00
                 }
-            ]
-        }";
+              ]
+            }
+            """;
 
             this.SetupHttpResponse("https://api.deepseek.com/user/balance", new HttpResponseMessage
             {

@@ -252,7 +252,8 @@ namespace AIUsageTracker.Tests.Core
             Assert.True(File.Exists(infoPath));
             Assert.Empty(Directory.GetFiles(this._tempDirectory, "monitor.json.stale.*", SearchOption.TopDirectoryOnly));
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._tempDirectory))
@@ -260,18 +261,21 @@ namespace AIUsageTracker.Tests.Core
                 Directory.Delete(this._tempDirectory, recursive: true);
             }
         }
-    `n
+    
+
         private MonitorService CreateMonitorService()
         {
             return new MonitorService(new HttpClient(new Mock<HttpMessageHandler>().Object), NullLogger<MonitorService>.Instance);
         }
-    `n
+    
+
         private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)
         {
             var json = JsonSerializer.Serialize(info);
             return await this.CreateMonitorInfoContentAsync(json);
         }
-    `n
+    
+
         private async Task<string> CreateMonitorInfoContentAsync(string content)
         {
             var path = Path.Combine(this._tempDirectory, "monitor.json");

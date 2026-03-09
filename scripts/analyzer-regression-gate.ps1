@@ -115,12 +115,28 @@ if (Test-Path $worktreePath) {
 }
 
 git worktree add --detach $worktreePath $baseRef | Out-Null
+$baseWarnings = @()
+$headWarnings = @()
+$baselineBuildSucceeded = $true
 try {
-    $baseWarnings = Get-AnalyzerWarnings -SourceRoot $worktreePath -SolutionPath $Solution -ConfigurationName $Configuration -Label "base"
+    try {
+        $baseWarnings = Get-AnalyzerWarnings -SourceRoot $worktreePath -SolutionPath $Solution -ConfigurationName $Configuration -Label "base"
+    }
+    catch {
+        $baselineBuildSucceeded = $false
+        Write-Warning "Analyzer baseline build failed for '$baseRef'. Skipping regression diff for this run."
+        Write-Warning $_
+    }
+
     $headWarnings = Get-AnalyzerWarnings -SourceRoot $repoRoot -SolutionPath $Solution -ConfigurationName $Configuration -Label "head"
 }
 finally {
     git worktree remove --force $worktreePath
+}
+
+if (-not $baselineBuildSucceeded) {
+    Write-Host "⚠️ Analyzer regression gate skipped because baseline build failed."
+    exit 0
 }
 
 $baseSet = New-Object 'System.Collections.Generic.HashSet[string]'

@@ -40,7 +40,8 @@ namespace AIUsageTracker.Tests.Core
             public ProviderUsage TestCreateUnavailableUsageFromProviderException(ProviderException ex)
                 => this.CreateUnavailableUsageFromProviderException(ex);
         }
-    `n
+    
+
         private readonly TestProvider _provider = new();
 
         [Fact]

@@ -40,12 +40,14 @@ namespace AIUsageTracker.UI.Slim
 
             return null;
         }
-    `n
+    
+
         private static string GetDetailDisplayName(ProviderUsageDetail detail)
         {
             return detail.Name;
         }
-    `n
+    
+
         private static int GetDetailSortOrder(ProviderUsageDetail detail)
         {
             return (detail.DetailType, detail.WindowKind) switch

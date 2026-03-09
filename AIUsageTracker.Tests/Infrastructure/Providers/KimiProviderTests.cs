@@ -153,7 +153,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
             var weeklyResetTime = DateTime.UtcNow.AddDays(4).ToString("o");
 
             // Raw JSON with string-typed numeric fields, exactly as the real API returns them
-            var rawJson = $$"string.Empty
+            var rawJson = $$"""
             {
               "usage": { "limit": "100", "used": "26", "remaining": "74", "resetTime": "{{weeklyResetTime}}" },
               "limits": [
@@ -163,7 +163,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
                 }
               ]
             }
-            string.Empty";
+            """;
 
             this.SetupHttpResponse("https://api.kimi.com/coding/v1/usages", new HttpResponseMessage
             {

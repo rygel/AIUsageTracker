@@ -16,7 +16,7 @@ namespace AIUsageTracker.Tests.Infrastructure
         [InlineData("abc", "abc", "a*c")]
         [InlineData("ab", "ab", "**")]
         [InlineData("a", "a", "*")]
-        [InlineData(string.Empty, null, string.Empty)]
+        [InlineData("", null, "")]
         [InlineData(null, null, null)]
         public void MaskContent_ShouldMaskCorrectly(string? input, string? accountName, string? expected)
         {

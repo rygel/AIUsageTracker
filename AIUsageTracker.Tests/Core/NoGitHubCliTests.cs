@@ -51,7 +51,8 @@ namespace AIUsageTracker.Tests.Core
 
             Assert.Empty(violations);
         }
-    `n
+    
+
         private static string GetRepoRoot()
         {
             var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);

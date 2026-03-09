@@ -26,12 +26,14 @@ namespace AIUsageTracker.UI.Slim
             this._logger = logger;
             this._pathProvider = pathProvider;
         }
-    `n
+    
+
         internal void SetPreferencesPathOverrideForTesting(string? path)
         {
             this._preferencesPathOverride = string.IsNullOrWhiteSpace(path) ? null : path;
         }
-    `n
+    
+
         private string GetPreferencesPath()
         {
             if (!string.IsNullOrWhiteSpace(this._preferencesPathOverride))
@@ -41,7 +43,8 @@ namespace AIUsageTracker.UI.Slim
 
             return this._pathProvider.GetPreferencesFilePath();
         }
-    `n
+    
+
         public async Task<AppPreferences> LoadAsync()
         {
             var path = this.GetPreferencesPath();
@@ -71,7 +74,8 @@ namespace AIUsageTracker.UI.Slim
 
             return new AppPreferences();
         }
-    `n
+    
+
         public async Task<bool> SaveAsync(AppPreferences preferences)
         {
             var path = this.GetPreferencesPath();
@@ -100,7 +104,8 @@ namespace AIUsageTracker.UI.Slim
 
             return false;
         }
-    `n
+    
+
         private async Task<AppPreferences?> TryLoadLegacyPreferencesAsync()
         {
             foreach (var legacyPath in this.GetLegacyPreferenceCandidates())
@@ -142,7 +147,8 @@ namespace AIUsageTracker.UI.Slim
 
             return null;
         }
-    `n
+    
+
         private IEnumerable<string> GetLegacyPreferenceCandidates()
         {
             var userProfileRoot = this._pathProvider.GetUserProfileRoot();

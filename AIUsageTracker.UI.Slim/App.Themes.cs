@@ -485,12 +485,14 @@ namespace AIUsageTracker.UI.Slim
                     break;
             }
         }
-    `n
+    
+
         public static void ApplyTheme(Window window)
         {
             ApplyTheme(Preferences.Theme);
         }
-    `n
+    
+
         public static void ApplyTheme(Window window, string themeName)
         {
             if (Enum.TryParse<AppTheme>(themeName, true, out var theme))
@@ -498,7 +500,8 @@ namespace AIUsageTracker.UI.Slim
                 ApplyTheme(theme);
             }
         }
-    `n
+    
+
         private static void SetBrushColor(ResourceDictionary resources, string key, Color color)
         {
             if (resources.Contains(key) && resources[key] is SolidColorBrush brush && !brush.IsFrozen)
