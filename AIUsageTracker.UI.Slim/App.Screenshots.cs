@@ -77,7 +77,8 @@ namespace AIUsageTracker.UI.Slim
                 this.Shutdown();
             }
         }
-    `n
+    
+
         private static string ResolveScreenshotsDirectory()
         {
             var currentDocs = Path.Combine(Environment.CurrentDirectory, "docs");
@@ -100,7 +101,8 @@ namespace AIUsageTracker.UI.Slim
 
             return currentDocs;
         }
-    `n
+    
+
         public static void RenderWindowContent(Window window, string outputPath)
         {
             if (window.Content is not FrameworkElement root)
@@ -167,7 +169,8 @@ namespace AIUsageTracker.UI.Slim
             using var stream = File.Create(outputPath);
             encoder.Save(stream);
         }
-    `n
+    
+
         private async Task CaptureMainWindowScreenshotAsync(string outputPath)
         {
             var window = Host.Services.GetRequiredService<MainWindow>();
@@ -182,7 +185,8 @@ namespace AIUsageTracker.UI.Slim
                 window.Close();
             }
         }
-    `n
+    
+
         private async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
         {
             var window = Host.Services.GetRequiredService<SettingsWindow>();
@@ -195,7 +199,8 @@ namespace AIUsageTracker.UI.Slim
                 window.Close();
             }
         }
-    `n
+    
+
         private void CaptureInfoScreenshot(string outputPath)
         {
             var window = this.InfoDialogFactory();
@@ -213,7 +218,8 @@ namespace AIUsageTracker.UI.Slim
                 window.Close();
             }
         }
-    `n
+    
+
         private static string? GetArgumentValue(IReadOnlyList<string> args, string argumentName)
         {
             for (var i = 0; i < args.Count - 1; i++)

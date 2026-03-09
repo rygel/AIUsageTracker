@@ -32,7 +32,8 @@ namespace AIUsageTracker.Tests.UI
 
             this._store = new UiPreferencesStore(NullLogger<UiPreferencesStore>.Instance, this._mockPathProvider.Object);
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._testPreferencesDirectory))

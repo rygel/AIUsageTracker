@@ -64,7 +64,8 @@ namespace AIUsageTracker.Tests.Services
 
             Assert.Equal("Google Antigravity", name);
         }
-    `n
+    
+
         public void Dispose()
         {
             try
@@ -79,7 +80,8 @@ namespace AIUsageTracker.Tests.Services
                 // Ignore cleanup failures for temp db files.
             }
         }
-    `n
+    
+
         private void CreateLegacySchemaWithoutEvolveMetadata()
         {
             using var connection = new SqliteConnection($"Data Source={this._dbPath}");
@@ -125,7 +127,8 @@ namespace AIUsageTracker.Tests.Services
             command.CommandText = sql;
             command.ExecuteNonQuery();
         }
-    `n
+    
+
         private HashSet<string> GetColumnNames(string tableName)
         {
             using var connection = new SqliteConnection($"Data Source={this._dbPath}");
@@ -147,7 +150,8 @@ namespace AIUsageTracker.Tests.Services
 
             return columns;
         }
-    `n
+    
+
         private sealed class TestAppPathProvider : IAppPathProvider
         {
             private readonly string _dbPath;
@@ -156,7 +160,8 @@ namespace AIUsageTracker.Tests.Services
             {
                 this._dbPath = dbPath;
             }
-    `n
+    
+
             public string GetAppDataRoot() => Path.GetDirectoryName(this._dbPath)!;
 
             public string GetDatabasePath() => this._dbPath;

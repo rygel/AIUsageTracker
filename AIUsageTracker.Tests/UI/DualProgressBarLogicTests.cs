@@ -19,7 +19,7 @@ namespace AIUsageTracker.Tests.UI
         [InlineData("96% remaining (4% used)", 4.0)]
         [InlineData("49% remaining (51% used)", 51.0)]
         [InlineData("Invalid", null)]
-        [InlineData(string.Empty, null)]
+        [InlineData("", null)]
         [InlineData(null, null)]
         public void ParsePercent_HandlesFormatsCorrectly(string? input, double? expected)
         {

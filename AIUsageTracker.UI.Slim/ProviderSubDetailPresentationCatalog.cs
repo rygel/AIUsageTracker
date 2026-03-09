@@ -12,7 +12,8 @@ namespace AIUsageTracker.UI.Slim
         double IndicatorWidth,
         string DisplayText,
         string? ResetText);
-    `n
+    
+
     internal static class ProviderSubDetailPresentationCatalog
     {
         public static IReadOnlyList<ProviderUsageDetail> GetDisplayableDetails(ProviderUsage usage)
@@ -28,7 +29,8 @@ namespace AIUsageTracker.UI.Slim
                 .ThenBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
-    `n
+    
+
         public static ProviderSubDetailPresentation Create(
             ProviderUsageDetail detail,
             bool isQuotaBased,
@@ -55,7 +57,8 @@ namespace AIUsageTracker.UI.Slim
                 DisplayText: displayText,
                 ResetText: resetText);
         }
-    `n
+    
+
         private static bool IsDisplayableDetail(ProviderUsageDetail detail)
         {
             if (string.IsNullOrWhiteSpace(detail.Name))

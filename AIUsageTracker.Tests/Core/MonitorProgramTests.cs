@@ -100,7 +100,8 @@ namespace AIUsageTracker.Tests.Core
 
             Assert.Contains("Refresh failed: newest", updated.Errors ?? [], StringComparer.Ordinal);
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._tempDirectory))
@@ -108,7 +109,8 @@ namespace AIUsageTracker.Tests.Core
                 Directory.Delete(this._tempDirectory, recursive: true);
             }
         }
-    `n
+    
+
         private MonitorInfo DeserializeMonitorInfo(string path)
         {
             var json = File.ReadAllText(path);
@@ -117,17 +119,22 @@ namespace AIUsageTracker.Tests.Core
                 PropertyNameCaseInsensitive = true
             })!;
         }
-    `n
+    
+
         private IEnumerable<string> GetExpectedMonitorInfoPaths()
         {
             return MonitorInfoPathCatalog.GetWriteCandidatePaths(
                 this._pathProvider.GetAppDataRoot(),
                 this._pathProvider.GetUserProfileRoot());
         }
-    `n
+    
+
         private static void InvokeMonitorProgramMethod(string methodName, params object?[] arguments)
         {
-            var programType = typeof(ProviderRefreshService).Assembly.GetType("Program");
+            var monitorAssembly = typeof(ProviderRefreshService).Assembly;
+            var programType =
+                monitorAssembly.GetType("AIUsageTracker.Monitor.Program") ??
+                monitorAssembly.GetType("Program");
             Assert.NotNull(programType);
 
             var method = programType!.GetMethod(
@@ -137,7 +144,8 @@ namespace AIUsageTracker.Tests.Core
 
             method!.Invoke(null, arguments);
         }
-    `n
+    
+
         private static void WriteMonitorInfoFile(string path, string error)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -155,7 +163,8 @@ namespace AIUsageTracker.Tests.Core
 
             File.WriteAllText(path, JsonSerializer.Serialize(info));
         }
-    `n
+    
+
         private sealed class TestAppPathProvider : IAppPathProvider
         {
             private readonly string _root;
@@ -164,7 +173,8 @@ namespace AIUsageTracker.Tests.Core
             {
                 this._root = root;
             }
-    `n
+    
+
             public string GetAppDataRoot() => Path.Combine(this._root, "appdata");
 
             public string GetDatabasePath() => Path.Combine(this.GetAppDataRoot(), "usage.db");

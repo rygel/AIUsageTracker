@@ -347,7 +347,8 @@ namespace AIUsageTracker.Tests.Core
             Assert.Empty(result.Configs);
             this.VerifyPath("/api/scan-keys");
         }
-    `n
+    
+
         private void SetupMockResponse(HttpStatusCode status, object body)
         {
             this._mockHandler.Protected()
@@ -364,7 +365,8 @@ namespace AIUsageTracker.Tests.Core
                     })
                 });
         }
-    `n
+    
+
         private void VerifyPath(string path, params string[] queryParts)
         {
             this._mockHandler.Protected().Verify(

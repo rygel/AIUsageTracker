@@ -24,14 +24,14 @@ namespace AIUsageTracker.Tests.Infrastructure
         {
             var authPath = this.CreateFile(
                 "codex-auth.json",
-                string.Empty"
+                """
             {
               "tokens": {
                 "access_token": "native-token",
                 "account_id": "acct-native"
               }
             }
-            string.Empty");
+            """);
 
             var service = new CodexAuthService(this._logger, authPath);
 
@@ -44,21 +44,22 @@ namespace AIUsageTracker.Tests.Infrastructure
         {
             var authPath = this.CreateFile(
                 "opencode-auth.json",
-                string.Empty"
+                """
             {
               "openai": {
                 "access": "compat-token",
                 "accountId": "acct-compat"
               }
             }
-            string.Empty");
+            """);
 
             var service = new CodexAuthService(this._logger, authPath);
 
             Assert.Equal("compat-token", service.GetAccessToken());
             Assert.Equal("acct-compat", service.GetAccountId());
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._tempDirectory))
@@ -66,7 +67,8 @@ namespace AIUsageTracker.Tests.Infrastructure
                 Directory.Delete(this._tempDirectory, recursive: true);
             }
         }
-    `n
+    
+
         private string CreateFile(string relativePath, string content)
         {
             var fullPath = Path.Combine(this._tempDirectory, relativePath);

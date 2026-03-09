@@ -9,10 +9,15 @@ namespace AIUsageTracker.Monitor.Services
     public interface IConfigService
     {
         Task<List<ProviderConfig>> GetConfigsAsync();
-    `n    Task SaveConfigAsync(ProviderConfig config);
-    `n    Task RemoveConfigAsync(string providerId);
-    `n    Task<AppPreferences> GetPreferencesAsync();
-    `n    Task SavePreferencesAsync(AppPreferences preferences);
-    `n    Task<List<ProviderConfig>> ScanForKeysAsync();
+    
+    Task SaveConfigAsync(ProviderConfig config);
+    
+    Task RemoveConfigAsync(string providerId);
+    
+    Task<AppPreferences> GetPreferencesAsync();
+    
+    Task SavePreferencesAsync(AppPreferences preferences);
+    
+    Task<List<ProviderConfig>> ScanForKeysAsync();
     }
 }

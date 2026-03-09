@@ -106,7 +106,8 @@ namespace AIUsageTracker.Tests.Core
             var isValid = ValidateDetailCombination(detail);
             Assert.Equal(expectedValid, isValid);
         }
-    `n
+    
+
         private static bool ValidateDetailCombination(ProviderUsageDetail detail)
         {
             if (detail.DetailType == ProviderUsageDetailType.Unknown)

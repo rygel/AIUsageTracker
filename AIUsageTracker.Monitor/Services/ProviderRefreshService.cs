@@ -44,15 +44,19 @@ namespace AIUsageTracker.Monitor.Services
         private sealed class ProviderFailureState
         {
             public int ConsecutiveFailures { get; set; }
-    `n        public DateTime? CircuitOpenUntilUtc { get; set; }
-    `n        public string? LastError { get; set; }
+    
+        public DateTime? CircuitOpenUntilUtc { get; set; }
+    
+        public string? LastError { get; set; }
         }
-    `n
+    
+
         public static void SetDebugMode(bool debug)
         {
             _debugMode = debug;
         }
-    `n
+    
+
         public ProviderRefreshService(
             ILogger<ProviderRefreshService> logger,
             ILoggerFactory loggerFactory,
@@ -72,7 +76,8 @@ namespace AIUsageTracker.Monitor.Services
             this._pathProvider = pathProvider;
             this._providers = providers;
         }
-    `n
+    
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             this._logger.LogInformation("Starting...");
@@ -146,7 +151,8 @@ namespace AIUsageTracker.Monitor.Services
 
             this._logger.LogInformation("Stopping...");
         }
-    `n
+    
+
         private void InitializeProviders()
         {
             this._logger.LogDebug("Initializing providers...");
@@ -168,7 +174,8 @@ namespace AIUsageTracker.Monitor.Services
 
             this._logger.LogInformation("Loaded {Count} providers", providerList.Count);
         }
-    `n
+    
+
         public virtual async Task TriggerRefreshAsync(
             bool forceAll = false,
             IReadOnlyCollection<string>? includeProviderIds = null,
@@ -369,7 +376,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._refreshSemaphore.Release();
             }
         }
-    `n
+    
+
         public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
         {
             var refreshCount = Interlocked.Read(ref this._refreshCount);
@@ -401,13 +409,17 @@ namespace AIUsageTracker.Monitor.Services
                 LastError = lastRefreshError
             };
         }
-    `n
+    
+
         private void RecordRefreshTelemetry(TimeSpan duration, bool success, string? errorMessage)
         {
             var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-    `n        Interlocked.Increment(ref this._refreshCount);
-    `n        Interlocked.Add(ref this._refreshTotalLatencyMs, latencyMs);
-    `n        Interlocked.Exchange(ref this._lastRefreshLatencyMs, latencyMs);
+    
+        Interlocked.Increment(ref this._refreshCount);
+    
+        Interlocked.Add(ref this._refreshTotalLatencyMs, latencyMs);
+    
+        Interlocked.Exchange(ref this._lastRefreshLatencyMs, latencyMs);
 
             if (!success)
             {
@@ -420,7 +432,8 @@ namespace AIUsageTracker.Monitor.Services
                 this._lastRefreshError = success ? null : errorMessage;
             }
         }
-    `n
+    
+
         private List<ProviderConfig> GetRefreshableConfigs(List<ProviderConfig> activeConfigs, bool forceAll)
         {
             if (forceAll || activeConfigs.Count == 0)
@@ -457,7 +470,8 @@ namespace AIUsageTracker.Monitor.Services
 
             return refreshable;
         }
-    `n
+    
+
         private void UpdateProviderFailureStates(IReadOnlyCollection<ProviderConfig> queriedConfigs, IReadOnlyCollection<ProviderUsage> usages)
         {
             if (queriedConfigs.Count == 0)
@@ -518,7 +532,8 @@ namespace AIUsageTracker.Monitor.Services
                 }
             }
         }
-    `n
+    
+
         private static bool IsUsageForProvider(string providerId, string usageProviderId)
         {
             if (usageProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase))
@@ -528,7 +543,8 @@ namespace AIUsageTracker.Monitor.Services
 
             return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
         }
-    `n
+    
+
         private void EnsureAutoIncludedConfigs(List<ProviderConfig> configs)
         {
             var configuredProviderIds = configs
@@ -556,25 +572,29 @@ namespace AIUsageTracker.Monitor.Services
                 configuredProviderIds.Add(config.ProviderId);
             }
         }
-    `n
+    
+
         private bool IsAutoIncludedProviderConfig(string providerId)
         {
             return this._providers.Any(provider =>
                 provider.Definition.AutoIncludeWhenUnconfigured &&
                 provider.Definition.HandlesProviderId(providerId));
         }
-    `n
+    
+
         private static bool IsUsageForAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
         {
             return activeProviderIds.Any(providerId => IsUsageForProvider(providerId, usageProviderId));
         }
-    `n
+    
+
         private static bool IsDynamicChildOfAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
         {
             return activeProviderIds.Any(providerId =>
                 usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase));
         }
-    `n
+    
+
         private static bool IsSuccessfulUsage(ProviderUsage usage)
         {
             if (!usage.IsAvailable)
@@ -590,7 +610,8 @@ namespace AIUsageTracker.Monitor.Services
             return string.IsNullOrWhiteSpace(usage.Description) ||
                    !usage.Description.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase);
         }
-    `n
+    
+
         private static string GetFailureMessage(IReadOnlyCollection<ProviderUsage> providerUsages)
         {
             if (providerUsages.Count == 0)
@@ -606,7 +627,8 @@ namespace AIUsageTracker.Monitor.Services
 
             return "Provider returned no successful usage entries";
         }
-    `n
+    
+
         private static TimeSpan GetCircuitBreakerDelay(int consecutiveFailures)
         {
             var backoffLevel = Math.Max(0, consecutiveFailures - CircuitBreakerFailureThreshold);
@@ -614,7 +636,8 @@ namespace AIUsageTracker.Monitor.Services
             var seconds = CircuitBreakerBaseBackoff.TotalSeconds * Math.Pow(2, exponent);
             return TimeSpan.FromSeconds(Math.Min(seconds, CircuitBreakerMaxBackoff.TotalSeconds));
         }
-    `n
+    
+
         private static bool IsInQuietHours(AppPreferences prefs)
         {
             if (!prefs.EnableQuietHours)
@@ -641,7 +664,8 @@ namespace AIUsageTracker.Monitor.Services
 
             return now >= start || now < end;
         }
-    `n
+    
+
         public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)
         {
             if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
@@ -659,7 +683,8 @@ namespace AIUsageTracker.Monitor.Services
                 }
             }
         }
-    `n
+    
+
         private async Task DetectResetEventsAsync(List<ProviderUsage> currentUsages)
         {
             this._logger.LogDebug("Checking for reset events...");
@@ -764,7 +789,8 @@ namespace AIUsageTracker.Monitor.Services
                 }
             }
         }
-    `n
+    
+
         public async Task<(bool success, string message, int status)> CheckProviderAsync(string providerId)
         {
             if (this._providerManager == null)
@@ -805,7 +831,8 @@ namespace AIUsageTracker.Monitor.Services
                 return (false, ex.Message, 500);
             }
         }
-    `n
+    
+
         private IEnumerable<ProviderUsage> ValidateDetailContract(IEnumerable<ProviderUsage> usages)
         {
             foreach (var usage in usages)
@@ -860,17 +887,25 @@ namespace AIUsageTracker.Monitor.Services
             }
         }
     }
-    `n
+    
+
     public sealed class RefreshTelemetrySnapshot
     {
         public long RefreshCount { get; init; }
-    `n    public long RefreshSuccessCount { get; init; }
-    `n    public long RefreshFailureCount { get; init; }
-    `n    public double ErrorRatePercent { get; init; }
-    `n    public double AverageLatencyMs { get; init; }
-    `n    public long LastLatencyMs { get; init; }
-    `n    public DateTime? LastRefreshCompletedUtc { get; init; }
-    `n    public string? LastError { get; init; }
+    
+    public long RefreshSuccessCount { get; init; }
+    
+    public long RefreshFailureCount { get; init; }
+    
+    public double ErrorRatePercent { get; init; }
+    
+    public double AverageLatencyMs { get; init; }
+    
+    public long LastLatencyMs { get; init; }
+    
+    public DateTime? LastRefreshCompletedUtc { get; init; }
+    
+    public string? LastError { get; init; }
     }
 
 }

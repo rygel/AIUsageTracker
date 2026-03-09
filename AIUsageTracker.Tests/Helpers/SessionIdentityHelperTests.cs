@@ -37,12 +37,12 @@ namespace AIUsageTracker.Tests.Helpers
         [Fact]
         public void TryGetPreferredIdentity_PrefersDirectEmailClaim()
         {
-            using var doc = JsonDocument.Parse(string.Empty"
+            using var doc = JsonDocument.Parse("""
             {
               "email": "user@example.com",
               "login": "fallback-user"
             }
-            string.Empty");
+            """);
 
             var identity = SessionIdentityHelper.TryGetPreferredIdentity(doc.RootElement);
 
@@ -52,13 +52,13 @@ namespace AIUsageTracker.Tests.Helpers
         [Fact]
         public void TryGetPreferredIdentity_FallsBackToOpenAiProfileIdentity()
         {
-            using var doc = JsonDocument.Parse(string.Empty"
+            using var doc = JsonDocument.Parse("""
             {
               "https://api.openai.com/profile": {
                 "username": "profile-user"
               }
             }
-            string.Empty");
+            """);
 
             var identity = SessionIdentityHelper.TryGetPreferredIdentity(doc.RootElement);
 
@@ -68,13 +68,13 @@ namespace AIUsageTracker.Tests.Helpers
         [Fact]
         public void TryGetPreferredIdentity_FallsBackToRecursiveIdentitySearch()
         {
-            using var doc = JsonDocument.Parse(string.Empty"
+            using var doc = JsonDocument.Parse("""
             {
               "outer": {
                 "innerUser": "nested-user"
               }
             }
-            string.Empty");
+            """);
 
             var identity = SessionIdentityHelper.TryGetPreferredIdentity(doc.RootElement);
 
@@ -97,20 +97,22 @@ namespace AIUsageTracker.Tests.Helpers
         [Theory]
         [InlineData("user@example.com", true)]
         [InlineData("username", false)]
-        [InlineData(string.Empty, false)]
+        [InlineData("", false)]
         [InlineData(null, false)]
         public void IsEmailLike_ReturnsExpectedValue(string? value, bool expected)
         {
             Assert.Equal(expected, SessionIdentityHelper.IsEmailLike(value));
         }
-    `n
+    
+
         private static string CreateJwt(object payload)
         {
-            var header = Base64UrlEncode(string.Empty"{"alg":"none","typ":"JWT"}string.Empty");
+            var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
             var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
             return $"{header}.{body}.";
         }
-    `n
+    
+
         private static string Base64UrlEncode(string value)
         {
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))

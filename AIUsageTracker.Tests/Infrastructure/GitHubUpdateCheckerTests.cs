@@ -22,7 +22,8 @@ namespace AIUsageTracker.Tests.Infrastructure
 
             // Act
             bool parsed = Version.TryParse(latestStr, out var latest);
-    `n        bool isNewer = parsed && latest > current;
+    
+        bool isNewer = parsed && latest > current;
 
             // Assert
             Assert.True(isNewer);
@@ -45,7 +46,8 @@ namespace AIUsageTracker.Tests.Infrastructure
 
             string sanitized = latestStr.StartsWith("v") ? latestStr[1..] : latestStr;
             bool parsed = Version.TryParse(sanitized, out var latest);
-    `n        bool isNewer = parsed && latest > current;
+    
+        bool isNewer = parsed && latest > current;
 
             // Assert
             Assert.True(isNewer);

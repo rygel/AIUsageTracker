@@ -25,31 +25,36 @@ namespace AIUsageTracker.UI.Slim.ViewModels
             get => this._isLoading;
             set => this.SetProperty(ref this._isLoading, value);
         }
-    `n
+    
+
         public bool IsPrivacyMode
         {
             get => this._isPrivacyMode;
             set => this.SetProperty(ref this._isPrivacyMode, value);
         }
-    `n
+    
+
         public string StatusMessage
         {
             get => this._statusMessage;
             set => this.SetProperty(ref this._statusMessage, value);
         }
-    `n
+    
+
         public ObservableCollection<ProviderUsage> Usages
         {
             get => this._usages;
             private set => this.SetProperty(ref this._usages, value);
         }
-    `n
+    
+
         public DateTime LastRefreshTime
         {
             get => this._lastRefreshTime;
             private set => this.SetProperty(ref this._lastRefreshTime, value);
         }
-    `n
+    
+
         public MainViewModel(
             IMonitorService monitorService,
             IUsageAnalyticsService analyticsService,
@@ -60,7 +65,8 @@ namespace AIUsageTracker.UI.Slim.ViewModels
             this._logger = logger;
             this._isPrivacyMode = false; // Initial state
         }
-    `n
+    
+
         public async Task RefreshDataAsync()
         {
             if (this.IsLoading) return;
@@ -91,7 +97,8 @@ namespace AIUsageTracker.UI.Slim.ViewModels
                 this.IsLoading = false;
             }
         }
-    `n
+    
+
         public void SetPrivacyMode(bool enabled)
         {
             this.IsPrivacyMode = enabled;

@@ -14,8 +14,10 @@ namespace AIUsageTracker.Tests.Infrastructure
     public abstract class ProviderTestBase<TProvider> where TProvider : class
     {
         protected Mock<ILogger<TProvider>> Logger { get; }
-    `n    protected ProviderConfig Config { get; }
-    `n
+    
+    protected ProviderConfig Config { get; }
+    
+
         protected ProviderTestBase()
         {
             this.Logger = new Mock<ILogger<TProvider>>();
@@ -27,7 +29,8 @@ namespace AIUsageTracker.Tests.Infrastructure
                 Type = definition?.DefaultConfigType ?? "pay-as-you-go"
             };
         }
-    `n
+    
+
         protected static string GetProviderId()
         {
             var definition = GetProviderDefinition();
@@ -43,7 +46,8 @@ namespace AIUsageTracker.Tests.Infrastructure
             }
             return providerTypeName.ToLowerInvariant().Replace(" ", "-");
         }
-    `n
+    
+
         private static ProviderDefinition? GetProviderDefinition()
         {
             var property = typeof(TProvider).GetProperty(
@@ -54,7 +58,8 @@ namespace AIUsageTracker.Tests.Infrastructure
                 ? property.GetValue(null) as ProviderDefinition
                 : null;
         }
-    `n
+    
+
         protected static string LoadFixture(string fileName)
         {
             var fixturePath = Path.Combine(AppContext.BaseDirectory, "TestData", "Providers", fileName);
@@ -62,19 +67,23 @@ namespace AIUsageTracker.Tests.Infrastructure
             return File.ReadAllText(fixturePath);
         }
     }
-    `n
+    
+
     public abstract class HttpProviderTestBase<TProvider> : ProviderTestBase<TProvider>
         where TProvider : class
     {
         protected Mock<HttpMessageHandler> MessageHandler { get; }
-    `n    protected HttpClient HttpClient { get; }
-    `n
+    
+    protected HttpClient HttpClient { get; }
+    
+
         protected HttpProviderTestBase()
         {
             this.MessageHandler = new Mock<HttpMessageHandler>();
             this.HttpClient = new HttpClient(this.MessageHandler.Object);
         }
-    `n
+    
+
         protected void SetupHttpResponse(string url, HttpResponseMessage response)
         {
             this.MessageHandler.Protected()
@@ -84,7 +93,8 @@ namespace AIUsageTracker.Tests.Infrastructure
                     ItExpr.IsAny<CancellationToken>())
                 .ReturnsAsync(response);
         }
-    `n
+    
+
         protected void SetupHttpResponse(Func<HttpRequestMessage, bool> requestMatcher, HttpResponseMessage response)
         {
             this.MessageHandler.Protected()

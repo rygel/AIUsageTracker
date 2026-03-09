@@ -45,7 +45,8 @@ namespace AIUsageTracker.UI.Slim
                 })
                 .Build();
         }
-    `n
+    
+
         private static void ConfigureServices(IServiceCollection services)
         {
             // Infrastructure
@@ -76,7 +77,8 @@ namespace AIUsageTracker.UI.Slim
                 builder.AddDebug();
             });
         }
-    `n
+    
+
         protected override async void OnStartup(StartupEventArgs e)
         {
             await Host.StartAsync();
@@ -107,7 +109,8 @@ namespace AIUsageTracker.UI.Slim
             this._mainWindow = Host.Services.GetRequiredService<MainWindow>();
             this._mainWindow.Show();
         }
-    `n
+    
+
         protected override async void OnExit(ExitEventArgs e)
         {
             this._trayIcon?.Dispose();
@@ -123,7 +126,8 @@ namespace AIUsageTracker.UI.Slim
             }
             base.OnExit(e);
         }
-    `n
+    
+
         public static void SetPrivacyMode(bool enabled)
         {
             IsPrivacyMode = enabled;
@@ -138,7 +142,8 @@ namespace AIUsageTracker.UI.Slim
         public Action<Window> ShowInfoDialogAction { get; set; } = dialog => dialog.ShowDialog();
         public void OpenInfoDialog() => this.ShowInfoDialogAction(this.InfoDialogFactory());
     }
-    `n
+    
+
     public class NoOpUsageAnalyticsService : IUsageAnalyticsService
     {
         public Task<IReadOnlyDictionary<string, BurnRateForecast>> GetBurnRateForecastsAsync(IEnumerable<string> providerIds, int lookbackHours = 24, int maxSamplesPerProvider = 100) => Task.FromResult<IReadOnlyDictionary<string, BurnRateForecast>>(new Dictionary<string, BurnRateForecast>());
@@ -147,7 +152,8 @@ namespace AIUsageTracker.UI.Slim
         public Task<IReadOnlyList<UsageComparison>> GetUsageComparisonsAsync(IEnumerable<string> providerIds) => Task.FromResult<IReadOnlyList<UsageComparison>>(new List<UsageComparison>());
         public Task<IReadOnlyList<BudgetStatus>> GetBudgetStatusesAsync(IEnumerable<string> providerIds) => Task.FromResult<IReadOnlyList<BudgetStatus>>(new List<BudgetStatus>());
     }
-    `n
+    
+
     public class NoOpDataExportService : IDataExportService
     {
         public Task<string> ExportHistoryToCsvAsync() => Task.FromResult(string.Empty);
