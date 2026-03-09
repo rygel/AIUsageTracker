@@ -93,7 +93,7 @@ public class ZaiProvider : ProviderBase
                  IsQuotaBased = true,
                  PlanType = PlanType.Coding,
                  RawJson = responseString,
-                 HttpStatus = httpStatus
+                 HttpStatus = httpStatus,
              },
             };
         }
@@ -280,7 +280,7 @@ public class ZaiProvider : ProviderBase
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RawJson = responseString,
-                HttpStatus = httpStatus
+                HttpStatus = httpStatus,
             },
             };
         }
@@ -316,7 +316,7 @@ public class ZaiProvider : ProviderBase
             NextResetTime = nextResetTime,
             IsAvailable = true,
             RawJson = responseString,
-            HttpStatus = httpStatus
+            HttpStatus = httpStatus,
         },
         };
     }
