@@ -43,7 +43,8 @@ public partial class MainWindow : Window
 
     private static readonly Regex MarkdownTokenRegex = new(
         @"(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|\[[^\]]+\]\([^)]+\))",
-        RegexOptions.Compiled | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+        RegexOptions.Compiled | RegexOptions.ExplicitCapture,
+        TimeSpan.FromSeconds(1));
 
     private static readonly TimeSpan StartupPollingInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan NormalPollingInterval = TimeSpan.FromMinutes(1);
@@ -2657,7 +2658,11 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             progressWindow?.Close();
-            MessageBox.Show($"Update error: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Update error: {ex.Message}",
+                "Update Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 

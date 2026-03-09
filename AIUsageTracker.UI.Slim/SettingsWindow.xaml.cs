@@ -145,8 +145,11 @@ public partial class SettingsWindow : Window
 
             if (loadError != null)
             {
-                MessageBox.Show(loadError, "Connection Error",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    loadError,
+                    "Connection Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
         }
     }
@@ -1456,11 +1459,19 @@ public partial class SettingsWindow : Window
             bundle.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
                 "Usage: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
-                telemetry.UsageRequestCount, telemetry.UsageAverageLatencyMs, telemetry.UsageLastLatencyMs, telemetry.UsageErrorCount, telemetry.UsageErrorRatePercent);
+                telemetry.UsageRequestCount,
+                telemetry.UsageAverageLatencyMs,
+                telemetry.UsageLastLatencyMs,
+                telemetry.UsageErrorCount,
+                telemetry.UsageErrorRatePercent);
             bundle.AppendFormat(
                 System.Globalization.CultureInfo.InvariantCulture,
                 "Refresh: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
-                telemetry.RefreshRequestCount, telemetry.RefreshAverageLatencyMs, telemetry.RefreshLastLatencyMs, telemetry.RefreshErrorCount, telemetry.RefreshErrorRatePercent);
+                telemetry.RefreshRequestCount,
+                telemetry.RefreshAverageLatencyMs,
+                telemetry.RefreshLastLatencyMs,
+                telemetry.RefreshErrorCount,
+                telemetry.RefreshErrorRatePercent);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Slim Diagnostics Log ===");
@@ -1478,13 +1489,19 @@ public partial class SettingsWindow : Window
             }
 
             await File.WriteAllTextAsync(saveDialog.FileName, bundle.ToString());
-            MessageBox.Show($"Diagnostics bundle saved to:\n{saveDialog.FileName}", "Export Complete",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                $"Diagnostics bundle saved to:\n{saveDialog.FileName}",
+                "Export Complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to export diagnostics bundle: {ex.Message}", "Export Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to export diagnostics bundle: {ex.Message}",
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
@@ -1632,7 +1649,11 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             this._logger.LogError(ex, "CancelBtn_Click failed");
-            MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to save settings: {ex.Message}",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
