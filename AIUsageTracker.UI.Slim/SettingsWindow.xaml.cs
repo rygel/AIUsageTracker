@@ -42,7 +42,6 @@ namespace AIUsageTracker.UI.Slim
         private string? _openAiAuthUsername;
         private string? _codexAuthUsername;
         private AppPreferences _preferences = new();
-        private AppPreferences _agentPreferences = new();
         private bool _isPrivacyMode = App.IsPrivacyMode;
         private bool _isDeterministicScreenshotMode;
         private bool _isLoadingSettings;
@@ -128,7 +127,6 @@ namespace AIUsageTracker.UI.Slim
                 this._openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger);
                 this._codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger);
                 this._preferences = await this._preferencesStore.LoadAsync();
-                this._agentPreferences = await this._monitorService.GetPreferencesAsync();
                 App.Preferences = this._preferences;
                 this._isPrivacyMode = this._preferences.IsPrivacyMode;
                 App.SetPrivacyMode(this._isPrivacyMode);
@@ -971,14 +969,14 @@ namespace AIUsageTracker.UI.Slim
             this.UpdateChannelCombo.SelectedValuePath = "Value";
             this.UpdateChannelCombo.SelectedValue = this._preferences.UpdateChannel;
 
-            this.EnableWindowsNotificationsCheck.IsChecked = this._agentPreferences.EnableNotifications;
-            this.NotificationThresholdBox.Text = this._agentPreferences.NotificationThreshold.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
-            this.NotifyUsageThresholdCheck.IsChecked = this._agentPreferences.NotifyOnUsageThreshold;
-            this.NotifyQuotaExceededCheck.IsChecked = this._agentPreferences.NotifyOnQuotaExceeded;
-            this.NotifyProviderErrorsCheck.IsChecked = this._agentPreferences.NotifyOnProviderErrors;
-            this.EnableQuietHoursCheck.IsChecked = this._agentPreferences.EnableQuietHours;
-            this.QuietHoursStartBox.Text = string.IsNullOrWhiteSpace(this._agentPreferences.QuietHoursStart) ? "22:00" : this._agentPreferences.QuietHoursStart;
-            this.QuietHoursEndBox.Text = string.IsNullOrWhiteSpace(this._agentPreferences.QuietHoursEnd) ? "07:00" : this._agentPreferences.QuietHoursEnd;
+            this.EnableWindowsNotificationsCheck.IsChecked = this._preferences.EnableNotifications;
+            this.NotificationThresholdBox.Text = this._preferences.NotificationThreshold.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+            this.NotifyUsageThresholdCheck.IsChecked = this._preferences.NotifyOnUsageThreshold;
+            this.NotifyQuotaExceededCheck.IsChecked = this._preferences.NotifyOnQuotaExceeded;
+            this.NotifyProviderErrorsCheck.IsChecked = this._preferences.NotifyOnProviderErrors;
+            this.EnableQuietHoursCheck.IsChecked = this._preferences.EnableQuietHours;
+            this.QuietHoursStartBox.Text = string.IsNullOrWhiteSpace(this._preferences.QuietHoursStart) ? "22:00" : this._preferences.QuietHoursStart;
+            this.QuietHoursEndBox.Text = string.IsNullOrWhiteSpace(this._preferences.QuietHoursEnd) ? "07:00" : this._preferences.QuietHoursEnd;
             this.ApplyNotificationControlsState();
             this.YellowThreshold.Text = this._preferences.ColorThresholdYellow.ToString(System.Globalization.CultureInfo.InvariantCulture);
             this.RedThreshold.Text = this._preferences.ColorThresholdRed.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -1569,37 +1567,22 @@ namespace AIUsageTracker.UI.Slim
                 this._preferences.FontItalic = this.FontItalicCheck.IsChecked ?? false;
                 this._preferences.IsPrivacyMode = this._isPrivacyMode;
 
-                this._agentPreferences.EnableNotifications = this.EnableWindowsNotificationsCheck.IsChecked ?? false;
+                this._preferences.EnableNotifications = this.EnableWindowsNotificationsCheck.IsChecked ?? false;
                 if (double.TryParse(this.NotificationThresholdBox.Text, System.Globalization.CultureInfo.InvariantCulture, out var notifyThreshold))
                 {
-                    this._agentPreferences.NotificationThreshold = Math.Clamp(notifyThreshold, 0, 100);
+                    this._preferences.NotificationThreshold = Math.Clamp(notifyThreshold, 0, 100);
                 }
 
-                this._agentPreferences.NotifyOnUsageThreshold = this.NotifyUsageThresholdCheck.IsChecked ?? true;
-                this._agentPreferences.NotifyOnQuotaExceeded = this.NotifyQuotaExceededCheck.IsChecked ?? true;
-                this._agentPreferences.NotifyOnProviderErrors = this.NotifyProviderErrorsCheck.IsChecked ?? false;
-                this._agentPreferences.EnableQuietHours = this.EnableQuietHoursCheck.IsChecked ?? false;
-                this._agentPreferences.QuietHoursStart = NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
-                this._agentPreferences.QuietHoursEnd = NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
+                this._preferences.NotifyOnUsageThreshold = this.NotifyUsageThresholdCheck.IsChecked ?? true;
+                this._preferences.NotifyOnQuotaExceeded = this.NotifyQuotaExceededCheck.IsChecked ?? true;
+                this._preferences.NotifyOnProviderErrors = this.NotifyProviderErrorsCheck.IsChecked ?? false;
+                this._preferences.EnableQuietHours = this.EnableQuietHoursCheck.IsChecked ?? false;
+                this._preferences.QuietHoursStart = NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
+                this._preferences.QuietHoursEnd = NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
 
                 var prefsSaved = await this.SaveUiPreferencesAsync(showErrorDialog);
                 if (!prefsSaved)
                 {
-                    return;
-                }
-
-                var agentPrefsSaved = await this._monitorService.SavePreferencesAsync(this._agentPreferences);
-                if (!agentPrefsSaved)
-                {
-                    if (showErrorDialog)
-                    {
-                        MessageBox.Show(
-                            "Failed to save monitor notification preferences.",
-                            "Save Error",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error);
-                    }
-
                     return;
                 }
 

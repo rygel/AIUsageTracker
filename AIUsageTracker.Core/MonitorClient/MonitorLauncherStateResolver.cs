@@ -35,13 +35,6 @@ namespace AIUsageTracker.Core.MonitorClient
 
                 if (path != null)
                 {
-                    if (MonitorInfoPathCatalog.IsDeprecatedReadPath(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                        path))
-                    {
-                        MonitorService.LogDiagnostic($"Using deprecated monitor metadata path '{path}'. Rewrite will occur at the canonical AIUsageTracker path.");
-                    }
-
                     var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                     var info = JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
                     {

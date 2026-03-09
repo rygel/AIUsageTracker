@@ -10,24 +10,18 @@ namespace AIUsageTracker.Core.Paths
     {
         public static IReadOnlyList<string> GetAuthConfigPaths(IAppPathProvider pathProvider)
         {
-            return BuildPathList(
+            return new[]
+            {
                 pathProvider.GetAuthFilePath(),
-                DeprecatedPathCatalog.GetAuthFilePaths(pathProvider.GetUserProfileRoot()));
+            };
         }
 
         public static IReadOnlyList<string> GetProviderConfigPaths(IAppPathProvider pathProvider)
         {
-            return BuildPathList(
+            return new[]
+            {
                 pathProvider.GetProviderConfigFilePath(),
-                DeprecatedPathCatalog.GetProviderConfigPaths(pathProvider.GetUserProfileRoot()));
-        }
-
-        private static IReadOnlyList<string> BuildPathList(string canonicalPath, IEnumerable<string> deprecatedPaths)
-        {
-            return new[] { canonicalPath }
-                .Concat(deprecatedPaths)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            };
         }
     }
 }

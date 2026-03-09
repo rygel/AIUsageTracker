@@ -192,7 +192,7 @@ namespace AIUsageTracker.Web.Tests
 
             var navMatches = Regex.Matches(
                 html,
-                @"href\s*=\s*string.Empty(?<href>[^string.Empty]+)string.Empty",
+                @"href\s*=\s*""(?<href>[^""]+)""",
                 RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture,
                 RegexTimeout);
             Assert.IsTrue(navMatches.Count > 0, "Navigation should have links");

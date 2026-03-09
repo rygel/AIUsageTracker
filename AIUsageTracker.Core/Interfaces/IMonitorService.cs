@@ -33,10 +33,6 @@ namespace AIUsageTracker.Core.Interfaces
 
         Task<bool> RemoveConfigAsync(string providerId);
 
-        Task<AppPreferences> GetPreferencesAsync();
-
-        Task<bool> SavePreferencesAsync(AppPreferences preferences);
-
         Task<bool> SendTestNotificationAsync();
 
         Task<AgentTestNotificationResult> SendTestNotificationDetailedAsync();

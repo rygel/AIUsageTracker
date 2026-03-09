@@ -293,7 +293,7 @@ namespace AIUsageTracker.Infrastructure.Configuration
             return await JsonConfigFileStore.ReadAsync<AppPreferences>(
                        path,
                        this._logger,
-                       "Failed to load preferences from {Path}; falling back to legacy auth settings")
+                       "Failed to load preferences from {Path}; using default preferences")
                    .ConfigureAwait(false)
                    ?? new AppPreferences();
         }

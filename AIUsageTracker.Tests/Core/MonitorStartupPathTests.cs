@@ -81,26 +81,12 @@ namespace AIUsageTracker.Tests.Core
         }
 
         [Fact]
-        public void IsDeprecatedReadPath_ReturnsTrue_ForLegacyLocations()
-        {
-            var appDataRoot = Path.Combine(this._tempDirectory, "appdata");
-            var canonicalPath = Path.Combine(appDataRoot, "AIUsageTracker", "monitor.json");
-            var legacyPath = Path.Combine(appDataRoot, "AIConsumptionTracker", "monitor.json");
-
-            Assert.False(MonitorInfoPathCatalog.IsDeprecatedReadPath(appDataRoot, canonicalPath));
-            Assert.True(MonitorInfoPathCatalog.IsDeprecatedReadPath(appDataRoot, legacyPath));
-        }
-
-        [Fact]
-        public void GetReadCandidatePaths_KeepsOnlyCanonicalAndSingleDeprecatedFallback()
+        public void GetReadCandidatePaths_ReturnsCanonicalPathOnly()
         {
             var appDataRoot = Path.Combine(this._tempDirectory, "appdata");
             var candidates = MonitorInfoPathCatalog.GetReadCandidatePaths(appDataRoot, this._tempDirectory);
 
-            Assert.Collection(
-                candidates,
-                path => Assert.Equal(Path.Combine(appDataRoot, "AIUsageTracker", "monitor.json"), path),
-                path => Assert.Equal(Path.Combine(appDataRoot, "AIConsumptionTracker", "monitor.json"), path));
+            Assert.Collection(candidates, path => Assert.Equal(Path.Combine(appDataRoot, "AIUsageTracker", "monitor.json"), path));
         }
 
         [Fact]

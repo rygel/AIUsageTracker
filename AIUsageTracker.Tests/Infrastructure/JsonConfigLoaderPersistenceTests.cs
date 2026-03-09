@@ -149,11 +149,11 @@ namespace AIUsageTracker.Tests.Infrastructure
         }
 
         [Fact]
-        public async Task LoadConfigAsync_ReadsLegacyProvidersFile_WhenCanonicalProvidersFileIsMissing()
+        public async Task LoadConfigAsync_DoesNotReadLegacyProvidersFile_WhenCanonicalProvidersFileIsMissing()
         {
             var authPath = this.CreateFile("config/auth.json", "{}");
             var providersPath = Path.Combine(this.TestRootPath, "config", "providers.json");
-            var legacyProvidersPath = this.CreateFile("AppData/Local/AIConsumptionTracker/providers.json", "{\"openai\":{\"type\":\"quota-based\",\"base_url\":\"https://legacy\"}}");
+            this.CreateFile("AppData/Local/AIConsumptionTracker/providers.json", "{\"openai\":{\"type\":\"quota-based\",\"base_url\":\"https://legacy\"}}");
 
             var mockPathProvider = new Mock<IAppPathProvider>();
             mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(authPath);
@@ -171,9 +171,7 @@ namespace AIUsageTracker.Tests.Infrastructure
 
             var configs = await loader.LoadConfigAsync();
 
-            var config = Assert.Single(configs.Where(c => c.ProviderId == "openai"));
-            Assert.Equal("https://legacy", config.BaseUrl);
-            Assert.Equal("quota-based", config.Type);
+            Assert.DoesNotContain(configs, c => string.Equals(c.BaseUrl, "https://legacy", StringComparison.Ordinal));
         }
     }
 }

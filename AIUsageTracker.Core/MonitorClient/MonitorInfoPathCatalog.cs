@@ -7,12 +7,10 @@ namespace AIUsageTracker.Core.MonitorClient
     public static class MonitorInfoPathCatalog
     {
         private const string CanonicalProductFolder = "AIUsageTracker";
-        private const string DeprecatedProductFolder = "AIConsumptionTracker";
 
-        // Legacy monitor.json locations are read-only migration fallbacks.
-        // New writes must stay on the canonical AIUsageTracker path.
         public static IReadOnlyList<string> GetWriteCandidatePaths(string appDataRoot, string userProfileRoot)
         {
+            _ = userProfileRoot;
             return new[]
             {
                 GetCanonicalPath(appDataRoot),
@@ -21,19 +19,11 @@ namespace AIUsageTracker.Core.MonitorClient
 
         public static IReadOnlyList<string> GetReadCandidatePaths(string appDataRoot, string userProfileRoot)
         {
+            _ = userProfileRoot;
             return new[]
             {
                 GetCanonicalPath(appDataRoot),
-                GetDeprecatedPath(appDataRoot),
             };
-        }
-
-        public static bool IsDeprecatedReadPath(string appDataRoot, string path)
-        {
-            return !string.Equals(
-                path,
-                GetCanonicalPath(appDataRoot),
-                StringComparison.OrdinalIgnoreCase);
         }
 
         public static IReadOnlyList<string> GetReadCandidatePathsFromEnvironment()
@@ -54,11 +44,6 @@ namespace AIUsageTracker.Core.MonitorClient
         private static string GetCanonicalPath(string appDataRoot)
         {
             return Path.Combine(appDataRoot, CanonicalProductFolder, "monitor.json");
-        }
-
-        private static string GetDeprecatedPath(string appDataRoot)
-        {
-            return Path.Combine(appDataRoot, DeprecatedProductFolder, "monitor.json");
         }
     }
 }

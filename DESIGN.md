@@ -1036,7 +1036,7 @@ This OpenAPI document is the contract between the Agent and all consuming applic
 
 - Agent API is for provider/model data and related operations.
 - UI preferences (window location, topmost, fonts, privacy/UI toggles, layout state) are owned by each UI client and stored locally.
-- `GET/POST /api/preferences` are legacy endpoints and are deprecated for backward compatibility only; new UI work must not depend on them.
+- `GET/POST /api/preferences` endpoints were removed; UI preference persistence must stay client-local.
 
 ### Contract Maintenance Rule (MANDATORY)
 
@@ -1065,20 +1065,14 @@ Changes to Agent endpoints are considered incomplete unless this contract file i
 ```
 UI Client Startup:
   1. Call RefreshPortAsync() or RefreshAgentInfoAsync()
-  2. Read monitor metadata from known locations (current + legacy paths)
-  3. Pick newest metadata file by last-write timestamp
-  4. Validate monitor health and process state
-  5. Extract Port from MonitorInfo and update AgentUrl to http://localhost:{port}
-  6. Now API calls work correctly
+  2. Read monitor metadata from canonical location
+  3. Validate monitor health and process state
+  4. Extract Port from MonitorInfo and update AgentUrl to http://localhost:{port}
+  5. Now API calls work correctly
 ```
 
 **Files Read During Discovery:**
 - `%LOCALAPPDATA%\AIUsageTracker\monitor.json` (primary)
-- `%LOCALAPPDATA%\AIUsageTracker\Monitor\monitor.json`
-- `%LOCALAPPDATA%\AIUsageTracker\Agent\monitor.json`
-- `%LOCALAPPDATA%\AIConsumptionTracker\monitor.json` (legacy compatibility)
-- `%LOCALAPPDATA%\AIConsumptionTracker\Monitor\monitor.json` (legacy compatibility)
-- `%LOCALAPPDATA%\AIConsumptionTracker\Agent\monitor.json` (legacy compatibility)
 
 **Stale Metadata Recovery:**
 - Clients validate metadata using both `GET /api/health` and stored `ProcessId`.

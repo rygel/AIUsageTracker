@@ -6,9 +6,8 @@ namespace AIUsageTracker.UI.Slim
 {
     using System.IO;
     using System.Text.Json;
-    using AIUsageTracker.Core.Models;
     using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Core.Paths;
+    using AIUsageTracker.Core.Models;
     using Microsoft.Extensions.Logging;
 
     public class UiPreferencesStore
@@ -50,8 +49,7 @@ namespace AIUsageTracker.UI.Slim
             var path = this.GetPreferencesPath();
             if (!File.Exists(path))
             {
-                var legacyPreferences = await this.TryLoadLegacyPreferencesAsync();
-                return legacyPreferences ?? new AppPreferences();
+                return new AppPreferences();
             }
 
             try
@@ -103,57 +101,6 @@ namespace AIUsageTracker.UI.Slim
             }
 
             return false;
-        }
-    
-
-        private async Task<AppPreferences?> TryLoadLegacyPreferencesAsync()
-        {
-            foreach (var legacyPath in this.GetLegacyPreferenceCandidates())
-            {
-                if (!File.Exists(legacyPath))
-                {
-                    continue;
-                }
-
-                try
-                {
-                    var legacyJson = await File.ReadAllTextAsync(legacyPath);
-                    if (legacyPath.EndsWith("preferences.json", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return JsonSerializer.Deserialize<AppPreferences>(legacyJson);
-                    }
-
-                    var root = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(legacyJson);
-                    if (root != null &&
-                        root.TryGetValue("app_settings", out var appSettings) &&
-                        appSettings.ValueKind == JsonValueKind.Object)
-                    {
-                        return JsonSerializer.Deserialize<AppPreferences>(appSettings.GetRawText());
-                    }
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogWarning(ex, "Failed to parse legacy Slim preferences from {Path}", legacyPath);
-                }
-                catch (IOException ex)
-                {
-                    this._logger.LogWarning(ex, "Failed to read legacy Slim preferences from {Path}", legacyPath);
-                }
-                catch (UnauthorizedAccessException ex)
-                {
-                    this._logger.LogWarning(ex, "Access denied reading legacy Slim preferences from {Path}", legacyPath);
-                }
-            }
-
-            return null;
-        }
-    
-
-        private IEnumerable<string> GetLegacyPreferenceCandidates()
-        {
-            var userProfileRoot = this._pathProvider.GetUserProfileRoot();
-
-            return DeprecatedPathCatalog.GetPreferencesFilePaths(userProfileRoot);
         }
     }
 }

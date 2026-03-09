@@ -9,6 +9,7 @@ namespace AIUsageTracker.CLI
     using AIUsageTracker.Core.Interfaces;
     using AIUsageTracker.Core.Models;
     using AIUsageTracker.Core.MonitorClient;
+    using AIUsageTracker.Infrastructure.Configuration;
     using AIUsageTracker.Infrastructure.Extensions;
     using AIUsageTracker.Infrastructure.Providers;
     using Microsoft.Extensions.DependencyInjection;
@@ -134,11 +135,11 @@ namespace AIUsageTracker.CLI
                 case "config":
                     if (args.Length == 1)
                     {
-                        await ShowConfig(agentService).ConfigureAwait(false);
+                        await ShowConfig().ConfigureAwait(false);
                     }
                     else if (args.Length >= 3)
                     {
-                        await SetConfig(agentService, args[1], args[2]).ConfigureAwait(false);
+                        await SetConfig(args[1], args[2]).ConfigureAwait(false);
                     }
                     else
                     {
@@ -373,16 +374,18 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ShowConfig(MonitorService service)
+        private static async Task ShowConfig()
         {
-            var prefs = await service.GetPreferencesAsync().ConfigureAwait(false);
+            var loader = new JsonConfigLoader();
+            var prefs = await loader.LoadPreferencesAsync().ConfigureAwait(false);
             Console.WriteLine("Current Configuration:");
             Console.WriteLine(JsonSerializer.Serialize(prefs, new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        private static async Task SetConfig(MonitorService service, string key, string value)
+        private static async Task SetConfig(string key, string value)
         {
-            var prefs = await service.GetPreferencesAsync().ConfigureAwait(false);
+            var loader = new JsonConfigLoader();
+            var prefs = await loader.LoadPreferencesAsync().ConfigureAwait(false);
 
             // Reflection to set property
             var prop = prefs.GetType().GetProperty(key, System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
@@ -416,14 +419,8 @@ namespace AIUsageTracker.CLI
                 if (typedValue != null)
                 {
                     prop.SetValue(prefs, typedValue);
-                    if (await service.SavePreferencesAsync(prefs).ConfigureAwait(false))
-                    {
-                        Console.WriteLine($"Configuration '{key}' updated to '{value}'.");
-                    }
-                    else
-                    {
-                        Console.WriteLine("Failed to save configuration.");
-                    }
+                    await loader.SavePreferencesAsync(prefs).ConfigureAwait(false);
+                    Console.WriteLine($"Configuration '{key}' updated to '{value}'.");
                 }
             }
             catch (Exception ex)

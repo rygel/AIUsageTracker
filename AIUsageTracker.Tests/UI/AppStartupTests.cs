@@ -154,30 +154,5 @@ namespace AIUsageTracker.Tests.UI
             Assert.Equal(AppTheme.Midnight, loaded.Theme);
         }
 
-        [Fact]
-        public async Task LoadPreferencesAsync_FallsBackToLegacyPreferencesFile_WhenCanonicalFileIsMissing()
-        {
-            var localAppData = Path.Combine(this._testPreferencesDirectory, "AppData", "Local", "AIConsumptionTracker");
-            Directory.CreateDirectory(localAppData);
-            await File.WriteAllTextAsync(Path.Combine(localAppData, "preferences.json"), "{\"Theme\":3}");
-            this._mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this._testPreferencesDirectory);
-
-            var loaded = await this._store.LoadAsync();
-
-            Assert.Equal(AppTheme.Midnight, loaded.Theme);
-        }
-
-        [Fact]
-        public async Task LoadPreferencesAsync_DoesNotUseLegacyAuthPayload_WhenCanonicalFileIsMissing()
-        {
-            var legacyAuthPath = Path.Combine(this._testPreferencesDirectory, ".ai-consumption-tracker", "auth.json");
-            Directory.CreateDirectory(Path.GetDirectoryName(legacyAuthPath)!);
-            await File.WriteAllTextAsync(legacyAuthPath, "{\"app_settings\":{\"Theme\":4}}");
-            this._mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this._testPreferencesDirectory);
-
-            var loaded = await this._store.LoadAsync();
-
-            Assert.Equal(new AppPreferences().Theme, loaded.Theme);
-        }
     }
 }

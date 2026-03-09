@@ -21,7 +21,6 @@ namespace AIUsageTracker.Monitor
     using AIUsageTracker.Monitor.Logging;
     using AIUsageTracker.Monitor.Services;
     using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.AspNetCore.Routing;
     using Microsoft.Extensions.DependencyInjection;
@@ -339,31 +338,6 @@ namespace AIUsageTracker.Monitor
                     await configService.RemoveConfigAsync(providerId);
                     return Results.Ok(new { message = "Config removed" });
                 });
-
-                // Preferences endpoints (deprecated: legacy compatibility only)
-                const string preferencesApiDeprecationMessage =
-                    "/api/preferences is deprecated and reserved for legacy clients; UI preferences must be managed locally by each UI.";
-                const string preferencesApiSunsetDate = "Wed, 31 Dec 2026 00:00:00 GMT";
-
-                app.MapGet("/api/preferences", async (HttpContext httpContext, IConfigService configService, ILogger<Program> logger) =>
-                {
-                    logger.LogDebug("GET /api/preferences");
-                    httpContext.Response.Headers.Append("Deprecation", "true");
-                    httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
-                    var prefs = await configService.GetPreferencesAsync();
-                    return Results.Ok(prefs);
-                })
-                .WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
-
-                app.MapPost("/api/preferences", async (HttpContext httpContext, AppPreferences preferences, IConfigService configService, ILogger<Program> logger) =>
-                {
-                    logger.LogDebug("POST /api/preferences");
-                    httpContext.Response.Headers.Append("Deprecation", "true");
-                    httpContext.Response.Headers.Append("Sunset", preferencesApiSunsetDate);
-                    await configService.SavePreferencesAsync(preferences);
-                    return Results.Ok(new { message = "Preferences saved" });
-                })
-                .WithMetadata(new ObsoleteAttribute(preferencesApiDeprecationMessage));
 
                 // Scan for keys endpoint
                 app.MapPost("/api/scan-keys", async ([FromServices] IConfigService configService, [FromServices] ProviderRefreshService refreshService, ILogger<Program> logger) =>

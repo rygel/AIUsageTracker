@@ -385,25 +385,6 @@ namespace AIUsageTracker.Core.MonitorClient
                 nameof(this.RemoveConfigAsync)).ConfigureAwait(false);
         }
 
-        // Preferences endpoints
-        public async Task<AppPreferences> GetPreferencesAsync()
-        {
-            var prefs = await this.GetFromMonitorJsonAsync<AppPreferences>(
-                "/api/preferences",
-                nameof(this.GetPreferencesAsync)).ConfigureAwait(false);
-            return prefs ?? new AppPreferences();
-        }
-
-        public async Task<bool> SavePreferencesAsync(AppPreferences preferences)
-        {
-            return await this.SendMonitorStatusRequestAsync(
-                httpClient => httpClient.PostAsJsonAsync(
-                    this.BuildMonitorUrl("/api/preferences"),
-                    preferences,
-                    this._jsonOptions),
-                nameof(this.SavePreferencesAsync)).ConfigureAwait(false);
-        }
-
         public async Task<bool> SendTestNotificationAsync()
         {
             var result = await this.SendTestNotificationDetailedAsync().ConfigureAwait(false);
