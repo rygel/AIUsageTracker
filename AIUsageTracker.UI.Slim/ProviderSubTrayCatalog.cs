@@ -26,7 +26,8 @@ namespace AIUsageTracker.UI.Slim
                 .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
-    `n
+    
+
         private static bool IsEligibleDetail(ProviderUsageDetail detail)
         {
             if (string.IsNullOrWhiteSpace(detail.Name))

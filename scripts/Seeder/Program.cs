@@ -5,6 +5,7 @@
 namespace Seeder
 {
     using System;
+    using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Text.Json;
@@ -12,7 +13,7 @@ namespace Seeder
     using Microsoft.Data.Sqlite;
     using Dapper;
 
-    class Program
+    public class Program
     {
         private sealed class ProviderFixture
         {
@@ -80,7 +81,7 @@ namespace Seeder
             public List<HistoryFixture> History7Days { get; set; } = [];
         }
 
-        static int Main(string[] args)
+        public static int Main(string[] args)
         {
             if (args.Length > 0 && string.Equals(args[0], "export", StringComparison.Ordinal))
             {
@@ -90,7 +91,7 @@ namespace Seeder
             return SeedDatabase(args.Length > 0 ? args[0] : "test-fixtures/provider-data.json");
         }
 
-        static int ExportData(string outputPath)
+        private static int ExportData(string outputPath)
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var dbPath = Path.Combine(appData, "AIUsageTracker", "usage.db");
@@ -116,7 +117,7 @@ namespace Seeder
                 ExportedAt = DateTime.UtcNow.ToString("o"),
                 Providers = providers,
                 LatestHistory = latestHistory,
-                History7Days = history7Days
+                History7Days = history7Days,
             };
 
             var outputDir = Path.GetDirectoryName(outputPath);
@@ -135,7 +136,7 @@ namespace Seeder
             return 0;
         }
 
-        static List<ProviderFixture> LoadProvidersFromDatabase(SqliteConnection connection)
+        private static List<ProviderFixture> LoadProvidersFromDatabase(SqliteConnection connection)
         {
             var providers = new List<ProviderFixture>();
             using (var cmd = connection.CreateCommand())
@@ -150,14 +151,15 @@ namespace Seeder
                         ProviderName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
                         AccountName = reader.IsDBNull(2) ? null : reader.GetString(2),
                         IsActive = reader.IsDBNull(3) ? 0 : reader.GetInt32(3),
-                        ConfigJson = reader.IsDBNull(4) ? null : reader.GetString(4)
+                        ConfigJson = reader.IsDBNull(4) ? null : reader.GetString(4),
                     });
                 }
             }
+
             return providers;
         }
 
-        static List<HistoryFixture> LoadLatestHistoryFromDatabase(SqliteConnection connection)
+        private static List<HistoryFixture> LoadLatestHistoryFromDatabase(SqliteConnection connection)
         {
             var latestHistory = new List<HistoryFixture>();
             using (var cmd = connection.CreateCommand())
@@ -187,14 +189,15 @@ namespace Seeder
                         NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
                         FetchedAt = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
                         DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
-                        ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9)
+                        ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9),
                     });
                 }
             }
+
             return latestHistory;
         }
 
-        static List<HistoryFixture> LoadHistory7DaysFromDatabase(SqliteConnection connection)
+        private static List<HistoryFixture> LoadHistory7DaysFromDatabase(SqliteConnection connection)
         {
             var history7Days = new List<HistoryFixture>();
             using (var cmd = connection.CreateCommand())
@@ -220,14 +223,15 @@ namespace Seeder
                         NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
                         FetchedAt = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
                         DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
-                        ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9)
+                        ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9),
                     });
                 }
             }
+
             return history7Days;
         }
 
-        static void WriteTestFixtureToFile(TestDataFixture fixture, string outputPath)
+        private static void WriteTestFixtureToFile(TestDataFixture fixture, string outputPath)
         {
             var outputDir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
@@ -244,7 +248,7 @@ namespace Seeder
             Console.WriteLine($"  7-day history: {fixture.History7Days.Count}");
         }
 
-        static int SeedDatabase(string fixturePath)
+        private static int SeedDatabase(string fixturePath)
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var dbDir = Path.Combine(appData, "AIUsageTracker");
@@ -336,7 +340,7 @@ namespace Seeder
                         Name = provider.ProviderName,
                         Account = provider.AccountName,
                         IsActive = provider.IsActive,
-                        Config = provider.ConfigJson
+                        Config = provider.ConfigJson,
                     });
             }
 
@@ -357,7 +361,7 @@ namespace Seeder
                         Next = history.NextResetTime,
                         Fetched = history.FetchedAt,
                         Details = history.DetailsJson,
-                        Latency = history.ResponseLatencyMs
+                        Latency = history.ResponseLatencyMs,
                     });
             }
 

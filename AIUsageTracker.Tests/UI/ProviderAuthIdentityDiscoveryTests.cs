@@ -26,10 +26,10 @@ namespace AIUsageTracker.Tests.UI
         {
             var hostsPath = this.CreateFile(
                 "hosts.yml",
-                string.Empty"
+                """
             github.com:
               user: octocat
-            string.Empty");
+            """);
 
             var username = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(this._logger, new[] { hostsPath });
 
@@ -41,13 +41,13 @@ namespace AIUsageTracker.Tests.UI
         {
             var authPath = this.CreateFile(
                 "openai-auth.json",
-                string.Empty"
+                """
             {
               "openai": {
                 "email": "user@example.com"
               }
             }
-            string.Empty");
+            """);
 
             var username = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger, new[] { authPath });
 
@@ -59,13 +59,13 @@ namespace AIUsageTracker.Tests.UI
         {
             var authPath = this.CreateFile(
                 "codex-auth.json",
-                $$"string.Empty
+                $$"""
             {
               "tokens": {
                 "id_token": "{{CreateJwt(new { preferred_username = "codex@example.com" })}}"
               }
             }
-            string.Empty");
+            """);
 
             var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger, new[] { authPath });
 
@@ -77,19 +77,20 @@ namespace AIUsageTracker.Tests.UI
         {
             var authPath = this.CreateFile(
                 "opencode-auth.json",
-                $$"string.Empty
+                $$"""
             {
               "openai": {
                 "access": "{{CreateJwt(new { email = "openai@example.com" })}}"
               }
             }
-            string.Empty");
+            """);
 
             var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger, new[] { authPath });
 
             Assert.Equal("openai@example.com", username);
         }
-    `n
+    
+
         public void Dispose()
         {
             if (Directory.Exists(this._tempDirectory))
@@ -97,7 +98,8 @@ namespace AIUsageTracker.Tests.UI
                 Directory.Delete(this._tempDirectory, recursive: true);
             }
         }
-    `n
+    
+
         private string CreateFile(string relativePath, string content)
         {
             var fullPath = Path.Combine(this._tempDirectory, relativePath);
@@ -105,14 +107,16 @@ namespace AIUsageTracker.Tests.UI
             File.WriteAllText(fullPath, content);
             return fullPath;
         }
-    `n
+    
+
         private static string CreateJwt(object payload)
         {
-            var header = Base64UrlEncode(string.Empty"{"alg":"none","typ":"JWT"}string.Empty");
+            var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
             var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
             return $"{header}.{body}.";
         }
-    `n
+    
+
         private static string Base64UrlEncode(string value)
         {
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))

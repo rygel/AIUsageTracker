@@ -13,10 +13,8 @@ namespace AIUsageTracker.Infrastructure.Helpers
 
         public static string MaskContent(string input, string? accountName = null)
         {
-            if (string.IsNullOrEmpty(input)
-            {
-                ) return input;
-            }
+            if (string.IsNullOrEmpty(input)) return input;
+
             string result = input;
 
             // 1. Mask emails
@@ -26,10 +24,8 @@ namespace AIUsageTracker.Infrastructure.Helpers
                 {
                     var email = match.Value;
                     var parts = email.Split('@');
-                    if (parts.Length != 2)
-                    {
-                        return "*****";
-                    }
+                    if (parts.Length != 2) return "*****";
+
                     var name = parts[0];
                     var domain = parts[1];
                     var maskedDomain = new string(domain.Select(ch => ch == '.' ? '.' : '*').ToArray());
@@ -54,23 +50,16 @@ namespace AIUsageTracker.Infrastructure.Helpers
 
         public static string MaskString(string input)
         {
-            if (string.IsNullOrEmpty(input)
-            {
-                ) return input;
-            }
-            if (input.Length <= 2)
-            {
-                return new string('*', input.Length);
-            }
+            if (string.IsNullOrEmpty(input)) return input;
+            if (input.Length <= 2) return new string('*', input.Length);
+
             return input.Substring(0, 1) + new string('*', Math.Min(input.Length - 2, 5)) + input.Substring(input.Length - 1);
         }
 
         public static string MaskPath(string path)
         {
-            if (string.IsNullOrEmpty(path)
-            {
-                ) return path;
-            }
+            if (string.IsNullOrEmpty(path)) return path;
+
             // Try to identify the user directory to mask it specifically
             var userProfile = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile);
             if (path.StartsWith(userProfile, System.StringComparison.OrdinalIgnoreCase))

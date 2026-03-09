@@ -54,7 +54,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
         public async Task FetchUsage_MissingQuotaInfo_ReturnsUnknownUsage()
         {
             // Arrange
-            var snapshotJson = string.Empty"
+            var snapshotJson = """
         {
           "userStatus": {
             "email": "snapshot@example.com",
@@ -71,7 +71,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
             }
           }
         }
-        string.Empty";
+        """;
 
             this.SetupHttpResponse(_ => true, new HttpResponseMessage
             {
@@ -86,7 +86,8 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
             // Assert
             Assert.Contains("Usage unknown", summary.Description);
         }
-    `n
+    
+
         private static async Task<List<ProviderUsage>> InvokeFetchUsageAsync(AntigravityProvider provider, int port, string csrfToken, ProviderConfig config)
         {
             var method = typeof(AntigravityProvider).GetMethod("FetchUsage", BindingFlags.Instance | BindingFlags.NonPublic);

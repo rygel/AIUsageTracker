@@ -108,10 +108,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                 if (!resetTime.HasValue || resetTime.Value == 0) return true; // No reset time = always active
                 var ts = resetTime.Value;
                 // Heuristic to detect milliseconds vs seconds (similar to logic below)
-                if (ts > 10000000000)
-                {
-                    return ts > nowMs;
-                }
+                if (ts > 10000000000) return ts > nowMs;
                 return ts > nowSec;
             }
 

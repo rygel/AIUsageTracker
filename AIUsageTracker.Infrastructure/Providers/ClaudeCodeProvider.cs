@@ -174,33 +174,25 @@ namespace AIUsageTracker.Infrastructure.Providers
             if (headers.TryGetValues("anthropic-ratelimit-requests-limit", out var requestLimitValues))
             {
                 if (int.TryParse(requestLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var limit))
-                {
                     info.RequestsLimit = limit;
-                }
             }
 
             if (headers.TryGetValues("anthropic-ratelimit-requests-remaining", out var requestRemainingValues))
             {
                 if (int.TryParse(requestRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var remaining))
-                {
                     info.RequestsRemaining = remaining;
-                }
             }
 
             if (headers.TryGetValues("anthropic-ratelimit-input-tokens-limit", out var inputLimitValues))
             {
                 if (int.TryParse(inputLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputLimit))
-                {
                     info.InputTokensLimit = inputLimit;
-                }
             }
 
             if (headers.TryGetValues("anthropic-ratelimit-input-tokens-remaining", out var inputRemainingValues))
             {
                 if (int.TryParse(inputRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputRemaining))
-                {
                     info.InputTokensRemaining = inputRemaining;
-                }
             }
 
             return info;

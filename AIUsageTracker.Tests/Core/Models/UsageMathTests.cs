@@ -307,7 +307,8 @@ namespace AIUsageTracker.Tests.Models
             Assert.Equal("None", snapshot.Severity);
             Assert.Null(snapshot.LastDetectedUtc);
         }
-    `n
+    
+
         private static ProviderUsage CreateSample(DateTime fetchedAt, double used, double available, double latencyMs = 0)
         {
             return new ProviderUsage
@@ -320,7 +321,8 @@ namespace AIUsageTracker.Tests.Models
                 ResponseLatencyMs = latencyMs
             };
         }
-    `n
+    
+
         private static ProviderUsage CreateUnavailableSample(DateTime fetchedAt, double latencyMs = 0)
         {
             return new ProviderUsage

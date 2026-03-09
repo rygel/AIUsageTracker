@@ -228,10 +228,7 @@ namespace AIUsageTracker.Infrastructure.Providers
             if (spendingLimitDetail != null && spendingLimitDetail.Description.Contains("(Resets:", StringComparison.Ordinal))
             {
                 var idx = spendingLimitDetail.Description.IndexOf("(Resets:", StringComparison.Ordinal);
-                if (idx >= 0)
-                {
-                    mainReset = " " + spendingLimitDetail.Description.Substring(idx);
-                }
+                if (idx >= 0) mainReset = " " + spendingLimitDetail.Description.Substring(idx);
                 spendingLimitResetTime = spendingLimitDetail.NextResetTime;
             }
 

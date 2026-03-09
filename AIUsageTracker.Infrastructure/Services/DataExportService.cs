@@ -66,10 +66,7 @@ namespace AIUsageTracker.Infrastructure.Services
         {
             try
             {
-                if (!File.Exists(this._dbPath)
-                {
-                    ) return null;
-                }
+                if (!File.Exists(this._dbPath)) return null;
                 return await File.ReadAllBytesAsync(this._dbPath).ConfigureAwait(false);
             }
             catch (Exception ex)

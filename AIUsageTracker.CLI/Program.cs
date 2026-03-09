@@ -4,19 +4,19 @@
 
 namespace AIUsageTracker.CLI
 {
+    using System.Diagnostics;
+    using System.Text.Json;
+    using AIUsageTracker.Core.Interfaces;
     using AIUsageTracker.Core.Models;
     using AIUsageTracker.Core.MonitorClient;
-    using AIUsageTracker.Core.Interfaces;
-    using AIUsageTracker.Infrastructure.Providers;
     using AIUsageTracker.Infrastructure.Extensions;
+    using AIUsageTracker.Infrastructure.Providers;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Logging;
-    using System.Text.Json;
-    using System.Diagnostics;
 
-    class Program
+    public class Program
     {
-        static async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
             try
             {
@@ -53,7 +53,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task Run(string[] args)
+        private static async Task Run(string[] args)
         {
             if (args.Length == 0)
             {
@@ -78,12 +78,12 @@ namespace AIUsageTracker.CLI
             var json = args.Contains("--json", StringComparer.Ordinal);
 
             // Setup DI
-            var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+            var services = new ServiceCollection();
 
             services.AddLogging(configure =>
             {
                 configure.AddConsole();
-                configure.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Warning); // Reduce log noise
+                configure.SetMinimumLevel(LogLevel.Warning); // Reduce log noise
             });
 
             services.AddHttpClient();
@@ -100,10 +100,11 @@ namespace AIUsageTracker.CLI
                     break;
                 case "history":
                     int days = 7;
-                    if (args.Length > 1 && int.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out int d)
+                    if (args.Length > 1 && int.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out int d))
                     {
-                        ) days = d;
+                        days = d;
                     }
+
                     await ShowHistory(agentService, days, json).ConfigureAwait(false);
                     break;
                 case "list":
@@ -115,6 +116,7 @@ namespace AIUsageTracker.CLI
                         Console.WriteLine("Usage: act set-key <provider-id> <api-key>");
                         return;
                     }
+
                     await SetKey(agentService, args[1], args[2]).ConfigureAwait(false);
                     break;
                 case "remove-key":
@@ -123,6 +125,7 @@ namespace AIUsageTracker.CLI
                         Console.WriteLine("Usage: act remove-key <provider-id>");
                         return;
                     }
+
                     await RemoveKey(agentService, args[1]).ConfigureAwait(false);
                     break;
                 case "scan":
@@ -134,9 +137,14 @@ namespace AIUsageTracker.CLI
                         await ShowConfig(agentService).ConfigureAwait(false);
                     }
                     else if (args.Length >= 3)
+                    {
                         await SetConfig(agentService, args[1], args[2]).ConfigureAwait(false);
+                    }
                     else
+                    {
                         Console.WriteLine("Usage: act config [key] [value]");
+                    }
+
                     break;
                 case "agent":
                     if (args.Length < 2)
@@ -144,6 +152,7 @@ namespace AIUsageTracker.CLI
                         Console.WriteLine("Usage: act agent <start|stop|restart|info|log>");
                         return;
                     }
+
                     await ManageAgent(agentService, args[1]).ConfigureAwait(false);
                     break;
                 case "check":
@@ -159,7 +168,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task CheckProvider(MonitorService service, string? providerId)
+        private static async Task CheckProvider(MonitorService service, string? providerId)
         {
             if (string.IsNullOrEmpty(providerId))
             {
@@ -176,7 +185,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task CheckSingleProvider(MonitorService service, string providerId)
+        private static async Task CheckSingleProvider(MonitorService service, string providerId)
         {
             Console.Write($"Checking {providerId}... ");
             var (success, message) = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
@@ -190,10 +199,11 @@ namespace AIUsageTracker.CLI
                 Console.ForegroundColor = ConsoleColor.Red;
                 Console.WriteLine($"FAILED ({message})");
             }
+
             Console.ResetColor();
         }
 
-        static async Task ExportData(MonitorService service, string[] args)
+        private static async Task ExportData(MonitorService service, string[] args)
         {
             string format = "csv";
             int days = 30;
@@ -201,19 +211,27 @@ namespace AIUsageTracker.CLI
 
             for (int i = 1; i < args.Length; i++)
             {
-                if (string.Equals(args[i], "--format", StringComparison.Ordinal)
+                if (string.Equals(args[i], "--format", StringComparison.Ordinal) && i + 1 < args.Length)
                 {
-                    && i + 1 < args.Length) format = args[++i];
+                    format = args[++i];
                 }
-                else if (string.Equals(args[i], "--days", StringComparison.Ordinal) && i + 1 < args.Length && int.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, out int d)) { days = d; i++; }
-                else if (string.Equals(args[i], "--output", StringComparison.Ordinal) && i + 1 < args.Length) output = args[++i];
+                else if (string.Equals(args[i], "--days", StringComparison.Ordinal) && i + 1 < args.Length && int.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, out int d))
+                {
+                    days = d;
+                    i++;
+                }
+                else if (string.Equals(args[i], "--output", StringComparison.Ordinal) && i + 1 < args.Length)
+                {
+                    output = args[++i];
+                }
             }
 
             // Adjust default extension if format changed but output didn't
-            if (string.Equals(format, "json", StringComparison.Ordinal)
+            if (string.Equals(format, "json", StringComparison.Ordinal) && output.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
             {
-                && output.EndsWith(".csv", StringComparison.OrdinalIgnoreCase)) output = Path.ChangeExtension(output, ".json");
+                output = Path.ChangeExtension(output, ".json");
             }
+
             Console.WriteLine($"Exporting {days} days of history to {output} ({format})...");
 
             var stream = await service.ExportDataAsync(format, days).ConfigureAwait(false);
@@ -229,7 +247,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task ShowHistory(MonitorService service, int days, bool json)
+        private static async Task ShowHistory(MonitorService service, int days, bool json)
         {
             // For CLI simplicity, we'll just show the last N entries or a summary if possible.
             // The Agent API currently supports ?limit=N.
@@ -279,7 +297,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task SetKey(MonitorService service, string providerId, string apiKey)
+        private static async Task SetKey(MonitorService service, string providerId, string apiKey)
         {
             Console.WriteLine($"Setting key for '{providerId}'...");
 
@@ -304,7 +322,7 @@ namespace AIUsageTracker.CLI
                 var newConfig = new ProviderConfig
                 {
                     ProviderId = providerId,
-                    ApiKey = apiKey
+                    ApiKey = apiKey,
                 };
 
                 if (await service.SaveConfigAsync(newConfig).ConfigureAwait(false))
@@ -319,7 +337,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task RemoveKey(MonitorService service, string providerId)
+        private static async Task RemoveKey(MonitorService service, string providerId)
         {
             Console.WriteLine($"Removing key for '{providerId}'...");
             if (await service.RemoveConfigAsync(providerId).ConfigureAwait(false))
@@ -333,7 +351,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task ScanKeys(MonitorService service)
+        private static async Task ScanKeys(MonitorService service)
         {
             Console.WriteLine("Scanning for API keys from known applications...");
             var (count, configs) = await service.ScanForKeysAsync().ConfigureAwait(false);
@@ -345,6 +363,7 @@ namespace AIUsageTracker.CLI
                 {
                     Console.WriteLine($" - {config.ProviderId}");
                 }
+
                 Console.WriteLine("Keys have been saved to configuration.");
                 await service.TriggerRefreshAsync().ConfigureAwait(false);
             }
@@ -354,14 +373,14 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task ShowConfig(MonitorService service)
+        private static async Task ShowConfig(MonitorService service)
         {
             var prefs = await service.GetPreferencesAsync().ConfigureAwait(false);
             Console.WriteLine("Current Configuration:");
             Console.WriteLine(JsonSerializer.Serialize(prefs, new JsonSerializerOptions { WriteIndented = true }));
         }
 
-        static async Task SetConfig(MonitorService service, string key, string value)
+        private static async Task SetConfig(MonitorService service, string key, string value)
         {
             var prefs = await service.GetPreferencesAsync().ConfigureAwait(false);
 
@@ -382,11 +401,17 @@ namespace AIUsageTracker.CLI
                     typedValue = bool.Parse(value);
                 }
                 else if (prop.PropertyType == typeof(int))
+                {
                     typedValue = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+                }
                 else if (prop.PropertyType == typeof(double))
+                {
                     typedValue = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+                }
                 else if (prop.PropertyType.IsEnum)
+                {
                     typedValue = Enum.Parse(prop.PropertyType, value, true);
+                }
 
                 if (typedValue != null)
                 {
@@ -396,7 +421,9 @@ namespace AIUsageTracker.CLI
                         Console.WriteLine($"Configuration '{key}' updated to '{value}'.");
                     }
                     else
+                    {
                         Console.WriteLine("Failed to save configuration.");
+                    }
                 }
             }
             catch (Exception ex)
@@ -405,7 +432,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task ManageAgent(MonitorService service, string action)
+        private static async Task ManageAgent(MonitorService service, string action)
         {
             switch (action.ToLower(System.Globalization.CultureInfo.InvariantCulture))
             {
@@ -422,7 +449,10 @@ namespace AIUsageTracker.CLI
                         Console.WriteLine("Agent stopped.");
                     }
                     else
+                    {
                         Console.WriteLine("Failed to stop Agent.");
+                    }
+
                     break;
                 case "start":
                     Console.WriteLine("Starting Agent...");
@@ -431,7 +461,10 @@ namespace AIUsageTracker.CLI
                         Console.WriteLine("Agent started.");
                     }
                     else
+                    {
                         Console.WriteLine("Failed to start Agent.");
+                    }
+
                     break;
                 case "restart":
                     Console.WriteLine("Restarting Agent...");
@@ -442,7 +475,10 @@ namespace AIUsageTracker.CLI
                         Console.WriteLine("Agent restarted.");
                     }
                     else
+                    {
                         Console.WriteLine("Failed to restart Agent.");
+                    }
+
                     break;
                 default:
                     Console.WriteLine($"Unknown agent command: {action}");
@@ -450,7 +486,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        static async Task ShowStatus(MonitorService service, bool json, bool showAll)
+        private static async Task ShowStatus(MonitorService service, bool json, bool showAll)
         {
             var usage = await service.GetUsageAsync().ConfigureAwait(false);
 
@@ -509,7 +545,7 @@ namespace AIUsageTracker.CLI
 
                     for (int i = 1; i < lines.Length; i++)
                     {
-                        Console.WriteLine($"{string.Empty,-36} | {string.Empty,-14} | {string.Empty,-10} | {lines[i]}");
+                        Console.WriteLine($"{"",-36} | {"",-14} | {"",-10} | {lines[i]}");
                     }
 
                     var displayableDetails = u.Details?
@@ -520,14 +556,14 @@ namespace AIUsageTracker.CLI
                         foreach (var d in displayableDetails)
                         {
                             var name = "  " + d.Name;
-                            Console.WriteLine($"{name,-36} | {string.Empty,-14} | {d.Used,-10} | {d.Description}");
+                            Console.WriteLine($"{name,-36} | {"",-14} | {d.Used,-10} | {d.Description}");
                         }
                     }
                 }
             }
         }
 
-        static async Task ShowList(MonitorService service, bool json)
+        private static async Task ShowList(MonitorService service, bool json)
         {
             var configs = await service.GetConfigsAsync().ConfigureAwait(false);
             if (json)
@@ -543,6 +579,4 @@ namespace AIUsageTracker.CLI
             }
         }
     }
-
-
 }

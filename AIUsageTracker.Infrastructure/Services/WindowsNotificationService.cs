@@ -19,20 +19,16 @@ namespace AIUsageTracker.Infrastructure.Services
 
         public void Initialize()
         {
-            if (this._isInitialized)
-            {
-                return;
-            }
+            if (this._isInitialized) return;
+
             this._logger.LogInformation("Initializing notification service");
             this._isInitialized = true;
         }
 
         public void Unregister()
         {
-            if (!this._isInitialized)
-            {
-                return;
-            }
+            if (!this._isInitialized) return;
+
             this._isInitialized = false;
         }
 

@@ -51,16 +51,15 @@ namespace AIUsageTracker.Tests.Core
 
             Assert.Empty(violations);
         }
-    `n
+    
+
         private static string GetRepoRoot()
         {
             var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
             while (dir != null)
             {
                 if (File.Exists(Path.Combine(dir.FullName, "Directory.Build.props")))
-                {
                     return dir.FullName;
-                }
                 dir = dir.Parent;
             }
             throw new InvalidOperationException("Could not find repo root");

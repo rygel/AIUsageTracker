@@ -229,31 +229,31 @@ namespace AIUsageTracker.Web.Tests
             await page.GotoAsync(ScreenshotTests.ServerUrl);
             await page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
-            var siteCssStatus = await page.EvaluateAsync<int>(string.Empty"
+            var siteCssStatus = await page.EvaluateAsync<int>("""
             async () => {
                 const res = await fetch('/css/site.css', { cache: 'no-store' });
                 return res.status;
             }
-            string.Empty");
-            var themesCssStatus = await page.EvaluateAsync<int>(string.Empty"
+            """);
+            var themesCssStatus = await page.EvaluateAsync<int>("""
             async () => {
                 const res = await fetch('/css/themes.css', { cache: 'no-store' });
                 return res.status;
             }
-            string.Empty");
+            """);
 
             Assert.AreEqual(200, siteCssStatus, "Expected /css/site.css to be served.");
             Assert.AreEqual(200, themesCssStatus, "Expected /css/themes.css to be served.");
 
-            var sidebarPosition = await page.EvaluateAsync<string>(string.Empty"
+            var sidebarPosition = await page.EvaluateAsync<string>("""
             () => getComputedStyle(document.querySelector('.sidebar')).position
-            string.Empty");
-            var sidebarWidth = await page.EvaluateAsync<string>(string.Empty"
+            """);
+            var sidebarWidth = await page.EvaluateAsync<string>("""
             () => getComputedStyle(document.querySelector('.sidebar')).width
-            string.Empty");
-            var appContainerDisplay = await page.EvaluateAsync<string>(string.Empty"
+            """);
+            var appContainerDisplay = await page.EvaluateAsync<string>("""
             () => getComputedStyle(document.querySelector('.app-container')).display
-            string.Empty");
+            """);
             var footerText = await page.TextContentAsync(".sidebar-footer-text");
 
             Assert.AreEqual("fixed", sidebarPosition, "Sidebar CSS is not applied (expected fixed sidebar). ");
@@ -282,12 +282,12 @@ namespace AIUsageTracker.Web.Tests
             await page.GotoAsync(ScreenshotTests.ServerUrl);
             await page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
-            var cssText = await page.EvaluateAsync<string>(string.Empty"
+            var cssText = await page.EvaluateAsync<string>("""
             async () => {
                 const res = await fetch('/css/site.css', { cache: 'no-store' });
                 return await res.text();
             }
-            string.Empty");
+            """);
 
             Assert.IsTrue(
                 cssText.Contains(".reliability-grid", StringComparison.Ordinal),
@@ -299,22 +299,22 @@ namespace AIUsageTracker.Web.Tests
                 cssText.Contains(".reliability-badge", StringComparison.Ordinal),
                 "Reliability badge CSS hook missing.");
 
-            var providerCardCount = await page.EvaluateAsync<int>(string.Empty"
+            var providerCardCount = await page.EvaluateAsync<int>("""
             () => document.querySelectorAll('.provider-card').length
-            string.Empty");
+            """);
 
             if (providerCardCount > 0)
             {
-                var reliabilityCardCount = await page.EvaluateAsync<int>(string.Empty"
+                var reliabilityCardCount = await page.EvaluateAsync<int>("""
                 () => document.querySelectorAll('.reliability-card').length
-                string.Empty");
-                var reliabilityHeading = await page.EvaluateAsync<string?>(string.Empty"
+                """);
+                var reliabilityHeading = await page.EvaluateAsync<string?>("""
                 () => {
                     const heading = Array.from(document.querySelectorAll('h2'))
                         .find(h => h.textContent?.trim() === 'Provider Reliability');
                     return heading?.textContent?.trim() ?? null;
                 }
-                string.Empty");
+                """);
 
                 Assert.IsTrue(reliabilityCardCount > 0, "Reliability cards should render when provider cards are present.");
                 Assert.AreEqual("Provider Reliability", reliabilityHeading, "Reliability section heading missing.");
@@ -377,16 +377,16 @@ namespace AIUsageTracker.Web.Tests
             await page.GotoAsync(ScreenshotTests.ServerUrl);
             await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
-            var availableThemes = await page.EvaluateAsync<string[]>(string.Empty"
+            var availableThemes = await page.EvaluateAsync<string[]>("""
             () => Array.from(document.querySelectorAll('#theme-select option')).map(o => o.value)
-            string.Empty");
+            """);
 
             CollectionAssert.AreEquivalent(this._expectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
 
             foreach (var theme in this._expectedThemes)
             {
                 await page.EvaluateAsync(
-                    string.Empty"
+                    """
                 (theme) => {
                     const select = document.getElementById('theme-select');
                     if (!select) {
@@ -396,15 +396,15 @@ namespace AIUsageTracker.Web.Tests
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                string.Empty",
+                """,
                     theme);
 
-                var appliedTheme = await page.EvaluateAsync<string>(string.Empty"
+                var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
-                string.Empty");
-                var bgPrimary = await page.EvaluateAsync<string>(string.Empty"
+                """);
+                var bgPrimary = await page.EvaluateAsync<string>("""
                 () => getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim()
-                string.Empty");
+                """);
 
                 Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied to data-theme.");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(bgPrimary), $"Theme '{theme}' did not resolve --bg-primary.");
@@ -434,7 +434,7 @@ namespace AIUsageTracker.Web.Tests
             foreach (var theme in representativeThemes)
             {
                 await page.EvaluateAsync(
-                    string.Empty"
+                    """
                 (theme) => {
                     const select = document.getElementById('theme-select');
                     if (!select) {
@@ -444,14 +444,14 @@ namespace AIUsageTracker.Web.Tests
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                string.Empty",
+                """,
                     theme);
 
                 await Task.Delay(ScreenshotTests.ThemeSwitchDelayMs);
 
-                var appliedTheme = await page.EvaluateAsync<string>(string.Empty"
+                var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
-                string.Empty");
+                """);
                 Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
 
                 var filePath = Path.Combine(this._themeOutputDir, $"screenshot_web_theme_{theme}.png");
@@ -497,7 +497,7 @@ namespace AIUsageTracker.Web.Tests
             foreach (var (theme, expectedTokens) in this._representativeThemeTokens)
             {
                 await page.EvaluateAsync(
-                    string.Empty"
+                    """
                 (theme) => {
                     const select = document.getElementById('theme-select');
                     if (!select) {
@@ -507,15 +507,15 @@ namespace AIUsageTracker.Web.Tests
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                string.Empty",
+                """,
                     theme);
 
-                var appliedTheme = await page.EvaluateAsync<string>(string.Empty"
+                var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
-                string.Empty");
+                """);
                 Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before CSS token assertions.");
 
-                var tokens = await page.EvaluateAsync<string[]>(string.Empty"
+                var tokens = await page.EvaluateAsync<string[]>("""
                 () => {
                     const rootStyle = getComputedStyle(document.documentElement);
                     const bg = rootStyle.getPropertyValue('--bg-primary').trim().toLowerCase();
@@ -523,7 +523,7 @@ namespace AIUsageTracker.Web.Tests
                     const text = rootStyle.getPropertyValue('--text-primary').trim().toLowerCase();
                     return [bg, accent, text];
                 }
-                string.Empty");
+                """);
 
                 Assert.IsNotNull(tokens, $"Theme '{theme}' token payload should not be null.");
                 Assert.AreEqual(3, tokens.Length, $"Theme '{theme}' should return three token values.");

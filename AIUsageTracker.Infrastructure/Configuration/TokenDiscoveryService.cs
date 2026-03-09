@@ -40,13 +40,8 @@ namespace AIUsageTracker.Infrastructure.Configuration
                 var key = var.Key.ToString()?.ToUpperInvariant();
                 var value = var.Value?.ToString();
 
-                if (string.IsNullOrEmpty(key)
+                if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value)) continue;
 
-                {
-
-                    || string.IsNullOrEmpty(value)) continue;
-
-                }
                 this.TryAddEnvironmentVariable(discoveredConfigs, key, value);
             }
 

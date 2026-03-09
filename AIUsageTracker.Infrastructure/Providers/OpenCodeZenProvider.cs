@@ -291,18 +291,9 @@ namespace AIUsageTracker.Infrastructure.Providers
         private string FormatTokens(double tokens)
         {
             var culture = System.Globalization.CultureInfo.InvariantCulture;
-            if (tokens >= 1_000_000_000)
-            {
-                return (tokens / 1_000_000_000).ToString("F1", culture) + "B";
-            }
-            if (tokens >= 1_000_000)
-            {
-                return (tokens / 1_000_000).ToString("F1", culture) + "M";
-            }
-            if (tokens >= 1_000)
-            {
-                return (tokens / 1_000).ToString("F1", culture) + "K";
-            }
+            if (tokens >= 1_000_000_000) return (tokens / 1_000_000_000).ToString("F1", culture) + "B";
+            if (tokens >= 1_000_000) return (tokens / 1_000_000).ToString("F1", culture) + "M";
+            if (tokens >= 1_000) return (tokens / 1_000).ToString("F1", culture) + "K";
             return tokens.ToString("F0", culture);
         }
 
@@ -314,13 +305,8 @@ namespace AIUsageTracker.Infrastructure.Providers
                 .Skip(1)
                 .FirstOrDefault();
 
-            if (string.IsNullOrEmpty(modelBlocks)
+            if (string.IsNullOrEmpty(modelBlocks)) return models;
 
-            {
-
-                ) return models;
-
-            }
             var modelPattern = new Regex(@"(?<model>[^\n]+)\s+Messages\s+(?<messages>[0-9,]+)\s+Input Tokens\s+(?<input>[0-9.,KM]+)\s+Output Tokens\s+(?<output>[0-9.,KM]+)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
 
             foreach (Match match in modelPattern.Matches(modelBlocks))
@@ -346,13 +332,8 @@ namespace AIUsageTracker.Infrastructure.Providers
                 .Skip(1)
                 .FirstOrDefault();
 
-            if (string.IsNullOrEmpty(toolBlocks)
+            if (string.IsNullOrEmpty(toolBlocks)) return tools;
 
-            {
-
-                ) return tools;
-
-            }
             var toolPattern = new Regex(@"(?<tool>\w+)\s+[█]+(?<count>[0-9]+)\s+\((?<percentage>[\d.]+)%\)", RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
 
             foreach (Match match in toolPattern.Matches(toolBlocks))
@@ -371,23 +352,13 @@ namespace AIUsageTracker.Infrastructure.Providers
 
         private double ParseTokenCount(string value)
         {
-            if (string.IsNullOrEmpty(value)
-            {
-                ) return 0;
-            }
+            if (string.IsNullOrEmpty(value)) return 0;
+
             var cleaned = value.Replace(",", string.Empty);
-            if (cleaned.EndsWith("B")
-            {
-                ) return double.Parse(cleaned[..^1]) * 1_000_000_000;
-            }
-            if (cleaned.EndsWith("M")
-            {
-                ) return double.Parse(cleaned[..^1]) * 1_000_000;
-            }
-            if (cleaned.EndsWith("K")
-            {
-                ) return double.Parse(cleaned[..^1]) * 1_000;
-            }
+            if (cleaned.EndsWith("B")) return double.Parse(cleaned[..^1]) * 1_000_000_000;
+            if (cleaned.EndsWith("M")) return double.Parse(cleaned[..^1]) * 1_000_000;
+            if (cleaned.EndsWith("K")) return double.Parse(cleaned[..^1]) * 1_000;
+
             return double.Parse(cleaned);
         }
 

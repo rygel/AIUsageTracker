@@ -106,17 +106,16 @@ namespace AIUsageTracker.Tests.Core
             var isValid = ValidateDetailCombination(detail);
             Assert.Equal(expectedValid, isValid);
         }
-    `n
+    
+
         private static bool ValidateDetailCombination(ProviderUsageDetail detail)
         {
             if (detail.DetailType == ProviderUsageDetailType.Unknown)
-            {
                 return false;
-            }
+
             if (detail.DetailType == ProviderUsageDetailType.QuotaWindow && detail.WindowKind == WindowKind.None)
-            {
                 return false;
-            }
+
             return true;
         }
 

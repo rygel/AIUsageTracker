@@ -114,9 +114,7 @@ namespace AIUsageTracker.Infrastructure.Providers
                             {
                                 var qid = qidElement.ToString();
                                 if (qid.Contains("RequestsPerDay", StringComparison.OrdinalIgnoreCase))
-                                {
                                     resetTime = DateTime.UtcNow.Date.AddDays(1).ToString("o");
-                                }
                                 else if (qid.Contains("RequestsPerMinute", StringComparison.OrdinalIgnoreCase))
                                     resetTime = DateTime.UtcNow.AddMinutes(1).ToString("o");
                             }
@@ -223,10 +221,8 @@ namespace AIUsageTracker.Infrastructure.Providers
         private AntigravityAccounts? LoadAntigravityAccounts()
         {
             var path = this._accountsPathOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "opencode", "antigravity-accounts.json");
-            if (!File.Exists(path)
-            {
-                ) return null;
-            }
+            if (!File.Exists(path)) return null;
+
             try
             {
                 var json = File.ReadAllText(path);

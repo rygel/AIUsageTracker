@@ -14,7 +14,8 @@ namespace AIUsageTracker.UI.Slim
         Warning,
         Error
     }
-    `n
+    
+
     internal sealed record ProviderCardPresentation(
         bool IsMissing,
         bool IsUnknown,
@@ -26,7 +27,8 @@ namespace AIUsageTracker.UI.Slim
         double RemainingPercent,
         string StatusText,
         ProviderCardStatusTone StatusTone);
-    `n
+    
+
     internal static class ProviderCardPresentationCatalog
     {
         public static ProviderCardPresentation Create(ProviderUsage usage, bool showUsed)
@@ -108,7 +110,8 @@ namespace AIUsageTracker.UI.Slim
                 statusText,
                 ProviderCardStatusTone.Secondary);
         }
-    `n
+    
+
         private static ProviderCardPresentation CreatePresentation(
             bool isMissing,
             bool isUnknown,
@@ -133,12 +136,14 @@ namespace AIUsageTracker.UI.Slim
                 StatusText: statusText,
                 StatusTone: statusTone);
         }
-    `n
+    
+
         private static string BuildDualWindowStatusText(ProviderDualWindowPresentation presentation, bool showUsed)
         {
             return $"{FormatDualWindowSegment(presentation.PrimaryLabel, presentation.PrimaryUsedPercent, showUsed)} | {FormatDualWindowSegment(presentation.SecondaryLabel, presentation.SecondaryUsedPercent, showUsed)}";
         }
-    `n
+    
+
         private static string FormatDualWindowSegment(string label, double usedPercent, bool showUsed)
         {
             var clampedUsed = UsageMath.ClampPercent(usedPercent);
@@ -147,7 +152,8 @@ namespace AIUsageTracker.UI.Slim
                 ? $"{label} {clampedUsed:F0}% used"
                 : $"{label} {clampedRemaining:F0}% remaining";
         }
-    `n
+    
+
         private static string GetQuotaFractionStatusText(ProviderUsage usage, bool showUsed)
         {
             if (showUsed)
@@ -158,7 +164,8 @@ namespace AIUsageTracker.UI.Slim
             var remaining = usage.RequestsAvailable - usage.RequestsUsed;
             return $"{remaining:N0} / {usage.RequestsAvailable:N0} remaining";
         }
-    `n
+    
+
         private static string GetQuotaPercentStatusText(ProviderUsage usage, bool showUsed)
         {
             var clampedRemainingPercent = UsageMath.ClampPercent(usage.RequestsPercentage);

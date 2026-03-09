@@ -17,18 +17,14 @@ namespace AIUsageTracker.Monitor.Services
         {
             this._database = database;
         }
-    `n
+    
+
         public async Task<(byte[] content, string contentType, string fileName)> ExportAsync(string format, int days)
         {
             // Limit days to reasonable range
-            if (days < 1)
-            {
-                days = 1;
-            }
-            if (days > 365)
-            {
-                days = 365;
-            }
+            if (days < 1) days = 1;
+            if (days > 365) days = 365;
+
             // Estimate limit based on days (assuming ~100 requests/day max for safety)
             var limit = days * 100;
             var history = await this._database.GetHistoryAsync(limit);
@@ -73,13 +69,11 @@ namespace AIUsageTracker.Monitor.Services
                 return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");
             }
         }
-    `n
+    
+
         private static string EscapeCsv(string field)
         {
-            if (string.IsNullOrEmpty(field)
-            {
-                ) return string.Empty;
-            }
+            if (string.IsNullOrEmpty(field)) return string.Empty;
             if (field.Contains(",") || field.Contains("\"") || field.Contains("\n"))
             {
                 return $"\"{field.Replace("\"", "\"\"")}\"";

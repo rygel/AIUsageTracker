@@ -15,7 +15,8 @@ namespace AIUsageTracker.Monitor.Services
         {
             this._database = database;
         }
-    `n
+    
+
         public async Task<(int imported, int skipped, List<string> errors)> ImportHistoryAsync(Stream stream, string format)
         {
             var imported = 0;
@@ -67,10 +68,8 @@ namespace AIUsageTracker.Monitor.Services
                     while (!reader.EndOfStream)
                     {
                         var line = await reader.ReadLineAsync();
-                        if (string.IsNullOrWhiteSpace(line)
-                        {
-                            ) continue;
-                        }
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+
                         var values = line.Split(',');
                         if (values.Length < 5)
                         {

@@ -29,9 +29,8 @@ namespace AIUsageTracker.Infrastructure.Extensions
             string? providerId = null)
         {
             if (string.IsNullOrWhiteSpace(url))
-            {
                 throw new ArgumentException("URL cannot be null or empty", nameof(url));
-            }
+
             if (string.IsNullOrWhiteSpace(token))
                 throw new ProviderConfigurationException(
                     providerId ?? "unknown",
@@ -55,9 +54,8 @@ namespace AIUsageTracker.Infrastructure.Extensions
             string? providerId = null)
         {
             if (string.IsNullOrWhiteSpace(url))
-            {
                 throw new ArgumentException("URL cannot be null or empty", nameof(url));
-            }
+
             if (string.IsNullOrWhiteSpace(token))
                 throw new ProviderConfigurationException(
                     providerId ?? "unknown",
@@ -87,13 +85,11 @@ namespace AIUsageTracker.Infrastructure.Extensions
             CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(url))
-            {
                 throw new ArgumentException("URL cannot be null or empty", nameof(url));
-            }
+
             if (string.IsNullOrWhiteSpace(token))
-            {
                 throw new ProviderConfigurationException(providerId, "API key is missing");
-            }
+
             using var request = httpClient.CreateBearerRequest(url, token, providerId);
 
             var originalTimeout = httpClient.Timeout;

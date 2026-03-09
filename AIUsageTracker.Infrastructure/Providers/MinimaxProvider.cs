@@ -65,10 +65,7 @@ namespace AIUsageTracker.Infrastructure.Providers
             if (!string.IsNullOrEmpty(config.BaseUrl))
             {
                 url = config.BaseUrl;
-                if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)
-                {
-                    ) url = "https://" + url;
-                }
+                if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) url = "https://" + url;
             }
             else
             {

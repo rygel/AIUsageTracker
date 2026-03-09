@@ -19,7 +19,8 @@ namespace AIUsageTracker.UI.Slim
                 candidatePaths ?? GetCandidatePaths(GitHubCopilotProvider.StaticDefinition),
                 logger);
         }
-    `n
+    
+
         public static Task<string?> TryGetOpenAiUsernameAsync(ILogger logger, IEnumerable<string>? candidatePaths = null)
         {
             return TryReadOpenAiUsernameAsync(
@@ -27,7 +28,8 @@ namespace AIUsageTracker.UI.Slim
                 OpenAIProvider.StaticDefinition,
                 logger);
         }
-    `n
+    
+
         public static Task<string?> TryGetCodexUsernameAsync(ILogger logger, IEnumerable<string>? candidatePaths = null)
         {
             return TryReadCodexUsernameAsync(
@@ -35,7 +37,8 @@ namespace AIUsageTracker.UI.Slim
                 CodexProvider.StaticDefinition,
                 logger);
         }
-    `n
+    
+
         private static async Task<string?> TryReadGitHubHostsUsernameAsync(IEnumerable<string> candidatePaths, ILogger logger)
         {
             foreach (var path in candidatePaths)
@@ -72,7 +75,8 @@ namespace AIUsageTracker.UI.Slim
 
             return null;
         }
-    `n
+    
+
         private static async Task<string?> TryReadOpenAiUsernameAsync(
             IEnumerable<string> candidatePaths,
             ProviderDefinition definition,
@@ -119,7 +123,8 @@ namespace AIUsageTracker.UI.Slim
 
             return null;
         }
-    `n
+    
+
         private static async Task<string?> TryReadCodexUsernameAsync(
             IEnumerable<string> candidatePaths,
             ProviderDefinition definition,
@@ -179,14 +184,16 @@ namespace AIUsageTracker.UI.Slim
 
             return null;
         }
-    `n
+    
+
         private static IEnumerable<string> GetCandidatePaths(ProviderDefinition definition)
         {
             return definition.AuthIdentityCandidatePathTemplates
                 .Select(Environment.ExpandEnvironmentVariables)
                 .Distinct(StringComparer.OrdinalIgnoreCase);
         }
-    `n
+    
+
         private static JsonElement? FindFirstRootObject(JsonElement root, ProviderDefinition definition)
         {
             foreach (var propertyName in definition.SessionAuthFileSchemas

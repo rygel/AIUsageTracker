@@ -34,10 +34,8 @@ namespace AIUsageTracker.Infrastructure.Services
             int maxSamplesPerProvider = 720)
         {
             var normalizedIds = NormalizeProviderIds(providerIds);
-            if (!normalizedIds.Any()
-            {
-                ) return new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, BurnRateForecast>;
-            }
+            if (!normalizedIds.Any()) return new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, BurnRateForecast>;
+
             var cacheKey = $"analytics:burn-rate:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
             if (this._cache.TryGetValue<Dictionary<string, BurnRateForecast>>(cacheKey, out var cached) && cached != null)
             {
@@ -69,10 +67,8 @@ namespace AIUsageTracker.Infrastructure.Services
             int maxSamplesPerProvider = 1000)
         {
             var normalizedIds = NormalizeProviderIds(providerIds);
-            if (!normalizedIds.Any()
-            {
-                ) return new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, ProviderReliabilitySnapshot>;
-            }
+            if (!normalizedIds.Any()) return new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, ProviderReliabilitySnapshot>;
+
             var cacheKey = $"analytics:reliability:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
             if (this._cache.TryGetValue<Dictionary<string, ProviderReliabilitySnapshot>>(cacheKey, out var cached) && cached != null)
             {
@@ -106,10 +102,8 @@ namespace AIUsageTracker.Infrastructure.Services
             int maxSamplesPerProvider = 720)
         {
             var normalizedIds = NormalizeProviderIds(providerIds);
-            if (!normalizedIds.Any()
-            {
-                ) return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, UsageAnomalySnapshot>;
-            }
+            if (!normalizedIds.Any()) return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, UsageAnomalySnapshot>;
+
             var cacheKey = $"analytics:anomalies:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
             if (this._cache.TryGetValue<Dictionary<string, UsageAnomalySnapshot>>(cacheKey, out var cached) && cached != null)
             {
@@ -150,10 +144,7 @@ namespace AIUsageTracker.Infrastructure.Services
 
         private static List<string> NormalizeProviderIds(IEnumerable<string> providerIds)
         {
-            if (providerIds == null)
-            {
-                return new List<string>();
-            }
+            if (providerIds == null) return new List<string>();
             return providerIds
                 .Where(id => !string.IsNullOrWhiteSpace(id))
                 .Distinct(StringComparer.OrdinalIgnoreCase)

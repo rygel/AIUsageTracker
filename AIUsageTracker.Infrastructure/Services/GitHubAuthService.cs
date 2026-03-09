@@ -95,14 +95,8 @@ namespace AIUsageTracker.Infrastructure.Services
                     var code = error.GetString();
                     if (string.Equals(code, "authorization_pending", StringComparison.Ordinal)) return null; // Keep polling
                     if (string.Equals(code, "slow_down", StringComparison.Ordinal)) return "SLOW_DOWN"; // Signal to slow down
-                    if (string.Equals(code, "expired_token", StringComparison.Ordinal)
-                    {
-                        ) throw new Exception("Token expired");
-                    }
-                    if (string.Equals(code, "access_denied", StringComparison.Ordinal)
-                    {
-                        ) throw new Exception("Access denied");
-                    }
+                    if (string.Equals(code, "expired_token", StringComparison.Ordinal)) throw new Exception("Token expired");
+                    if (string.Equals(code, "access_denied", StringComparison.Ordinal)) throw new Exception("Access denied");
                 }
 
                 if (root.TryGetProperty("access_token", out var tokenProp))

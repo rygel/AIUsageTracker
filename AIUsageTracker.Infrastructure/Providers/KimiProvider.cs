@@ -124,20 +124,13 @@ namespace AIUsageTracker.Infrastructure.Providers
                 {
                     foreach (var limitItem in data.Limits)
                     {
-                        if (limitItem.Detail == null || limitItem.Window == null)
-                        {
-                            continue;
-                        }
+                        if (limitItem.Detail == null || limitItem.Window == null) continue;
+
                         var win = limitItem.Window;
                         var det = limitItem.Detail;
 
-                        if (det.Limit <= 0)
+                        if (det.Limit <= 0) continue;
 
-                        {
-
-                            continue;
-
-                        }
                         string name = $"{this.FormatDuration(win.Duration, win.TimeUnit ?? "TIME_UNIT_MINUTE")} Limit";
                         var itemUsed = det.Limit - det.Remaining;
                         var itemUsedPercentage = det.Limit > 0 ? (itemUsed / (double)det.Limit) * 100.0 : 0;
@@ -203,18 +196,9 @@ namespace AIUsageTracker.Infrastructure.Providers
 
         private string FormatDuration(long duration, string unit)
         {
-            if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal)
-            {
-                ) return duration == 60 ? "Hourly" : $"{duration}m";
-            }
-            if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal)
-            {
-                ) return $"{duration}h";
-            }
-            if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal)
-            {
-                ) return $"{duration}d";
-            }
+            if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal)) return duration == 60 ? "Hourly" : $"{duration}m";
+            if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal)) return $"{duration}h";
+            if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal)) return $"{duration}d";
             return unit;
         }
 
