@@ -94,7 +94,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
         Assert.True(result.Success);
         Assert.Equal("Monitor already stopped (info file missing).", result.Message);
     }
-
+`n
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -102,12 +102,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
             Directory.Delete(_tempDirectory, recursive: true);
         }
     }
-
+`n
     private MonitorProcessService CreateService()
     {
         return new MonitorProcessService(NullLogger<MonitorProcessService>.Instance);
     }
-
+`n
     private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)
     {
         var path = Path.Combine(_tempDirectory, "monitor.json");

@@ -5,19 +5,18 @@ namespace AIUsageTracker.Monitor.Services;
 public interface IUsageDatabase
 {
     Task InitializeAsync();
-    Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null);
-    Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages);
-    Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus);
-    Task CleanupOldSnapshotsAsync();
-    Task OptimizeAsync();
-    Task StoreResetEventAsync(string providerId, string providerName, double? previousUsage, double? newUsage, string resetType);
-    Task<List<ProviderUsage>> GetLatestHistoryAsync();
-    Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100);
-    Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100);
-    Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider);
-    Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50);
-    Task<bool> IsHistoryEmptyAsync();
-    Task SetProviderActiveAsync(string providerId, bool isActive);
+`n    Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null);
+`n    Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages);
+`n    Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus);
+`n    Task CleanupOldSnapshotsAsync();
+`n    Task OptimizeAsync();
+`n    Task StoreResetEventAsync(string providerId, string providerName, double? previousUsage, double? newUsage, string resetType);
+`n    Task<List<ProviderUsage>> GetLatestHistoryAsync();
+`n    Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100);
+`n    Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100);
+`n    Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider);
+`n    Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50);
+`n    Task<bool> IsHistoryEmptyAsync();
+`n    Task SetProviderActiveAsync(string providerId, bool isActive);
 }
-
 

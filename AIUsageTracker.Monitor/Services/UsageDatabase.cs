@@ -39,19 +39,19 @@ public class UsageDatabase : IUsageDatabase
             DefaultTimeout = 15
         }.ToString();
     }
-
+`n
     public async Task InitializeAsync()
     {
         await Task.Run(() => RunMigrations());
     }
-
+`n
     private void RunMigrations()
     {
         var migrationService = new DatabaseMigrationService(_dbPath,
             LoggerFactory.Create(builder => builder.AddProvider(new LoggerProvider(_logger))).CreateLogger<DatabaseMigrationService>());
         migrationService.RunMigrations();
     }
-
+`n
     private class LoggerProvider : ILoggerProvider
     {
         private readonly ILogger _logger;
@@ -59,7 +59,7 @@ public class UsageDatabase : IUsageDatabase
         public ILogger CreateLogger(string categoryName) => _logger;
         public void Dispose() { }
     }
-
+`n
     public async Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null)
     {
         await _semaphore.WaitAsync();
@@ -103,7 +103,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
     {
         var validUsages = usages.Where(u =>
@@ -195,7 +195,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus)
     {
         await _semaphore.WaitAsync();
@@ -215,7 +215,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task CleanupOldSnapshotsAsync()
     {
         await _semaphore.WaitAsync();
@@ -232,7 +232,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task OptimizeAsync()
     {
         await _semaphore.WaitAsync();
@@ -247,7 +247,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task StoreResetEventAsync(string providerId, string providerName,
         double? previousUsage, double? newUsage, string resetType)
     {
@@ -278,7 +278,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task<List<ProviderUsage>> GetLatestHistoryAsync()
     {
         await _semaphore.WaitAsync();
@@ -345,7 +345,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         await _semaphore.WaitAsync();
@@ -388,7 +388,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
         await _semaphore.WaitAsync();
@@ -432,7 +432,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
     {
         await _semaphore.WaitAsync();
@@ -482,7 +482,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
         await _semaphore.WaitAsync();
@@ -508,7 +508,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task<bool> IsHistoryEmptyAsync()
     {
         await _semaphore.WaitAsync();
@@ -524,7 +524,7 @@ public class UsageDatabase : IUsageDatabase
             _semaphore.Release();
         }
     }
-
+`n
     public async Task SetProviderActiveAsync(string providerId, bool isActive)
     {
         await _semaphore.WaitAsync();

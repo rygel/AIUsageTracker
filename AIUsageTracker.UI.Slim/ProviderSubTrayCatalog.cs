@@ -22,7 +22,7 @@ internal static class ProviderSubTrayCatalog
             .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
-
+`n
     private static bool IsEligibleDetail(ProviderUsageDetail detail)
     {
         if (string.IsNullOrWhiteSpace(detail.Name))

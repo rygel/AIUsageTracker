@@ -14,7 +14,7 @@ public class DatabaseMigrationService
         _connectionString = $"Data Source={dbPath}";
         _logger = logger;
     }
-
+`n
     public void RunMigrations()
     {
         try
@@ -61,7 +61,7 @@ public class DatabaseMigrationService
             throw;
         }
     }
-
+`n
     private static bool HasApplicationTables(SqliteConnection connection)
     {
         const string sql = @"
@@ -75,7 +75,7 @@ public class DatabaseMigrationService
         var count = Convert.ToInt32(command.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
         return count > 0;
     }
-
+`n
     private static bool HasAppliedEvolveMigrations(SqliteConnection connection)
     {
         const string sql = @"
@@ -94,7 +94,7 @@ public class DatabaseMigrationService
             return false;
         }
     }
-
+`n
     private void EnsureSchemaCompatibility(SqliteConnection connection)
     {
         ExecuteNonQuery(connection, @"
@@ -167,7 +167,7 @@ public class DatabaseMigrationService
 
         _logger.LogInformation("Legacy database compatibility bootstrap completed.");
     }
-
+`n
     private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
     {
         using var infoCommand = connection.CreateCommand();
@@ -193,14 +193,14 @@ public class DatabaseMigrationService
 
         ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
     }
-
+`n
     private static void ExecuteNonQuery(SqliteConnection connection, string sql)
     {
         using var command = connection.CreateCommand();
         command.CommandText = sql;
         command.ExecuteNonQuery();
     }
-
+`n
     private static bool IsExistingSchemaConflict(Exception ex)
     {
         var current = ex;
@@ -217,7 +217,7 @@ public class DatabaseMigrationService
 
         return false;
     }
-
+`n
     private void ApplyPerformancePragmas(SqliteConnection connection)
     {
         ExecuteNonQuery(connection, @"
@@ -231,5 +231,4 @@ public class DatabaseMigrationService
         _logger.LogInformation("SQLite performance pragmas applied (WAL/NORMAL/shared read optimization).");
     }
 }
-
 

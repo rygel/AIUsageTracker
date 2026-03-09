@@ -13,7 +13,7 @@ public class ExportService
     {
         _database = database;
     }
-
+`n
     public async Task<(byte[] content, string contentType, string fileName)> ExportAsync(string format, int days)
     {
         // Limit days to reasonable range
@@ -64,7 +64,7 @@ public class ExportService
             return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");
         }
     }
-
+`n
     private static string EscapeCsv(string field)
     {
         if (string.IsNullOrEmpty(field)) return "";
@@ -75,5 +75,4 @@ public class ExportService
         return field;
     }
 }
-
 

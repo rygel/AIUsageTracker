@@ -40,15 +40,15 @@ public class ProviderRefreshService : BackgroundService
     private sealed class ProviderFailureState
     {
         public int ConsecutiveFailures { get; set; }
-        public DateTime? CircuitOpenUntilUtc { get; set; }
-        public string? LastError { get; set; }
+`n        public DateTime? CircuitOpenUntilUtc { get; set; }
+`n        public string? LastError { get; set; }
     }
-
+`n
     public static void SetDebugMode(bool debug)
     {
         _debugMode = debug;
     }
-
+`n
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
         ILoggerFactory loggerFactory,
@@ -68,7 +68,7 @@ public class ProviderRefreshService : BackgroundService
         _pathProvider = pathProvider;
         _providers = providers;
     }
-
+`n
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Starting...");
@@ -122,7 +122,6 @@ public class ProviderRefreshService : BackgroundService
             }, stoppingToken);
         }
 
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -143,7 +142,7 @@ public class ProviderRefreshService : BackgroundService
 
         _logger.LogInformation("Stopping...");
     }
-
+`n
     private void InitializeProviders()
     {
         _logger.LogDebug("Initializing providers...");
@@ -165,7 +164,7 @@ public class ProviderRefreshService : BackgroundService
 
         _logger.LogInformation("Loaded {Count} providers", providerList.Count);
     }
-
+`n
     public virtual async Task TriggerRefreshAsync(
         bool forceAll = false,
         IReadOnlyCollection<string>? includeProviderIds = null,
@@ -366,7 +365,7 @@ public class ProviderRefreshService : BackgroundService
             _refreshSemaphore.Release();
         }
     }
-
+`n
     public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
     {
         var refreshCount = Interlocked.Read(ref _refreshCount);
@@ -398,13 +397,13 @@ public class ProviderRefreshService : BackgroundService
             LastError = lastRefreshError
         };
     }
-
+`n
     private void RecordRefreshTelemetry(TimeSpan duration, bool success, string? errorMessage)
     {
         var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref _refreshCount);
-        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref _lastRefreshLatencyMs, latencyMs);
+`n        Interlocked.Increment(ref _refreshCount);
+`n        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
+`n        Interlocked.Exchange(ref _lastRefreshLatencyMs, latencyMs);
 
         if (!success)
         {
@@ -417,7 +416,7 @@ public class ProviderRefreshService : BackgroundService
             _lastRefreshError = success ? null : errorMessage;
         }
     }
-
+`n
     private List<ProviderConfig> GetRefreshableConfigs(List<ProviderConfig> activeConfigs, bool forceAll)
     {
         if (forceAll || activeConfigs.Count == 0)
@@ -454,7 +453,7 @@ public class ProviderRefreshService : BackgroundService
 
         return refreshable;
     }
-
+`n
     private void UpdateProviderFailureStates(IReadOnlyCollection<ProviderConfig> queriedConfigs, IReadOnlyCollection<ProviderUsage> usages)
     {
         if (queriedConfigs.Count == 0)
@@ -515,7 +514,7 @@ public class ProviderRefreshService : BackgroundService
             }
         }
     }
-
+`n
     private static bool IsUsageForProvider(string providerId, string usageProviderId)
     {
         if (usageProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase))
@@ -525,7 +524,7 @@ public class ProviderRefreshService : BackgroundService
 
         return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
     }
-
+`n
     private void EnsureAutoIncludedConfigs(List<ProviderConfig> configs)
     {
         var configuredProviderIds = configs
@@ -553,25 +552,25 @@ public class ProviderRefreshService : BackgroundService
             configuredProviderIds.Add(config.ProviderId);
         }
     }
-
+`n
     private bool IsAutoIncludedProviderConfig(string providerId)
     {
         return _providers.Any(provider =>
             provider.Definition.AutoIncludeWhenUnconfigured &&
             provider.Definition.HandlesProviderId(providerId));
     }
-
+`n
     private static bool IsUsageForAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
     {
         return activeProviderIds.Any(providerId => IsUsageForProvider(providerId, usageProviderId));
     }
-
+`n
     private static bool IsDynamicChildOfAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
     {
         return activeProviderIds.Any(providerId =>
             usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase));
     }
-
+`n
     private static bool IsSuccessfulUsage(ProviderUsage usage)
     {
         if (!usage.IsAvailable)
@@ -587,7 +586,7 @@ public class ProviderRefreshService : BackgroundService
         return string.IsNullOrWhiteSpace(usage.Description) ||
                !usage.Description.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase);
     }
-
+`n
     private static string GetFailureMessage(IReadOnlyCollection<ProviderUsage> providerUsages)
     {
         if (providerUsages.Count == 0)
@@ -603,7 +602,7 @@ public class ProviderRefreshService : BackgroundService
 
         return "Provider returned no successful usage entries";
     }
-
+`n
     private static TimeSpan GetCircuitBreakerDelay(int consecutiveFailures)
     {
         var backoffLevel = Math.Max(0, consecutiveFailures - CircuitBreakerFailureThreshold);
@@ -611,7 +610,7 @@ public class ProviderRefreshService : BackgroundService
         var seconds = CircuitBreakerBaseBackoff.TotalSeconds * Math.Pow(2, exponent);
         return TimeSpan.FromSeconds(Math.Min(seconds, CircuitBreakerMaxBackoff.TotalSeconds));
     }
-
+`n
     private static bool IsInQuietHours(AppPreferences prefs)
     {
         if (!prefs.EnableQuietHours)
@@ -638,7 +637,7 @@ public class ProviderRefreshService : BackgroundService
 
         return now >= start || now < end;
     }
-
+`n
     public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)
     {
         if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
@@ -656,7 +655,7 @@ public class ProviderRefreshService : BackgroundService
             }
         }
     }
-
+`n
     private async Task DetectResetEventsAsync(List<ProviderUsage> currentUsages)
     {
         _logger.LogDebug("Checking for reset events...");
@@ -761,7 +760,7 @@ public class ProviderRefreshService : BackgroundService
             }
         }
     }
-
+`n
     public async Task<(bool success, string message, int status)> CheckProviderAsync(string providerId)
     {
         if (_providerManager == null)
@@ -802,7 +801,7 @@ public class ProviderRefreshService : BackgroundService
             return (false, ex.Message, 500);
         }
     }
-
+`n
     private IEnumerable<ProviderUsage> ValidateDetailContract(IEnumerable<ProviderUsage> usages)
     {
         foreach (var usage in usages)
@@ -857,17 +856,16 @@ public class ProviderRefreshService : BackgroundService
         }
     }
 }
-
+`n
 public sealed class RefreshTelemetrySnapshot
 {
     public long RefreshCount { get; init; }
-    public long RefreshSuccessCount { get; init; }
-    public long RefreshFailureCount { get; init; }
-    public double ErrorRatePercent { get; init; }
-    public double AverageLatencyMs { get; init; }
-    public long LastLatencyMs { get; init; }
-    public DateTime? LastRefreshCompletedUtc { get; init; }
-    public string? LastError { get; init; }
+`n    public long RefreshSuccessCount { get; init; }
+`n    public long RefreshFailureCount { get; init; }
+`n    public double ErrorRatePercent { get; init; }
+`n    public double AverageLatencyMs { get; init; }
+`n    public long LastLatencyMs { get; init; }
+`n    public DateTime? LastRefreshCompletedUtc { get; init; }
+`n    public string? LastError { get; init; }
 }
-
 

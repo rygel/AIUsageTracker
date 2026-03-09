@@ -21,31 +21,31 @@ public class MainViewModel : BaseViewModel
         get => _isLoading;
         set => SetProperty(ref _isLoading, value);
     }
-
+`n
     public bool IsPrivacyMode
     {
         get => _isPrivacyMode;
         set => SetProperty(ref _isPrivacyMode, value);
     }
-
+`n
     public string StatusMessage
     {
         get => _statusMessage;
         set => SetProperty(ref _statusMessage, value);
     }
-
+`n
     public ObservableCollection<ProviderUsage> Usages
     {
         get => _usages;
         private set => SetProperty(ref _usages, value);
     }
-
+`n
     public DateTime LastRefreshTime
     {
         get => _lastRefreshTime;
         private set => SetProperty(ref _lastRefreshTime, value);
     }
-
+`n
     public MainViewModel(
         IMonitorService monitorService,
         IUsageAnalyticsService analyticsService,
@@ -56,7 +56,7 @@ public class MainViewModel : BaseViewModel
         _logger = logger;
         _isPrivacyMode = false; // Initial state
     }
-
+`n
     public async Task RefreshDataAsync()
     {
         if (IsLoading) return;
@@ -87,7 +87,7 @@ public class MainViewModel : BaseViewModel
             IsLoading = false;
         }
     }
-
+`n
     public void SetPrivacyMode(bool enabled)
     {
         IsPrivacyMode = enabled;

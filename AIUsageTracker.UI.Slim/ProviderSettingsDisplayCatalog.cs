@@ -4,7 +4,7 @@ using AIUsageTracker.Infrastructure.Providers;
 namespace AIUsageTracker.UI.Slim;
 
 internal sealed record ProviderSettingsDisplayItem(ProviderConfig Config, bool IsDerived);
-
+`n
 internal static class ProviderSettingsDisplayCatalog
 {
     public static IReadOnlyList<ProviderSettingsDisplayItem> CreateDisplayItems(
@@ -40,7 +40,7 @@ internal static class ProviderSettingsDisplayCatalog
             .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
-
+`n
     private static ProviderConfig CreateDefaultDisplayConfig(string providerId)
     {
         if (ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config))
@@ -53,7 +53,7 @@ internal static class ProviderSettingsDisplayCatalog
             ProviderId = providerId
         };
     }
-
+`n
     private static ProviderConfig CreateDerivedConfig(ProviderUsage usage)
     {
         return new ProviderConfig

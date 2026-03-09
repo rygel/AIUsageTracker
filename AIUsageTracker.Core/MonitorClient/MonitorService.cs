@@ -19,6 +19,7 @@ public class MonitorService : IMonitorService
     private const int ConfigRequestTimeoutSeconds = 3;
 
     public const string ExpectedApiContractVersion = "1";
+
     public string AgentUrl { get; set; } = "http://localhost:5000";
 
     private static HttpClient? _sharedHttpClient;
@@ -53,8 +54,11 @@ public class MonitorService : IMonitorService
     }
 
     public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
+
     private static readonly List<string> _diagnosticsLog = new();
+
     public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
+
     private static long _usageRequestCount;
     private static long _usageErrorCount;
     private static long _usageTotalLatencyMs;
@@ -669,6 +673,7 @@ public class MonitorService : IMonitorService
     private class CheckResponse
     {
         public bool Success { get; set; }
+
         public string Message { get; set; } = string.Empty;
     }
 }

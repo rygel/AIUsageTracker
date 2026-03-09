@@ -73,7 +73,7 @@ public partial class App
             this.Shutdown();
         }
     }
-
+`n
     private static string ResolveScreenshotsDirectory()
     {
         var currentDocs = Path.Combine(Environment.CurrentDirectory, "docs");
@@ -96,7 +96,7 @@ public partial class App
 
         return currentDocs;
     }
-
+`n
     public static void RenderWindowContent(Window window, string outputPath)
     {
         if (window.Content is not FrameworkElement root)
@@ -163,7 +163,7 @@ public partial class App
         using var stream = File.Create(outputPath);
         encoder.Save(stream);
     }
-
+`n
     private async Task CaptureMainWindowScreenshotAsync(string outputPath)
     {
         var window = Host.Services.GetRequiredService<MainWindow>();
@@ -178,7 +178,7 @@ public partial class App
             window.Close();
         }
     }
-
+`n
     private async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
     {
         var window = Host.Services.GetRequiredService<SettingsWindow>();
@@ -191,7 +191,7 @@ public partial class App
             window.Close();
         }
     }
-
+`n
     private void CaptureInfoScreenshot(string outputPath)
     {
         var window = this.InfoDialogFactory();
@@ -209,7 +209,7 @@ public partial class App
             window.Close();
         }
     }
-
+`n
     private static string? GetArgumentValue(IReadOnlyList<string> args, string argumentName)
     {
         for (var i = 0; i < args.Count - 1; i++)

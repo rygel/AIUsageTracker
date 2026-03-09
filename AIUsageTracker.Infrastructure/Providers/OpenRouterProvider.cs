@@ -23,7 +23,9 @@ public class OpenRouterProvider : ProviderBase
         fallbackBadgeInitial: "OR");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenRouterProvider> _logger;
 

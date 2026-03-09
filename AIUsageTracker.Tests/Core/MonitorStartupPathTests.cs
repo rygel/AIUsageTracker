@@ -248,7 +248,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         Assert.True(File.Exists(infoPath));
         Assert.Empty(Directory.GetFiles(_tempDirectory, "monitor.json.stale.*", SearchOption.TopDirectoryOnly));
     }
-
+`n
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -256,18 +256,18 @@ public sealed class MonitorStartupPathTests : IDisposable
             Directory.Delete(_tempDirectory, recursive: true);
         }
     }
-
+`n
     private MonitorService CreateMonitorService()
     {
         return new MonitorService(new HttpClient(new Mock<HttpMessageHandler>().Object), NullLogger<MonitorService>.Instance);
     }
-
+`n
     private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)
     {
         var json = JsonSerializer.Serialize(info);
         return await CreateMonitorInfoContentAsync(json);
     }
-
+`n
     private async Task<string> CreateMonitorInfoContentAsync(string content)
     {
         var path = Path.Combine(_tempDirectory, "monitor.json");

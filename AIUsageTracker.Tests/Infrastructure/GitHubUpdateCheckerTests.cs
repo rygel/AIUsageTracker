@@ -18,7 +18,7 @@ public class GitHubUpdateCheckerTests
 
         // Act
         bool parsed = Version.TryParse(latestStr, out var latest);
-        bool isNewer = parsed && latest > current;
+`n        bool isNewer = parsed && latest > current;
 
         // Assert
         Assert.True(isNewer);
@@ -41,7 +41,7 @@ public class GitHubUpdateCheckerTests
 
         string sanitized = latestStr.StartsWith("v") ? latestStr[1..] : latestStr;
         bool parsed = Version.TryParse(sanitized, out var latest);
-        bool isNewer = parsed && latest > current;
+`n        bool isNewer = parsed && latest > current;
 
         // Assert
         Assert.True(isNewer);

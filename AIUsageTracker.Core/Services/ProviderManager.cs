@@ -16,6 +16,7 @@ public class ProviderManager : IDisposable
     private readonly TimeSpan _configCacheValidity = TimeSpan.FromSeconds(5);
 
     public IReadOnlyList<ProviderUsage> LastUsages => this._lastUsages;
+
     public IReadOnlyList<ProviderConfig>? LastConfigs => this._lastConfigs;
 
     public ProviderManager(IEnumerable<IProviderService> providers, IConfigLoader configLoader, Microsoft.Extensions.Logging.ILogger<ProviderManager> logger)

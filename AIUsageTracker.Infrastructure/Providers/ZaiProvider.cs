@@ -25,7 +25,9 @@ public class ZaiProvider : ProviderBase
         fallbackBadgeInitial: "Z");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<ZaiProvider> _logger;
 

@@ -60,7 +60,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
 
         Assert.Equal("Google Antigravity", name);
     }
-
+`n
     public void Dispose()
     {
         try
@@ -75,7 +75,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
             // Ignore cleanup failures for temp db files.
         }
     }
-
+`n
     private void CreateLegacySchemaWithoutEvolveMetadata()
     {
         using var connection = new SqliteConnection($"Data Source={_dbPath}");
@@ -121,7 +121,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
         command.CommandText = sql;
         command.ExecuteNonQuery();
     }
-
+`n
     private HashSet<string> GetColumnNames(string tableName)
     {
         using var connection = new SqliteConnection($"Data Source={_dbPath}");
@@ -143,7 +143,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
 
         return columns;
     }
-
+`n
     private sealed class TestAppPathProvider : IAppPathProvider
     {
         private readonly string _dbPath;
@@ -152,7 +152,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
         {
             _dbPath = dbPath;
         }
-
+`n
         public string GetAppDataRoot() => Path.GetDirectoryName(_dbPath)!;
 
         public string GetDatabasePath() => _dbPath;

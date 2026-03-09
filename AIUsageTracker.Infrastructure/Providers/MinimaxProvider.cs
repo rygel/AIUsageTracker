@@ -29,7 +29,9 @@ public class MinimaxProvider : ProviderBase
         fallbackBadgeInitial: "MM");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<MinimaxProvider> _logger;
 

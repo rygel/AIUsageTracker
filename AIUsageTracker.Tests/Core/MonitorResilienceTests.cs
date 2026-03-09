@@ -30,14 +30,14 @@ public class MonitorResilienceTests
         try
         {
             using var listener1 = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
-            listener1.Start();
+`n            listener1.Start();
 
             var thread = new System.Threading.Thread(() =>
             {
                 try
                 {
                     using var listener2 = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
-                    listener2.Start();
+`n                    listener2.Start();
                     boundPort = preferredPort;
                 }
                 catch (System.Net.Sockets.SocketException)

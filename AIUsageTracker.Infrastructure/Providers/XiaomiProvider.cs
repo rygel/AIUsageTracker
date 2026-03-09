@@ -22,7 +22,9 @@ public class XiaomiProvider : ProviderBase
         fallbackBadgeInitial: "Xi");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<XiaomiProvider> _logger;
 

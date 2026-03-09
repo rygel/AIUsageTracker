@@ -15,6 +15,7 @@ namespace AIUsageTracker.Infrastructure.Providers;
 public class OpenAIProvider : ProviderBase
 {
     private const string WhamUsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "openai",
         displayName: "OpenAI",
@@ -46,7 +47,9 @@ public class OpenAIProvider : ProviderBase
         });
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenAIProvider> _logger;
     private readonly string? _authFilePath;
@@ -428,9 +431,11 @@ public class OpenAIProvider : ProviderBase
 
         return null;
     }
+
     private sealed class OpenCodeOpenAiAuth
     {
         public string? Access { get; set; }
+
         public string? AccountId { get; set; }
     }
 }

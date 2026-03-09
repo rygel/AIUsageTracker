@@ -24,7 +24,9 @@ public class KimiProvider : ProviderBase
         fallbackBadgeInitial: "K");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<KimiProvider> _logger;
 

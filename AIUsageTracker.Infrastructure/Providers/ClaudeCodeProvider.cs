@@ -32,7 +32,9 @@ public class ClaudeCodeProvider : ProviderBase
         });
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly ILogger<ClaudeCodeProvider> _logger;
     private readonly HttpClient _httpClient;
 
@@ -332,8 +334,11 @@ public class ClaudeCodeProvider : ProviderBase
     private class RateLimitInfo
     {
         public int RequestsLimit { get; set; }
+
         public int RequestsRemaining { get; set; }
+
         public int InputTokensLimit { get; set; }
+
         public int InputTokensRemaining { get; set; }
 
         public string GetTierName()

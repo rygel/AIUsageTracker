@@ -9,7 +9,7 @@ internal sealed record ProviderDualWindowPresentation(
     string SecondaryLabel,
     double SecondaryUsedPercent,
     DateTime? SecondaryResetTime);
-
+`n
 internal static class ProviderDualWindowPresentationCatalog
 {
     public static bool TryGetDualWindowUsedPercentages(ProviderUsage usage, out double hourlyUsed, out double weeklyUsed)
@@ -26,7 +26,7 @@ internal static class ProviderDualWindowPresentationCatalog
         weeklyUsed = presentation.SecondaryUsedPercent;
         return true;
     }
-
+`n
     public static bool TryGetPresentation(ProviderUsage usage, out ProviderDualWindowPresentation presentation)
     {
         presentation = null!;
@@ -71,7 +71,7 @@ internal static class ProviderDualWindowPresentationCatalog
             SecondaryResetTime: weeklyDetail.NextResetTime);
         return true;
     }
-
+`n
     private static string SimplifyWindowLabel(string? rawLabel, string fallback)
     {
         if (string.IsNullOrWhiteSpace(rawLabel))

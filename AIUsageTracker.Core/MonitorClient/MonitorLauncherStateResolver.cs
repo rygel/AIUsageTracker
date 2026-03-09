@@ -13,6 +13,7 @@ internal static class MonitorLauncherStateResolver
         bool ProcessRunning)
     {
         public bool IsUsable => this.Info != null && this.HealthOk && this.ProcessRunning;
+
         public int EffectivePort => this.Info?.Port > 0 ? this.Info.Port : MonitorLauncher.DefaultPort;
     }
 

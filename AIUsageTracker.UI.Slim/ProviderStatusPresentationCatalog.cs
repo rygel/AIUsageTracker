@@ -8,19 +8,19 @@ internal sealed record ProviderAuthIdentities(
     string? GitHubUsername,
     string? OpenAiUsername,
     string? CodexUsername);
-
+`n
 internal sealed record ProviderStatusLine(
     string Text,
     bool Wrap = false,
     bool ExtraTopMargin = false);
-
+`n
 internal sealed record ProviderStatusPresentation(
     bool UseHorizontalLayout,
     string PrimaryText,
     string PrimaryResourceKey,
     bool PrimaryItalic,
     ReadOnlyCollection<ProviderStatusLine> SecondaryLines);
-
+`n
 internal static class ProviderStatusPresentationCatalog
 {
     public static ProviderStatusPresentation Create(
@@ -39,7 +39,7 @@ internal static class ProviderStatusPresentationCatalog
             _ => throw new ArgumentOutOfRangeException(nameof(inputMode), inputMode, "Status presentation is only valid for status-based provider modes.")
         };
     }
-
+`n
     public static string MaskAccountIdentifier(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
@@ -72,7 +72,7 @@ internal static class ProviderStatusPresentationCatalog
 
         return MaskString(input);
     }
-
+`n
     private static ProviderStatusPresentation CreateDerivedPresentation(ProviderUsage? usage)
     {
         var secondaryLines = new List<ProviderStatusLine>();
@@ -90,7 +90,7 @@ internal static class ProviderStatusPresentationCatalog
             PrimaryItalic: false,
             SecondaryLines: secondaryLines.AsReadOnly());
     }
-
+`n
     private static ProviderStatusPresentation CreateAntigravityPresentation(ProviderUsage? usage, bool isPrivacyMode)
     {
         var isConnected = usage?.IsAvailable == true;
@@ -120,7 +120,7 @@ internal static class ProviderStatusPresentationCatalog
             PrimaryItalic: !isConnected,
             SecondaryLines: secondaryLines.AsReadOnly());
     }
-
+`n
     private static ProviderStatusPresentation CreateGitHubPresentation(
         ProviderConfig config,
         ProviderUsage? usage,
@@ -151,7 +151,7 @@ internal static class ProviderStatusPresentationCatalog
             PrimaryItalic: false,
             SecondaryLines: Array.Empty<ProviderStatusLine>().ToList().AsReadOnly());
     }
-
+`n
     private static ProviderStatusPresentation CreateOpenAiSessionPresentation(
         ProviderConfig config,
         ProviderUsage? usage,
@@ -209,7 +209,7 @@ internal static class ProviderStatusPresentationCatalog
             PrimaryItalic: false,
             SecondaryLines: secondaryLines.AsReadOnly());
     }
-
+`n
     private static DateTime? InferResetTimeFromDetails(ProviderUsage? usage)
     {
         if (usage?.Details == null)
@@ -233,7 +233,7 @@ internal static class ProviderStatusPresentationCatalog
 
         return null;
     }
-
+`n
     private static string MaskString(string input)
     {
         if (string.IsNullOrEmpty(input))

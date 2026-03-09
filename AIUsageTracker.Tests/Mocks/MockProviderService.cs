@@ -22,7 +22,7 @@ public class MockProviderService : IProviderService
                 defaultConfigType: "pay-as-you-go");
         }
     }
-
+`n
     public ProviderDefinition Definition { get; set; } = new(
         providerId: "mock-provider",
         displayName: "mock-provider",
@@ -42,7 +42,7 @@ public class MockProviderService : IProviderService
     {
         _mockResponses = mockResponses;
     }
-
+`n
     public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (UsageHandler != null)
@@ -56,7 +56,7 @@ public class MockProviderService : IProviderService
         }
         return Task.FromResult<IEnumerable<ProviderUsage>>(new[] { new ProviderUsage { ProviderId = config.ProviderId, IsAvailable = false, Description = "Mock not configured" } });
     }
-
+`n
     public static MockProviderService CreateOpenAIMock()
     {
         return new MockProviderService
@@ -76,7 +76,7 @@ public class MockProviderService : IProviderService
             }})
         };
     }
-
+`n
     public static MockProviderService CreateGeminiMock()
     {
         return new MockProviderService
@@ -96,7 +96,7 @@ public class MockProviderService : IProviderService
             }})
         };
     }
-
+`n
     public static MockProviderService CreateGeminiCliMock()
     {
         return new MockProviderService
@@ -116,7 +116,7 @@ public class MockProviderService : IProviderService
             }})
         };
     }
-
+`n
     public static MockProviderService CreateAntigravityMock()
     {
         return new MockProviderService
@@ -136,7 +136,7 @@ public class MockProviderService : IProviderService
             }})
         };
     }
-
+`n
     public static MockProviderService CreateOpenCodeZenMock()
     {
         return new MockProviderService

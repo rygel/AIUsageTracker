@@ -54,7 +54,7 @@ public sealed class CodexAuthServiceTests : IDisposable
         Assert.Equal("compat-token", service.GetAccessToken());
         Assert.Equal("acct-compat", service.GetAccountId());
     }
-
+`n
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -62,7 +62,7 @@ public sealed class CodexAuthServiceTests : IDisposable
             Directory.Delete(_tempDirectory, recursive: true);
         }
     }
-
+`n
     private string CreateFile(string relativePath, string content)
     {
         var fullPath = Path.Combine(_tempDirectory, relativePath);

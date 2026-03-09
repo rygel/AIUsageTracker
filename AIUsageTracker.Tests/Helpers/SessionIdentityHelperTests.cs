@@ -99,14 +99,14 @@ public class SessionIdentityHelperTests
     {
         Assert.Equal(expected, SessionIdentityHelper.IsEmailLike(value));
     }
-
+`n
     private static string CreateJwt(object payload)
     {
         var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
         var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
         return $"{header}.{body}.";
     }
-
+`n
     private static string Base64UrlEncode(string value)
     {
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))

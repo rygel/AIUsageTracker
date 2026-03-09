@@ -8,7 +8,7 @@ internal sealed record ProviderSubDetailPresentation(
     double IndicatorWidth,
     string DisplayText,
     string? ResetText);
-
+`n
 internal static class ProviderSubDetailPresentationCatalog
 {
     public static IReadOnlyList<ProviderUsageDetail> GetDisplayableDetails(ProviderUsage usage)
@@ -24,7 +24,7 @@ internal static class ProviderSubDetailPresentationCatalog
             .ThenBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
-
+`n
     public static ProviderSubDetailPresentation Create(
         ProviderUsageDetail detail,
         bool isQuotaBased,
@@ -51,7 +51,7 @@ internal static class ProviderSubDetailPresentationCatalog
             DisplayText: displayText,
             ResetText: resetText);
     }
-
+`n
     private static bool IsDisplayableDetail(ProviderUsageDetail detail)
     {
         if (string.IsNullOrWhiteSpace(detail.Name))

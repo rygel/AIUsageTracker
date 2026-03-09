@@ -6,26 +6,26 @@ namespace AIUsageTracker.UI.Slim;
 internal sealed class SettingsWindowDeterministicFixtureData
 {
     public required List<ProviderConfig> Configs { get; init; }
-    public required List<ProviderUsage> Usages { get; init; }
-    public required IReadOnlyList<SettingsWindowHistoryRow> HistoryRows { get; init; }
-    public string MonitorStatusText { get; init; } = "Running";
+`n    public required List<ProviderUsage> Usages { get; init; }
+`n    public required IReadOnlyList<SettingsWindowHistoryRow> HistoryRows { get; init; }
+`n    public string MonitorStatusText { get; init; } = "Running";
     public string MonitorPortText { get; init; } = "5000";
     public string MonitorLogsText { get; init; } =
         "Monitor health check: OK" + Environment.NewLine +
         "Diagnostics available in Settings > Monitor.";
 }
-
+`n
 internal sealed class SettingsWindowHistoryRow
 {
     public string ProviderName { get; init; } = string.Empty;
     public double UsagePercentage { get; init; }
-    public double Used { get; init; }
-    public double Limit { get; init; }
-    public string PlanType { get; init; } = string.Empty;
+`n    public double Used { get; init; }
+`n    public double Limit { get; init; }
+`n    public string PlanType { get; init; } = string.Empty;
     public string Description { get; init; } = string.Empty;
     public DateTime FetchedAt { get; init; }
 }
-
+`n
 internal static class SettingsWindowDeterministicFixture
 {
     public static SettingsWindowDeterministicFixtureData Create()
@@ -69,7 +69,7 @@ internal static class SettingsWindowDeterministicFixture
             HistoryRows = historyRows
         };
     }
-
+`n
     private static ProviderConfig CreateConfig(DeterministicProviderScenario scenario)
     {
         if (!ProviderMetadataCatalog.TryCreateDefaultConfig(scenario.ProviderId, out var config, apiKey: scenario.ApiKey))
@@ -81,7 +81,7 @@ internal static class SettingsWindowDeterministicFixture
         config.EnableNotifications = scenario.EnableNotifications;
         return config;
     }
-
+`n
     private static ProviderUsage CreateUsage(
         DeterministicProviderScenario scenario,
         DateTime deterministicNow,
@@ -109,7 +109,7 @@ internal static class SettingsWindowDeterministicFixture
                 : null
         };
     }
-
+`n
     private static ProviderUsageDetail CreateDetail(DateTime deterministicNow, string name, string used, int resetHours)
     {
         return new ProviderUsageDetail
@@ -122,7 +122,7 @@ internal static class SettingsWindowDeterministicFixture
             NextResetTime = deterministicNow.AddHours(resetHours)
         };
     }
-
+`n
     private static SettingsWindowHistoryRow CreateHistoryRow(string providerId, FixtureHistoryScenario scenario)
     {
         var definition = ProviderMetadataCatalog.Find(providerId)

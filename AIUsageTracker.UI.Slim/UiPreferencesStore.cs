@@ -22,12 +22,12 @@ public class UiPreferencesStore
         this._logger = logger;
         this._pathProvider = pathProvider;
     }
-
+`n
     internal void SetPreferencesPathOverrideForTesting(string? path)
     {
         this._preferencesPathOverride = string.IsNullOrWhiteSpace(path) ? null : path;
     }
-
+`n
     private string GetPreferencesPath()
     {
         if (!string.IsNullOrWhiteSpace(this._preferencesPathOverride))
@@ -37,7 +37,7 @@ public class UiPreferencesStore
 
         return this._pathProvider.GetPreferencesFilePath();
     }
-
+`n
     public async Task<AppPreferences> LoadAsync()
     {
         var path = GetPreferencesPath();
@@ -67,7 +67,7 @@ public class UiPreferencesStore
 
         return new AppPreferences();
     }
-
+`n
     public async Task<bool> SaveAsync(AppPreferences preferences)
     {
         var path = GetPreferencesPath();
@@ -96,7 +96,7 @@ public class UiPreferencesStore
 
         return false;
     }
-
+`n
     private async Task<AppPreferences?> TryLoadLegacyPreferencesAsync()
     {
         foreach (var legacyPath in this.GetLegacyPreferenceCandidates())
@@ -138,7 +138,7 @@ public class UiPreferencesStore
 
         return null;
     }
-
+`n
     private IEnumerable<string> GetLegacyPreferenceCandidates()
     {
         var userProfileRoot = this._pathProvider.GetUserProfileRoot();

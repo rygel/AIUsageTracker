@@ -12,10 +12,10 @@ public abstract class DatabaseTestBase : IDisposable
 {
     private readonly SqliteConnection _sharedConnection;
     protected string DbPath { get; }
-    protected string ConnectionString { get; }
-    protected IMemoryCache Cache { get; }
-    protected WebDatabaseService DatabaseService { get; }
-
+`n    protected string ConnectionString { get; }
+`n    protected IMemoryCache Cache { get; }
+`n    protected WebDatabaseService DatabaseService { get; }
+`n
     protected DatabaseTestBase()
     {
         // Use a real file for WebDatabaseService because it creates its own connections
@@ -41,7 +41,7 @@ public abstract class DatabaseTestBase : IDisposable
 
         DatabaseService = new WebDatabaseService(Cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
     }
-
+`n
     private void InitializeSchema()
     {
         const string schema = @"
@@ -94,7 +94,7 @@ public abstract class DatabaseTestBase : IDisposable
         command.CommandText = schema;
         command.ExecuteNonQuery();
     }
-
+`n
     protected void SeedProvider(string id, string name, string? account = null, bool isActive = true)
     {
         using var command = _sharedConnection.CreateCommand();
@@ -105,7 +105,7 @@ public abstract class DatabaseTestBase : IDisposable
         command.Parameters.AddWithValue("$active", isActive ? 1 : 0);
         command.ExecuteNonQuery();
     }
-
+`n
     protected void SeedHistory(string providerId, double used, double available, DateTime fetchedAt, bool isAvailable = true, double latencyMs = 0)
     {
         using var command = _sharedConnection.CreateCommand();
@@ -127,7 +127,7 @@ public abstract class DatabaseTestBase : IDisposable
         command.Parameters.AddWithValue("$latency", latencyMs);
         command.ExecuteNonQuery();
     }
-
+`n
     public virtual void Dispose()
     {
         _sharedConnection.Close();

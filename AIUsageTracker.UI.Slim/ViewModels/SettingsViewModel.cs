@@ -22,25 +22,25 @@ public class SettingsViewModel : BaseViewModel
         get => _isPrivacyMode;
         set => SetProperty(ref _isPrivacyMode, value);
     }
-
+`n
     public string StatusMessage
     {
         get => _statusMessage;
         set => SetProperty(ref _statusMessage, value);
     }
-
+`n
     public bool IsLoading
     {
         get => _isLoading;
         set => SetProperty(ref _isLoading, value);
     }
-
+`n
     public List<ProviderConfig> Configs
     {
         get => _configs;
         private set => SetProperty(ref _configs, value);
     }
-
+`n
     public SettingsViewModel(
         IMonitorService monitorService,
         IUsageAnalyticsService analyticsService,
@@ -52,7 +52,7 @@ public class SettingsViewModel : BaseViewModel
         _exportService = exportService;
         _logger = logger;
     }
-
+`n
     public async Task LoadDataAsync()
     {
         IsLoading = true;
@@ -81,13 +81,13 @@ public class SettingsViewModel : BaseViewModel
             IsLoading = false;
         }
     }
-
+`n
     public void TogglePrivacyMode()
     {
         IsPrivacyMode = !IsPrivacyMode;
         StatusMessage = IsPrivacyMode ? "Privacy Mode Enabled" : "Privacy Mode Disabled";
     }
-
+`n
     public async Task<string> ExportDataAsync()
     {
         return await _exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);

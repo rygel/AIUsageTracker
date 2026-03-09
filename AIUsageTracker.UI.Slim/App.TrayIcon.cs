@@ -64,7 +64,7 @@ public partial class App
             CreateLogger<App>().LogWarning("Tray icon not found at expected paths. Falling back to system icon. Tried: {TrayIconPath}", trayIconPath);
         }
     }
-
+`n
     private void ShowMainWindow()
     {
         if (_mainWindow == null)
@@ -75,7 +75,7 @@ public partial class App
         _mainWindow.Show();
         _mainWindow.Activate();
     }
-
+`n
     private static string ResolveTrayIconPath()
     {
         var candidates = new[]
@@ -95,7 +95,7 @@ public partial class App
 
         return candidates[0];
     }
-
+`n
     public void UpdateProviderTrayIcons(List<ProviderUsage> usages, List<ProviderConfig> configs, AppPreferences? prefs = null)
     {
         var desiredIcons = new Dictionary<string, (string ToolTip, double Percentage, bool IsQuota)>(StringComparer.OrdinalIgnoreCase);
@@ -190,17 +190,17 @@ public partial class App
             }
         }
     }
-
+`n
     private static double? ParsePercent(string? value)
     {
         return UsageMath.ParsePercent(value);
     }
-
+`n
     private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
     {
         return detail.IsDisplayableSubProviderDetail();
     }
-
+`n
     private static ImageSource GenerateUsageIcon(double percentage, int yellowThreshold, int redThreshold, bool invert = false, bool isQuota = false)
     {
         var size = 32;
@@ -250,13 +250,13 @@ public class RelayCommand : System.Windows.Input.ICommand
     {
         _execute = execute;
     }
-
+`n
     public event EventHandler? CanExecuteChanged
     {
         add { System.Windows.Input.CommandManager.RequerySuggested += value; }
         remove { System.Windows.Input.CommandManager.RequerySuggested -= value; }
     }
-
+`n
     public bool CanExecute(object? parameter) => true;
 
     public void Execute(object? parameter) => _execute();

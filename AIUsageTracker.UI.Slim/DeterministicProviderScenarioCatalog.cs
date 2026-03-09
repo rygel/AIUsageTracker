@@ -8,14 +8,14 @@ internal sealed record FixtureUsageScenario(
     double RequestsAvailable = 0,
     string Description = "Connected",
     int? ResetHours = null);
-
+`n
 internal sealed record FixtureHistoryScenario(
     double UsagePercentage,
     double Used,
     double Limit,
     string Description,
     DateTime FetchedAt);
-
+`n
 internal sealed record DeterministicProviderScenario(
     string ProviderId,
     string ApiKey,
@@ -25,7 +25,7 @@ internal sealed record DeterministicProviderScenario(
     FixtureUsageScenario? MainWindowUsage = null,
     FixtureUsageScenario? SettingsWindowUsage = null,
     FixtureHistoryScenario? SettingsWindowHistory = null);
-
+`n
 internal static class DeterministicProviderScenarioCatalog
 {
     private static string MinimaxInternationalProviderId =>

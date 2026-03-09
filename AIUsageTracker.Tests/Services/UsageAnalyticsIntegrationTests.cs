@@ -127,12 +127,12 @@ public class UsageAnalyticsIntegrationTests
             SafeDelete(dbPath);
         }
     }
-
+`n
     private static string CreateTempDbPath()
     {
         return Path.Combine(Path.GetTempPath(), $"ai-usage-tracker-tests-{Guid.NewGuid():N}.db");
     }
-
+`n
     private static async Task SeedHistoryAsync(string dbPath, IEnumerable<HistoryRow> rows)
     {
         var connectionString = new SqliteConnectionStringBuilder
@@ -188,7 +188,7 @@ public class UsageAnalyticsIntegrationTests
             await insertCommand.ExecuteNonQueryAsync();
         }
     }
-
+`n
     private static HistoryRow CreateRow(
         string providerId,
         double requestsUsed,
@@ -199,12 +199,12 @@ public class UsageAnalyticsIntegrationTests
     {
         return new HistoryRow(providerId, requestsUsed, requestsAvailable, isAvailable, fetchedAt, responseLatencyMs);
     }
-
+`n
     private static void SafeDelete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); } catch { }
     }
-
+`n
     private sealed record HistoryRow(
         string ProviderId,
         double RequestsUsed,

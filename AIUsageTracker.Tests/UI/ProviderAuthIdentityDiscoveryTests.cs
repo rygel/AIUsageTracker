@@ -85,7 +85,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
         Assert.Equal("openai@example.com", username);
     }
-
+`n
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -93,7 +93,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
             Directory.Delete(_tempDirectory, recursive: true);
         }
     }
-
+`n
     private string CreateFile(string relativePath, string content)
     {
         var fullPath = Path.Combine(_tempDirectory, relativePath);
@@ -101,14 +101,14 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
         File.WriteAllText(fullPath, content);
         return fullPath;
     }
-
+`n
     private static string CreateJwt(object payload)
     {
         var header = Base64UrlEncode("""{"alg":"none","typ":"JWT"}""");
         var body = Base64UrlEncode(JsonSerializer.Serialize(payload));
         return $"{header}.{body}.";
     }
-
+`n
     private static string Base64UrlEncode(string value)
     {
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(value))

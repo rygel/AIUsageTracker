@@ -343,7 +343,7 @@ public class MonitorServiceTests
         Assert.Empty(result.Configs);
         VerifyPath("/api/scan-keys");
     }
-
+`n
     private void SetupMockResponse(HttpStatusCode status, object body)
     {
         _mockHandler.Protected()
@@ -360,7 +360,7 @@ public class MonitorServiceTests
                 })
             });
     }
-
+`n
     private void VerifyPath(string path, params string[] queryParts)
     {
         _mockHandler.Protected().Verify(

@@ -6,11 +6,11 @@ namespace AIUsageTracker.UI.Slim;
 internal sealed class MainWindowDeterministicFixtureData
 {
     public required AppPreferences Preferences { get; init; }
-    public required DateTime LastMonitorUpdate { get; init; }
-    public required List<ProviderUsage> Usages { get; init; }
-    public double WindowWidth { get; init; } = 460;
+`n    public required DateTime LastMonitorUpdate { get; init; }
+`n    public required List<ProviderUsage> Usages { get; init; }
+`n    public double WindowWidth { get; init; } = 460;
 }
-
+`n
 internal static class MainWindowDeterministicFixture
 {
     public static MainWindowDeterministicFixtureData Create()
@@ -57,7 +57,7 @@ internal static class MainWindowDeterministicFixture
             Usages = usages
         };
     }
-
+`n
     private static ProviderUsage CreateUsage(
         DeterministicProviderScenario scenario,
         DateTime deterministicNow,
@@ -87,7 +87,7 @@ internal static class MainWindowDeterministicFixture
             AuthSource = scenario.AuthSource
         };
     }
-
+`n
     private static ProviderUsageDetail CreateDetail(DateTime deterministicNow, string name, string used, int resetHours)
     {
         return new ProviderUsageDetail

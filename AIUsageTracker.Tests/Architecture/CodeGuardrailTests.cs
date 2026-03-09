@@ -142,7 +142,7 @@ public class CodeGuardrailTests
             Environment.NewLine +
             string.Join(Environment.NewLine, violations));
     }
-
+`n
     private static IEnumerable<string> EnumerateProductionSourceFiles(bool includeMarkup = false)
     {
         var repoRoot = GetRepoRoot();
@@ -173,7 +173,7 @@ public class CodeGuardrailTests
             }
         }
     }
-
+`n
     private static string GetRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -185,12 +185,12 @@ public class CodeGuardrailTests
         return directory?.FullName
             ?? throw new DirectoryNotFoundException("Could not locate the repository root from the test output directory.");
     }
-
+`n
     private static string GetRelativePath(string path)
     {
         return Path.GetRelativePath(GetRepoRoot(), path);
     }
-
+`n
     private static HashSet<string> GetKnownProviderIds()
     {
         return ProviderMetadataCatalog.Definitions
@@ -199,13 +199,13 @@ public class CodeGuardrailTests
                 .Concat(definition.VisibleDerivedProviderIds))
             .ToHashSet(StringComparer.Ordinal);
     }
-
+`n
     private static bool IsAllowedHardcodedProviderIdFile(string relativePath)
     {
         return relativePath.StartsWith(NormalizePath("AIUsageTracker.Infrastructure/Providers/"), StringComparison.OrdinalIgnoreCase) ||
                AllowedHardcodedProviderIdFiles.Contains(relativePath);
     }
-
+`n
     private static string NormalizePath(string path)
     {
         return path.Replace('\\', '/');

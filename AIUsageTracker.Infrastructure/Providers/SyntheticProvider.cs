@@ -13,6 +13,7 @@ public sealed class SyntheticProvider : ProviderBase
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<SyntheticProvider> _logger;
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "synthetic",
         displayName: "Synthetic",
@@ -24,6 +25,7 @@ public sealed class SyntheticProvider : ProviderBase
         fallbackBadgeInitial: "Sy");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
 
     public SyntheticProvider(HttpClient httpClient, ILogger<SyntheticProvider> logger)

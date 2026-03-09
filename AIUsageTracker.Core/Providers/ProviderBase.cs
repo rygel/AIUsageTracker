@@ -20,6 +20,7 @@ public abstract class ProviderBase : IProviderService
     };
 
     public abstract string ProviderId { get; }
+
     public abstract ProviderDefinition Definition { get; }
 
     public virtual bool CanHandleProviderId(string providerId)

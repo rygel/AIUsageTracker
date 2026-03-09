@@ -36,7 +36,7 @@ public class ProviderBaseTests
         public ProviderUsage TestCreateUnavailableUsageFromProviderException(ProviderException ex)
             => CreateUnavailableUsageFromProviderException(ex);
     }
-
+`n
     private readonly TestProvider _provider = new();
 
     [Fact]

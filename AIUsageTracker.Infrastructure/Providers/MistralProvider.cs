@@ -21,7 +21,9 @@ public class MistralProvider : ProviderBase
         fallbackBadgeInitial: "Mi");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<MistralProvider> _logger;
 

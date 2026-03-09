@@ -110,7 +110,7 @@ public class DialogOpenBehaviorTests
             mainWindow.Close();
         });
     }
-
+`n
     private static App EnsureAppCreated()
     {
         if (Application.Current is App app)
@@ -122,14 +122,14 @@ public class DialogOpenBehaviorTests
         // Use reflection to initialize Host if needed, or rely on App.xaml.cs default init
         return newApp;
     }
-
+`n
     private static void SetPrivateField(object target, string fieldName, object value)
     {
         var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.NotNull(field);
         field.SetValue(target, value);
     }
-
+`n
     private static Task RunInStaAsync(Func<Task> testBody)
     {
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);

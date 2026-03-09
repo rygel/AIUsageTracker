@@ -18,7 +18,9 @@ public class OpenCodeProvider : ProviderBase
         includeInWellKnownProviders: true);
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<OpenCodeProvider> _logger;
 

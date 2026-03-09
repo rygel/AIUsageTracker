@@ -23,9 +23,9 @@ public partial class SettingsWindow : Window
     private sealed class ThemeOption
     {
         public AppTheme Value { get; init; }
-        public string Label { get; init; } = string.Empty;
+`n        public string Label { get; init; } = string.Empty;
     }
-
+`n
     private readonly IMonitorService _monitorService;
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
@@ -45,7 +45,7 @@ public partial class SettingsWindow : Window
     private readonly DispatcherTimer _autoSaveTimer;
 
     public bool SettingsChanged { get; private set; }
-
+`n
     public SettingsWindow(IMonitorService monitorService, ILogger<SettingsWindow> logger, UiPreferencesStore preferencesStore, IAppPathProvider pathProvider)
     {
         _autoSaveTimer = new DispatcherTimer
@@ -64,7 +64,7 @@ public partial class SettingsWindow : Window
         Loaded += SettingsWindow_Loaded;
         UpdatePrivacyButtonState();
     }
-
+`n
     public SettingsWindow() : this(
         App.Host.Services.GetRequiredService<IMonitorService>(),
         App.Host.Services.GetRequiredService<ILogger<SettingsWindow>>(),
@@ -72,7 +72,7 @@ public partial class SettingsWindow : Window
         App.Host.Services.GetRequiredService<IAppPathProvider>())
     {
     }
-
+`n
     private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
     {
         try
@@ -92,7 +92,7 @@ public partial class SettingsWindow : Window
             Close();
         }
     }
-
+`n
     private async Task LoadDataAsync()
     {
         _isLoadingSettings = true;
@@ -151,7 +151,7 @@ public partial class SettingsWindow : Window
             }
         }
     }
-
+`n
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
     {
         if (deterministic)
@@ -166,7 +166,7 @@ public partial class SettingsWindow : Window
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
         UpdateLayout();
     }
-
+`n
     internal async Task<IReadOnlyList<string>> CaptureHeadlessTabScreenshotsAsync(string outputDirectory)
     {
         await PrepareForHeadlessScreenshotAsync(deterministic: true);
@@ -206,7 +206,7 @@ public partial class SettingsWindow : Window
 
         return capturedFiles;
     }
-
+`n
     private void ApplyHeadlessCaptureWindowSize(string? tabHeader)
     {
         Width = 600;
@@ -227,7 +227,7 @@ public partial class SettingsWindow : Window
         var desiredContentHeight = ProvidersStack.DesiredSize.Height;
         Height = Math.Max(900, Math.Min(3200, desiredContentHeight + 260));
     }
-
+`n
     private void PrepareDeterministicScreenshotData()
     {
         _isDeterministicScreenshotMode = true;
@@ -274,7 +274,7 @@ public partial class SettingsWindow : Window
             MonitorLogsText.Text = fixture.MonitorLogsText;
         }
     }
-
+`n
     private static string BuildTabSlug(string? header, int index)
     {
         if (string.IsNullOrWhiteSpace(header))
@@ -300,13 +300,13 @@ public partial class SettingsWindow : Window
         var normalized = builder.ToString().Trim('-');
         return string.IsNullOrWhiteSpace(normalized) ? $"tab{index + 1}" : normalized;
     }
-
+`n
     private void SettingsWindow_Closed(object? sender, EventArgs e)
     {
         _autoSaveTimer.Stop();
         App.PrivacyChanged -= OnPrivacyChanged;
     }
-
+`n
     private async void AutoSaveTimer_Tick(object? sender, EventArgs e)
     {
         try
@@ -319,7 +319,7 @@ public partial class SettingsWindow : Window
             _logger.LogError(ex, "AutoSaveTimer_Tick failed");
         }
     }
-
+`n
     private void ScheduleAutoSave()
     {
         if (_isLoadingSettings)
@@ -331,7 +331,7 @@ public partial class SettingsWindow : Window
         _autoSaveTimer.Stop();
         _autoSaveTimer.Start();
     }
-
+`n
     private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
     {
         if (!Dispatcher.CheckAccess())
@@ -345,7 +345,7 @@ public partial class SettingsWindow : Window
         UpdatePrivacyButtonState();
         PopulateProviders();
     }
-
+`n
     private void UpdatePrivacyButtonState()
     {
         if (PrivacyBtn == null)
@@ -358,7 +358,7 @@ public partial class SettingsWindow : Window
             ? Brushes.Gold
             : (TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
     }
-
+`n
     private async Task UpdateMonitorStatusAsync()
     {
         try
@@ -393,7 +393,7 @@ public partial class SettingsWindow : Window
             RefreshDiagnosticsLog();
         }
     }
-
+`n
     private void RefreshDiagnosticsLog()
     {
         if (MonitorLogsText == null)
@@ -430,7 +430,7 @@ public partial class SettingsWindow : Window
         MonitorLogsText.Text = string.Join(Environment.NewLine, lines);
         MonitorLogsText.ScrollToEnd();
     }
-
+`n
     private async Task LoadHistoryAsync()
     {
         try
@@ -443,7 +443,7 @@ public partial class SettingsWindow : Window
             _logger.LogWarning(ex, "Failed to load history");
         }
     }
-
+`n
     private void PopulateProviders()
     {
         ProvidersStack.Children.Clear();
@@ -457,7 +457,7 @@ public partial class SettingsWindow : Window
             AddProviderCard(item.Config, usage, item.IsDerived);
         }
     }
-
+`n
     private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
     {
         var card = new Border
@@ -500,7 +500,7 @@ public partial class SettingsWindow : Window
         card.Child = grid;
         ProvidersStack.Children.Add(card);
     }
-
+`n
     private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
     {
         return settingsBehavior.InputMode switch
@@ -513,7 +513,7 @@ public partial class SettingsWindow : Window
             _ => BuildApiKeyEditor(config)
         };
     }
-
+`n
     private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
     {
         var presentation = ProviderStatusPresentationCatalog.Create(
@@ -552,7 +552,7 @@ public partial class SettingsWindow : Window
 
         return panel;
     }
-
+`n
     private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)
     {
         var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
@@ -606,7 +606,7 @@ public partial class SettingsWindow : Window
 
         return headerPanel;
     }
-
+`n
     private CheckBox CreateProviderHeaderCheckBox(
         string content,
         bool isChecked,
@@ -629,7 +629,7 @@ public partial class SettingsWindow : Window
         checkBox.Unchecked += (_, _) => onCheckedChanged(false);
         return checkBox;
     }
-
+`n
     private static Border CreateInactiveBadge()
     {
         var status = new Border
@@ -649,7 +649,7 @@ public partial class SettingsWindow : Window
         };
         return status;
     }
-
+`n
     private void AddSubTraySection(Grid grid, ProviderConfig config, IReadOnlyList<ProviderUsageDetail> subTrayDetails)
     {
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -684,7 +684,7 @@ public partial class SettingsWindow : Window
         Grid.SetRow(subTrayPanel, 3);
         grid.Children.Add(subTrayPanel);
     }
-
+`n
     private CheckBox CreateSubTrayCheckBox(ProviderConfig config, string detailName)
     {
         var enabledSubTrays = config.EnabledSubTrays ?? new List<string>();
@@ -721,7 +721,7 @@ public partial class SettingsWindow : Window
         };
         return checkBox;
     }
-
+`n
     private TextBox BuildApiKeyEditor(ProviderConfig config)
     {
         var keyBox = new TextBox
@@ -745,7 +745,7 @@ public partial class SettingsWindow : Window
 
         return keyBox;
     }
-
+`n
     private TextBlock CreateSecondaryStatusText(string text)
     {
         var statusText = new TextBlock
@@ -758,7 +758,7 @@ public partial class SettingsWindow : Window
         statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
         return statusText;
     }
-
+`n
     private void RefreshTrayIcons()
     {
         if (Application.Current is App app)
@@ -766,7 +766,7 @@ public partial class SettingsWindow : Window
             app.UpdateProviderTrayIcons(_usages, _configs, _preferences);
         }
     }
-
+`n
     private void MarkSettingsChanged(bool refreshTrayIcons = false)
     {
         SettingsChanged = true;
@@ -777,7 +777,7 @@ public partial class SettingsWindow : Window
 
         ScheduleAutoSave();
     }
-
+`n
     private ProviderConfig GetOrCreateTrackedConfig(ProviderConfig config)
     {
         var existing = _configs.FirstOrDefault(current =>
@@ -791,7 +791,7 @@ public partial class SettingsWindow : Window
         _configs.Add(tracked);
         return tracked;
     }
-
+`n
     private static ProviderConfig CloneConfig(ProviderConfig config)
     {
         return new ProviderConfig
@@ -818,14 +818,14 @@ public partial class SettingsWindow : Window
                 .ToList()
         };
     }
-
+`n
     private void ApplyFontPreferenceChange(Action applyChange)
     {
         applyChange();
         UpdateFontPreview();
         ScheduleAutoSave();
     }
-
+`n
     private async Task<bool> SaveUiPreferencesAsync(bool showErrorDialog = false)
     {
         App.Preferences = _preferences;
@@ -845,7 +845,7 @@ public partial class SettingsWindow : Window
 
         return saved;
     }
-
+`n
     private FrameworkElement CreateProviderIcon(string providerId)
     {
         // Map to SVG or create fallback
@@ -853,7 +853,7 @@ public partial class SettingsWindow : Window
         image.Source = GetProviderImageSource(providerId);
         return image;
     }
-
+`n
     private ImageSource GetProviderImageSource(string providerId)
     {
         try
@@ -890,7 +890,7 @@ public partial class SettingsWindow : Window
 
         return CreateFallbackIcon(providerId);
     }
-
+`n
     private ImageSource CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
@@ -905,7 +905,7 @@ public partial class SettingsWindow : Window
         image.Freeze();
         return image;
     }
-
+`n
     private void PopulateLayoutSettings()
     {
         AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
@@ -947,7 +947,7 @@ public partial class SettingsWindow : Window
         FontItalicCheck.IsChecked = _preferences.FontItalic;
         UpdateFontPreview();
     }
-
+`n
     private static IReadOnlyList<ThemeOption> GetThemeOptions()
     {
         return new List<ThemeOption>
@@ -968,7 +968,7 @@ public partial class SettingsWindow : Window
             new() { Value = AppTheme.CatppuccinLatte, Label = "Catppuccin Latte" }
         };
     }
-
+`n
     private void PopulateFontComboBox()
     {
         // Get all system fonts
@@ -999,7 +999,7 @@ public partial class SettingsWindow : Window
 
         FontFamilyCombo.ItemsSource = fonts;
     }
-
+`n
     private void UpdateFontPreview()
     {
         if (FontPreviewText == null) return;
@@ -1019,7 +1019,7 @@ public partial class SettingsWindow : Window
         // Update font style
         FontPreviewText.FontStyle = _preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
     }
-
+`n
     private void ResetFontBtn_Click(object sender, RoutedEventArgs e)
     {
         ApplyFontPreferenceChange(() =>
@@ -1035,7 +1035,7 @@ public partial class SettingsWindow : Window
             FontItalicCheck.IsChecked = _preferences.FontItalic;
         });
     }
-
+`n
     private void FontFamilyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (FontFamilyCombo.SelectedItem is string font)
@@ -1043,7 +1043,7 @@ public partial class SettingsWindow : Window
             ApplyFontPreferenceChange(() => _preferences.FontFamily = font);
         }
     }
-
+`n
     private void FontSizeBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (int.TryParse(FontSizeBox.Text, System.Globalization.CultureInfo.InvariantCulture, out int size) && size > 0 && size <= 72)
@@ -1051,17 +1051,17 @@ public partial class SettingsWindow : Window
             ApplyFontPreferenceChange(() => _preferences.FontSize = size);
         }
     }
-
+`n
     private void FontBoldCheck_CheckedChanged(object sender, RoutedEventArgs e)
     {
         ApplyFontPreferenceChange(() => _preferences.FontBold = FontBoldCheck.IsChecked ?? false);
     }
-
+`n
     private void FontItalicCheck_CheckedChanged(object sender, RoutedEventArgs e)
     {
         ApplyFontPreferenceChange(() => _preferences.FontItalic = FontItalicCheck.IsChecked ?? false);
     }
-
+`n
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1078,12 +1078,12 @@ public partial class SettingsWindow : Window
             MessageBox.Show($"Failed to update privacy mode: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
     {
         this.Close();
     }
-
+`n
     private async void ScanBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1116,7 +1116,7 @@ public partial class SettingsWindow : Window
             ScanBtn.Content = "Scan for Keys";
         }
     }
-
+`n
     private async void RefreshBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1139,7 +1139,7 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private async void RefreshHistoryBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1159,12 +1159,12 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private void ClearHistoryBtn_Click(object sender, RoutedEventArgs e)
     {
         HistoryDataGrid.ItemsSource = null;
     }
-
+`n
     private async void ExportCsvBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1198,7 +1198,7 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private async void ExportJsonBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1232,7 +1232,7 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private void BackupDbBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1267,7 +1267,7 @@ public partial class SettingsWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private async void RestartMonitorBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1310,7 +1310,7 @@ public partial class SettingsWindow : Window
             RefreshDiagnosticsLog();
         }
     }
-
+`n
     private async void CheckHealthBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1331,7 +1331,7 @@ public partial class SettingsWindow : Window
             RefreshDiagnosticsLog();
         }
     }
-
+`n
     private async void ExportDiagnosticsBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1425,7 +1425,7 @@ public partial class SettingsWindow : Window
             RefreshDiagnosticsLog();
         }
     }
-
+`n
     private static string FormatJsonForBundle(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -1446,7 +1446,7 @@ public partial class SettingsWindow : Window
             return content;
         }
     }
-
+`n
     private async Task PersistAllSettingsAsync(bool showErrorDialog)
     {
         if (_isLoadingSettings)
@@ -1569,7 +1569,7 @@ public partial class SettingsWindow : Window
             _autoSaveSemaphore.Release();
         }
     }
-
+`n
     private async void CancelBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1584,7 +1584,7 @@ public partial class SettingsWindow : Window
             MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isLoadingSettings)
@@ -1599,7 +1599,7 @@ public partial class SettingsWindow : Window
             ScheduleAutoSave();
         }
     }
-
+`n
     private void UpdateChannelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_isLoadingSettings)
@@ -1613,7 +1613,7 @@ public partial class SettingsWindow : Window
             ScheduleAutoSave();
         }
     }
-
+`n
     private void LayoutSetting_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsInitialized)
@@ -1624,7 +1624,7 @@ public partial class SettingsWindow : Window
         ApplyNotificationControlsState();
         ScheduleAutoSave();
     }
-
+`n
     private void LayoutSetting_TextChanged(object sender, TextChangedEventArgs e)
     {
         if (!IsInitialized)
@@ -1634,7 +1634,7 @@ public partial class SettingsWindow : Window
 
         ScheduleAutoSave();
     }
-
+`n
     private void EnableWindowsNotificationsCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!IsInitialized)
@@ -1645,7 +1645,7 @@ public partial class SettingsWindow : Window
         ApplyNotificationControlsState();
         ScheduleAutoSave();
     }
-
+`n
     private void ApplyNotificationControlsState()
     {
         if (EnableWindowsNotificationsCheck == null)
@@ -1690,7 +1690,7 @@ public partial class SettingsWindow : Window
             QuietHoursEndBox.IsEnabled = quietHoursEnabled;
         }
     }
-
+`n
     private static string NormalizeQuietHour(string value, string fallback)
     {
         if (TimeSpan.TryParse(value, out var parsed))
@@ -1701,7 +1701,7 @@ public partial class SettingsWindow : Window
 
         return fallback;
     }
-
+`n
     private async void SendTestNotificationBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1723,7 +1723,7 @@ public partial class SettingsWindow : Window
             NotificationTestStatusText.Text = $"Error: {ex.Message}";
         }
     }
-
+`n
     private void Window_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -1732,6 +1732,5 @@ public partial class SettingsWindow : Window
         }
     }
 }
-
 
 

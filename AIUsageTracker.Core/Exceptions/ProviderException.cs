@@ -8,7 +8,9 @@ namespace AIUsageTracker.Core.Exceptions;
 public class ProviderException : Exception
 {
     public string ProviderId { get; }
+
     public ProviderErrorType ErrorType { get; }
+
     public int? HttpStatusCode { get; }
 
     public ProviderException(

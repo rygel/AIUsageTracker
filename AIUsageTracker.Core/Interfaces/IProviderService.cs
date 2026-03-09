@@ -5,6 +5,7 @@ namespace AIUsageTracker.Core.Interfaces;
 public interface IProviderService
 {
     string ProviderId { get; }
+
     ProviderDefinition Definition { get; }
 
     bool CanHandleProviderId(string providerId)

@@ -17,7 +17,9 @@ public class OpenCodeZenProvider : ProviderBase
         autoIncludeWhenUnconfigured: true);
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly ILogger<OpenCodeZenProvider> _logger;
     private string _cliPath;
 
@@ -359,15 +361,20 @@ public class OpenCodeZenProvider : ProviderBase
     private class ModelUsage
     {
         public string Name { get; set; } = string.Empty;
+
         public int Messages { get; set; }
+
         public double Tokens { get; set; }
+
         public double Cost { get; set; }
     }
 
     private class ToolUsage
     {
         public string Name { get; set; } = string.Empty;
+
         public int Count { get; set; }
+
         public double Percentage { get; set; }
     }
 

@@ -3,13 +3,13 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public abstract class IntegrationTestBase : IDisposable
 {
     protected string TestRootPath { get; }
-
+`n
     protected IntegrationTestBase()
     {
         TestRootPath = Path.Combine(Path.GetTempPath(), "ai-tracker-int-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(TestRootPath);
     }
-
+`n
     protected string CreateFile(string relativePath, string content)
     {
         var fullPath = Path.Combine(TestRootPath, relativePath);
@@ -21,7 +21,7 @@ public abstract class IntegrationTestBase : IDisposable
         File.WriteAllText(fullPath, content);
         return fullPath;
     }
-
+`n
     public virtual void Dispose()
     {
         try

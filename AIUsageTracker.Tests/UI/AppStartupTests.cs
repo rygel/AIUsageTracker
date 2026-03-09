@@ -28,7 +28,7 @@ public class AppStartupTests : IDisposable
 
         _store = new UiPreferencesStore(NullLogger<UiPreferencesStore>.Instance, _mockPathProvider.Object);
     }
-
+`n
     public void Dispose()
     {
         if (Directory.Exists(_testPreferencesDirectory))

@@ -36,7 +36,7 @@ public enum StatusType
     Warning,
     Error
 }
-
+`n
 public partial class MainWindow : Window
 {
     private static readonly Regex MarkdownTokenRegex = new(
@@ -116,7 +116,7 @@ public partial class MainWindow : Window
         : this(skipUiInitialization: false, viewModel, monitorService, logger, updateChecker, preferencesStore)
     {
     }
-
+`n
     public MainWindow()
         : this(App.Host.Services.GetRequiredService<MainViewModel>(),
                App.Host.Services.GetRequiredService<IMonitorService>(),
@@ -125,12 +125,12 @@ public partial class MainWindow : Window
                App.Host.Services.GetRequiredService<UiPreferencesStore>())
     {
     }
-
+`n
     internal MainWindow(bool skipUiInitialization)
         : this(skipUiInitialization, null, null, null, null, null)
     {
     }
-
+`n
     private MainWindow(
         bool skipUiInitialization,
         MainViewModel? viewModel,
@@ -262,7 +262,7 @@ public partial class MainWindow : Window
             LogWindowFocusTransition($"IsVisibleChanged -> {IsVisible}");
         };
     }
-
+`n
     private void ApplyVersionDisplay()
     {
         var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
@@ -279,7 +279,7 @@ public partial class MainWindow : Window
         VersionText.Text = displayVersion;
         Title = $"AI Usage Tracker {displayVersion}";
     }
-
+`n
     private static string? GetPrereleaseLabel(Assembly assembly)
     {
         var informationalVersion = assembly
@@ -320,13 +320,13 @@ public partial class MainWindow : Window
 
         return suffix.Replace('.', ' ');
     }
-
+`n
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         _windowSource = PresentationSource.FromVisual(this) as HwndSource;
         _windowSource?.AddHook(WndProc);
     }
-
+`n
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         const int WM_ACTIVATEAPP = 0x001C;
@@ -339,14 +339,14 @@ public partial class MainWindow : Window
 
         return IntPtr.Zero;
     }
-
+`n
     private void LogWindowFocusTransition(string eventName)
     {
         var foregroundSummary = GetForegroundWindowSummary();
         var message = $"[WINDOW] evt={eventName} fg={foregroundSummary} vis={IsVisible} state={WindowState} top={Topmost}";
         _logger.LogDebug("{WindowMessage}", message);
     }
-
+`n
     private static string GetForegroundWindowSummary()
     {
         var hwnd = GetForegroundWindow();
@@ -391,7 +391,7 @@ public partial class MainWindow : Window
 
         return $"pid={processId} proc={processName} title={title}";
     }
-
+`n
     private void PositionWindowNearTray()
     {
         // If saved position exists, use it
@@ -406,7 +406,7 @@ public partial class MainWindow : Window
             Top = top;
         }
     }
-
+`n
     private async Task SaveWindowPositionAsync()
     {
         if (!IsLoaded || !_preferencesLoaded) return;
@@ -420,7 +420,7 @@ public partial class MainWindow : Window
             await SaveUiPreferencesAsync();
         }
     }
-
+`n
     private async Task InitializeAsync()
     {
         if (_isLoading || _monitorService == null)
@@ -506,7 +506,7 @@ public partial class MainWindow : Window
             _isLoading = false;
         }
     }
-
+`n
     private async Task RapidPollUntilDataAvailableAsync()
     {
         const int maxAttempts = 15;
@@ -608,7 +608,7 @@ public partial class MainWindow : Window
         ShowStatus("No data available", StatusType.Error);
         ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually or check Settings > Monitor.");
     }
-
+`n
     private void ApplyPreferences()
     {
         // Apply window settings
@@ -640,7 +640,7 @@ public partial class MainWindow : Window
         // Reinitialize update checker with correct channel
         InitializeUpdateChecker();
     }
-
+`n
     private void InitializeUpdateChecker()
     {
         if (_preferences == null) return;
@@ -651,7 +651,7 @@ public partial class MainWindow : Window
             App.Host.Services.GetRequiredService<HttpClient>(),
             channel);
     }
-
+`n
     private async Task SaveUiPreferencesAsync()
     {
         App.Preferences = _preferences;
@@ -661,7 +661,7 @@ public partial class MainWindow : Window
             _logger.LogWarning("Failed to save Slim UI preferences");
         }
     }
-
+`n
     private void EnsureAlwaysOnTop()
     {
         if (_isSettingsDialogOpen || _isTooltipOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
@@ -676,7 +676,7 @@ public partial class MainWindow : Window
 
         ApplyWin32Topmost(noActivate: true);
     }
-
+`n
     private void ApplyTopmostState(bool alwaysOnTop)
     {
         Topmost = alwaysOnTop;
@@ -686,7 +686,7 @@ public partial class MainWindow : Window
             ApplyWin32Topmost(noActivate: true, alwaysOnTop);
         }
     }
-
+`n
     private void ScheduleTopmostRecovery(int generation, TimeSpan delay)
     {
         _ = Task.Run(async () =>
@@ -704,7 +704,7 @@ public partial class MainWindow : Window
             }, DispatcherPriority.Normal);
         });
     }
-
+`n
     private void ReassertTopmostWithoutFocus()
     {
         if (_isSettingsDialogOpen || _isTooltipOpen || !_preferences.AlwaysOnTop || !IsVisible || WindowState == WindowState.Minimized)
@@ -727,7 +727,7 @@ public partial class MainWindow : Window
 
         ApplyWin32Topmost(noActivate: true);
     }
-
+`n
     private void ApplyWin32Topmost(bool noActivate, bool alwaysOnTop = true)
     {
         var handle = new WindowInteropHelper(this).Handle;
@@ -754,7 +754,7 @@ public partial class MainWindow : Window
                 noActivate);
         }
     }
-
+`n
     public void ShowAndActivate()
     {
         Show();
@@ -762,7 +762,7 @@ public partial class MainWindow : Window
         Activate();
         EnsureAlwaysOnTop();
     }
-
+`n
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
     {
         if (deterministic)
@@ -788,7 +788,7 @@ public partial class MainWindow : Window
             await InitializeAsync();
         }
     }
-
+`n
     private void FitWindowHeightForHeadlessScreenshot()
     {
         if (Content is not FrameworkElement root)
@@ -823,7 +823,7 @@ public partial class MainWindow : Window
             UpdateLayout();
         }
     }
-
+`n
     private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
     {
         if (!Dispatcher.CheckAccess())
@@ -841,7 +841,7 @@ public partial class MainWindow : Window
             RenderProviders();
         }
     }
-
+`n
     private void UpdatePrivacyButtonState()
     {
         if (PrivacyBtn == null)
@@ -854,7 +854,7 @@ public partial class MainWindow : Window
             ? Brushes.Gold
             : (TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
     }
-
+`n
     private async Task RefreshDataAsync()
     {
         if (_isLoading || _monitorService == null)
@@ -911,7 +911,7 @@ public partial class MainWindow : Window
             Margin = margin ?? new Thickness(0)
         };
     }
-
+`n
     private static Border CreateSeparator(Brush color, double opacity = 0.5, double height = 1)
     {
         return new Border
@@ -922,7 +922,7 @@ public partial class MainWindow : Window
             VerticalAlignment = VerticalAlignment.Center
         };
     }
-
+`n
     private static Grid CreateCollapsibleHeaderGrid(Thickness margin)
     {
         var header = new Grid { Margin = margin };
@@ -931,12 +931,12 @@ public partial class MainWindow : Window
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         return header;
     }
-
+`n
     private SolidColorBrush GetResourceBrush(string key, SolidColorBrush fallback)
     {
         return FindResource(key) as SolidColorBrush ?? fallback;
     }
-
+`n
     private void RenderProviders()
     {
         LogDiagnostic("[DIAGNOSTIC] RenderProviders called");
@@ -1055,7 +1055,7 @@ public partial class MainWindow : Window
             ApplyProviderListFontPreferences();
         }
     }
-
+`n
     private void ApplyProviderListFontPreferences()
     {
         if (ProvidersList == null)
@@ -1065,7 +1065,7 @@ public partial class MainWindow : Window
 
         ApplyFontPreferencesToElement(ProvidersList);
     }
-
+`n
     private void ApplyFontPreferencesToElement(DependencyObject element)
     {
         if (element is TextBlock textBlock)
@@ -1113,7 +1113,7 @@ public partial class MainWindow : Window
                 break;
         }
     }
-
+`n
     private (UIElement Header, StackPanel Container) CreateCollapsibleHeader(
         string title, Brush accent, bool isGroupHeader, string? groupKey,
         Func<bool> getCollapsed, Action<bool> setCollapsed)
@@ -1181,7 +1181,7 @@ public partial class MainWindow : Window
 
         return (header, container);
     }
-
+`n
     private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
     {
         var providerId = usage.ProviderId ?? string.Empty;
@@ -1310,7 +1310,7 @@ public partial class MainWindow : Window
 
         container.Children.Add(grid);
     }
-
+`n
     private void AddAntigravityModels(ProviderUsage usage, StackPanel container)
     {
         foreach (var modelUsage in ProviderUsageDisplayCatalog.CreateAntigravityModelUsages(usage))
@@ -1318,7 +1318,7 @@ public partial class MainWindow : Window
             AddProviderCard(modelUsage, container);
         }
     }
-
+`n
     private void AddAntigravityUnavailableNotice(ProviderUsage usage, StackPanel container)
     {
         var reason = string.IsNullOrWhiteSpace(usage.Description)
@@ -1331,7 +1331,7 @@ public partial class MainWindow : Window
 
         container.Children.Add(CreateInfoTextBlock(message));
     }
-
+`n
     private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)
     {
         var toolTip = new ToolTip
@@ -1357,13 +1357,13 @@ public partial class MainWindow : Window
 
         return toolTip;
     }
-
+`n
     private static void AddDockedElement(DockPanel panel, UIElement element, Dock dock)
     {
         panel.Children.Add(element);
         DockPanel.SetDock(element, dock);
     }
-
+`n
     private TextBlock CreateDockedTextBlock(
         string text,
         double fontSize,
@@ -1383,7 +1383,7 @@ public partial class MainWindow : Window
             TextTrimming = textTrimming
         };
     }
-
+`n
     private Border CreateBulletMarker()
     {
         return new Border
@@ -1396,20 +1396,20 @@ public partial class MainWindow : Window
             VerticalAlignment = VerticalAlignment.Center
         };
     }
-
+`n
     private static void ConfigureCardToolTip(FrameworkElement target)
     {
         ToolTipService.SetInitialShowDelay(target, 100);
         ToolTipService.SetShowDuration(target, 15000);
     }
-
+`n
     private Grid CreateProgressLayer(double usedPercent, bool showUsed, double opacity)
     {
         var remainingPercent = Math.Max(0, 100 - usedPercent);
         var indicatorWidth = showUsed ? usedPercent : remainingPercent;
         return CreateSingleProgressLayer(usedPercent, indicatorWidth, opacity);
     }
-
+`n
     private Grid CreateSingleProgressLayer(double usedPercent, double indicatorWidth, double opacity)
     {
         var clampedWidth = Math.Clamp(indicatorWidth, 0, 100);
@@ -1427,7 +1427,7 @@ public partial class MainWindow : Window
 
         return layer;
     }
-
+`n
     private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container)
     {
         // Compact sub-item (child provider detail)
@@ -1493,7 +1493,7 @@ public partial class MainWindow : Window
         grid.Children.Add(bulletPanel);
         container.Children.Add(grid);
     }
-
+`n
     private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container)
     {
         if (usage.Details?.Any() != true) return;
@@ -1534,7 +1534,7 @@ public partial class MainWindow : Window
             }
         }
     }
-
+`n
     private string GetRelativeTimeString(DateTime nextReset)
     {
         var diff = nextReset - DateTime.Now;
@@ -1544,7 +1544,7 @@ public partial class MainWindow : Window
         if (diff.TotalHours >= 1) return $"{diff.Hours}h {diff.Minutes}m";
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
     }
-
+`n
     private FrameworkElement CreateProviderIcon(string providerId)
     {
         var normalizedProviderId = ProviderVisualCatalog.GetCanonicalProviderId(providerId);
@@ -1602,7 +1602,7 @@ public partial class MainWindow : Window
         // Fallback: colored circle with initial
         return CreateFallbackIcon(normalizedProviderId);
     }
-
+`n
     private FrameworkElement CreateFallbackIcon(string providerId)
     {
         var (color, initial) = ProviderVisualCatalog.GetFallbackBadge(
@@ -1636,7 +1636,7 @@ public partial class MainWindow : Window
 
         return grid;
     }
-
+`n
     private Brush GetProgressBarColor(double usedPercentage)
     {
         var yellowThreshold = _preferences.ColorThresholdYellow;
@@ -1646,7 +1646,7 @@ public partial class MainWindow : Window
         if (usedPercentage >= yellowThreshold) return GetResourceBrush("ProgressBarYellow", Brushes.Gold);
         return GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
     }
-
+`n
     private void StartPollingTimer()
     {
         _pollingTimer?.Stop();
@@ -1766,7 +1766,7 @@ public partial class MainWindow : Window
 
         _pollingTimer.Start();
     }
-
+`n
     private async Task UpdateTrayIconsAsync()
     {
         if (Application.Current is not App app)
@@ -1805,12 +1805,12 @@ public partial class MainWindow : Window
             _isTrayIconUpdateInProgress = false;
         }
     }
-
+`n
     private void LogDiagnostic(string message)
     {
         _logger.LogInformation("{DiagnosticMessage}", message);
     }
-
+`n
     private void ShowStatus(string message, StatusType type)
     {
         if (type == StatusType.Success && !string.IsNullOrWhiteSpace(_monitorContractWarningMessage))
@@ -1858,7 +1858,7 @@ public partial class MainWindow : Window
         };
         _logger.Log(logLevel, "[{StatusType}] {StatusMessage}", type, message);
     }
-
+`n
     private void ApplyMonitorContractStatus(AgentContractHandshakeResult handshakeResult)
     {
         if (handshakeResult.IsCompatible)
@@ -1870,7 +1870,7 @@ public partial class MainWindow : Window
         _monitorContractWarningMessage = handshakeResult.Message;
         ShowStatus(handshakeResult.Message, StatusType.Warning);
     }
-
+`n
     private void ShowErrorState(string message)
     {
         if (_usages.Any())
@@ -1884,7 +1884,7 @@ public partial class MainWindow : Window
         ProvidersList.Children.Add(CreateInfoTextBlock(message));
         ShowStatus(message, StatusType.Error);
     }
-
+`n
     private TextBlock CreateInfoTextBlock(string text)
     {
         return new TextBlock
@@ -1910,7 +1910,7 @@ public partial class MainWindow : Window
             ShowStatus("Refresh failed", StatusType.Error);
         }
     }
-
+`n
     private async void SettingsBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1923,7 +1923,7 @@ public partial class MainWindow : Window
             ShowStatus("Settings failed", StatusType.Error);
         }
     }
-
+`n
     internal async Task OpenSettingsDialogAsync()
     {
         var settingsDialog = SettingsDialogFactory();
@@ -1957,18 +1957,18 @@ public partial class MainWindow : Window
             }
         }
     }
-
+`n
     private static (Window Dialog, Func<bool> HasChanges) CreateDefaultSettingsDialog()
     {
         var settingsWindow = new SettingsWindow();
         return (settingsWindow, () => settingsWindow.SettingsChanged);
     }
-
+`n
     private async void WebBtn_Click(object sender, RoutedEventArgs e)
     {
         await OpenWebUIAsync();
     }
-
+`n
     private async Task OpenWebUIAsync()
     {
         try
@@ -1991,7 +1991,7 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
     private async Task StartWebServiceAsync()
     {
         try
@@ -2066,7 +2066,7 @@ public partial class MainWindow : Window
             _logger.LogError(ex, "Failed to start Web service");
         }
     }
-
+`n
     private static string? FindProjectDirectory(string projectName)
     {
         var currentDir = AppContext.BaseDirectory;
@@ -2084,7 +2084,7 @@ public partial class MainWindow : Window
 
         return null;
     }
-
+`n
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -2099,12 +2099,12 @@ public partial class MainWindow : Window
             _logger.LogError(ex, "PrivacyBtn_Click failed");
         }
     }
-
+`n
     private void CloseBtn_Click(object sender, RoutedEventArgs e)
     {
         Hide();
     }
-
+`n
     private async void AlwaysOnTop_Checked(object sender, RoutedEventArgs e)
     {
         try
@@ -2127,13 +2127,13 @@ public partial class MainWindow : Window
             _logger.LogError(ex, "AlwaysOnTop_Checked failed");
         }
     }
-
+`n
     private async void Compact_Checked(object sender, RoutedEventArgs e)
     {
         // No-op (Field removed from UI)
         await Task.CompletedTask;
     }
-
+`n
     private async void ShowUsedToggle_Checked(object sender, RoutedEventArgs e)
     {
         try
@@ -2151,12 +2151,12 @@ public partial class MainWindow : Window
             _logger.LogError(ex, "ShowUsedToggle_Checked failed");
         }
     }
-
+`n
     private void RefreshData_NoArgs(object sender, RoutedEventArgs e)
     {
         _ = RefreshDataAsync();
     }
-
+`n
     private void ViewChangelogBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_latestUpdate == null)
@@ -2171,7 +2171,7 @@ public partial class MainWindow : Window
 
         ShowChangelogWindow(_latestUpdate);
     }
-
+`n
     private void ShowChangelogWindow(UpdateInfo updateInfo)
     {
         var changelogWindow = new Window
@@ -2197,7 +2197,7 @@ public partial class MainWindow : Window
         changelogWindow.Content = viewer;
         changelogWindow.ShowDialog();
     }
-
+`n
     private FlowDocument BuildMarkdownDocument(string markdown)
     {
         var document = new FlowDocument
@@ -2315,7 +2315,7 @@ public partial class MainWindow : Window
 
         return document;
     }
-
+`n
     private static int GetHeaderLevel(string trimmedLine)
     {
         var level = 0;
@@ -2326,7 +2326,7 @@ public partial class MainWindow : Window
 
         return level > 0 && level < trimmedLine.Length && trimmedLine[level] == ' ' ? level : 0;
     }
-
+`n
     private static bool TryParseNumberedItem(string line, out int number, out string content)
     {
         number = 0;
@@ -2347,7 +2347,7 @@ public partial class MainWindow : Window
         content = line[(dotIndex + 2)..];
         return !string.IsNullOrWhiteSpace(content);
     }
-
+`n
     private void AddCodeBlock(FlowDocument document, string codeText)
     {
         var codeParagraph = new Paragraph(new Run(codeText))
@@ -2361,7 +2361,7 @@ public partial class MainWindow : Window
         };
         document.Blocks.Add(codeParagraph);
     }
-
+`n
     private void AddMarkdownInlines(Paragraph paragraph, string text)
     {
         if (string.IsNullOrEmpty(text))
@@ -2413,7 +2413,7 @@ public partial class MainWindow : Window
             paragraph.Inlines.Add(new Run(text[cursor..]));
         }
     }
-
+`n
     private bool TryCreateHyperlink(string token, out Hyperlink hyperlink)
     {
         hyperlink = null!;
@@ -2451,7 +2451,7 @@ public partial class MainWindow : Window
 
         return true;
     }
-
+`n
     private async Task CheckForUpdatesAsync()
     {
         if (_isUpdateCheckInProgress)
@@ -2487,7 +2487,7 @@ public partial class MainWindow : Window
             _isUpdateCheckInProgress = false;
         }
     }
-
+`n
     private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
     {
         if (_latestUpdate == null)
@@ -2567,7 +2567,7 @@ public partial class MainWindow : Window
             MessageBox.Show($"Update error: {ex.Message}", "Update Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
-
+`n
 
     private async Task RestartMonitorAsync()
     {
@@ -2592,7 +2592,7 @@ public partial class MainWindow : Window
             ShowStatus($"Restart error: {ex.Message}", StatusType.Error);
         }
     }
-
+`n
 
     private async void MonitorToggleBtn_Click(object sender, RoutedEventArgs e)
     {
@@ -2639,7 +2639,7 @@ public partial class MainWindow : Window
             ShowStatus("Monitor toggle failed", StatusType.Error);
         }
     }
-
+`n
     private void UpdateMonitorToggleButton(bool isRunning)
     {
         if (MonitorToggleBtn != null && MonitorToggleIcon != null)
@@ -2649,13 +2649,13 @@ public partial class MainWindow : Window
             MonitorToggleBtn.ToolTip = isRunning ? "Stop Monitor" : "Start Monitor";
         }
     }
-
+`n
     private async Task UpdateMonitorToggleButtonStateAsync()
     {
         var (isRunning, _) = await MonitorLauncher.IsAgentRunningWithPortAsync();
         Dispatcher.Invoke(() => UpdateMonitorToggleButton(isRunning));
     }
-
+`n
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.KeyboardDevice.Modifiers == ModifierKeys.Control)
@@ -2688,6 +2688,5 @@ public partial class MainWindow : Window
             e.Handled = true;
         }
     }
-
 
 }

@@ -25,7 +25,9 @@ public class GitHubCopilotProvider : ProviderBase
         });
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly IGitHubAuthService _authService;
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubCopilotProvider> _logger;
@@ -362,16 +364,27 @@ public class GitHubCopilotProvider : ProviderBase
     private sealed class CopilotUsageState
     {
         public bool IsAvailable { get; set; }
+
         public string Description { get; set; } = string.Empty;
+
         public string Username { get; set; } = string.Empty;
+
         public string PlanName { get; set; } = string.Empty;
+
         public DateTime? ResetTime { get; set; }
+
         public double Percentage { get; set; }
+
         public double CostUsed { get; set; }
+
         public double CostLimit { get; set; }
+
         public bool HasCopilotQuotaData { get; set; }
+
         public List<ProviderUsageDetail>? Details { get; set; }
+
         public string? RawJson { get; set; }
+
         public int HttpStatus { get; set; } = 200;
     }
 }

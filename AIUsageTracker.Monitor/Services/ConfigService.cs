@@ -24,7 +24,7 @@ public class ConfigService : IConfigService
             pathProvider: _pathProvider);
         _tokenDiscovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, _pathProvider);
     }
-
+`n
     public async Task<List<ProviderConfig>> GetConfigsAsync()
     {
         try
@@ -38,7 +38,7 @@ public class ConfigService : IConfigService
             return new List<ProviderConfig>();
         }
     }
-
+`n
     public async Task SaveConfigAsync(ProviderConfig config)
     {
         try
@@ -68,7 +68,7 @@ public class ConfigService : IConfigService
             throw;
         }
     }
-
+`n
     public async Task RemoveConfigAsync(string providerId)
     {
         try
@@ -84,7 +84,7 @@ public class ConfigService : IConfigService
             throw;
         }
     }
-
+`n
     public async Task<AppPreferences> GetPreferencesAsync()
     {
         try
@@ -97,7 +97,7 @@ public class ConfigService : IConfigService
             return new AppPreferences();
         }
     }
-
+`n
     public async Task SavePreferencesAsync(AppPreferences preferences)
     {
         try
@@ -111,7 +111,7 @@ public class ConfigService : IConfigService
             throw;
         }
     }
-
+`n
     public async Task<List<ProviderConfig>> ScanForKeysAsync()
     {
         try
@@ -152,5 +152,4 @@ public class ConfigService : IConfigService
     }
 
 }
-
 

@@ -27,7 +27,9 @@ public class GeminiProvider : ProviderBase
         fallbackBadgeInitial: "G");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<GeminiProvider> _logger;
     private readonly string? _accountsPathOverride;
@@ -312,7 +314,9 @@ public class GeminiProvider : ProviderBase
     private class Account
     {
         public string Email { get; set; } = "";
+
         public string RefreshToken { get; set; } = "";
+
         public string ProjectId { get; set; } = "";
     }
 

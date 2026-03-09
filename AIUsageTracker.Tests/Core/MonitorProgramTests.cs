@@ -96,7 +96,7 @@ public sealed class MonitorProgramTests : IDisposable
 
         Assert.Contains("Refresh failed: newest", updated.Errors ?? [], StringComparer.Ordinal);
     }
-
+`n
     public void Dispose()
     {
         if (Directory.Exists(_tempDirectory))
@@ -104,7 +104,7 @@ public sealed class MonitorProgramTests : IDisposable
             Directory.Delete(_tempDirectory, recursive: true);
         }
     }
-
+`n
     private MonitorInfo DeserializeMonitorInfo(string path)
     {
         var json = File.ReadAllText(path);
@@ -113,14 +113,14 @@ public sealed class MonitorProgramTests : IDisposable
             PropertyNameCaseInsensitive = true
         })!;
     }
-
+`n
     private IEnumerable<string> GetExpectedMonitorInfoPaths()
     {
         return MonitorInfoPathCatalog.GetWriteCandidatePaths(
             _pathProvider.GetAppDataRoot(),
             _pathProvider.GetUserProfileRoot());
     }
-
+`n
     private static void InvokeMonitorProgramMethod(string methodName, params object?[] arguments)
     {
         var programType = typeof(ProviderRefreshService).Assembly.GetType("Program");
@@ -133,7 +133,7 @@ public sealed class MonitorProgramTests : IDisposable
 
         method!.Invoke(null, arguments);
     }
-
+`n
     private static void WriteMonitorInfoFile(string path, string error)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
@@ -151,7 +151,7 @@ public sealed class MonitorProgramTests : IDisposable
 
         File.WriteAllText(path, JsonSerializer.Serialize(info));
     }
-
+`n
     private sealed class TestAppPathProvider : IAppPathProvider
     {
         private readonly string _root;
@@ -160,7 +160,7 @@ public sealed class MonitorProgramTests : IDisposable
         {
             _root = root;
         }
-
+`n
         public string GetAppDataRoot() => Path.Combine(_root, "appdata");
 
         public string GetDatabasePath() => Path.Combine(GetAppDataRoot(), "usage.db");

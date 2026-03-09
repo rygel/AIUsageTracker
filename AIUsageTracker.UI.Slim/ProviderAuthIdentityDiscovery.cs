@@ -15,7 +15,7 @@ internal static class ProviderAuthIdentityDiscovery
             candidatePaths ?? GetCandidatePaths(GitHubCopilotProvider.StaticDefinition),
             logger);
     }
-
+`n
     public static Task<string?> TryGetOpenAiUsernameAsync(ILogger logger, IEnumerable<string>? candidatePaths = null)
     {
         return TryReadOpenAiUsernameAsync(
@@ -23,7 +23,7 @@ internal static class ProviderAuthIdentityDiscovery
             OpenAIProvider.StaticDefinition,
             logger);
     }
-
+`n
     public static Task<string?> TryGetCodexUsernameAsync(ILogger logger, IEnumerable<string>? candidatePaths = null)
     {
         return TryReadCodexUsernameAsync(
@@ -31,7 +31,7 @@ internal static class ProviderAuthIdentityDiscovery
             CodexProvider.StaticDefinition,
             logger);
     }
-
+`n
     private static async Task<string?> TryReadGitHubHostsUsernameAsync(IEnumerable<string> candidatePaths, ILogger logger)
     {
         foreach (var path in candidatePaths)
@@ -68,7 +68,7 @@ internal static class ProviderAuthIdentityDiscovery
 
         return null;
     }
-
+`n
     private static async Task<string?> TryReadOpenAiUsernameAsync(
         IEnumerable<string> candidatePaths,
         ProviderDefinition definition,
@@ -115,7 +115,7 @@ internal static class ProviderAuthIdentityDiscovery
 
         return null;
     }
-
+`n
     private static async Task<string?> TryReadCodexUsernameAsync(
         IEnumerable<string> candidatePaths,
         ProviderDefinition definition,
@@ -175,14 +175,14 @@ internal static class ProviderAuthIdentityDiscovery
 
         return null;
     }
-
+`n
     private static IEnumerable<string> GetCandidatePaths(ProviderDefinition definition)
     {
         return definition.AuthIdentityCandidatePathTemplates
             .Select(Environment.ExpandEnvironmentVariables)
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
-
+`n
     private static JsonElement? FindFirstRootObject(JsonElement root, ProviderDefinition definition)
     {
         foreach (var propertyName in definition.SessionAuthFileSchemas

@@ -6,7 +6,7 @@ namespace AIUsageTracker.UI.Slim;
 internal sealed record ProviderRenderPreparation(
     IReadOnlyList<ProviderUsage> DisplayableUsages,
     bool HasAntigravityParent);
-
+`n
 internal static class ProviderUsageDisplayCatalog
 {
     public static ProviderRenderPreparation PrepareForMainWindow(IReadOnlyCollection<ProviderUsage> usages)
@@ -22,7 +22,7 @@ internal static class ProviderUsageDisplayCatalog
 
         return new ProviderRenderPreparation(filteredUsages, hasAntigravityParent);
     }
-
+`n
     public static IReadOnlyList<ProviderUsage> CreateAntigravityModelUsages(ProviderUsage parentUsage)
     {
         if (parentUsage.Details?.Any() != true)
@@ -38,7 +38,7 @@ internal static class ProviderUsageDisplayCatalog
             .Select(detail => CreateAntigravityModelUsage(detail, parentUsage))
             .ToList();
     }
-
+`n
     private static Func<ProviderUsage, bool> ShouldDisplayUsage(bool hasAntigravityParent)
     {
         return usage =>
@@ -48,17 +48,17 @@ internal static class ProviderUsageDisplayCatalog
                    (!providerId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) || !hasAntigravityParent);
         };
     }
-
+`n
     private static bool IsUnavailableAntigravityParent(ProviderUsage usage)
     {
         return IsAntigravityParent(usage) && !usage.IsAvailable;
     }
-
+`n
     private static bool IsAntigravityParent(ProviderUsage usage)
     {
         return ProviderMetadataCatalog.IsAggregateParentProviderId(usage.ProviderId ?? string.Empty);
     }
-
+`n
     private static ProviderUsage CreateAntigravityModelUsage(ProviderUsageDetail detail, ProviderUsage parentUsage)
     {
         var remainingPercent = UsageMath.ParsePercent(detail.Used);

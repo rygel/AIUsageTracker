@@ -303,7 +303,7 @@ public class UsageMathTests
         Assert.Equal("None", snapshot.Severity);
         Assert.Null(snapshot.LastDetectedUtc);
     }
-
+`n
     private static ProviderUsage CreateSample(DateTime fetchedAt, double used, double available, double latencyMs = 0)
     {
         return new ProviderUsage
@@ -316,7 +316,7 @@ public class UsageMathTests
             ResponseLatencyMs = latencyMs
         };
     }
-
+`n
     private static ProviderUsage CreateUnavailableSample(DateTime fetchedAt, double latencyMs = 0)
     {
         return new ProviderUsage
