@@ -2,74 +2,73 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.Infrastructure.Providers
+using System.Net;
+using System.Text.Json;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Tests.Infrastructure;
+using Xunit;
+
+namespace AIUsageTracker.Tests.Infrastructure.Providers;
+
+public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
 {
-    using System.Net;
-    using System.Text.Json;
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Infrastructure.Providers;
-    using AIUsageTracker.Tests.Infrastructure;
-    using Xunit;
+    private readonly GeminiProvider _provider;
 
-    public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
+    public GeminiProviderTests()
     {
-        private readonly GeminiProvider _provider;
+        this._provider = new GeminiProvider(this.HttpClient, this.Logger.Object);
+    }
 
-        public GeminiProviderTests()
+    [Fact]
+    public async Task GetUsageAsync_ValidResponse_ParsesBucketsCorrectlyAsync()
+    {
+        // Arrange
+        var tempDir = Path.Combine(Path.GetTempPath(), $"gemini-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
+
+        await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
         {
-            this._provider = new GeminiProvider(this.HttpClient, this.Logger.Object);
-        }
+            accounts = new[]
+            {
+                new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" }
+            },
+        }));
 
-        [Fact]
-        public async Task GetUsageAsync_ValidResponse_ParsesBucketsCorrectly()
+        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, null);
+
+        this.SetupHttpResponse("https://oauth2.googleapis.com/token", new HttpResponseMessage
         {
-            // Arrange
-            var tempDir = Path.Combine(Path.GetTempPath(), $"gemini-test-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(tempDir);
-            var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("{\"access_token\":\"at\"}"),
+        });
 
-            await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
+        var quotaResponse = new
+        {
+            buckets = new[]
             {
-                accounts = new[]
-                {
-                    new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" }
-                }
-            }));
+                new { remainingFraction = 0.8, resetTime = "2026-03-10T12:00:00Z" }
+            },
+        };
 
-            var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, null);
+        this.SetupHttpResponse("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(quotaResponse)),
+        });
 
-            this.SetupHttpResponse("https://oauth2.googleapis.com/token", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent("{\"access_token\":\"at\"}")
-            });
+        // Act
+        var result = await provider.GetUsageAsync(this.Config);
 
-            var quotaResponse = new
-            {
-                buckets = new[]
-                {
-                    new { remainingFraction = 0.8, resetTime = "2026-03-10T12:00:00Z" }
-                }
-            };
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+        Assert.Equal("user@example.com", usage.AccountName);
+        Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        Assert.Contains("20", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        Assert.Contains("80", usage.Description, StringComparison.Ordinal);
 
-            this.SetupHttpResponse("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", new HttpResponseMessage
-            {
-                StatusCode = HttpStatusCode.OK,
-                Content = new StringContent(JsonSerializer.Serialize(quotaResponse))
-            });
-
-            // Act
-            var result = await provider.GetUsageAsync(this.Config);
-
-            // Assert
-            var usage = result.Single();
-            Assert.True(usage.IsAvailable);
-            Assert.Equal("user@example.com", usage.AccountName);
-            Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            Assert.Contains("20", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            Assert.Contains("80", usage.Description);
-
-            Directory.Delete(tempDir, recursive: true);
-        }
+        Directory.Delete(tempDir, recursive: true);
     }
 }
