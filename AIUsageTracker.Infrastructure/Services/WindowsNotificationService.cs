@@ -30,7 +30,7 @@ public class WindowsNotificationService : INotificationService
 
     public void ShowNotification(string title, string message, string? action = null, string? argument = null)
     {
-        _logger.LogInformation("Notification: {Title} - {Message}", title, message);
+        this._logger.LogInformation("Notification: {Title} - {Message}", title, message);
     }
 
     public void ShowUsageAlert(string providerName, double usagePercentage)
@@ -45,12 +45,12 @@ public class WindowsNotificationService : INotificationService
             ? $"Quota exceeded at {usagePercentage:F1}%."
             : $"Usage is {usagePercentage:F1}%";
 
-        ShowNotification($"{providerName} - {level}", message, "showProvider", providerName);
+        this.ShowNotification($"{providerName} - {level}", message, "showProvider", providerName);
     }
 
     public void ShowQuotaExceeded(string providerName, string details)
     {
-        ShowNotification($"{providerName} Quota Exceeded", details, "showProvider", providerName);
+        this.ShowNotification($"{providerName} Quota Exceeded", details, "showProvider", providerName);
     }
 
     public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked

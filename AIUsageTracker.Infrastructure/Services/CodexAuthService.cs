@@ -32,7 +32,7 @@ public class CodexAuthService : ICodexAuthService
 
     private CodexAuth? LoadAuth()
     {
-        foreach (var path in GetAuthFileCandidates())
+        foreach (var path in this.GetAuthFileCandidates())
         {
             if (!File.Exists(path))
             {
@@ -51,7 +51,7 @@ public class CodexAuthService : ICodexAuthService
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to read Codex auth file at {Path}", path);
+                this._logger.LogDebug(ex, "Failed to read Codex auth file at {Path}", path);
             }
         }
 
@@ -60,9 +60,9 @@ public class CodexAuthService : ICodexAuthService
 
     private IEnumerable<string> GetAuthFileCandidates()
     {
-        if (!string.IsNullOrWhiteSpace(_authFilePath))
+        if (!string.IsNullOrWhiteSpace(this._authFilePath))
         {
-            yield return _authFilePath;
+            yield return this._authFilePath;
             yield break;
         }
 
