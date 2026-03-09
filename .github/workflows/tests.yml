@@ -71,12 +71,12 @@ jobs:
           path: |
             AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
             AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            AIUsageTracker.Web.Tests/bin/Debug/net8.0/**
+            AIUsageTracker.Web.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
             scripts/Seeder/bin/Debug/net8.0/**
             scripts/run-vstest-with-retry.ps1
             .github/test-quarantine.txt
             test-fixtures/
-          retention-days: 3
+        retention-days: 3
 
   # Job 2: Core tests on Windows
   core-tests-windows:
