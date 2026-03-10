@@ -16,7 +16,7 @@ namespace AIUsageTracker.Tests.UI
             {
                 new() { ProviderId = "openai", IsAvailable = true },
                 new() { ProviderId = "openai", IsAvailable = false },
-                new() { ProviderId = "antigravity", IsAvailable = false }
+                new() { ProviderId = "antigravity", IsAvailable = false },
             };
 
             var preparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages);
@@ -32,7 +32,7 @@ namespace AIUsageTracker.Tests.UI
             var usages = new List<ProviderUsage>
             {
                 new() { ProviderId = "antigravity", IsAvailable = true },
-                new() { ProviderId = "antigravity.gemini-pro", IsAvailable = true }
+                new() { ProviderId = "antigravity.gemini-pro", IsAvailable = true },
             };
 
             var preparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages);
@@ -54,8 +54,8 @@ namespace AIUsageTracker.Tests.UI
                     new() { Name = "Gemini Pro", Used = "75% remaining", NextResetTime = new DateTime(2026, 3, 7, 10, 0, 0) },
                     new() { Name = "Gemini Pro", Used = "80% remaining" },
                     new() { Name = "[internal]", Used = "10% remaining" },
-                    new() { Name = "Gemini Flash", Used = "55% remaining" }
-                }
+                    new() { Name = "Gemini Flash", Used = "55% remaining" },
+                },
             };
 
             var children = ProviderUsageDisplayCatalog.CreateAntigravityModelUsages(parent);

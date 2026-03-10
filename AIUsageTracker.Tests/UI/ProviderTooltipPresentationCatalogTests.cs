@@ -19,7 +19,7 @@ public sealed class ProviderTooltipPresentationCatalogTests
             Details = new List<ProviderUsageDetail>
             {
                 new() { Name = "Weekly", Used = "20% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Secondary },
-                new() { Name = "Hourly", Used = "10% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Primary }
+                new() { Name = "Hourly", Used = "10% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Primary },
             },
         };
 
@@ -41,7 +41,7 @@ public sealed class ProviderTooltipPresentationCatalogTests
                 new() { Name = "Credits", Used = "0.00", DetailType = ProviderUsageDetailType.Credit },
                 new() { Name = "Spark", Used = "0% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Spark },
                 new() { Name = "Weekly", Used = "51% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Secondary },
-                new() { Name = "5-hour", Used = "4% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Primary }
+                new() { Name = "5-hour", Used = "4% used", DetailType = ProviderUsageDetailType.QuotaWindow, WindowKind = WindowKind.Primary },
             },
         };
 
