@@ -172,7 +172,7 @@ public class UsageAnalyticsIntegrationTests
             await using (var createCommand = connection.CreateCommand())
             {
                 createCommand.CommandText = createSql;
-                await createCommand.ExecuteNonQueryAsync();
+                await createCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
 
             const string insertSql = @"
@@ -192,7 +192,7 @@ public class UsageAnalyticsIntegrationTests
                 insertCommand.Parameters.AddWithValue("$isAvailable", row.IsAvailable ? 1 : 0);
                 insertCommand.Parameters.AddWithValue("$fetchedAt", row.FetchedAt);
                 insertCommand.Parameters.AddWithValue("$responseLatencyMs", row.ResponseLatencyMs);
-                await insertCommand.ExecuteNonQueryAsync();
+                await insertCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
         }
     }
