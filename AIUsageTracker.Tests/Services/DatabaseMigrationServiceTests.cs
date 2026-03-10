@@ -55,7 +55,8 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
                 Type = "quota-based",
                 AuthSource = "antigravity",
                 ApiKey = "dynamic",
-            }, friendlyName: "Google Antigravity");
+            },
+            friendlyName: "Google Antigravity");
 
         await using var connection = new SqliteConnection($"Data Source={this._dbPath}");
         await connection.OpenAsync();
