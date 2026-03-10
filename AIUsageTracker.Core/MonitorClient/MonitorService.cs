@@ -653,7 +653,7 @@ public class MonitorService : IMonitorService
         AgentHealthSnapshot? Snapshot);
 
     // Diagnostics & Export
-    public async Task<(bool Success, string Message)> CheckProviderAsync(string providerId)
+    public async Task<AgentProviderCheckResult> CheckProviderAsync(string providerId)
     {
         try
         {
@@ -663,7 +663,11 @@ public class MonitorService : IMonitorService
                 var result = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
                     response,
                     nameof(this.CheckProviderAsync)).ConfigureAwait(false);
-                return (result?.Success ?? false, result?.Message ?? "Unknown status");
+                return new AgentProviderCheckResult
+                {
+                    Success = result?.Success ?? false,
+                    Message = result?.Message ?? "Unknown status",
+                };
             }
 
             // Try to read error message if available
@@ -672,15 +676,27 @@ public class MonitorService : IMonitorService
                 nameof(this.CheckProviderAsync)).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(error?.Message))
             {
-                return (false, error.Message);
+                return new AgentProviderCheckResult
+                {
+                    Success = false,
+                    Message = error.Message,
+                };
             }
 
-            return (false, $"HTTP {response.StatusCode}");
+            return new AgentProviderCheckResult
+            {
+                Success = false,
+                Message = $"HTTP {response.StatusCode}",
+            };
         }
         catch (Exception ex)
         {
             this._logger?.LogWarning(ex, "CheckProviderAsync failed for {ProviderId}", providerId);
-            return (false, $"Connection error: {ex.Message}");
+            return new AgentProviderCheckResult
+            {
+                Success = false,
+                Message = $"Connection error: {ex.Message}",
+            };
         }
     }
 

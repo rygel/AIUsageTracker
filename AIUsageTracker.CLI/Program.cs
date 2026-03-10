@@ -189,16 +189,16 @@ namespace AIUsageTracker.CLI
         private static async Task CheckSingleProvider(MonitorService service, string providerId)
         {
             Console.Write($"Checking {providerId}... ");
-            var (success, message) = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
-            if (success)
+            var result = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
+            if (result.Success)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"OK ({message})");
+                Console.WriteLine($"OK ({result.Message})");
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"FAILED ({message})");
+                Console.WriteLine($"FAILED ({result.Message})");
             }
 
             Console.ResetColor();
