@@ -121,6 +121,7 @@ public partial class App : Application
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
         services.AddSingleton<IMonitorService, MonitorService>();
+        services.AddSingleton<IMonitorLifecycleService, MonitorLifecycleService>();
         services.AddSingleton<IUsageAnalyticsService, NoOpUsageAnalyticsService>();
         services.AddSingleton<IDataExportService, NoOpDataExportService>();
         services.AddSingleton<IUpdateCheckerService, GitHubUpdateChecker>();

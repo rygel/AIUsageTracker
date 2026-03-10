@@ -31,6 +31,7 @@ public partial class SettingsWindow : Window
     };
 
     private readonly IMonitorService _monitorService;
+    private readonly IMonitorLifecycleService _monitorLifecycleService;
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
@@ -48,7 +49,12 @@ public partial class SettingsWindow : Window
     private bool _isLoadingSettings;
     private bool _hasPendingAutoSave;
 
-    public SettingsWindow(IMonitorService monitorService, ILogger<SettingsWindow> logger, UiPreferencesStore preferencesStore, IAppPathProvider pathProvider)
+    public SettingsWindow(
+        IMonitorService monitorService,
+        IMonitorLifecycleService monitorLifecycleService,
+        ILogger<SettingsWindow> logger,
+        UiPreferencesStore preferencesStore,
+        IAppPathProvider pathProvider)
     {
         this._autoSaveTimer = new DispatcherTimer
         {
@@ -58,6 +64,7 @@ public partial class SettingsWindow : Window
 
         this.InitializeComponent();
         this._monitorService = monitorService;
+        this._monitorLifecycleService = monitorLifecycleService;
         this._logger = logger;
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
@@ -70,6 +77,7 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
         : this(
         App.Host.Services.GetRequiredService<IMonitorService>(),
+        App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
         App.Host.Services.GetRequiredService<ILogger<SettingsWindow>>(),
         App.Host.Services.GetRequiredService<UiPreferencesStore>(),
         App.Host.Services.GetRequiredService<IAppPathProvider>())
@@ -370,10 +378,10 @@ public partial class SettingsWindow : Window
         try
         {
             // Check if agent is running
-            var isRunning = await MonitorLauncher.IsAgentRunningAsync();
+            var isRunning = await this._monitorLifecycleService.IsAgentRunningAsync().ConfigureAwait(true);
 
             // Get the actual port from the agent
-            int port = await MonitorLauncher.GetAgentPortAsync();
+            int port = await this._monitorLifecycleService.GetAgentPortAsync().ConfigureAwait(true);
 
             if (this.MonitorStatusText != null)
             {
@@ -1346,7 +1354,7 @@ public partial class SettingsWindow : Window
             await Task.Delay(1000);
 
             // Restart agent
-            if (await MonitorLauncher.EnsureAgentRunningAsync())
+            if (await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(true))
             {
                 MessageBox.Show(
                     "Monitor restarted successfully.",
@@ -1381,7 +1389,7 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
+            var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
             var status = isRunning ? "Running" : "Not Running";
 
             MessageBox.Show(
@@ -1411,7 +1419,7 @@ public partial class SettingsWindow : Window
             await this._monitorService.RefreshPortAsync();
             await this._monitorService.RefreshAgentInfoAsync();
 
-            var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
+            var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
             var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
             var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync();
             var healthDetails = this.SerializeBundlePayload(
