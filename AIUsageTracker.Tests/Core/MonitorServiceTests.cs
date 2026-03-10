@@ -65,43 +65,22 @@ public class MonitorServiceTests
     [Fact]
     public async Task CheckProviderAsync_RevalidatesEndpointBeforeRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var service = this.CreateServiceWithStatus(5777);
+        this.SetupMockResponse(HttpStatusCode.OK, new { success = true, message = "Connected" });
 
-        try
-        {
-            var infoPath = await this.CreateMonitorInfoAsync(tempDirectory, new MonitorInfo
-            {
-                Port = 5777,
-                ProcessId = 7878,
-            });
+        var result = await service.CheckProviderAsync("openai");
 
-            using var overrides = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: new[] { infoPath },
-                healthCheckAsync: port => Task.FromResult(port == 5777),
-                processRunningAsync: processId => Task.FromResult(processId == 7878));
-
-            this._service.AgentUrl = "http://localhost:5000";
-            this.SetupMockResponse(HttpStatusCode.OK, new { success = true, message = "Connected" });
-
-            var result = await this._service.CheckProviderAsync("openai");
-
-            Assert.True(result.Success);
-            Assert.Equal("Connected", result.Message);
-            Assert.Equal("http://localhost:5777", this._service.AgentUrl);
-            this._mockHandler.Protected().Verify(
-                "SendAsync",
-                Times.AtLeastOnce(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.RequestUri != null &&
-                    req.RequestUri.ToString() == "http://localhost:5777/api/providers/openai/check" &&
-                    req.Method == HttpMethod.Get),
-                ItExpr.IsAny<CancellationToken>());
-        }
-        finally
-        {
-            Directory.Delete(tempDirectory, recursive: true);
-        }
+        Assert.True(result.Success);
+        Assert.Equal("Connected", result.Message);
+        Assert.Equal("http://localhost:5777", service.AgentUrl);
+        this._mockHandler.Protected().Verify(
+            "SendAsync",
+            Times.AtLeastOnce(),
+            ItExpr.Is<HttpRequestMessage>(req =>
+                req.RequestUri != null &&
+                req.RequestUri.ToString() == "http://localhost:5777/api/providers/openai/check" &&
+                req.Method == HttpMethod.Get),
+            ItExpr.IsAny<CancellationToken>());
     }
 
     [Fact]
@@ -155,39 +134,60 @@ public class MonitorServiceTests
     [Fact]
     public async Task GetUsageAsync_RevalidatesEndpointBeforeRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
-
-        try
+        var service = this.CreateServiceWithStatus(5333);
+        var requestedUrls = new List<string>();
+        var usage = new List<ProviderUsage>
         {
-            var infoPath = await this.CreateMonitorInfoAsync(tempDirectory, new MonitorInfo
+            new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
+        };
+
+        this._mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Returns<HttpRequestMessage, CancellationToken>((request, _) =>
             {
-                Port = 5333,
-                ProcessId = 4242,
+                requestedUrls.Add(request.RequestUri!.ToString());
+                return Task.FromResult(new HttpResponseMessage
+                {
+                    StatusCode = HttpStatusCode.OK,
+                    Content = JsonContent.Create(usage, options: new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                    }),
+                });
             });
 
-            using var overrides = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: new[] { infoPath },
-                healthCheckAsync: port => Task.FromResult(port == 5333),
-                processRunningAsync: processId => Task.FromResult(processId == 4242));
+        var result = await service.GetUsageAsync();
 
-            var requestedUrls = new List<string>();
-            var usage = new List<ProviderUsage>
+        Assert.Single(result);
+        Assert.Equal("http://localhost:5333", service.AgentUrl);
+        Assert.Single(requestedUrls);
+        Assert.Equal("http://localhost:5333/api/usage", requestedUrls[0]);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_RequestTimesOut_RefreshesEndpointAndRetriesAsync()
+    {
+        var service = this.CreateServiceWithStatus(5333);
+        var requestedUrls = new List<string>();
+        var usage = new List<ProviderUsage>
+        {
+            new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
+        };
+
+        this._mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .Returns<HttpRequestMessage, CancellationToken>((request, _) =>
             {
-                new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
-            };
-
-            this._service.AgentUrl = "http://localhost:5000";
-
-            this._mockHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .Returns<HttpRequestMessage, CancellationToken>((request, _) =>
-                {
-                    requestedUrls.Add(request.RequestUri!.ToString());
-                    return Task.FromResult(new HttpResponseMessage
+                requestedUrls.Add(request.RequestUri!.ToString());
+                return requestedUrls.Count == 1
+                    ? Task.FromException<HttpResponseMessage>(new TaskCanceledException("timeout"))
+                    : Task.FromResult(new HttpResponseMessage
                     {
                         StatusCode = HttpStatusCode.OK,
                         Content = JsonContent.Create(usage, options: new JsonSerializerOptions
@@ -195,159 +195,52 @@ public class MonitorServiceTests
                             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
                         }),
                     });
-                });
-
-            var result = await this._service.GetUsageAsync();
-
-            Assert.Single(result);
-            Assert.Equal("http://localhost:5333", this._service.AgentUrl);
-            Assert.Single(requestedUrls);
-            Assert.Equal("http://localhost:5333/api/usage", requestedUrls[0]);
-        }
-        finally
-        {
-            Directory.Delete(tempDirectory, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task GetUsageAsync_RequestTimesOut_RefreshesEndpointAndRetriesAsync()
-    {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
-
-        try
-        {
-            var infoPath = await this.CreateMonitorInfoAsync(tempDirectory, new MonitorInfo
-            {
-                Port = 5333,
-                ProcessId = 4242,
             });
 
-            using var overrides = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: new[] { infoPath },
-                healthCheckAsync: port => Task.FromResult(port == 5333),
-                processRunningAsync: processId => Task.FromResult(processId == 4242));
+        var result = await service.GetUsageAsync();
 
-            var requestedUrls = new List<string>();
-            var usage = new List<ProviderUsage>
-            {
-                new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
-            };
-
-            this._service.AgentUrl = "http://localhost:5000";
-
-            this._mockHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .Returns<HttpRequestMessage, CancellationToken>((request, _) =>
-                {
-                    requestedUrls.Add(request.RequestUri!.ToString());
-                    return requestedUrls.Count == 1
-                        ? Task.FromException<HttpResponseMessage>(new TaskCanceledException("timeout"))
-                        : Task.FromResult(new HttpResponseMessage
-                        {
-                            StatusCode = HttpStatusCode.OK,
-                            Content = JsonContent.Create(usage, options: new JsonSerializerOptions
-                            {
-                                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-                            }),
-                        });
-                });
-
-            var result = await this._service.GetUsageAsync();
-
-            Assert.Single(result);
-            Assert.Equal("http://localhost:5333", this._service.AgentUrl);
-            Assert.Equal(2, requestedUrls.Count);
-            Assert.All(requestedUrls, requestedUrl => Assert.Equal("http://localhost:5333/api/usage", requestedUrl));
-        }
-        finally
-        {
-            Directory.Delete(tempDirectory, recursive: true);
-        }
+        Assert.Single(result);
+        Assert.Equal("http://localhost:5333", service.AgentUrl);
+        Assert.Equal(2, requestedUrls.Count);
+        Assert.All(requestedUrls, requestedUrl => Assert.Equal("http://localhost:5333/api/usage", requestedUrl));
     }
 
     [Fact]
     public async Task GetUsageAsync_RequestTimesOutTwice_ReturnsEmptyListAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var service = this.CreateServiceWithStatus(5333);
 
-        try
-        {
-            var infoPath = await this.CreateMonitorInfoAsync(tempDirectory, new MonitorInfo
-            {
-                Port = 5333,
-                ProcessId = 4242,
-            });
+        this._mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new TaskCanceledException("timeout"));
 
-            using var overrides = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: new[] { infoPath },
-                healthCheckAsync: port => Task.FromResult(port == 5333),
-                processRunningAsync: processId => Task.FromResult(processId == 4242));
+        var result = await service.GetUsageAsync();
 
-            this._service.AgentUrl = "http://localhost:5000";
-
-            this._mockHandler.Protected()
-                .Setup<Task<HttpResponseMessage>>(
-                    "SendAsync",
-                    ItExpr.IsAny<HttpRequestMessage>(),
-                    ItExpr.IsAny<CancellationToken>())
-                .ThrowsAsync(new TaskCanceledException("timeout"));
-
-            var result = await this._service.GetUsageAsync();
-
-            Assert.Empty(result);
-            Assert.Equal("http://localhost:5333", this._service.AgentUrl);
-        }
-        finally
-        {
-            Directory.Delete(tempDirectory, recursive: true);
-        }
+        Assert.Empty(result);
+        Assert.Equal("http://localhost:5333", service.AgentUrl);
     }
 
     [Fact]
     public async Task TriggerRefreshAsync_RevalidatesEndpointBeforeRefreshRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var service = this.CreateServiceWithStatus(5444);
+        this.SetupMockResponse(HttpStatusCode.OK, new { success = true });
 
-        try
-        {
-            var infoPath = await this.CreateMonitorInfoAsync(tempDirectory, new MonitorInfo
-            {
-                Port = 5444,
-                ProcessId = 5151,
-            });
+        var success = await service.TriggerRefreshAsync();
 
-            using var overrides = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: new[] { infoPath },
-                healthCheckAsync: port => Task.FromResult(port == 5444),
-                processRunningAsync: processId => Task.FromResult(processId == 5151));
-
-            this._service.AgentUrl = "http://localhost:5000";
-            this.SetupMockResponse(HttpStatusCode.OK, new { success = true });
-
-            var success = await this._service.TriggerRefreshAsync();
-
-            Assert.True(success);
-            Assert.Equal("http://localhost:5444", this._service.AgentUrl);
-            this._mockHandler.Protected().Verify(
-                "SendAsync",
-                Times.AtLeastOnce(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.RequestUri != null &&
-                    req.RequestUri.ToString() == "http://localhost:5444/api/refresh" &&
-                    req.Method == HttpMethod.Post),
-                ItExpr.IsAny<CancellationToken>());
-        }
-        finally
-        {
-            Directory.Delete(tempDirectory, recursive: true);
-        }
+        Assert.True(success);
+        Assert.Equal("http://localhost:5444", service.AgentUrl);
+        this._mockHandler.Protected().Verify(
+            "SendAsync",
+            Times.AtLeastOnce(),
+            ItExpr.Is<HttpRequestMessage>(req =>
+                req.RequestUri != null &&
+                req.RequestUri.ToString() == "http://localhost:5444/api/refresh" &&
+                req.Method == HttpMethod.Post),
+            ItExpr.IsAny<CancellationToken>());
     }
 
     [Fact]
@@ -375,46 +268,25 @@ public class MonitorServiceTests
     [Fact]
     public async Task CheckHealthAsync_RevalidatesEndpointBeforeHealthRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
-
-        try
+        var service = this.CreateServiceWithStatus(5666);
+        this.SetupMockResponse(HttpStatusCode.OK, new
         {
-            var infoPath = await this.CreateMonitorInfoAsync(tempDirectory, new MonitorInfo
-            {
-                Port = 5666,
-                ProcessId = 6767,
-            });
+            status = "healthy",
+            apiContractVersion = MonitorService.ExpectedApiContractVersion,
+        });
 
-            using var overrides = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: new[] { infoPath },
-                healthCheckAsync: port => Task.FromResult(port == 5666),
-                processRunningAsync: processId => Task.FromResult(processId == 6767));
+        var isHealthy = await service.CheckHealthAsync();
 
-            this._service.AgentUrl = "http://localhost:5000";
-            this.SetupMockResponse(HttpStatusCode.OK, new
-            {
-                status = "healthy",
-                apiContractVersion = MonitorService.ExpectedApiContractVersion,
-            });
-
-            var isHealthy = await this._service.CheckHealthAsync();
-
-            Assert.True(isHealthy);
-            Assert.Equal("http://localhost:5666", this._service.AgentUrl);
-            this._mockHandler.Protected().Verify(
-                "SendAsync",
-                Times.AtLeastOnce(),
-                ItExpr.Is<HttpRequestMessage>(req =>
-                    req.RequestUri != null &&
-                    req.RequestUri.ToString() == "http://localhost:5666/api/health" &&
-                    req.Method == HttpMethod.Get),
-                ItExpr.IsAny<CancellationToken>());
-        }
-        finally
-        {
-            Directory.Delete(tempDirectory, recursive: true);
-        }
+        Assert.True(isHealthy);
+        Assert.Equal("http://localhost:5666", service.AgentUrl);
+        this._mockHandler.Protected().Verify(
+            "SendAsync",
+            Times.AtLeastOnce(),
+            ItExpr.Is<HttpRequestMessage>(req =>
+                req.RequestUri != null &&
+                req.RequestUri.ToString() == "http://localhost:5666/api/health" &&
+                req.Method == HttpMethod.Get),
+            ItExpr.IsAny<CancellationToken>());
     }
 
     [Fact]
@@ -755,6 +627,24 @@ public class MonitorServiceTests
         this.VerifyPath("/api/scan-keys");
     }
 
+    private MonitorService CreateServiceWithStatus(int port)
+    {
+        var lifecycle = new FixedStatusLifecycleService(
+            new MonitorAgentStatus
+            {
+                IsRunning = true,
+                Port = port,
+                HasMetadata = true,
+                Message = $"Healthy on port {port}.",
+            });
+
+        var service = new MonitorService(this._httpClient, NullLogger<MonitorService>.Instance, lifecycle)
+        {
+            AgentUrl = "http://localhost:5000",
+        };
+        return service;
+    }
+
     private void SetupMockResponse(HttpStatusCode status, object body)
     {
         this._mockHandler.Protected()
@@ -782,14 +672,6 @@ public class MonitorServiceTests
                 req.RequestUri.AbsolutePath == path &&
                 queryParts.All(qp => req.RequestUri.Query.Contains(qp))),
             ItExpr.IsAny<CancellationToken>());
-    }
-
-    private async Task<string> CreateMonitorInfoAsync(string directory, MonitorInfo info)
-    {
-        var path = Path.Combine(directory, "monitor.json");
-        var json = JsonSerializer.Serialize(info);
-        await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
-        return path;
     }
 
     private static object CreateDiagnosticsPayload()
@@ -859,5 +741,39 @@ public class MonitorServiceTests
                 },
             },
         };
+    }
+
+    private sealed class FixedStatusLifecycleService : IMonitorLifecycleService
+    {
+        private readonly MonitorAgentStatus _status;
+
+        public FixedStatusLifecycleService(MonitorAgentStatus status)
+        {
+            this._status = status;
+        }
+
+        public Task<bool> StartAgentAsync() => Task.FromResult(this._status.IsRunning);
+
+        public Task<bool> StopAgentAsync() => Task.FromResult(!this._status.IsRunning);
+
+        public Task<bool> EnsureAgentRunningAsync() => Task.FromResult(this._status.IsRunning);
+
+        public Task<bool> WaitForAgentAsync(CancellationToken cancellationToken = default) => Task.FromResult(this._status.IsRunning);
+
+        public Task<int> GetAgentPortAsync() => Task.FromResult(this._status.Port);
+
+        public Task<bool> IsAgentRunningAsync() => Task.FromResult(this._status.IsRunning);
+
+        public Task<(bool IsRunning, int Port)> IsAgentRunningWithPortAsync() => Task.FromResult((this._status.IsRunning, this._status.Port));
+
+        public Task<MonitorAgentStatus> GetAgentStatusInfoAsync() => Task.FromResult(this._status);
+
+        public Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
+        {
+            return Task.FromResult(new MonitorMetadataStatus
+            {
+                IsUsable = this._status.IsRunning,
+            });
+        }
     }
 }
