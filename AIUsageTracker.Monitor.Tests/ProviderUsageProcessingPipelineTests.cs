@@ -149,4 +149,83 @@ public class ProviderUsageProcessingPipelineTests
         Assert.Single(result.Usages);
         Assert.Equal(0, result.InactiveProviderFilteredCount);
     }
+
+    [Fact]
+    public void Process_WhenProviderIdMissing_FiltersInvalidIdentity()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "   ",
+            ProviderName = "Invalid",
+            RequestsUsed = 10,
+            RequestsAvailable = 100,
+            RequestsPercentage = 10,
+            IsAvailable = true,
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "openai" },
+            isPrivacyMode: false);
+
+        Assert.Empty(result.Usages);
+        Assert.Equal(1, result.InvalidIdentityCount);
+    }
+
+    [Fact]
+    public void Process_WhenUsageNotInActiveProviderSet_FiltersInactiveEntry()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "not-active-provider",
+            ProviderName = "Not Active",
+            RequestsUsed = 1,
+            RequestsAvailable = 10,
+            RequestsPercentage = 10,
+            IsAvailable = true,
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "openai", "anthropic" },
+            isPrivacyMode: false);
+
+        Assert.Empty(result.Usages);
+        Assert.Equal(1, result.InactiveProviderFilteredCount);
+    }
+
+    [Fact]
+    public void Process_WhenUnavailableWithoutDescription_NormalizesDescriptionAndUtcTimestamp()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            ProviderName = " OpenAI ",
+            RequestsUsed = -5,
+            RequestsAvailable = -10,
+            RequestsPercentage = -20,
+            IsAvailable = false,
+            Description = " ",
+            FetchedAt = default,
+            ResponseLatencyMs = -2,
+            HttpStatus = 999,
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "openai" },
+            isPrivacyMode: false);
+
+        var processed = Assert.Single(result.Usages);
+        Assert.Equal("OpenAI", processed.ProviderName);
+        Assert.Equal(0, processed.RequestsUsed);
+        Assert.Equal(0, processed.RequestsAvailable);
+        Assert.Equal(0, processed.RequestsPercentage);
+        Assert.Equal("Unavailable", processed.Description);
+        Assert.Equal(0, processed.ResponseLatencyMs);
+        Assert.Equal(0, processed.HttpStatus);
+        Assert.NotEqual(default, processed.FetchedAt);
+        Assert.Equal(DateTimeKind.Utc, processed.FetchedAt.Kind);
+        Assert.True(result.NormalizedCount >= 1);
+    }
 }
