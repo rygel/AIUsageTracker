@@ -89,10 +89,10 @@ namespace AIUsageTracker.CLI
 
             services.AddHttpClient();
             services.AddResilientHttpClient();
-            services.AddSingleton<MonitorService>();
+            services.AddSingleton<IMonitorService, MonitorService>();
 
             var serviceProvider = services.BuildServiceProvider();
-            var agentService = serviceProvider.GetRequiredService<MonitorService>();
+            var agentService = serviceProvider.GetRequiredService<IMonitorService>();
 
             switch (command)
             {
@@ -169,7 +169,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task CheckProvider(MonitorService service, string? providerId)
+        private static async Task CheckProvider(IMonitorService service, string? providerId)
         {
             if (string.IsNullOrEmpty(providerId))
             {
@@ -186,7 +186,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task CheckSingleProvider(MonitorService service, string providerId)
+        private static async Task CheckSingleProvider(IMonitorService service, string providerId)
         {
             Console.Write($"Checking {providerId}... ");
             var result = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
@@ -204,7 +204,7 @@ namespace AIUsageTracker.CLI
             Console.ResetColor();
         }
 
-        private static async Task ExportData(MonitorService service, string[] args)
+        private static async Task ExportData(IMonitorService service, string[] args)
         {
             string format = "csv";
             int days = 30;
@@ -248,7 +248,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ShowHistory(MonitorService service, int days, bool json)
+        private static async Task ShowHistory(IMonitorService service, int days, bool json)
         {
             // For CLI simplicity, we'll just show the last N entries or a summary if possible.
             // The Agent API currently supports ?limit=N.
@@ -298,7 +298,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task SetKey(MonitorService service, string providerId, string apiKey)
+        private static async Task SetKey(IMonitorService service, string providerId, string apiKey)
         {
             Console.WriteLine($"Setting key for '{providerId}'...");
 
@@ -338,7 +338,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task RemoveKey(MonitorService service, string providerId)
+        private static async Task RemoveKey(IMonitorService service, string providerId)
         {
             Console.WriteLine($"Removing key for '{providerId}'...");
             if (await service.RemoveConfigAsync(providerId).ConfigureAwait(false))
@@ -352,7 +352,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ScanKeys(MonitorService service)
+        private static async Task ScanKeys(IMonitorService service)
         {
             Console.WriteLine("Scanning for API keys from known applications...");
             var result = await service.ScanForKeysAsync().ConfigureAwait(false);
@@ -429,7 +429,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ManageAgent(MonitorService service, string action)
+        private static async Task ManageAgent(IMonitorService service, string action)
         {
             switch (action.ToLower(System.Globalization.CultureInfo.InvariantCulture))
             {
@@ -483,7 +483,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ShowStatus(MonitorService service, bool json, bool showAll)
+        private static async Task ShowStatus(IMonitorService service, bool json, bool showAll)
         {
             var usage = await service.GetUsageAsync().ConfigureAwait(false);
 
@@ -560,7 +560,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ShowList(MonitorService service, bool json)
+        private static async Task ShowList(IMonitorService service, bool json)
         {
             var configs = await service.GetConfigsAsync().ConfigureAwait(false);
             if (json)

@@ -39,6 +39,8 @@ public interface IMonitorService
 
     Task<AgentScanKeysResult> ScanForKeysAsync();
 
+    Task<AgentProviderCheckResult> CheckProviderAsync(string providerId);
+
     Task<bool> CheckHealthAsync();
 
     Task<AgentHealthSnapshot?> GetHealthSnapshotAsync();
@@ -46,6 +48,8 @@ public interface IMonitorService
     Task<AgentContractHandshakeResult> CheckApiContractAsync();
 
     Task<string> ExportDataAsync(string format);
+
+    Task<Stream?> ExportDataAsync(string format, int days);
 
     Task<AgentDiagnosticsSnapshot?> GetDiagnosticsSnapshotAsync();
 }
