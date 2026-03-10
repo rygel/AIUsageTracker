@@ -31,7 +31,7 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
             {
                 limit = 1000.0,
                 usage = 250.0,
-                resetAt = "2026-03-10T12:00:00Z"
+                resetAt = "2026-03-10T12:00:00Z",
             },
         };
 

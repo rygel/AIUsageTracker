@@ -111,7 +111,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
                         currentValue = 100000000L, // 100M Used -> 0 Remaining (Exhausted)
                         usage = 100000000L,
                         remaining = 0L,
-                        nextResetTime = 1700000000L // Past
+                        nextResetTime = 1700000000L, // Past
                     },
                     new
                     {

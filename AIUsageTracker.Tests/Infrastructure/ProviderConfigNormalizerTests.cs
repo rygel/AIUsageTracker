@@ -19,7 +19,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
                 ProviderId = "openai",
                 ApiKey = "session-token",
                 AuthSource = "OpenCode",
-                Description = "session"
+                Description = "session",
             },
         };
 
@@ -47,7 +47,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
                 Description = "spark",
                 BaseUrl = "https://example.invalid",
                 ShowInTray = true,
-                EnableNotifications = true
+                EnableNotifications = true,
             },
         };
 

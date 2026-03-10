@@ -32,7 +32,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         {
             accounts = new[]
             {
-                new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" }
+                new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" },
             },
         }));
 
@@ -48,7 +48,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         {
             buckets = new[]
             {
-                new { remainingFraction = 0.8, resetTime = "2026-03-10T12:00:00Z" }
+                new { remainingFraction = 0.8, resetTime = "2026-03-10T12:00:00Z" },
             },
         };
 

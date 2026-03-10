@@ -47,7 +47,7 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
                 ProviderId = "codex.spark",
                 ApiKey = "spark-key",
                 Type = "quota-based",
-                PlanType = PlanType.Coding
+                PlanType = PlanType.Coding,
             },
         };
 
