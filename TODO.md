@@ -124,6 +124,18 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
 
 ### High Priority Streamlining Tasks
 
+- [x] Implement Provider SDK Pattern (Priority: P1, Effort: M): Centralize authentication discovery (environment variables, auth files) into a dedicated `ProviderDiscoveryService` and refactor `ProviderBase` to use it.
+  - Benefit: Reduces boilerplate in concrete providers, standardizes auth resolution, simplifies adding new providers.
+  - **Completed**: Created `ProviderDiscoveryService`, refactored `ProviderBase`, and updated all core providers.
+
+- [x] Centralized Resilience & Observability Strategy (Priority: P1, Effort: M): Introduce a global `IResilienceProvider` managing named Polly policies (retry, circuit breaker) for all network requests.
+  - Benefit: Tailored retry strategies per provider, global circuit breaker, and enhanced failure observability.
+  - **Completed**: Implemented `ResilienceProvider` and integrated into `ResilientHttpClient`.
+
+- [x] Push-Based Updates (Priority: P2, Effort: M): Implement real-time notifications using SignalR to replace or augment polling-only data fetching in the Slim UI.
+  - Benefit: Instant UI updates upon successful refresh, reduced latency, and lower resource usage.
+  - **Completed**: Added `UsageHub` to Monitor and SignalR client to Slim UI.
+
 - [x] Create Provider Base Class (Priority: P1, Effort: M): Create `ProviderBase` abstract class in `AIUsageTracker.Core` to eliminate duplicate `CreateUnavailableUsage` methods (~300 lines across 15+ providers). Base class should provide standard error handling, logging, and unavailable usage creation.
   - Locations: All providers in `AIUsageTracker.Infrastructure/Providers/`
   - Pattern: Each provider has `CreateUnavailableUsage(string message)` with nearly identical implementation
@@ -135,6 +147,20 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Locations: All HTTP-dependent providers
   - Benefit: Consistent resilience, centralized configuration, better reliability
   - **Completed**: Created `ResilientHttpClient` with Polly policies, retry (3 attempts, exponential backoff), circuit breaker (5 failures, 30s break), timeout. Integrated into Monitor and CLI.
+
+### Future Architectural Enhancements
+
+- [ ] Background Job Orchestration (Priority: P2, Effort: M): Introduce a formal internal job scheduler for periodic refreshes, data pruning, and maintenance tasks.
+  - Benefit: Support for job prioritization (manual "Force Refresh" vs background), better concurrency control, and easier task management.
+  - Location: `AIUsageTracker.Monitor/Services/`
+
+- [ ] Standardized Data Validation & Transformation (Pipe & Filter) (Priority: P2, Effort: M): Implement a "Pipe & Filter" architecture for processing usage data before it is stored in the database.
+  - Benefit: Rejects invalid data, normalizes units/percentages, and can handle privacy redacting centrally.
+  - Location: `AIUsageTracker.Core/Services/ProviderManager.cs`
+
+- [ ] Observability & Distributed Tracing (Priority: P3, Effort: S/M): Leverage `System.Diagnostics.DiagnosticSource` and `Activity` to implement distributed tracing across the system.
+  - Benefit: Correlation of refresh requests across UI, Monitor, and specific provider services, making diagnosis of failures significantly easier.
+  - Location: Core components and infrastructure services.
 
 ### Medium Priority Streamlining Tasks
 

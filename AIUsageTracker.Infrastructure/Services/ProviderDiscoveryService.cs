@@ -70,7 +70,19 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 
         foreach (var schema in schemas)
         {
-            if (!root.TryGetProperty(schema.RootProperty, out var sessionRoot) || sessionRoot.ValueKind != JsonValueKind.Object)
+            var sessionRoot = root;
+            var parts = schema.RootProperty.Split('.');
+            bool foundRoot = true;
+            foreach (var part in parts)
+            {
+                if (!sessionRoot.TryGetProperty(part, out sessionRoot) || (sessionRoot.ValueKind != JsonValueKind.Object && part != parts.Last()))
+                {
+                    foundRoot = false;
+                    break;
+                }
+            }
+
+            if (!foundRoot || sessionRoot.ValueKind != JsonValueKind.Object)
             {
                 continue;
             }

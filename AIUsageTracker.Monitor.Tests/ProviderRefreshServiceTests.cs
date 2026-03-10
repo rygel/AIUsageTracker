@@ -7,7 +7,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Services;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
@@ -22,7 +24,8 @@ public class ProviderRefreshServiceTests
     private readonly Mock<INotificationService> _mockNotificationService;
     private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
     private readonly Mock<IAppPathProvider> _mockPathProvider;
-    private readonly Mock<ConfigService> _mockConfigService;
+    private readonly Mock<IHubContext<UsageHub>> _mockHubContext;
+    private readonly Mock<IConfigService> _mockConfigService;
     private readonly UsageAlertsService _usageAlertsService;
     private readonly ProviderRefreshCircuitBreakerService _providerRefreshCircuitBreakerService;
     private readonly ProviderRefreshService _service;
@@ -35,10 +38,15 @@ public class ProviderRefreshServiceTests
         this._mockNotificationService = new Mock<INotificationService>();
         this._mockHttpClientFactory = new Mock<IHttpClientFactory>();
         this._mockPathProvider = new Mock<IAppPathProvider>();
+        this._mockHubContext = new Mock<IHubContext<UsageHub>>();
+        this._mockConfigService = new Mock<IConfigService>();
 
-        // ConfigService needs a logger and path provider, using NullLogger
-        var configLogger = new Mock<ILogger<ConfigService>>();
-        this._mockConfigService = new Mock<ConfigService>(configLogger.Object, this._mockPathProvider.Object);
+        // Setup HubContext mock
+        var mockClients = new Mock<IHubClients>();
+        var mockClientProxy = new Mock<IClientProxy>();
+        mockClients.Setup(c => c.All).Returns(mockClientProxy.Object);
+        this._mockHubContext.Setup(h => h.Clients).Returns(mockClients.Object);
+
         var alertsLogger = new Mock<ILogger<UsageAlertsService>>();
         this._usageAlertsService = new UsageAlertsService(
             alertsLogger.Object,
@@ -58,7 +66,31 @@ public class ProviderRefreshServiceTests
             this._mockPathProvider.Object,
             Enumerable.Empty<IProviderService>(),
             this._usageAlertsService,
-            this._providerRefreshCircuitBreakerService);
+            this._providerRefreshCircuitBreakerService,
+            this._mockHubContext.Object);
+    }
+
+    [Fact]
+    public async Task TriggerRefreshAsync_BroadcastsSignalRMessages()
+    {
+        // Arrange
+        this._mockDatabase.Setup(d => d.IsHistoryEmptyAsync()).ReturnsAsync(false);
+        this._mockConfigService.Setup(c => c.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>());
+
+        // Act
+        await this._service.TriggerRefreshAsync();
+
+        // Assert
+        var mockClients = Mock.Get(this._mockHubContext.Object.Clients);
+        var mockClientProxy = Mock.Get(mockClients.Object.All);
+
+        mockClientProxy.Verify(
+            c => c.SendCoreAsync("RefreshStarted", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+
+        mockClientProxy.Verify(
+            c => c.SendCoreAsync("UsageUpdated", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
