@@ -38,11 +38,11 @@ public class MonitorServiceTests
         this.SetupMockResponse(HttpStatusCode.OK, responseObj);
 
         // Act
-        var (success, message) = await this._service.CheckProviderAsync("openai");
+        var result = await this._service.CheckProviderAsync("openai");
 
         // Assert
-        Assert.True(success);
-        Assert.Equal("Connected", message);
+        Assert.True(result.Success);
+        Assert.Equal("Connected", result.Message);
         this.VerifyPath("/api/providers/openai/check");
     }
 
@@ -54,11 +54,11 @@ public class MonitorServiceTests
         this.SetupMockResponse(HttpStatusCode.Unauthorized, responseObj);
 
         // Act
-        var (success, message) = await this._service.CheckProviderAsync("openai");
+        var result = await this._service.CheckProviderAsync("openai");
 
         // Assert
-        Assert.False(success);
-        Assert.Equal("Invalid Key", message);
+        Assert.False(result.Success);
+        Assert.Equal("Invalid Key", result.Message);
     }
 
     [Fact]

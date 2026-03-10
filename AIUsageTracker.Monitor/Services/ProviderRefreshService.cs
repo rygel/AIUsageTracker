@@ -48,7 +48,7 @@ public class ProviderRefreshService : BackgroundService
     private long _refreshFailureCount;
     private long _refreshTotalLatencyMs;
     private long _lastRefreshLatencyMs;
-    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Monitor.ProviderRefreshService");
+    private static readonly ActivitySource ActivitySource = MonitorActivitySources.Refresh;
     private readonly object _telemetryLock = new();
     private DateTime? _lastRefreshAttemptUtc;
     private DateTime? _lastRefreshCompletedUtc;

@@ -197,10 +197,10 @@ public class ProviderRefreshServiceTests
 
         var refreshActivity = Assert.Single(
             stoppedActivities,
-            activity => string.Equals(activity.OperationName, "monitor.refresh.cycle", StringComparison.Ordinal));
+            activity => string.Equals(activity.OperationName, "monitor.provider_refresh", StringComparison.Ordinal));
         Assert.Equal(ActivityStatusCode.Error, refreshActivity.Status);
         Assert.Equal(false, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.force_all", StringComparison.Ordinal)).Value);
-        Assert.Equal(0, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.include_provider_count", StringComparison.Ordinal)).Value);
+        Assert.Equal(0, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.include_provider_ids.count", StringComparison.Ordinal)).Value);
         Assert.Equal(false, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.bypass_circuit_breaker", StringComparison.Ordinal)).Value);
     }
 

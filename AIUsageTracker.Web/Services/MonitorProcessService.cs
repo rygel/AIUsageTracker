@@ -221,7 +221,7 @@ public class MonitorProcessService
     }
 
     private static MonitorStatusResult CreateStatusResult(
-        MonitorLauncher.MonitorStatusInfo status,
+        MonitorAgentStatus status,
         MonitorHealthSnapshot? healthSnapshot,
         AgentContractHandshakeResult? contractHandshake)
     {
@@ -280,7 +280,7 @@ public class MonitorProcessService
         };
     }
 
-    private static string? GetStartupFailureReason(MonitorLauncher.MonitorStatusInfo status)
+    private static string? GetStartupFailureReason(MonitorAgentStatus status)
     {
         if (!string.Equals(status.Error, "monitor-startup-failed", StringComparison.Ordinal))
         {
@@ -291,7 +291,7 @@ public class MonitorProcessService
     }
 
     private static MonitorActionResult CreateStartFailureResult(
-        MonitorLauncher.MonitorStatusInfo status,
+        MonitorAgentStatus status,
         string fallbackMessage,
         string? preservedStartupFailureReason = null)
     {
