@@ -1,0 +1,18 @@
+{
+  "trackedPathPrefixes": [
+    "AIUsageTracker.Web/",
+    "AIUsageTracker.Web.Tests/",
+    "scripts/analyzer-regression-gate.ps1",
+    ".github/workflows/analyzer-quality-gate.yml",
+    ".analyzer-gate/"
+  ],
+  "globalTriggerPaths": [
+    "Directory.Build.props",
+    "Directory.Build.targets",
+    ".editorconfig"
+  ],
+  "buildTargets": [
+    "AIUsageTracker.Web/AIUsageTracker.Web.csproj",
+    "AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj"
+  ]
+}

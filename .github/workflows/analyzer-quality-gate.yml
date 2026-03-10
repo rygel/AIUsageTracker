@@ -37,7 +37,7 @@ jobs:
         env:
           BASE_REF: origin/${{ github.base_ref || 'develop' }}
         run: |
-          .\scripts\analyzer-regression-gate.ps1 -BaseRef "$env:BASE_REF" -Solution AIUsageTracker.sln -Configuration Debug
+          .\scripts\analyzer-regression-gate.ps1 -BaseRef "$env:BASE_REF" -Solution AIUsageTracker.sln -Configuration Debug -ScopeConfig ".analyzer-gate/scope.json"
 
       - name: Upload analyzer gate artifacts
         if: always()

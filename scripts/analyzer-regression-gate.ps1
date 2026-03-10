@@ -2,7 +2,8 @@ param(
     [string]$BaseRef = "origin/develop",
     [string]$Solution = "AIUsageTracker.sln",
     [string]$Configuration = "Debug",
-    [string]$AllowList
+    [string]$AllowList,
+    [string]$ScopeConfig = ".analyzer-gate/scope.json"
 )
 
 Set-StrictMode -Version Latest
@@ -11,10 +12,35 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (git rev-parse --show-toplevel).Trim()
 Set-Location $repoRoot
 
+function Get-RelativeRepoPath {
+    param(
+        [string]$SourceRoot,
+        [string]$PathValue
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PathValue)) {
+        return $PathValue
+    }
+
+    $normalized = $PathValue -replace "\\", "/"
+    if ([System.IO.Path]::IsPathRooted($PathValue)) {
+        $fullPath = [System.IO.Path]::GetFullPath($PathValue)
+        $rootPath = [System.IO.Path]::GetFullPath((Join-Path $SourceRoot "."))
+        if ($fullPath.StartsWith($rootPath, [StringComparison]::OrdinalIgnoreCase)) {
+            $normalized = $fullPath.Substring($rootPath.Length).TrimStart("\").TrimStart("/")
+        }
+        else {
+            $normalized = $fullPath
+        }
+    }
+
+    return $normalized.Trim().Replace("\", "/")
+}
+
 function Get-AnalyzerWarnings {
     param(
         [string]$SourceRoot,
-        [string]$SolutionPath,
+        [string[]]$BuildTargets,
         [string]$ConfigurationName,
         [string]$Label
     )
@@ -34,16 +60,18 @@ function Get-AnalyzerWarnings {
             Remove-Item $outPath -Force
         }
 
-        Write-Host "==> Restoring solution: $SolutionPath"
-        & dotnet restore $SolutionPath
-        if ($LASTEXITCODE -ne 0) {
-            throw "dotnet restore failed for $Label"
-        }
+        foreach ($target in $BuildTargets) {
+            Write-Host "==> Restoring target: $target"
+            & dotnet restore $target
+            if ($LASTEXITCODE -ne 0) {
+                throw "dotnet restore failed for $Label target '$target'"
+            }
 
-        Write-Host "==> Building solution for analyzer baseline: $SolutionPath"
-        & dotnet build $SolutionPath --configuration $ConfigurationName --no-restore "/flp:logfile=$logPath;verbosity=normal"
-        if ($LASTEXITCODE -ne 0) {
-            throw "dotnet build failed for $Label"
+            Write-Host "==> Building target for analyzer baseline: $target"
+            & dotnet build $target --configuration $ConfigurationName --no-restore "/flp:logfile=$logPath;verbosity=normal;append=true"
+            if ($LASTEXITCODE -ne 0) {
+                throw "dotnet build failed for $Label target '$target'"
+            }
         }
     }
     finally {
@@ -54,10 +82,10 @@ function Get-AnalyzerWarnings {
         throw "No analyzer build log found: $logPath"
     }
 
-    # Convert MSBuild warning records to stable keys: ID|File|Line
+    # Convert MSBuild warning records to stable keys: ID|Project|File|Line
     $raw = Get-Content $logPath
     Write-Output $raw | Tee-Object -FilePath $outPath | Out-Null
-    $warningPattern = "^(?<file>.+?)\\((?<line>\\d+),\\d+\\):\\s+warning\\s+(?<id>(?:MA|VSTHRD|CA|IDE|RS|SYSLIB)\\d+):\\s"
+    $warningPattern = "^(?<file>.+?)\\((?<line>\\d+),\\d+\\):\\s+warning\\s+(?<id>(?:MA|VSTHRD|CA|IDE|RS|SYSLIB)\\d+):\\s.*(?:\\[(?<project>.+?\\.csproj)\\])?$"
 
     $warnings = @{}
     foreach ($lineText in $raw) {
@@ -65,16 +93,10 @@ function Get-AnalyzerWarnings {
             $file = $matches.file -replace "\\", "/"
             $lineNumber = $matches.line
             $id = $matches.id
-            if ([System.IO.Path]::IsPathRooted($file)) {
-                $fullPath = [System.IO.Path]::GetFullPath($file)
-                $rootPath = [System.IO.Path]::GetFullPath((Join-Path $SourceRoot "."))
-                if ($fullPath.StartsWith($rootPath, [StringComparison]::OrdinalIgnoreCase)) {
-                    $file = $fullPath.Substring($rootPath.Length).TrimStart("\").TrimStart("/")
-                    $file = $file -replace "\\", "/"
-                }
-            }
-            $path = $file.Trim()
-            $key = "$id|$path|$lineNumber"
+            $project = if ($matches.project) { $matches.project } else { "unknown" }
+            $path = Get-RelativeRepoPath -SourceRoot $SourceRoot -PathValue $file
+            $projectPath = Get-RelativeRepoPath -SourceRoot $SourceRoot -PathValue $project
+            $key = "$id|$projectPath|$path|$lineNumber"
             if (-not $warnings.ContainsKey($key)) {
                 $warnings[$key] = $true
             }
@@ -97,6 +119,42 @@ function Normalize-PathTokens {
     return $set
 }
 
+function Convert-ToPathPrefixesSet {
+    param([object[]]$Prefixes)
+
+    $result = @()
+    foreach ($prefix in $Prefixes) {
+        if ($null -eq $prefix) {
+            continue
+        }
+
+        $normalized = $prefix.ToString().Trim()
+        if ([string]::IsNullOrWhiteSpace($normalized)) {
+            continue
+        }
+
+        $normalized = $normalized.Replace("\", "/").TrimStart("./")
+        $result += $normalized
+    }
+
+    return $result
+}
+
+function Matches-TrackedPrefix {
+    param(
+        [string]$PathValue,
+        [string[]]$Prefixes
+    )
+
+    foreach ($prefix in $Prefixes) {
+        if ($PathValue.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 Write-Host "=== Analyzer baseline reference: $BaseRef"
 
 $baseRef = if ([string]::IsNullOrWhiteSpace($BaseRef)) { "origin/develop" } else { $BaseRef }
@@ -107,6 +165,49 @@ if (-not $changedFiles) {
 }
 
 $changedSet = Normalize-PathTokens -Paths $changedFiles
+$buildTargets = @($Solution)
+
+if (-not [string]::IsNullOrWhiteSpace($ScopeConfig) -and (Test-Path $ScopeConfig)) {
+    $scopeJson = Get-Content $ScopeConfig -Raw | ConvertFrom-Json
+    $trackedPrefixes = Convert-ToPathPrefixesSet -Prefixes $scopeJson.trackedPathPrefixes
+    $globalTriggers = Convert-ToPathPrefixesSet -Prefixes $scopeJson.globalTriggerPaths
+    $configuredTargets = Convert-ToPathPrefixesSet -Prefixes $scopeJson.buildTargets
+
+    $hasGlobalTriggerChange = $false
+    foreach ($path in $changedSet) {
+        if (Matches-TrackedPrefix -PathValue $path -Prefixes $globalTriggers) {
+            $hasGlobalTriggerChange = $true
+            break
+        }
+    }
+
+    if (-not $hasGlobalTriggerChange -and $trackedPrefixes.Count -gt 0) {
+        $scopedChanged = @()
+        foreach ($path in $changedSet) {
+            if (Matches-TrackedPrefix -PathValue $path -Prefixes $trackedPrefixes) {
+                $scopedChanged += $path
+            }
+        }
+
+        if ($scopedChanged.Count -eq 0) {
+            Write-Host "No scoped analyzer paths changed. Skipping regression check."
+            exit 0
+        }
+
+        $changedSet = Normalize-PathTokens -Paths $scopedChanged
+        if ($configuredTargets.Count -gt 0) {
+            $buildTargets = $configuredTargets
+        }
+    }
+    elseif ($hasGlobalTriggerChange) {
+        Write-Host "Global analyzer trigger changed. Running full-solution analyzer regression gate."
+    }
+}
+
+Write-Host "Analyzer build targets:"
+foreach ($target in $buildTargets) {
+    Write-Host "  - $target"
+}
 
 New-Item -ItemType Directory -Path (Join-Path $repoRoot ".analyzer-gate-output") -Force | Out-Null
 $worktreePath = Join-Path $repoRoot ".analyzer-gate-baseline"
@@ -120,7 +221,7 @@ $headWarnings = @()
 $baselineBuildSucceeded = $true
 try {
     try {
-        $baseWarnings = Get-AnalyzerWarnings -SourceRoot $worktreePath -SolutionPath $Solution -ConfigurationName $Configuration -Label "base"
+        $baseWarnings = Get-AnalyzerWarnings -SourceRoot $worktreePath -BuildTargets $buildTargets -ConfigurationName $Configuration -Label "base"
     }
     catch {
         $baselineBuildSucceeded = $false
@@ -128,7 +229,7 @@ try {
         Write-Warning $_
     }
 
-    $headWarnings = Get-AnalyzerWarnings -SourceRoot $repoRoot -SolutionPath $Solution -ConfigurationName $Configuration -Label "head"
+    $headWarnings = Get-AnalyzerWarnings -SourceRoot $repoRoot -BuildTargets $buildTargets -ConfigurationName $Configuration -Label "head"
 }
 finally {
     git worktree remove --force $worktreePath
@@ -146,11 +247,11 @@ foreach ($warning in $baseWarnings) {
 
 $newWarnings = @()
 foreach ($warning in $headWarnings) {
-    $parts = $warning.Split("|", 3)
-    if ($parts.Length -lt 3) {
+    $parts = $warning.Split("|", 4)
+    if ($parts.Length -lt 4) {
         continue
     }
-    $file = $parts[1]
+    $file = $parts[2]
     if (-not $changedSet.Contains($file)) {
         continue
     }
@@ -179,11 +280,12 @@ $summaryPath = Join-Path $outputDir "analyzer-regression-summary.md"
 ) + ($newWarnings | Sort-Object) | Set-Content $newListPath
 
 $grouped = $newWarnings | ForEach-Object {
-    $parts = $_.Split("|", 3)
+    $parts = $_.Split("|", 4)
     [pscustomobject]@{
         Id = $parts[0]
-        File = $parts[1]
-        Line = $parts[2]
+        Project = $parts[1]
+        File = $parts[2]
+        Line = $parts[3]
     }
 }
 

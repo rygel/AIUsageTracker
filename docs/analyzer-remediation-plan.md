@@ -126,6 +126,7 @@ var result = await _httpClient.GetAsync(url).ConfigureAwait(false);
 - No functional changes to behavior
 - All existing tests pass
 - Build time should not significantly increase
+- Analyzer guardrails are scoped to active cleanup areas (`AIUsageTracker.Web` and `AIUsageTracker.Web.Tests`) unless global analyzer settings change.
 
 ## Notes
 
@@ -133,6 +134,7 @@ var result = await _httpClient.GetAsync(url).ConfigureAwait(false);
 - Remove suppressions progressively as each category is fixed
 - Consider keeping MA0051 as "suggestion" (not warning) since 60-line limit is arbitrary
 - MA0006 in tests can be permanently suppressed in test .csproj files
+- The analyzer gate compares against `origin/develop` and keys warnings by `Rule + Project + File + Line` to prevent cross-project noise.
 
 ## Current Branch
 
