@@ -43,9 +43,16 @@ public sealed class MonitorLifecycleService : IMonitorLifecycleService
         return MonitorLauncher.IsAgentRunningWithPortAsync();
     }
 
-    public Task<MonitorLauncher.MonitorStatusInfo> GetAgentStatusInfoAsync()
+    public async Task<MonitorAgentStatus> GetAgentStatusInfoAsync()
     {
-        return MonitorLauncher.GetAgentStatusInfoAsync();
+        var status = await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        return new MonitorAgentStatus
+        {
+            IsRunning = status.IsRunning,
+            Port = status.Port,
+            Message = status.Message,
+            Error = status.Error,
+        };
     }
 
     public async Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
