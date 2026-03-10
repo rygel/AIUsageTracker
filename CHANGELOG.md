@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.21] - 2026-03-10
+
+### Changed
+- **Beta Version Bump**: Updated shared tracker version, README badge, and release packaging scripts for `2.2.28-beta.21`.
+
 ## [2.2.28-beta.20] - 2026-03-08
 
 ### Added
