@@ -51,11 +51,11 @@ public class AllProvidersWorkingTests
             .ReturnsAsync((ProviderConfig c, Action<ProviderUsage>? callback) => new[]
             {
                 new ProviderUsage
-            {
-                ProviderId = c.ProviderId,
-                ProviderName = "Minimax",
-                IsAvailable = true
-            },
+                {
+                    ProviderId = c.ProviderId,
+                    ProviderName = "Minimax",
+                    IsAvailable = true,
+                },
             });
 
         var providers = new List<IProviderService> { mockMinimax.Object };
