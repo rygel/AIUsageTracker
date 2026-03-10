@@ -91,8 +91,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
             sessionAuthFileSchemas: new[]
             {
                 new ProviderAuthFileSchema("sessions.github", "oauth_token", "user"),
-            }
-        );
+            });
 
         // Act
         var result = await this._service.DiscoverAuthAsync(definition);
