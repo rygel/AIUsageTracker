@@ -624,7 +624,7 @@ public class MonitorServiceTests
     {
         var path = Path.Combine(directory, "monitor.json");
         var json = JsonSerializer.Serialize(info);
-        await File.WriteAllTextAsync(path, json);
+        await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
         return path;
     }
 }
