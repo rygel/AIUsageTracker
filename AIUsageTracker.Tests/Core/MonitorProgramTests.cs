@@ -26,7 +26,7 @@ public sealed class MonitorProgramTests : IDisposable
     [Fact]
     public void SaveMonitorInfo_WritesStartupStatusToCandidatePaths()
     {
-        InvokeMonitorProgramMethod(
+        this.InvokeMonitorProgramMethod(
             "SaveMonitorInfo",
             5123,
             true,
@@ -65,10 +65,10 @@ public sealed class MonitorProgramTests : IDisposable
             this._pathProvider.GetAppDataRoot(),
             this._pathProvider.GetUserProfileRoot())[0];
 
-        WriteMonitorInfoFile(path, "Startup status: running");
+        this.WriteMonitorInfoFile(path, "Startup status: running");
         File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(1));
 
-        InvokeMonitorProgramMethod(
+        this.InvokeMonitorProgramMethod(
             "ReportError",
             "Refresh failed: boom",
             this._pathProvider,
@@ -88,9 +88,9 @@ public sealed class MonitorProgramTests : IDisposable
             this._pathProvider.GetUserProfileRoot());
         var path = candidatePaths[0];
 
-        WriteMonitorInfoFile(path, "existing");
+        this.WriteMonitorInfoFile(path, "existing");
 
-        InvokeMonitorProgramMethod(
+        this.InvokeMonitorProgramMethod(
             "ReportError",
             "Refresh failed: newest",
             this._pathProvider,
@@ -122,7 +122,7 @@ public sealed class MonitorProgramTests : IDisposable
             this._pathProvider.GetUserProfileRoot());
     }
 
-    private static void InvokeMonitorProgramMethod(string methodName, params object?[] arguments)
+    private void InvokeMonitorProgramMethod(string methodName, params object?[] arguments)
     {
         var monitorAssembly = typeof(ProviderRefreshService).Assembly;
         var programType =
@@ -138,7 +138,7 @@ public sealed class MonitorProgramTests : IDisposable
         method!.Invoke(null, arguments);
     }
 
-    private static void WriteMonitorInfoFile(string path, string error)
+    private void WriteMonitorInfoFile(string path, string error)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 

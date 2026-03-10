@@ -393,7 +393,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         Assert.Equal($"http://localhost:{firstEndpoint.Port}", service.AgentUrl);
 
         var firstUsage = await service.GetUsageAsync();
-        Assert.Contains(firstUsage, usage => usage.ProviderId == firstProviderId);
+        Assert.Contains(firstUsage, usage => string.Equals(usage.ProviderId, firstProviderId, StringComparison.Ordinal));
 
         await this.CreateMonitorInfoAsync(new MonitorInfo
         {
@@ -405,7 +405,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         Assert.Equal($"http://localhost:{firstEndpoint.Port}", service.AgentUrl);
 
         var preservedUsage = await service.GetUsageAsync();
-        Assert.Contains(preservedUsage, usage => usage.ProviderId == firstProviderId);
+        Assert.Contains(preservedUsage, usage => string.Equals(usage.ProviderId, firstProviderId, StringComparison.Ordinal));
 
         await using var secondEndpoint = await TestMonitorEndpoint.StartAsync(secondProviderId);
         healthyPorts.Add(secondEndpoint.Port);
@@ -419,7 +419,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         Assert.Equal($"http://localhost:{secondEndpoint.Port}", service.AgentUrl);
 
         var secondUsage = await service.GetUsageAsync();
-        Assert.Contains(secondUsage, usage => usage.ProviderId == secondProviderId);
+        Assert.Contains(secondUsage, usage => string.Equals(usage.ProviderId, secondProviderId, StringComparison.Ordinal));
     }
 
     /// <inheritdoc/>
