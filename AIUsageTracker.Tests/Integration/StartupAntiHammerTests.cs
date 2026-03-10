@@ -96,7 +96,7 @@ public class StartupAntiHammerTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns((string _jobName, Func<CancellationToken, Task> work, MonitorJobPriority _priority, string? _coalesceKey) =>
+            .Returns((string jobName, Func<CancellationToken, Task> work, MonitorJobPriority priority, string? coalesceKey) =>
             {
                 work(CancellationToken.None).GetAwaiter().GetResult();
                 return true;
@@ -164,7 +164,7 @@ public class StartupAntiHammerTests
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
-            .Returns((string _jobName, Func<CancellationToken, Task> work, MonitorJobPriority _priority, string? _coalesceKey) =>
+            .Returns((string jobName, Func<CancellationToken, Task> work, MonitorJobPriority priority, string? coalesceKey) =>
             {
                 work(CancellationToken.None).GetAwaiter().GetResult();
                 return true;
