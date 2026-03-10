@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        runtime: [win-x64, win-x86, linux-x64, osx-x64, osx-arm64]
+        runtime: [win-x64, win-x86, win-arm64, linux-x64, osx-x64, osx-arm64]
     
     steps:
       - uses: actions/checkout@v4
@@ -124,6 +124,15 @@ jobs:
         with:
           name: appcast-files-${{ steps.extract.outputs.channel }}
           path: appcast
+
+      - name: Verify Release Artifacts
+        shell: pwsh
+        run: |
+          ./scripts/verify-release-artifacts.ps1 `
+            -Version "${{ steps.extract.outputs.version }}" `
+            -Channel "${{ steps.extract.outputs.channel }}" `
+            -ArtifactsDir "artifacts" `
+            -AppcastDir "appcast"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
