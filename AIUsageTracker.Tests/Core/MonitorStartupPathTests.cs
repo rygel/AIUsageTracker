@@ -397,7 +397,7 @@ public sealed class MonitorStartupPathTests : IDisposable
 
         await this.CreateMonitorInfoAsync(new MonitorInfo
         {
-            Port = GetUnusedPort(),
+            Port = this.GetUnusedPort(),
             ProcessId = 5678,
         });
 
@@ -446,7 +446,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         return path;
     }
 
-    private static int GetUnusedPort()
+    private int GetUnusedPort()
     {
         using var listener = new TcpListener(IPAddress.IPv6Any, 0);
         listener.Server.DualMode = true;
@@ -460,6 +460,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         {
             PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
         };
+
         private readonly TcpListener _listener;
         private readonly CancellationTokenSource _cancellationTokenSource = new();
         private readonly Task _acceptLoopTask;
