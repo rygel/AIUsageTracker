@@ -1,7 +1,7 @@
 {
   "defaultTheme": "Dark",
   "sourcePolicy": {
-    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for App.xaml.cs lifecycle/DI maintenance, ScreenshotTests async naming cleanup, and recent screenshot/smoke-test maintenance on 2026-03-10; no theme definitions changed.",
+    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for PR-283 App.xaml.cs DI/lifecycle service registration maintenance and recent screenshot/smoke-test maintenance on 2026-03-10; no theme definitions changed.",
     "updatedAt": "2026-03-10",
     "references": [
       "https://catppuccin.com/palette/",
