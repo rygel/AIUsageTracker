@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;
@@ -112,8 +113,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task GetUsageAsync_RevalidatesEndpointBeforeRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = CreateTempDirectory();
 
         try
         {
@@ -163,15 +163,14 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
     [Fact]
     public async Task GetUsageAsync_RequestTimesOut_RefreshesEndpointAndRetriesAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = CreateTempDirectory();
 
         try
         {
@@ -223,15 +222,14 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
     [Fact]
     public async Task GetUsageAsync_RequestTimesOutTwice_ReturnsEmptyListAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = CreateTempDirectory();
 
         try
         {
@@ -262,15 +260,14 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
     [Fact]
     public async Task TriggerRefreshAsync_RevalidatesEndpointBeforeRefreshRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = CreateTempDirectory();
 
         try
         {
@@ -303,7 +300,7 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
@@ -332,8 +329,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task CheckHealthAsync_RevalidatesEndpointBeforeHealthRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = CreateTempDirectory();
 
         try
         {
@@ -370,7 +366,7 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
@@ -797,5 +793,10 @@ public class MonitorServiceTests
         var json = JsonSerializer.Serialize(info);
         await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
         return path;
+    }
+
+    private static string CreateTempDirectory()
+    {
+        return TestTempPaths.CreateDirectory("monitor-service-tests");
     }
 }

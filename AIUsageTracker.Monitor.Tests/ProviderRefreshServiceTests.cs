@@ -12,6 +12,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
 using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -161,7 +162,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
 
         var telemetry = scenario.Service.GetRefreshTelemetrySnapshot();
@@ -330,7 +331,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
 
         scenario.Pipeline.Verify(
@@ -367,7 +368,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
     }
 
@@ -405,7 +406,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
     }
 
@@ -557,8 +558,7 @@ public class ProviderRefreshServiceTests
 
     private static PipelineTestFiles CreatePipelineTestFiles()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"provider-refresh-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
+        var root = TestTempPaths.CreateDirectory("provider-refresh-test");
         var authPath = Path.Combine(root, "auth.json");
         var providersPath = Path.Combine(root, "providers.json");
         var preferencesPath = Path.Combine(root, "preferences.json");

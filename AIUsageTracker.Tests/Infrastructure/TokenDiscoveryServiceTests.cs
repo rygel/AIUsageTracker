@@ -48,8 +48,7 @@ public class TokenDiscoveryServiceTests
     [Fact]
     public async Task DiscoverTokensAsync_DoesNotReadProvidersConfigAsTokenSourceAsync()
     {
-        var testRoot = Path.Combine(Path.GetTempPath(), $"token-discovery-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(testRoot);
+        var testRoot = TestTempPaths.CreateDirectory("token-discovery");
 
         try
         {
@@ -80,15 +79,14 @@ public class TokenDiscoveryServiceTests
         }
         finally
         {
-            Directory.Delete(testRoot, recursive: true);
+            TestTempPaths.CleanupPath(testRoot);
         }
     }
 
     [Fact]
     public async Task DiscoverTokensAsync_DoesNotReadCanonicalAuthConfigAsSessionTokenSourceAsync()
     {
-        var testRoot = Path.Combine(Path.GetTempPath(), $"token-discovery-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(testRoot);
+        var testRoot = TestTempPaths.CreateDirectory("token-discovery");
 
         try
         {
@@ -115,7 +113,7 @@ public class TokenDiscoveryServiceTests
         }
         finally
         {
-            Directory.Delete(testRoot, recursive: true);
+            TestTempPaths.CleanupPath(testRoot);
         }
     }
 }

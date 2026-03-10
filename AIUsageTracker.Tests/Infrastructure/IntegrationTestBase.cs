@@ -10,8 +10,7 @@ public abstract class IntegrationTestBase : IDisposable
 
     protected IntegrationTestBase()
     {
-        this.TestRootPath = Path.Combine(Path.GetTempPath(), "ai-tracker-int-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this.TestRootPath);
+        this.TestRootPath = TestTempPaths.CreateDirectory("ai-tracker-int-tests");
     }
 
     protected string CreateFile(string relativePath, string content)
@@ -29,16 +28,6 @@ public abstract class IntegrationTestBase : IDisposable
 
     public virtual void Dispose()
     {
-        try
-        {
-            if (Directory.Exists(this.TestRootPath))
-            {
-                Directory.Delete(this.TestRootPath, true);
-            }
-        }
-        catch
-        {
-            // Ignore cleanup errors in tests
-        }
+        TestTempPaths.CleanupPath(this.TestRootPath);
     }
 }

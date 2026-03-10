@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using AIUsageTracker.Tests.Infrastructure;
 
 namespace AIUsageTracker.Web.Tests;
 
@@ -94,14 +95,7 @@ public sealed class KestrelWebApplicationFactory<TEntryPoint> : IDisposable
                 !string.IsNullOrWhiteSpace(this._localAppDataRoot) &&
                 Directory.Exists(this._localAppDataRoot))
             {
-                try
-                {
-                    Directory.Delete(this._localAppDataRoot, recursive: true);
-                }
-                catch
-                {
-                    // Ignore cleanup failures.
-                }
+                TestTempPaths.CleanupPath(this._localAppDataRoot);
             }
         }
     }

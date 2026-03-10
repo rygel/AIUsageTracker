@@ -15,8 +15,7 @@ public sealed class CodexAuthServiceTests : IDisposable
 
     public CodexAuthServiceTests()
     {
-        this._tempDirectory = Path.Combine(Path.GetTempPath(), "codex-auth-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("codex-auth-service-tests");
     }
 
     [Fact]
@@ -67,10 +66,7 @@ public sealed class CodexAuthServiceTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private string CreateFile(string relativePath, string content)

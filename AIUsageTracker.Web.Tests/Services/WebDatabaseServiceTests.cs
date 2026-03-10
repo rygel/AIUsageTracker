@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
@@ -20,19 +21,14 @@ public class WebDatabaseServiceTests
     [TestInitialize]
     public void Initialize()
     {
-        this._tempDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "WebDatabaseServiceTests_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory(
+            "WebDatabaseServiceTests-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
     }
 
     [TestCleanup]
     public void Cleanup()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            this.DeleteDirectoryWithRetry(this._tempDirectory);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     [TestMethod]
@@ -201,28 +197,6 @@ VALUES (
     '2026-03-10 10:00:00',
     NULL);";
         command.ExecuteNonQuery();
-    }
-
-    private void DeleteDirectoryWithRetry(string path)
-    {
-        const int maxAttempts = 5;
-
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
-        {
-            try
-            {
-                Directory.Delete(path, true);
-                return;
-            }
-            catch (IOException) when (attempt < maxAttempts)
-            {
-                System.Threading.Thread.Sleep(100 * attempt);
-            }
-            catch (UnauthorizedAccessException) when (attempt < maxAttempts)
-            {
-                System.Threading.Thread.Sleep(100 * attempt);
-            }
-        }
     }
 
     private sealed class TestAppPathProvider : IAppPathProvider

@@ -26,5 +26,9 @@
     <ProjectReference Include="..\AIUsageTracker.Monitor\AIUsageTracker.Monitor.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\AIUsageTracker.Tests\Infrastructure\TestTempPaths.cs" Link="Infrastructure\TestTempPaths.cs" />
+  </ItemGroup>
+
 </Project>
 

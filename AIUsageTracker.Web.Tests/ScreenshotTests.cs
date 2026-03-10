@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Playwright;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -207,35 +208,12 @@ public class ScreenshotTests : WebTestBase
 
     private static string CreateTemporaryThemeOutputDirectory(string testName)
     {
-        var safeTestName = string.Concat(testName.Select(ch => char.IsLetterOrDigit(ch) ? ch : '-'));
-        var outputDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "AIUsageTracker",
-            "web-theme-smoke",
-            $"{safeTestName}-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(outputDirectory);
-        return outputDirectory;
+        return TestTempPaths.CreateDirectory($"web-theme-smoke-{testName}");
     }
 
     private static void TryDeleteDirectory(string directoryPath)
     {
-        if (!Directory.Exists(directoryPath))
-        {
-            return;
-        }
-
-        try
-        {
-            Directory.Delete(directoryPath, recursive: true);
-        }
-        catch (IOException ex)
-        {
-            Console.WriteLine($"[CLEANUP] Failed to delete temp screenshot directory '{directoryPath}': {ex.Message}");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            Console.WriteLine($"[CLEANUP] Failed to delete temp screenshot directory '{directoryPath}': {ex.Message}");
-        }
+        TestTempPaths.CleanupPath(directoryPath);
     }
 
     [TestMethod]

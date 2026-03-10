@@ -31,7 +31,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     public async Task GetUsageAsync_AuthFileMissing_ReturnsUnavailableAsync()
     {
         // Arrange
-        var missingAuthPath = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}", "auth.json");
+        var missingAuthPath = TestTempPaths.CreateFilePath("codex-test-missing-auth", "auth.json");
         var provider = new CodexProvider(this.HttpClient, this.Logger.Object, missingAuthPath);
 
         // Act
@@ -46,8 +46,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     public async Task GetUsageAsync_NativeAuthAndUsageResponse_ReturnsParsedUsageAsync()
     {
         // Arrange
-        var tempDir = Path.Combine(Path.GetTempPath(), $"codex-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
+        var tempDir = TestTempPaths.CreateDirectory("codex-test");
         var authPath = Path.Combine(tempDir, "auth.json");
         var token = CreateJwt("user@example.com", "plus");
         var accountId = "acct_123";
@@ -100,7 +99,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         }
         finally
         {
-            Directory.Delete(tempDir, recursive: true);
+            TestTempPaths.CleanupPath(tempDir);
         }
     }
 

@@ -6,6 +6,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -19,11 +20,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
 
     public MonitorProcessServiceTests()
     {
-        this._tempDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "monitor-process-service-tests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("monitor-process-service-tests");
     }
 
     [Fact]
@@ -295,10 +292,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null)
