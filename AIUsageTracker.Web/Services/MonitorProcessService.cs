@@ -2,10 +2,12 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Diagnostics;
+using System.Globalization;
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Models;
-using System.Diagnostics;
 
 namespace AIUsageTracker.Web.Services;
 
@@ -202,7 +204,9 @@ public class MonitorProcessService
     {
         if (!string.Equals(healthSnapshot.ServiceHealth, "degraded", StringComparison.OrdinalIgnoreCase))
         {
-            var lastSuccess = healthSnapshot.RefreshHealth.LastSuccessfulRefreshUtc?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            var lastSuccess = healthSnapshot.RefreshHealth.LastSuccessfulRefreshUtc?
+                .ToLocalTime()
+                .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
             return lastSuccess == null
                 ? $"Healthy on port {port}."
                 : $"Healthy on port {port}. Last successful refresh: {lastSuccess}.";
