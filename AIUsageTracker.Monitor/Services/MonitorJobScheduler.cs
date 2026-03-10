@@ -117,7 +117,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             this._recurringRegistrations.Add(registration);
             if (this._isRunning)
             {
-                this._recurringTasks.Add(this.StartRecurringLoop(registration, this._schedulerToken));
+                this._recurringTasks.Add(this.StartRecurringLoopAsync(registration, this._schedulerToken));
             }
         }
 
@@ -178,7 +178,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             this._isRunning = true;
             foreach (var registration in this._recurringRegistrations)
             {
-                this._recurringTasks.Add(this.StartRecurringLoop(registration, stoppingToken));
+                this._recurringTasks.Add(this.StartRecurringLoopAsync(registration, stoppingToken));
             }
         }
 
@@ -282,7 +282,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             : Task.Delay(initialDelay, cancellationToken);
     }
 
-    private Task StartRecurringLoop(RecurringJobRegistration registration, CancellationToken stoppingToken)
+    private Task StartRecurringLoopAsync(RecurringJobRegistration registration, CancellationToken stoppingToken)
     {
         return Task.Run(
             async () =>
