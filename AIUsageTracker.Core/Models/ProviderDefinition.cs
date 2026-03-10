@@ -79,7 +79,7 @@ public sealed class ProviderDefinition
 
         var normalizedHandledIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            providerId
+            providerId,
         };
 
         if (handledProviderIds != null)
