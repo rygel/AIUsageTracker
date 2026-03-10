@@ -32,7 +32,7 @@ public class ExportServiceTests
                 ProviderId = "test-p",
                 ProviderName = "Test Provider",
                 RequestsUsed = 10,
-                FetchedAt = DateTime.UtcNow
+                FetchedAt = DateTime.UtcNow,
             },
         };
         this._mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
@@ -65,7 +65,7 @@ public class ExportServiceTests
                 RequestsUsed = 10,
                 UsageUnit = "USD",
                 PlanType = PlanType.Usage,
-                FetchedAt = DateTime.UtcNow
+                FetchedAt = DateTime.UtcNow,
             },
         };
         this._mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
@@ -100,8 +100,8 @@ public class ExportServiceTests
                 FetchedAt = DateTime.UtcNow,
                 Details = new List<ProviderUsageDetail>
                 {
-                    new ProviderUsageDetail { Name = "Model A", Used = "5.50" }
-                }
+                    new ProviderUsageDetail { Name = "Model A", Used = "5.50" },
+                },
             },
         };
         this._mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
