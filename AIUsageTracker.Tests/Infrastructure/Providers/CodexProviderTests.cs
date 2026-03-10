@@ -71,13 +71,13 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
                 rate_limit = new
                 {
                     primary_window = new { used_percent = 25, reset_after_seconds = 1200 },
-                    secondary_window = new { used_percent = 10, reset_after_seconds = 600 }
+                    secondary_window = new { used_percent = 10, reset_after_seconds = 600 },
                 },
                 credits = new
                 {
                     balance = 7.5,
-                    unlimited = false
-                }
+                    unlimited = false,
+                },
             })),
         });
 
@@ -107,11 +107,9 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     private static string CreateJwt(string email, string planType)
     {
         var headerJson = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });
-        var payloadJson = JsonSerializer.Serialize(new Dictionary<string, object?>
-(StringComparer.Ordinal)
+        var payloadJson = JsonSerializer.Serialize(new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["https://api.openai.com/profile"] = new Dictionary<string, object?>
-(StringComparer.Ordinal)
+            ["https://api.openai.com/profile"] = new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["email"] = email,
             },

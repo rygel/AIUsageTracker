@@ -36,8 +36,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
         var username = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(
                 this._logger,
-                new[] { hostsPath })
-            .ConfigureAwait(false);
+                new[] { hostsPath });
 
         Assert.Equal("octocat", username);
     }
@@ -57,8 +56,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
         var username = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(
                 this._logger,
-                new[] { authPath })
-            .ConfigureAwait(false);
+                new[] { authPath });
 
         Assert.Equal("user@example.com", username);
     }
@@ -78,8 +76,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
         var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(
                 this._logger,
-                new[] { authPath })
-            .ConfigureAwait(false);
+                new[] { authPath });
 
         Assert.Equal("codex@example.com", username);
     }
@@ -99,8 +96,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
         var username = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(
                 this._logger,
-                new[] { authPath })
-            .ConfigureAwait(false);
+                new[] { authPath });
 
         Assert.Equal("openai@example.com", username);
     }

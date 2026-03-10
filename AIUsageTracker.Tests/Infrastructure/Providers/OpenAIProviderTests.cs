@@ -139,7 +139,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         });
 
         // Act
-        var result = await this._provider.GetUsageAsync(new ProviderConfig { ProviderId = "openai" }).ConfigureAwait(false);
+        var result = await this._provider.GetUsageAsync(new ProviderConfig { ProviderId = "openai" });
 
         // Assert
         var usage = result.Single();

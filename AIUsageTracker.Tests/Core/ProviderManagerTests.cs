@@ -41,7 +41,7 @@ public class ProviderManagerTests
 
         var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
 
-        var result = await manager.GetAllUsageAsync().ConfigureAwait(false);
+        var result = await manager.GetAllUsageAsync();
 
         Assert.True(result.Count(usage => usage.IsAvailable) >= 2);
         Assert.Contains(
@@ -66,7 +66,7 @@ public class ProviderManagerTests
         this._mockConfigLoader.Setup(configLoader => configLoader.LoadConfigAsync()).ReturnsAsync(configs);
         var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
 
-        var result = await manager.GetAllUsageAsync().ConfigureAwait(false);
+        var result = await manager.GetAllUsageAsync();
 
         Assert.Contains(
             result,
@@ -94,7 +94,7 @@ public class ProviderManagerTests
         this._mockConfigLoader.Setup(configLoader => configLoader.LoadConfigAsync()).ReturnsAsync(configs);
         var manager = new ProviderManager(providers, this._mockConfigLoader.Object, this._mockLogger.Object);
 
-        var result = await manager.GetAllUsageAsync(includeProviderIds: new[] { "openai" }).ConfigureAwait(false);
+        var result = await manager.GetAllUsageAsync(includeProviderIds: new[] { "openai" });
 
         Assert.Contains(result, usage => string.Equals(usage.ProviderId, "openai", StringComparison.Ordinal));
         Assert.DoesNotContain(result, usage => string.Equals(usage.ProviderId, "gemini", StringComparison.Ordinal));

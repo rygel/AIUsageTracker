@@ -54,7 +54,7 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
             Content = new StringContent(JsonSerializer.Serialize(keyResponse)),
         });
 
-        var result = await this._provider.GetUsageAsync(this.Config).ConfigureAwait(false);
+        var result = await this._provider.GetUsageAsync(this.Config);
 
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
@@ -82,7 +82,7 @@ public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
             StatusCode = HttpStatusCode.Unauthorized,
         });
 
-        var result = await this._provider.GetUsageAsync(this.Config).ConfigureAwait(false);
+        var result = await this._provider.GetUsageAsync(this.Config);
 
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
