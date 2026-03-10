@@ -140,11 +140,13 @@ public class CodeGuardrailTests
             }
         }
 
+        var violationMessage = "Hardcoded provider ids are forbidden outside provider metadata/compatibility files." +
+                               Environment.NewLine +
+                               string.Join(Environment.NewLine, violations);
+
         Assert.True(
             violations.Count == 0,
-            "Hardcoded provider ids are forbidden outside provider metadata/compatibility files." +
-            Environment.NewLine +
-            string.Join(Environment.NewLine, violations));
+            violationMessage);
     }
 
     private static IEnumerable<string> EnumerateProductionSourceFiles(bool includeMarkup = false)

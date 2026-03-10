@@ -22,16 +22,19 @@ public sealed class CodexAuthServiceTests : IDisposable
     [Fact]
     public void GetAccessToken_ReadsNativeCodexAuth()
     {
+        var nativeAuthJson =
+            """
+            {
+              "tokens": {
+                "access_token": "native-token",
+                "account_id": "acct-native"
+              }
+            }
+            """;
+
         var authPath = this.CreateFile(
             "codex-auth.json",
-            """
-        {
-          "tokens": {
-            "access_token": "native-token",
-            "account_id": "acct-native"
-          }
-        }
-        """);
+            nativeAuthJson);
 
         var service = new CodexAuthService(this._logger, authPath);
 
@@ -42,16 +45,19 @@ public sealed class CodexAuthServiceTests : IDisposable
     [Fact]
     public void GetAccessToken_ReadsCompatibilityAuth()
     {
+        var compatibilityAuthJson =
+            """
+            {
+              "openai": {
+                "access": "compat-token",
+                "accountId": "acct-compat"
+              }
+            }
+            """;
+
         var authPath = this.CreateFile(
             "opencode-auth.json",
-            """
-        {
-          "openai": {
-            "access": "compat-token",
-            "accountId": "acct-compat"
-          }
-        }
-        """);
+            compatibilityAuthJson);
 
         var service = new CodexAuthService(this._logger, authPath);
 
