@@ -310,7 +310,7 @@ public class MonitorService : IMonitorService
     {
         using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
         return await this._httpClient.GetFromJsonAsync<List<ProviderUsage>>(
-            $"{this.AgentUrl}/api/usage",
+            this.BuildMonitorUrl(MonitorApiRoutes.Usage),
             this._jsonOptions,
             requestTimeout.Token).ConfigureAwait(false);
     }
@@ -363,7 +363,7 @@ public class MonitorService : IMonitorService
     public async Task<ProviderUsage?> GetUsageByProviderAsync(string providerId)
     {
         return await this.GetFromMonitorJsonAsync<ProviderUsage>(
-            $"/api/usage/{providerId}",
+            MonitorApiRoutes.UsageByProvider(providerId),
             nameof(this.GetUsageByProviderAsync)).ConfigureAwait(false);
     }
 
@@ -371,7 +371,7 @@ public class MonitorService : IMonitorService
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         var history = await this.GetFromMonitorJsonAsync<List<ProviderUsage>>(
-            $"/api/history?limit={limit}",
+            MonitorApiRoutes.HistoryWithLimit(limit),
             nameof(this.GetHistoryAsync)).ConfigureAwait(false);
         return history ?? new List<ProviderUsage>();
     }
@@ -380,7 +380,7 @@ public class MonitorService : IMonitorService
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
         var history = await this.GetFromMonitorJsonAsync<List<ProviderUsage>>(
-            $"/api/history/{providerId}?limit={limit}",
+            MonitorApiRoutes.HistoryByProviderWithLimit(providerId, limit),
             nameof(this.GetHistoryByProviderAsync)).ConfigureAwait(false);
         return history ?? new List<ProviderUsage>();
     }
@@ -391,7 +391,7 @@ public class MonitorService : IMonitorService
         var stopwatch = Stopwatch.StartNew();
         await this.RefreshPortAsync().ConfigureAwait(false);
         var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.PostAsync(this.BuildMonitorUrl("/api/refresh"), null),
+            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.Refresh), null),
             nameof(this.TriggerRefreshAsync)).ConfigureAwait(false);
 
         stopwatch.Stop();
@@ -410,7 +410,7 @@ public class MonitorService : IMonitorService
     public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync()
     {
         var configs = await this.GetFromMonitorJsonAsync<List<ProviderConfig>>(
-            "/api/config",
+            MonitorApiRoutes.Config,
             nameof(this.GetConfigsAsync),
             ConfigRequestTimeoutSeconds).ConfigureAwait(false);
         return configs ?? new List<ProviderConfig>();
@@ -421,7 +421,7 @@ public class MonitorService : IMonitorService
     {
         return await this.SendMonitorStatusRequestAsync(
             httpClient => httpClient.PostAsJsonAsync(
-                this.BuildMonitorUrl("/api/config"),
+                this.BuildMonitorUrl(MonitorApiRoutes.Config),
                 config,
                 this._jsonOptions),
             nameof(this.SaveConfigAsync)).ConfigureAwait(false);
@@ -431,7 +431,7 @@ public class MonitorService : IMonitorService
     public async Task<bool> RemoveConfigAsync(string providerId)
     {
         return await this.SendMonitorStatusRequestAsync(
-            httpClient => httpClient.DeleteAsync(this.BuildMonitorUrl($"/api/config/{providerId}")),
+            httpClient => httpClient.DeleteAsync(this.BuildMonitorUrl(MonitorApiRoutes.ConfigByProvider(providerId))),
             nameof(this.RemoveConfigAsync)).ConfigureAwait(false);
     }
 
@@ -448,7 +448,7 @@ public class MonitorService : IMonitorService
         try
         {
             await this.RefreshPortAsync().ConfigureAwait(false);
-            using var response = await this._httpClient.PostAsync(this.BuildMonitorUrl("/api/notifications/test"), null).ConfigureAwait(false);
+            using var response = await this._httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.TestNotification), null).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
             {
@@ -493,7 +493,7 @@ public class MonitorService : IMonitorService
     public async Task<AgentScanKeysResult> ScanForKeysAsync()
     {
         using var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.PostAsync(this.BuildMonitorUrl("/api/scan-keys"), null),
+            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.ScanKeys), null),
             nameof(this.ScanForKeysAsync)).ConfigureAwait(false);
         if (response?.IsSuccessStatusCode == true)
         {
@@ -531,7 +531,7 @@ public class MonitorService : IMonitorService
     public async Task<AgentDiagnosticsSnapshot?> GetDiagnosticsSnapshotAsync()
     {
         return await this.GetFromMonitorJsonAsync<AgentDiagnosticsSnapshot>(
-            "/api/diagnostics",
+            MonitorApiRoutes.Diagnostics,
             nameof(this.GetDiagnosticsSnapshotAsync)).ConfigureAwait(false);
     }
 
@@ -628,7 +628,7 @@ public class MonitorService : IMonitorService
         await this.RefreshPortAsync().ConfigureAwait(false);
 
         using var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl("/api/health")),
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health)),
             operationName).ConfigureAwait(false);
         if (response == null)
         {
@@ -657,7 +657,7 @@ public class MonitorService : IMonitorService
     {
         try
         {
-            using var response = await this._httpClient.GetAsync(this.BuildMonitorUrl($"/api/providers/{providerId}/check")).ConfigureAwait(false);
+            using var response = await this._httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.ProviderCheck(providerId))).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
                 var result = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
@@ -704,7 +704,7 @@ public class MonitorService : IMonitorService
     public async Task<string> ExportDataAsync(string format)
     {
         using var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl($"/api/export/{format}")),
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.ExportByFormat(format))),
             nameof(this.ExportDataAsync)).ConfigureAwait(false);
         if (response?.IsSuccessStatusCode == true)
         {
@@ -717,7 +717,7 @@ public class MonitorService : IMonitorService
     public async Task<Stream?> ExportDataAsync(string format, int days)
     {
         var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl($"/api/export?format={format}&days={days}")),
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.ExportWithWindow(format, days))),
             nameof(this.ExportDataAsync)).ConfigureAwait(false);
         if (response?.IsSuccessStatusCode == true)
         {
