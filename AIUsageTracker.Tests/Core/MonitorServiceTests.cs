@@ -478,6 +478,45 @@ public class MonitorServiceTests
     }
 
     [Fact]
+    public async Task GetHealthSnapshotAsync_Success_ReturnsTypedHealthAsync()
+    {
+        this.SetupMockResponse(HttpStatusCode.OK, new
+        {
+            status = "healthy",
+            timestamp = "2026-03-10T12:00:00Z",
+            port = 5000,
+            process_id = 100,
+            api_contract_version = MonitorService.ExpectedApiContractVersion,
+            agent_version = "3.1.0",
+        });
+
+        var result = await this._service.GetHealthSnapshotAsync();
+
+        Assert.NotNull(result);
+        Assert.Equal("healthy", result.Status);
+        Assert.Equal(5000, result.Port);
+        Assert.Equal(100, result.ProcessId);
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.ResolveApiContractVersion());
+        Assert.Equal("3.1.0", result.ResolveAgentVersion());
+        this.VerifyPath("/api/health");
+    }
+
+    [Fact]
+    public async Task GetHealthSnapshotAsync_RequestFails_ReturnsNullAsync()
+    {
+        this._mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("connection refused"));
+
+        var result = await this._service.GetHealthSnapshotAsync();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public async Task GetHealthDetailsAsync_Success_ReturnsPayloadAsync()
     {
         // Arrange

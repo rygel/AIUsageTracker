@@ -521,6 +521,14 @@ public class MonitorService : IMonitorService
     }
 
     /// <inheritdoc/>
+    public async Task<AgentHealthSnapshot?> GetHealthSnapshotAsync()
+    {
+        return await this.GetFromMonitorJsonAsync<AgentHealthSnapshot>(
+            "/api/health",
+            nameof(this.GetHealthSnapshotAsync)).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
     public Task<string> GetHealthDetailsAsync()
     {
         return this.GetEndpointDetailsAsync("/api/health");

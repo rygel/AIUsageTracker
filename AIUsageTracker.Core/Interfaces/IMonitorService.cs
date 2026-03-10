@@ -41,6 +41,8 @@ public interface IMonitorService
 
     Task<bool> CheckHealthAsync();
 
+    Task<AgentHealthSnapshot?> GetHealthSnapshotAsync();
+
     Task<AgentContractHandshakeResult> CheckApiContractAsync();
 
     Task<string> ExportDataAsync(string format);
