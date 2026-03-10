@@ -2,7 +2,12 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Net.Http;
+using System.Reflection;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Updates;
 using AIUsageTracker.Infrastructure.Services;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure;
@@ -49,5 +54,57 @@ public class GitHubUpdateCheckerTests
 
         // Assert
         Assert.True(isNewer);
+    }
+
+    [Fact]
+    public void GetAppcastUrlForCurrentArchitecture_UsesStableChannelFeed()
+    {
+        using var httpClient = new HttpClient();
+        var checker = new GitHubUpdateChecker(
+            NullLogger<GitHubUpdateChecker>.Instance,
+            httpClient,
+            UpdateChannel.Stable);
+
+        var url = InvokeGetAppcastUrlForCurrentArchitecture(checker);
+
+        Assert.Equal(
+            ReleaseUrlCatalog.GetAppcastUrl(GetExpectedArchitecture(), isBeta: false),
+            url);
+    }
+
+    [Fact]
+    public void GetAppcastUrlForCurrentArchitecture_UsesBetaChannelFeed()
+    {
+        using var httpClient = new HttpClient();
+        var checker = new GitHubUpdateChecker(
+            NullLogger<GitHubUpdateChecker>.Instance,
+            httpClient,
+            UpdateChannel.Beta);
+
+        var url = InvokeGetAppcastUrlForCurrentArchitecture(checker);
+
+        Assert.Equal(
+            ReleaseUrlCatalog.GetAppcastUrl(GetExpectedArchitecture(), isBeta: true),
+            url);
+    }
+
+    private static string InvokeGetAppcastUrlForCurrentArchitecture(GitHubUpdateChecker checker)
+    {
+        var method = typeof(GitHubUpdateChecker).GetMethod(
+            "GetAppcastUrlForCurrentArchitecture",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        return (string)method!.Invoke(checker, null)!;
+    }
+
+    private static string GetExpectedArchitecture()
+    {
+        return System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
+        {
+            System.Runtime.InteropServices.Architecture.X86 => "x86",
+            System.Runtime.InteropServices.Architecture.Arm64 => "arm64",
+            System.Runtime.InteropServices.Architecture.Arm => "arm64",
+            _ => "x64",
+        };
     }
 }

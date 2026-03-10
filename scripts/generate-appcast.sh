@@ -35,6 +35,12 @@ fi
 # Create appcast directory if it doesn't exist
 mkdir -p appcast
 
+# Remove previously generated files for this channel so no stale feed survives uploads.
+rm -f "appcast/${APPCAST_PREFIX}.xml" \
+      "appcast/${APPCAST_PREFIX}_x64.xml" \
+      "appcast/${APPCAST_PREFIX}_x86.xml" \
+      "appcast/${APPCAST_PREFIX}_arm64.xml"
+
 # Get current date in RFC 2822 format
 PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
 
@@ -97,6 +103,12 @@ generate_appcast() {
 EOF
     
     echo "✓ Generated ${appcast_file}"
+
+    if [ "$arch" == "x64" ]; then
+        local x64_appcast_file="appcast/${APPCAST_PREFIX}_x64.xml"
+        cp "$appcast_file" "$x64_appcast_file"
+        echo "✓ Generated ${x64_appcast_file}"
+    fi
 }
 
 # Generate for each architecture
