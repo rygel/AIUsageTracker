@@ -8,12 +8,6 @@ namespace AIUsageTracker.Web.Services;
 
 internal static class WebRuntimePathResolver
 {
-    internal readonly record struct WebRuntimePaths(
-        string AppRoot,
-        string LogDirectory,
-        string DataProtectionKeyDirectory,
-        string DatabasePath);
-
     public static WebRuntimePaths Resolve(string localAppDataRoot)
     {
         var appRoot = AppPathCatalog.GetCanonicalAppDataRoot(localAppDataRoot);
@@ -65,4 +59,10 @@ internal static class WebRuntimePathResolver
             return false;
         }
     }
+
+    internal readonly record struct WebRuntimePaths(
+        string AppRoot,
+        string LogDirectory,
+        string DataProtectionKeyDirectory,
+        string DatabasePath);
 }
