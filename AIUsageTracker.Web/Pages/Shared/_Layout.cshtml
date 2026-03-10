@@ -120,11 +120,21 @@
         // Monitor status check
         let isMonitorRunning = false;
 
-        function setStatusDetail(message, isError = false) {
+        function setStatusDetail(message, tone = '') {
             const detailEl = document.getElementById('agent-status-detail');
             if (!detailEl) return;
             detailEl.textContent = message || '';
-            detailEl.classList.toggle('error', !!isError);
+            detailEl.classList.remove('error', 'warning');
+            if (tone) {
+                detailEl.classList.add(tone);
+            }
+        }
+
+        function setStatusTone(statusEl, tone = '') {
+            statusEl.classList.remove('running', 'degraded', 'starting', 'error', 'stopped');
+            if (tone) {
+                statusEl.classList.add(tone);
+            }
         }
         
         async function checkMonitorStatus() {
@@ -133,28 +143,60 @@
                 const data = await res.json();
                 const statusEl = document.getElementById('agent-status');
                 const btn = document.getElementById('agent-toggle-btn');
-                const isDegraded = data.isRunning && data.serviceHealth && data.serviceHealth.toLowerCase() === 'degraded';
+                const serviceHealth = typeof data.serviceHealth === 'string' ? data.serviceHealth.toLowerCase() : '';
+                const startupState = typeof data.startupState === 'string' ? data.startupState.toLowerCase() : '';
+                const startupFailureReason = data.startupFailureReason || data.message;
                  
                 isMonitorRunning = data.isRunning;
                  
                 if (data.isRunning) {
-                    statusEl.textContent = isDegraded ? 'Monitor: Running (Degraded)' : 'Monitor: Running';
-                    statusEl.classList.add('running');
-                    setStatusDetail(data.message || `Healthy on port ${data.port}.`, isDegraded);
+                    if (serviceHealth === 'degraded') {
+                        statusEl.textContent = 'Monitor: Running (Degraded)';
+                        setStatusTone(statusEl, 'degraded');
+                        setStatusDetail(data.message || `Running on port ${data.port}, but refresh health is degraded.`, 'warning');
+                    } else {
+                        statusEl.textContent = 'Monitor: Running';
+                        setStatusTone(statusEl, 'running');
+                        setStatusDetail(data.message || `Healthy on port ${data.port}.`);
+                    }
+
                     btn.textContent = 'Stop';
                     btn.classList.remove('btn-primary');
                     btn.classList.add('btn-danger');
+                } else if (startupState === 'starting') {
+                    statusEl.textContent = 'Monitor: Starting';
+                    setStatusTone(statusEl, 'starting');
+                    setStatusDetail(data.message || 'Monitor is starting.');
+                    btn.textContent = 'Start';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-primary');
+                } else if (startupState === 'failed') {
+                    statusEl.textContent = 'Monitor: Startup Failed';
+                    setStatusTone(statusEl, 'error');
+                    setStatusDetail(startupFailureReason || 'Monitor startup failed.', 'error');
+                    btn.textContent = 'Start';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-primary');
+                } else if (data.error === 'monitor-unreachable') {
+                    statusEl.textContent = 'Monitor: Unreachable';
+                    setStatusTone(statusEl, 'error');
+                    setStatusDetail(data.message || `Monitor not reachable on port ${data.port}.`, 'error');
+                    btn.textContent = 'Start';
+                    btn.classList.remove('btn-danger');
+                    btn.classList.add('btn-primary');
                 } else {
                     statusEl.textContent = 'Monitor: Stopped';
-                    statusEl.classList.remove('running');
-                    setStatusDetail(data.message || 'Monitor is not running.', !!data.error);
+                    setStatusTone(statusEl, 'stopped');
+                    setStatusDetail(data.message || 'Monitor is not running.');
                     btn.textContent = 'Start';
                     btn.classList.remove('btn-danger');
                     btn.classList.add('btn-primary');
                 }
             } catch {
-                document.getElementById('agent-status').textContent = 'Monitor: Unknown';
-                setStatusDetail('Could not contact Web monitor API.', true);
+                const statusEl = document.getElementById('agent-status');
+                statusEl.textContent = 'Monitor: Unknown';
+                setStatusTone(statusEl, 'error');
+                setStatusDetail('Could not contact Web monitor API.', 'error');
                 isMonitorRunning = false;
             }
         }
@@ -165,31 +207,31 @@
             
             if (isMonitorRunning) {
                 btn.textContent = 'Stopping...';
-                setStatusDetail('Stopping monitor process...', false);
+                setStatusDetail('Stopping monitor process...');
                 try {
                     const res = await fetch('/api/monitor/stop', { method: 'POST' });
                     const data = await res.json();
-                    setStatusDetail(data?.message || (res.ok ? 'Monitor stopped.' : 'Failed to stop monitor.'), !res.ok);
+                    setStatusDetail(data?.message || (res.ok ? 'Monitor stopped.' : 'Failed to stop monitor.'), res.ok ? '' : 'error');
                     if (res.ok) {
                         setTimeout(checkMonitorStatus, 1000);
                     }
                 } catch (e) {
                     console.error(e);
-                    setStatusDetail('Stop request failed. See browser console.', true);
+                    setStatusDetail('Stop request failed. See browser console.', 'error');
                 }
             } else {
                 btn.textContent = 'Starting...';
-                setStatusDetail('Starting monitor process...', false);
+                setStatusDetail('Starting monitor process...');
                 try {
                     const res = await fetch('/api/monitor/start', { method: 'POST' });
                     const data = await res.json();
-                    setStatusDetail(data?.message || (res.ok ? 'Monitor started.' : 'Failed to start monitor.'), !res.ok);
+                    setStatusDetail(data?.message || (res.ok ? 'Monitor started.' : 'Failed to start monitor.'), res.ok ? '' : 'error');
                     if (res.ok) {
                         setTimeout(checkMonitorStatus, 2000);
                     }
                 } catch (e) {
                     console.error(e);
-                    setStatusDetail('Start request failed. See browser console.', true);
+                    setStatusDetail('Start request failed. See browser console.', 'error');
                 }
             }
             
@@ -205,4 +247,3 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
-

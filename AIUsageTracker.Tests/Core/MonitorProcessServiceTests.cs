@@ -41,6 +41,8 @@ public sealed class MonitorProcessServiceTests : IDisposable
         Assert.False(result.IsRunning);
         Assert.Equal(5000, result.Port);
         Assert.Equal("agent-info-missing", result.Error);
+        Assert.Null(result.StartupState);
+        Assert.Null(result.StartupFailureReason);
     }
 
     [Fact]
@@ -64,6 +66,8 @@ public sealed class MonitorProcessServiceTests : IDisposable
         Assert.False(result.IsRunning);
         Assert.Equal(6111, result.Port);
         Assert.Equal("monitor-unreachable", result.Error);
+        Assert.Null(result.StartupState);
+        Assert.Null(result.StartupFailureReason);
     }
 
     [Fact]
@@ -110,7 +114,36 @@ public sealed class MonitorProcessServiceTests : IDisposable
         Assert.False(result.IsRunning);
         Assert.Equal(5000, result.Port);
         Assert.Equal("monitor-starting", result.Error);
+        Assert.Equal("starting", result.StartupState);
+        Assert.Null(result.StartupFailureReason);
         Assert.Equal("Monitor is starting.", result.Message);
+    }
+
+    [Fact]
+    public async Task GetAgentStatusDetailedAsync_ReturnsStartupFailureReason_WhenMonitorStartupFailsAsync()
+    {
+        var infoPath = await this.CreateMonitorInfoAsync(new MonitorInfo
+        {
+            Port = 5000,
+            ProcessId = 0,
+            Errors = new List<string> { "Startup status: failed: port 5000 is already in use" },
+        });
+
+        using var overrides = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: new[] { infoPath },
+            healthCheckAsync: _ => Task.FromResult(false),
+            processRunningAsync: _ => Task.FromResult(false));
+
+        var service = this.CreateService();
+
+        var result = await service.GetAgentStatusDetailedAsync();
+
+        Assert.False(result.IsRunning);
+        Assert.Equal(5000, result.Port);
+        Assert.Equal("monitor-startup-failed", result.Error);
+        Assert.Equal("failed", result.StartupState);
+        Assert.Equal("port 5000 is already in use", result.StartupFailureReason);
+        Assert.Equal("Startup status: failed: port 5000 is already in use", result.Message);
     }
 
     [Fact]
@@ -149,6 +182,8 @@ public sealed class MonitorProcessServiceTests : IDisposable
         Assert.Equal("ProviderManager not ready", result.LastRefreshError);
         Assert.Equal(2, result.ProvidersInBackoff);
         Assert.Equal(new[] { "openai", "anthropic" }, result.FailingProviders);
+        Assert.Null(result.StartupState);
+        Assert.Null(result.StartupFailureReason);
         Assert.Contains("degraded", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("openai", result.Message, StringComparison.OrdinalIgnoreCase);
     }
