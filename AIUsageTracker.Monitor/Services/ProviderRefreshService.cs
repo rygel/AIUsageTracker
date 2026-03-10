@@ -26,7 +26,6 @@ public class ProviderRefreshService : BackgroundService
     private readonly IConfigService _configService;
     private readonly IAppPathProvider _pathProvider;
     private readonly IEnumerable<IProviderService> _providers;
-    private readonly UsageAlertsService _usageAlertsService;
     private readonly ProviderRefreshCircuitBreakerService _providerCircuitBreakerService;
     private readonly ProviderRefreshConfigSelector _configSelector;
     private readonly ProviderRefreshTelemetryManager _refreshTelemetryManager = new();
@@ -34,9 +33,9 @@ public class ProviderRefreshService : BackgroundService
     private readonly ProviderConnectivityCheckService _connectivityCheckService;
     private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
     private readonly ProviderManagerLifecycleService _providerManagerLifecycle;
+    private readonly ProviderRefreshNotificationService _refreshNotificationService;
     private readonly StartupSequenceService _startupSequenceService;
     private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
-    private readonly IHubContext<UsageHub>? _hubContext;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private static bool _debugMode = false;
@@ -70,7 +69,6 @@ public class ProviderRefreshService : BackgroundService
         this._configService = configService;
         this._pathProvider = pathProvider;
         this._providers = providers;
-        this._usageAlertsService = usageAlertsService;
         this._providerCircuitBreakerService = providerCircuitBreakerService;
         this._configSelector = new ProviderRefreshConfigSelector(
             providers,
@@ -87,6 +85,9 @@ public class ProviderRefreshService : BackgroundService
             configService,
             pathProvider,
             providers);
+        this._refreshNotificationService = new ProviderRefreshNotificationService(
+            usageAlertsService,
+            hubContext);
         this._startupSequenceService = new StartupSequenceService(
             this._refreshJobScheduler,
             configService,
@@ -96,7 +97,6 @@ public class ProviderRefreshService : BackgroundService
         this._connectivityCheckService = new ProviderConnectivityCheckService(
             configService,
             this._usageProcessingPipeline);
-        this._hubContext = hubContext;
     }
 
     private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
@@ -204,10 +204,7 @@ public class ProviderRefreshService : BackgroundService
 
             this._logger.LogDebug("Starting data refresh - {Time}", DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
 
-            if (this._hubContext != null)
-            {
-                await this._hubContext.Clients.All.SendAsync("RefreshStarted").ConfigureAwait(false);
-            }
+            await this._refreshNotificationService.NotifyRefreshStartedAsync().ConfigureAwait(false);
 
             this._logger.LogInformation("Refreshing...");
             var (configs, activeConfigs) = await this.LoadConfigsForRefreshAsync(forceAll, includeProviderIds).ConfigureAwait(false);
@@ -242,10 +239,7 @@ public class ProviderRefreshService : BackgroundService
             refreshSucceeded = true;
             refreshActivity?.SetStatus(ActivityStatusCode.Ok);
 
-            if (this._hubContext != null)
-            {
-                await this._hubContext.Clients.All.SendAsync("UsageUpdated").ConfigureAwait(false);
-            }
+            await this._refreshNotificationService.NotifyUsageUpdatedAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -371,8 +365,9 @@ public class ProviderRefreshService : BackgroundService
             .PersistUsageAndDynamicProvidersAsync(filteredUsages, activeProviderIds)
             .ConfigureAwait(false);
 
-        await this._usageAlertsService.DetectResetEventsAsync(filteredUsages).ConfigureAwait(false);
-        this._usageAlertsService.CheckUsageAlerts(filteredUsages, prefs, allConfigs);
+        await this._refreshNotificationService
+            .ProcessUsageAlertsAsync(filteredUsages, prefs, allConfigs)
+            .ConfigureAwait(false);
 
         this._logger.LogInformation("Done: {Count} records", filteredUsages.Count);
         this._logger.LogDebug("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
