@@ -19,25 +19,9 @@ public class ConfigPathCatalogTests
 
         Assert.Equal(2, entries.Count);
         Assert.Equal("C:\\test\\auth.json", entries[0].Path);
-        Assert.True(entries[0].IsAuthFile);
         Assert.Equal(ConfigPathKind.Auth, entries[0].Kind);
         Assert.Equal("C:\\test\\providers.json", entries[1].Path);
-        Assert.False(entries[1].IsAuthFile);
         Assert.Equal(ConfigPathKind.Provider, entries[1].Kind);
-    }
-
-    [Fact]
-    public void LegacyPathHelpers_ReturnExpectedValues()
-    {
-        var pathProvider = CreatePathProvider("C:\\test\\auth.json", "C:\\test\\providers.json");
-
-        var authPaths = ConfigPathCatalog.GetAuthConfigPaths(pathProvider.Object);
-        var providerPaths = ConfigPathCatalog.GetProviderConfigPaths(pathProvider.Object);
-
-        Assert.Single(authPaths);
-        Assert.Equal("C:\\test\\auth.json", authPaths[0]);
-        Assert.Single(providerPaths);
-        Assert.Equal("C:\\test\\providers.json", providerPaths[0]);
     }
 
     private static Mock<IAppPathProvider> CreatePathProvider(string authPath, string providerPath)

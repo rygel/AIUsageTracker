@@ -56,7 +56,7 @@ public class JsonConfigLoader : IConfigLoader
             await this.MergeConfigFileAsync(
                 mergedConfigs,
                 entry.Path,
-                entry.IsAuthFile).ConfigureAwait(false);
+                entry.Kind == ConfigPathKind.Auth).ConfigureAwait(false);
         }
 
         return mergedConfigs;

@@ -6,5 +6,4 @@ namespace AIUsageTracker.Core.Paths;
 
 public readonly record struct ConfigPathEntry(
     string Path,
-    bool IsAuthFile,
     ConfigPathKind Kind);
