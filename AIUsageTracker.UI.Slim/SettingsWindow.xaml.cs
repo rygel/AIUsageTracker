@@ -1408,7 +1408,7 @@ public partial class SettingsWindow : Window
             var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
             var healthDetails = await this._monitorService.GetHealthDetailsAsync();
             var diagnosticsDetails = await this._monitorService.GetDiagnosticsDetailsAsync();
-            var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync();
+            var diagnosticsSnapshot = MonitorServiceDiagnosticsExtensions.ParseDiagnosticsSnapshot(diagnosticsDetails);
 
             var saveDialog = new SaveFileDialog
             {

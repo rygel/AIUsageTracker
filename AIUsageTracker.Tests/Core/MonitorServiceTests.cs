@@ -551,6 +551,33 @@ public class MonitorServiceTests
     }
 
     [Fact]
+    public void ParseDiagnosticsSnapshot_ValidPayload_ReturnsTypedSnapshot()
+    {
+        var diagnostics = MonitorServiceDiagnosticsExtensions.ParseDiagnosticsSnapshot("""
+                                                                                      {
+                                                                                        "port": 5100,
+                                                                                        "process_id": 777,
+                                                                                        "pipeline_telemetry": {
+                                                                                          "total_processed_entries": 123
+                                                                                        }
+                                                                                      }
+                                                                                      """);
+
+        Assert.NotNull(diagnostics);
+        Assert.Equal(5100, diagnostics.Port);
+        Assert.Equal(777, diagnostics.ProcessId);
+        Assert.Equal(123, diagnostics.PipelineTelemetry?.TotalProcessedEntries);
+    }
+
+    [Fact]
+    public void ParseDiagnosticsSnapshot_InvalidPayload_ReturnsNull()
+    {
+        var diagnostics = MonitorServiceDiagnosticsExtensions.ParseDiagnosticsSnapshot("{ malformed");
+
+        Assert.Null(diagnostics);
+    }
+
+    [Fact]
     public async Task SendTestNotificationDetailedAsync_Success_ReturnsSuccessMessageAsync()
     {
         // Arrange

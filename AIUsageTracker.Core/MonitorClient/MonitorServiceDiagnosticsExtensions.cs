@@ -20,6 +20,11 @@ public static class MonitorServiceDiagnosticsExtensions
         }
 
         var diagnosticsDetails = await monitorService.GetDiagnosticsDetailsAsync().ConfigureAwait(false);
+        return ParseDiagnosticsSnapshot(diagnosticsDetails);
+    }
+
+    public static AgentDiagnosticsSnapshot? ParseDiagnosticsSnapshot(string? diagnosticsDetails)
+    {
         if (string.IsNullOrWhiteSpace(diagnosticsDetails))
         {
             return null;
