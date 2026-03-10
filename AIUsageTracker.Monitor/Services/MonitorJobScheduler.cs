@@ -11,6 +11,16 @@ namespace AIUsageTracker.Monitor.Services;
 
 public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobScheduler
 {
+    private static readonly MonitorJobPriority[] DispatchPattern =
+    [
+        MonitorJobPriority.High,
+        MonitorJobPriority.High,
+        MonitorJobPriority.High,
+        MonitorJobPriority.Normal,
+        MonitorJobPriority.Normal,
+        MonitorJobPriority.Low,
+    ];
+
     private readonly ILogger<MonitorJobScheduler> _logger;
     private readonly ConcurrentQueue<ScheduledJob> _highPriorityQueue = new();
     private readonly ConcurrentQueue<ScheduledJob> _normalPriorityQueue = new();
@@ -25,9 +35,16 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
     private long _enqueuedJobs;
     private long _dequeuedJobs;
     private long _coalescedSkippedJobs;
+    private long _coalescedCompletedJobs;
     private long _dispatchNoopSignals;
     private long _inFlightJobs;
+    private long _maxObservedQueueWaitMs;
+    private long _lastExecutionDurationMs;
+    private long _totalExecutionDurationMs;
+    private long _completedExecutionSamples;
     private bool _isRunning;
+    private int _dispatchPatternIndex;
+    private MonitorJobPriority? _lastDequeuedPriority;
     private CancellationToken _schedulerToken = CancellationToken.None;
 
     public MonitorJobScheduler(ILogger<MonitorJobScheduler> logger)
@@ -51,7 +68,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             return false;
         }
 
-        var job = new ScheduledJob(jobName, priority, work, coalesceKey);
+        var job = new ScheduledJob(jobName, priority, work, coalesceKey, DateTime.UtcNow);
         switch (priority)
         {
             case MonitorJobPriority.High:
@@ -113,9 +130,11 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
 
     public MonitorJobSchedulerSnapshot GetSnapshot()
     {
+        var now = DateTime.UtcNow;
         var high = this._highPriorityQueue.Count;
         var normal = this._normalPriorityQueue.Count;
         var low = this._lowPriorityQueue.Count;
+        var completedExecutionSamples = Interlocked.Read(ref this._completedExecutionSamples);
         int recurringCount;
 
         lock (this._recurringLock)
@@ -135,8 +154,17 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             EnqueuedJobs = Interlocked.Read(ref this._enqueuedJobs),
             DequeuedJobs = Interlocked.Read(ref this._dequeuedJobs),
             CoalescedSkippedJobs = Interlocked.Read(ref this._coalescedSkippedJobs),
+            CoalescedCompletedJobs = Interlocked.Read(ref this._coalescedCompletedJobs),
             DispatchNoopSignals = Interlocked.Read(ref this._dispatchNoopSignals),
             InFlightJobs = Interlocked.Read(ref this._inFlightJobs),
+            OldestQueuedJobAgeMs = this.GetOldestQueuedJobAgeMs(now),
+            MaxObservedQueueWaitMs = Interlocked.Read(ref this._maxObservedQueueWaitMs),
+            AverageExecutionDurationMs = completedExecutionSamples == 0
+                ? 0
+                : Interlocked.Read(ref this._totalExecutionDurationMs) / completedExecutionSamples,
+            LastExecutionDurationMs = Interlocked.Read(ref this._lastExecutionDurationMs),
+            LastDequeuedPriority = this._lastDequeuedPriority?.ToString(),
+            NextDispatchPriority = DispatchPattern[this._dispatchPatternIndex].ToString(),
         };
     }
 
@@ -167,6 +195,12 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
 
                 Interlocked.Increment(ref this._dequeuedJobs);
                 Interlocked.Increment(ref this._inFlightJobs);
+                this._lastDequeuedPriority = job.Priority;
+                UpdateMaximum(
+                    ref this._maxObservedQueueWaitMs,
+                    GetElapsedMilliseconds(job.EnqueuedAtUtc, DateTime.UtcNow));
+                var executionStopwatch = Stopwatch.StartNew();
+                var trackExecutionSample = false;
                 try
                 {
                     using var activity = MonitorActivitySources.Scheduler.StartActivity(
@@ -180,6 +214,7 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
                     await job.Work(stoppingToken).ConfigureAwait(false);
                     Interlocked.Increment(ref this._executedJobs);
                     activity?.SetStatus(ActivityStatusCode.Ok);
+                    trackExecutionSample = true;
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -192,13 +227,23 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
                     Activity.Current?.SetTag("error.type", ex.GetType().FullName);
                     Activity.Current?.SetTag("error.message", ex.Message);
                     this._logger.LogError(ex, "Scheduled job {JobName} failed", job.Name);
+                    trackExecutionSample = true;
                 }
                 finally
                 {
+                    executionStopwatch.Stop();
+                    if (trackExecutionSample)
+                    {
+                        Interlocked.Exchange(ref this._lastExecutionDurationMs, executionStopwatch.ElapsedMilliseconds);
+                        Interlocked.Add(ref this._totalExecutionDurationMs, executionStopwatch.ElapsedMilliseconds);
+                        Interlocked.Increment(ref this._completedExecutionSamples);
+                    }
+
                     Interlocked.Decrement(ref this._inFlightJobs);
                     if (!string.IsNullOrWhiteSpace(job.CoalesceKey))
                     {
                         this._coalescedKeys.TryRemove(job.CoalesceKey, out _);
+                        Interlocked.Increment(ref this._coalescedCompletedJobs);
                     }
                 }
             }
@@ -280,24 +325,100 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
 
     private bool TryDequeueNext(out ScheduledJob job)
     {
-        if (this._highPriorityQueue.TryDequeue(out job))
+        for (var attempts = 0; attempts < DispatchPattern.Length; attempts++)
         {
-            return true;
+            var dispatchPatternIndex = this._dispatchPatternIndex;
+            var priority = DispatchPattern[dispatchPatternIndex];
+            this._dispatchPatternIndex = (dispatchPatternIndex + 1) % DispatchPattern.Length;
+
+            if (this.TryDequeue(priority, out job))
+            {
+                return true;
+            }
         }
 
-        if (this._normalPriorityQueue.TryDequeue(out job))
+        job = null!;
+        return false;
+    }
+
+    private static void UpdateMaximum(ref long target, long value)
+    {
+        while (true)
         {
-            return true;
+            var current = Interlocked.Read(ref target);
+            if (value <= current)
+            {
+                return;
+            }
+
+            if (Interlocked.CompareExchange(ref target, value, current) == current)
+            {
+                return;
+            }
+        }
+    }
+
+    private static long GetElapsedMilliseconds(DateTime startUtc, DateTime endUtc)
+    {
+        return Math.Max(0, (long)(endUtc - startUtc).TotalMilliseconds);
+    }
+
+    private long GetOldestQueuedJobAgeMs(DateTime nowUtc)
+    {
+        var high = GetOldestQueuedJobAgeMs(this._highPriorityQueue, nowUtc);
+        var normal = GetOldestQueuedJobAgeMs(this._normalPriorityQueue, nowUtc);
+        var low = GetOldestQueuedJobAgeMs(this._lowPriorityQueue, nowUtc);
+        return Math.Max(high, Math.Max(normal, low));
+    }
+
+    private static long GetOldestQueuedJobAgeMs(IEnumerable<ScheduledJob> jobs, DateTime nowUtc)
+    {
+        long oldest = 0;
+        foreach (var job in jobs)
+        {
+            oldest = Math.Max(oldest, GetElapsedMilliseconds(job.EnqueuedAtUtc, nowUtc));
         }
 
-        return this._lowPriorityQueue.TryDequeue(out job);
+        return oldest;
+    }
+
+    private bool TryDequeue(MonitorJobPriority priority, out ScheduledJob job)
+    {
+        switch (priority)
+        {
+            case MonitorJobPriority.High:
+                if (this._highPriorityQueue.TryDequeue(out job))
+                {
+                    return true;
+                }
+
+                break;
+            case MonitorJobPriority.Low:
+                if (this._lowPriorityQueue.TryDequeue(out job))
+                {
+                    return true;
+                }
+
+                break;
+            default:
+                if (this._normalPriorityQueue.TryDequeue(out job))
+                {
+                    return true;
+                }
+
+                break;
+        }
+
+        job = null!;
+        return false;
     }
 
     private sealed record ScheduledJob(
         string Name,
         MonitorJobPriority Priority,
         Func<CancellationToken, Task> Work,
-        string? CoalesceKey);
+        string? CoalesceKey,
+        DateTime EnqueuedAtUtc);
 
     private sealed record RecurringJobRegistration(
         string Name,

@@ -5,6 +5,7 @@
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.UI.Slim;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -21,8 +22,7 @@ public class AppStartupTests : IDisposable
 
     public AppStartupTests()
     {
-        this._testPreferencesDirectory = Path.Combine(Path.GetTempPath(), $"AIUsageTracker_Test_{Guid.NewGuid():N}");
-        Directory.CreateDirectory(this._testPreferencesDirectory);
+        this._testPreferencesDirectory = TestTempPaths.CreateDirectory("AIUsageTracker-Test");
         this._testPreferencesPath = Path.Combine(this._testPreferencesDirectory, "preferences.json");
 
         this._mockPathProvider = new Mock<IAppPathProvider>();
@@ -35,10 +35,7 @@ public class AppStartupTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._testPreferencesDirectory))
-        {
-            Directory.Delete(this._testPreferencesDirectory, true);
-        }
+        TestTempPaths.CleanupPath(this._testPreferencesDirectory);
     }
 
     [Fact]

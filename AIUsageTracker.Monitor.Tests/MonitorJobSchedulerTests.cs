@@ -139,10 +139,24 @@ public class MonitorJobSchedulerTests
             Assert.False(secondQueued);
             Assert.Equal(1, executionCount);
 
-            var snapshot = scheduler.GetSnapshot();
+            MonitorJobSchedulerSnapshot snapshot;
+            var deadline = DateTime.UtcNow.AddSeconds(2);
+            do
+            {
+                snapshot = scheduler.GetSnapshot();
+                if (snapshot.CoalescedCompletedJobs == 1)
+                {
+                    break;
+                }
+
+                await Task.Delay(10);
+            }
+            while (DateTime.UtcNow < deadline);
+
             Assert.Equal(1, snapshot.EnqueuedJobs);
             Assert.Equal(1, snapshot.DequeuedJobs);
             Assert.Equal(1, snapshot.CoalescedSkippedJobs);
+            Assert.Equal(1, snapshot.CoalescedCompletedJobs);
         }
         finally
         {
@@ -230,5 +244,87 @@ public class MonitorJobSchedulerTests
         Assert.Equal("High", jobActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "job.priority", StringComparison.Ordinal)).Value);
         Assert.Equal(false, jobActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "job.coalesced", StringComparison.Ordinal)).Value);
         Assert.Equal(ActivityStatusCode.Ok, jobActivity.Status);
+    }
+
+    [Fact]
+    public async Task Enqueue_LowPriorityDoesNotStarve_WhenHighPriorityKeepsArrivingAsync()
+    {
+        var logger = new Mock<ILogger<MonitorJobScheduler>>();
+        var scheduler = new MonitorJobScheduler(logger.Object);
+        var lowPriorityCompleted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var remainingHighJobs = 1000;
+
+        Func<CancellationToken, Task>? highPriorityWork = null;
+        highPriorityWork = async cancellationToken =>
+        {
+            await Task.Delay(10, cancellationToken);
+            if (Interlocked.Decrement(ref remainingHighJobs) > 0)
+            {
+                _ = scheduler.Enqueue("high-priority-loop", highPriorityWork!, MonitorJobPriority.High);
+            }
+        };
+
+        await scheduler.StartAsync(CancellationToken.None);
+        try
+        {
+            _ = scheduler.Enqueue("high-priority-seed", highPriorityWork, MonitorJobPriority.High);
+            _ = scheduler.Enqueue(
+                "low-priority-seed",
+                _ =>
+                {
+                    lowPriorityCompleted.TrySetResult(true);
+                    return Task.CompletedTask;
+                },
+                MonitorJobPriority.Low);
+
+            var completed = await Task.WhenAny(lowPriorityCompleted.Task, Task.Delay(TimeSpan.FromSeconds(2))) == lowPriorityCompleted.Task;
+            Assert.True(completed, "Low-priority work should not starve behind continuously-arriving high-priority jobs.");
+
+            var snapshot = scheduler.GetSnapshot();
+            Assert.True(snapshot.DequeuedJobs >= 2);
+        }
+        finally
+        {
+            await scheduler.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task GetSnapshot_ReportsQueuedAgeAndExecutionTimingAsync()
+    {
+        var logger = new Mock<ILogger<MonitorJobScheduler>>();
+        var scheduler = new MonitorJobScheduler(logger.Object);
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        _ = scheduler.Enqueue(
+            "timing-job",
+            async _ =>
+            {
+                await Task.Delay(60);
+                completion.TrySetResult(true);
+            },
+            MonitorJobPriority.Normal);
+
+        await Task.Delay(80);
+        var queuedSnapshot = scheduler.GetSnapshot();
+        Assert.True(queuedSnapshot.OldestQueuedJobAgeMs >= 50);
+        Assert.Equal("High", queuedSnapshot.NextDispatchPriority);
+
+        await scheduler.StartAsync(CancellationToken.None);
+        try
+        {
+            var completed = await Task.WhenAny(completion.Task, Task.Delay(TimeSpan.FromSeconds(2))) == completion.Task;
+            Assert.True(completed, "Timed job did not complete within timeout.");
+
+            var snapshot = scheduler.GetSnapshot();
+            Assert.True(snapshot.LastExecutionDurationMs >= 40);
+            Assert.True(snapshot.AverageExecutionDurationMs >= 40);
+            Assert.True(snapshot.MaxObservedQueueWaitMs >= 50);
+            Assert.Equal("Normal", snapshot.LastDequeuedPriority);
+        }
+        finally
+        {
+            await scheduler.StopAsync(CancellationToken.None);
+        }
     }
 }

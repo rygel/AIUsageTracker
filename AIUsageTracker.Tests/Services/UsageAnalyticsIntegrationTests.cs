@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
@@ -135,7 +136,7 @@ public class UsageAnalyticsIntegrationTests
 
     private static string CreateTempDbPath()
     {
-        return Path.Combine(Path.GetTempPath(), $"ai-usage-tracker-tests-{Guid.NewGuid():N}.db");
+        return TestTempPaths.CreateFilePath("ai-usage-tracker-tests", "usage-analytics.db");
     }
 
     private static async Task SeedHistoryAsync(string dbPath, IEnumerable<HistoryRow> rows)

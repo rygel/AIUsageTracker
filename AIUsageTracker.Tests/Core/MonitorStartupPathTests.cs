@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -20,8 +21,7 @@ public sealed class MonitorStartupPathTests : IDisposable
 
     public MonitorStartupPathTests()
     {
-        this._tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-startup-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("monitor-startup-tests");
     }
 
     [Fact]
@@ -425,10 +425,7 @@ public sealed class MonitorStartupPathTests : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private MonitorService CreateMonitorService()

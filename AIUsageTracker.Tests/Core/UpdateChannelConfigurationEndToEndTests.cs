@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Xml.Linq;
 using AIUsageTracker.Core.Updates;
+using AIUsageTracker.Tests.Infrastructure;
 
 namespace AIUsageTracker.Tests.Core;
 
@@ -14,11 +15,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
 
     public UpdateChannelConfigurationEndToEndTests()
     {
-        this._tempRoot = Path.Combine(
-            Path.GetTempPath(),
-            "update-channel-e2e-tests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempRoot);
+        this._tempRoot = TestTempPaths.CreateDirectory("update-channel-e2e-tests");
     }
 
     [Theory]
@@ -76,10 +73,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempRoot))
-        {
-            Directory.Delete(this._tempRoot, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempRoot);
     }
 
     private static void AssertFeed(

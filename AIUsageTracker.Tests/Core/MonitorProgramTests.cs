@@ -7,6 +7,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Tests.Core;
@@ -18,8 +19,7 @@ public sealed class MonitorProgramTests : IDisposable
 
     public MonitorProgramTests()
     {
-        this._tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-program-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("monitor-program-tests");
         this._pathProvider = new TestAppPathProvider(this._tempDirectory);
     }
 
@@ -103,10 +103,7 @@ public sealed class MonitorProgramTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private MonitorInfo DeserializeMonitorInfo(string path)

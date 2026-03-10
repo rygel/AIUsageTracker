@@ -12,6 +12,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
 using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -38,6 +39,9 @@ public class ProviderRefreshServiceTests
     {
         this._mockLogger = new Mock<ILogger<ProviderRefreshService>>();
         this._mockLoggerFactory = new Mock<ILoggerFactory>();
+        this._mockLoggerFactory
+            .Setup(factory => factory.CreateLogger(It.IsAny<string>()))
+            .Returns(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         this._mockDatabase = new Mock<IUsageDatabase>();
         this._mockNotificationService = new Mock<INotificationService>();
         this._mockHttpClientFactory = new Mock<IHttpClientFactory>();
@@ -158,7 +162,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
 
         var telemetry = scenario.Service.GetRefreshTelemetrySnapshot();
@@ -327,7 +331,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
 
         scenario.Pipeline.Verify(
@@ -364,7 +368,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
     }
 
@@ -402,7 +406,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
     }
 
@@ -554,8 +558,7 @@ public class ProviderRefreshServiceTests
 
     private static PipelineTestFiles CreatePipelineTestFiles()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"provider-refresh-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
+        var root = TestTempPaths.CreateDirectory("provider-refresh-test");
         var authPath = Path.Combine(root, "auth.json");
         var providersPath = Path.Combine(root, "providers.json");
         var preferencesPath = Path.Combine(root, "preferences.json");
@@ -584,14 +587,13 @@ public class ProviderRefreshServiceTests
 
     private static int GetProviderManagerConcurrency(ProviderRefreshService service)
     {
-        var providerManagerField = typeof(ProviderRefreshService).GetField(
-            "_providerManager",
+        var lifecycleField = typeof(ProviderRefreshService).GetField(
+            "_providerManagerLifecycle",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(providerManagerField);
+        Assert.NotNull(lifecycleField);
 
-        var manager = providerManagerField!.GetValue(service) as ProviderManager;
-        Assert.NotNull(manager);
-        return manager!.MaxConcurrentProviderRequests;
+        var lifecycle = Assert.IsType<ProviderManagerLifecycleService>(lifecycleField!.GetValue(service));
+        return lifecycle.CurrentMaxConcurrency;
     }
 
     private sealed record PipelineTestFiles(string Root, string AuthPath, string ProvidersPath, string PreferencesPath);

@@ -4,6 +4,7 @@
 
 using System.Text;
 using System.Text.Json;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.UI.Slim;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -17,11 +18,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
     public ProviderAuthIdentityDiscoveryTests()
     {
-        this._tempDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "provider-auth-tests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("provider-auth-tests");
     }
 
     [Fact]
@@ -115,10 +112,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private string CreateFile(string relativePath, string content)

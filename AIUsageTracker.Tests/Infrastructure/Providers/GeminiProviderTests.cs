@@ -24,8 +24,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
     public async Task GetUsageAsync_ValidResponse_ParsesBucketsCorrectlyAsync()
     {
         // Arrange
-        var tempDir = Path.Combine(Path.GetTempPath(), $"gemini-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempDir);
+        var tempDir = TestTempPaths.CreateDirectory("gemini-test");
         var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
 
         await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
@@ -69,6 +68,6 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         Assert.Contains("20", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
         Assert.Contains("80", usage.Description, StringComparison.Ordinal);
 
-        Directory.Delete(tempDir, recursive: true);
+        TestTempPaths.CleanupPath(tempDir);
     }
 }

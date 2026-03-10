@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Playwright;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -21,7 +22,6 @@ public class ScreenshotTests : WebTestBase
     private readonly string[] _expectedThemes;
     private readonly Dictionary<string, (string BgPrimary, string AccentPrimary)> _representativeThemeTokens;
     private readonly string _outputDir;
-    private readonly string _themeOutputDir;
 
     private sealed class ThemeCatalog
     {
@@ -80,7 +80,6 @@ public class ScreenshotTests : WebTestBase
         var binPath = AppContext.BaseDirectory;
         this._projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../"));
         this._outputDir = Path.Combine(this._projectRoot, "docs");
-        this._themeOutputDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "web-theme-smoke");
 
         var catalog = ScreenshotTests.LoadThemeCatalog(this._projectRoot);
         this._expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
@@ -99,11 +98,6 @@ public class ScreenshotTests : WebTestBase
         if (!Directory.Exists(this._outputDir))
         {
             Directory.CreateDirectory(this._outputDir);
-        }
-
-        if (!Directory.Exists(this._themeOutputDir))
-        {
-            Directory.CreateDirectory(this._themeOutputDir);
         }
     }
 
@@ -210,6 +204,16 @@ public class ScreenshotTests : WebTestBase
     private static void SkipBrowserTest(string testName)
     {
         Assert.Inconclusive($"Playwright is not available in this environment. Skipping '{testName}'.");
+    }
+
+    private static string CreateTemporaryThemeOutputDirectory(string testName)
+    {
+        return TestTempPaths.CreateDirectory($"web-theme-smoke-{testName}");
+    }
+
+    private static void TryDeleteDirectory(string directoryPath)
+    {
+        TestTempPaths.CleanupPath(directoryPath);
     }
 
     [TestMethod]
@@ -428,53 +432,60 @@ public class ScreenshotTests : WebTestBase
         await page.GotoAsync(ScreenshotTests.ServerUrl);
         await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
 
+        var themeOutputDirectory = ScreenshotTests.CreateTemporaryThemeOutputDirectory(testName);
         var representativeThemes = this._representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
         var screenshotPaths = new List<string>();
-
-        foreach (var theme in representativeThemes)
+        try
         {
-            await page.EvaluateAsync(
-                """
-                (theme) => {
-                    const select = document.getElementById('theme-select');
-                    if (!select) {
-                        throw new Error('theme-select not found');
+            foreach (var theme in representativeThemes)
+            {
+                await page.EvaluateAsync(
+                    """
+                    (theme) => {
+                        const select = document.getElementById('theme-select');
+                        if (!select) {
+                            throw new Error('theme-select not found');
+                        }
+
+                        select.value = theme;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
                     }
+                    """,
+                    theme);
 
-                    select.value = theme;
-                    select.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                """,
-                theme);
+                await Task.Delay(ScreenshotTests.ThemeSwitchDelayMs);
 
-            await Task.Delay(ScreenshotTests.ThemeSwitchDelayMs);
+                var appliedTheme = await page.EvaluateAsync<string>("""
+                    () => document.documentElement.getAttribute('data-theme') || ''
+                    """);
+                Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
 
-            var appliedTheme = await page.EvaluateAsync<string>("""
-                () => document.documentElement.getAttribute('data-theme') || ''
-                """);
-            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
+                var filePath = Path.Combine(themeOutputDirectory, $"screenshot_web_theme_{theme}.png");
+                await page.ScreenshotAsync(new() { Path = filePath, FullPage = true });
+                screenshotPaths.Add(filePath);
 
-            var filePath = Path.Combine(this._themeOutputDir, $"screenshot_web_theme_{theme}.png");
-            await page.ScreenshotAsync(new() { Path = filePath, FullPage = true });
-            screenshotPaths.Add(filePath);
+                var fileInfo = new FileInfo(filePath);
+                Assert.IsTrue(fileInfo.Exists, $"Screenshot not created for theme '{theme}'.");
+                Assert.IsTrue(
+                    fileInfo.Length > ScreenshotTests.MinThemeScreenshotBytes,
+                    $"Screenshot too small for theme '{theme}', likely render failure.");
+            }
 
-            var fileInfo = new FileInfo(filePath);
-            Assert.IsTrue(fileInfo.Exists, $"Screenshot not created for theme '{theme}'.");
-            Assert.IsTrue(
-                fileInfo.Length > ScreenshotTests.MinThemeScreenshotBytes,
-                $"Screenshot too small for theme '{theme}', likely render failure.");
+            var distinctHashes = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var path in screenshotPaths)
+            {
+                using var sha = SHA256.Create();
+                var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+                var hash = Convert.ToHexString(sha.ComputeHash(bytes));
+                distinctHashes.Add(hash);
+            }
+
+            Assert.AreEqual(screenshotPaths.Count, distinctHashes.Count, "Representative theme screenshots should be visually distinct.");
         }
-
-        var distinctHashes = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var path in screenshotPaths)
+        finally
         {
-            using var sha = SHA256.Create();
-            var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
-            var hash = Convert.ToHexString(sha.ComputeHash(bytes));
-            distinctHashes.Add(hash);
+            ScreenshotTests.TryDeleteDirectory(themeOutputDirectory);
         }
-
-        Assert.AreEqual(screenshotPaths.Count, distinctHashes.Count, "Representative theme screenshots should be visually distinct.");
     }
 
     [TestMethod]

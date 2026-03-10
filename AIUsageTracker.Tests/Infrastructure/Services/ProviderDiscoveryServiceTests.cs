@@ -21,16 +21,12 @@ public class ProviderDiscoveryServiceTests : IDisposable
     {
         this._mockLogger = new Mock<ILogger<ProviderDiscoveryService>>();
         this._service = new ProviderDiscoveryService(this._mockLogger.Object);
-        this._tempTestDir = Path.Combine(Path.GetTempPath(), "ProviderDiscoveryTests_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempTestDir);
+        this._tempTestDir = TestTempPaths.CreateDirectory("ProviderDiscoveryTests");
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempTestDir))
-        {
-            Directory.Delete(this._tempTestDir, true);
-        }
+        TestTempPaths.CleanupPath(this._tempTestDir);
     }
 
     [Fact]
