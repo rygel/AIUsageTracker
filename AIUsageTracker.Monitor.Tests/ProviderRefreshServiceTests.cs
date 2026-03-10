@@ -38,6 +38,9 @@ public class ProviderRefreshServiceTests
     {
         this._mockLogger = new Mock<ILogger<ProviderRefreshService>>();
         this._mockLoggerFactory = new Mock<ILoggerFactory>();
+        this._mockLoggerFactory
+            .Setup(factory => factory.CreateLogger(It.IsAny<string>()))
+            .Returns(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         this._mockDatabase = new Mock<IUsageDatabase>();
         this._mockNotificationService = new Mock<INotificationService>();
         this._mockHttpClientFactory = new Mock<IHttpClientFactory>();
@@ -584,14 +587,13 @@ public class ProviderRefreshServiceTests
 
     private static int GetProviderManagerConcurrency(ProviderRefreshService service)
     {
-        var providerManagerField = typeof(ProviderRefreshService).GetField(
-            "_providerManager",
+        var lifecycleField = typeof(ProviderRefreshService).GetField(
+            "_providerManagerLifecycle",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(providerManagerField);
+        Assert.NotNull(lifecycleField);
 
-        var manager = providerManagerField!.GetValue(service) as ProviderManager;
-        Assert.NotNull(manager);
-        return manager!.MaxConcurrentProviderRequests;
+        var lifecycle = Assert.IsType<ProviderManagerLifecycleService>(lifecycleField!.GetValue(service));
+        return lifecycle.CurrentMaxConcurrency;
     }
 
     private sealed record PipelineTestFiles(string Root, string AuthPath, string ProvidersPath, string PreferencesPath);

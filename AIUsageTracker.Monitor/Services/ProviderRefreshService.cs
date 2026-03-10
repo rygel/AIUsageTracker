@@ -33,13 +33,12 @@ public class ProviderRefreshService : BackgroundService
     private readonly ProviderUsagePersistenceService _usagePersistenceService;
     private readonly ProviderConnectivityCheckService _connectivityCheckService;
     private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
+    private readonly ProviderManagerLifecycleService _providerManagerLifecycle;
     private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
     private readonly IHubContext<UsageHub>? _hubContext;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
     private static bool _debugMode = false;
-    private ProviderManager? _providerManager;
-    private int _maxConcurrentProviderRequests = ProviderManager.DefaultMaxConcurrentProviderRequests;
     private static readonly ActivitySource ActivitySource = MonitorActivitySources.Refresh;
 
     public static void SetDebugMode(bool debug)
@@ -81,6 +80,12 @@ public class ProviderRefreshService : BackgroundService
         this._refreshJobScheduler = new ProviderRefreshJobScheduler(
             jobScheduler,
             loggerFactory.CreateLogger<ProviderRefreshJobScheduler>());
+        this._providerManagerLifecycle = new ProviderManagerLifecycleService(
+            loggerFactory.CreateLogger<ProviderManagerLifecycleService>(),
+            loggerFactory,
+            configService,
+            pathProvider,
+            providers);
         this._usageProcessingPipeline = usageProcessingPipeline ??
             new ProviderUsageProcessingPipeline(this._loggerFactory.CreateLogger<ProviderUsageProcessingPipeline>());
         this._connectivityCheckService = new ProviderConnectivityCheckService(
@@ -88,6 +93,8 @@ public class ProviderRefreshService : BackgroundService
             this._usageProcessingPipeline);
         this._hubContext = hubContext;
     }
+
+    private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -181,53 +188,17 @@ public class ProviderRefreshService : BackgroundService
 
     private async Task<int> GetConfiguredMaxConcurrentProviderRequestsAsync()
     {
-        var preferences = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
-        return ProviderManager.ClampMaxConcurrentProviderRequests(preferences.MaxConcurrentProviderRequests);
+        return await this._providerManagerLifecycle.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
     }
 
     private async Task EnsureProviderManagerConcurrencyAsync()
     {
-        var configuredConcurrency = await this.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
-        if (configuredConcurrency == this._maxConcurrentProviderRequests)
-        {
-            return;
-        }
-
-        this._logger.LogInformation(
-            "Updating provider request concurrency limit from {Previous} to {Current}.",
-            this._maxConcurrentProviderRequests,
-            configuredConcurrency);
-        this.InitializeProviders(configuredConcurrency);
+        await this._providerManagerLifecycle.EnsureConcurrencyAsync().ConfigureAwait(false);
     }
 
     private void InitializeProviders(int maxConcurrentProviderRequests)
     {
-        this._logger.LogDebug("Initializing providers...");
-
-        var configLoader = new JsonConfigLoader(
-            this._loggerFactory.CreateLogger<JsonConfigLoader>(),
-            this._loggerFactory.CreateLogger<TokenDiscoveryService>(),
-            this._pathProvider);
-
-        var providerList = this._providers.ToList();
-        var newProviderManager = new ProviderManager(
-            providerList,
-            configLoader,
-            this._loggerFactory.CreateLogger<ProviderManager>(),
-            maxConcurrentProviderRequests);
-        var previousProviderManager = this._providerManager;
-
-        this._providerManager = newProviderManager;
-        this._maxConcurrentProviderRequests = maxConcurrentProviderRequests;
-        previousProviderManager?.Dispose();
-
-        this._logger.LogDebug(
-            "Initialized {Count} providers at max concurrency {MaxConcurrency}: {Providers}",
-            providerList.Count,
-            maxConcurrentProviderRequests,
-            string.Join(", ", providerList.Select(p => p.ProviderId)));
-
-        this._logger.LogInformation("Loaded {Count} providers", providerList.Count);
+        this._providerManagerLifecycle.Initialize(maxConcurrentProviderRequests);
     }
 
     public virtual async Task TriggerRefreshAsync(
@@ -245,7 +216,7 @@ public class ProviderRefreshService : BackgroundService
         string? refreshError = null;
         this._refreshTelemetryManager.RecordRefreshAttemptStarted(DateTime.UtcNow);
 
-        if (this._providerManager == null)
+        if (this.ProviderManager == null)
         {
             this._logger.LogWarning("ProviderManager not ready");
             this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
@@ -257,7 +228,7 @@ public class ProviderRefreshService : BackgroundService
         try
         {
             await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
-            if (this._providerManager == null)
+            if (this.ProviderManager == null)
             {
                 this._logger.LogWarning("ProviderManager not ready");
                 this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
@@ -377,7 +348,7 @@ public class ProviderRefreshService : BackgroundService
 
     private async Task RefreshAndStoreProviderDataAsync(List<ProviderConfig> allConfigs, List<ProviderConfig> refreshableConfigs)
     {
-        if (this._providerManager == null)
+        if (this.ProviderManager == null)
         {
             throw new InvalidOperationException("ProviderManager not initialized");
         }
@@ -390,7 +361,7 @@ public class ProviderRefreshService : BackgroundService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        var usages = await this._providerManager.GetAllUsageAsync(
+        var usages = await this.ProviderManager.GetAllUsageAsync(
             forceRefresh: true,
             progressCallback: _ => { },
             includeProviderIds: providerIdsToQuery).ConfigureAwait(false);
@@ -448,7 +419,7 @@ public class ProviderRefreshService : BackgroundService
 
     public async Task<(bool success, string message, int status)> CheckProviderAsync(string providerId)
     {
-        if (this._providerManager == null)
+        if (this.ProviderManager == null)
         {
             return (false, "ProviderManager not initialized", 503);
         }
@@ -459,12 +430,12 @@ public class ProviderRefreshService : BackgroundService
             try
             {
                 await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
-                if (this._providerManager == null)
+                if (this.ProviderManager == null)
                 {
                     return (false, "ProviderManager not initialized", 503);
                 }
 
-                var usages = await this._providerManager.GetUsageAsync(providerId).ConfigureAwait(false);
+                var usages = await this.ProviderManager.GetUsageAsync(providerId).ConfigureAwait(false);
                 return await this._connectivityCheckService.EvaluateAsync(providerId, usages).ConfigureAwait(false);
             }
             finally
@@ -477,5 +448,11 @@ public class ProviderRefreshService : BackgroundService
             this._logger.LogError(ex, "Provider connectivity check failed for {ProviderId}", providerId);
             return (false, ex.Message, 500);
         }
+    }
+
+    public override void Dispose()
+    {
+        this._providerManagerLifecycle.Dispose();
+        base.Dispose();
     }
 }
