@@ -5,6 +5,7 @@
 namespace AIUsageTracker.Web.Services
 {
     using AIUsageTracker.Core.Interfaces;
+    using AIUsageTracker.Core.MonitorClient;
 
     public class MonitorProcessService
     {
@@ -12,8 +13,6 @@ namespace AIUsageTracker.Web.Services
         private readonly ILogger<MonitorProcessService> _logger;
 
         public readonly record struct MonitorStatusResult(bool IsRunning, int Port, string Message, string? Error);
-
-        public readonly record struct MonitorActionResult(bool Success, string Message);
 
         public MonitorProcessService(IMonitorLifecycleService monitorLifecycleService, ILogger<MonitorProcessService> logger)
         {
@@ -44,23 +43,23 @@ namespace AIUsageTracker.Web.Services
             var status = await this._monitorLifecycleService.GetAgentStatusInfoAsync().ConfigureAwait(false);
             if (status.IsRunning)
             {
-                return new MonitorActionResult(true, $"Monitor already running on port {status.Port}.");
+                return new MonitorActionResult { Success = true, Message = $"Monitor already running on port {status.Port}." };
             }
 
             var started = await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(false);
             if (!started)
             {
                 this._logger.LogWarning("Monitor failed to reach a healthy state after startup request.");
-                return new MonitorActionResult(false, "Failed to start monitor or monitor did not become healthy.");
+                return new MonitorActionResult { Success = false, Message = "Failed to start monitor or monitor did not become healthy." };
             }
 
             var updated = await this._monitorLifecycleService.GetAgentStatusInfoAsync().ConfigureAwait(false);
             if (updated.IsRunning)
             {
-                return new MonitorActionResult(true, $"Monitor started on port {updated.Port}.");
+                return new MonitorActionResult { Success = true, Message = $"Monitor started on port {updated.Port}." };
             }
 
-            return new MonitorActionResult(false, $"Start requested, but monitor status is still unavailable. {updated.Message}");
+            return new MonitorActionResult { Success = false, Message = $"Start requested, but monitor status is still unavailable. {updated.Message}" };
         }
 
         public async Task<bool> StopAgentAsync()
@@ -74,17 +73,17 @@ namespace AIUsageTracker.Web.Services
             var status = await this._monitorLifecycleService.GetAgentStatusInfoAsync().ConfigureAwait(false);
             if (!status.IsRunning && string.Equals(status.Error, "agent-info-missing", StringComparison.Ordinal))
             {
-                return new MonitorActionResult(true, "Monitor already stopped (info file missing).");
+                return new MonitorActionResult { Success = true, Message = "Monitor already stopped (info file missing)." };
             }
 
             var stopped = await this._monitorLifecycleService.StopAgentAsync().ConfigureAwait(false);
             if (stopped)
             {
-                return new MonitorActionResult(true, $"Monitor stopped on port {status.Port}.");
+                return new MonitorActionResult { Success = true, Message = $"Monitor stopped on port {status.Port}." };
             }
 
             this._logger.LogWarning("Monitor stop request failed.");
-            return new MonitorActionResult(false, "Failed to stop monitor.");
+            return new MonitorActionResult { Success = false, Message = "Failed to stop monitor." };
         }
     }
 }

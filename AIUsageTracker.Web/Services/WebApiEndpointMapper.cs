@@ -7,6 +7,7 @@ namespace AIUsageTracker.Web.Services
     using System.Text;
 
     using AIUsageTracker.Core.Interfaces;
+    using AIUsageTracker.Core.MonitorClient;
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Http;
 
@@ -72,7 +73,7 @@ namespace AIUsageTracker.Web.Services
             return Results.File(backup, "application/octet-stream", $"usage_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db");
         }
 
-        private static IResult CreateMonitorActionResult(MonitorProcessService.MonitorActionResult result)
+        private static IResult CreateMonitorActionResult(MonitorActionResult result)
         {
             return result.Success
                 ? Results.Ok(result)
