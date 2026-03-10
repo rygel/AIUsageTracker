@@ -19,17 +19,17 @@ public class ProviderDiscoveryServiceTests : IDisposable
 
     public ProviderDiscoveryServiceTests()
     {
-        _mockLogger = new Mock<ILogger<ProviderDiscoveryService>>();
-        _service = new ProviderDiscoveryService(_mockLogger.Object);
-        _tempTestDir = Path.Combine(Path.GetTempPath(), "ProviderDiscoveryTests_" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(_tempTestDir);
+        this._mockLogger = new Mock<ILogger<ProviderDiscoveryService>>();
+        this._service = new ProviderDiscoveryService(this._mockLogger.Object);
+        this._tempTestDir = Path.Combine(Path.GetTempPath(), "ProviderDiscoveryTests_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(this._tempTestDir);
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(_tempTestDir))
+        if (Directory.Exists(this._tempTestDir))
         {
-            Directory.Delete(_tempTestDir, true);
+            Directory.Delete(this._tempTestDir, true);
         }
     }
 
@@ -51,7 +51,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
         try
         {
             // Act
-            var result = await _service.DiscoverAuthAsync(definition);
+            var result = await this._service.DiscoverAuthAsync(definition);
 
             // Assert
             Assert.NotNull(result);
@@ -67,7 +67,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
     public async Task DiscoverAuthAsync_FromAuthFile_ReturnsAuthData()
     {
         // Arrange
-        var authFilePath = Path.Combine(_tempTestDir, "auth.json");
+        var authFilePath = Path.Combine(this._tempTestDir, "auth.json");
         var authContent = new
         {
             sessions = new
@@ -75,9 +75,9 @@ public class ProviderDiscoveryServiceTests : IDisposable
                 github = new
                 {
                     user = "test-user",
-                    oauth_token = "gho_test_token"
-                }
-            }
+                    oauth_token = "gho_test_token",
+                },
+            },
         };
         File.WriteAllText(authFilePath, JsonSerializer.Serialize(authContent));
 
@@ -90,14 +90,12 @@ public class ProviderDiscoveryServiceTests : IDisposable
             authIdentityCandidatePathTemplates: new[] { authFilePath },
             sessionAuthFileSchemas: new[]
             {
-                new ProviderAuthFileSchema(
-                    "sessions.github",
-                    "oauth_token",
-                    "user")
-            });
+                new ProviderAuthFileSchema("sessions.github", "oauth_token", "user"),
+            }
+        );
 
         // Act
-        var result = await _service.DiscoverAuthAsync(definition);
+        var result = await this._service.DiscoverAuthAsync(definition);
 
         // Assert
         Assert.NotNull(result);
@@ -117,10 +115,10 @@ public class ProviderDiscoveryServiceTests : IDisposable
             false,
             "api_key",
             discoveryEnvironmentVariables: new[] { "NON_EXISTENT_VAR" },
-            authIdentityCandidatePathTemplates: new[] { Path.Combine(_tempTestDir, "non-existent.json") });
+            authIdentityCandidatePathTemplates: new[] { Path.Combine(this._tempTestDir, "non-existent.json") });
 
         // Act
-        var result = await _service.DiscoverAuthAsync(definition);
+        var result = await this._service.DiscoverAuthAsync(definition);
 
         // Assert
         Assert.Null(result);

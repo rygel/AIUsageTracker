@@ -57,7 +57,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             tokens = new
             {
                 access_token = token,
-                account_id = accountId
+                account_id = accountId,
             },
         }));
 
