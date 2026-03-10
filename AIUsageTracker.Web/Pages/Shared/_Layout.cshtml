@@ -146,6 +146,9 @@
                 const serviceHealth = typeof data.serviceHealth === 'string' ? data.serviceHealth.toLowerCase() : '';
                 const startupState = typeof data.startupState === 'string' ? data.startupState.toLowerCase() : '';
                 const startupFailureReason = data.startupFailureReason || data.message;
+                const contractWarning = data.isContractCompatible === false && typeof data.contractMessage === 'string'
+                    ? data.contractMessage
+                    : '';
                  
                 isMonitorRunning = data.isRunning;
                  
@@ -153,11 +156,13 @@
                     if (serviceHealth === 'degraded') {
                         statusEl.textContent = 'Monitor: Running (Degraded)';
                         setStatusTone(statusEl, 'degraded');
-                        setStatusDetail(data.message || `Running on port ${data.port}, but refresh health is degraded.`, 'warning');
+                        const degradedMessage = data.message || `Running on port ${data.port}, but refresh health is degraded.`;
+                        setStatusDetail(contractWarning ? `${degradedMessage} ${contractWarning}` : degradedMessage, 'warning');
                     } else {
                         statusEl.textContent = 'Monitor: Running';
                         setStatusTone(statusEl, 'running');
-                        setStatusDetail(data.message || `Healthy on port ${data.port}.`);
+                        const runningMessage = data.message || `Healthy on port ${data.port}.`;
+                        setStatusDetail(contractWarning ? `${runningMessage} ${contractWarning}` : runningMessage, contractWarning ? 'warning' : '');
                     }
 
                     btn.textContent = 'Stop';

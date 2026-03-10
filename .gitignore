@@ -219,6 +219,7 @@ publish/
 # Local/generated smoke screenshots
 temp/
 ci-artifacts/
+docs/backup_*/
 
 # Microsoft Azure Web App publish settings. Comment the next line if you want to
 # checkin your Azure Web App publish settings, but sensitive information contained

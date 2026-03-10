@@ -236,7 +236,7 @@ components:
   schemas:
     HealthResponse:
       type: object
-      required: [status, timestamp, port, process_id]
+      required: [status, timestamp, port, process_id, contract_version]
       properties:
         status:
           type: string
@@ -248,6 +248,20 @@ components:
           type: integer
         process_id:
           type: integer
+        contract_version:
+          type: string
+          description: Canonical Monitor API contract version.
+          example: "1"
+        api_contract_version:
+          type: string
+          description: Legacy alias for contract_version. Kept for backward compatibility.
+        min_client_contract_version:
+          type: string
+          description: Minimum client contract version accepted by this monitor.
+          example: "1"
+        min_client_api_contract_version:
+          type: string
+          description: Legacy alias for min_client_contract_version. Kept for backward compatibility.
 
     DiagnosticsResponse:
       type: object

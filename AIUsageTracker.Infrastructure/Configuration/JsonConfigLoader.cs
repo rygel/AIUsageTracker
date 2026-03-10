@@ -51,14 +51,12 @@ public class JsonConfigLoader : IConfigLoader
     {
         var mergedConfigs = new Dictionary<string, ProviderConfig>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var path in ConfigPathCatalog.GetAuthConfigPaths(this._pathProvider))
+        foreach (var entry in ConfigPathCatalog.GetConfigEntries(this._pathProvider))
         {
-            await this.MergeConfigFileAsync(mergedConfigs, path, isAuthFile: true).ConfigureAwait(false);
-        }
-
-        foreach (var path in ConfigPathCatalog.GetProviderConfigPaths(this._pathProvider))
-        {
-            await this.MergeConfigFileAsync(mergedConfigs, path, isAuthFile: false).ConfigureAwait(false);
+            await this.MergeConfigFileAsync(
+                mergedConfigs,
+                entry.Path,
+                entry.IsAuthFile).ConfigureAwait(false);
         }
 
         return mergedConfigs;

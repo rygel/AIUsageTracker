@@ -48,6 +48,7 @@ public class ProviderRefreshService : BackgroundService
     private long _refreshFailureCount;
     private long _refreshTotalLatencyMs;
     private long _lastRefreshLatencyMs;
+    private static readonly ActivitySource ActivitySource = MonitorActivitySources.Refresh;
     private readonly object _telemetryLock = new();
     private DateTime? _lastRefreshAttemptUtc;
     private DateTime? _lastRefreshCompletedUtc;
@@ -256,22 +257,21 @@ public class ProviderRefreshService : BackgroundService
         IReadOnlyCollection<string>? includeProviderIds = null,
         bool bypassCircuitBreaker = false)
     {
+        using var refreshActivity = ActivitySource.StartActivity("monitor.provider_refresh", ActivityKind.Internal);
+        refreshActivity?.SetTag("refresh.force_all", forceAll);
+        refreshActivity?.SetTag("refresh.bypass_circuit_breaker", bypassCircuitBreaker);
+        refreshActivity?.SetTag("refresh.include_provider_ids.count", includeProviderIds?.Count ?? 0);
+
         var refreshStopwatch = Stopwatch.StartNew();
         var refreshSucceeded = false;
         string? refreshError = null;
-        using var refreshActivity = MonitorActivitySources.Refresh.StartActivity(
-            "monitor.refresh.cycle",
-            ActivityKind.Internal);
-        refreshActivity?.SetTag("refresh.force_all", forceAll);
-        refreshActivity?.SetTag("refresh.include_provider_count", includeProviderIds?.Count ?? 0);
-        refreshActivity?.SetTag("refresh.bypass_circuit_breaker", bypassCircuitBreaker);
         this.RecordRefreshAttemptStarted(DateTime.UtcNow);
 
         if (this._providerManager == null)
         {
             this._logger.LogWarning("ProviderManager not ready");
-            refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
             this.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
+            refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
             return;
         }
 
@@ -282,8 +282,8 @@ public class ProviderRefreshService : BackgroundService
             if (this._providerManager == null)
             {
                 this._logger.LogWarning("ProviderManager not ready");
-                refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
                 this.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
+                refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
                 return;
             }
 
@@ -296,16 +296,16 @@ public class ProviderRefreshService : BackgroundService
 
             this._logger.LogInformation("Refreshing...");
             var (configs, activeConfigs) = await this.LoadConfigsForRefreshAsync(forceAll, includeProviderIds).ConfigureAwait(false);
-            refreshActivity?.SetTag("refresh.config_count", configs.Count);
-            refreshActivity?.SetTag("refresh.active_config_count", activeConfigs.Count);
+            refreshActivity?.SetTag("refresh.configs.total", configs.Count);
+            refreshActivity?.SetTag("refresh.configs.active", activeConfigs.Count);
             await this.PersistConfiguredProvidersAsync(configs).ConfigureAwait(false);
 
             var refreshableConfigs = bypassCircuitBreaker
                 ? activeConfigs
                 : this._providerCircuitBreakerService.GetRefreshableConfigs(activeConfigs, forceAll);
-            refreshActivity?.SetTag("refresh.refreshable_config_count", refreshableConfigs.Count);
             var circuitSkippedCount = activeConfigs.Count - refreshableConfigs.Count;
-            refreshActivity?.SetTag("refresh.circuit_skipped_count", circuitSkippedCount);
+            refreshActivity?.SetTag("refresh.configs.refreshable", refreshableConfigs.Count);
+            refreshActivity?.SetTag("refresh.configs.skipped_by_circuit", circuitSkippedCount);
             if (circuitSkippedCount > 0)
             {
                 this._logger.LogInformation("Circuit breaker skipping {Count} provider(s) this cycle", circuitSkippedCount);
@@ -334,17 +334,17 @@ public class ProviderRefreshService : BackgroundService
         }
         catch (Exception ex)
         {
-            refreshActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            refreshActivity?.SetTag("error.type", ex.GetType().FullName);
-            refreshActivity?.SetTag("error.message", ex.Message);
             this._logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
             MonitorInfoPersistence.ReportError($"Refresh failed: {ex.Message}", this._pathProvider, this._logger);
             refreshError = ex.Message;
+            refreshActivity?.SetTag("error.type", ex.GetType().Name);
+            refreshActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         }
         finally
         {
             refreshStopwatch.Stop();
             this.RecordRefreshTelemetry(refreshStopwatch.Elapsed, refreshSucceeded, refreshError);
+            refreshActivity?.SetTag("refresh.duration_ms", refreshStopwatch.Elapsed.TotalMilliseconds);
             this._refreshSemaphore.Release();
         }
     }
@@ -423,12 +423,6 @@ public class ProviderRefreshService : BackgroundService
             throw new InvalidOperationException("ProviderManager not initialized");
         }
 
-        using var providerQueryActivity = MonitorActivitySources.Refresh.StartActivity(
-            "monitor.refresh.query_providers",
-            ActivityKind.Internal);
-        providerQueryActivity?.SetTag("refresh.provider_query_count", refreshableConfigs.Count);
-        providerQueryActivity?.SetTag("refresh.all_config_count", allConfigs.Count);
-
         this._logger.LogDebug("Querying {Count} providers with API keys...", refreshableConfigs.Count);
         this._logger.LogInformation("Querying {Count} providers", refreshableConfigs.Count);
 
@@ -441,9 +435,8 @@ public class ProviderRefreshService : BackgroundService
             forceRefresh: true,
             progressCallback: _ => { },
             includeProviderIds: providerIdsToQuery).ConfigureAwait(false);
-        var totalUsageCount = usages.Count();
 
-        this._logger.LogDebug("Received {Count} total usage results", totalUsageCount);
+        this._logger.LogDebug("Received {Count} total usage results", usages.Count());
 
         var activeProviderIds = refreshableConfigs
             .Select(c => c.ProviderId)
@@ -455,17 +448,11 @@ public class ProviderRefreshService : BackgroundService
             activeProviderIds,
             prefs.IsPrivacyMode);
         var filteredUsages = processingResult.Usages.ToList();
-        providerQueryActivity?.SetTag("refresh.usages_total_count", totalUsageCount);
-        providerQueryActivity?.SetTag("refresh.usages_accepted_count", filteredUsages.Count);
-        providerQueryActivity?.SetTag("refresh.usages_rejected_count", Math.Max(0, totalUsageCount - filteredUsages.Count));
-        providerQueryActivity?.SetTag("refresh.privacy_mode", prefs.IsPrivacyMode);
-        providerQueryActivity?.SetTag("refresh.pipeline.normalized_count", processingResult.NormalizedCount);
-        providerQueryActivity?.SetTag("refresh.pipeline.placeholder_filtered_count", processingResult.PlaceholderFilteredCount);
 
         this._logger.LogDebug(
             "Usage pipeline accepted {Accepted}/{Total} items (invalidIdentity={InvalidIdentity}, inactiveFiltered={InactiveFiltered}, placeholderFiltered={PlaceholderFiltered}, detailAdjusted={DetailAdjusted}, normalized={Normalized}, redacted={Redacted})",
             filteredUsages.Count,
-            totalUsageCount,
+            usages.Count(),
             processingResult.InvalidIdentityCount,
             processingResult.InactiveProviderFilteredCount,
             processingResult.PlaceholderFilteredCount,
@@ -671,7 +658,12 @@ public class ProviderRefreshService : BackgroundService
                 }
 
                 var usages = await this._providerManager.GetUsageAsync(providerId).ConfigureAwait(false);
-                var usage = usages.FirstOrDefault();
+                var preferences = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
+                var processingResult = this._usageProcessingPipeline.Process(
+                    usages,
+                    new[] { providerId },
+                    preferences.IsPrivacyMode);
+                var usage = processingResult.Usages.FirstOrDefault();
 
                 if (usage == null)
                 {
@@ -697,6 +689,7 @@ public class ProviderRefreshService : BackgroundService
         }
         catch (Exception ex)
         {
+            this._logger.LogError(ex, "Provider connectivity check failed for {ProviderId}", providerId);
             return (false, ex.Message, 500);
         }
     }

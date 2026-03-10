@@ -222,9 +222,10 @@ Run the pre-push validation script:
 
 This script mimics GitHub Actions workflows locally:
 1. **Build Validation** - Ensures solution compiles
-2. **Unit Tests** - Runs all tests
-3. **Theme Validation** - Checks theme contract parity
-4. **Build Error Check** - Verifies no compile errors
+2. **Format Validation (changed files)** - Verifies whitespace/style formatting on files changed versus `origin/develop`
+3. **Unit Tests** - Runs all tests
+4. **Theme Validation** - Checks theme contract parity
+5. **Build Error Check** - Verifies no compile errors
 
 **Optional flags:**
 ```powershell
@@ -233,6 +234,12 @@ This script mimics GitHub Actions workflows locally:
 
 # Skip theme validation
 ./scripts/pre-push-validation.ps1 -SkipThemeValidation
+
+# Skip formatting validation step
+./scripts/pre-push-validation.ps1 -SkipFormat
+
+# Enforce analyzer verification as blocking
+./scripts/pre-push-validation.ps1 -StrictAnalyzers
 ```
 
 **Benefits:**
@@ -892,6 +899,5 @@ Key rules:
 - Use fire-and-forget (`_ =`) for non-critical background work
 - Add exception handling to all `async void` event handlers
 - Use `ConfigureAwait(false)` in library code (Core/Infrastructure projects)
-
 
 

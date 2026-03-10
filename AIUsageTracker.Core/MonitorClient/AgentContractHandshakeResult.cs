@@ -12,6 +12,8 @@ public sealed class AgentContractHandshakeResult
 
     public string? AgentContractVersion { get; init; }
 
+    public string? MinClientContractVersion { get; init; }
+
     public string? AgentVersion { get; init; }
 
     public string Message { get; init; } = string.Empty;

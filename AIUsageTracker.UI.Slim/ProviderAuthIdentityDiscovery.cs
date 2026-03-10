@@ -34,7 +34,6 @@ internal static class ProviderAuthIdentityDiscovery
     {
         return TryReadCodexUsernameAsync(
             candidatePaths ?? GetCandidatePaths(CodexProvider.StaticDefinition),
-            CodexProvider.StaticDefinition,
             logger);
     }
 
@@ -124,7 +123,6 @@ internal static class ProviderAuthIdentityDiscovery
 
     private static async Task<string?> TryReadCodexUsernameAsync(
         IEnumerable<string> candidatePaths,
-        ProviderDefinition definition,
         ILogger logger)
     {
         foreach (var path in candidatePaths)
@@ -160,21 +158,10 @@ internal static class ProviderAuthIdentityDiscovery
                     }
                 }
 
-                var compatibilityRoot = FindFirstRootObject(doc.RootElement, definition);
-                if (compatibilityRoot != null &&
-                    compatibilityRoot.Value.TryGetProperty("access", out var accessToken) &&
-                    accessToken.ValueKind == JsonValueKind.String)
-                {
-                    var fromCompatibilityToken = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken.GetString());
-                    if (!string.IsNullOrWhiteSpace(fromCompatibilityToken))
-                    {
-                        return fromCompatibilityToken;
-                    }
-                }
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, "Failed to read {Provider} auth file at {Path}", definition.DisplayName, path);
+                logger.LogDebug(ex, "Failed to read {Provider} auth file at {Path}", CodexProvider.StaticDefinition.DisplayName, path);
             }
         }
 

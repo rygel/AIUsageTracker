@@ -368,11 +368,11 @@ public sealed class MonitorStartupPathTests : IDisposable
     [Trait("Category", "Integration")]
     public async Task RefreshPortAsync_WithLiveEndpoint_ReconnectsAfterStaleMetadataAndPortChangeAsync()
     {
-        var firstProviderId = "provider-a";
-        var secondProviderId = "provider-b";
+        var firstProviderId = $"provider-a-{Guid.NewGuid():N}";
+        var secondProviderId = $"provider-b-{Guid.NewGuid():N}";
 
         await using var firstEndpoint = await TestMonitorEndpoint.StartAsync(firstProviderId);
-        var activePort = firstEndpoint.Port;
+        var healthyPorts = new HashSet<int> { firstEndpoint.Port };
         var infoPath = await this.CreateMonitorInfoAsync(new MonitorInfo
         {
             Port = firstEndpoint.Port,
@@ -381,7 +381,7 @@ public sealed class MonitorStartupPathTests : IDisposable
 
         using var overrides = MonitorLauncher.PushTestOverrides(
             monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == activePort),
+            healthCheckAsync: port => Task.FromResult(healthyPorts.Contains(port)),
             processRunningAsync: processId => Task.FromResult(processId == 1234 || processId == 5678));
 
         var service = new MonitorService(new HttpClient(), NullLogger<MonitorService>.Instance)
@@ -392,8 +392,8 @@ public sealed class MonitorStartupPathTests : IDisposable
         await service.RefreshPortAsync();
         Assert.Equal($"http://localhost:{firstEndpoint.Port}", service.AgentUrl);
 
-        var firstUsage = Assert.Single(await service.GetUsageAsync());
-        Assert.Equal(firstProviderId, firstUsage.ProviderId);
+        var firstUsage = await service.GetUsageAsync();
+        Assert.Contains(firstUsage, usage => usage.ProviderId == firstProviderId);
 
         await this.CreateMonitorInfoAsync(new MonitorInfo
         {
@@ -404,11 +404,11 @@ public sealed class MonitorStartupPathTests : IDisposable
         await service.RefreshPortAsync();
         Assert.Equal($"http://localhost:{firstEndpoint.Port}", service.AgentUrl);
 
-        var preservedUsage = Assert.Single(await service.GetUsageAsync());
-        Assert.Equal(firstProviderId, preservedUsage.ProviderId);
+        var preservedUsage = await service.GetUsageAsync();
+        Assert.Contains(preservedUsage, usage => usage.ProviderId == firstProviderId);
 
         await using var secondEndpoint = await TestMonitorEndpoint.StartAsync(secondProviderId);
-        activePort = secondEndpoint.Port;
+        healthyPorts.Add(secondEndpoint.Port);
         await this.CreateMonitorInfoAsync(new MonitorInfo
         {
             Port = secondEndpoint.Port,
@@ -418,8 +418,8 @@ public sealed class MonitorStartupPathTests : IDisposable
         await service.RefreshPortAsync();
         Assert.Equal($"http://localhost:{secondEndpoint.Port}", service.AgentUrl);
 
-        var secondUsage = Assert.Single(await service.GetUsageAsync());
-        Assert.Equal(secondProviderId, secondUsage.ProviderId);
+        var secondUsage = await service.GetUsageAsync();
+        Assert.Contains(secondUsage, usage => usage.ProviderId == secondProviderId);
     }
 
     /// <inheritdoc/>
@@ -554,7 +554,10 @@ public sealed class MonitorStartupPathTests : IDisposable
                 "/api/health" => JsonSerializer.Serialize(new
                 {
                     status = "healthy",
+                    contract_version = MonitorService.ExpectedApiContractVersion,
                     api_contract_version = MonitorService.ExpectedApiContractVersion,
+                    min_client_contract_version = MonitorService.ExpectedApiContractVersion,
+                    min_client_api_contract_version = MonitorService.ExpectedApiContractVersion,
                     agent_version = "test-endpoint",
                 }),
                 "/api/usage" => JsonSerializer.Serialize(

@@ -91,7 +91,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
     }
 
     [Fact]
-    public async Task TryGetCodexUsernameAsync_ReadsOpenCodeCompatibilityTokenAsync()
+    public async Task TryGetCodexUsernameAsync_IgnoresOpenCodeCompatibilityTokenAsync()
     {
         var openCodeCompatibilityAuthJson =
             $$"""
@@ -110,7 +110,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
                 this._logger,
                 new[] { authPath });
 
-        Assert.Equal("openai@example.com", username);
+        Assert.Null(username);
     }
 
     public void Dispose()

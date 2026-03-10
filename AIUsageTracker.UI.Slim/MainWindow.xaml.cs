@@ -690,14 +690,14 @@ public partial class MainWindow : Window
 
     private string BuildMonitorLaunchErrorMessage()
     {
-        return BuildMonitorErrorMessage(
+        return this.BuildMonitorErrorMessage(
             "Monitor failed to start.",
             "Please ensure AIUsageTracker.Monitor is installed and try again.");
     }
 
     private string BuildMonitorConnectionErrorMessage()
     {
-        return BuildMonitorErrorMessage(
+        return this.BuildMonitorErrorMessage(
             "Cannot connect to Monitor.",
             "Please ensure:\n1. Monitor is running\n2. Port is correct (check monitor.json)\n3. Firewall is not blocking\n\nTry restarting the Monitor.");
     }
@@ -2214,11 +2214,6 @@ public partial class MainWindow : Window
             // Find Web executable
             var possiblePaths = new[]
             {
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Debug", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Release", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Web.exe"),
-
-                // Legacy compatibility
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Debug", "net8.0", "AIUsageTracker.Web.exe"),
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Release", "net8.0", "AIUsageTracker.Web.exe"),
                 Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Web.exe"),

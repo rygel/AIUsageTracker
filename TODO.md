@@ -20,7 +20,8 @@ All architecture streamlining tasks completed! See remaining feature backlog bel
 - [ ] Member ordering normalization (Priority: P1, Effort: M): Resolve ordering/layout warnings (`SA1201`, `SA1202`, `SA1204`) in highest-churn files first.
 - [ ] Semantic analyzer fixes (Priority: P1, Effort: M): Address correctness/readability warnings (`MA0074`, `MA0006`, `MA0004`) in non-UI/core paths first.
 - [ ] File structure cleanup (Priority: P2, Effort: M): Split multi-type files and align file/type names (`SA1402`, `SA1649`).
-- [ ] Guardrail hardening (Priority: P1, Effort: S): Add/strengthen pre-commit and pre-push checks to enforce `dotnet format` + analyzer hygiene.
+- [x] Guardrail hardening (Priority: P1, Effort: S): Add/strengthen pre-commit and pre-push checks to enforce `dotnet format` + analyzer hygiene.
+  - **Completed**: `pre-commit-check.sh` now enforces whitespace/style verification on staged files; `pre-push-validation.ps1` now verifies formatting for files changed against `origin/develop` and supports optional strict analyzer gating.
 
 #### High-Volume Target Files
 - `AIUsageTracker.UI.Slim/App.xaml.cs`
@@ -167,9 +168,10 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Location: `AIUsageTracker.Core/Services/ProviderManager.cs`
   - **Phase 1 Completed**: Added `ProviderUsageProcessingPipeline` in Monitor and routed refresh results through a centralized processing pass (active-provider filtering, detail-contract validation mapping, numeric/timestamp normalization, and privacy redaction of sensitive fields before persistence).
 
-- [ ] Observability & Distributed Tracing (Priority: P3, Effort: S/M): Leverage `System.Diagnostics.DiagnosticSource` and `Activity` to implement distributed tracing across the system.
+- [x] Observability & Distributed Tracing (Priority: P3, Effort: S/M): Leverage `System.Diagnostics.DiagnosticSource` and `Activity` to implement distributed tracing across the system.
   - Benefit: Correlation of refresh requests across UI, Monitor, and specific provider services, making diagnosis of failures significantly easier.
   - Location: Core components and infrastructure services.
+  - **Completed**: Added `ActivitySource` spans for monitor lifecycle and refresh flows in `MonitorService`, `MonitorProcessService`, and `ProviderRefreshService` with outcome/status tags.
 
 ### Medium Priority Streamlining Tasks
 
@@ -343,4 +345,3 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Standardized naming and structure
   - Updated build-performance-monitor.yml references
   - Benefit: Easier maintenance, less confusion, clearer structure
-

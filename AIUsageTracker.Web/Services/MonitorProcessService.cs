@@ -3,13 +3,15 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Core.Models;
+using System.Diagnostics;
 
 namespace AIUsageTracker.Web.Services;
 
 public class MonitorProcessService
 {
+    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Web.MonitorProcessService");
     private readonly ILogger<MonitorProcessService> _logger;
     private readonly IMonitorService _monitorService;
     private readonly IMonitorLauncherClient _monitorLauncherClient;
@@ -23,6 +25,10 @@ public class MonitorProcessService
         string? LastRefreshError,
         int ProvidersInBackoff,
         IReadOnlyList<string> FailingProviders,
+        bool? IsContractCompatible,
+        string? ContractVersion,
+        string? MinClientContractVersion,
+        string? ContractMessage,
         string? StartupState,
         string? StartupFailureReason);
 
@@ -56,22 +62,39 @@ public class MonitorProcessService
 
     public async Task<MonitorStatusResult> GetAgentStatusDetailedAsync()
     {
+        using var activity = ActivitySource.StartActivity("web.monitor.get_status", ActivityKind.Internal);
         var status = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.is_running", status.IsRunning);
+        activity?.SetTag("monitor.port", status.Port);
+        activity?.SetTag("monitor.error", status.Error);
         if (!status.IsRunning)
         {
-            return CreateStatusResult(status, healthSnapshot: null);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return CreateStatusResult(status, healthSnapshot: null, contractHandshake: null);
         }
 
         try
         {
             await this._monitorService.RefreshAgentInfoAsync().ConfigureAwait(false);
             var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync().ConfigureAwait(false);
-            return CreateStatusResult(status, healthSnapshot);
+            var contractVersion = healthSnapshot?.EffectiveContractVersion;
+            var minClientContractVersion = healthSnapshot?.EffectiveMinClientContractVersion;
+            var contractHandshake = MonitorApiContractEvaluator.Evaluate(
+                contractVersion,
+                minClientContractVersion,
+                healthSnapshot?.AgentVersion,
+                MonitorApiContract.CurrentVersion);
+            activity?.SetTag("monitor.service_health", healthSnapshot?.ServiceHealth);
+            activity?.SetTag("monitor.contract_compatible", contractHandshake.IsCompatible);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return CreateStatusResult(status, healthSnapshot, contractHandshake);
         }
         catch (Exception ex)
         {
             this._logger.LogWarning(ex, "Failed to collect monitor health snapshot for web status API.");
-            return CreateStatusResult(status, healthSnapshot: null);
+            activity?.SetTag("error.type", ex.GetType().Name);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            return CreateStatusResult(status, healthSnapshot: null, contractHandshake: null);
         }
     }
 
@@ -83,9 +106,13 @@ public class MonitorProcessService
 
     public async Task<MonitorActionResult> StartAgentDetailedAsync()
     {
+        using var activity = ActivitySource.StartActivity("web.monitor.start", ActivityKind.Internal);
         var status = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.is_running_before", status.IsRunning);
+        activity?.SetTag("monitor.port_before", status.Port);
         if (status.IsRunning)
         {
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return new MonitorActionResult(
                 true,
                 $"Monitor already running on port {status.Port}.",
@@ -95,10 +122,14 @@ public class MonitorProcessService
         }
 
         var started = await this._monitorLauncherClient.EnsureAgentRunningAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.start_requested", true);
+        activity?.SetTag("monitor.start_result", started);
         if (!started)
         {
             this._logger.LogWarning("Monitor failed to reach a healthy state after startup request.");
             var failedStatus = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+            activity?.SetTag("monitor.error", failedStatus.Error);
+            activity?.SetStatus(ActivityStatusCode.Error, "Monitor failed to start");
             return CreateStartFailureResult(
                 failedStatus,
                 "Failed to start monitor or monitor did not become healthy.",
@@ -108,6 +139,8 @@ public class MonitorProcessService
         var updated = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
         if (updated.IsRunning)
         {
+            activity?.SetTag("monitor.port_after", updated.Port);
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return new MonitorActionResult(
                 true,
                 $"Monitor started on port {updated.Port}.",
@@ -116,6 +149,8 @@ public class MonitorProcessService
                 null);
         }
 
+        activity?.SetTag("monitor.error", updated.Error);
+        activity?.SetStatus(ActivityStatusCode.Error, "Monitor status unavailable after startup");
         return CreateStartFailureResult(
             updated,
             $"Start requested, but monitor status is still unavailable. {updated.Message}",
@@ -130,9 +165,13 @@ public class MonitorProcessService
 
     public async Task<MonitorActionResult> StopAgentDetailedAsync()
     {
+        using var activity = ActivitySource.StartActivity("web.monitor.stop", ActivityKind.Internal);
         var status = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.is_running_before", status.IsRunning);
+        activity?.SetTag("monitor.port_before", status.Port);
         if (!status.IsRunning && string.Equals(status.Error, "agent-info-missing", StringComparison.Ordinal))
         {
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return new MonitorActionResult(
                 true,
                 "Monitor already stopped (info file missing).",
@@ -142,8 +181,10 @@ public class MonitorProcessService
         }
 
         var stopped = await this._monitorLauncherClient.StopAgentAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.stop_result", stopped);
         if (stopped)
         {
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return new MonitorActionResult(
                 true,
                 $"Monitor stopped on port {status.Port}.",
@@ -153,6 +194,7 @@ public class MonitorProcessService
         }
 
         this._logger.LogWarning("Monitor stop request failed.");
+        activity?.SetStatus(ActivityStatusCode.Error, "Monitor stop failed");
         return new MonitorActionResult(false, "Failed to stop monitor.", null, null, null);
     }
 
@@ -180,7 +222,8 @@ public class MonitorProcessService
 
     private static MonitorStatusResult CreateStatusResult(
         MonitorAgentStatus status,
-        MonitorHealthSnapshot? healthSnapshot)
+        MonitorHealthSnapshot? healthSnapshot,
+        AgentContractHandshakeResult? contractHandshake)
     {
         var startupState = GetStartupState(status.Error);
         var startupFailureReason = GetStartupFailureReason(status);
@@ -195,19 +238,34 @@ public class MonitorProcessService
                 null,
                 0,
                 Array.Empty<string>(),
+                null,
+                null,
+                null,
+                null,
                 startupState,
                 startupFailureReason);
+        }
+
+        var message = BuildRunningMessage(status.Port, healthSnapshot);
+        if (contractHandshake is { IsReachable: true, IsCompatible: false } &&
+            !string.IsNullOrWhiteSpace(contractHandshake.Message))
+        {
+            message = $"{message} Contract warning: {contractHandshake.Message}";
         }
 
         return new MonitorStatusResult(
             status.IsRunning,
             status.Port,
-            BuildRunningMessage(status.Port, healthSnapshot),
+            message,
             status.Error,
             healthSnapshot.ServiceHealth,
             healthSnapshot.RefreshHealth.LastError,
             healthSnapshot.RefreshHealth.ProvidersInBackoff,
             healthSnapshot.RefreshHealth.FailingProviders,
+            contractHandshake?.IsCompatible,
+            contractHandshake?.AgentContractVersion,
+            contractHandshake?.MinClientContractVersion,
+            contractHandshake?.Message,
             startupState,
             startupFailureReason);
     }

@@ -18,10 +18,17 @@ public sealed class MonitorHealthSnapshot
 
     public string? AgentVersion { get; set; }
 
-    // Legacy health payload field kept for backward compatibility with older monitor versions.
-    public string? Version { get; set; }
+    public string? ContractVersion { get; set; }
 
     public string? ApiContractVersion { get; set; }
+
+    public string? MinClientContractVersion { get; set; }
+
+    public string? MinClientApiContractVersion { get; set; }
+
+    public string? EffectiveContractVersion => this.ContractVersion ?? this.ApiContractVersion;
+
+    public string? EffectiveMinClientContractVersion => this.MinClientContractVersion ?? this.MinClientApiContractVersion;
 
     public MonitorRefreshHealthSnapshot RefreshHealth { get; set; } = new();
 }

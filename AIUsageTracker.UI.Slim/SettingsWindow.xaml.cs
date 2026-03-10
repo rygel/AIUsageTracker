@@ -1426,7 +1426,13 @@ public partial class SettingsWindow : Window
 
         builder.AppendLine($"Service Health: {healthSnapshot.ServiceHealth}");
         builder.AppendLine($"Monitor Version: {healthSnapshot.AgentVersion ?? "unknown"}");
-        builder.AppendLine($"API Contract: {healthSnapshot.ApiContractVersion ?? "unknown"}");
+        var contractVersion = healthSnapshot.EffectiveContractVersion ?? "unknown";
+        builder.AppendLine($"API Contract: {contractVersion}");
+        if (!string.IsNullOrWhiteSpace(healthSnapshot.EffectiveMinClientContractVersion))
+        {
+            builder.AppendLine($"Min Client Contract: {healthSnapshot.EffectiveMinClientContractVersion}");
+        }
+
         builder.AppendLine($"Last Health Ping: {FormatHealthTimestamp(healthSnapshot.Timestamp)}");
         builder.AppendLine($"Refresh Status: {healthSnapshot.RefreshHealth.Status}");
         builder.AppendLine($"Last Refresh Attempt: {FormatHealthTimestamp(healthSnapshot.RefreshHealth.LastRefreshAttemptUtc)}");

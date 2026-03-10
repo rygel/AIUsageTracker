@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -17,12 +18,11 @@ public class MonitorService : IMonitorService
 {
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
-    private readonly IMonitorLifecycleService _monitorLifecycleService;
     private readonly ILogger<MonitorService>? _logger;
     private const int UsageRequestTimeoutSeconds = 8;
     private const int ConfigRequestTimeoutSeconds = 3;
 
-    public const string ExpectedApiContractVersion = "1";
+    public const string ExpectedApiContractVersion = MonitorApiContract.CurrentVersion;
 
     /// <inheritdoc/>
     public string AgentUrl { get; set; } = "http://localhost:5000";
@@ -30,7 +30,7 @@ public class MonitorService : IMonitorService
     private static HttpClient? _sharedHttpClient;
 
     public MonitorService()
-        : this(GetOrCreateHttpClient(), null, null)
+        : this(GetOrCreateHttpClient(), null)
     {
     }
 
@@ -44,15 +44,16 @@ public class MonitorService : IMonitorService
         return _sharedHttpClient;
     }
 
-    public MonitorService(
-        HttpClient httpClient,
-        ILogger<MonitorService>? logger,
-        IMonitorLifecycleService? monitorLifecycleService = null)
+    public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger)
     {
         this._httpClient = httpClient;
         this._logger = logger;
-        this._monitorLifecycleService = monitorLifecycleService ?? new MonitorLifecycleService();
-        this._jsonOptions = MonitorJsonSerializer.DefaultOptions;
+        this._jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) },
+        };
 
         // Note: Port discovery is now done explicitly via RefreshPortAsync()
         // to avoid race conditions where the Monitor port changes
@@ -73,6 +74,7 @@ public class MonitorService : IMonitorService
     private static long _refreshErrorCount;
     private static long _refreshTotalLatencyMs;
     private static long _refreshLastLatencyMs;
+    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
 
     public static void LogDiagnostic(string message)
     {
@@ -144,19 +146,10 @@ public class MonitorService : IMonitorService
         return $"{this.AgentUrl}{relativePath}";
     }
 
-    private async Task<T?> GetFromMonitorJsonAsync<T>(
-        string relativePath,
-        string operationName,
-        int? timeoutSeconds = null,
-        bool refreshPort = true)
+    private async Task<T?> GetFromMonitorJsonAsync<T>(string relativePath, string operationName, int? timeoutSeconds = null)
     {
         try
         {
-            if (refreshPort)
-            {
-                await this.RefreshPortAsync().ConfigureAwait(false);
-            }
-
             if (timeoutSeconds.HasValue)
             {
                 using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds.Value));
@@ -189,16 +182,10 @@ public class MonitorService : IMonitorService
 
     private async Task<HttpResponseMessage?> SendMonitorRequestAsync(
         Func<HttpClient, Task<HttpResponseMessage>> requestFactory,
-        string operationName,
-        bool refreshPort = true)
+        string operationName)
     {
         try
         {
-            if (refreshPort)
-            {
-                await this.RefreshPortAsync().ConfigureAwait(false);
-            }
-
             return await requestFactory(this._httpClient).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -240,7 +227,7 @@ public class MonitorService : IMonitorService
         LogDiagnostic("Refreshing Monitor Info from file...");
         try
         {
-            var metadata = await this._monitorLifecycleService.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
+            var metadata = await MonitorLauncher.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
             if (metadata.IsUsable && metadata.Info != null)
             {
                 var info = metadata.Info;
@@ -270,22 +257,31 @@ public class MonitorService : IMonitorService
     /// <inheritdoc/>
     public async Task RefreshPortAsync()
     {
-        var status = await this._monitorLifecycleService.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        using var activity = ActivitySource.StartActivity("monitor.refresh_port", ActivityKind.Internal);
+        activity?.SetTag("monitor.agent_url.before", this.AgentUrl);
+        var status = await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.is_running", status.IsRunning);
+        activity?.SetTag("monitor.port", status.Port);
         if (!status.IsRunning)
         {
             MonitorService.LogDiagnostic(
                 $"{status.Message} Keeping existing Monitor endpoint {this.AgentUrl}.");
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return;
         }
 
         this.AgentUrl = $"http://localhost:{status.Port}";
         MonitorService.LogDiagnostic($"Using Monitor endpoint {this.AgentUrl}.");
+        activity?.SetTag("monitor.agent_url.after", this.AgentUrl);
+        activity?.SetStatus(ActivityStatusCode.Ok);
     }
 
     // Provider usage endpoints
     /// <inheritdoc/>
     public async Task<IReadOnlyList<ProviderUsage>> GetUsageAsync()
     {
+        using var activity = ActivitySource.StartActivity("monitor.get_usage", ActivityKind.Client);
+        activity?.SetTag("monitor.agent_url", this.AgentUrl);
         var stopwatch = Stopwatch.StartNew();
         try
         {
@@ -294,6 +290,8 @@ public class MonitorService : IMonitorService
             LogDiagnostic($"Successfully fetched usage from {this.AgentUrl}");
             stopwatch.Stop();
             RecordUsageTelemetry(stopwatch.Elapsed, true);
+            activity?.SetTag("monitor.usage_count", usage?.Count ?? 0);
+            activity?.SetStatus(ActivityStatusCode.Ok);
             return usage ?? new List<ProviderUsage>();
         }
         catch (Exception ex) when (IsRecoverableUsageFailure(ex))
@@ -307,6 +305,9 @@ public class MonitorService : IMonitorService
                 LogDiagnostic($"Successfully fetched usage from {this.AgentUrl} after port refresh");
                 stopwatch.Stop();
                 RecordUsageTelemetry(stopwatch.Elapsed, true);
+                activity?.SetTag("monitor.usage_count", usage?.Count ?? 0);
+                activity?.SetTag("monitor.retry", true);
+                activity?.SetStatus(ActivityStatusCode.Ok);
                 return usage ?? new List<ProviderUsage>();
             }
             catch (Exception retryEx) when (IsRecoverableUsageFailure(retryEx))
@@ -314,6 +315,8 @@ public class MonitorService : IMonitorService
                 stopwatch.Stop();
                 RecordUsageTelemetry(stopwatch.Elapsed, false);
                 LogDiagnostic($"Failed to fetch usage from {this.AgentUrl} after port refresh: {DescribeUsageFailure(retryEx)}");
+                activity?.SetTag("error.type", retryEx.GetType().Name);
+                activity?.SetStatus(ActivityStatusCode.Error, retryEx.Message);
                 return new List<ProviderUsage>();
             }
         }
@@ -322,6 +325,8 @@ public class MonitorService : IMonitorService
             stopwatch.Stop();
             RecordUsageTelemetry(stopwatch.Elapsed, false);
             LogDiagnostic($"Failed to fetch usage from {this.AgentUrl}: {ex.Message}");
+            activity?.SetTag("error.type", ex.GetType().Name);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return new List<ProviderUsage>();
         }
     }
@@ -330,7 +335,7 @@ public class MonitorService : IMonitorService
     {
         using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
         return await this._httpClient.GetFromJsonAsync<List<ProviderUsage>>(
-            this.BuildMonitorUrl(MonitorApiRoutes.Usage),
+            $"{this.AgentUrl}/api/usage",
             this._jsonOptions,
             requestTimeout.Token).ConfigureAwait(false);
     }
@@ -383,7 +388,7 @@ public class MonitorService : IMonitorService
     public async Task<ProviderUsage?> GetUsageByProviderAsync(string providerId)
     {
         return await this.GetFromMonitorJsonAsync<ProviderUsage>(
-            MonitorApiRoutes.UsageByProvider(providerId),
+            $"/api/usage/{providerId}",
             nameof(this.GetUsageByProviderAsync)).ConfigureAwait(false);
     }
 
@@ -391,7 +396,7 @@ public class MonitorService : IMonitorService
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         var history = await this.GetFromMonitorJsonAsync<List<ProviderUsage>>(
-            MonitorApiRoutes.HistoryWithLimit(limit),
+            $"/api/history?limit={limit}",
             nameof(this.GetHistoryAsync)).ConfigureAwait(false);
         return history ?? new List<ProviderUsage>();
     }
@@ -400,7 +405,7 @@ public class MonitorService : IMonitorService
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
         var history = await this.GetFromMonitorJsonAsync<List<ProviderUsage>>(
-            MonitorApiRoutes.HistoryByProviderWithLimit(providerId, limit),
+            $"/api/history/{providerId}?limit={limit}",
             nameof(this.GetHistoryByProviderAsync)).ConfigureAwait(false);
         return history ?? new List<ProviderUsage>();
     }
@@ -408,19 +413,25 @@ public class MonitorService : IMonitorService
     /// <inheritdoc/>
     public async Task<bool> TriggerRefreshAsync()
     {
+        using var activity = ActivitySource.StartActivity("monitor.trigger_refresh", ActivityKind.Client);
+        activity?.SetTag("monitor.agent_url", this.AgentUrl);
         var stopwatch = Stopwatch.StartNew();
+        await this.RefreshPortAsync().ConfigureAwait(false);
         var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.Refresh), null),
+            httpClient => httpClient.PostAsync(this.BuildMonitorUrl("/api/refresh"), null),
             nameof(this.TriggerRefreshAsync)).ConfigureAwait(false);
 
         stopwatch.Stop();
         if (response != null)
         {
             RecordRefreshTelemetry(stopwatch.Elapsed, response.IsSuccessStatusCode);
+            activity?.SetTag("http.status_code", (int)response.StatusCode);
+            activity?.SetStatus(response.IsSuccessStatusCode ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
             return response.IsSuccessStatusCode;
         }
 
         RecordRefreshTelemetry(stopwatch.Elapsed, false);
+        activity?.SetStatus(ActivityStatusCode.Error, "No response");
         return false;
     }
 
@@ -429,7 +440,7 @@ public class MonitorService : IMonitorService
     public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync()
     {
         var configs = await this.GetFromMonitorJsonAsync<List<ProviderConfig>>(
-            MonitorApiRoutes.Config,
+            "/api/config",
             nameof(this.GetConfigsAsync),
             ConfigRequestTimeoutSeconds).ConfigureAwait(false);
         return configs ?? new List<ProviderConfig>();
@@ -440,7 +451,7 @@ public class MonitorService : IMonitorService
     {
         return await this.SendMonitorStatusRequestAsync(
             httpClient => httpClient.PostAsJsonAsync(
-                this.BuildMonitorUrl(MonitorApiRoutes.Config),
+                this.BuildMonitorUrl("/api/config"),
                 config,
                 this._jsonOptions),
             nameof(this.SaveConfigAsync)).ConfigureAwait(false);
@@ -450,7 +461,7 @@ public class MonitorService : IMonitorService
     public async Task<bool> RemoveConfigAsync(string providerId)
     {
         return await this.SendMonitorStatusRequestAsync(
-            httpClient => httpClient.DeleteAsync(this.BuildMonitorUrl(MonitorApiRoutes.ConfigByProvider(providerId))),
+            httpClient => httpClient.DeleteAsync(this.BuildMonitorUrl($"/api/config/{providerId}")),
             nameof(this.RemoveConfigAsync)).ConfigureAwait(false);
     }
 
@@ -466,18 +477,8 @@ public class MonitorService : IMonitorService
     {
         try
         {
-            using var response = await this.SendMonitorRequestAsync(
-                httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.TestNotification), null),
-                nameof(this.SendTestNotificationDetailedAsync),
-                refreshPort: true).ConfigureAwait(false);
-            if (response == null)
-            {
-                return new MonitorActionResult
-                {
-                    Success = false,
-                    Message = "Could not reach Monitor. Ensure it is running and try again.",
-                };
-            }
+            await this.RefreshPortAsync().ConfigureAwait(false);
+            using var response = await this._httpClient.PostAsync(this.BuildMonitorUrl("/api/notifications/test"), null).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
             {
@@ -522,11 +523,11 @@ public class MonitorService : IMonitorService
     public async Task<AgentScanKeysResult> ScanForKeysAsync()
     {
         using var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.PostAsync(this.BuildMonitorUrl(MonitorApiRoutes.ScanKeys), null),
+            httpClient => httpClient.PostAsync(this.BuildMonitorUrl("/api/scan-keys"), null),
             nameof(this.ScanForKeysAsync)).ConfigureAwait(false);
         if (response?.IsSuccessStatusCode == true)
         {
-            var result = await this.ReadMonitorResponseJsonAsync<AgentScanKeysResponse>(
+            var result = await this.ReadMonitorResponseJsonAsync<ScanKeysResponse>(
                 response,
                 nameof(this.ScanForKeysAsync)).ConfigureAwait(false);
             if (result != null)
@@ -546,105 +547,154 @@ public class MonitorService : IMonitorService
     /// <inheritdoc/>
     public async Task<bool> CheckHealthAsync()
     {
-        var probe = await this.ProbeHealthAsync(nameof(this.CheckHealthAsync)).ConfigureAwait(false);
-        return probe.IsSuccess;
+        using var activity = ActivitySource.StartActivity("monitor.check_health", ActivityKind.Client);
+        activity?.SetTag("monitor.agent_url", this.AgentUrl);
+        await this.RefreshPortAsync().ConfigureAwait(false);
+        var response = await this.SendMonitorRequestAsync(
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl("/api/health")),
+            nameof(this.CheckHealthAsync)).ConfigureAwait(false);
+        var success = response?.IsSuccessStatusCode == true;
+        if (response != null)
+        {
+            activity?.SetTag("http.status_code", (int)response.StatusCode);
+        }
+
+        activity?.SetStatus(success ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
+        return success;
     }
 
     /// <inheritdoc/>
     public async Task<MonitorHealthSnapshot?> GetHealthSnapshotAsync()
     {
-        var probe = await this.ProbeHealthAsync(nameof(this.GetHealthSnapshotAsync)).ConfigureAwait(false);
-        return probe.Snapshot;
+        using var activity = ActivitySource.StartActivity("monitor.get_health_snapshot", ActivityKind.Client);
+        activity?.SetTag("monitor.agent_url", this.AgentUrl);
+        await this.RefreshPortAsync().ConfigureAwait(false);
+        using var response = await this.SendMonitorRequestAsync(
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl("/api/health")),
+            nameof(this.GetHealthSnapshotAsync)).ConfigureAwait(false);
+        if (response?.IsSuccessStatusCode != true)
+        {
+            if (response != null)
+            {
+                activity?.SetTag("http.status_code", (int)response.StatusCode);
+            }
+
+            activity?.SetStatus(ActivityStatusCode.Error, "Health endpoint unavailable");
+            return null;
+        }
+
+        var snapshot = await this.ReadMonitorResponseJsonAsync<MonitorHealthSnapshot>(
+            response,
+            nameof(this.GetHealthSnapshotAsync)).ConfigureAwait(false);
+        activity?.SetTag("monitor.health_status", snapshot?.Status);
+        activity?.SetTag("monitor.service_health", snapshot?.ServiceHealth);
+        activity?.SetStatus(snapshot == null ? ActivityStatusCode.Error : ActivityStatusCode.Ok);
+        return snapshot;
     }
 
+    /// <inheritdoc/>
     public async Task<AgentDiagnosticsSnapshot?> GetDiagnosticsSnapshotAsync()
     {
         return await this.GetFromMonitorJsonAsync<AgentDiagnosticsSnapshot>(
-            MonitorApiRoutes.Diagnostics,
+            "/api/diagnostics",
             nameof(this.GetDiagnosticsSnapshotAsync)).ConfigureAwait(false);
+    }
+
+    public Task<string> GetHealthDetailsAsync()
+    {
+        return this.GetEndpointDetailsAsync("/api/health");
+    }
+
+    /// <inheritdoc/>
+    public Task<string> GetDiagnosticsDetailsAsync()
+    {
+        return this.GetEndpointDetailsAsync("/api/diagnostics");
+    }
+
+    private async Task<string> GetEndpointDetailsAsync(string endpointPath)
+    {
+        var response = await this.SendMonitorRequestAsync(
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(endpointPath)),
+            nameof(this.GetEndpointDetailsAsync)).ConfigureAwait(false);
+        if (response == null)
+        {
+            return "Request failed: no response from Monitor.";
+        }
+
+        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return $"HTTP {(int)response.StatusCode}: {body}";
+        }
+
+        return body;
     }
 
     /// <inheritdoc/>
     public async Task<AgentContractHandshakeResult> CheckApiContractAsync()
     {
+        using var activity = ActivitySource.StartActivity("monitor.check_api_contract", ActivityKind.Client);
+        activity?.SetTag("monitor.agent_url", this.AgentUrl);
         try
         {
-            var probe = await this.ProbeHealthAsync(nameof(this.CheckApiContractAsync)).ConfigureAwait(false);
-            if (!probe.HasResponse)
+            using var response = await this._httpClient.GetAsync(this.BuildMonitorUrl("/api/health")).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
             {
+                activity?.SetTag("http.status_code", (int)response.StatusCode);
+                activity?.SetStatus(ActivityStatusCode.Error, "Health endpoint returned non-success");
                 return new AgentContractHandshakeResult
                 {
                     IsReachable = false,
                     IsCompatible = false,
-                    Message = "Agent API handshake failed: no response from health endpoint.",
+                    Message = $"Agent health check failed ({(int)response.StatusCode}).",
                 };
             }
 
-            if (!probe.IsSuccess)
+            var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            await using (stream.ConfigureAwait(false))
             {
-                return new AgentContractHandshakeResult
+                using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
+                var root = document.RootElement;
+
+                var contractVersion = TryGetJsonString(root, MonitorApiContract.ContractVersionJsonKeys);
+                var minClientContractVersion = TryGetJsonString(root, MonitorApiContract.MinClientContractVersionJsonKeys);
+                var reportedAgentVersion = TryGetJsonString(root, MonitorApiContract.AgentVersionJsonKeys);
+
+                if (string.IsNullOrWhiteSpace(contractVersion))
                 {
-                    IsReachable = false,
-                    IsCompatible = false,
-                    Message = $"Agent health check failed ({probe.StatusCode}).",
-                };
-            }
+                    activity?.SetStatus(ActivityStatusCode.Error, "Missing API contract version");
+                    return EvaluateApiContractCompatibility(
+                        contractVersion,
+                        minClientContractVersion,
+                        reportedAgentVersion);
+                }
 
-            var health = probe.Snapshot;
-            if (health == null)
-            {
-                return new AgentContractHandshakeResult
+                var result = EvaluateApiContractCompatibility(
+                    contractVersion,
+                    minClientContractVersion,
+                    reportedAgentVersion);
+                if (result.IsCompatible)
                 {
-                    IsReachable = true,
-                    IsCompatible = false,
-                    Message = "Agent health payload could not be parsed.",
-                };
+                    activity?.SetTag("monitor.api_contract_version", contractVersion);
+                    activity?.SetTag("monitor.min_client_contract_version", minClientContractVersion);
+                    activity?.SetTag("monitor.agent_version", reportedAgentVersion);
+                    activity?.SetStatus(ActivityStatusCode.Ok);
+                    return result;
+                }
+
+                activity?.SetTag("monitor.api_contract_version", contractVersion);
+                activity?.SetTag("monitor.min_client_contract_version", minClientContractVersion);
+                activity?.SetTag("monitor.agent_version", reportedAgentVersion);
+                activity?.SetStatus(ActivityStatusCode.Error, "API contract mismatch");
+                return result;
             }
-
-            var contractVersion = health.ApiContractVersion;
-            var reportedAgentVersion = string.IsNullOrWhiteSpace(health.AgentVersion)
-                ? health.Version
-                : health.AgentVersion;
-
-            if (string.IsNullOrWhiteSpace(contractVersion))
-            {
-                return new AgentContractHandshakeResult
-                {
-                    IsReachable = true,
-                    IsCompatible = false,
-                    AgentVersion = reportedAgentVersion,
-                    Message = $"Agent API contract version is missing (expected {ExpectedApiContractVersion}).",
-                };
-            }
-
-            if (string.Equals(contractVersion, ExpectedApiContractVersion, StringComparison.OrdinalIgnoreCase))
-            {
-                return new AgentContractHandshakeResult
-                {
-                    IsReachable = true,
-                    IsCompatible = true,
-                    AgentContractVersion = contractVersion,
-                    AgentVersion = reportedAgentVersion,
-                    Message = "Agent API contract is compatible.",
-                };
-            }
-
-            var versionSuffix = string.IsNullOrWhiteSpace(reportedAgentVersion)
-                ? string.Empty
-                : $" (agent {reportedAgentVersion})";
-
-            return new AgentContractHandshakeResult
-            {
-                IsReachable = true,
-                IsCompatible = false,
-                AgentContractVersion = contractVersion,
-                AgentVersion = reportedAgentVersion,
-                Message = $"Agent API contract mismatch: expected {ExpectedApiContractVersion}, got {contractVersion}{versionSuffix}.",
-            };
         }
         catch (Exception ex)
         {
             this._logger?.LogWarning(ex, "CheckApiContractAsync failed against {AgentUrl}", this.AgentUrl);
+            activity?.SetTag("error.type", ex.GetType().Name);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return new AgentContractHandshakeResult
             {
                 IsReachable = false,
@@ -654,55 +704,67 @@ public class MonitorService : IMonitorService
         }
     }
 
-    private async Task<HealthProbeResult> ProbeHealthAsync(string operationName)
+    private static string? TryGetJsonString(JsonElement root, string propertyName)
     {
-        using var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health)),
-            operationName,
-            refreshPort: true).ConfigureAwait(false);
-        if (response == null)
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var property))
         {
-            return new HealthProbeResult(false, false, null, null);
+            return null;
         }
 
-        if (!response.IsSuccessStatusCode)
+        return property.ValueKind switch
         {
-            return new HealthProbeResult(true, false, (int)response.StatusCode, null);
-        }
-
-        var snapshot = await this.ReadMonitorResponseJsonAsync<MonitorHealthSnapshot>(
-            response,
-            operationName).ConfigureAwait(false);
-        return new HealthProbeResult(true, true, (int)response.StatusCode, snapshot);
+            JsonValueKind.String => property.GetString(),
+            JsonValueKind.Number => property.GetRawText(),
+            JsonValueKind.True => bool.TrueString,
+            JsonValueKind.False => bool.FalseString,
+            _ => null,
+        };
     }
 
-    private sealed record HealthProbeResult(
-        bool HasResponse,
-        bool IsSuccess,
-        int? StatusCode,
-        MonitorHealthSnapshot? Snapshot);
+    private static string? TryGetJsonString(JsonElement root, IEnumerable<string> propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            var value = TryGetJsonString(root, propertyName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    public static AgentContractHandshakeResult EvaluateApiContractCompatibility(
+        string? contractVersion,
+        string? minClientContractVersion,
+        string? reportedAgentVersion)
+    {
+        return MonitorApiContractEvaluator.Evaluate(
+            contractVersion,
+            minClientContractVersion,
+            reportedAgentVersion,
+            ExpectedApiContractVersion);
+    }
+
+    private class ScanKeysResponse
+    {
+        [JsonPropertyName("discovered")]
+        public int Discovered { get; set; }
+
+        [JsonPropertyName("configs")]
+        public IReadOnlyList<ProviderConfig>? Configs { get; set; }
+    }
 
     // Diagnostics & Export
     public async Task<MonitorActionResult> CheckProviderAsync(string providerId)
     {
         try
         {
-            using var response = await this.SendMonitorRequestAsync(
-                httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.ProviderCheck(providerId))),
-                nameof(this.CheckProviderAsync),
-                refreshPort: true).ConfigureAwait(false);
-            if (response == null)
-            {
-                return new MonitorActionResult
-                {
-                    Success = false,
-                    Message = "Could not reach Monitor. Ensure it is running and try again.",
-                };
-            }
-
+            using var response = await this._httpClient.GetAsync(this.BuildMonitorUrl($"/api/providers/{providerId}/check")).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                var result = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
+                var result = await this.ReadMonitorResponseJsonAsync<CheckResponse>(
                     response,
                     nameof(this.CheckProviderAsync)).ConfigureAwait(false);
                 return new MonitorActionResult
@@ -713,7 +775,7 @@ public class MonitorService : IMonitorService
             }
 
             // Try to read error message if available
-            var error = await this.ReadMonitorResponseJsonAsync<AgentProviderCheckResponse>(
+            var error = await this.ReadMonitorResponseJsonAsync<CheckResponse>(
                 response,
                 nameof(this.CheckProviderAsync)).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(error?.Message))
@@ -746,7 +808,7 @@ public class MonitorService : IMonitorService
     public async Task<string> ExportDataAsync(string format)
     {
         using var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.ExportByFormat(format))),
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl($"/api/export/{format}")),
             nameof(this.ExportDataAsync)).ConfigureAwait(false);
         if (response?.IsSuccessStatusCode == true)
         {
@@ -759,7 +821,7 @@ public class MonitorService : IMonitorService
     public async Task<Stream?> ExportDataAsync(string format, int days)
     {
         var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.ExportWithWindow(format, days))),
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl($"/api/export?format={format}&days={days}")),
             nameof(this.ExportDataAsync)).ConfigureAwait(false);
         if (response?.IsSuccessStatusCode == true)
         {
@@ -767,5 +829,12 @@ public class MonitorService : IMonitorService
         }
 
         return null;
+    }
+
+    private class CheckResponse
+    {
+        public bool Success { get; set; }
+
+        public string Message { get; set; } = string.Empty;
     }
 }
