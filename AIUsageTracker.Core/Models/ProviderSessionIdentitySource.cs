@@ -2,12 +2,11 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Models
+namespace AIUsageTracker.Core.Models;
+
+public enum ProviderSessionIdentitySource
 {
-    public enum ProviderSessionIdentitySource
-    {
-        None,
-        OpenAi,
-        Codex,
-    }
+    None,
+    OpenAi,
+    Codex,
 }

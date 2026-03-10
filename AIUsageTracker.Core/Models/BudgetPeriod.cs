@@ -2,13 +2,12 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Models
+namespace AIUsageTracker.Core.Models;
+
+public enum BudgetPeriod
 {
-    public enum BudgetPeriod
-    {
-        Daily,
-        Weekly,
-        Monthly,
-        Yearly,
-    }
+    Daily,
+    Weekly,
+    Monthly,
+    Yearly,
 }

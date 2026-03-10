@@ -2,23 +2,21 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Models
+using System.Text.Json.Serialization;
+
+namespace AIUsageTracker.Core.Models;
+
+public class AIModelConfig
 {
-    using System.Text.Json.Serialization;
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
 
-    public class AIModelConfig
-    {
-        [JsonPropertyName("id")]
-        public string Id { get; set; } = string.Empty;
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
 
-        [JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("matches")]
+    public IReadOnlyList<string> Matches { get; set; } = [];
 
-        [JsonPropertyName("matches")]
-        public IReadOnlyList<string> Matches { get; set; } = [];
-
-        [JsonPropertyName("color")]
-        public string? Color { get; set; }
-    }
-
+    [JsonPropertyName("color")]
+    public string? Color { get; set; }
 }

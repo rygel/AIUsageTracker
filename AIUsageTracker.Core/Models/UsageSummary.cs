@@ -2,14 +2,13 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Models
+namespace AIUsageTracker.Core.Models;
+
+public class UsageSummary
 {
-    public class UsageSummary
-    {
-        public int ProviderCount { get; set; }
+    public int ProviderCount { get; set; }
 
-        public double AverageUsage { get; set; }
+    public double AverageUsage { get; set; }
 
-        public string? LastUpdate { get; set; }
-    }
+    public string? LastUpdate { get; set; }
 }
