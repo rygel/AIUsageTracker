@@ -60,7 +60,7 @@ public class UsageAlertsService
             {
                 if (!historyMap.TryGetValue(usage.ProviderId, out var history) || history.Count < 2)
                 {
-                    LogInsufficientHistory(usage);
+                    this.LogInsufficientHistory(usage);
                     continue;
                 }
 
