@@ -2,38 +2,33 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Text.Json;
-using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Tests.Core;
 
-[Collection("MonitorStartupPath")]
-public sealed class MonitorProcessServiceTests : IDisposable
+public sealed class MonitorProcessServiceTests
 {
-    private readonly string _tempDirectory;
-
-    public MonitorProcessServiceTests()
-    {
-        this._tempDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "monitor-process-service-tests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
-    }
-
     [Fact]
     public async Task GetAgentStatusDetailedAsync_ReturnsMissing_WhenMonitorInfoIsAbsentAsync()
     {
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: Array.Empty<string>(),
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var lifecycle = new FakeMonitorLifecycleService
+        {
+            StatusSequence =
+            [
+                new MonitorAgentStatus
+                {
+                    IsRunning = false,
+                    Port = 5000,
+                    Message = "Monitor info file not found.",
+                    Error = "agent-info-missing",
+                },
+            ],
+        };
 
-        var service = this.CreateService();
-
+        var service = CreateService(lifecycle);
         var result = await service.GetAgentStatusDetailedAsync();
 
         Assert.False(result.IsRunning);
@@ -42,21 +37,23 @@ public sealed class MonitorProcessServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetAgentStatusDetailedAsync_ReturnsUnreachable_WhenStaleMonitorInfoIsQuarantinedAsync()
+    public async Task GetAgentStatusDetailedAsync_ReturnsUnreachable_WhenMetadataIsStaleAsync()
     {
-        var infoPath = await this.CreateMonitorInfoAsync(new MonitorInfo
+        var lifecycle = new FakeMonitorLifecycleService
         {
-            Port = 6111,
-            ProcessId = 7777,
-        });
+            StatusSequence =
+            [
+                new MonitorAgentStatus
+                {
+                    IsRunning = false,
+                    Port = 6111,
+                    Message = "Monitor metadata exists but endpoint is not reachable.",
+                    Error = "monitor-unreachable",
+                },
+            ],
+        };
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
-
-        var service = this.CreateService();
-
+        var service = CreateService(lifecycle);
         var result = await service.GetAgentStatusDetailedAsync();
 
         Assert.False(result.IsRunning);
@@ -67,42 +64,45 @@ public sealed class MonitorProcessServiceTests : IDisposable
     [Fact]
     public async Task StartAgentDetailedAsync_ReturnsAlreadyRunning_WhenMonitorIsHealthyAsync()
     {
-        var infoPath = await this.CreateMonitorInfoAsync(new MonitorInfo
+        var lifecycle = new FakeMonitorLifecycleService
         {
-            Port = 6222,
-            ProcessId = 8888,
-        });
+            StatusSequence =
+            [
+                new MonitorAgentStatus
+                {
+                    IsRunning = true,
+                    Port = 6222,
+                    Message = "Monitor healthy.",
+                },
+            ],
+        };
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 6222),
-            processRunningAsync: processId => Task.FromResult(processId == 8888));
-
-        var service = this.CreateService();
-
+        var service = CreateService(lifecycle);
         var result = await service.StartAgentDetailedAsync();
 
         Assert.True(result.Success);
         Assert.Equal("Monitor already running on port 6222.", result.Message);
+        Assert.Equal(0, lifecycle.EnsureAgentRunningCalls);
     }
 
     [Fact]
     public async Task GetAgentStatusDetailedAsync_ReturnsStarting_WhenMonitorStartupIsInProgressAsync()
     {
-        var infoPath = await this.CreateMonitorInfoAsync(new MonitorInfo
+        var lifecycle = new FakeMonitorLifecycleService
         {
-            Port = 0,
-            ProcessId = 9999,
-            Errors = new List<string> { "Startup status: starting" },
-        });
+            StatusSequence =
+            [
+                new MonitorAgentStatus
+                {
+                    IsRunning = false,
+                    Port = 5000,
+                    Message = "Monitor is starting.",
+                    Error = "monitor-starting",
+                },
+            ],
+        };
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: processId => Task.FromResult(processId == 9999));
-
-        var service = this.CreateService();
-
+        var service = CreateService(lifecycle);
         var result = await service.GetAgentStatusDetailedAsync();
 
         Assert.False(result.IsRunning);
@@ -114,39 +114,96 @@ public sealed class MonitorProcessServiceTests : IDisposable
     [Fact]
     public async Task StopAgentDetailedAsync_ReturnsAlreadyStopped_WhenMonitorInfoIsAbsentAsync()
     {
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: Array.Empty<string>(),
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var lifecycle = new FakeMonitorLifecycleService
+        {
+            StatusSequence =
+            [
+                new MonitorAgentStatus
+                {
+                    IsRunning = false,
+                    Port = 5000,
+                    Message = "Monitor info file not found.",
+                    Error = "agent-info-missing",
+                },
+            ],
+        };
 
-        var service = this.CreateService();
-
+        var service = CreateService(lifecycle);
         var result = await service.StopAgentDetailedAsync();
 
         Assert.True(result.Success);
         Assert.Equal("Monitor already stopped (info file missing).", result.Message);
+        Assert.Equal(0, lifecycle.StopAgentCalls);
     }
 
-    public void Dispose()
+    private static MonitorProcessService CreateService(FakeMonitorLifecycleService lifecycle)
     {
-        if (Directory.Exists(this._tempDirectory))
+        return new MonitorProcessService(lifecycle, NullLogger<MonitorProcessService>.Instance);
+    }
+
+    private sealed class FakeMonitorLifecycleService : IMonitorLifecycleService
+    {
+        public List<MonitorAgentStatus> StatusSequence { get; init; } = [];
+
+        public bool EnsureAgentRunningResult { get; init; } = true;
+
+        public bool StopAgentResult { get; init; } = true;
+
+        public int EnsureAgentRunningCalls { get; private set; }
+
+        public int StopAgentCalls { get; private set; }
+
+        public Task<bool> StartAgentAsync() => Task.FromResult(true);
+
+        public Task<bool> StopAgentAsync()
         {
-            Directory.Delete(this._tempDirectory, recursive: true);
+            this.StopAgentCalls++;
+            return Task.FromResult(this.StopAgentResult);
         }
-    }
 
-    private MonitorProcessService CreateService()
-    {
-        return new MonitorProcessService(
-            new MonitorLifecycleService(),
-            NullLogger<MonitorProcessService>.Instance);
-    }
+        public Task<bool> EnsureAgentRunningAsync()
+        {
+            this.EnsureAgentRunningCalls++;
+            return Task.FromResult(this.EnsureAgentRunningResult);
+        }
 
-    private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)
-    {
-        var path = Path.Combine(this._tempDirectory, "monitor.json");
-        var json = JsonSerializer.Serialize(info);
-        await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
-        return path;
+        public Task<bool> WaitForAgentAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+        public Task<int> GetAgentPortAsync() => Task.FromResult(5000);
+
+        public Task<bool> IsAgentRunningAsync() => Task.FromResult(false);
+
+        public Task<(bool IsRunning, int Port)> IsAgentRunningWithPortAsync() => Task.FromResult((false, 5000));
+
+        public Task<MonitorAgentStatus> GetAgentStatusInfoAsync()
+        {
+            if (this.StatusSequence.Count == 0)
+            {
+                return Task.FromResult(new MonitorAgentStatus
+                {
+                    IsRunning = false,
+                    Port = 5000,
+                    Message = "No status configured.",
+                    Error = "test-status-missing",
+                });
+            }
+
+            var status = this.StatusSequence[0];
+            if (this.StatusSequence.Count > 1)
+            {
+                this.StatusSequence.RemoveAt(0);
+            }
+
+            return Task.FromResult(status);
+        }
+
+        public Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
+        {
+            return Task.FromResult(new MonitorMetadataStatus
+            {
+                IsUsable = false,
+                Info = null,
+            });
+        }
     }
 }
