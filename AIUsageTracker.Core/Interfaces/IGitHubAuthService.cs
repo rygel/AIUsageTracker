@@ -9,6 +9,11 @@ namespace AIUsageTracker.Core.Interfaces;
 public interface IGitHubAuthService
 {
     /// <summary>
+    /// Checks if the user is currently authenticated.
+    /// </summary>
+    bool IsAuthenticated { get; }
+
+    /// <summary>
     /// Initiates the Device Flow. Returns the user code, device code, and verification URI.
     /// </summary>
     Task<(string DeviceCode, string UserCode, string VerificationUri, int ExpiresIn, int Interval)> InitiateDeviceFlowAsync();
@@ -37,11 +42,6 @@ public interface IGitHubAuthService
     /// Initializes the service with a previously stored token.
     /// </summary>
     void InitializeToken(string token);
-
-    /// <summary>
-    /// Checks if the user is currently authenticated.
-    /// </summary>
-    bool IsAuthenticated { get; }
 
     /// <summary>
     /// Gets the username of the authenticated user.
