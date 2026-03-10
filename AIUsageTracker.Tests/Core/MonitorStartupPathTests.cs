@@ -491,7 +491,9 @@ public sealed class MonitorStartupPathTests : IDisposable
 
             try
             {
+#pragma warning disable VSTHRD003 // Awaiting a fixture-owned task in cleanup is intentional.
                 await this._acceptLoopTask.ConfigureAwait(false);
+#pragma warning restore VSTHRD003
             }
             catch (OperationCanceledException)
             {
