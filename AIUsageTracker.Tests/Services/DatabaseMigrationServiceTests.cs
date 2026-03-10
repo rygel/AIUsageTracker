@@ -50,12 +50,12 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
 
         await database.StoreProviderAsync(
             new ProviderConfig
-        {
-            ProviderId = "antigravity",
-            Type = "quota-based",
-            AuthSource = "antigravity",
-            ApiKey = "dynamic",
-        }, friendlyName: "Google Antigravity");
+            {
+                ProviderId = "antigravity",
+                Type = "quota-based",
+                AuthSource = "antigravity",
+                ApiKey = "dynamic",
+            }, friendlyName: "Google Antigravity");
 
         await using var connection = new SqliteConnection($"Data Source={this._dbPath}");
         await connection.OpenAsync();

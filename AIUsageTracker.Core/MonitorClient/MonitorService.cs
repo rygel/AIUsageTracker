@@ -578,52 +578,52 @@ public class MonitorService : IMonitorService
             await using (stream.ConfigureAwait(false))
             {
                 using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
-            var root = document.RootElement;
+                var root = document.RootElement;
 
-            var contractVersion =
-                TryGetJsonString(root, "apiContractVersion") ??
-                TryGetJsonString(root, "api_contract_version");
+                var contractVersion =
+                    TryGetJsonString(root, "apiContractVersion") ??
+                    TryGetJsonString(root, "api_contract_version");
 
-            var reportedAgentVersion =
-                TryGetJsonString(root, "agentVersion") ??
-                TryGetJsonString(root, "agent_version") ??
-                TryGetJsonString(root, "version");
+                var reportedAgentVersion =
+                    TryGetJsonString(root, "agentVersion") ??
+                    TryGetJsonString(root, "agent_version") ??
+                    TryGetJsonString(root, "version");
 
-            if (string.IsNullOrWhiteSpace(contractVersion))
-            {
+                if (string.IsNullOrWhiteSpace(contractVersion))
+                {
+                    return new AgentContractHandshakeResult
+                    {
+                        IsReachable = true,
+                        IsCompatible = false,
+                        AgentVersion = reportedAgentVersion,
+                        Message = $"Agent API contract version is missing (expected {ExpectedApiContractVersion}).",
+                    };
+                }
+
+                if (string.Equals(contractVersion, ExpectedApiContractVersion, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new AgentContractHandshakeResult
+                    {
+                        IsReachable = true,
+                        IsCompatible = true,
+                        AgentContractVersion = contractVersion,
+                        AgentVersion = reportedAgentVersion,
+                        Message = "Agent API contract is compatible.",
+                    };
+                }
+
+                var versionSuffix = string.IsNullOrWhiteSpace(reportedAgentVersion)
+                    ? string.Empty
+                    : $" (agent {reportedAgentVersion})";
+
                 return new AgentContractHandshakeResult
                 {
                     IsReachable = true,
                     IsCompatible = false,
-                    AgentVersion = reportedAgentVersion,
-                    Message = $"Agent API contract version is missing (expected {ExpectedApiContractVersion}).",
-                };
-            }
-
-            if (string.Equals(contractVersion, ExpectedApiContractVersion, StringComparison.OrdinalIgnoreCase))
-            {
-                return new AgentContractHandshakeResult
-                {
-                    IsReachable = true,
-                    IsCompatible = true,
                     AgentContractVersion = contractVersion,
                     AgentVersion = reportedAgentVersion,
-                    Message = "Agent API contract is compatible.",
+                    Message = $"Agent API contract mismatch: expected {ExpectedApiContractVersion}, got {contractVersion}{versionSuffix}.",
                 };
-            }
-
-            var versionSuffix = string.IsNullOrWhiteSpace(reportedAgentVersion)
-                ? string.Empty
-                : $" (agent {reportedAgentVersion})";
-
-            return new AgentContractHandshakeResult
-            {
-                IsReachable = true,
-                IsCompatible = false,
-                AgentContractVersion = contractVersion,
-                AgentVersion = reportedAgentVersion,
-                Message = $"Agent API contract mismatch: expected {ExpectedApiContractVersion}, got {contractVersion}{versionSuffix}.",
-            };
             }
         }
         catch (Exception ex)
