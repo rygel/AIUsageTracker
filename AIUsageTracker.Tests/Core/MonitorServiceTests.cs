@@ -5,6 +5,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -504,6 +505,47 @@ public class MonitorServiceTests
             .ThrowsAsync(new HttpRequestException("network failure"));
 
         var diagnostics = await this._service.GetDiagnosticsSnapshotAsync();
+
+        Assert.Null(diagnostics);
+    }
+
+    [Fact]
+    public async Task GetDiagnosticsSnapshotAsync_ExtensionForInterface_ParsesRawDiagnosticsAsync()
+    {
+        var monitorService = new Mock<IMonitorService>();
+        monitorService
+            .Setup(service => service.GetDiagnosticsDetailsAsync())
+            .ReturnsAsync("""
+                          {
+                            "port": 5099,
+                            "process_id": 4321,
+                            "runtime": ".NET 8",
+                            "scheduler_telemetry": {
+                              "total_queued_jobs": 7,
+                              "enqueued_jobs": 15
+                            }
+                          }
+                          """);
+
+        var diagnostics = await monitorService.Object.GetDiagnosticsSnapshotAsync();
+
+        Assert.NotNull(diagnostics);
+        Assert.Equal(5099, diagnostics.Port);
+        Assert.Equal(4321, diagnostics.ProcessId);
+        Assert.Equal(".NET 8", diagnostics.Runtime);
+        Assert.Equal(7, diagnostics.SchedulerTelemetry?.TotalQueuedJobs);
+        Assert.Equal(15, diagnostics.SchedulerTelemetry?.EnqueuedJobs);
+    }
+
+    [Fact]
+    public async Task GetDiagnosticsSnapshotAsync_ExtensionForInterface_InvalidJsonReturnsNullAsync()
+    {
+        var monitorService = new Mock<IMonitorService>();
+        monitorService
+            .Setup(service => service.GetDiagnosticsDetailsAsync())
+            .ReturnsAsync("{ invalid json }");
+
+        var diagnostics = await monitorService.Object.GetDiagnosticsSnapshotAsync();
 
         Assert.Null(diagnostics);
     }

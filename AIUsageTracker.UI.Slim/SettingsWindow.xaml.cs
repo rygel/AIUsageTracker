@@ -1408,6 +1408,7 @@ public partial class SettingsWindow : Window
             var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
             var healthDetails = await this._monitorService.GetHealthDetailsAsync();
             var diagnosticsDetails = await this._monitorService.GetDiagnosticsDetailsAsync();
+            var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync();
 
             var saveDialog = new SaveFileDialog
             {
@@ -1437,6 +1438,8 @@ public partial class SettingsWindow : Window
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Diagnostics ===");
+            this.AppendMonitorDiagnosticsSummary(bundle, diagnosticsSnapshot);
+            bundle.AppendLine();
             bundle.AppendLine(this.FormatJsonForBundle(diagnosticsDetails));
             bundle.AppendLine();
 
@@ -1527,6 +1530,77 @@ public partial class SettingsWindow : Window
         catch
         {
             return content;
+        }
+    }
+
+    private void AppendMonitorDiagnosticsSummary(StringBuilder bundle, AgentDiagnosticsSnapshot? diagnostics)
+    {
+        if (diagnostics == null)
+        {
+            bundle.AppendLine("Summary unavailable (typed diagnostics not available).");
+            return;
+        }
+
+        bundle.AppendLine("Summary:");
+        bundle.AppendFormat(
+            System.Globalization.CultureInfo.InvariantCulture,
+            "- Endpoint: port={0}, pid={1}, runtime={2}, args={3}\r\n",
+            diagnostics.Port,
+            diagnostics.ProcessId,
+            diagnostics.Runtime,
+            diagnostics.Args.Count);
+
+        if (diagnostics.RefreshTelemetry != null)
+        {
+            var refresh = diagnostics.RefreshTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Refresh telemetry: count={0}, success={1}, failure={2}, error_rate={3:F1}%, avg={4:F1}ms, last={5}ms\r\n",
+                refresh.RefreshCount,
+                refresh.RefreshSuccessCount,
+                refresh.RefreshFailureCount,
+                refresh.ErrorRatePercent,
+                refresh.AverageLatencyMs,
+                refresh.LastLatencyMs);
+        }
+
+        if (diagnostics.SchedulerTelemetry != null)
+        {
+            var scheduler = diagnostics.SchedulerTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Scheduler telemetry: queued={0} (h={1}, n={2}, l={3}), recurring={4}, executed={5}, failed={6}, enqueued={7}, dequeued={8}, coalesced_skipped={9}, noop_signals={10}, in_flight={11}\r\n",
+                scheduler.TotalQueuedJobs,
+                scheduler.HighPriorityQueuedJobs,
+                scheduler.NormalPriorityQueuedJobs,
+                scheduler.LowPriorityQueuedJobs,
+                scheduler.RecurringJobs,
+                scheduler.ExecutedJobs,
+                scheduler.FailedJobs,
+                scheduler.EnqueuedJobs,
+                scheduler.DequeuedJobs,
+                scheduler.CoalescedSkippedJobs,
+                scheduler.DispatchNoopSignals,
+                scheduler.InFlightJobs);
+        }
+
+        if (diagnostics.PipelineTelemetry != null)
+        {
+            var pipeline = diagnostics.PipelineTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Pipeline telemetry: processed={0}, accepted={1}, rejected={2}, invalid_identity={3}, inactive_filtered={4}, placeholders={5}, detail_adjusted={6}, normalized={7}, privacy_redacted={8}, last_run={9}/{10}\r\n",
+                pipeline.TotalProcessedEntries,
+                pipeline.TotalAcceptedEntries,
+                pipeline.TotalRejectedEntries,
+                pipeline.InvalidIdentityCount,
+                pipeline.InactiveProviderFilteredCount,
+                pipeline.PlaceholderFilteredCount,
+                pipeline.DetailContractAdjustedCount,
+                pipeline.NormalizedCount,
+                pipeline.PrivacyRedactedCount,
+                pipeline.LastRunAcceptedEntries,
+                pipeline.LastRunTotalEntries);
         }
     }
 
