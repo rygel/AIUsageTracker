@@ -517,19 +517,15 @@ public class MonitorService : IMonitorService
     /// <inheritdoc/>
     public async Task<bool> CheckHealthAsync()
     {
-        await this.RefreshPortAsync().ConfigureAwait(false);
-        var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl("/api/health")),
-            nameof(this.CheckHealthAsync)).ConfigureAwait(false);
-        return response?.IsSuccessStatusCode == true;
+        var probe = await this.ProbeHealthAsync(nameof(this.CheckHealthAsync)).ConfigureAwait(false);
+        return probe.IsSuccess;
     }
 
     /// <inheritdoc/>
     public async Task<AgentHealthSnapshot?> GetHealthSnapshotAsync()
     {
-        return await this.GetFromMonitorJsonAsync<AgentHealthSnapshot>(
-            "/api/health",
-            nameof(this.GetHealthSnapshotAsync)).ConfigureAwait(false);
+        var probe = await this.ProbeHealthAsync(nameof(this.GetHealthSnapshotAsync)).ConfigureAwait(false);
+        return probe.Snapshot;
     }
 
     public async Task<AgentDiagnosticsSnapshot?> GetDiagnosticsSnapshotAsync()
@@ -544,10 +540,8 @@ public class MonitorService : IMonitorService
     {
         try
         {
-            using var response = await this.SendMonitorRequestAsync(
-                httpClient => httpClient.GetAsync(this.BuildMonitorUrl("/api/health")),
-                nameof(this.CheckApiContractAsync)).ConfigureAwait(false);
-            if (response == null)
+            var probe = await this.ProbeHealthAsync(nameof(this.CheckApiContractAsync)).ConfigureAwait(false);
+            if (!probe.HasResponse)
             {
                 return new AgentContractHandshakeResult
                 {
@@ -557,19 +551,17 @@ public class MonitorService : IMonitorService
                 };
             }
 
-            if (!response.IsSuccessStatusCode)
+            if (!probe.IsSuccess)
             {
                 return new AgentContractHandshakeResult
                 {
                     IsReachable = false,
                     IsCompatible = false,
-                    Message = $"Agent health check failed ({(int)response.StatusCode}).",
+                    Message = $"Agent health check failed ({probe.StatusCode}).",
                 };
             }
 
-            var health = await this.ReadMonitorResponseJsonAsync<AgentHealthSnapshot>(
-                response,
-                nameof(this.CheckApiContractAsync)).ConfigureAwait(false);
+            var health = probe.Snapshot;
             if (health == null)
             {
                 return new AgentContractHandshakeResult
@@ -630,6 +622,35 @@ public class MonitorService : IMonitorService
             };
         }
     }
+
+    private async Task<HealthProbeResult> ProbeHealthAsync(string operationName)
+    {
+        await this.RefreshPortAsync().ConfigureAwait(false);
+
+        using var response = await this.SendMonitorRequestAsync(
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl("/api/health")),
+            operationName).ConfigureAwait(false);
+        if (response == null)
+        {
+            return new HealthProbeResult(false, false, null, null);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return new HealthProbeResult(true, false, (int)response.StatusCode, null);
+        }
+
+        var snapshot = await this.ReadMonitorResponseJsonAsync<AgentHealthSnapshot>(
+            response,
+            operationName).ConfigureAwait(false);
+        return new HealthProbeResult(true, true, (int)response.StatusCode, snapshot);
+    }
+
+    private sealed record HealthProbeResult(
+        bool HasResponse,
+        bool IsSuccess,
+        int? StatusCode,
+        AgentHealthSnapshot? Snapshot);
 
     // Diagnostics & Export
     public async Task<(bool Success, string Message)> CheckProviderAsync(string providerId)
