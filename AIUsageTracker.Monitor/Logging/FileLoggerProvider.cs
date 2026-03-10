@@ -2,22 +2,25 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Monitor.Logging
+using Microsoft.Extensions.Logging;
+
+namespace AIUsageTracker.Monitor.Logging;
+
+public class FileLoggerProvider : ILoggerProvider
 {
-    public class FileLoggerProvider : ILoggerProvider
+    private readonly string _logFile;
+
+    public FileLoggerProvider(string logFile)
     {
-        private readonly string _logFile;
+        this._logFile = logFile;
+    }
 
-        public FileLoggerProvider(string logFile)
-        {
-            this._logFile = logFile;
-        }
+    public ILogger CreateLogger(string categoryName)
+    {
+        return new FileLogger(this._logFile, categoryName);
+    }
 
-        public ILogger CreateLogger(string categoryName)
-        {
-            return new FileLogger(this._logFile, categoryName);
-        }
-
-        public void Dispose() { }
+    public void Dispose()
+    {
     }
 }
