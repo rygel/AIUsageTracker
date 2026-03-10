@@ -253,7 +253,7 @@ public class ProviderRefreshServiceTests
     [Fact]
     public async Task TriggerRefreshAsync_UsesPipelinePrivacyFlagAndPersistsPipelineOutputAsync()
     {
-        var scenario = await CreatePipelinePrivacyScenarioAsync();
+        var scenario = CreatePipelinePrivacyScenario();
         InvokeInitializeProviders(scenario.Service, 6);
         try
         {
@@ -277,9 +277,9 @@ public class ProviderRefreshServiceTests
             Times.Once);
     }
 
-    private static async Task<PipelinePrivacyScenario> CreatePipelinePrivacyScenarioAsync()
+    private static PipelinePrivacyScenario CreatePipelinePrivacyScenario()
     {
-        var files = await CreatePipelineTestFilesAsync();
+        var files = CreatePipelineTestFiles();
         var loggerFactory = CreateLoggerFactory();
         var logger = new Mock<ILogger<ProviderRefreshService>>();
         var database = new Mock<IUsageDatabase>();
@@ -422,23 +422,24 @@ public class ProviderRefreshServiceTests
             pipeline);
     }
 
-    private static async Task<PipelineTestFiles> CreatePipelineTestFilesAsync()
+    private static PipelineTestFiles CreatePipelineTestFiles()
     {
         var root = Path.Combine(Path.GetTempPath(), $"provider-refresh-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
         var authPath = Path.Combine(root, "auth.json");
         var providersPath = Path.Combine(root, "providers.json");
         var preferencesPath = Path.Combine(root, "preferences.json");
-        await File.WriteAllTextAsync(authPath, """
+        var authJson = """
         {
           "openai": {
             "key": "test-key",
             "type": "pay-as-you-go"
           }
         }
-        """);
-        await File.WriteAllTextAsync(providersPath, "{}");
-        await File.WriteAllTextAsync(preferencesPath, "{}");
+        """;
+        File.WriteAllText(authPath, authJson);
+        File.WriteAllText(providersPath, "{}");
+        File.WriteAllText(preferencesPath, "{}");
         return new PipelineTestFiles(root, authPath, providersPath, preferencesPath);
     }
 
