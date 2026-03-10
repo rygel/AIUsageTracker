@@ -38,6 +38,8 @@ public class ProviderRefreshService : BackgroundService
     private readonly ProviderRefreshCircuitBreakerService _providerCircuitBreakerService;
     private readonly ProviderRefreshConfigSelector _configSelector;
     private readonly ProviderRefreshTelemetryManager _refreshTelemetryManager = new();
+    private readonly ProviderUsagePersistenceService _usagePersistenceService;
+    private readonly ProviderConnectivityCheckService _connectivityCheckService;
     private readonly IMonitorJobScheduler _jobScheduler;
     private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
     private readonly IHubContext<UsageHub>? _hubContext;
@@ -81,9 +83,15 @@ public class ProviderRefreshService : BackgroundService
         this._configSelector = new ProviderRefreshConfigSelector(
             providers,
             loggerFactory.CreateLogger<ProviderRefreshConfigSelector>());
+        this._usagePersistenceService = new ProviderUsagePersistenceService(
+            database,
+            loggerFactory.CreateLogger<ProviderUsagePersistenceService>());
         this._jobScheduler = jobScheduler;
         this._usageProcessingPipeline = usageProcessingPipeline ??
             new ProviderUsageProcessingPipeline(this._loggerFactory.CreateLogger<ProviderUsageProcessingPipeline>());
+        this._connectivityCheckService = new ProviderConnectivityCheckService(
+            configService,
+            this._usageProcessingPipeline);
         this._hubContext = hubContext;
     }
 
@@ -448,8 +456,9 @@ public class ProviderRefreshService : BackgroundService
         }
 
         this._providerCircuitBreakerService.UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
-        await this.UpsertDynamicProvidersAsync(filteredUsages, activeProviderIds).ConfigureAwait(false);
-        await this.StoreUsageHistoryAndSnapshotsAsync(filteredUsages).ConfigureAwait(false);
+        await this._usagePersistenceService
+            .PersistUsageAndDynamicProvidersAsync(filteredUsages, activeProviderIds)
+            .ConfigureAwait(false);
 
         await this._usageAlertsService.DetectResetEventsAsync(filteredUsages).ConfigureAwait(false);
         this._usageAlertsService.CheckUsageAlerts(filteredUsages, prefs, allConfigs);
@@ -458,58 +467,9 @@ public class ProviderRefreshService : BackgroundService
         this._logger.LogDebug("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
     }
 
-    private async Task UpsertDynamicProvidersAsync(List<ProviderUsage> filteredUsages, HashSet<string> activeProviderIds)
-    {
-        foreach (var usage in filteredUsages)
-        {
-            var isKnownActiveProvider = activeProviderIds.Contains(usage.ProviderId);
-            if (!IsDynamicChildOfAnyActiveProvider(activeProviderIds, usage.ProviderId) &&
-                isKnownActiveProvider)
-            {
-                continue;
-            }
-
-            if (!isKnownActiveProvider)
-            {
-                this._logger.LogInformation("Auto-registering dynamic provider: {ProviderId}", usage.ProviderId);
-            }
-
-            var dynamicConfig = new ProviderConfig
-            {
-                ProviderId = usage.ProviderId,
-                Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
-                AuthSource = usage.AuthSource,
-                ApiKey = "dynamic", // Placeholder to mark as active
-            };
-
-            await this._database.StoreProviderAsync(dynamicConfig, usage.ProviderName).ConfigureAwait(false);
-            if (!isKnownActiveProvider)
-            {
-                activeProviderIds.Add(usage.ProviderId);
-            }
-        }
-    }
-
-    private async Task StoreUsageHistoryAndSnapshotsAsync(List<ProviderUsage> filteredUsages)
-    {
-        await this._database.StoreHistoryAsync(filteredUsages).ConfigureAwait(false);
-        this._logger.LogDebug("Stored {Count} provider histories", filteredUsages.Count);
-
-        foreach (var usage in filteredUsages.Where(u => !string.IsNullOrEmpty(u.RawJson)))
-        {
-            await this._database.StoreRawSnapshotAsync(usage.ProviderId, usage.RawJson!, usage.HttpStatus).ConfigureAwait(false);
-        }
-    }
-
     public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
     {
         return this._refreshTelemetryManager.GetSnapshot(this._providerCircuitBreakerService.GetProviderDiagnostics());
-    }
-
-    private static bool IsDynamicChildOfAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
-    {
-        return activeProviderIds.Any(providerId =>
-            usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<(bool success, string message, int status)> CheckProviderAsync(string providerId)
@@ -531,29 +491,7 @@ public class ProviderRefreshService : BackgroundService
                 }
 
                 var usages = await this._providerManager.GetUsageAsync(providerId).ConfigureAwait(false);
-                var preferences = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
-                var processingResult = this._usageProcessingPipeline.Process(
-                    usages,
-                    new[] { providerId },
-                    preferences.IsPrivacyMode);
-                var usage = processingResult.Usages.FirstOrDefault();
-
-                if (usage == null)
-                {
-                    return (false, "No usage data returned", 404);
-                }
-
-                if (usage.HttpStatus >= 400 && usage.HttpStatus != 429) // 429 is rate limit, which means auth works
-                {
-                    return (false, usage.Description, usage.HttpStatus);
-                }
-
-                if (!usage.IsAvailable)
-                {
-                    return (false, usage.Description, 503);
-                }
-
-                return (true, "Connected", 200);
+                return await this._connectivityCheckService.EvaluateAsync(providerId, usages).ConfigureAwait(false);
             }
             finally
             {
