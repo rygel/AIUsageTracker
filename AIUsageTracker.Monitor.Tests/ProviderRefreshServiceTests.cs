@@ -232,6 +232,31 @@ public class ProviderRefreshServiceTests
     }
 
     [Fact]
+    public void QueueManualRefresh_WithScopedRequest_UsesRequestAwareCoalesceKey()
+    {
+        this._mockJobScheduler
+            .Setup(s => s.Enqueue(
+                It.IsAny<string>(),
+                It.IsAny<Func<CancellationToken, Task>>(),
+                It.IsAny<MonitorJobPriority>(),
+                It.IsAny<string?>()))
+            .Returns(true);
+
+        var queued = this._service.QueueManualRefresh(
+            includeProviderIds: new[] { "zai", "OpenAI" },
+            bypassCircuitBreaker: true);
+
+        Assert.True(queued);
+        this._mockJobScheduler.Verify(
+            s => s.Enqueue(
+                "manual-provider-refresh",
+                It.IsAny<Func<CancellationToken, Task>>(),
+                MonitorJobPriority.High,
+                "manual-provider-refresh|forceAll=False|bypass=True|include=OpenAI,zai"),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task QueueForceRefresh_QueuedWorkBypassesCircuitBreakerAsync()
     {
         Func<CancellationToken, Task>? queuedWork = null;

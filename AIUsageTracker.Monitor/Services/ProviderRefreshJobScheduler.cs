@@ -41,13 +41,18 @@ internal sealed class ProviderRefreshJobScheduler
             coalesceKey: ScheduledRefreshCoalesceKey);
     }
 
-    public bool QueueManualRefresh(Func<CancellationToken, Task> refreshTask)
+    public bool QueueManualRefresh(
+        Func<CancellationToken, Task> refreshTask,
+        string? coalesceKey = null)
     {
+        var effectiveCoalesceKey = string.IsNullOrWhiteSpace(coalesceKey)
+            ? ManualRefreshCoalesceKey
+            : coalesceKey;
         var queued = this._jobScheduler.Enqueue(
             ManualRefreshJobName,
             refreshTask,
             MonitorJobPriority.High,
-            coalesceKey: ManualRefreshCoalesceKey);
+            coalesceKey: effectiveCoalesceKey);
 
         if (!queued)
         {

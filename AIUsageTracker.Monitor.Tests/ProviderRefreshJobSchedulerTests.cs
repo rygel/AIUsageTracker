@@ -56,6 +56,30 @@ public class ProviderRefreshJobSchedulerTests
     }
 
     [Fact]
+    public void QueueManualRefresh_WithCustomCoalesceKey_UsesProvidedKey()
+    {
+        var scheduler = this.CreateScheduler();
+        this._jobScheduler
+            .Setup(jobScheduler => jobScheduler.Enqueue(
+                It.IsAny<string>(),
+                It.IsAny<Func<CancellationToken, Task>>(),
+                It.IsAny<MonitorJobPriority>(),
+                It.IsAny<string?>()))
+            .Returns(true);
+
+        var queued = scheduler.QueueManualRefresh(_ => Task.CompletedTask, "manual-provider-refresh|scope=openai");
+
+        Assert.True(queued);
+        this._jobScheduler.Verify(
+            jobScheduler => jobScheduler.Enqueue(
+                "manual-provider-refresh",
+                It.IsAny<Func<CancellationToken, Task>>(),
+                MonitorJobPriority.High,
+                "manual-provider-refresh|scope=openai"),
+            Times.Once);
+    }
+
+    [Fact]
     public void QueueInitialDataSeeding_UsesHighPriorityWithCoalesceKey()
     {
         var scheduler = this.CreateScheduler();

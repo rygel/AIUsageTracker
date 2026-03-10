@@ -133,8 +133,10 @@ public class ProviderRefreshService : BackgroundService
         IReadOnlyCollection<string>? includeProviderIds = null,
         bool bypassCircuitBreaker = false)
     {
+        var coalesceKey = BuildManualRefreshCoalesceKey(forceAll, includeProviderIds, bypassCircuitBreaker);
         return this._refreshJobScheduler.QueueManualRefresh(
-            _ => this.TriggerRefreshAsync(forceAll, includeProviderIds, bypassCircuitBreaker));
+            _ => this.TriggerRefreshAsync(forceAll, includeProviderIds, bypassCircuitBreaker),
+            coalesceKey);
     }
 
     public bool QueueForceRefresh(
@@ -160,6 +162,29 @@ public class ProviderRefreshService : BackgroundService
     private void InitializeProviders(int maxConcurrentProviderRequests)
     {
         this._providerManagerLifecycle.Initialize(maxConcurrentProviderRequests);
+    }
+
+    private static string? BuildManualRefreshCoalesceKey(
+        bool forceAll,
+        IReadOnlyCollection<string>? includeProviderIds,
+        bool bypassCircuitBreaker)
+    {
+        var normalizedIds = (includeProviderIds ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (!forceAll && !bypassCircuitBreaker && normalizedIds.Length == 0)
+        {
+            return null;
+        }
+
+        var includeSegment = normalizedIds.Length == 0
+            ? "all"
+            : string.Join(",", normalizedIds);
+        return $"manual-provider-refresh|forceAll={forceAll}|bypass={bypassCircuitBreaker}|include={includeSegment}";
     }
 
     public virtual async Task TriggerRefreshAsync(
