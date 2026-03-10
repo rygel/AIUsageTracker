@@ -50,11 +50,6 @@ public sealed class MonitorLifecycleService : IMonitorLifecycleService
 
     public async Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
     {
-        var snapshot = await MonitorLauncher.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
-        return new MonitorMetadataStatus
-        {
-            IsUsable = snapshot.IsUsable,
-            Info = snapshot.Info,
-        };
+        return await MonitorLauncher.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
     }
 }
