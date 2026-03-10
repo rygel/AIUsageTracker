@@ -24,7 +24,7 @@ public class ProviderRefreshConfigLoadingServiceTests
             new() { ProviderId = "codex", ApiKey = "session-token" },
         });
 
-        var service = CreateService(CreateProvider("antigravity", autoIncludeWhenUnconfigured: true));
+        var service = this.CreateService(CreateProvider("antigravity", autoIncludeWhenUnconfigured: true));
 
         var (configs, activeConfigs) = await service.LoadConfigsForRefreshAsync(forceAll: false, includeProviderIds: null);
 
@@ -45,7 +45,7 @@ public class ProviderRefreshConfigLoadingServiceTests
             new() { ProviderId = "codex" },
         });
 
-        var service = CreateService();
+        var service = this.CreateService();
 
         var (_, activeConfigs) = await service.LoadConfigsForRefreshAsync(forceAll: true, includeProviderIds: null);
 
@@ -63,7 +63,7 @@ public class ProviderRefreshConfigLoadingServiceTests
             new() { ProviderId = "openai", ApiKey = "sk-live-openai" },
         });
 
-        var service = CreateService();
+        var service = this.CreateService();
 
         var (_, activeConfigs) = await service.LoadConfigsForRefreshAsync(
             forceAll: false,
@@ -81,25 +81,12 @@ public class ProviderRefreshConfigLoadingServiceTests
             new() { ProviderId = "openai", ApiKey = "key-1" },
             new() { ProviderId = "codex", ApiKey = "key-2" },
         };
-        var service = CreateService();
+        var service = this.CreateService();
 
         await service.PersistConfiguredProvidersAsync(configs);
 
         this._database.Verify(database => database.StoreProviderAsync(configs[0], null), Times.Once);
         this._database.Verify(database => database.StoreProviderAsync(configs[1], null), Times.Once);
-    }
-
-    private ProviderRefreshConfigLoadingService CreateService(params IProviderService[] providers)
-    {
-        var selector = new ProviderRefreshConfigSelector(
-            providers,
-            NullLogger<ProviderRefreshConfigSelector>.Instance);
-
-        return new ProviderRefreshConfigLoadingService(
-            this._configService.Object,
-            this._database.Object,
-            selector,
-            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
     }
 
     private static IProviderService CreateProvider(
@@ -119,5 +106,18 @@ public class ProviderRefreshConfigLoadingServiceTests
         mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
             .ReturnsAsync(Array.Empty<ProviderUsage>());
         return mock.Object;
+    }
+
+    private ProviderRefreshConfigLoadingService CreateService(params IProviderService[] providers)
+    {
+        var selector = new ProviderRefreshConfigSelector(
+            providers,
+            NullLogger<ProviderRefreshConfigSelector>.Instance);
+
+        return new ProviderRefreshConfigLoadingService(
+            this._configService.Object,
+            this._database.Object,
+            selector,
+            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
     }
 }

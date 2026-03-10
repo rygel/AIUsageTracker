@@ -15,6 +15,14 @@ internal static class MonitorUsageEndpoints
 {
     public static void Map(WebApplication app)
     {
+        MapGetUsage(app);
+        MapGetUsageByProvider(app);
+        MapPostRefresh(app);
+        MapPostNotificationTest(app);
+    }
+
+    private static void MapGetUsage(WebApplication app)
+    {
         app.MapGet(MonitorApiRoutes.Usage, async (UsageDatabase db, IConfigService configService, ILogger<Program> logger) =>
         {
             var usage = await db.GetLatestHistoryAsync().ConfigureAwait(false);
@@ -31,7 +39,10 @@ internal static class MonitorUsageEndpoints
 
             return Results.Ok(usage);
         });
+    }
 
+    private static void MapGetUsageByProvider(WebApplication app)
+    {
         app.MapGet(MonitorApiRoutes.UsageByProvider, async (string providerId, UsageDatabase db, ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(providerId))
@@ -44,7 +55,10 @@ internal static class MonitorUsageEndpoints
             var result = usage.FirstOrDefault();
             return result != null ? Results.Ok(result) : Results.NotFound();
         });
+    }
 
+    private static void MapPostRefresh(WebApplication app)
+    {
         app.MapPost(MonitorApiRoutes.Refresh, ([FromServices] ProviderRefreshService refreshService, ILogger<Program> logger, [FromQuery] bool forceAll = false, [FromQuery] string? providerIds = null) =>
         {
             var includeProviderIds = ParseProviderIds(providerIds);
@@ -64,7 +78,10 @@ internal static class MonitorUsageEndpoints
                 includeProviderCount = includeProviderIds?.Count ?? 0,
             });
         });
+    }
 
+    private static void MapPostNotificationTest(WebApplication app)
+    {
         app.MapPost(MonitorApiRoutes.NotificationTest, ([FromServices] INotificationService notificationService, ILogger<Program> logger) =>
         {
             logger.LogDebug("POST {Route}", MonitorApiRoutes.NotificationTest);

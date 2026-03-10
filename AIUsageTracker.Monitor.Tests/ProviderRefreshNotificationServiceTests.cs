@@ -87,8 +87,32 @@ public class ProviderRefreshNotificationServiceTests
     private static AlertScenario CreateAlertScenario()
     {
         var database = new Mock<IUsageDatabase>();
-        database.Setup(d => d.GetRecentHistoryAsync(2)).ReturnsAsync(new List<ProviderUsage>
-        {
+        database.Setup(d => d.GetRecentHistoryAsync(2)).ReturnsAsync(CreateRecentUsageHistory());
+
+        var notificationService = new Mock<INotificationService>();
+        var configService = new Mock<IConfigService>();
+        configService.Setup(service => service.GetPreferencesAsync()).ReturnsAsync(CreateNotificationPreferences());
+        configService.Setup(service => service.GetConfigsAsync()).ReturnsAsync(CreateNotifiableConfigs());
+
+        var alertsService = new UsageAlertsService(
+            NullLogger<UsageAlertsService>.Instance,
+            database.Object,
+            notificationService.Object,
+            configService.Object);
+
+        return new AlertScenario(
+            new ProviderRefreshNotificationService(alertsService),
+            database,
+            notificationService,
+            CreateUsageThresholdPreferences(),
+            CreateNotifiableConfigs(),
+            CreateCurrentUsage());
+    }
+
+    private static List<ProviderUsage> CreateRecentUsageHistory()
+    {
+        return
+        [
             new()
             {
                 ProviderId = "openai",
@@ -105,60 +129,54 @@ public class ProviderRefreshNotificationServiceTests
                 RequestsAvailable = 100,
                 IsAvailable = true,
             },
-        });
+        ];
+    }
 
-        var notificationService = new Mock<INotificationService>();
-        var configService = new Mock<IConfigService>();
-        configService.Setup(service => service.GetPreferencesAsync()).ReturnsAsync(new AppPreferences
-        {
-            EnableNotifications = true,
-            NotifyOnQuotaExceeded = true,
-        });
-        configService.Setup(service => service.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
-        {
+    private static List<ProviderUsage> CreateCurrentUsage()
+    {
+        return
+        [
+            new()
+            {
+                ProviderId = "openai",
+                ProviderName = "OpenAI",
+                RequestsUsed = 90,
+                RequestsAvailable = 100,
+                RequestsPercentage = 90,
+                IsAvailable = true,
+            },
+        ];
+    }
+
+    private static List<ProviderConfig> CreateNotifiableConfigs()
+    {
+        return
+        [
             new()
             {
                 ProviderId = "openai",
                 EnableNotifications = true,
             },
-        });
+        ];
+    }
 
-        var alertsService = new UsageAlertsService(
-            NullLogger<UsageAlertsService>.Instance,
-            database.Object,
-            notificationService.Object,
-            configService.Object);
+    private static AppPreferences CreateNotificationPreferences()
+    {
+        return new AppPreferences
+        {
+            EnableNotifications = true,
+            NotifyOnQuotaExceeded = true,
+        };
+    }
 
-        return new AlertScenario(
-            new ProviderRefreshNotificationService(alertsService),
-            database,
-            notificationService,
-            new AppPreferences
-            {
-                EnableNotifications = true,
-                NotifyOnUsageThreshold = true,
-                NotificationThreshold = 80,
-            },
-            new List<ProviderConfig>
-            {
-                new()
-                {
-                    ProviderId = "openai",
-                    EnableNotifications = true,
-                },
-            },
-            new List<ProviderUsage>
-            {
-                new()
-                {
-                    ProviderId = "openai",
-                    ProviderName = "OpenAI",
-                    RequestsUsed = 90,
-                    RequestsAvailable = 100,
-                    RequestsPercentage = 90,
-                    IsAvailable = true,
-                },
-            });
+    private static AppPreferences CreateUsageThresholdPreferences()
+    {
+        return new AppPreferences
+        {
+            EnableNotifications = true,
+            NotifyOnUsageThreshold = true,
+            NotificationThreshold = 80,
+        };
     }
 
     private sealed record AlertScenario(
