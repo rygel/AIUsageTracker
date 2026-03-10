@@ -32,7 +32,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers
             var usage = result.Single();
             Assert.False(usage.IsAvailable);
             Assert.Equal(404, usage.HttpStatus);
-            Assert.Contains("CLI not found", usage.Description);
+            Assert.Contains("CLI not found", usage.Description, StringComparison.Ordinal);
         }
     }
 }
