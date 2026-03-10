@@ -1,8 +1,8 @@
 {
   "defaultTheme": "Dark",
   "sourcePolicy": {
-    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for App.xaml.cs lifecycle/DI maintenance and recent screenshot/smoke-test cleanup on 2026-03-09; no theme definitions changed.",
-    "updatedAt": "2026-03-09",
+    "notes": "Use this file as the single source of truth for theme metadata across Slim/Web and tests. Updated for App.xaml.cs lifecycle/DI maintenance, ScreenshotTests async naming cleanup, and recent screenshot/smoke-test maintenance on 2026-03-10; no theme definitions changed.",
+    "updatedAt": "2026-03-10",
     "references": [
       "https://catppuccin.com/palette/",
       "https://code.visualstudio.com/docs/getstarted/themes"
