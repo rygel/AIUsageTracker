@@ -3,10 +3,12 @@
 // </copyright>
 
 using System.Text.Json;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AIUsageTracker.Tests.Core;
 
@@ -112,6 +114,46 @@ public sealed class MonitorProcessServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAgentStatusDetailedAsync_ReturnsDegradedHealthSummary_WhenMonitorIsRunningAsync()
+    {
+        var infoPath = await this.CreateMonitorInfoAsync(new MonitorInfo
+        {
+            Port = 6333,
+            ProcessId = 7777,
+        });
+
+        using var overrides = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: new[] { infoPath },
+            healthCheckAsync: port => Task.FromResult(port == 6333),
+            processRunningAsync: processId => Task.FromResult(processId == 7777));
+
+        var healthSnapshot = new MonitorHealthSnapshot
+        {
+            Status = "healthy",
+            ServiceHealth = "degraded",
+            RefreshHealth = new MonitorRefreshHealthSnapshot
+            {
+                Status = "degraded",
+                LastError = "ProviderManager not ready",
+                ProvidersInBackoff = 2,
+                FailingProviders = new[] { "openai", "anthropic" },
+            },
+        };
+        var service = this.CreateService(healthSnapshot);
+
+        var result = await service.GetAgentStatusDetailedAsync();
+
+        Assert.True(result.IsRunning);
+        Assert.Equal(6333, result.Port);
+        Assert.Equal("degraded", result.ServiceHealth);
+        Assert.Equal("ProviderManager not ready", result.LastRefreshError);
+        Assert.Equal(2, result.ProvidersInBackoff);
+        Assert.Equal(new[] { "openai", "anthropic" }, result.FailingProviders);
+        Assert.Contains("degraded", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("openai", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task StopAgentDetailedAsync_ReturnsAlreadyStopped_WhenMonitorInfoIsAbsentAsync()
     {
         using var overrides = MonitorLauncher.PushTestOverrides(
@@ -135,9 +177,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
         }
     }
 
-    private MonitorProcessService CreateService()
+    private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null)
     {
-        return new MonitorProcessService(NullLogger<MonitorProcessService>.Instance);
+        var monitorService = new Mock<IMonitorService>();
+        monitorService.Setup(service => service.RefreshAgentInfoAsync()).Returns(Task.CompletedTask);
+        monitorService.Setup(service => service.GetHealthSnapshotAsync()).ReturnsAsync(healthSnapshot);
+        return new MonitorProcessService(NullLogger<MonitorProcessService>.Instance, monitorService.Object);
     }
 
     private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)

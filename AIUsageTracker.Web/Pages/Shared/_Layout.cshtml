@@ -133,13 +133,14 @@
                 const data = await res.json();
                 const statusEl = document.getElementById('agent-status');
                 const btn = document.getElementById('agent-toggle-btn');
-                
+                const isDegraded = data.isRunning && data.serviceHealth && data.serviceHealth.toLowerCase() === 'degraded';
+                 
                 isMonitorRunning = data.isRunning;
-                
+                 
                 if (data.isRunning) {
-                    statusEl.textContent = 'Monitor: Running';
+                    statusEl.textContent = isDegraded ? 'Monitor: Running (Degraded)' : 'Monitor: Running';
                     statusEl.classList.add('running');
-                    setStatusDetail(data.message || `Healthy on port ${data.port}.`, false);
+                    setStatusDetail(data.message || `Healthy on port ${data.port}.`, isDegraded);
                     btn.textContent = 'Stop';
                     btn.classList.remove('btn-primary');
                     btn.classList.add('btn-danger');
