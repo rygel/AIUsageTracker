@@ -30,7 +30,7 @@ internal sealed class TestWebHost : IDisposable
         var scenarioPath = Path.Combine(tempDirectory, "monitor-scenario.json");
         await File.WriteAllTextAsync(scenarioPath, JsonSerializer.Serialize(scenario)).ConfigureAwait(false);
 
-        var factory = new KestrelWebApplicationFactory<Program>(new Dictionary<string, string>
+        var factory = new KestrelWebApplicationFactory<Program>(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [ScenarioPathEnvironmentVariable] = scenarioPath,
         });
