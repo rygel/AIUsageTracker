@@ -19,13 +19,10 @@ namespace AIUsageTracker.Monitor.Services;
 public class ProviderRefreshService : BackgroundService
 {
     private readonly ILogger<ProviderRefreshService> _logger;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly IUsageDatabase _database;
     private readonly INotificationService _notificationService;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfigService _configService;
     private readonly IAppPathProvider _pathProvider;
-    private readonly IEnumerable<IProviderService> _providers;
     private readonly ProviderRefreshCircuitBreakerService _providerCircuitBreakerService;
     private readonly ProviderRefreshConfigLoadingService _configLoadingService;
     private readonly ProviderRefreshTelemetryManager _refreshTelemetryManager = new();
@@ -62,46 +59,29 @@ public class ProviderRefreshService : BackgroundService
         IHubContext<UsageHub>? hubContext = null)
     {
         this._logger = logger;
-        this._loggerFactory = loggerFactory;
         this._database = database;
         this._notificationService = notificationService;
-        this._httpClientFactory = httpClientFactory;
         this._configService = configService;
         this._pathProvider = pathProvider;
-        this._providers = providers;
         this._providerCircuitBreakerService = providerCircuitBreakerService;
-        var configSelector = new ProviderRefreshConfigSelector(
-            providers,
-            loggerFactory.CreateLogger<ProviderRefreshConfigSelector>());
-        this._configLoadingService = new ProviderRefreshConfigLoadingService(
-            configService,
-            database,
-            configSelector,
-            loggerFactory.CreateLogger<ProviderRefreshConfigLoadingService>());
-        this._usagePersistenceService = new ProviderUsagePersistenceService(
-            database,
-            loggerFactory.CreateLogger<ProviderUsagePersistenceService>());
-        this._refreshJobScheduler = new ProviderRefreshJobScheduler(
-            jobScheduler,
-            loggerFactory.CreateLogger<ProviderRefreshJobScheduler>());
-        this._providerManagerLifecycle = new ProviderManagerLifecycleService(
-            loggerFactory.CreateLogger<ProviderManagerLifecycleService>(),
+        var dependencies = ProviderRefreshServiceFactory.CreateDependencies(
             loggerFactory,
+            database,
             configService,
             pathProvider,
-            providers);
-        this._refreshNotificationService = new ProviderRefreshNotificationService(
+            providers,
             usageAlertsService,
+            jobScheduler,
+            usageProcessingPipeline,
             hubContext);
-        this._startupSequenceService = new StartupSequenceService(
-            this._refreshJobScheduler,
-            configService,
-            loggerFactory.CreateLogger<StartupSequenceService>());
-        this._usageProcessingPipeline = usageProcessingPipeline ??
-            new ProviderUsageProcessingPipeline(this._loggerFactory.CreateLogger<ProviderUsageProcessingPipeline>());
-        this._connectivityCheckService = new ProviderConnectivityCheckService(
-            configService,
-            this._usageProcessingPipeline);
+        this._configLoadingService = dependencies.ConfigLoadingService;
+        this._usagePersistenceService = dependencies.UsagePersistenceService;
+        this._connectivityCheckService = dependencies.ConnectivityCheckService;
+        this._refreshJobScheduler = dependencies.RefreshJobScheduler;
+        this._providerManagerLifecycle = dependencies.ProviderManagerLifecycle;
+        this._refreshNotificationService = dependencies.RefreshNotificationService;
+        this._startupSequenceService = dependencies.StartupSequenceService;
+        this._usageProcessingPipeline = dependencies.UsageProcessingPipeline;
     }
 
     private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
