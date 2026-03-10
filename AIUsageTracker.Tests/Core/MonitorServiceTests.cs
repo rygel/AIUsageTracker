@@ -476,6 +476,39 @@ public class MonitorServiceTests
     }
 
     [Fact]
+    public async Task GetDiagnosticsSnapshotAsync_Success_ReturnsTypedTelemetryAsync()
+    {
+        this.SetupMockResponse(HttpStatusCode.OK, CreateDiagnosticsPayload());
+
+        var diagnostics = await this._service.GetDiagnosticsSnapshotAsync();
+
+        Assert.NotNull(diagnostics);
+        Assert.Equal(5003, diagnostics.Port);
+        Assert.Equal(1234, diagnostics.ProcessId);
+        Assert.Single(diagnostics.Endpoints);
+        Assert.Equal("/api/usage", diagnostics.Endpoints[0].Route);
+        Assert.Equal(5, diagnostics.RefreshTelemetry?.RefreshCount);
+        Assert.Equal(45, diagnostics.SchedulerTelemetry?.EnqueuedJobs);
+        Assert.Equal(3, diagnostics.PipelineTelemetry?.PlaceholderFilteredCount);
+        this.VerifyPath("/api/diagnostics");
+    }
+
+    [Fact]
+    public async Task GetDiagnosticsSnapshotAsync_RequestFails_ReturnsNullAsync()
+    {
+        this._mockHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException("network failure"));
+
+        var diagnostics = await this._service.GetDiagnosticsSnapshotAsync();
+
+        Assert.Null(diagnostics);
+    }
+
+    [Fact]
     public async Task SendTestNotificationDetailedAsync_Success_ReturnsSuccessMessageAsync()
     {
         // Arrange
@@ -626,5 +659,66 @@ public class MonitorServiceTests
         var json = JsonSerializer.Serialize(info);
         await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
         return path;
+    }
+
+    private static object CreateDiagnosticsPayload()
+    {
+        return new
+        {
+            port = 5003,
+            process_id = 1234,
+            working_dir = "C:/monitor",
+            base_dir = "C:/monitor/bin",
+            started_at = "2026-03-10 11:00:00",
+            os = "Windows",
+            runtime = ".NET 8",
+            args = new[] { "--debug" },
+            endpoints = new[]
+            {
+                new
+                {
+                    route = "/api/usage",
+                    methods = new[] { "GET" },
+                },
+            },
+            refresh_telemetry = new
+            {
+                refresh_count = 5,
+                refresh_success_count = 4,
+                refresh_failure_count = 1,
+                error_rate_percent = 20.0,
+                average_latency_ms = 15.2,
+                last_latency_ms = 10,
+            },
+            scheduler_telemetry = new
+            {
+                high_priority_queued_jobs = 1,
+                normal_priority_queued_jobs = 2,
+                low_priority_queued_jobs = 0,
+                total_queued_jobs = 3,
+                recurring_jobs = 1,
+                executed_jobs = 40,
+                failed_jobs = 2,
+                enqueued_jobs = 45,
+                dequeued_jobs = 44,
+                coalesced_skipped_jobs = 3,
+                dispatch_noop_signals = 1,
+                in_flight_jobs = 0,
+            },
+            pipeline_telemetry = new
+            {
+                total_processed_entries = 100,
+                total_accepted_entries = 90,
+                total_rejected_entries = 10,
+                invalid_identity_count = 1,
+                inactive_provider_filtered_count = 2,
+                placeholder_filtered_count = 3,
+                detail_contract_adjusted_count = 4,
+                normalized_count = 20,
+                privacy_redacted_count = 8,
+                last_run_total_entries = 6,
+                last_run_accepted_entries = 5,
+            },
+        };
     }
 }

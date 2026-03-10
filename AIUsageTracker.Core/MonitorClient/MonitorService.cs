@@ -538,6 +538,13 @@ public class MonitorService : IMonitorService
         return this.GetEndpointDetailsAsync("/api/diagnostics");
     }
 
+    public async Task<AgentDiagnosticsSnapshot?> GetDiagnosticsSnapshotAsync()
+    {
+        return await this.GetFromMonitorJsonAsync<AgentDiagnosticsSnapshot>(
+            "/api/diagnostics",
+            nameof(this.GetDiagnosticsSnapshotAsync)).ConfigureAwait(false);
+    }
+
     private async Task<string> GetEndpointDetailsAsync(string endpointPath)
     {
         var response = await this.SendMonitorRequestAsync(
