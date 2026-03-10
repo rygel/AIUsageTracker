@@ -213,7 +213,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task Dashboard_StylesheetAssetsLoadAndStylesApply()
+        public async Task Dashboard_StylesheetAssetsLoadAndStylesApplyAsync()
         {
             const string testName = "Dashboard_StylesheetAssetsLoadAndStylesApply";
             await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
@@ -266,7 +266,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task Dashboard_ReliabilityPanelStylesAndMarkupArePresent()
+        public async Task Dashboard_ReliabilityPanelStylesAndMarkupArePresentAsync()
         {
             const string testName = "Dashboard_ReliabilityPanelStylesAndMarkupArePresent";
             await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
@@ -322,7 +322,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task CaptureWebScreenshots()
+        public async Task CaptureWebScreenshotsAsync()
         {
             const string testName = "CaptureWebScreenshots";
             await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(testName);
@@ -362,7 +362,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ThemeSelector_AppliesAllThemes()
+        public async Task ThemeSelector_AppliesAllThemesAsync()
         {
             const string testName = "ThemeSelector_AppliesAllThemes";
             await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(testName);
@@ -412,7 +412,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task RepresentativeThemes_RenderDistinctVisualSnapshots()
+        public async Task RepresentativeThemes_RenderDistinctVisualSnapshotsAsync()
         {
             const string testName = "RepresentativeThemes_RenderDistinctVisualSnapshots";
             await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
@@ -478,7 +478,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task RepresentativeThemes_ExposeExpectedCssTokens()
+        public async Task RepresentativeThemes_ExposeExpectedCssTokensAsync()
         {
             const string testName = "RepresentativeThemes_ExposeExpectedCssTokens";
             await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(

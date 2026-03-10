@@ -20,7 +20,7 @@ namespace AIUsageTracker.Web.Tests
         [DataRow("/charts")]
         [DataRow("/history")]
         [DataRow("/reliability")]
-        public async Task Page_LoadsSuccessfully(string path)
+        public async Task Page_LoadsSuccessfullyAsync(string path)
         {
             using var client = CreateClient();
             using var response = await client.GetAsync(path);
@@ -29,7 +29,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task Dashboard_HasExpectedElements()
+        public async Task Dashboard_HasExpectedElementsAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/");
@@ -43,7 +43,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task Dashboard_ModelBinding_WithShowUsedParameter()
+        public async Task Dashboard_ModelBinding_WithShowUsedParameterAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/?showUsed=true");
@@ -56,7 +56,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task Dashboard_ModelBinding_WithShowInactiveParameter()
+        public async Task Dashboard_ModelBinding_WithShowInactiveParameterAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/?showInactive=true");
@@ -69,7 +69,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ProvidersPage_LoadsSuccessfully()
+        public async Task ProvidersPage_LoadsSuccessfullyAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/providers");
@@ -78,7 +78,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ProvidersPage_HasTableStructure()
+        public async Task ProvidersPage_HasTableStructureAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/providers");
@@ -89,7 +89,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ChartsPage_LoadsSuccessfully()
+        public async Task ChartsPage_LoadsSuccessfullyAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/charts");
@@ -98,7 +98,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ChartsPage_HasChartElements()
+        public async Task ChartsPage_HasChartElementsAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/charts");
@@ -109,7 +109,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task HistoryPage_LoadsSuccessfully()
+        public async Task HistoryPage_LoadsSuccessfullyAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/history");
@@ -118,7 +118,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task HistoryPage_HasTableStructure()
+        public async Task HistoryPage_HasTableStructureAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/history");
@@ -129,7 +129,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ProviderPage_LoadsSuccessfully()
+        public async Task ProviderPage_LoadsSuccessfullyAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/provider/openai");
@@ -138,7 +138,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ProviderPage_HasProviderDetails()
+        public async Task ProviderPage_HasProviderDetailsAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/provider/openai");
@@ -148,7 +148,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ReliabilityPage_LoadsSuccessfully()
+        public async Task ReliabilityPage_LoadsSuccessfullyAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/reliability");
@@ -157,7 +157,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ReliabilityPage_HasReliabilityElements()
+        public async Task ReliabilityPage_HasReliabilityElementsAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/reliability");
@@ -166,7 +166,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ErrorPage_LoadsSuccessfully()
+        public async Task ErrorPage_LoadsSuccessfullyAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/error");
@@ -175,7 +175,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task ErrorPage_HasErrorMessage()
+        public async Task ErrorPage_HasErrorMessageAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/error?message=TestError");
@@ -184,7 +184,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task Layout_HasConsistentNavigation()
+        public async Task Layout_HasConsistentNavigationAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/");
@@ -226,7 +226,7 @@ namespace AIUsageTracker.Web.Tests
         }
 
         [TestMethod]
-        public async Task Layout_HasThemeToggle()
+        public async Task Layout_HasThemeToggleAsync()
         {
             using var client = CreateClient();
             using var response = await client.GetAsync("/");
