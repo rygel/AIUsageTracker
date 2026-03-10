@@ -113,7 +113,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task GetUsageAsync_RevalidatesEndpointBeforeRequestAsync()
     {
-        var tempDirectory = CreateTempDirectory();
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -170,7 +170,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task GetUsageAsync_RequestTimesOut_RefreshesEndpointAndRetriesAsync()
     {
-        var tempDirectory = CreateTempDirectory();
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -229,7 +229,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task GetUsageAsync_RequestTimesOutTwice_ReturnsEmptyListAsync()
     {
-        var tempDirectory = CreateTempDirectory();
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -267,7 +267,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task TriggerRefreshAsync_RevalidatesEndpointBeforeRefreshRequestAsync()
     {
-        var tempDirectory = CreateTempDirectory();
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -329,7 +329,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task CheckHealthAsync_RevalidatesEndpointBeforeHealthRequestAsync()
     {
-        var tempDirectory = CreateTempDirectory();
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -789,16 +789,16 @@ public class MonitorServiceTests
             ItExpr.IsAny<CancellationToken>());
     }
 
+    private string CreateTempDirectory()
+    {
+        return TestTempPaths.CreateDirectory("monitor-service-tests");
+    }
+
     private async Task<string> CreateMonitorInfoAsync(string directory, MonitorInfo info)
     {
         var path = Path.Combine(directory, "monitor.json");
         var json = JsonSerializer.Serialize(info);
         await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
         return path;
-    }
-
-    private static string CreateTempDirectory()
-    {
-        return TestTempPaths.CreateDirectory("monitor-service-tests");
     }
 }
