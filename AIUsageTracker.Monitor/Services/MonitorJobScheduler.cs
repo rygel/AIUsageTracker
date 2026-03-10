@@ -387,22 +387,25 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
         switch (priority)
         {
             case MonitorJobPriority.High:
-                if (this._highPriorityQueue.TryDequeue(out job))
+                if (this._highPriorityQueue.TryDequeue(out var highJob) && highJob is not null)
                 {
+                    job = highJob;
                     return true;
                 }
 
                 break;
             case MonitorJobPriority.Low:
-                if (this._lowPriorityQueue.TryDequeue(out job))
+                if (this._lowPriorityQueue.TryDequeue(out var lowJob) && lowJob is not null)
                 {
+                    job = lowJob;
                     return true;
                 }
 
                 break;
             default:
-                if (this._normalPriorityQueue.TryDequeue(out job))
+                if (this._normalPriorityQueue.TryDequeue(out var normalJob) && normalJob is not null)
                 {
+                    job = normalJob;
                     return true;
                 }
 
