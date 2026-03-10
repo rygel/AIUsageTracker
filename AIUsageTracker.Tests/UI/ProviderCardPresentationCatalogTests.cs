@@ -118,15 +118,15 @@ public sealed class ProviderCardPresentationCatalogTests
                     Name = "5-hour quota",
                     Used = "96% remaining (4% used)",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Primary
+                    WindowKind = WindowKind.Primary,
                 },
                 new()
                 {
                     Name = "Weekly quota",
                     Used = "49% remaining (51% used)",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Secondary
-                }
+                    WindowKind = WindowKind.Secondary,
+                },
             },
         };
 

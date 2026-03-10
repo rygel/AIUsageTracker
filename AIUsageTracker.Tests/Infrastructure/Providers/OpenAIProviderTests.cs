@@ -4,7 +4,6 @@
 
 using System.Net;
 using System.Text.Json;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
@@ -76,13 +75,13 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
                 primary_window = new
                 {
                     used_percent = 45.5,
-                    reset_after_seconds = 3600
+                    reset_after_seconds = 3600,
                 },
                 secondary_window = new
                 {
                     used_percent = 10.0,
-                    reset_after_seconds = 86400
-                }
+                    reset_after_seconds = 86400,
+                },
             },
         };
 

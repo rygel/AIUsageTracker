@@ -6,8 +6,6 @@ using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Tests.Infrastructure;
 using Moq;
@@ -42,8 +40,8 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
                 premium_interactions = new
                 {
                     entitlement = 100.0,
-                    remaining = 70.0
-                }
+                    remaining = 70.0,
+                },
             },
         };
 

@@ -39,7 +39,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
         // Arrange
         var envVarName = "TEST_AUTH_KEY_" + Guid.NewGuid().ToString("N");
         Environment.SetEnvironmentVariable(envVarName, "test-api-key");
-        
+
         var definition = new ProviderDefinition(
             "test-provider",
             "Test Provider",

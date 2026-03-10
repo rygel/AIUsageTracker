@@ -30,7 +30,7 @@ public class OpenCodeProviderTests : HttpProviderTestBase<OpenCodeProvider>
             data = new
             {
                 total_credits = 100.0,
-                used_credits = 12.34
+                used_credits = 12.34,
             },
         };
 

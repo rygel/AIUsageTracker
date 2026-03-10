@@ -43,8 +43,8 @@ namespace AIUsageTracker.Tests.UI
                 {
                     new() { Name = "Gemini 2.5 Pro" },
                     new() { Name = "Gemini 2.5 Flash" },
-                    new() { Name = "[internal]" }
-                }
+                    new() { Name = "[internal]" },
+                },
             };
 
             var presentation = ProviderStatusPresentationCatalog.Create(

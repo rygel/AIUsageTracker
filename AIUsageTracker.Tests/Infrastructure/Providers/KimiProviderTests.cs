@@ -66,8 +66,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
                 new
                 {
                     window = new { duration = 60, timeUnit = "TIME_UNIT_MINUTE" },
-                    detail = new { limit = 1000, remaining = 500, resetTime = resetTime }
-                }
+                    detail = new { limit = 1000, remaining = 500, resetTime = resetTime },
+                },
             },
         };
 
@@ -104,13 +104,13 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
                 new
                 {
                     window = new { duration = 60, timeUnit = "TIME_UNIT_MINUTE" },
-                    detail = new { limit = 3000, remaining = 1800, resetTime = hourlyResetTime }
+                    detail = new { limit = 3000, remaining = 1800, resetTime = hourlyResetTime },
                 },
                 new
                 {
                     window = new { duration = 7, timeUnit = "TIME_UNIT_DAY" },
-                    detail = new { limit = 100000, remaining = 75000, resetTime = weeklyResetTime }
-                }
+                    detail = new { limit = 100000, remaining = 75000, resetTime = weeklyResetTime },
+                },
             },
         };
 

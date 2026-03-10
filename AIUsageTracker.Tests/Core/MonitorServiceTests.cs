@@ -603,7 +603,7 @@ public class MonitorServiceTests
                 StatusCode = status,
                 Content = JsonContent.Create(body, options: new JsonSerializerOptions
                 {
-                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
                 }),
             });
     }
