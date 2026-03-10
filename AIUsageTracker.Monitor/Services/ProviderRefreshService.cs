@@ -164,16 +164,16 @@ public class ProviderRefreshService : BackgroundService
         this._providerManagerLifecycle.Initialize(maxConcurrentProviderRequests);
     }
 
-    private static string? BuildManualRefreshCoalesceKey(
+    internal static string? BuildManualRefreshCoalesceKey(
         bool forceAll,
         IReadOnlyCollection<string>? includeProviderIds,
         bool bypassCircuitBreaker)
     {
         var normalizedIds = (includeProviderIds ?? [])
             .Where(id => !string.IsNullOrWhiteSpace(id))
-            .Select(id => id.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .Select(id => id.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
             .ToArray();
 
         if (!forceAll && !bypassCircuitBreaker && normalizedIds.Length == 0)

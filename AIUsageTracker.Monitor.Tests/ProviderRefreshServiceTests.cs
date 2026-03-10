@@ -252,8 +252,35 @@ public class ProviderRefreshServiceTests
                 "manual-provider-refresh",
                 It.IsAny<Func<CancellationToken, Task>>(),
                 MonitorJobPriority.High,
-                "manual-provider-refresh|forceAll=False|bypass=True|include=OpenAI,zai"),
+                "manual-provider-refresh|forceAll=False|bypass=True|include=openai,zai"),
             Times.Once);
+    }
+
+    [Fact]
+    public void BuildManualRefreshCoalesceKey_EquivalentProviderScopes_ProducesSameKey()
+    {
+        var first = ProviderRefreshService.BuildManualRefreshCoalesceKey(
+            forceAll: false,
+            includeProviderIds: new[] { "OpenAI", "zai" },
+            bypassCircuitBreaker: true);
+        var second = ProviderRefreshService.BuildManualRefreshCoalesceKey(
+            forceAll: false,
+            includeProviderIds: new[] { "ZAI", "openai", "openai" },
+            bypassCircuitBreaker: true);
+
+        Assert.Equal(first, second);
+        Assert.Equal("manual-provider-refresh|forceAll=False|bypass=True|include=openai,zai", first);
+    }
+
+    [Fact]
+    public void BuildManualRefreshCoalesceKey_DefaultManualRefresh_ReturnsNull()
+    {
+        var key = ProviderRefreshService.BuildManualRefreshCoalesceKey(
+            forceAll: false,
+            includeProviderIds: null,
+            bypassCircuitBreaker: false);
+
+        Assert.Null(key);
     }
 
     [Fact]
