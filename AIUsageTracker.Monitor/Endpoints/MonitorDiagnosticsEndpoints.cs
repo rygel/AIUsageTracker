@@ -44,41 +44,15 @@ namespace AIUsageTracker.Monitor.Endpoints
                     logger.LogDebug("GET {Route}", MonitorApiRoutes.Diagnostics);
                 }
 
-                var apiEndpoints = endpointDataSource.Endpoints
-                    .OfType<RouteEndpoint>()
-                    .Where(endpoint => endpoint.RoutePattern.RawText?.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) == true)
-                    .GroupBy(endpoint => endpoint.RoutePattern.RawText!, StringComparer.OrdinalIgnoreCase)
-                    .Select(group => new
-                    {
-                        route = group.Key,
-                        methods = group
-                            .SelectMany(endpoint => endpoint.Metadata
-                                .OfType<HttpMethodMetadata>()
-                                .SelectMany(metadata => metadata.HttpMethods))
-                            .Where(method => !string.IsNullOrWhiteSpace(method))
-                            .Select(method => method.ToUpperInvariant())
-                            .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .OrderBy(method => method)
-                            .ToArray(),
-                    })
-                    .OrderBy(endpoint => endpoint.route)
-                    .ToList();
-
-                return Results.Ok(new
-                {
+                var snapshot = MonitorDiagnosticsSnapshotFactory.Create(
+                    endpointDataSource,
                     port,
-                    processId = Environment.ProcessId,
-                    workingDir = Directory.GetCurrentDirectory(),
-                    baseDir = AppDomain.CurrentDomain.BaseDirectory,
-                    startedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
-                    os = Environment.OSVersion.ToString(),
-                    runtime = Environment.Version.ToString(),
                     args,
-                    endpoints = apiEndpoints,
-                    refreshTelemetry = refreshService.GetRefreshTelemetrySnapshot(),
-                    schedulerTelemetry = scheduler.GetSnapshot(),
-                    pipelineTelemetry = usageProcessingPipeline.GetSnapshot(),
-                });
+                    refreshService.GetRefreshTelemetrySnapshot(),
+                    scheduler.GetSnapshot(),
+                    usageProcessingPipeline.GetSnapshot());
+
+                return Results.Ok(snapshot);
             });
         }
     }
