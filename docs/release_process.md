@@ -121,7 +121,7 @@ After the version update PR is merged to `main`, trigger the release workflow:
 
 **Via CLI:**
 ```bash
-gh workflow run "Create Release" --repo rygel/AIConsumptionTracker \
+gh workflow run "Create Release" --repo rygel/AIUsageTracker \
   -f version="1.8.7-alpha.2" \
   -f skip_file_updates="true"
 ```
@@ -159,7 +159,7 @@ Pushing the tag automatically triggers the `Publish & Distribute` workflow which
 
 **No manual steps required** - the workflow handles everything including the appcast file!
 
-Monitor progress at: `https://github.com/rygel/AIConsumptionTracker/actions`
+Monitor progress at: `https://github.com/rygel/AIUsageTracker/actions`
 
 ### Step 5: Post-Release
 

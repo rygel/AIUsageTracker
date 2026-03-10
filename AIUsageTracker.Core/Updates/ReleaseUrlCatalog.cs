@@ -6,7 +6,8 @@ namespace AIUsageTracker.Core.Updates
 {
     public static class ReleaseUrlCatalog
     {
-        private const string RepositoryBaseUrl = "https://github.com/rygel/AIConsumptionTracker";
+        private const string RepositoryBaseUrl = "https://github.com/rygel/AIUsageTracker";
+        private const string RepositoryApiBaseUrl = "https://api.github.com/repos/rygel/AIUsageTracker";
 
         public static string GetReleasesPageUrl()
         {
@@ -25,7 +26,7 @@ namespace AIUsageTracker.Core.Updates
 
         public static string GetGitHubReleaseApiUrl(string version)
         {
-            return $"https://api.github.com/repos/rygel/AIConsumptionTracker/releases/tags/v{version}";
+            return $"{RepositoryApiBaseUrl}/releases/tags/v{version}";
         }
 
         public static string GetAppcastUrl(string architecture, bool isBeta)

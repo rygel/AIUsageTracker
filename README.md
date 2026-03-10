@@ -5,7 +5,7 @@
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
 [![](https://dcbadge.limes.pink/api/server/AZtNQtWuJA?style=flat)](https://discord.gg/AZtNQtWuJA)
-![Downloads](https://img.shields.io/github/downloads/rygel/AIConsumptionTracker/total)
+![Downloads](https://img.shields.io/github/downloads/rygel/AIUsageTracker/total)
 
 <img src="docs/screenshot_dashboard_privacy.png" alt="Dashboard" width="50%" />
 
@@ -27,7 +27,7 @@ If you want to support me and are interested in different AI model providers, yo
 Join the discussion on our [Discord Server](https://discord.gg/AZtNQtWuJA).
 
 ## Download
-Download the latest installer or .zip file from the [Release](https://github.com/rygel/AIConsumptionTracker/releases) page.
+Download the latest installer or .zip file from the [Release](https://github.com/rygel/AIUsageTracker/releases) page.
 
 ## Key Features
 
@@ -79,7 +79,7 @@ For the complete screenshot set (all settings tabs, info dialog, tray states, an
 ## Installation
 
 ### Manual
-1. Download the latest `AIUsageTracker_Setup_v2.2.12.exe` from the [Releases](https://github.com/rygel/AIConsumptionTracker/releases) page.
+1. Download the latest `AIUsageTracker_Setup_v2.2.12.exe` from the [Releases](https://github.com/rygel/AIUsageTracker/releases) page.
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 
