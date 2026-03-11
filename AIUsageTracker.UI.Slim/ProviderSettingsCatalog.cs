@@ -33,14 +33,9 @@ internal static class ProviderSettingsCatalog
         return new ProviderSettingsBehavior(
             InputMode: inputMode,
             IsInactive: isInactive,
-            IsDerivedVisible: IsDerivedProviderVisible(config.ProviderId),
+            IsDerivedVisible: ProviderMetadataCatalog.IsVisibleDerivedProviderId(config.ProviderId ?? string.Empty),
             SessionProviderLabel: sessionProviderLabel,
             PreferCodexIdentity: preferCodexIdentity);
-    }
-
-    public static bool IsDerivedProviderVisible(string? providerId)
-    {
-        return ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId ?? string.Empty);
     }
 
     public static bool IsSessionToken(string? apiKey)

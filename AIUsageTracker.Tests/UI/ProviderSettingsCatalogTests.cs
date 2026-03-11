@@ -39,9 +39,13 @@ public sealed class ProviderSettingsCatalogTests
     }
 
     [Fact]
-    public void IsDerivedProviderVisible_ReturnsTrue_ForCodexSpark()
+    public void Resolve_ReturnsDerivedVisible_ForCodexSpark()
     {
-        Assert.True(ProviderSettingsCatalog.IsDerivedProviderVisible("codex.spark"));
+        var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
+
+        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
+
+        Assert.True(behavior.IsDerivedVisible);
     }
 
     [Fact]

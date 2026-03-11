@@ -30,7 +30,7 @@ internal static class ProviderSettingsDisplayCatalog
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
         var derivedItems = usages
             .Where(usage =>
-                ProviderSettingsCatalog.IsDerivedProviderVisible(usage.ProviderId) &&
+                ProviderMetadataCatalog.IsVisibleDerivedProviderId(usage.ProviderId ?? string.Empty) &&
                 !configuredProviderIds.Contains(usage.ProviderId))
             .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
 
