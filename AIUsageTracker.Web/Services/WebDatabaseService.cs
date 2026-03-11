@@ -4,11 +4,9 @@
 
 using System.Diagnostics;
 using System.Globalization;
-using System.Text.Json;
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Providers;
 
 using Dapper;
 
@@ -20,32 +18,6 @@ namespace AIUsageTracker.Web.Services;
 
 public class WebDatabaseService : IWebDatabaseRepository
 {
-    private readonly WebDatabaseConnectionFactory _connectionFactory;
-    private readonly IMemoryCache _cache;
-    private readonly ILogger<WebDatabaseService> _logger;
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
-
-    public WebDatabaseService(IMemoryCache cache, ILogger<WebDatabaseService> logger, IAppPathProvider pathProvider)
-        : this(cache, logger, pathProvider, connectionFactory: null, databasePathOverride: null)
-    {
-    }
-
-    internal WebDatabaseService(
-        IMemoryCache cache,
-        ILogger<WebDatabaseService> logger,
-        IAppPathProvider pathProvider,
-        WebDatabaseConnectionFactory? connectionFactory,
-        string? databasePathOverride)
-    {
-        this._cache = cache;
-        this._logger = logger;
-        this._connectionFactory = connectionFactory
-            ?? new WebDatabaseConnectionFactory(
-                !string.IsNullOrWhiteSpace(databasePathOverride)
-                    ? databasePathOverride
-                    : pathProvider.GetDatabasePath());
-    }
-
     private const string ProvidersSql = @"
             SELECT 
                 p.provider_id AS ProviderId, 
@@ -130,6 +102,32 @@ public class WebDatabaseService : IWebDatabaseRepository
             ORDER BY timestamp DESC
             LIMIT @Limit";
 
+    private readonly WebDatabaseConnectionFactory _connectionFactory;
+    private readonly IMemoryCache _cache;
+    private readonly ILogger<WebDatabaseService> _logger;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+
+    public WebDatabaseService(IMemoryCache cache, ILogger<WebDatabaseService> logger, IAppPathProvider pathProvider)
+        : this(cache, logger, pathProvider, connectionFactory: null, databasePathOverride: null)
+    {
+    }
+
+    internal WebDatabaseService(
+        IMemoryCache cache,
+        ILogger<WebDatabaseService> logger,
+        IAppPathProvider pathProvider,
+        WebDatabaseConnectionFactory? connectionFactory,
+        string? databasePathOverride)
+    {
+        this._cache = cache;
+        this._logger = logger;
+        this._connectionFactory = connectionFactory
+            ?? new WebDatabaseConnectionFactory(
+                !string.IsNullOrWhiteSpace(databasePathOverride)
+                    ? databasePathOverride
+                    : pathProvider.GetDatabasePath());
+    }
+
     public bool IsDatabaseAvailable()
     {
         return this._connectionFactory.IsDatabaseAvailable();
@@ -142,7 +140,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         var results = await this.QueryIfDatabaseAvailableAsync(
             async connection => (await connection.QueryAsync<ProviderInfo>(ProvidersSql).ConfigureAwait(false)).ToList(),
             []).ConfigureAwait(false);
-        ApplyProviderDisplayNames(results);
+        WebProviderDisplayNameMapper.Apply(results);
 
         this._logger.LogInformation(
             "WebDB GetProvidersAsync count={Count} elapsedMs={ElapsedMs}",
@@ -156,7 +154,7 @@ public class WebDatabaseService : IWebDatabaseRepository
         var sw = Stopwatch.StartNew();
 
         var list = await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(BuildLatestUsageQuery(includeInactive))).ConfigureAwait(false);
+            connection => connection.QueryAsync<dynamic>(WebDatabaseQueryBuilder.BuildLatestUsageQuery(includeInactive))).ConfigureAwait(false);
 
         this._logger.LogInformation(
             "WebDB GetLatestUsageAsync count={Count} includeInactive={IncludeInactive} elapsedMs={ElapsedMs}",
@@ -169,13 +167,13 @@ public class WebDatabaseService : IWebDatabaseRepository
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(BuildHistoryQuery(limit))).ConfigureAwait(false);
+            connection => connection.QueryAsync<dynamic>(WebDatabaseQueryBuilder.BuildHistoryQuery(limit))).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ProviderUsage>> GetProviderHistoryAsync(string providerId, int limit = 100)
     {
         return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(BuildProviderHistoryQuery(limit), new { ProviderId = providerId })).ConfigureAwait(false);
+            connection => connection.QueryAsync<dynamic>(WebDatabaseQueryBuilder.BuildProviderHistoryQuery(limit), new { ProviderId = providerId })).ConfigureAwait(false);
     }
 
     public async Task<UsageSummary> GetUsageSummaryAsync()
@@ -222,7 +220,7 @@ public class WebDatabaseService : IWebDatabaseRepository
     public async Task<IReadOnlyList<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0)
     {
         return await this.QueryUsageListIfDatabaseAvailableAsync(
-            connection => connection.QueryAsync<dynamic>(BuildExportHistoryQuery(limit))).ConfigureAwait(false);
+            connection => connection.QueryAsync<dynamic>(WebDatabaseQueryBuilder.BuildExportHistoryQuery(limit))).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ChartDataPoint>> GetChartDataAsync(int hours = 24)
@@ -369,103 +367,10 @@ public class WebDatabaseService : IWebDatabaseRepository
             async connection =>
             {
                 var results = (await queryAsync(connection).ConfigureAwait(false)).ToList();
-                ApplyProviderDisplayNames(results);
+                WebProviderDisplayNameMapper.Apply(results);
                 return results;
             },
             unavailableValue).ConfigureAwait(false);
-    }
-
-    private static string BuildLatestUsageQuery(bool includeInactive)
-    {
-        var sql = @"
-            SELECT h.*, p.provider_name as ProviderName 
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            WHERE h.id IN (SELECT MAX(id) FROM provider_history GROUP BY provider_id)";
-
-        if (!includeInactive)
-        {
-            sql += " AND p.is_active = 1 AND h.is_available = 1";
-        }
-
-        return sql;
-    }
-
-    private static string BuildHistoryQuery(int limit)
-    {
-        return $@"
-            SELECT h.*, p.provider_name as ProviderName
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
-    }
-
-    private static string BuildProviderHistoryQuery(int limit)
-    {
-        return $@"
-            SELECT h.*, p.provider_name as ProviderName
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            WHERE h.provider_id = @ProviderId
-            ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
-    }
-
-    private static string BuildExportHistoryQuery(int limit)
-    {
-        var sql = @"
-            SELECT h.*, p.provider_name as ProviderName
-            FROM provider_history h
-            JOIN providers p ON h.provider_id = p.provider_id
-            ORDER BY h.fetched_at DESC";
-
-        if (limit > 0)
-        {
-            sql += $" LIMIT {limit}";
-        }
-
-        return sql;
-    }
-
-    private static void ApplyProviderInfoDisplayNames(IEnumerable<ProviderInfo> providers)
-    {
-        foreach (var provider in providers)
-        {
-            provider.ProviderName = ProviderMetadataCatalog.GetDisplayName(provider.ProviderId, provider.ProviderName);
-        }
-    }
-
-    private static void ApplyProviderDisplayNames<T>(IReadOnlyList<T> results)
-    {
-        switch (results)
-        {
-            case IReadOnlyList<ProviderInfo> providers:
-                ApplyProviderInfoDisplayNames(providers);
-                break;
-            case IReadOnlyList<ChartDataPoint> points:
-                ApplyChartDataDisplayNames(points);
-                break;
-            case IReadOnlyList<ResetEvent> resetEvents:
-                ApplyResetEventDisplayNames(resetEvents);
-                break;
-        }
-    }
-
-    private static void ApplyChartDataDisplayNames(IEnumerable<ChartDataPoint> points)
-    {
-        foreach (var point in points)
-        {
-            point.ProviderName = ProviderMetadataCatalog.GetDisplayName(point.ProviderId, point.ProviderName);
-        }
-    }
-
-    private static void ApplyResetEventDisplayNames(IEnumerable<ResetEvent> resetEvents)
-    {
-        foreach (var resetEvent in resetEvents)
-        {
-            resetEvent.ProviderName = ProviderMetadataCatalog.GetDisplayName(resetEvent.ProviderId, resetEvent.ProviderName);
-        }
     }
 
     private SqliteConnection CreateReadConnection()
