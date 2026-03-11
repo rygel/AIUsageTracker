@@ -141,6 +141,33 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
+    [InlineData("antigravity", true)]
+    [InlineData("antigravity.some-model", true)]
+    [InlineData("codex", false)]
+    public void ShouldRenderAggregateDetailsInMainWindow_UsesCatalogPolicy(string providerId, bool expected)
+    {
+        Assert.Equal(expected, ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId));
+    }
+
+    [Theory]
+    [InlineData("antigravity", true)]
+    [InlineData("antigravity.some-model", true)]
+    [InlineData("codex", false)]
+    public void ShouldUseSharedSubDetailCollapsePreference_UsesCatalogPolicy(string providerId, bool expected)
+    {
+        Assert.Equal(expected, ProviderMetadataCatalog.ShouldUseSharedSubDetailCollapsePreference(providerId));
+    }
+
+    [Theory]
+    [InlineData("antigravity.some-model", true)]
+    [InlineData("codex.spark", false)]
+    [InlineData("codex", false)]
+    public void ShouldRenderAsSettingsSubItem_UsesCatalogPolicy(string providerId, bool expected)
+    {
+        Assert.Equal(expected, ProviderMetadataCatalog.ShouldRenderAsSettingsSubItem(providerId));
+    }
+
+    [Theory]
     [InlineData("OPENAI_API_KEY", "openai")]
     [InlineData("CODEX_API_KEY", "codex")]
     [InlineData("GEMINI_API_KEY", "gemini-cli")]

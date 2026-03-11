@@ -69,7 +69,7 @@ internal static class ProviderUsageDisplayCatalog
 
     private static bool IsAntigravityParent(ProviderUsage usage)
     {
-        return ProviderMetadataCatalog.IsAggregateParentProviderId(usage.ProviderId ?? string.Empty);
+        return ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(usage.ProviderId ?? string.Empty);
     }
 
     private static ProviderUsage CreateAntigravityModelUsage(ProviderUsageDetail detail, ProviderUsage parentUsage)

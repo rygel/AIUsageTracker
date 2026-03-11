@@ -526,17 +526,7 @@ public partial class SettingsWindow : Window
             return false;
         }
 
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
-        var isCanonicalChild = !string.Equals(
-            canonicalProviderId,
-            providerId,
-            StringComparison.OrdinalIgnoreCase);
-        if (!isCanonicalChild)
-        {
-            return false;
-        }
-
-        return ProviderMetadataCatalog.IsAggregateParentProviderId(canonicalProviderId);
+        return ProviderMetadataCatalog.ShouldRenderAsSettingsSubItem(providerId);
     }
 
     private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)

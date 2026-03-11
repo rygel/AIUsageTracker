@@ -110,6 +110,21 @@ public sealed class ProviderSettingsDisplayCatalogTests
     }
 
     [Fact]
+    public void CreateDisplayItems_HidesUnknownConfiguredProviders_FromSettingsList()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "unknown-provider" },
+            new() { ProviderId = "codex" },
+        };
+
+        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "unknown-provider", StringComparison.Ordinal));
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void CreateDisplayItems_PositionsCodexSparkNextToCodex_AsCatalogProvider()
     {
         var configs = new List<ProviderConfig>

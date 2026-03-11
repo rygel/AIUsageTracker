@@ -1124,7 +1124,7 @@ public partial class MainWindow : Window
                 }
 
                 // Special handling for Antigravity
-                if (ProviderMetadataCatalog.IsAggregateParentProviderId(usage.ProviderId ?? string.Empty))
+                if (ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(usage.ProviderId ?? string.Empty))
                 {
                     if (usage.Details?.Any() == true)
                     {
@@ -1620,8 +1620,8 @@ public partial class MainWindow : Window
         }
 
         // Create collapsible section for sub-providers
-        var useAntigravityCollapsePreference = ProviderMetadataCatalog.IsAggregateParentProviderId(
-            ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId ?? string.Empty));
+        var useAntigravityCollapsePreference = ProviderMetadataCatalog.ShouldUseSharedSubDetailCollapsePreference(
+            usage.ProviderId ?? string.Empty);
         var (subHeader, subContainer) = this.CreateCollapsibleHeader(
             $"{usage.ProviderName} Details",
             Brushes.DeepSkyBlue,
