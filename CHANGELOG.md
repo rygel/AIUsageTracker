@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.25] - 2026-03-11
+
+### Fixed
+- **Auth Discovery Regression**: Restored support for legacy/shared OpenCode auth file locations so provider keys are discovered when present outside `~/.opencode/auth.json`.
+- **Provider Key Loading in Beta**: Fixed Synthetic and Z.AI key resolution when keys exist in `~/.local/share/opencode/auth.json`.
+
+### Changed
+- **CI Test Stability**: Hardened test workflow defaults for deterministic .NET execution and consolidated test-assembly path resolution to reduce flaky CI failures.
+
 ## [2.2.28-beta.24] - 2026-03-11
 
 ### Added
