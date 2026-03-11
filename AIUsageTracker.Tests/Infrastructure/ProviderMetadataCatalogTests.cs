@@ -42,6 +42,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("kimi-for-coding", "kimi", "Kimi")]
     [InlineData("minimax-io", "minimax", "Minimax (International)")]
     [InlineData("minimax-global", "minimax", "Minimax (International)")]
+    [InlineData("opencode-go", "opencode-zen", "Opencode Go")]
     [InlineData("zai", "zai-coding-plan", "Z.AI")]
     public void Find_UsesProviderDefinitionsForAliases(string providerId, string expectedDefinitionId, string expectedDisplayName)
     {
@@ -103,6 +104,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("antigravity.claude-opus", "antigravity")]
     [InlineData("kimi-for-coding", "kimi")]
     [InlineData("minimax-io", "minimax")]
+    [InlineData("opencode-go", "opencode-zen")]
     [InlineData("unknown-provider", "unknown-provider")]
     public void GetCanonicalProviderId_UsesProviderDefinitions(string providerId, string expectedCanonicalId)
     {
@@ -121,7 +123,11 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("OPENAI_API_KEY", "openai")]
     [InlineData("CODEX_API_KEY", "codex")]
+    [InlineData("GEMINI_API_KEY", "gemini-cli")]
+    [InlineData("DEEPSEEK_API_KEY", "deepseek")]
     [InlineData("MOONSHOT_API_KEY", "kimi")]
+    [InlineData("ZAI_API_KEY", "zai-coding-plan")]
+    [InlineData("SYNTHETIC_API_KEY", "synthetic")]
     [InlineData("CLAUDE_API_KEY", "claude-code")]
     public void FindByEnvironmentVariable_UsesProviderDefinitions(string environmentVariableName, string expectedProviderId)
     {
@@ -136,6 +142,9 @@ public class ProviderMetadataCatalogTests
     [InlineData("geminiApiKey", "gemini-cli")]
     [InlineData("openrouterApiKey", "openrouter")]
     [InlineData("mistralApiKey", "mistral")]
+    [InlineData("deepseekApiKey", "deepseek")]
+    [InlineData("zaiApiKey", "zai-coding-plan")]
+    [InlineData("syntheticApiKey", "synthetic")]
     public void FindByRooConfigProperty_UsesProviderDefinitions(string propertyName, string expectedProviderId)
     {
         var definition = ProviderMetadataCatalog.FindByRooConfigProperty(propertyName);
@@ -169,6 +178,48 @@ public class ProviderMetadataCatalogTests
 
         Assert.Contains("antigravity", providerIds);
         Assert.DoesNotContain("codex", providerIds);
+    }
+
+    [Fact]
+    public void Definitions_DeclarePerProviderAuthFallbackContract()
+    {
+        var localRuntimeProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "antigravity",
+            "opencode-zen",
+        };
+        var externalAuthProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "github-copilot",
+        };
+
+        foreach (var definition in ProviderMetadataCatalog.Definitions)
+        {
+            if (localRuntimeProviders.Contains(definition.ProviderId))
+            {
+                Assert.True(
+                    definition.SettingsMode == ProviderSettingsMode.AutoDetectedStatus ||
+                    definition.AutoIncludeWhenUnconfigured,
+                    $"Provider '{definition.ProviderId}' must declare local runtime auth mode.");
+                continue;
+            }
+
+            if (externalAuthProviders.Contains(definition.ProviderId))
+            {
+                Assert.Equal(ProviderSettingsMode.ExternalAuthStatus, definition.SettingsMode);
+                Assert.NotEmpty(definition.AuthIdentityCandidatePathTemplates);
+                continue;
+            }
+
+            var hasConfigFallback =
+                definition.DiscoveryEnvironmentVariables.Count > 0 ||
+                definition.RooConfigPropertyNames.Count > 0 ||
+                definition.AuthIdentityCandidatePathTemplates.Count > 0;
+
+            Assert.True(
+                hasConfigFallback,
+                $"Provider '{definition.ProviderId}' has no declared auth fallback sources.");
+        }
     }
 
     [Fact]

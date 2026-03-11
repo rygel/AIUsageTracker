@@ -21,7 +21,7 @@ internal static class ProviderStatusPresentationCatalog
         return inputMode switch
         {
             ProviderInputMode.DerivedReadOnly => CreateDerivedPresentation(usage),
-            ProviderInputMode.AntigravityAutoDetected => CreateAntigravityPresentation(usage, isPrivacyMode),
+            ProviderInputMode.AntigravityAutoDetected => CreateAntigravityPresentation(usage, isPrivacyMode, authIdentities),
             ProviderInputMode.GitHubCopilotAuthStatus => CreateGitHubPresentation(config, usage, isPrivacyMode, authIdentities),
             ProviderInputMode.OpenAiSessionStatus => CreateOpenAiSessionPresentation(config, usage, isPrivacyMode, authIdentities),
             _ => throw new ArgumentOutOfRangeException(
@@ -85,11 +85,22 @@ internal static class ProviderStatusPresentationCatalog
             SecondaryLines: secondaryLines.AsReadOnly());
     }
 
-    private static ProviderStatusPresentation CreateAntigravityPresentation(ProviderUsage? usage, bool isPrivacyMode)
+    private static ProviderStatusPresentation CreateAntigravityPresentation(
+        ProviderUsage? usage,
+        bool isPrivacyMode,
+        ProviderAuthIdentities authIdentities)
     {
         var isConnected = usage?.IsAvailable == true;
-        var accountInfo = usage?.AccountName ?? "Unknown";
-        var displayAccount = isPrivacyMode ? MaskAccountIdentifier(accountInfo) : accountInfo;
+        var accountInfo = usage?.AccountName;
+        if (string.IsNullOrWhiteSpace(accountInfo) || accountInfo is "Unknown" or "User")
+        {
+            accountInfo = authIdentities.AntigravityUsername;
+        }
+
+        var hasAccountInfo = !string.IsNullOrWhiteSpace(accountInfo) && accountInfo is not ("Unknown" or "User");
+        var displayAccount = hasAccountInfo
+            ? (isPrivacyMode ? MaskAccountIdentifier(accountInfo!) : accountInfo!)
+            : "Unknown";
         var secondaryLines = new List<ProviderStatusLine>();
         var antigravitySubmodels = usage?.Details?
             .Select(d => d.Name)

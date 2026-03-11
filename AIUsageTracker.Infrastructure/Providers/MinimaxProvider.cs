@@ -14,18 +14,22 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class MinimaxProvider : ProviderBase
 {
+    public const string ChinaProviderId = "minimax";
+    public const string InternationalProviderId = "minimax-io";
+    public const string InternationalLegacyProviderId = "minimax-global";
+
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "minimax",
+        providerId: ChinaProviderId,
         displayName: "Minimax (China)",
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
         includeInWellKnownProviders: true,
-        handledProviderIds: new[] { "minimax", "minimax-io", "minimax-global" },
+        handledProviderIds: new[] { ChinaProviderId, InternationalProviderId, InternationalLegacyProviderId },
         displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["minimax-io"] = "Minimax (International)",
-            ["minimax-global"] = "Minimax (International)",
+            [InternationalProviderId] = "Minimax (International)",
+            [InternationalLegacyProviderId] = "Minimax (International)",
         },
         discoveryEnvironmentVariables: new[] { "MINIMAX_API_KEY" },
         iconAssetName: "minimax",
@@ -80,8 +84,8 @@ public class MinimaxProvider : ProviderBase
         else
         {
             // Determine endpoint based on ID suffix
-            if (config.ProviderId.EndsWith("-io", StringComparison.OrdinalIgnoreCase) ||
-                config.ProviderId.EndsWith("-global", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(config.ProviderId, InternationalProviderId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(config.ProviderId, InternationalLegacyProviderId, StringComparison.OrdinalIgnoreCase))
             {
                 url = "https://api.minimax.io/v1/user/usage";
             }

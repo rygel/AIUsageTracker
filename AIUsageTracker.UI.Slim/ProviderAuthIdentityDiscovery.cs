@@ -37,6 +37,13 @@ internal static class ProviderAuthIdentityDiscovery
             logger);
     }
 
+    public static Task<string?> TryGetAntigravityUsernameAsync(ILogger logger, IEnumerable<string>? candidatePaths = null)
+    {
+        return TryReadAntigravityUsernameAsync(
+            candidatePaths ?? GetAntigravityCandidatePaths(),
+            logger);
+    }
+
     private static async Task<string?> TryReadGitHubHostsUsernameAsync(IEnumerable<string> candidatePaths, ILogger logger)
     {
         foreach (var path in candidatePaths)
@@ -173,6 +180,64 @@ internal static class ProviderAuthIdentityDiscovery
         return definition.AuthIdentityCandidatePathTemplates
             .Select(Environment.ExpandEnvironmentVariables)
             .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<string> GetAntigravityCandidatePaths()
+    {
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(userProfile))
+        {
+            return Array.Empty<string>();
+        }
+
+        return new[]
+        {
+            Path.Combine(userProfile, ".config", "opencode", "antigravity-accounts.json"),
+        };
+    }
+
+    private static async Task<string?> TryReadAntigravityUsernameAsync(IEnumerable<string> candidatePaths, ILogger logger)
+    {
+        foreach (var path in candidatePaths)
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+
+                if (!doc.RootElement.TryGetProperty("accounts", out var accountsElement) ||
+                    accountsElement.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var account in accountsElement.EnumerateArray())
+                {
+                    if (!account.TryGetProperty("email", out var emailElement) ||
+                        emailElement.ValueKind != JsonValueKind.String)
+                    {
+                        continue;
+                    }
+
+                    var email = emailElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(email))
+                    {
+                        return email;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Failed to read Antigravity account file at {Path}", path);
+            }
+        }
+
+        return null;
     }
 
     private static JsonElement? FindFirstRootObject(JsonElement root, ProviderDefinition definition)

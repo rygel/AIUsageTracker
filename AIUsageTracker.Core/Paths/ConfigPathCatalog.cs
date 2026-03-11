@@ -11,14 +11,18 @@ public static class ConfigPathCatalog
     public static IReadOnlyList<ConfigPathEntry> GetConfigEntries(IAppPathProvider pathProvider)
     {
         ArgumentNullException.ThrowIfNull(pathProvider);
-        var entries = new[]
+        var entries = new List<ConfigPathEntry>
         {
-            new ConfigPathEntry(pathProvider.GetAuthFilePath(), ConfigPathKind.Auth),
-            new ConfigPathEntry(pathProvider.GetProviderConfigFilePath(), ConfigPathKind.Provider),
-            new ConfigPathEntry(Path.Combine(pathProvider.GetAppDataRoot(), "auth.json"), ConfigPathKind.Auth),
+            new(pathProvider.GetAuthFilePath(), ConfigPathKind.Auth),
+            new(pathProvider.GetProviderConfigFilePath(), ConfigPathKind.Provider),
         };
 
-        var distinctEntries = new List<ConfigPathEntry>(entries.Length);
+        var appDataRoot = pathProvider.GetAppDataRoot();
+        if (!string.IsNullOrWhiteSpace(appDataRoot))
+        {
+            entries.Add(new ConfigPathEntry(Path.Combine(appDataRoot, "auth.json"), ConfigPathKind.Auth));
+        }
+        var distinctEntries = new List<ConfigPathEntry>(entries.Count);
         var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var entry in entries)

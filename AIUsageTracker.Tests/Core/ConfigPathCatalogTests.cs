@@ -40,7 +40,22 @@ public class ConfigPathCatalogTests
         Assert.Equal(ConfigPathKind.Provider, entries[1].Kind);
     }
 
-    private static Mock<IAppPathProvider> CreatePathProvider(string authPath, string providerPath, string appDataRoot)
+    [Fact]
+    public void GetConfigEntries_IncludesLegacyAuthPathWhenAppDataRootExists()
+    {
+        var pathProvider = CreatePathProvider(
+            "C:\\test\\config\\auth.json",
+            "C:\\test\\config\\providers.json",
+            "C:\\test\\appdata");
+
+        var entries = ConfigPathCatalog.GetConfigEntries(pathProvider.Object);
+
+        Assert.Equal(3, entries.Count);
+        Assert.Equal("C:\\test\\appdata\\auth.json", entries[2].Path);
+        Assert.Equal(ConfigPathKind.Auth, entries[2].Kind);
+    }
+
+    private static Mock<IAppPathProvider> CreatePathProvider(string authPath, string providerPath, string? appDataRoot = null)
     {
         var pathProvider = new Mock<IAppPathProvider>();
         pathProvider.Setup(p => p.GetAuthFilePath()).Returns(authPath);

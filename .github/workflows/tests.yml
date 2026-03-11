@@ -6,7 +6,15 @@ on:
     paths:
       - "Directory.Build.props"
       - ".editorconfig"
-      - "AIUsageTracker.*/**"
+      - "AIUsageTracker.Core/**"
+      - "AIUsageTracker.Infrastructure/**"
+      - "AIUsageTracker.CLI/**"
+      - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Monitor/**"
+      - "AIUsageTracker.Web/**"
+      - "AIUsageTracker.Tests/**"
+      - "AIUsageTracker.Monitor.Tests/**"
+      - "AIUsageTracker.Web.Tests/**"
       - "scripts/**"
       - ".github/workflows/tests.yml"
   pull_request:
@@ -14,13 +22,21 @@ on:
     paths:
       - "Directory.Build.props"
       - ".editorconfig"
-      - "AIUsageTracker.*/**"
+      - "AIUsageTracker.Core/**"
+      - "AIUsageTracker.Infrastructure/**"
+      - "AIUsageTracker.CLI/**"
+      - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Monitor/**"
+      - "AIUsageTracker.Web/**"
+      - "AIUsageTracker.Tests/**"
+      - "AIUsageTracker.Monitor.Tests/**"
+      - "AIUsageTracker.Web.Tests/**"
       - "scripts/**"
       - ".github/workflows/tests.yml"
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -168,7 +184,7 @@ jobs:
             scripts/run-vstest-with-retry.ps1
             .github/test-quarantine.txt
             test-fixtures/
-        retention-days: 3
+          retention-days: 3
 
   # Job 2: Core tests on Windows
   core-tests-windows:
@@ -441,9 +457,37 @@ jobs:
         timeout-minutes: 8
         shell: pwsh
         run: |
+          function Resolve-TestAssembly {
+            param([string]$projectName, [string]$assemblyName)
+
+            $candidatePaths = @(
+              "_ci_test_binaries\$projectName\bin\Debug\net8.0-windows10.0.17763.0\$assemblyName",
+              "_ci_test_binaries\$projectName\bin\Debug\net8.0\$assemblyName",
+              "_ci_test_binaries\$projectName\bin\Debug\$assemblyName",
+              "_ci_test_binaries\$projectName\$assemblyName"
+            ) | ForEach-Object { Join-Path $PWD $_ }
+
+            foreach ($candidate in $candidatePaths) {
+              if (Test-Path $candidate) {
+                return $candidate
+              }
+            }
+
+            $found = Get-ChildItem -Path (Join-Path $PWD "_ci_test_binaries") -Recurse -Filter $assemblyName -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like "*$projectName*" } |
+              Select-Object -First 1
+
+            if ($found) {
+              return $found.FullName
+            }
+
+            $joinedCandidates = $candidatePaths -join ", "
+            throw "Test assembly not found. Checked: $joinedCandidates"
+          }
+
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
           $scriptPath = Join-Path $ciBinaries "scripts\run-vstest-with-retry.ps1"
-          $assemblyPath = Join-Path $ciBinaries "AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll"
+          $assemblyPath = Resolve-TestAssembly -projectName "AIUsageTracker.Web.Tests" -assemblyName "AIUsageTracker.Web.Tests.dll"
           $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
           powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-tests -QuarantineFile $quarantinePath -MaxRetries 0 -AttemptTimeoutMinutes 8 -HangTimeoutSeconds 480
 
@@ -451,9 +495,37 @@ jobs:
         timeout-minutes: 4
         shell: pwsh
         run: |
+          function Resolve-TestAssembly {
+            param([string]$projectName, [string]$assemblyName)
+
+            $candidatePaths = @(
+              "_ci_test_binaries\$projectName\bin\Debug\net8.0-windows10.0.17763.0\$assemblyName",
+              "_ci_test_binaries\$projectName\bin\Debug\net8.0\$assemblyName",
+              "_ci_test_binaries\$projectName\bin\Debug\$assemblyName",
+              "_ci_test_binaries\$projectName\$assemblyName"
+            ) | ForEach-Object { Join-Path $PWD $_ }
+
+            foreach ($candidate in $candidatePaths) {
+              if (Test-Path $candidate) {
+                return $candidate
+              }
+            }
+
+            $found = Get-ChildItem -Path (Join-Path $PWD "_ci_test_binaries") -Recurse -Filter $assemblyName -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like "*$projectName*" } |
+              Select-Object -First 1
+
+            if ($found) {
+              return $found.FullName
+            }
+
+            $joinedCandidates = $candidatePaths -join ", "
+            throw "Test assembly not found. Checked: $joinedCandidates"
+          }
+
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
           $scriptPath = Join-Path $ciBinaries "scripts\run-vstest-with-retry.ps1"
-          $assemblyPath = Join-Path $ciBinaries "AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll"
+          $assemblyPath = Resolve-TestAssembly -projectName "AIUsageTracker.Web.Tests" -assemblyName "AIUsageTracker.Web.Tests.dll"
           $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
           powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-screenshots -QuarantineFile $quarantinePath -AdditionalTestCaseFilter "FullyQualifiedName~CaptureWebScreenshots" -MaxRetries 0 -AttemptTimeoutMinutes 4 -HangTimeoutSeconds 240
 

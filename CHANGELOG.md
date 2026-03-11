@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.24] - 2026-03-11
+
+### Added
+- **Gemini CLI Auth Fallback**: Added provider-level fallback from OpenCode Antigravity accounts to native Gemini CLI auth files (`.gemini/oauth_creds.json` + project mapping), with account identity extraction and deterministic project resolution.
+- **Provider Auth Contract Guardrails**: Added regression tests that enforce provider-specific auth fallback declarations to prevent discovery drift.
+
+### Changed
+- **Provider-Specific Fallback Coverage**: Added missing discovery fallback metadata for DeepSeek, Synthetic, and Z.AI (environment and Roo mappings), plus Gemini environment variable discovery parity.
+- **Auth Flow Documentation**: Updated data-flow and environment-variable docs to reflect actual per-provider fallback order and supported sources.
+
 ## [2.2.28-beta.23] - 2026-03-11
 
 ### Changed

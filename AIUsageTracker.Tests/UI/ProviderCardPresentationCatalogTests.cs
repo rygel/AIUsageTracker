@@ -89,7 +89,7 @@ public sealed class ProviderCardPresentationCatalogTests
     {
         var usage = new ProviderUsage
         {
-            ProviderId = "opencode",
+            ProviderId = "openrouter",
             IsAvailable = true,
             PlanType = PlanType.Usage,
             RequestsAvailable = 100,

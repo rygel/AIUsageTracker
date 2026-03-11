@@ -19,9 +19,19 @@ internal static class ProviderSettingsDisplayCatalog
         var configuredProviderIds = configs
             .Select(config => config.ProviderId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var defaultItems = ProviderMetadataCatalog.Definitions
+        var defaultProviderIds = ProviderMetadataCatalog.Definitions
             .Select(definition => definition.ProviderId)
             .Where(providerId => !configuredProviderIds.Contains(providerId))
+            .ToList();
+
+        // Minimax exposes two endpoint families; surface both explicitly to avoid one hidden alias entry.
+        if (!configuredProviderIds.Contains(MinimaxProvider.InternationalProviderId))
+        {
+            defaultProviderIds.Add(MinimaxProvider.InternationalProviderId);
+        }
+
+        var defaultItems = defaultProviderIds
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(CreateDefaultDisplayConfig)
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
         var derivedItems = usages

@@ -110,6 +110,30 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
         Assert.Null(username);
     }
 
+    [Fact]
+    public async Task TryGetAntigravityUsernameAsync_ReadsFirstAccountEmailAsync()
+    {
+        var antigravityAccountsJson =
+            """
+            {
+              "accounts": [
+                { "email": "primary@example.com" },
+                { "email": "secondary@example.com" }
+              ]
+            }
+            """;
+
+        var accountsPath = this.CreateFile(
+            "antigravity-accounts.json",
+            antigravityAccountsJson);
+
+        var username = await ProviderAuthIdentityDiscovery.TryGetAntigravityUsernameAsync(
+            this._logger,
+            new[] { accountsPath });
+
+        Assert.Equal("primary@example.com", username);
+    }
+
     public void Dispose()
     {
         TestTempPaths.CleanupPath(this._tempDirectory);
