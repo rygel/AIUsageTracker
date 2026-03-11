@@ -35,7 +35,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
     }
 
     [Fact]
-    public void NormalizeCanonicalConfigurations_MergesCodexSparkIntoCodex()
+    public void NormalizeCanonicalConfigurations_KeepsCodexSparkAsDedicatedProvider()
     {
         var configs = new List<ProviderConfig>
         {
@@ -45,6 +45,8 @@ public class ProviderMetadataCatalogCanonicalizationTests
                 ApiKey = "spark-token",
                 AuthSource = "Spark",
                 Description = "spark",
+                Type = "quota-based",
+                PlanType = PlanType.Coding,
                 BaseUrl = "https://example.invalid",
                 ShowInTray = true,
                 EnableNotifications = true,
@@ -53,16 +55,16 @@ public class ProviderMetadataCatalogCanonicalizationTests
 
         ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 
-        var codex = Assert.Single(configs);
-        Assert.Equal("codex", codex.ProviderId);
-        Assert.Equal("spark-token", codex.ApiKey);
-        Assert.Equal("Spark", codex.AuthSource);
-        Assert.Equal("spark", codex.Description);
-        Assert.Equal("https://example.invalid", codex.BaseUrl);
-        Assert.True(codex.ShowInTray);
-        Assert.True(codex.EnableNotifications);
-        Assert.Equal(PlanType.Coding, codex.PlanType);
-        Assert.Equal("quota-based", codex.Type);
+        var spark = Assert.Single(configs);
+        Assert.Equal("codex.spark", spark.ProviderId);
+        Assert.Equal("spark-token", spark.ApiKey);
+        Assert.Equal("Spark", spark.AuthSource);
+        Assert.Equal("spark", spark.Description);
+        Assert.Equal("https://example.invalid", spark.BaseUrl);
+        Assert.True(spark.ShowInTray);
+        Assert.True(spark.EnableNotifications);
+        Assert.Equal(PlanType.Coding, spark.PlanType);
+        Assert.Equal("quota-based", spark.Type);
     }
 
     [Fact]

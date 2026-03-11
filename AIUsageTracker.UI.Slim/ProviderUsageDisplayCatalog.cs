@@ -44,14 +44,8 @@ internal static class ProviderUsageDisplayCatalog
         return usage =>
         {
             var providerId = usage.ProviderId ?? string.Empty;
-            return !IsUnavailableAntigravityParent(usage) &&
-                   (!providerId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) || !hasAntigravityParent);
+            return !providerId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) || !hasAntigravityParent;
         };
-    }
-
-    private static bool IsUnavailableAntigravityParent(ProviderUsage usage)
-    {
-        return IsAntigravityParent(usage) && !usage.IsAvailable;
     }
 
     private static bool IsAntigravityParent(ProviderUsage usage)

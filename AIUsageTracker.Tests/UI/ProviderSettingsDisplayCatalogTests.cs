@@ -10,7 +10,7 @@ namespace AIUsageTracker.Tests.UI;
 public sealed class ProviderSettingsDisplayCatalogTests
 {
     [Fact]
-    public void CreateDisplayItems_AddsDerivedProviders_NotAlreadyConfigured()
+    public void CreateDisplayItems_IncludesCatalogProviders_NotAlreadyConfigured()
     {
         var configs = new List<ProviderConfig>
         {
@@ -24,10 +24,8 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, usages);
 
-        var derived = Assert.Single(items, item => item.IsDerived);
-        Assert.Equal("codex.spark", derived.Config.ProviderId);
-        Assert.Equal("quota-based", derived.Config.Type);
-        Assert.Equal(PlanType.Coding, derived.Config.PlanType);
+        var spark = Assert.Single(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
+        Assert.False(spark.IsDerived);
     }
 
     [Fact]
@@ -75,6 +73,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) && !item.IsDerived);
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal) && !item.IsDerived);
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "opencode-zen", StringComparison.Ordinal) && !item.IsDerived);
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax", StringComparison.Ordinal) && !item.IsDerived);
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax-io", StringComparison.Ordinal) && !item.IsDerived);
@@ -111,7 +110,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
     }
 
     [Fact]
-    public void CreateDisplayItems_GroupsDerivedCodexSpark_UnderCodex()
+    public void CreateDisplayItems_PositionsCodexSparkNextToCodex_AsCatalogProvider()
     {
         var configs = new List<ProviderConfig>
         {
@@ -140,6 +139,6 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         Assert.True(codexIndex >= 0);
         Assert.Equal(codexIndex + 1, sparkIndex);
-        Assert.True(items[sparkIndex].IsDerived);
+        Assert.False(items[sparkIndex].IsDerived);
     }
 }

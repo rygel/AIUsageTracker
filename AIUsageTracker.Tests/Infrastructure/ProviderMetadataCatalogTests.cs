@@ -154,7 +154,7 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("codex.spark", false)]
+    [InlineData("codex.spark", true)]
     [InlineData("codex", true)]
     [InlineData("openai", false)]
     public void ShouldPersistProviderId_UsesProviderDefinitions(string providerId, bool expected)
@@ -194,6 +194,7 @@ public class ProviderMetadataCatalogTests
     {
         var providerIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds();
 
+        Assert.Contains("codex.spark", providerIds);
         Assert.Contains("minimax", providerIds);
         Assert.Contains("minimax-io", providerIds);
         Assert.DoesNotContain("openai", providerIds);

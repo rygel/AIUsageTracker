@@ -10,7 +10,7 @@ namespace AIUsageTracker.Tests.UI;
 public sealed class ProviderUsageDisplayCatalogTests
 {
     [Fact]
-    public void PrepareForMainWindow_FiltersUnavailableParentAndDuplicateProviders()
+    public void PrepareForMainWindow_KeepsUnavailableAntigravityParentAndDeduplicatesProviders()
     {
         var usages = new List<ProviderUsage>
         {
@@ -21,8 +21,9 @@ public sealed class ProviderUsageDisplayCatalogTests
 
         var preparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages);
 
-        var displayable = Assert.Single(preparation.DisplayableUsages);
-        Assert.Equal("openai", displayable.ProviderId);
+        Assert.Equal(2, preparation.DisplayableUsages.Count);
+        Assert.Contains(preparation.DisplayableUsages, usage => string.Equals(usage.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.Contains(preparation.DisplayableUsages, usage => string.Equals(usage.ProviderId, "antigravity", StringComparison.Ordinal));
         Assert.True(preparation.HasAntigravityParent);
     }
 

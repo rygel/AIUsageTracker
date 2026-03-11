@@ -14,7 +14,7 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
 {
     [Fact]
-    public async Task SaveConfigAsync_DoesNotPersistNonPersistedProviderIdsAsync()
+    public async Task SaveConfigAsync_PersistsCodexSparkAsDedicatedProviderAsync()
     {
         var authPath = this.CreateFile("config/auth.json", "{\"codex.spark\":{\"key\":\"legacy\"}}");
         var providersPath = this.CreateFile("config/providers.json", "{\"codex.spark\":{\"type\":\"quota-based\"}}");
@@ -60,8 +60,8 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
         Assert.NotNull(providers);
         Assert.Contains("codex", auth!.Keys);
         Assert.Contains("codex", providers!.Keys);
-        Assert.DoesNotContain("codex.spark", auth.Keys, StringComparer.OrdinalIgnoreCase);
-        Assert.DoesNotContain("codex.spark", providers.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("codex.spark", auth.Keys, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("codex.spark", providers.Keys, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]

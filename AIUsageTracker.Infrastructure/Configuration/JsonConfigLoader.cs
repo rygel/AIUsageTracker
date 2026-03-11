@@ -86,7 +86,7 @@ public class JsonConfigLoader : IConfigLoader
         string path,
         bool isAuthFile)
     {
-        var providerId = ProviderMetadataCatalog.GetCanonicalProviderId(entry.Key);
+        var providerId = ResolveConfigProviderId(entry.Key);
         if (providerId.Equals("app_settings", StringComparison.OrdinalIgnoreCase))
         {
             return;
@@ -104,6 +104,17 @@ public class JsonConfigLoader : IConfigLoader
         var config = this.GetOrCreateMergedConfig(mergedConfigs, providerId);
         this.ApplyFileConfig(config, entry.Value, providerId, path, isAuthFile);
         this.AppendConfigSource(config, path);
+    }
+
+    private static string ResolveConfigProviderId(string providerId)
+    {
+        if (ProviderMetadataCatalog.ShouldPersistProviderId(providerId) &&
+            ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId))
+        {
+            return providerId;
+        }
+
+        return ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
     }
 
     private ProviderConfig GetOrCreateMergedConfig(Dictionary<string, ProviderConfig> mergedConfigs, string providerId)

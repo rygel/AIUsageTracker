@@ -286,12 +286,22 @@ public static class ProviderMetadataCatalog
 
     private static string GetCanonicalConfigOwnerId(ProviderConfig config)
     {
+        if (ShouldRetainDedicatedConfig(config.ProviderId))
+        {
+            return config.ProviderId;
+        }
+
         if (TryGet(config.ProviderId, out var definition) && IsSessionAuthConfig(config, definition))
         {
             return definition.SessionAuthCanonicalProviderId!;
         }
 
         return GetCanonicalProviderId(config.ProviderId);
+    }
+
+    private static bool ShouldRetainDedicatedConfig(string providerId)
+    {
+        return ShouldPersistProviderId(providerId) && IsVisibleDerivedProviderId(providerId);
     }
 
     private static bool IsSessionAuthConfig(ProviderConfig config, ProviderDefinition definition)

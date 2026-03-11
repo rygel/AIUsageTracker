@@ -28,10 +28,13 @@ internal static class ProviderSettingsDisplayCatalog
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Select(CreateDefaultDisplayConfig)
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
+        var explicitDisplayProviderIds = configuredProviderIds
+            .Concat(defaultProviderIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var derivedItems = usages
             .Where(usage =>
                 ProviderMetadataCatalog.IsVisibleDerivedProviderId(usage.ProviderId ?? string.Empty) &&
-                !configuredProviderIds.Contains(usage.ProviderId))
+                !explicitDisplayProviderIds.Contains(usage.ProviderId))
             .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
 
         displayItems.AddRange(defaultItems);
