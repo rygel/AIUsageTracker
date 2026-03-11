@@ -72,6 +72,18 @@ paths:
         "404":
           description: Provider not found
 
+  /api/providers/capabilities:
+    get:
+      summary: Provider capability contract for UI consumers
+      operationId: getProviderCapabilities
+      responses:
+        "200":
+          description: Provider capability snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderCapabilitiesSnapshot"
+
   /api/refresh:
     post:
       summary: Trigger provider refresh
@@ -529,6 +541,61 @@ components:
         - plan_type
         - is_available
         - description
+
+    ProviderCapabilityDefinition:
+      type: object
+      properties:
+        provider_id:
+          type: string
+        display_name:
+          type: string
+        supports_child_provider_ids:
+          type: boolean
+        show_in_settings:
+          type: boolean
+        collapse_derived_children_in_main_window:
+          type: boolean
+        render_aggregate_details_in_main_window:
+          type: boolean
+        handled_provider_ids:
+          type: array
+          items:
+            type: string
+        visible_derived_provider_ids:
+          type: array
+          items:
+            type: string
+        settings_additional_provider_ids:
+          type: array
+          items:
+            type: string
+      required:
+        - provider_id
+        - display_name
+        - supports_child_provider_ids
+        - show_in_settings
+        - collapse_derived_children_in_main_window
+        - render_aggregate_details_in_main_window
+        - handled_provider_ids
+        - visible_derived_provider_ids
+        - settings_additional_provider_ids
+
+    ProviderCapabilitiesSnapshot:
+      type: object
+      properties:
+        contract_version:
+          type: string
+        generated_at_utc:
+          type: string
+          format: date-time
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderCapabilityDefinition"
+      required:
+        - contract_version
+        - generated_at_utc
+        - providers
 
     AIModelConfig:
       type: object
