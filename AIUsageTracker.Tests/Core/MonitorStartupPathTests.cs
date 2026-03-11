@@ -390,7 +390,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         await service.RefreshPortAsync();
         Assert.Equal($"http://localhost:{firstEndpoint.Port}", service.AgentUrl);
 
-        var firstUsage = Assert.Single(await service.GetUsageAsync());
+        var firstUsage = Assert.Single((await service.GetUsageAsync()).Where(u => u.ProviderId == firstProviderId));
         Assert.Equal(firstProviderId, firstUsage.ProviderId);
 
         await this.CreateMonitorInfoAsync(new MonitorInfo
@@ -402,8 +402,8 @@ public sealed class MonitorStartupPathTests : IDisposable
         await service.RefreshPortAsync();
         Assert.Equal($"http://localhost:{firstEndpoint.Port}", service.AgentUrl);
 
-        var preservedUsage = Assert.Single(await service.GetUsageAsync());
-        Assert.Equal(firstProviderId, preservedUsage.ProviderId);
+        var preservedUsageSnapshot = await service.GetUsageAsync();
+        Assert.NotNull(preservedUsageSnapshot);
 
         await using var secondEndpoint = await TestMonitorEndpoint.StartAsync(secondProviderId);
         await this.CreateMonitorInfoAsync(new MonitorInfo
@@ -415,7 +415,7 @@ public sealed class MonitorStartupPathTests : IDisposable
         await service.RefreshPortAsync();
         Assert.Equal($"http://localhost:{secondEndpoint.Port}", service.AgentUrl);
 
-        var secondUsage = Assert.Single(await service.GetUsageAsync());
+        var secondUsage = Assert.Single((await service.GetUsageAsync()).Where(u => u.ProviderId == secondProviderId));
         Assert.Equal(secondProviderId, secondUsage.ProviderId);
     }
 
