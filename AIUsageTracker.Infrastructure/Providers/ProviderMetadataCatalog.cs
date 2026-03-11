@@ -106,6 +106,11 @@ public static class ProviderMetadataCatalog
             return false;
         }
 
+        if (string.Equals(providerId, LegacyOpenAiProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         if (!TryGet(providerId, out var definition))
         {
             return true;

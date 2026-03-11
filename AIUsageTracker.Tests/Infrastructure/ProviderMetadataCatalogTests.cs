@@ -156,7 +156,7 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("codex.spark", false)]
     [InlineData("codex", true)]
-    [InlineData("openai", true)]
+    [InlineData("openai", false)]
     public void ShouldPersistProviderId_UsesProviderDefinitions(string providerId, bool expected)
     {
         Assert.Equal(expected, ProviderMetadataCatalog.ShouldPersistProviderId(providerId));

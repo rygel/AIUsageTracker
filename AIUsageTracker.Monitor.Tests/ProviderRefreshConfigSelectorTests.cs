@@ -50,7 +50,6 @@ public class ProviderRefreshConfigSelectorTests
         var selection = selector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
 
         Assert.Single(selection.ActiveConfigs);
-        Assert.Equal(0, selection.SuppressedConfigCount);
     }
 
     [Fact]
@@ -72,7 +71,7 @@ public class ProviderRefreshConfigSelectorTests
     }
 
     [Fact]
-    public void SelectActiveConfigs_SuppressesSessionBackedAliasWhenCanonicalConfigExists()
+    public void SelectActiveConfigs_ExcludesNonPersistedProviders()
     {
         var selector = CreateSelector();
         var configs = new List<ProviderConfig>
@@ -85,11 +84,10 @@ public class ProviderRefreshConfigSelectorTests
 
         var activeConfig = Assert.Single(selection.ActiveConfigs);
         Assert.Equal("codex", activeConfig.ProviderId);
-        Assert.Equal(1, selection.SuppressedConfigCount);
     }
 
     [Fact]
-    public void SelectActiveConfigs_DoesNotSuppressExplicitAliasApiKeyConfig()
+    public void SelectActiveConfigs_DoesNotAlterPersistedProviderSet()
     {
         var selector = CreateSelector();
         var configs = new List<ProviderConfig>
@@ -100,7 +98,6 @@ public class ProviderRefreshConfigSelectorTests
         var selection = selector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
 
         Assert.Single(selection.ActiveConfigs);
-        Assert.Equal(0, selection.SuppressedConfigCount);
     }
 
     [Fact]

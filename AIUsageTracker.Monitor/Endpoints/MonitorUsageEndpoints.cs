@@ -4,7 +4,6 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
@@ -24,14 +23,9 @@ internal static class MonitorUsageEndpoints
 
     private static void MapGetUsage(WebApplication app)
     {
-        app.MapGet(MonitorApiRoutes.Usage, async (UsageDatabase db, IConfigService configService, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.Usage, async (UsageDatabase db, ILogger<Program> logger) =>
         {
             var usage = await db.GetLatestHistoryAsync().ConfigureAwait(false);
-
-            var configs = await configService.GetConfigsAsync().ConfigureAwait(false);
-            usage = usage
-                .Where(u => !ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, u.ProviderId))
-                .ToList();
 
             logger.LogDebug(
                 "GET /api/usage returning {Count} providers: {Providers}",

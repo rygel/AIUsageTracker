@@ -47,13 +47,6 @@ internal sealed class ProviderRefreshConfigLoadingService
         var selection = this._configSelector.SelectActiveConfigs(configs, forceAll, includeProviderIds);
         var activeConfigs = selection.ActiveConfigs;
 
-        if (selection.SuppressedConfigCount > 0)
-        {
-            this._logger.LogInformation(
-                "Suppressed duplicate session-backed provider while canonical provider is active (removed {Count}).",
-                selection.SuppressedConfigCount);
-        }
-
         this._logger.LogInformation("Refreshing {Count} configured providers", activeConfigs.Count);
         foreach (var activeConfig in activeConfigs.OrderBy(c => c.ProviderId, StringComparer.Ordinal))
         {
