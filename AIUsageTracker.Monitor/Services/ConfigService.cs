@@ -17,16 +17,24 @@ public class ConfigService : IConfigService
     private readonly JsonConfigLoader _configLoader;
     private readonly TokenDiscoveryService _tokenDiscovery;
     private readonly IAppPathProvider _pathProvider;
+    private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
+    private int _startupAuthDiagnosticsLogged;
 
     public ConfigService(ILogger<ConfigService> logger, IAppPathProvider pathProvider)
+        : this(logger, NullLoggerFactory.Instance, pathProvider)
+    {
+    }
+
+    public ConfigService(ILogger<ConfigService> logger, ILoggerFactory loggerFactory, IAppPathProvider pathProvider)
     {
         this._logger = logger;
         this._pathProvider = pathProvider;
+        this._tokenDiscoveryLogger = loggerFactory.CreateLogger<TokenDiscoveryService>();
         this._configLoader = new JsonConfigLoader(
-            logger: NullLogger<JsonConfigLoader>.Instance,
-            tokenDiscoveryLogger: NullLogger<TokenDiscoveryService>.Instance,
+            logger: loggerFactory.CreateLogger<JsonConfigLoader>(),
+            tokenDiscoveryLogger: this._tokenDiscoveryLogger,
             pathProvider: this._pathProvider);
-        this._tokenDiscovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, this._pathProvider);
+        this._tokenDiscovery = new TokenDiscoveryService(this._tokenDiscoveryLogger, this._pathProvider);
     }
 
     public async Task<List<ProviderConfig>> GetConfigsAsync()
@@ -34,6 +42,7 @@ public class ConfigService : IConfigService
         try
         {
             var configs = await this._configLoader.LoadConfigAsync().ConfigureAwait(false);
+            this.LogAuthDiagnosticsSnapshotOnceOnStartup(configs);
             return configs.ToList();
         }
         catch (Exception ex)
@@ -122,6 +131,17 @@ public class ConfigService : IConfigService
         {
             var discovered = await this._tokenDiscovery.DiscoverTokensAsync().ConfigureAwait(false);
             var existing = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
+            var discoveredWithKeys = discovered
+                .Where(config => !string.IsNullOrWhiteSpace(config.ApiKey))
+                .ToList();
+            var addedWithKeys = new List<string>();
+            var updatedWithKeys = new List<string>();
+            var alreadyConfiguredWithKeys = new List<string>();
+
+            this._logger.LogInformation(
+                "Auth scan started: discovered {TotalDiscovered} providers ({ProvidersWithKeys} with keys).",
+                discovered.Count,
+                discoveredWithKeys.Count);
 
             // Merge discovered with existing
             foreach (var newConfig in discovered)
@@ -133,6 +153,10 @@ public class ConfigService : IConfigService
                 {
                     existing.Add(newConfig);
                     this._logger.LogInformation("Found: {ProviderId}", newConfig.ProviderId);
+                    if (!string.IsNullOrWhiteSpace(newConfig.ApiKey))
+                    {
+                        addedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
+                    }
                 }
                 else if (string.IsNullOrEmpty(existingConfig.ApiKey) && !string.IsNullOrEmpty(newConfig.ApiKey))
                 {
@@ -140,10 +164,39 @@ public class ConfigService : IConfigService
                     existingConfig.ApiKey = newConfig.ApiKey;
                     existingConfig.AuthSource = newConfig.AuthSource;
                     this._logger.LogInformation("Key updated: {ProviderId}", newConfig.ProviderId);
+                    updatedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
+                }
+                else if (!string.IsNullOrWhiteSpace(newConfig.ApiKey))
+                {
+                    alreadyConfiguredWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
                 }
             }
 
             ProviderMetadataCatalog.NormalizeCanonicalConfigurations(existing);
+
+            this.LogAuthDiagnosticsSnapshot(existing, "post-scan");
+
+            this._logger.LogInformation(
+                "Auth scan summary: added={Added}, updated={Updated}, alreadyConfigured={AlreadyConfigured}, discoveredWithKeys={DiscoveredWithKeys}.",
+                addedWithKeys.Count,
+                updatedWithKeys.Count,
+                alreadyConfiguredWithKeys.Count,
+                discoveredWithKeys.Count);
+
+            if (addedWithKeys.Count > 0)
+            {
+                this._logger.LogInformation("Auth scan added providers: {Providers}", string.Join(", ", addedWithKeys));
+            }
+
+            if (updatedWithKeys.Count > 0)
+            {
+                this._logger.LogInformation("Auth scan updated providers: {Providers}", string.Join(", ", updatedWithKeys));
+            }
+
+            if (alreadyConfiguredWithKeys.Count > 0)
+            {
+                this._logger.LogInformation("Auth scan already-configured providers: {Providers}", string.Join(", ", alreadyConfiguredWithKeys));
+            }
 
             await this._configLoader.SaveConfigAsync(existing).ConfigureAwait(false);
             return discovered.ToList();
@@ -152,6 +205,34 @@ public class ConfigService : IConfigService
         {
             this._logger.LogError(ex, "Failed to scan for keys: {Message}", ex.Message);
             return new List<ProviderConfig>();
+        }
+    }
+
+    private void LogAuthDiagnosticsSnapshotOnceOnStartup(IReadOnlyList<ProviderConfig> configs)
+    {
+        if (Interlocked.Exchange(ref this._startupAuthDiagnosticsLogged, 1) == 1)
+        {
+            return;
+        }
+
+        this.LogAuthDiagnosticsSnapshot(configs, "startup-config-load");
+    }
+
+    private void LogAuthDiagnosticsSnapshot(IReadOnlyList<ProviderConfig> configs, string phase)
+    {
+        var nowUtc = DateTimeOffset.UtcNow;
+        foreach (var config in configs.OrderBy(item => item.ProviderId, StringComparer.OrdinalIgnoreCase))
+        {
+            var snapshot = AuthDiagnosticsSnapshotBuilder.Build(config, nowUtc, this._logger);
+            this._logger.LogInformation(
+                "Auth diagnostics [{Phase}] provider={ProviderId} configured={Configured} authSource={AuthSource} fallbackPathUsed={FallbackPathUsed} tokenAgeBucket={TokenAgeBucket} hasUserIdentity={HasUserIdentity}",
+                phase,
+                snapshot.ProviderId,
+                snapshot.Configured,
+                snapshot.AuthSource,
+                snapshot.FallbackPathUsed,
+                snapshot.TokenAgeBucket,
+                snapshot.HasUserIdentity);
         }
     }
 }

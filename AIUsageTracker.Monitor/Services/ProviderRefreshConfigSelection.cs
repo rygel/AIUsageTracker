@@ -7,5 +7,4 @@ using AIUsageTracker.Core.Models;
 namespace AIUsageTracker.Monitor.Services;
 
 internal sealed record ProviderRefreshConfigSelection(
-    List<ProviderConfig> ActiveConfigs,
-    int SuppressedConfigCount);
+    List<ProviderConfig> ActiveConfigs);

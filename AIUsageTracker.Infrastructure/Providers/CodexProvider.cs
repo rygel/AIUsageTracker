@@ -209,7 +209,7 @@ public class CodexProvider : ProviderBase
                 IsAvailable = true,
                 Description = BuildUsageDescription(remainingPercent, primaryUsedPercent, sparkWindow.UsedPercent, planType),
                 AccountName = accountIdentity ?? string.Empty,
-                AuthSource = $"Codex Native ({planType})",
+                AuthSource = AuthSource.CodexNative(planType),
                 NextResetTime = nextResetTime,
                 Details = details,
                 RawJson = rawJson,
@@ -247,7 +247,7 @@ public class CodexProvider : ProviderBase
             IsAvailable = true,
             Description = $"{remainingPercent:F0}% remaining ({usedPercent:F0}% used) | Plan: {planType} (Spark)",
             AccountName = accountIdentity ?? string.Empty,
-            AuthSource = $"Codex Native ({planType})",
+            AuthSource = AuthSource.CodexNative(planType),
             NextResetTime = ResolveDetailResetTime(sparkWindow.ResetAfterSeconds),
             Details = new List<ProviderUsageDetail>
             {

@@ -31,6 +31,7 @@ public class MinimaxProvider : ProviderBase
             [InternationalProviderId] = "Minimax (International)",
             [InternationalLegacyProviderId] = "Minimax (International)",
         },
+        settingsAdditionalProviderIds: new[] { InternationalProviderId },
         discoveryEnvironmentVariables: new[] { "MINIMAX_API_KEY" },
         iconAssetName: "minimax",
         fallbackBadgeColorHex: "#00CED1",

@@ -57,20 +57,11 @@ internal sealed class ProviderRefreshConfigSelector
     {
         var activeConfigs = configs
             .Where(config =>
-                forceAll ||
-                this.IsAutoIncludedProviderConfig(config.ProviderId) ||
-                !string.IsNullOrEmpty(config.ApiKey))
+                ProviderMetadataCatalog.ShouldPersistProviderId(config.ProviderId) &&
+                (forceAll ||
+                 this.IsAutoIncludedProviderConfig(config.ProviderId) ||
+                 !string.IsNullOrEmpty(config.ApiKey)))
             .ToList();
-
-        var suppressedConfigCount = 0;
-        if (activeConfigs.Any(config => ProviderMetadataCatalog.ShouldSuppressConfig(activeConfigs, config)))
-        {
-            var beforeCount = activeConfigs.Count;
-            activeConfigs = activeConfigs
-                .Where(config => !ProviderMetadataCatalog.ShouldSuppressConfig(activeConfigs, config))
-                .ToList();
-            suppressedConfigCount = beforeCount - activeConfigs.Count;
-        }
 
         if (includeProviderIds != null && includeProviderIds.Count > 0)
         {
@@ -82,7 +73,7 @@ internal sealed class ProviderRefreshConfigSelector
                 .ToList();
         }
 
-        return new ProviderRefreshConfigSelection(activeConfigs, suppressedConfigCount);
+        return new ProviderRefreshConfigSelection(activeConfigs);
     }
 
     private bool IsAutoIncludedProviderConfig(string providerId)

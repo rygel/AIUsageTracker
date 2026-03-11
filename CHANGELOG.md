@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.26] - 2026-03-11
+
+### Changed
+- **Strict Catalog Architecture**: Removed legacy provider suppression APIs and consolidated provider visibility/persistence decisions to metadata-driven catalog gates.
+- **Monitor Pipeline Simplification**: Removed endpoint-level provider suppression and enforced catalog persistence gates in refresh selection and usage database read/write paths.
+- **Settings Metadata Cleanup**: Replaced Minimax and derived-provider UI special-casing with provider metadata (`settingsAdditionalProviderIds`, direct derived-visibility checks).
+
 ## [2.2.28-beta.25] - 2026-03-11
 
 ### Fixed

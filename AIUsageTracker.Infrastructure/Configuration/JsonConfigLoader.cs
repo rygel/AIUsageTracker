@@ -92,6 +92,15 @@ public class JsonConfigLoader : IConfigLoader
             return;
         }
 
+        if (!ProviderMetadataCatalog.TryGet(providerId, out _))
+        {
+            this._logger.LogDebug(
+                "Ignoring unknown provider config entry {ProviderId} from {Path} in strict catalog mode",
+                providerId,
+                path);
+            return;
+        }
+
         var config = this.GetOrCreateMergedConfig(mergedConfigs, providerId);
         this.ApplyFileConfig(config, entry.Value, providerId, path, isAuthFile);
         this.AppendConfigSource(config, path);
@@ -190,7 +199,7 @@ public class JsonConfigLoader : IConfigLoader
     {
         if (string.IsNullOrEmpty(config.AuthSource))
         {
-            config.AuthSource = $"Config: {Path.GetFileName(path)}";
+            config.AuthSource = AuthSource.FromConfigFile(Path.GetFileName(path));
             return;
         }
 

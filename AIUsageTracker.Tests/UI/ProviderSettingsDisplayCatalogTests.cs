@@ -94,4 +94,52 @@ public sealed class ProviderSettingsDisplayCatalogTests
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void CreateDisplayItems_HidesLegacyAnthropicConfigFromSettingsList()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "anthropic" },
+            new() { ProviderId = "claude-code" },
+        };
+
+        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "anthropic", StringComparison.Ordinal));
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "claude-code", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CreateDisplayItems_GroupsDerivedCodexSpark_UnderCodex()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "codex" },
+            new() { ProviderId = "deepseek" },
+        };
+
+        var usages = new List<ProviderUsage>
+        {
+            new() { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
+        };
+
+        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, usages);
+        var codexIndex = items
+            .Select((item, index) => new { item, index })
+            .Where(entry => string.Equals(entry.item.Config.ProviderId, "codex", StringComparison.Ordinal))
+            .Select(entry => entry.index)
+            .DefaultIfEmpty(-1)
+            .First();
+        var sparkIndex = items
+            .Select((item, index) => new { item, index })
+            .Where(entry => string.Equals(entry.item.Config.ProviderId, "codex.spark", StringComparison.Ordinal))
+            .Select(entry => entry.index)
+            .DefaultIfEmpty(-1)
+            .First();
+
+        Assert.True(codexIndex >= 0);
+        Assert.Equal(codexIndex + 1, sparkIndex);
+        Assert.True(items[sparkIndex].IsDerived);
+    }
 }

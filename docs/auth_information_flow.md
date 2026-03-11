@@ -50,7 +50,29 @@ Implication:
 - Environment variables
 - Kilo/Roo/Claude/Codex discovery sources
 
-Discovery does not replace already-populated keys; it fills gaps and adds discovered providers.
+Discovery precedence is:
+
+1. Existing merged file config
+2. Environment variables
+3. Kilo/Roo fallback files
+4. Provider session-token resolvers (Codex/Claude)
+
+Behavior details:
+
+- Discovery can hydrate well-known placeholder providers when a real key is later discovered.
+- Discovery never introduces unknown provider ids (metadata-catalog constrained).
+- Environment variables win over Roo/Kilo values for the same provider.
+- Roo/Kilo values are used as provider-specific fallback only when env is missing.
+
+## Auth Diagnostics Privacy
+
+Monitor auth diagnostics intentionally avoid sensitive data:
+
+- Never logs API key values.
+- Never logs inline env values (for example `Env: OPENAI_API_KEY=...` is sanitized to `Env: OPENAI_API_KEY`).
+- File-based auth sources are reduced to filename-only in diagnostics (`auth.json`, `secrets.json`) instead of full absolute paths.
+
+This keeps logs useful for debugging source selection while avoiding credential/path leakage.
 
 ## Persistence (Write Flow)
 
@@ -82,4 +104,3 @@ When provider quota data is stale/missing:
 2. Verify provider key lengths for affected providers.
 3. Check monitor logs for `NO API KEY` and circuit-breaker entries:
    - `%LOCALAPPDATA%\AIUsageTracker\logs\monitor_YYYY-MM-DD.log`
-

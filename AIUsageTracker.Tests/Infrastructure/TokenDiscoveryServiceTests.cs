@@ -116,4 +116,186 @@ public class TokenDiscoveryServiceTests
             TestTempPaths.CleanupPath(testRoot);
         }
     }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_DiscoversCodexSessionTokenFromSessionAuthFileAsync()
+    {
+        var testRoot = TestTempPaths.CreateDirectory("token-discovery-codex-session");
+
+        try
+        {
+            var codexPath = Path.Combine(testRoot, ".codex", "auth.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+            await File.WriteAllTextAsync(codexPath, "{\"tokens\":{\"access_token\":\"codex-session-token\"}}");
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(testRoot);
+
+            var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
+            var configs = await discovery.DiscoverTokensAsync();
+
+            var codex = configs.FirstOrDefault(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(codex);
+            Assert.Equal("codex-session-token", codex!.ApiKey);
+            Assert.Contains(".codex", codex.AuthSource, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_CodexSessionFileOverridesEnvironmentVariableAsync()
+    {
+        var testRoot = TestTempPaths.CreateDirectory("token-discovery-codex-precedence");
+        Environment.SetEnvironmentVariable("CODEX_API_KEY", "env-codex-key");
+
+        try
+        {
+            var codexPath = Path.Combine(testRoot, ".codex", "auth.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(codexPath)!);
+            await File.WriteAllTextAsync(codexPath, "{\"tokens\":{\"access_token\":\"file-codex-key\"}}");
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(testRoot);
+
+            var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
+            var configs = await discovery.DiscoverTokensAsync();
+
+            var codex = configs.FirstOrDefault(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(codex);
+            Assert.Equal("file-codex-key", codex!.ApiKey);
+            Assert.Contains(".codex", codex.AuthSource, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("CODEX_API_KEY", null);
+            TestTempPaths.CleanupPath(testRoot);
+        }
+    }
+
+    [Fact]
+    public async Task DiscoverTokensAsync_DiscoversClaudeSessionTokenFromCredentialsFileAsync()
+    {
+        var testRoot = TestTempPaths.CreateDirectory("token-discovery-claude-session");
+
+        try
+        {
+            var claudePath = Path.Combine(testRoot, ".claude", ".credentials.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(claudePath)!);
+            await File.WriteAllTextAsync(claudePath, "{\"claudeAiOauth\":{\"accessToken\":\"claude-session-token\"}}");
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(testRoot);
+
+            var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
+            var configs = await discovery.DiscoverTokensAsync();
+
+            var claude = configs.FirstOrDefault(c => c.ProviderId.Equals("claude-code", StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(claude);
+            Assert.Equal("claude-session-token", claude!.ApiKey);
+            Assert.Contains(".claude", claude.AuthSource, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(testRoot);
+        }
+    }
+
+    [Theory]
+    [InlineData("gemini-cli", "GEMINI_API_KEY", "geminiApiKey")]
+    [InlineData("deepseek", "DEEPSEEK_API_KEY", "deepseekApiKey")]
+    [InlineData("synthetic", "SYNTHETIC_API_KEY", "syntheticApiKey")]
+    [InlineData("zai-coding-plan", "ZAI_API_KEY", "zaiApiKey")]
+    public async Task DiscoverTokensAsync_EnvironmentVariableTakesPrecedenceOverRooSecretsAsync(
+        string providerId,
+        string environmentVariableName,
+        string rooPropertyName)
+    {
+        var testRoot = TestTempPaths.CreateDirectory($"token-discovery-precedence-{providerId}");
+        var envValue = $"{providerId}-env-key";
+        var rooValue = $"{providerId}-roo-key";
+        Environment.SetEnvironmentVariable(environmentVariableName, envValue);
+
+        try
+        {
+            var rooPath = Path.Combine(testRoot, ".roo", "secrets.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(rooPath)!);
+            var rooJson = $$"""
+                            {
+                              "roo": {
+                                "apiConfigs": {
+                                  "default": {
+                                    "{{rooPropertyName}}": "{{rooValue}}"
+                                  }
+                                }
+                              }
+                            }
+                            """;
+            await File.WriteAllTextAsync(rooPath, rooJson);
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(testRoot);
+
+            var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
+            var configs = await discovery.DiscoverTokensAsync();
+
+            var config = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(config);
+            Assert.Equal(envValue, config!.ApiKey);
+            Assert.StartsWith("Env:", config.AuthSource, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(environmentVariableName, null);
+            TestTempPaths.CleanupPath(testRoot);
+        }
+    }
+
+    [Theory]
+    [InlineData("gemini-cli", "geminiApiKey")]
+    [InlineData("deepseek", "deepseekApiKey")]
+    [InlineData("synthetic", "syntheticApiKey")]
+    [InlineData("zai-coding-plan", "zaiApiKey")]
+    public async Task DiscoverTokensAsync_UsesRooFallbackWhenEnvironmentVariableIsMissingAsync(
+        string providerId,
+        string rooPropertyName)
+    {
+        var testRoot = TestTempPaths.CreateDirectory($"token-discovery-roo-fallback-{providerId}");
+        var rooValue = $"{providerId}-roo-only-key";
+
+        try
+        {
+            var rooPath = Path.Combine(testRoot, ".roo", "secrets.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(rooPath)!);
+            var rooJson = $$"""
+                            {
+                              "roo": {
+                                "apiConfigs": {
+                                  "default": {
+                                    "{{rooPropertyName}}": "{{rooValue}}"
+                                  }
+                                }
+                              }
+                            }
+                            """;
+            await File.WriteAllTextAsync(rooPath, rooJson);
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(testRoot);
+
+            var discovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, mockPathProvider.Object);
+            var configs = await discovery.DiscoverTokensAsync();
+
+            var config = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(config);
+            Assert.Equal(rooValue, config!.ApiKey);
+            Assert.Contains("Roo", config.AuthSource, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(testRoot);
+        }
+    }
 }

@@ -476,11 +476,17 @@ public partial class SettingsWindow : Window
 
     private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
     {
+        var isCanonicalChild = !string.Equals(
+            ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId),
+            config.ProviderId,
+            StringComparison.OrdinalIgnoreCase);
+        var isSubItem = isDerived || isCanonicalChild;
+
         var card = new Border
         {
             CornerRadius = new CornerRadius(4),
             BorderThickness = new Thickness(1),
-            Margin = new Thickness(0, 0, 0, 8),
+            Margin = new Thickness(isSubItem ? 18 : 0, 0, 0, 8),
             Padding = new Thickness(10, 8, 10, 8),
         };
         card.SetResourceReference(Border.BackgroundProperty, "CardBackground");
@@ -491,7 +497,7 @@ public partial class SettingsWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
 
         var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived);
-        var headerPanel = this.BuildProviderHeader(config, settingsBehavior, isDerived);
+        var headerPanel = this.BuildProviderHeader(config, settingsBehavior, isSubItem);
 
         grid.Children.Add(headerPanel);
 
@@ -508,7 +514,7 @@ public partial class SettingsWindow : Window
 
         var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(usage);
 
-        if (!isDerived && subTrayDetails is { Count: > 0 })
+        if (!isSubItem && subTrayDetails is { Count: > 0 })
         {
             this.AddSubTraySection(grid, config, subTrayDetails);
         }
@@ -586,7 +592,9 @@ public partial class SettingsWindow : Window
 
         var title = new TextBlock
         {
-            Text = ProviderMetadataCatalog.GetDisplayName(config.ProviderId),
+            Text = isDerived
+                ? $"-> {ProviderMetadataCatalog.GetDisplayName(config.ProviderId)}"
+                : ProviderMetadataCatalog.GetDisplayName(config.ProviderId),
             FontWeight = FontWeights.SemiBold,
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,

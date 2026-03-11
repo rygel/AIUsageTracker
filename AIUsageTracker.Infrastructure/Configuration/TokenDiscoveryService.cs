@@ -6,7 +6,6 @@ using System.Collections;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 
@@ -14,38 +13,58 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 
 public class TokenDiscoveryService
 {
+    private static readonly IReadOnlyList<IProviderAuthFallbackResolver> ExplicitProviderFallbackResolvers =
+        BuildExplicitProviderFallbackResolvers();
+
     private readonly ILogger<TokenDiscoveryService> _logger;
     private readonly IAppPathProvider _pathProvider;
+    private readonly IReadOnlyList<ProviderSessionTokenResolver> _sessionResolvers;
 
     public TokenDiscoveryService(ILogger<TokenDiscoveryService> logger, IAppPathProvider pathProvider)
     {
         this._logger = logger;
         this._pathProvider = pathProvider;
+        this._sessionResolvers = new List<ProviderSessionTokenResolver>
+        {
+            new(
+                definition: ClaudeCodeProvider.StaticDefinition,
+                description: "Discovered in Claude Code credentials",
+                sourcePrefix: "Claude Code",
+                logger: this._logger,
+                pathProvider: this._pathProvider),
+            new(
+                definition: CodexProvider.StaticDefinition,
+                description: "Discovered in Codex auth",
+                sourcePrefix: "Config",
+                logger: this._logger,
+                pathProvider: this._pathProvider),
+        };
     }
 
     private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
 
+    private static IReadOnlyList<IProviderAuthFallbackResolver> BuildExplicitProviderFallbackResolvers()
+    {
+        return ProviderMetadataCatalog.Definitions
+            .Where(definition => definition.DiscoveryEnvironmentVariables.Count > 0)
+            .Select(definition => (IProviderAuthFallbackResolver)new ProviderAuthFallbackResolver(
+                definition.ProviderId,
+                definition.DiscoveryEnvironmentVariables.ToArray()))
+            .ToArray();
+    }
+
     public async Task<IReadOnlyList<ProviderConfig>> DiscoverTokensAsync()
     {
         var discoveredConfigs = new List<ProviderConfig>();
+        var environmentVariables = this.GetNormalizedEnvironmentVariables();
 
         // 1. Start with well-known supported providers (ensure they show up in --all)
         this.AddWellKnownProviders(discoveredConfigs);
 
         // 2. Discover from environment variables
-        var envVars = Environment.GetEnvironmentVariables();
-
-        foreach (DictionaryEntry var in envVars)
+        foreach (var entry in environmentVariables)
         {
-            var key = var.Key.ToString()?.ToUpperInvariant();
-            var value = var.Value?.ToString();
-
-            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value))
-            {
-                continue;
-            }
-
-            this.TryAddEnvironmentVariable(discoveredConfigs, key, value);
+            this.TryAddEnvironmentVariable(discoveredConfigs, entry.Key, entry.Value);
         }
 
         // 3. Discover from Kilo Code
@@ -54,76 +73,71 @@ public class TokenDiscoveryService
         // 4. Discover from Roo Code
         await this.DiscoverRooCodeTokensAsync(discoveredConfigs).ConfigureAwait(false);
 
-        // 5. Discover from Claude Code
-        await this.DiscoverClaudeCodeTokenAsync(discoveredConfigs).ConfigureAwait(false);
+        // 5. Apply explicit provider fallback order (env -> provider-specific Roo/Kilo)
+        this.ApplyExplicitProviderFallbacks(discoveredConfigs, environmentVariables);
 
-        // 6. Discover native Codex session token
-        await this.DiscoverCodexSessionTokenAsync(discoveredConfigs).ConfigureAwait(false);
+        // 6. Discover provider-specific session tokens
+        await this.DiscoverSessionTokensAsync(discoveredConfigs).ConfigureAwait(false);
 
         return discoveredConfigs;
     }
 
-    private async Task DiscoverCodexSessionTokenAsync(List<ProviderConfig> configs)
+    private IReadOnlyDictionary<string, string> GetNormalizedEnvironmentVariables()
     {
-        try
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var envVars = Environment.GetEnvironmentVariables();
+        foreach (DictionaryEntry entry in envVars)
         {
-            foreach (var path in this.GetCodexAuthCandidates())
+            var key = entry.Key.ToString();
+            var value = entry.Value?.ToString();
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
             {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                using var doc = JsonDocument.Parse(json);
-                var token = TryReadCodexAccessToken(doc.RootElement);
-
-                if (string.IsNullOrWhiteSpace(token))
-                {
-                    continue;
-                }
-
-                this.AddOrUpdate(configs, CodexProvider.StaticDefinition.ProviderId, token, "Discovered in Codex auth", $"Config: {path}");
-                return;
+                continue;
             }
+
+            result[key.ToUpperInvariant()] = value;
         }
-        catch (Exception ex)
+
+        return result;
+    }
+
+    private void ApplyExplicitProviderFallbacks(
+        List<ProviderConfig> discoveredConfigs,
+        IReadOnlyDictionary<string, string> environmentVariables)
+    {
+        foreach (var resolver in ExplicitProviderFallbackResolvers)
         {
-            this._logger.LogDebug("Codex session discovery failed: {Message}", ex.Message);
+            var resolved = resolver.Resolve(environmentVariables, discoveredConfigs);
+            if (resolved == null)
+            {
+                continue;
+            }
+
+            this.AddOrUpdate(
+                discoveredConfigs,
+                resolved.ProviderId,
+                resolved.ApiKey,
+                resolved.Description ?? "Discovered via explicit provider fallback",
+                resolved.AuthSource);
         }
     }
 
-    private async Task DiscoverClaudeCodeTokenAsync(List<ProviderConfig> configs)
+    private async Task DiscoverSessionTokensAsync(List<ProviderConfig> configs)
     {
-        try
+        foreach (var resolver in this._sessionResolvers)
         {
-            foreach (var path in this.GetCandidatePaths(ClaudeCodeProvider.StaticDefinition))
+            var resolved = await resolver.TryResolveAsync().ConfigureAwait(false);
+            if (resolved == null)
             {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                using var doc = JsonDocument.Parse(json);
-                var token = TryReadAccessToken(doc.RootElement, ClaudeCodeProvider.StaticDefinition);
-                if (string.IsNullOrWhiteSpace(token))
-                {
-                    continue;
-                }
-
-                this.AddOrUpdate(
-                    configs,
-                    ClaudeCodeProvider.StaticDefinition.ProviderId,
-                    token,
-                    "Discovered in Claude Code credentials",
-                    $"Claude Code: {path}");
-                return;
+                continue;
             }
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogDebug("Claude Code discovery failed: {Message}", ex.Message);
+
+            this.AddOrUpdate(
+                configs,
+                resolved.ProviderId,
+                resolved.ApiKey,
+                resolved.Description,
+                resolved.AuthSource);
         }
     }
 
@@ -135,50 +149,8 @@ public class TokenDiscoveryService
 
         foreach (var id in wellKnownIds)
         {
-            this.AddIfNotExists(configs, id, string.Empty, "Well-known provider", "System Default");
+            this.AddIfNotExists(configs, id, string.Empty, "Well-known provider", AuthSource.SystemDefault);
         }
-    }
-
-    private IEnumerable<string> GetCodexAuthCandidates()
-    {
-        return this.GetCandidatePaths(CodexProvider.StaticDefinition);
-    }
-
-    private static string? TryReadCodexAccessToken(JsonElement root)
-    {
-        return TryReadAccessToken(root, CodexProvider.StaticDefinition);
-    }
-
-    private static string? TryReadAccessToken(JsonElement root, ProviderDefinition definition)
-    {
-        foreach (var schema in definition.SessionAuthFileSchemas)
-        {
-            if (!root.TryGetProperty(schema.RootProperty, out var element) || element.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            if (element.TryGetProperty(schema.AccessTokenProperty, out var accessElement) &&
-                accessElement.ValueKind == JsonValueKind.String)
-            {
-                return accessElement.GetString();
-            }
-        }
-
-        return null;
-    }
-
-    private IEnumerable<string> GetCandidatePaths(ProviderDefinition definition)
-    {
-        return definition.AuthIdentityCandidatePathTemplates
-            .Select(this.ResolvePathTemplate)
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)!;
-    }
-
-    private string ResolvePathTemplate(string pathTemplate)
-    {
-        return AuthPathTemplateResolver.Resolve(pathTemplate, this.GetUserProfilePath());
     }
 
     private void AddOrUpdate(List<ProviderConfig> configs, string providerId, string key, string description, string source)
@@ -232,7 +204,7 @@ public class TokenDiscoveryService
                                 configs,
                                 rooJson,
                                 "Discovered in Kilo Code Roo config",
-                                "Kilo Code Roo Config");
+                                $"{AuthSource.KiloPrefix} Roo Config");
                         }
                     }
                 }
@@ -282,7 +254,7 @@ public class TokenDiscoveryService
                     configs,
                     doc.RootElement,
                     "Discovered in Roo Code state",
-                    $"Roo Code: {stateFile}");
+                    AuthSource.FromRooPath(stateFile));
             }
             catch (Exception ex)
             {
@@ -315,7 +287,7 @@ public class TokenDiscoveryService
                     configs,
                     rooEntry,
                     "Discovered in Roo Code secrets",
-                    $"Roo Code: {secretsPath}");
+                    AuthSource.FromRooPath(secretsPath));
             }
         }
         catch (Exception ex)
@@ -382,7 +354,7 @@ public class TokenDiscoveryService
             definition.ProviderId,
             value,
             "Discovered via Environment Variable",
-            $"Env: {environmentVariableName}");
+            AuthSource.FromEnvironmentVariable(environmentVariableName));
     }
 
     private void TryProcessRooApiConfigs(List<ProviderConfig> configs, JsonElement root, string description, string source)
@@ -415,9 +387,20 @@ public class TokenDiscoveryService
             return;
         }
 
-        if (!configs.Any(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase)))
+        var existing = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+        if (existing == null)
         {
             configs.Add(defaultConfig);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(existing.ApiKey) && !string.IsNullOrWhiteSpace(key))
+        {
+            existing.ApiKey = key;
+            existing.AuthSource = source;
+            existing.Description = description;
+            existing.Type = defaultConfig.Type;
+            existing.PlanType = defaultConfig.PlanType;
         }
     }
 }

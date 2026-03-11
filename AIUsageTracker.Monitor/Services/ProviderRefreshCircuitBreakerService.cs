@@ -162,6 +162,38 @@ public class ProviderRefreshCircuitBreakerService
         }
     }
 
+    public void ResetProvider(string providerId, string reason)
+    {
+        if (string.IsNullOrWhiteSpace(providerId))
+        {
+            return;
+        }
+
+        lock (this._providerFailureLock)
+        {
+            if (!this._providerFailureStates.TryGetValue(providerId, out var state))
+            {
+                return;
+            }
+
+            var hadState = state.ConsecutiveFailures > 0 ||
+                state.CircuitOpenUntilUtc.HasValue ||
+                !string.IsNullOrWhiteSpace(state.LastError);
+            if (!hadState)
+            {
+                return;
+            }
+
+            state.ConsecutiveFailures = 0;
+            state.CircuitOpenUntilUtc = null;
+            state.LastError = null;
+            this._logger.LogInformation(
+                "Circuit reset for {ProviderId} due to {Reason}",
+                providerId,
+                reason);
+        }
+    }
+
     private static bool IsUsageForProvider(string providerId, string usageProviderId)
     {
         if (usageProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase))

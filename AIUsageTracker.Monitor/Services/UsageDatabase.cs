@@ -72,6 +72,11 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null)
     {
+        if (!ProviderMetadataCatalog.ShouldPersistProviderId(config.ProviderId))
+        {
+            return;
+        }
+
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -117,6 +122,7 @@ public class UsageDatabase : IUsageDatabase
     public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
     {
         var validUsages = usages.Where(u =>
+            ProviderMetadataCatalog.ShouldPersistProviderId(u.ProviderId) &&
             !(u.RequestsAvailable == 0 &&
               u.RequestsUsed == 0 &&
               u.RequestsPercentage == 0 &&
@@ -314,6 +320,9 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.provider_id";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
+            results = results
+                .Where(usage => ProviderMetadataCatalog.ShouldPersistProviderId(usage.ProviderId))
+                .ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -377,6 +386,9 @@ public class UsageDatabase : IUsageDatabase
                 LIMIT {limit}";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
+            results = results
+                .Where(usage => ProviderMetadataCatalog.ShouldPersistProviderId(usage.ProviderId))
+                .ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -421,6 +433,9 @@ public class UsageDatabase : IUsageDatabase
                 LIMIT {limit}";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
+            results = results
+                .Where(usage => ProviderMetadataCatalog.ShouldPersistProviderId(usage.ProviderId))
+                .ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {

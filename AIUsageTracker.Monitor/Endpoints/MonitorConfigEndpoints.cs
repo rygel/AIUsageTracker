@@ -22,7 +22,14 @@ internal static class MonitorConfigEndpoints
             return Results.Ok(configs);
         });
 
-        app.MapPost(MonitorApiRoutes.Config, async (ProviderConfig config, IConfigService configService, ILogger<Program> logger) =>
+        app.MapPost(
+            MonitorApiRoutes.Config,
+            async (
+                ProviderConfig config,
+                IConfigService configService,
+                ProviderRefreshService refreshService,
+                ProviderRefreshCircuitBreakerService circuitBreakerService,
+                ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(config.ProviderId))
             {
@@ -31,7 +38,14 @@ internal static class MonitorConfigEndpoints
 
             logger.LogDebug("POST {Route} ({ProviderId})", MonitorApiRoutes.Config, config.ProviderId);
             await configService.SaveConfigAsync(config).ConfigureAwait(false);
-            return Results.Ok(new { message = "Config saved" });
+
+            // Config/auth updates should retry immediately and not wait for a stale backoff window.
+            circuitBreakerService.ResetProvider(config.ProviderId, "config update");
+            var refreshQueued = refreshService.QueueForceRefresh(
+                forceAll: false,
+                includeProviderIds: new[] { config.ProviderId });
+
+            return Results.Ok(new { message = "Config saved", refreshQueued });
         });
 
         app.MapDelete(MonitorApiRoutes.ConfigByProviderTemplate, async (string providerId, IConfigService configService, ILogger<Program> logger) =>

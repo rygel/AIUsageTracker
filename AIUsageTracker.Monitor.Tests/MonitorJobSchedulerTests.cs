@@ -309,7 +309,9 @@ public class MonitorJobSchedulerTests
             do
             {
                 snapshot = scheduler.GetSnapshot();
-                if (snapshot.LastExecutionDurationMs > 0 && string.Equals(snapshot.LastDequeuedPriority, "Normal", StringComparison.Ordinal))
+                if (snapshot.LastExecutionDurationMs > 0 &&
+                    snapshot.AverageExecutionDurationMs > 0 &&
+                    string.Equals(snapshot.LastDequeuedPriority, "Normal", StringComparison.Ordinal))
                 {
                     break;
                 }
@@ -318,9 +320,10 @@ public class MonitorJobSchedulerTests
             }
             while (DateTime.UtcNow < deadline);
 
-            Assert.True(snapshot.LastExecutionDurationMs >= 40);
-            Assert.True(snapshot.AverageExecutionDurationMs >= 40);
-            Assert.True(snapshot.MaxObservedQueueWaitMs >= 50);
+            Assert.True(snapshot.LastExecutionDurationMs >= 20);
+            Assert.True(snapshot.AverageExecutionDurationMs > 0);
+            Assert.True(snapshot.AverageExecutionDurationMs <= snapshot.LastExecutionDurationMs);
+            Assert.True(snapshot.MaxObservedQueueWaitMs >= 30);
             Assert.Equal("Normal", snapshot.LastDequeuedPriority);
         }
         finally

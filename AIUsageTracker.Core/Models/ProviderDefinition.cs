@@ -31,6 +31,8 @@ public sealed class ProviderDefinition
         string? sessionStatusLabel = null,
         ProviderSessionIdentitySource sessionIdentitySource = ProviderSessionIdentitySource.None,
         bool refreshOnStartupWithCachedData = false,
+        bool showInSettings = true,
+        IEnumerable<string>? settingsAdditionalProviderIds = null,
         string? iconAssetName = null,
         string? fallbackBadgeColorHex = null,
         string? fallbackBadgeInitial = null,
@@ -67,6 +69,8 @@ public sealed class ProviderDefinition
         this.SessionStatusLabel = sessionStatusLabel;
         this.SessionIdentitySource = sessionIdentitySource;
         this.RefreshOnStartupWithCachedData = refreshOnStartupWithCachedData;
+        this.ShowInSettings = showInSettings;
+        this.SettingsAdditionalProviderIds = NormalizeValues(settingsAdditionalProviderIds);
         this.IconAssetName = iconAssetName;
         this.FallbackBadgeColorHex = fallbackBadgeColorHex;
         this.FallbackBadgeInitial = fallbackBadgeInitial;
@@ -141,6 +145,10 @@ public sealed class ProviderDefinition
     public ProviderSessionIdentitySource SessionIdentitySource { get; }
 
     public bool RefreshOnStartupWithCachedData { get; }
+
+    public bool ShowInSettings { get; }
+
+    public IReadOnlyCollection<string> SettingsAdditionalProviderIds { get; }
 
     public string? IconAssetName { get; }
 

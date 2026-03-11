@@ -66,7 +66,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
     }
 
     [Fact]
-    public void ShouldSuppressOpenAiSession_ReturnsTrue_WhenCodexHasKeyAndOpenAiIsSessionOnly()
+    public void NormalizeCanonicalConfigurations_RemovesOpenAiAlias_WhenCodexExists()
     {
         var configs = new List<ProviderConfig>
         {
@@ -74,22 +74,10 @@ public class ProviderMetadataCatalogCanonicalizationTests
             new() { ProviderId = "openai", ApiKey = "legacy-session-token" },
         };
 
-        var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
+        ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void ShouldSuppressOpenAiSession_ReturnsFalse_WhenOpenAiHasExplicitApiKey()
-    {
-        var configs = new List<ProviderConfig>
-        {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "sk-openai-live" },
-        };
-
-        var result = ProviderMetadataCatalog.ShouldSuppressOpenAiSession(configs);
-
-        Assert.False(result);
+        var codex = Assert.Single(configs);
+        Assert.Equal("codex", codex.ProviderId);
+        Assert.Equal("codex-session", codex.ApiKey);
     }
 }

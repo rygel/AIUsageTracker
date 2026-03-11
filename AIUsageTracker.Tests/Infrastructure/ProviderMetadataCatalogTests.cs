@@ -156,7 +156,7 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("codex.spark", false)]
     [InlineData("codex", true)]
-    [InlineData("openai", true)]
+    [InlineData("openai", false)]
     public void ShouldPersistProviderId_UsesProviderDefinitions(string providerId, bool expected)
     {
         Assert.Equal(expected, ProviderMetadataCatalog.ShouldPersistProviderId(providerId));
@@ -171,6 +171,15 @@ public class ProviderMetadataCatalogTests
         Assert.Equal(expected, ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId));
     }
 
+    [Theory]
+    [InlineData("codex", true)]
+    [InlineData("openai", false)]
+    [InlineData("anthropic", false)]
+    public void ShouldShowInSettings_UsesProviderDefinitions(string providerId, bool expected)
+    {
+        Assert.Equal(expected, ProviderMetadataCatalog.ShouldShowInSettings(providerId));
+    }
+
     [Fact]
     public void GetStartupRefreshProviderIds_UsesProviderDefinitions()
     {
@@ -178,6 +187,16 @@ public class ProviderMetadataCatalogTests
 
         Assert.Contains("antigravity", providerIds);
         Assert.DoesNotContain("codex", providerIds);
+    }
+
+    [Fact]
+    public void GetDefaultSettingsProviderIds_UsesProviderDefinitionAdditionalIds()
+    {
+        var providerIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds();
+
+        Assert.Contains("minimax", providerIds);
+        Assert.Contains("minimax-io", providerIds);
+        Assert.DoesNotContain("openai", providerIds);
     }
 
     [Fact]
@@ -223,6 +242,42 @@ public class ProviderMetadataCatalogTests
     }
 
     [Fact]
+    public void Definitions_EnforceCriticalProviderFallbackMappings()
+    {
+        var codex = ProviderMetadataCatalog.Find("codex");
+        Assert.NotNull(codex);
+        Assert.Contains("CODEX_API_KEY", codex!.DiscoveryEnvironmentVariables);
+        Assert.Contains("%USERPROFILE%\\.codex\\auth.json", codex.AuthIdentityCandidatePathTemplates);
+        Assert.Contains("%APPDATA%\\codex\\auth.json", codex.AuthIdentityCandidatePathTemplates);
+        Assert.Contains(
+            codex.SessionAuthFileSchemas,
+            schema => string.Equals(schema.RootProperty, "tokens", StringComparison.Ordinal) &&
+                      string.Equals(schema.AccessTokenProperty, "access_token", StringComparison.Ordinal));
+
+        var gemini = ProviderMetadataCatalog.Find("gemini-cli");
+        Assert.NotNull(gemini);
+        Assert.Contains("GEMINI_API_KEY", gemini!.DiscoveryEnvironmentVariables);
+        Assert.Contains("GOOGLE_API_KEY", gemini.DiscoveryEnvironmentVariables);
+        Assert.Contains("geminiApiKey", gemini.RooConfigPropertyNames);
+
+        var deepSeek = ProviderMetadataCatalog.Find("deepseek");
+        Assert.NotNull(deepSeek);
+        Assert.Contains("DEEPSEEK_API_KEY", deepSeek!.DiscoveryEnvironmentVariables);
+        Assert.Contains("deepseekApiKey", deepSeek.RooConfigPropertyNames);
+
+        var synthetic = ProviderMetadataCatalog.Find("synthetic");
+        Assert.NotNull(synthetic);
+        Assert.Contains("SYNTHETIC_API_KEY", synthetic!.DiscoveryEnvironmentVariables);
+        Assert.Contains("syntheticApiKey", synthetic.RooConfigPropertyNames);
+
+        var zai = ProviderMetadataCatalog.Find("zai-coding-plan");
+        Assert.NotNull(zai);
+        Assert.Contains("ZAI_API_KEY", zai!.DiscoveryEnvironmentVariables);
+        Assert.Contains("Z_AI_API_KEY", zai.DiscoveryEnvironmentVariables);
+        Assert.Contains("zaiApiKey", zai.RooConfigPropertyNames);
+    }
+
+    [Fact]
     public void Find_ExposesClaudeSessionAuthDiscoveryMetadata()
     {
         var definition = ProviderMetadataCatalog.Find("claude-code");
@@ -234,53 +289,8 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
     }
 
     [Fact]
-    public void ShouldSuppressUsageProviderId_ReturnsTrue_ForSessionBackedAliasWithCanonicalConfig()
+    public void UsageFilter_RemovesNonPersistedProviderIds_UsingPersistenceGate()
     {
-        var configs = new List<ProviderConfig>
-        {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "legacy-session-token" },
-        };
-
-        var result = ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, "openai");
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void ShouldSuppressUsageProviderId_ReturnsTrue_ForStaleSessionBackedAliasHistory_WhenCanonicalConfigExists()
-    {
-        var configs = new List<ProviderConfig>
-        {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
-        };
-
-        var result = ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, "openai");
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void ShouldSuppressUsageProviderId_ReturnsTrue_ForLegacyOpenAiAlias_EvenWithExplicitApiKeyConfig()
-    {
-        var configs = new List<ProviderConfig>
-        {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "sk-live-openai" },
-        };
-
-        var result = ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, "openai");
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void UsageFilter_RemovesStaleSessionAliasUsage_WhenCanonicalProviderIsConfigured()
-    {
-        var configs = new List<ProviderConfig>
-        {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
-        };
         var usages = new List<ProviderUsage>
         {
             new() { ProviderId = "codex", ProviderName = "OpenAI (Codex)" },
@@ -288,7 +298,7 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
         };
 
         var visible = usages
-            .Where(usage => !ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, usage.ProviderId))
+            .Where(usage => ProviderMetadataCatalog.ShouldPersistProviderId(usage.ProviderId))
             .ToList();
 
         Assert.Single(visible);

@@ -160,4 +160,31 @@ public class ProviderRefreshCircuitBreakerServiceTests
         Assert.NotNull(openAi.LastRefreshAttemptUtc);
         Assert.NotNull(openAi.LastSuccessfulRefreshUtc);
     }
+
+    [Fact]
+    public void ResetProvider_ClearsCircuitStateImmediately()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "gemini-cli" },
+        };
+
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            this._service.UpdateProviderFailureStates(configs, Array.Empty<ProviderUsage>());
+        }
+
+        Assert.Empty(this._service.GetRefreshableConfigs(configs, forceAll: false));
+
+        this._service.ResetProvider("gemini-cli", "config update");
+
+        var refreshable = this._service.GetRefreshableConfigs(configs, forceAll: false);
+        Assert.Single(refreshable);
+        Assert.Equal("gemini-cli", refreshable[0].ProviderId);
+
+        var diagnostic = Assert.Single(this._service.GetProviderDiagnostics());
+        Assert.Equal(0, diagnostic.ConsecutiveFailures);
+        Assert.False(diagnostic.IsCircuitOpen);
+        Assert.Null(diagnostic.LastRefreshError);
+    }
 }

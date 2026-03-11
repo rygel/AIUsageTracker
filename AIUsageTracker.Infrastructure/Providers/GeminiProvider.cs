@@ -110,6 +110,10 @@ public class GeminiProvider : ProviderBase
         {
             try
             {
+                this._logger.LogDebug(
+                    "Gemini quota refresh started for account {AccountEmail} using project {ProjectId}",
+                    account.Email,
+                    account.ProjectId);
                 var accessToken = await this.RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await this.FetchQuotaAsync(accessToken, account.ProjectId).ConfigureAwait(false);
                 var allBuckets = buckets ?? new List<Bucket>();
@@ -315,6 +319,11 @@ public class GeminiProvider : ProviderBase
                 return null;
             }
 
+            this._logger.LogDebug(
+                "Gemini CLI auth resolved account {AccountEmail} with project {ProjectId}",
+                email,
+                projectId);
+
             return new AntigravityAccounts
             {
                 Accounts = new List<Account>
@@ -389,10 +398,24 @@ public class GeminiProvider : ProviderBase
                 .FirstOrDefault();
             if (bestMatch != null)
             {
+                this._logger.LogDebug(
+                    "Gemini project selected by working-directory match. Cwd={CurrentDirectory}; MatchRoot={MatchRoot}; Project={ProjectId}",
+                    normalizedCurrentDirectory,
+                    bestMatch.Key,
+                    bestMatch.Value);
                 return bestMatch.Value;
             }
 
-            return projects.Projects.Values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            var fallbackProjectId = projects.Projects.Values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            if (!string.IsNullOrWhiteSpace(fallbackProjectId))
+            {
+                this._logger.LogDebug(
+                    "Gemini project selected by fallback-first-entry. Cwd={CurrentDirectory}; Project={ProjectId}",
+                    normalizedCurrentDirectory,
+                    fallbackProjectId);
+            }
+
+            return fallbackProjectId;
         }
         catch (Exception ex)
         {
@@ -510,11 +533,16 @@ public class GeminiProvider : ProviderBase
             var clientSecret = string.Equals(clientId, GeminiPluginClientId, StringComparison.Ordinal)
                 ? GeminiPluginClientSecret
                 : GeminiCliClientSecret;
+            this._logger.LogDebug(
+                "Gemini token refresh using OAuth client {ClientKind}",
+                string.Equals(clientId, GeminiPluginClientId, StringComparison.Ordinal) ? "plugin" : "cli");
             return await this.DoRefreshTokenAsync(refreshToken, clientId, clientSecret).ConfigureAwait(false);
         }
         catch when (string.Equals(clientId, GeminiCliClientId, StringComparison.Ordinal))
         {
             // If default client fails, retry with plugin client
+            this._logger.LogWarning(
+                "Gemini token refresh failed with CLI client; retrying with plugin client");
             return await this.DoRefreshTokenAsync(refreshToken, GeminiPluginClientId, GeminiPluginClientSecret).ConfigureAwait(false);
         }
     }
@@ -545,10 +573,35 @@ public class GeminiProvider : ProviderBase
         request.Content = JsonContent.Create(new { project = projectId });
 
         var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            this._logger.LogWarning(
+                "Gemini quota request failed with status {StatusCode} for project {ProjectId}. Body={ResponseBody}",
+                (int)response.StatusCode,
+                projectId,
+                TruncateForLog(body));
+        }
+
         response.EnsureSuccessStatusCode();
 
         var data = await response.Content.ReadFromJsonAsync<GeminiQuotaResponse>().ConfigureAwait(false);
         return data?.Buckets;
+    }
+
+    private static string TruncateForLog(string? value, int maxLength = 600)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        return value[..maxLength] + "...";
     }
 
     private class AntigravityAccounts

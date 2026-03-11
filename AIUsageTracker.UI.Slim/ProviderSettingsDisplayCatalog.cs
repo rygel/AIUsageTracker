@@ -14,23 +14,15 @@ internal static class ProviderSettingsDisplayCatalog
         IReadOnlyCollection<ProviderUsage> usages)
     {
         var displayItems = configs
-            .Where(config => !ProviderMetadataCatalog.ShouldHideInSettings(config.ProviderId))
+            .Where(config => ProviderMetadataCatalog.ShouldShowInSettings(config.ProviderId))
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false))
             .ToList();
-        var configuredProviderIds = configs
-            .Select(config => config.ProviderId)
+        var configuredProviderIds = displayItems
+            .Select(item => item.Config.ProviderId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var defaultProviderIds = ProviderMetadataCatalog.Definitions
-            .Select(definition => definition.ProviderId)
-            .Where(providerId => !ProviderMetadataCatalog.ShouldHideInSettings(providerId))
+        var defaultProviderIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds()
             .Where(providerId => !configuredProviderIds.Contains(providerId))
             .ToList();
-
-        // Minimax exposes two endpoint families; surface both explicitly to avoid one hidden alias entry.
-        if (!configuredProviderIds.Contains(MinimaxProvider.InternationalProviderId))
-        {
-            defaultProviderIds.Add(MinimaxProvider.InternationalProviderId);
-        }
 
         var defaultItems = defaultProviderIds
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -38,7 +30,7 @@ internal static class ProviderSettingsDisplayCatalog
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
         var derivedItems = usages
             .Where(usage =>
-                ProviderSettingsCatalog.IsDerivedProviderVisible(usage.ProviderId) &&
+                ProviderMetadataCatalog.IsVisibleDerivedProviderId(usage.ProviderId ?? string.Empty) &&
                 !configuredProviderIds.Contains(usage.ProviderId))
             .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
 
@@ -46,7 +38,9 @@ internal static class ProviderSettingsDisplayCatalog
         displayItems.AddRange(derivedItems);
 
         return displayItems
-            .OrderBy(item => ProviderMetadataCatalog.GetDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => ProviderMetadataCatalog.GetCanonicalProviderId(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.IsDerived ? 1 : 0)
+            .ThenBy(item => ProviderMetadataCatalog.GetDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
