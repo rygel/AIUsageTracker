@@ -11,7 +11,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
 {
     public static AuthDiagnosticsSnapshot Build(ProviderConfig config, DateTimeOffset nowUtc, ILogger? logger = null)
     {
-        var rawAuthSource = string.IsNullOrWhiteSpace(config.AuthSource) ? "none" : config.AuthSource;
+        var rawAuthSource = string.IsNullOrWhiteSpace(config.AuthSource) ? AuthSource.None : config.AuthSource;
         var fallbackPath = ExtractFallbackPath(rawAuthSource);
         var authSource = SanitizeAuthSource(rawAuthSource, fallbackPath);
         var fallbackPathUsed = SanitizeFallbackPath(fallbackPath);
@@ -46,12 +46,12 @@ internal static class AuthDiagnosticsSnapshotBuilder
 
     private static string SanitizeAuthSource(string authSource, string fallbackPath)
     {
-        if (string.Equals(authSource, "none", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(authSource, AuthSource.None, StringComparison.OrdinalIgnoreCase))
         {
-            return "none";
+            return AuthSource.None;
         }
 
-        if (authSource.StartsWith("Env:", StringComparison.OrdinalIgnoreCase))
+        if (AuthSource.IsEnvironment(authSource))
         {
             var variableSegment = authSource[4..].Trim();
             var equalIndex = variableSegment.IndexOf('=');
@@ -60,7 +60,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
                 variableSegment = variableSegment[..equalIndex].Trim();
             }
 
-            return $"Env: {variableSegment}";
+            return AuthSource.FromEnvironmentVariable(variableSegment);
         }
 
         if (string.IsNullOrWhiteSpace(fallbackPath))
@@ -103,7 +103,7 @@ internal static class AuthDiagnosticsSnapshotBuilder
         DateTimeOffset nowUtc,
         ILogger? logger)
     {
-        if (authSource.StartsWith("Env:", StringComparison.OrdinalIgnoreCase))
+        if (AuthSource.IsEnvironment(authSource))
         {
             return "runtime-env";
         }

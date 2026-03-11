@@ -220,7 +220,7 @@ public static class ProviderMetadataCatalog
             ApiKey = apiKey ?? string.Empty,
             Type = definition.DefaultConfigType,
             PlanType = definition.PlanType,
-            AuthSource = authSource ?? "Unknown",
+            AuthSource = authSource ?? AuthSource.Unknown,
             Description = description,
         };
 
@@ -365,7 +365,7 @@ public static class ProviderMetadataCatalog
         }
 
         if ((string.IsNullOrWhiteSpace(canonicalConfig.AuthSource) ||
-             string.Equals(canonicalConfig.AuthSource, "Unknown", StringComparison.OrdinalIgnoreCase)) &&
+             string.Equals(canonicalConfig.AuthSource, AuthSource.Unknown, StringComparison.OrdinalIgnoreCase)) &&
             !string.IsNullOrWhiteSpace(sourceConfig.AuthSource))
         {
             canonicalConfig.AuthSource = sourceConfig.AuthSource;

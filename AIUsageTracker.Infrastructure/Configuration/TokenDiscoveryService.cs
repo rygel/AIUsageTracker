@@ -149,7 +149,7 @@ public class TokenDiscoveryService
 
         foreach (var id in wellKnownIds)
         {
-            this.AddIfNotExists(configs, id, string.Empty, "Well-known provider", "System Default");
+            this.AddIfNotExists(configs, id, string.Empty, "Well-known provider", AuthSource.SystemDefault);
         }
     }
 
@@ -204,7 +204,7 @@ public class TokenDiscoveryService
                                 configs,
                                 rooJson,
                                 "Discovered in Kilo Code Roo config",
-                                "Kilo Code Roo Config");
+                                $"{AuthSource.KiloPrefix} Roo Config");
                         }
                     }
                 }
@@ -254,7 +254,7 @@ public class TokenDiscoveryService
                     configs,
                     doc.RootElement,
                     "Discovered in Roo Code state",
-                    $"Roo Code: {stateFile}");
+                    AuthSource.FromRooPath(stateFile));
             }
             catch (Exception ex)
             {
@@ -287,7 +287,7 @@ public class TokenDiscoveryService
                     configs,
                     rooEntry,
                     "Discovered in Roo Code secrets",
-                    $"Roo Code: {secretsPath}");
+                    AuthSource.FromRooPath(secretsPath));
             }
         }
         catch (Exception ex)
@@ -354,7 +354,7 @@ public class TokenDiscoveryService
             definition.ProviderId,
             value,
             "Discovered via Environment Variable",
-            $"Env: {environmentVariableName}");
+            AuthSource.FromEnvironmentVariable(environmentVariableName));
     }
 
     private void TryProcessRooApiConfigs(List<ProviderConfig> configs, JsonElement root, string description, string source)

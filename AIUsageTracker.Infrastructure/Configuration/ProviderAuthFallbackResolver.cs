@@ -35,7 +35,7 @@ internal sealed class ProviderAuthFallbackResolver : IProviderAuthFallbackResolv
                     this.ProviderId,
                     out var envConfig,
                     apiKey: value,
-                    authSource: $"Env: {environmentVariableName}",
+                    authSource: AuthSource.FromEnvironmentVariable(environmentVariableName),
                     description: "Discovered via Environment Variable"))
             {
                 return null;
@@ -52,12 +52,6 @@ internal sealed class ProviderAuthFallbackResolver : IProviderAuthFallbackResolv
 
     private static bool IsRooFallbackSource(string? authSource)
     {
-        if (string.IsNullOrWhiteSpace(authSource))
-        {
-            return false;
-        }
-
-        return authSource.Contains("Roo", StringComparison.OrdinalIgnoreCase) ||
-               authSource.Contains("Kilo Code", StringComparison.OrdinalIgnoreCase);
+        return AuthSource.IsRooOrKilo(authSource);
     }
 }

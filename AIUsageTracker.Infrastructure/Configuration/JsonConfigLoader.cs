@@ -190,7 +190,7 @@ public class JsonConfigLoader : IConfigLoader
     {
         if (string.IsNullOrEmpty(config.AuthSource))
         {
-            config.AuthSource = $"Config: {Path.GetFileName(path)}";
+            config.AuthSource = AuthSource.FromConfigFile(Path.GetFileName(path));
             return;
         }
 
