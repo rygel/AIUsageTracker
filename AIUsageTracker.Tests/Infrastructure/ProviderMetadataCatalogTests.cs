@@ -210,7 +210,7 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
     }
 
     [Fact]
-    public void ShouldSuppressUsageProviderId_ReturnsFalse_ForExplicitAliasApiKeyConfig()
+    public void ShouldSuppressUsageProviderId_ReturnsTrue_ForLegacyOpenAiAlias_EvenWithExplicitApiKeyConfig()
     {
         var configs = new List<ProviderConfig>
         {
@@ -220,7 +220,7 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
 
         var result = ProviderMetadataCatalog.ShouldSuppressUsageProviderId(configs, "openai");
 
-        Assert.False(result);
+        Assert.True(result);
     }
 
     [Fact]

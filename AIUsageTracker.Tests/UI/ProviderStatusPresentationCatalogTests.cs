@@ -78,6 +78,28 @@ namespace AIUsageTracker.Tests.UI
         }
 
         [Fact]
+        public void Create_ReturnsGitHubPresentation_FromUsageAccount_WhenAuthIdentityUnavailable()
+        {
+            var config = new ProviderConfig { ProviderId = "github-copilot", ApiKey = string.Empty };
+            var usage = new ProviderUsage
+            {
+                IsAvailable = true,
+                AccountName = "octocat-from-usage",
+            };
+
+            var presentation = ProviderStatusPresentationCatalog.Create(
+                config,
+                usage,
+                ProviderInputMode.GitHubCopilotAuthStatus,
+                isPrivacyMode: false,
+                new ProviderAuthIdentities(null, null, null));
+
+            Assert.True(presentation.UseHorizontalLayout);
+            Assert.Equal("Authenticated (octocat-from-usage)", presentation.PrimaryText);
+            Assert.Empty(presentation.SecondaryLines);
+        }
+
+        [Fact]
         public void Create_ReturnsOpenAiPresentation_FromCodexIdentity_AndLoadingReset()
         {
             var config = new ProviderConfig { ProviderId = "codex", ApiKey = "sess-token" };

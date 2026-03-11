@@ -14,6 +14,7 @@ internal static class ProviderSettingsDisplayCatalog
         IReadOnlyCollection<ProviderUsage> usages)
     {
         var displayItems = configs
+            .Where(config => !ProviderMetadataCatalog.ShouldHideInSettings(config.ProviderId))
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false))
             .ToList();
         var configuredProviderIds = configs
@@ -21,6 +22,7 @@ internal static class ProviderSettingsDisplayCatalog
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var defaultItems = ProviderMetadataCatalog.Definitions
             .Select(definition => definition.ProviderId)
+            .Where(providerId => !ProviderMetadataCatalog.ShouldHideInSettings(providerId))
             .Where(providerId => !configuredProviderIds.Contains(providerId))
             .Select(CreateDefaultDisplayConfig)
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));

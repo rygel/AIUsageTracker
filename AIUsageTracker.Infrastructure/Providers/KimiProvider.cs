@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Core.Utilities;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -206,22 +207,7 @@ public class KimiProvider : ProviderBase
 
     private string FormatDuration(long duration, string unit)
     {
-        if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal))
-        {
-            return duration == 60 ? "Hourly" : $"{duration}m";
-        }
-
-        if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal))
-        {
-            return $"{duration}h";
-        }
-
-        if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal))
-        {
-            return $"{duration}d";
-        }
-
-        return unit;
+        return UsageWindowLabelFormatter.FormatDuration(duration, unit);
     }
 
     private string FormatResetTime(string resetTime)

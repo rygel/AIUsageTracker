@@ -14,7 +14,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
     {
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "openai" },
+            new() { ProviderId = "codex" },
         };
 
         var usages = new List<ProviderUsage>
@@ -55,15 +55,15 @@ public sealed class ProviderSettingsDisplayCatalogTests
         var configs = new List<ProviderConfig>
         {
             new() { ProviderId = "xiaomi" },
-            new() { ProviderId = "openai" },
+            new() { ProviderId = "codex" },
             new() { ProviderId = "opencode" },
         };
 
         var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.Equal(
-            new[] { "openai", "opencode", "xiaomi" },
-            items.Where(item => new[] { "openai", "opencode", "xiaomi" }.Contains(item.Config.ProviderId, StringComparer.Ordinal))
+            new[] { "codex", "opencode", "xiaomi" },
+            items.Where(item => new[] { "codex", "opencode", "xiaomi" }.Contains(item.Config.ProviderId, StringComparer.Ordinal))
                 .Select(item => item.Config.ProviderId)
                 .ToArray());
     }
@@ -73,7 +73,23 @@ public sealed class ProviderSettingsDisplayCatalogTests
     {
         var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(Array.Empty<ProviderConfig>(), Array.Empty<ProviderUsage>());
 
-        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal) && !item.IsDerived);
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) && !item.IsDerived);
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "opencode", StringComparison.Ordinal) && !item.IsDerived);
+    }
+
+    [Fact]
+    public void CreateDisplayItems_HidesLegacyOpenAiConfigFromSettingsList()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "openai" },
+            new() { ProviderId = "codex" },
+        };
+
+        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+
+        Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
     }
 }

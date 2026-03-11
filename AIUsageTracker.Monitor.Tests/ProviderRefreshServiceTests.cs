@@ -171,7 +171,7 @@ public class ProviderRefreshServiceTests
         Assert.Null(telemetry.LastError);
 
         var providerDiagnostic = Assert.Single(telemetry.ProviderDiagnostics);
-        Assert.Equal("openai", providerDiagnostic.ProviderId);
+        Assert.Equal("codex", providerDiagnostic.ProviderId);
         Assert.NotNull(providerDiagnostic.LastRefreshAttemptUtc);
         Assert.NotNull(providerDiagnostic.LastSuccessfulRefreshUtc);
         Assert.Null(providerDiagnostic.LastRefreshError);
@@ -308,13 +308,13 @@ public class ProviderRefreshServiceTests
         scenario.Pipeline.Verify(
             p => p.Process(
                 It.IsAny<IEnumerable<ProviderUsage>>(),
-                It.Is<IReadOnlyCollection<string>>(ids => ids.Contains("openai", StringComparer.OrdinalIgnoreCase)),
+                It.Is<IReadOnlyCollection<string>>(ids => ids.Contains("codex", StringComparer.OrdinalIgnoreCase)),
                 true),
             Times.Once);
 
         scenario.Database.Verify(
             d => d.StoreHistoryAsync(It.Is<IEnumerable<ProviderUsage>>(items =>
-                items.Any(u => u.ProviderId == "openai" && Math.Abs(u.RequestsPercentage - 50) < 0.001))),
+                items.Any(u => u.ProviderId == "codex" && Math.Abs(u.RequestsPercentage - 50) < 0.001))),
             Times.Once);
     }
 
@@ -330,7 +330,7 @@ public class ProviderRefreshServiceTests
         var pathProvider = new Mock<IAppPathProvider>();
         var jobScheduler = new Mock<IMonitorJobScheduler>();
         var pipeline = new Mock<IProviderUsageProcessingPipeline>();
-        var provider = CreateOpenAiProvider();
+        var provider = CreateCodexProvider();
         ConfigurePipelinePrivacyMocks(files, database, configService, pathProvider, jobScheduler, pipeline);
         var service = CreatePipelinePrivacyService(
             logger.Object,
@@ -366,12 +366,12 @@ public class ProviderRefreshServiceTests
         var preferences = new AppPreferences { IsPrivacyMode = true, MaxConcurrentProviderRequests = 6 };
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "openai", ApiKey = "test-key", Type = "pay-as-you-go" },
+            new() { ProviderId = "codex", ApiKey = "test-key", Type = "pay-as-you-go" },
         };
         var processedOutput = new ProviderUsage
         {
-            ProviderId = "openai",
-            ProviderName = "OpenAI",
+            ProviderId = "codex",
+            ProviderName = "OpenAI (Codex)",
             RequestsUsed = 5,
             RequestsAvailable = 10,
             RequestsPercentage = 50,
@@ -398,24 +398,24 @@ public class ProviderRefreshServiceTests
             .Returns(new ProviderUsageProcessingResult { Usages = new[] { processedOutput } });
     }
 
-    private static Mock<IProviderService> CreateOpenAiProvider()
+    private static Mock<IProviderService> CreateCodexProvider()
     {
         var providerDefinition = new ProviderDefinition(
-            providerId: "openai",
-            displayName: "OpenAI",
+            providerId: "codex",
+            displayName: "OpenAI (Codex)",
             planType: PlanType.Usage,
             isQuotaBased: false,
             defaultConfigType: "pay-as-you-go");
         var provider = new Mock<IProviderService>();
-        provider.SetupGet(p => p.ProviderId).Returns("openai");
+        provider.SetupGet(p => p.ProviderId).Returns("codex");
         provider.SetupGet(p => p.Definition).Returns(providerDefinition);
         provider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
             .ReturnsAsync(new[]
             {
                 new ProviderUsage
                 {
-                    ProviderId = "openai",
-                    ProviderName = "OpenAI",
+                    ProviderId = "codex",
+                    ProviderName = "OpenAI (Codex)",
                     RequestsUsed = 2,
                     RequestsAvailable = 10,
                     RequestsPercentage = 20,
@@ -472,7 +472,7 @@ public class ProviderRefreshServiceTests
         var preferencesPath = Path.Combine(root, "preferences.json");
         var authJson = """
         {
-          "openai": {
+          "codex": {
             "key": "test-key",
             "type": "pay-as-you-go"
           }
