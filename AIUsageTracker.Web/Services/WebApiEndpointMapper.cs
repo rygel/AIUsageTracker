@@ -72,7 +72,7 @@ internal static class WebApiEndpointMapper
         return Results.File(backup, "application/octet-stream", $"usage_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db");
     }
 
-    private static IResult CreateMonitorActionResult(MonitorProcessService.MonitorActionResult result)
+    private static IResult CreateMonitorActionResult(MonitorActionResult result)
     {
         return result.Success
             ? Results.Ok(result)

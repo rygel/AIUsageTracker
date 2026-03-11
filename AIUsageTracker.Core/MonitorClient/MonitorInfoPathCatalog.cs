@@ -7,6 +7,7 @@ namespace AIUsageTracker.Core.MonitorClient;
 public static class MonitorInfoPathCatalog
 {
     private const string CanonicalProductFolder = "AIUsageTracker";
+    private static readonly char[] DirectorySeparators = ['\\', '/'];
 
     public static IReadOnlyList<string> GetWriteCandidatePaths(string appDataRoot, string userProfileRoot)
     {
@@ -43,6 +44,18 @@ public static class MonitorInfoPathCatalog
 
     private static string GetCanonicalPath(string appDataRoot)
     {
-        return Path.Combine(appDataRoot, CanonicalProductFolder, "monitor.json");
+        if (string.IsNullOrWhiteSpace(appDataRoot))
+        {
+            return Path.Combine(CanonicalProductFolder, "monitor.json");
+        }
+
+        var normalizedRoot = appDataRoot.TrimEnd(DirectorySeparators);
+        var leaf = Path.GetFileName(normalizedRoot);
+        if (leaf.Equals(CanonicalProductFolder, StringComparison.OrdinalIgnoreCase))
+        {
+            return Path.Combine(normalizedRoot, "monitor.json");
+        }
+
+        return Path.Combine(normalizedRoot, CanonicalProductFolder, "monitor.json");
     }
 }

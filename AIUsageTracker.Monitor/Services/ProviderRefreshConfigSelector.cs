@@ -92,7 +92,3 @@ internal sealed class ProviderRefreshConfigSelector
             definition.HandlesProviderId(providerId));
     }
 }
-
-internal sealed record ProviderRefreshConfigSelection(
-    List<ProviderConfig> ActiveConfigs,
-    int SuppressedConfigCount);

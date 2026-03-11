@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.AspNetCore.Builder;
@@ -43,14 +44,14 @@ internal static class MonitorUsageEndpoints
 
     private static void MapGetUsageByProvider(WebApplication app)
     {
-        app.MapGet(MonitorApiRoutes.UsageByProvider, async (string providerId, UsageDatabase db, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.UsageByProviderTemplate, async (string providerId, UsageDatabase db, ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(providerId))
             {
                 return Results.BadRequest(new { message = "providerId is required." });
             }
 
-            logger.LogDebug("GET {Route}: {ProviderId}", MonitorApiRoutes.UsageByProvider, providerId);
+            logger.LogDebug("GET {Route}: {ProviderId}", MonitorApiRoutes.UsageByProviderTemplate, providerId);
             var usage = await db.GetHistoryByProviderAsync(providerId, 1).ConfigureAwait(false);
             var result = usage.FirstOrDefault();
             return result != null ? Results.Ok(result) : Results.NotFound();

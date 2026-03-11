@@ -20,6 +20,7 @@ All architecture streamlining tasks completed! See remaining feature backlog bel
 - [ ] Member ordering normalization (Priority: P1, Effort: M): Resolve ordering/layout warnings (`SA1201`, `SA1202`, `SA1204`) in highest-churn files first.
 - [ ] Semantic analyzer fixes (Priority: P1, Effort: M): Address correctness/readability warnings (`MA0074`, `MA0006`, `MA0004`) in non-UI/core paths first.
 - [ ] File structure cleanup (Priority: P2, Effort: M): Split multi-type files and align file/type names (`SA1402`, `SA1649`).
+  - **Progress (2026-03-11)**: Split `MonitorRefreshHealthSnapshot`, `HttpProviderTestBase`, and collection-definition classes into file-matching types to reduce `SA1402`/`SA1649` in Core and test infrastructure.
 - [x] Guardrail hardening (Priority: P1, Effort: S): Add/strengthen pre-commit and pre-push checks to enforce `dotnet format` + analyzer hygiene.
   - **Completed**: `pre-commit-check.sh` now enforces whitespace/style verification on staged files; `pre-push-validation.ps1` now verifies formatting for files changed against `origin/develop` and supports optional strict analyzer gating.
 

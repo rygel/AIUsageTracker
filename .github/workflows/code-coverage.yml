@@ -4,13 +4,25 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - "AIUsageTracker.*/**"
+      - "Directory.Build.props"
+      - ".editorconfig"
+      - "AIUsageTracker.Core/**"
+      - "AIUsageTracker.Infrastructure/**"
+      - "AIUsageTracker.Monitor/**"
+      - "AIUsageTracker.Tests/**"
+      - "AIUsageTracker.Monitor.Tests/**"
       - "scripts/**"
       - ".github/workflows/code-coverage.yml"
   pull_request:
     branches: [ main, develop ]
     paths:
-      - "AIUsageTracker.*/**"
+      - "Directory.Build.props"
+      - ".editorconfig"
+      - "AIUsageTracker.Core/**"
+      - "AIUsageTracker.Infrastructure/**"
+      - "AIUsageTracker.Monitor/**"
+      - "AIUsageTracker.Tests/**"
+      - "AIUsageTracker.Monitor.Tests/**"
       - "scripts/**"
       - ".github/workflows/code-coverage.yml"
   workflow_dispatch:

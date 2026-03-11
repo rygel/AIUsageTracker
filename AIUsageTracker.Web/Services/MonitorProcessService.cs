@@ -6,8 +6,8 @@ using System.Diagnostics;
 using System.Globalization;
 
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.Web.Services;
 
@@ -17,29 +17,6 @@ public class MonitorProcessService
     private readonly ILogger<MonitorProcessService> _logger;
     private readonly IMonitorService _monitorService;
     private readonly IMonitorLauncherClient _monitorLauncherClient;
-
-    public readonly record struct MonitorStatusResult(
-        bool IsRunning,
-        int Port,
-        string Message,
-        string? Error,
-        string? ServiceHealth,
-        string? LastRefreshError,
-        int ProvidersInBackoff,
-        IReadOnlyList<string> FailingProviders,
-        bool? IsContractCompatible,
-        string? ContractVersion,
-        string? MinClientContractVersion,
-        string? ContractMessage,
-        string? StartupState,
-        string? StartupFailureReason);
-
-    public readonly record struct MonitorActionResult(
-        bool Success,
-        string Message,
-        string? Error,
-        string? StartupState,
-        string? StartupFailureReason);
 
     public MonitorProcessService(ILogger<MonitorProcessService> logger, IMonitorService monitorService)
         : this(logger, monitorService, new MonitorLauncherClient())

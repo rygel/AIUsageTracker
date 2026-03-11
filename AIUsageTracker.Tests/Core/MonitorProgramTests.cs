@@ -59,6 +59,18 @@ public sealed class MonitorProgramTests : IDisposable
     }
 
     [Fact]
+    public void WriteCandidatePaths_DoesNotAppendProductFolderTwice_WhenRootAlreadyCanonical()
+    {
+        var canonicalRoot = Path.Combine(this._tempDirectory, "AIUsageTracker");
+        var candidatePaths = MonitorInfoPathCatalog.GetWriteCandidatePaths(
+            canonicalRoot,
+            this._pathProvider.GetUserProfileRoot());
+
+        var path = Assert.Single(candidatePaths);
+        Assert.Equal(Path.Combine(canonicalRoot, "monitor.json"), path);
+    }
+
+    [Fact]
     public void ReportError_AppendsMessageToExistingMonitorInfo()
     {
         var path = MonitorInfoPathCatalog.GetWriteCandidatePaths(

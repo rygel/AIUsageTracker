@@ -772,7 +772,7 @@ public partial class MainWindow : Window
 #pragma warning disable VSTHRD001 // Recovery runs from a background delay and must marshal back to the UI thread explicitly.
         _ = Task.Run(async () =>
         {
-            await Task.Delay(delay).ConfigureAwait(false);
+            await Task.Delay(delay).ConfigureAwait(false); // ui-thread-guardrail-allow: continuation immediately marshals via Dispatcher.
             await this.Dispatcher.InvokeAsync(
                 () =>
             {

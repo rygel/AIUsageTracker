@@ -2,23 +2,22 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Web.Pages
+using System.Diagnostics;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+
+namespace AIUsageTracker.Web.Pages;
+
+[ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+[IgnoreAntiforgeryToken]
+public class ErrorModel : PageModel
 {
-    using System.Diagnostics;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.AspNetCore.Mvc.RazorPages;
+    public string? RequestId { get; set; }
 
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    [IgnoreAntiforgeryToken]
-    public class ErrorModel : PageModel
+    public bool ShowRequestId => !string.IsNullOrEmpty(this.RequestId);
+
+    public void OnGet()
     {
-        public string? RequestId { get; set; }
-
-        public bool ShowRequestId => !string.IsNullOrEmpty(this.RequestId);
-
-        public void OnGet()
-        {
-            this.RequestId = Activity.Current?.Id ?? this.HttpContext.TraceIdentifier;
-        }
+        this.RequestId = Activity.Current?.Id ?? this.HttpContext.TraceIdentifier;
     }
 }

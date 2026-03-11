@@ -128,10 +128,10 @@ public partial class SettingsWindow : Window
                            "Try clicking 'Refresh Data' or restarting the Monitor.";
             }
 
-            this._gitHubAuthUsername = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(this._logger).ConfigureAwait(false);
-            this._openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger).ConfigureAwait(false);
-            this._codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger).ConfigureAwait(false);
-            this._preferences = await this._preferencesStore.LoadAsync().ConfigureAwait(false);
+            this._gitHubAuthUsername = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(this._logger).ConfigureAwait(true);
+            this._openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger).ConfigureAwait(true);
+            this._codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger).ConfigureAwait(true);
+            this._preferences = await this._preferencesStore.LoadAsync().ConfigureAwait(true);
             App.Preferences = this._preferences;
             this._isPrivacyMode = this._preferences.IsPrivacyMode;
             App.SetPrivacyMode(this._isPrivacyMode);
@@ -140,8 +140,8 @@ public partial class SettingsWindow : Window
             this.PopulateProviders();
             this.RefreshTrayIcons();
             this.PopulateLayoutSettings();
-            await this.LoadHistoryAsync().ConfigureAwait(false);
-            await this.UpdateMonitorStatusAsync().ConfigureAwait(false);
+            await this.LoadHistoryAsync().ConfigureAwait(true);
+            await this.UpdateMonitorStatusAsync().ConfigureAwait(true);
             this.RefreshDiagnosticsLog();
         }
         catch (HttpRequestException ex)

@@ -60,13 +60,3 @@ internal static class ProviderRefreshServiceFactory
             resolvedUsageProcessingPipeline);
     }
 }
-
-internal sealed record ProviderRefreshServiceDependencies(
-    ProviderRefreshConfigLoadingService ConfigLoadingService,
-    ProviderUsagePersistenceService UsagePersistenceService,
-    ProviderConnectivityCheckService ConnectivityCheckService,
-    ProviderRefreshJobScheduler RefreshJobScheduler,
-    ProviderManagerLifecycleService ProviderManagerLifecycle,
-    ProviderRefreshNotificationService RefreshNotificationService,
-    StartupSequenceService StartupSequenceService,
-    IProviderUsageProcessingPipeline UsageProcessingPipeline);

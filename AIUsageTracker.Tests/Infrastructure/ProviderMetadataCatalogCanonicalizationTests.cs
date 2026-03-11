@@ -1,4 +1,4 @@
-// <copyright file="ProviderConfigNormalizerTests.cs" company="AIUsageTracker">
+// <copyright file="ProviderMetadataCatalogCanonicalizationTests.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

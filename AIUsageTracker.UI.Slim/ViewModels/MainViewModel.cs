@@ -72,8 +72,8 @@ public class MainViewModel : BaseViewModel
         this.StatusMessage = "Refreshing data...";
         try
         {
-            await this._monitorService.RefreshPortAsync().ConfigureAwait(false);
-            var results = await this._monitorService.GetUsageAsync().ConfigureAwait(false);
+            await this._monitorService.RefreshPortAsync().ConfigureAwait(true);
+            var results = await this._monitorService.GetUsageAsync().ConfigureAwait(true);
 
             this.Usages.Clear();
             foreach (var usage in results)

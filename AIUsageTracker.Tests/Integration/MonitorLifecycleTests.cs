@@ -6,12 +6,6 @@ using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.Tests.Core;
 
-// These tests manipulate a shared Monitor process and must not run in parallel.
-[CollectionDefinition("MonitorLifecycle", DisableParallelization = true)]
-public sealed class MonitorLifecycleCollectionDefinition
-{
-}
-
 [Collection("MonitorLifecycle")]
 public class MonitorLifecycleTests
 {

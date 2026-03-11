@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Core.MonitorClient;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Logging;
 
@@ -25,7 +26,7 @@ internal static class MonitorHistoryEndpoints
             return Results.Ok(history);
         });
 
-        app.MapGet(MonitorApiRoutes.HistoryByProvider, async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.HistoryByProviderTemplate, async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(providerId))
             {
@@ -33,12 +34,12 @@ internal static class MonitorHistoryEndpoints
             }
 
             var effectiveLimit = Math.Clamp(limit ?? DefaultHistoryLimit, 1, MaxHistoryLimit);
-            logger.LogDebug("GET {Route}: {ProviderId}", MonitorApiRoutes.HistoryByProvider, providerId);
+            logger.LogDebug("GET {Route}: {ProviderId}", MonitorApiRoutes.HistoryByProviderTemplate, providerId);
             var history = await db.GetHistoryByProviderAsync(providerId, effectiveLimit).ConfigureAwait(false);
             return Results.Ok(history);
         });
 
-        app.MapGet(MonitorApiRoutes.ResetsByProvider, async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.ResetsByProviderTemplate, async (string providerId, UsageDatabase db, int? limit, ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(providerId))
             {
@@ -46,7 +47,7 @@ internal static class MonitorHistoryEndpoints
             }
 
             var effectiveLimit = Math.Clamp(limit ?? DefaultResetsLimit, 1, MaxResetsLimit);
-            logger.LogDebug("GET {Route}: {ProviderId}", MonitorApiRoutes.ResetsByProvider, providerId);
+            logger.LogDebug("GET {Route}: {ProviderId}", MonitorApiRoutes.ResetsByProviderTemplate, providerId);
             var resets = await db.GetResetEventsAsync(providerId, effectiveLimit).ConfigureAwait(false);
             return Results.Ok(resets);
         });

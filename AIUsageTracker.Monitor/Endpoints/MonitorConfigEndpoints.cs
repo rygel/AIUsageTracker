@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
@@ -33,14 +34,14 @@ internal static class MonitorConfigEndpoints
             return Results.Ok(new { message = "Config saved" });
         });
 
-        app.MapDelete(MonitorApiRoutes.ConfigByProvider, async (string providerId, IConfigService configService, ILogger<Program> logger) =>
+        app.MapDelete(MonitorApiRoutes.ConfigByProviderTemplate, async (string providerId, IConfigService configService, ILogger<Program> logger) =>
         {
             if (string.IsNullOrWhiteSpace(providerId))
             {
                 return Results.BadRequest(new { message = "providerId is required." });
             }
 
-            logger.LogDebug("DELETE {Route}: {ProviderId}", MonitorApiRoutes.ConfigByProvider, providerId);
+            logger.LogDebug("DELETE {Route}: {ProviderId}", MonitorApiRoutes.ConfigByProviderTemplate, providerId);
             await configService.RemoveConfigAsync(providerId).ConfigureAwait(false);
             return Results.Ok(new { message = "Config removed" });
         });
@@ -54,11 +55,11 @@ internal static class MonitorConfigEndpoints
             // Queue a high-priority force refresh so newly discovered keys bypass temporary backoff and appear quickly.
             var refreshQueued = refreshService.QueueForceRefresh(forceAll: true);
 
-            return Results.Ok(new
+            return Results.Ok(new AgentScanKeysResponse
             {
-                discovered = discovered.Count,
-                refreshQueued,
-                configs = discovered,
+                Discovered = discovered.Count,
+                RefreshQueued = refreshQueued,
+                Configs = discovered,
             });
         });
     }
