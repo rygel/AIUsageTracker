@@ -39,6 +39,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  MSBuildEnableWorkloadResolver: false
+  MSBUILDDISABLENODEREUSE: 1
+  DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  NUGET_XMLDOC_MODE: skip
+
 jobs:
   detect-changes:
     name: Detect Changed Areas
@@ -182,6 +190,7 @@ jobs:
             AIUsageTracker.Web.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
             scripts/Seeder/bin/Debug/net8.0/**
             scripts/run-vstest-with-retry.ps1
+            scripts/resolve-test-assembly.ps1
             .github/test-quarantine.txt
             test-fixtures/
           retention-days: 3
@@ -205,35 +214,8 @@ jobs:
         timeout-minutes: 5
         shell: pwsh
         run: |
-          function Resolve-TestAssembly {
-            param([string]$projectName, [string]$assemblyName)
-
-            $candidatePaths = @(
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0-windows10.0.17763.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\$assemblyName",
-              "_ci_test_binaries\$projectName\$assemblyName"
-            ) | ForEach-Object { Join-Path $PWD $_ }
-
-            foreach ($candidate in $candidatePaths) {
-              if (Test-Path $candidate) {
-                return $candidate
-              }
-            }
-
-            $found = Get-ChildItem -Path (Join-Path $PWD "_ci_test_binaries") -Recurse -Filter $assemblyName -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -like "*$projectName*" } |
-              Select-Object -First 1
-
-            if ($found) {
-              return $found.FullName
-            }
-
-            $joinedCandidates = $candidatePaths -join ", "
-            throw "Test assembly not found. Checked: $joinedCandidates"
-          }
-
-          $assemblyPath = Resolve-TestAssembly -projectName "AIUsageTracker.Tests" -assemblyName "AIUsageTracker.Tests.dll"
+          $resolverPath = Join-Path $PWD "_ci_test_binaries\scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath (Join-Path $PWD "_ci_test_binaries") -ProjectName "AIUsageTracker.Tests" -AssemblyName "AIUsageTracker.Tests.dll"
           if (-not (Test-Path $assemblyPath)) {
             throw "Test assembly not found: $assemblyPath"
           }
@@ -267,35 +249,8 @@ jobs:
         timeout-minutes: 3
         shell: pwsh
         run: |
-          function Resolve-TestAssembly {
-            param([string]$projectName, [string]$assemblyName)
-
-            $candidatePaths = @(
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0-windows10.0.17763.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\$assemblyName",
-              "_ci_test_binaries\$projectName\$assemblyName"
-            ) | ForEach-Object { Join-Path $PWD $_ }
-
-            foreach ($candidate in $candidatePaths) {
-              if (Test-Path $candidate) {
-                return $candidate
-              }
-            }
-
-            $found = Get-ChildItem -Path (Join-Path $PWD "_ci_test_binaries") -Recurse -Filter $assemblyName -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -like "*$projectName*" } |
-              Select-Object -First 1
-
-            if ($found) {
-              return $found.FullName
-            }
-
-            $joinedCandidates = $candidatePaths -join ", "
-            throw "Test assembly not found. Checked: $joinedCandidates"
-          }
-
-          $assemblyPath = Resolve-TestAssembly -projectName "AIUsageTracker.Tests" -assemblyName "AIUsageTracker.Tests.dll"
+          $resolverPath = Join-Path $PWD "_ci_test_binaries\scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath (Join-Path $PWD "_ci_test_binaries") -ProjectName "AIUsageTracker.Tests" -AssemblyName "AIUsageTracker.Tests.dll"
           if (-not (Test-Path $assemblyPath)) {
             throw "Test assembly not found: $assemblyPath"
           }
@@ -329,35 +284,8 @@ jobs:
         timeout-minutes: 3
         shell: pwsh
         run: |
-          function Resolve-TestAssembly {
-            param([string]$projectName, [string]$assemblyName)
-
-            $candidatePaths = @(
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0-windows10.0.17763.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\$assemblyName",
-              "_ci_test_binaries\$projectName\$assemblyName"
-            ) | ForEach-Object { Join-Path $PWD $_ }
-
-            foreach ($candidate in $candidatePaths) {
-              if (Test-Path $candidate) {
-                return $candidate
-              }
-            }
-
-            $found = Get-ChildItem -Path (Join-Path $PWD "_ci_test_binaries") -Recurse -Filter $assemblyName -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -like "*$projectName*" } |
-              Select-Object -First 1
-
-            if ($found) {
-              return $found.FullName
-            }
-
-            $joinedCandidates = $candidatePaths -join ", "
-            throw "Test assembly not found. Checked: $joinedCandidates"
-          }
-
-          $assemblyPath = Resolve-TestAssembly -projectName "AIUsageTracker.Monitor.Tests" -assemblyName "AIUsageTracker.Monitor.Tests.dll"
+          $resolverPath = Join-Path $PWD "_ci_test_binaries\scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath (Join-Path $PWD "_ci_test_binaries") -ProjectName "AIUsageTracker.Monitor.Tests" -AssemblyName "AIUsageTracker.Monitor.Tests.dll"
           if (-not (Test-Path $assemblyPath)) {
             throw "Test assembly not found: $assemblyPath"
           }
@@ -457,77 +385,23 @@ jobs:
         timeout-minutes: 8
         shell: pwsh
         run: |
-          function Resolve-TestAssembly {
-            param([string]$projectName, [string]$assemblyName)
-
-            $candidatePaths = @(
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0-windows10.0.17763.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\$assemblyName",
-              "_ci_test_binaries\$projectName\$assemblyName"
-            ) | ForEach-Object { Join-Path $PWD $_ }
-
-            foreach ($candidate in $candidatePaths) {
-              if (Test-Path $candidate) {
-                return $candidate
-              }
-            }
-
-            $found = Get-ChildItem -Path (Join-Path $PWD "_ci_test_binaries") -Recurse -Filter $assemblyName -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -like "*$projectName*" } |
-              Select-Object -First 1
-
-            if ($found) {
-              return $found.FullName
-            }
-
-            $joinedCandidates = $candidatePaths -join ", "
-            throw "Test assembly not found. Checked: $joinedCandidates"
-          }
-
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
           $scriptPath = Join-Path $ciBinaries "scripts\run-vstest-with-retry.ps1"
-          $assemblyPath = Resolve-TestAssembly -projectName "AIUsageTracker.Web.Tests" -assemblyName "AIUsageTracker.Web.Tests.dll"
+          $resolverPath = Join-Path $ciBinaries "scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath $ciBinaries -ProjectName "AIUsageTracker.Web.Tests" -AssemblyName "AIUsageTracker.Web.Tests.dll"
           $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
-          powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-tests -QuarantineFile $quarantinePath -MaxRetries 0 -AttemptTimeoutMinutes 8 -HangTimeoutSeconds 480
+          powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-tests -QuarantineFile $quarantinePath -MaxRetries 1 -AttemptTimeoutMinutes 8 -HangTimeoutSeconds 480
 
       - name: Capture Web UI screenshots
         timeout-minutes: 4
         shell: pwsh
         run: |
-          function Resolve-TestAssembly {
-            param([string]$projectName, [string]$assemblyName)
-
-            $candidatePaths = @(
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0-windows10.0.17763.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\net8.0\$assemblyName",
-              "_ci_test_binaries\$projectName\bin\Debug\$assemblyName",
-              "_ci_test_binaries\$projectName\$assemblyName"
-            ) | ForEach-Object { Join-Path $PWD $_ }
-
-            foreach ($candidate in $candidatePaths) {
-              if (Test-Path $candidate) {
-                return $candidate
-              }
-            }
-
-            $found = Get-ChildItem -Path (Join-Path $PWD "_ci_test_binaries") -Recurse -Filter $assemblyName -ErrorAction SilentlyContinue |
-              Where-Object { $_.FullName -like "*$projectName*" } |
-              Select-Object -First 1
-
-            if ($found) {
-              return $found.FullName
-            }
-
-            $joinedCandidates = $candidatePaths -join ", "
-            throw "Test assembly not found. Checked: $joinedCandidates"
-          }
-
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
           $scriptPath = Join-Path $ciBinaries "scripts\run-vstest-with-retry.ps1"
-          $assemblyPath = Resolve-TestAssembly -projectName "AIUsageTracker.Web.Tests" -assemblyName "AIUsageTracker.Web.Tests.dll"
+          $resolverPath = Join-Path $ciBinaries "scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath $ciBinaries -ProjectName "AIUsageTracker.Web.Tests" -AssemblyName "AIUsageTracker.Web.Tests.dll"
           $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
-          powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-screenshots -QuarantineFile $quarantinePath -AdditionalTestCaseFilter "FullyQualifiedName~CaptureWebScreenshots" -MaxRetries 0 -AttemptTimeoutMinutes 4 -HangTimeoutSeconds 240
+          powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-screenshots -QuarantineFile $quarantinePath -AdditionalTestCaseFilter "FullyQualifiedName~CaptureWebScreenshots" -MaxRetries 1 -AttemptTimeoutMinutes 4 -HangTimeoutSeconds 240
 
       - name: Stop Web Application
         if: always()
