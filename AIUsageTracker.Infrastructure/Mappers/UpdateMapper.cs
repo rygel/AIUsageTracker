@@ -2,24 +2,22 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Infrastructure.Mappers
+using NetSparkleUpdater;
+using CoreUpdateInfo = AIUsageTracker.Core.Interfaces.UpdateInfo;
+
+namespace AIUsageTracker.Infrastructure.Mappers;
+
+public static class UpdateMapper
 {
-    using NetSparkleUpdater;
-    using AIUsageTracker.Core.Interfaces;
-
-    public static class UpdateMapper
+    public static AppCastItem ToAppCastItem(CoreUpdateInfo info)
     {
-        public static AppCastItem ToAppCastItem(AIUsageTracker.Core.Interfaces.UpdateInfo info)
+        return new AppCastItem
         {
-            return new AppCastItem
-            {
-                Version = info.Version.StartsWith("v", StringComparison.Ordinal) ? info.Version[1..] : info.Version,
-                DownloadLink = info.DownloadUrl,
-                ReleaseNotesLink = info.ReleaseUrl,
-                PublicationDate = info.PublishedAt,
-                IsCriticalUpdate = false
-            };
-        }
+            Version = info.Version.StartsWith("v", StringComparison.Ordinal) ? info.Version[1..] : info.Version,
+            DownloadLink = info.DownloadUrl,
+            ReleaseNotesLink = info.ReleaseUrl,
+            PublicationDate = info.PublishedAt,
+            IsCriticalUpdate = false,
+        };
     }
-
 }
