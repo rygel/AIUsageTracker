@@ -135,6 +135,15 @@ public static class ProviderMetadataCatalog
         return TryGet(providerId, out var definition) && definition.ShowInSettings;
     }
 
+    public static IReadOnlyList<string> GetDefaultSettingsProviderIds()
+    {
+        return Definitions
+            .Where(definition => definition.ShowInSettings)
+            .SelectMany(definition => new[] { definition.ProviderId }.Concat(definition.SettingsAdditionalProviderIds))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     public static IReadOnlyList<string> GetStartupRefreshProviderIds()
     {
         return Definitions

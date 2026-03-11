@@ -190,6 +190,16 @@ public class ProviderMetadataCatalogTests
     }
 
     [Fact]
+    public void GetDefaultSettingsProviderIds_UsesProviderDefinitionAdditionalIds()
+    {
+        var providerIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds();
+
+        Assert.Contains("minimax", providerIds);
+        Assert.Contains("minimax-io", providerIds);
+        Assert.DoesNotContain("openai", providerIds);
+    }
+
+    [Fact]
     public void Definitions_DeclarePerProviderAuthFallbackContract()
     {
         var localRuntimeProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
