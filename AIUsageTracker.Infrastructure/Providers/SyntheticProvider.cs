@@ -24,6 +24,8 @@ public sealed class SyntheticProvider : ProviderBase
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
+        discoveryEnvironmentVariables: new[] { "SYNTHETIC_API_KEY" },
+        rooConfigPropertyNames: new[] { "syntheticApiKey" },
         iconAssetName: "synthetic",
         fallbackBadgeColorHex: "#FFD700",
         fallbackBadgeInitial: "Sy");

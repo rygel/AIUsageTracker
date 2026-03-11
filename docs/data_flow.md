@@ -25,6 +25,23 @@ After file merge, `TokenDiscoveryService` fills missing keys from discovery sour
 
 Discovery augments missing keys; it does not overwrite already populated keys.
 
+Provider-specific fallback coverage (metadata-enforced):
+
+- `openai`: `OPENAI_API_KEY`, Roo `openAiApiKey`, OpenCode auth session files.
+- `codex`: `CODEX_API_KEY`, Codex auth session files.
+- `claude-code`: `ANTHROPIC_API_KEY`/`CLAUDE_API_KEY`, Claude credentials file.
+- `gemini-cli`: `GEMINI_API_KEY`/`GOOGLE_API_KEY`, Roo `geminiApiKey`, plus Gemini CLI local files (section below).
+- `deepseek`: `DEEPSEEK_API_KEY`, Roo `deepseekApiKey`.
+- `openrouter`: `OPENROUTER_API_KEY`, Roo `openrouterApiKey`.
+- `kimi`: `KIMI_API_KEY`/`MOONSHOT_API_KEY`.
+- `xiaomi`: `XIAOMI_API_KEY`/`MIMO_API_KEY`.
+- `minimax`: `MINIMAX_API_KEY`.
+- `mistral`: Roo `mistralApiKey` and runtime env fallback in provider.
+- `zai-coding-plan` (`zai`): `ZAI_API_KEY`/`Z_AI_API_KEY`, Roo `zaiApiKey`.
+- `synthetic`: `SYNTHETIC_API_KEY`, Roo `syntheticApiKey`.
+- `github-copilot`: external auth state via GitHub auth files/service.
+- `antigravity`, `opencode-zen`: local runtime providers (process/CLI based, no API-key fallback chain).
+
 ## Gemini CLI Auth Flow
 
 `gemini-cli` supports two local auth sources, in this strict order:

@@ -24,6 +24,8 @@ public class ZaiProvider : ProviderBase
         {
             ["zai"] = "Z.AI",
         },
+        discoveryEnvironmentVariables: new[] { "ZAI_API_KEY", "Z_AI_API_KEY" },
+        rooConfigPropertyNames: new[] { "zaiApiKey" },
         iconAssetName: "zai",
         fallbackBadgeColorHex: "#20B2AA",
         fallbackBadgeInitial: "Z");

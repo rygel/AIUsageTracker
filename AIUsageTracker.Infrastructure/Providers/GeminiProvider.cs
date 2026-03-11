@@ -25,6 +25,7 @@ public class GeminiProvider : ProviderBase
         autoIncludeWhenUnconfigured: true,
         includeInWellKnownProviders: true,
         handledProviderIds: new[] { "gemini-cli", "gemini" },
+        discoveryEnvironmentVariables: new[] { "GEMINI_API_KEY", "GOOGLE_API_KEY" },
         rooConfigPropertyNames: new[] { "geminiApiKey" },
         iconAssetName: "google",
         fallbackBadgeColorHex: "#1E90FF",

@@ -49,10 +49,8 @@ set -x ANTHROPIC_API_KEY sk-ant-your-key-here
 | `XIAOMI_API_KEY`<br>`MIMO_API_KEY` | `xiaomi` | Xiaomi/Mimo | Either variable works |
 | `MINIMAX_API_KEY` | `minimax` | Minimax | - |
 | `ZAI_API_KEY`<br>`Z_AI_API_KEY` | `zai` | Z.AI | Either variable works |
+| `SYNTHETIC_API_KEY` | `synthetic` | Synthetic | - |
 | `ANTIGRAVITY_API_KEY`<br>`GOOGLE_ANTIGRAVITY_API_KEY` | `antigravity` | Google Antigravity | Either variable works |
-| `OPENCODE_API_KEY` | `opencode` | OpenCode | - |
-| `OPENCODE_ZEN_API_KEY` | `opencode-zen` | OpenCode Zen | - |
-| `CLOUDCODE_API_KEY` | `cloudcode` | CloudCode | - |
 | `CODEX_API_KEY` | `codex` | Codex | - |
 
 ## Priority Order
