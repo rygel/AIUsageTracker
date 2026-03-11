@@ -1,10 +1,12 @@
 param(
     [string]$Runtime = "win-x64",
-    [string]$Version = ""
+    [string]$Version = "",
+    [ValidateSet("balanced", "max", "compat")]
+    [string]$InstallerCompression = "balanced"
 )
 
 # AI Usage Tracker - Distribution Packaging Script
-# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 2.2.28-beta.22
+# Usage: .\scripts\publish-app.ps1 -Runtime win-x64 -Version 2.2.28-beta.22 -InstallerCompression balanced
 
 $isWinPlatform = $Runtime.StartsWith("win-")
 $projectName = if ($isWinPlatform) { "AIUsageTracker" } else { "AIUsageTracker.CLI" }
@@ -174,10 +176,11 @@ if ($isWinPlatform) {
 
     if ($iscc -and (Test-Path $iscc)) {
         Write-Host "Compiling Inno Setup Installer using $iscc..." -ForegroundColor Cyan
+        Write-Host "Installer compression profile: $InstallerCompression" -ForegroundColor Cyan
         
         $archDef = if ($Runtime -like "*x64") { "x64" } elseif ($Runtime -like "*arm64") { "arm64" } else { "x86" }
         
-        & $iscc "scripts\setup.iss" "/DSourcePath=..\dist\publish-$Runtime" "/DMyAppVersion=$Version" "/DMyAppArch=$archDef"
+        & $iscc "scripts\setup.iss" "/DSourcePath=..\dist\publish-$Runtime" "/DMyAppVersion=$Version" "/DMyAppArch=$archDef" "/DInstallerCompression=$InstallerCompression"
         if ($LASTEXITCODE -eq 0) {
             # Move and rename the created setup to include architecture
             $setupDir = ".\dist"

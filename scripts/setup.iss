@@ -9,6 +9,9 @@
 #ifndef MyAppArch
   #define MyAppArch "x64"
 #endif
+#ifndef InstallerCompression
+  #define InstallerCompression "balanced"
+#endif
 
 [Code]
 var
@@ -110,16 +113,28 @@ AppId={{D3B3E8A1-8E9D-4F6B-A2B3-7C8D9E0F1A2B}
 AppName=AI Usage Tracker
 AppVersion={#MyAppVersion}
 AppPublisher=Alexander Brandt
-AppPublisherURL=https://github.com/rygel/AIConsumptionTracker
-AppSupportURL=https://github.com/rygel/AIConsumptionTracker
-AppUpdatesURL=https://github.com/rygel/AIConsumptionTracker/releases
+AppPublisherURL=https://github.com/rygel/AIUsageTracker
+AppSupportURL=https://github.com/rygel/AIUsageTracker
+AppUpdatesURL=https://github.com/rygel/AIUsageTracker/releases
 AlwaysShowComponentsList=yes
 DefaultDirName={autopf}\AIUsageTracker
 DefaultGroupName=AI Usage Tracker
 OutputDir=..\dist
 OutputBaseFilename=AIUsageTracker_Setup_v{#MyAppVersion}_{#MyAppArch}
+; Installer compression profile:
+; - balanced: lzma2/normal + non-solid (default, good size/perf and safer AV heuristics)
+; - max: lzma2/ultra64 + solid (smallest size, can increase AV false-positive risk)
+; - compat: zip + non-solid (largest size, best compatibility)
+#if InstallerCompression == "max"
+Compression=lzma2/ultra64
+SolidCompression=yes
+#elif InstallerCompression == "compat"
 Compression=zip
 SolidCompression=no
+#else
+Compression=lzma2/normal
+SolidCompression=no
+#endif
 CloseApplications=yes
 DisableDirPage=auto
 DirExistsWarning=no
