@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.22] - 2026-03-11
+
+### Changed
+- **Codex/OpenAI Visibility**: Enforced Codex as the canonical OpenAI provider in UI and monitor flows, suppressing legacy standalone OpenAI display behavior.
+- **Provider Labeling**: Renamed Synthetic display label to `Synthetic.new` while keeping provider id compatibility.
+- **Usage Window Formatting**: Standardized usage-window labels so minute-only windows normalize to hour labels where appropriate (for example `300m` -> `5h`).
+- **Info Dialog Versioning**: Updated the Slim UI info dialog to show prerelease suffixes such as Beta/RC from informational assembly version metadata.
+
 ## [2.2.28-beta.21] - 2026-03-10
 
 ### Changed
