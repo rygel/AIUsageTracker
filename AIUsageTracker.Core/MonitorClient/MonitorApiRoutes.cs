@@ -6,17 +6,21 @@ using System.Globalization;
 
 namespace AIUsageTracker.Core.MonitorClient;
 
-internal static class MonitorApiRoutes
+public static class MonitorApiRoutes
 {
     public const string Usage = "/api/usage";
     public const string History = "/api/history";
     public const string Refresh = "/api/refresh";
     public const string Config = "/api/config";
-    public const string TestNotification = "/api/notifications/test";
+    public const string NotificationTest = "/api/notifications/test";
     public const string ScanKeys = "/api/scan-keys";
     public const string Health = "/api/health";
     public const string Diagnostics = "/api/diagnostics";
     public const string Export = "/api/export";
+    public const string UsageByProviderTemplate = "/api/usage/{providerId}";
+    public const string HistoryByProviderTemplate = "/api/history/{providerId}";
+    public const string ConfigByProviderTemplate = "/api/config/{providerId}";
+    public const string ResetsByProviderTemplate = "/api/resets/{providerId}";
 
     public static string UsageByProvider(string providerId) =>
         $"/api/usage/{EscapePathSegment(providerId)}";

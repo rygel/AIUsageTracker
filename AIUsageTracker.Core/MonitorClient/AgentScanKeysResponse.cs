@@ -7,10 +7,13 @@ using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Core.MonitorClient;
 
-internal sealed class AgentScanKeysResponse
+public sealed class AgentScanKeysResponse
 {
     [JsonPropertyName("discovered")]
     public int Discovered { get; init; }
+
+    [JsonPropertyName("refresh_queued")]
+    public bool RefreshQueued { get; init; }
 
     [JsonPropertyName("configs")]
     public IReadOnlyList<ProviderConfig>? Configs { get; init; }

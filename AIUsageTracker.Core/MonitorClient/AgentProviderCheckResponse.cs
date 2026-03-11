@@ -4,7 +4,7 @@
 
 namespace AIUsageTracker.Core.MonitorClient;
 
-internal sealed class AgentProviderCheckResponse
+public sealed class AgentProviderCheckResponse
 {
     public bool Success { get; init; }
 
