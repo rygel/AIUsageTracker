@@ -48,7 +48,7 @@ public partial class InfoDialog : Window
         this.ArchitectureText.Text = "X64";
         this.MachineNameText.Text = "WORKSTATION";
         this.UserNameText.Text = "d***r";
-        this.ConfigDirText.Text = @"C:\Users\***\...\.opencode";
+        this.ConfigDirText.Text = @"C:\Users\***\...\AIUsageTracker";
         this.DataDirText.Text = @"C:\Users\***\...\AIUsageTracker";
         this.PrivacyBtn.Foreground = Brushes.Gold;
     }
@@ -90,8 +90,8 @@ public partial class InfoDialog : Window
         // Current user
         this._realUserName = Environment.UserName;
 
-        // Configuration Directory path (without auth.json)
-        this._realConfigDir = Path.GetDirectoryName(this._pathProvider.GetAuthFilePath());
+        // Configuration Directory path (app-owned config location)
+        this._realConfigDir = Path.GetDirectoryName(this._pathProvider.GetProviderConfigFilePath());
 
         // Data Directory path
         this._realDataDir = this._pathProvider.GetAppDataRoot();
