@@ -1141,17 +1141,6 @@ public partial class MainWindow : Window
                 // Standard provider card
                 this.AddProviderCard(usage, currentContainer);
 
-                if (string.Equals(
-                    ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId ?? string.Empty),
-                    CodexProvider.StaticDefinition.ProviderId,
-                    StringComparison.OrdinalIgnoreCase))
-                {
-                    foreach (var subUsage in ProviderUsageDisplayCatalog.CreateCodexSubUsages(this._usages))
-                    {
-                        this.AddProviderCard(subUsage, currentContainer, isChild: true);
-                    }
-                }
-
                 // Sub-providers if available
                 if (usage.Details?.Any() == true)
                 {

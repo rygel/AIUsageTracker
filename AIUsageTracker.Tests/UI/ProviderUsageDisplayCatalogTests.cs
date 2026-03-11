@@ -42,7 +42,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     }
 
     [Fact]
-    public void PrepareForMainWindow_HidesCodexChildren_WhenParentExists()
+    public void PrepareForMainWindow_KeptsCodexChildren_WhenParentExists()
     {
         var usages = new List<ProviderUsage>
         {
@@ -52,24 +52,9 @@ public sealed class ProviderUsageDisplayCatalogTests
 
         var preparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages);
 
-        var displayable = Assert.Single(preparation.DisplayableUsages);
-        Assert.Equal("codex", displayable.ProviderId);
-    }
-
-    [Fact]
-    public void CreateCodexSubUsages_ReturnsCodexChildren()
-    {
-        var usages = new List<ProviderUsage>
-        {
-            new() { ProviderId = "codex.spark", ProviderName = "OpenAI (GPT-5.3-Codex-Spark)", IsAvailable = true },
-            new() { ProviderId = "codex.spark", ProviderName = "Duplicate", IsAvailable = true },
-            new() { ProviderId = "codex", ProviderName = "OpenAI (Codex)", IsAvailable = true },
-        };
-
-        var children = ProviderUsageDisplayCatalog.CreateCodexSubUsages(usages);
-
-        var child = Assert.Single(children);
-        Assert.Equal("codex.spark", child.ProviderId);
+        Assert.Equal(2, preparation.DisplayableUsages.Count);
+        Assert.Contains(preparation.DisplayableUsages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
+        Assert.Contains(preparation.DisplayableUsages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
     }
 
     [Fact]
