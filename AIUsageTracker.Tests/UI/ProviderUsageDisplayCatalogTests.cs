@@ -59,6 +59,21 @@ public sealed class ProviderUsageDisplayCatalogTests
     }
 
     [Fact]
+    public void PrepareForMainWindow_HidesUnknownProviders_ButKeepsKnownProviders()
+    {
+        var usages = new List<ProviderUsage>
+        {
+            new() { ProviderId = "codex", IsAvailable = true },
+            new() { ProviderId = "legacy-unknown-provider", IsAvailable = true },
+        };
+
+        var preparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages);
+
+        Assert.Single(preparation.DisplayableUsages);
+        Assert.Equal("codex", preparation.DisplayableUsages[0].ProviderId);
+    }
+
+    [Fact]
     public void CreateAntigravityModelUsages_DeduplicatesAndBuildsSyntheticChildren()
     {
         var parent = new ProviderUsage

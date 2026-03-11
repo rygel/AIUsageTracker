@@ -82,6 +82,11 @@ public static class ProviderMetadataCatalog
         return TryGet(providerId, out var definition) && definition.CollapseDerivedChildrenInMainWindow;
     }
 
+    public static bool ShouldShowInMainWindow(string providerId)
+    {
+        return TryGet(providerId, out _);
+    }
+
     public static ProviderDefinition? FindByEnvironmentVariable(string environmentVariableName)
     {
         if (string.IsNullOrWhiteSpace(environmentVariableName))

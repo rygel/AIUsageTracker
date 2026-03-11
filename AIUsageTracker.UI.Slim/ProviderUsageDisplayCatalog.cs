@@ -11,7 +11,9 @@ internal static class ProviderUsageDisplayCatalog
 {
     public static ProviderRenderPreparation PrepareForMainWindow(IReadOnlyCollection<ProviderUsage> usages)
     {
-        var filteredUsages = usages.ToList();
+        var filteredUsages = usages
+            .Where(usage => ProviderMetadataCatalog.ShouldShowInMainWindow(usage.ProviderId ?? string.Empty))
+            .ToList();
         var hasAntigravityParent = filteredUsages.Any(IsAntigravityParent);
         var collapsedParentProviderIds = ResolveCollapsedParentProviderIds(filteredUsages);
 

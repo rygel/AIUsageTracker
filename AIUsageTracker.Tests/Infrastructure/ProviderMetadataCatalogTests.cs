@@ -131,6 +131,16 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
+    [InlineData("codex", true)]
+    [InlineData("codex.spark", true)]
+    [InlineData("antigravity.some-model", true)]
+    [InlineData("unknown-provider", false)]
+    public void ShouldShowInMainWindow_UsesCatalogVisibility(string providerId, bool expected)
+    {
+        Assert.Equal(expected, ProviderMetadataCatalog.ShouldShowInMainWindow(providerId));
+    }
+
+    [Theory]
     [InlineData("OPENAI_API_KEY", "openai")]
     [InlineData("CODEX_API_KEY", "codex")]
     [InlineData("GEMINI_API_KEY", "gemini-cli")]
