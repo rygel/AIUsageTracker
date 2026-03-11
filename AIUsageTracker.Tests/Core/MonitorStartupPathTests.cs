@@ -84,6 +84,25 @@ public sealed class MonitorStartupPathTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAndValidateMonitorInfoAsync_PrunesOldStaleMetadataBackupsAsync()
+    {
+        var infoPath = await this.CreateMonitorInfoContentAsync("{ not valid json");
+        for (var i = 0; i < 15; i++)
+        {
+            var stalePath = Path.Combine(this._tempDirectory, $"monitor.json.stale.preexisting-{i:00}");
+            await File.WriteAllTextAsync(stalePath, "stale");
+        }
+
+        using var overrides = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: new[] { infoPath });
+
+        _ = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+
+        var staleFiles = Directory.GetFiles(this._tempDirectory, "monitor.json.stale.*", SearchOption.TopDirectoryOnly);
+        Assert.True(staleFiles.Length <= MonitorLauncher.MaxStaleMetadataBackups);
+    }
+
+    [Fact]
     public void GetReadCandidatePaths_ReturnsCanonicalPathOnly()
     {
         var appDataRoot = Path.Combine(this._tempDirectory, "appdata");

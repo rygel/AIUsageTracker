@@ -12,6 +12,7 @@ namespace AIUsageTracker.Core.MonitorClient;
 public class MonitorLauncher
 {
     internal const int DefaultPort = 5000;
+    internal const int MaxStaleMetadataBackups = 10;
     private const int MaxWaitSeconds = 30;
     private const int StopWaitSeconds = 5;
     private static ILogger<MonitorLauncher>? _logger;
@@ -212,6 +213,35 @@ public class MonitorLauncher
         var backupPath = infoPath + ".stale." + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         File.Move(infoPath, backupPath, overwrite: true);
         MonitorService.LogDiagnostic($"Backed up stale metadata to: {backupPath}");
+        CleanupOldStaleMetadataBackups(infoPath);
+    }
+
+    private static void CleanupOldStaleMetadataBackups(string infoPath)
+    {
+        var directory = Path.GetDirectoryName(infoPath);
+        var fileName = Path.GetFileName(infoPath);
+        if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
+        {
+            return;
+        }
+
+        var pattern = fileName + ".stale.*";
+        try
+        {
+            var staleFiles = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly)
+                .OrderByDescending(path => File.GetLastWriteTimeUtc(path))
+                .Skip(MaxStaleMetadataBackups)
+                .ToList();
+
+            foreach (var staleFile in staleFiles)
+            {
+                File.Delete(staleFile);
+            }
+        }
+        catch (Exception ex)
+        {
+            MonitorService.LogDiagnostic($"Failed pruning stale monitor metadata backups: {ex.Message}");
+        }
     }
 
     public static async Task<bool> StartAgentAsync()
