@@ -2,146 +2,145 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Helpers
+using System.Text;
+using System.Text.Json;
+
+namespace AIUsageTracker.Core.Helpers;
+
+public static class SessionIdentityHelper
 {
-    using System.Text;
-    using System.Text.Json;
+    private static readonly string[] DirectEmailClaims = { "email", "upn", "preferred_username" };
+    private static readonly string[] ProfileIdentityClaims = { "email", "username", "name" };
+    private static readonly string[] SecondaryIdentityClaims = { "username", "login", "name", "sub" };
 
-    public static class SessionIdentityHelper
+    public static JsonElement? TryDecodeJwtPayload(string? token)
     {
-        private static readonly string[] DirectEmailClaims = { "email", "upn", "preferred_username" };
-        private static readonly string[] ProfileIdentityClaims = { "email", "username", "name" };
-        private static readonly string[] SecondaryIdentityClaims = { "username", "login", "name", "sub" };
-
-        public static JsonElement? TryDecodeJwtPayload(string? token)
+        if (string.IsNullOrWhiteSpace(token))
         {
-            if (string.IsNullOrWhiteSpace(token))
+            return null;
+        }
+
+        var parts = token.Split('.');
+        if (parts.Length < 2)
+        {
+            return null;
+        }
+
+        try
+        {
+            var payload = parts[1].Replace('-', '+').Replace('_', '/');
+            switch (payload.Length % 4)
             {
-                return null;
+                case 2:
+                    payload += "==";
+                    break;
+                case 3:
+                    payload += "=";
+                    break;
             }
 
-            var parts = token.Split('.');
-            if (parts.Length < 2)
-            {
-                return null;
-            }
+            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.Clone();
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
-            try
-            {
-                var payload = parts[1].Replace('-', '+').Replace('_', '/');
-                switch (payload.Length % 4)
-                {
-                    case 2:
-                        payload += "==";
-                        break;
-                    case 3:
-                        payload += "=";
-                        break;
-                }
+    public static string? TryGetIdentityFromJwt(string? token)
+    {
+        var payload = TryDecodeJwtPayload(token);
+        return payload.HasValue ? TryGetPreferredIdentity(payload.Value) : null;
+    }
 
-                var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
-                using var doc = JsonDocument.Parse(json);
-                return doc.RootElement.Clone();
-            }
-            catch
+    public static string? TryGetPreferredIdentity(JsonElement root)
+    {
+        foreach (var claim in DirectEmailClaims)
+        {
+            var value = root.ReadString(claim);
+            if (IsEmailLike(value))
             {
-                return null;
+                return value;
             }
         }
 
-        public static string? TryGetIdentityFromJwt(string? token)
+        if (root.TryGetProperty("https://api.openai.com/profile", out var profile) &&
+            profile.ValueKind == JsonValueKind.Object)
         {
-            var payload = TryDecodeJwtPayload(token);
-            return payload.HasValue ? TryGetPreferredIdentity(payload.Value) : null;
-        }
-
-        public static string? TryGetPreferredIdentity(JsonElement root)
-        {
-            foreach (var claim in DirectEmailClaims)
+            foreach (var claim in ProfileIdentityClaims)
             {
-                var value = root.ReadString(claim);
-                if (IsEmailLike(value))
-                {
-                    return value;
-                }
-            }
-
-            if (root.TryGetProperty("https://api.openai.com/profile", out var profile) &&
-                profile.ValueKind == JsonValueKind.Object)
-            {
-                foreach (var claim in ProfileIdentityClaims)
-                {
-                    var value = profile.ReadString(claim);
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-
-            foreach (var claim in SecondaryIdentityClaims)
-            {
-                var value = root.ReadString(claim);
+                var value = profile.ReadString(claim);
                 if (!string.IsNullOrWhiteSpace(value))
                 {
                     return value;
                 }
             }
-
-            return FindIdentityInJson(root);
         }
 
-        public static string? FindIdentityInJson(JsonElement element)
+        foreach (var claim in SecondaryIdentityClaims)
         {
-            switch (element.ValueKind)
+            var value = root.ReadString(claim);
+            if (!string.IsNullOrWhiteSpace(value))
             {
-                case JsonValueKind.Object:
-                    foreach (var property in element.EnumerateObject())
+                return value;
+            }
+        }
+
+        return FindIdentityInJson(root);
+    }
+
+    public static string? FindIdentityInJson(JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (property.Value.ValueKind == JsonValueKind.String)
                     {
-                        if (property.Value.ValueKind == JsonValueKind.String)
+                        var value = property.Value.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
                         {
-                            var value = property.Value.GetString();
-                            if (!string.IsNullOrWhiteSpace(value))
+                            var key = property.Name.ToLowerInvariant();
+                            if (key.Contains("email", StringComparison.Ordinal) ||
+                                key.Contains("username", StringComparison.Ordinal) ||
+                                key.Contains("login", StringComparison.Ordinal) ||
+                                key.Contains("user", StringComparison.Ordinal))
                             {
-                                var key = property.Name.ToLowerInvariant();
-                                if (key.Contains("email", StringComparison.Ordinal) ||
-                                    key.Contains("username", StringComparison.Ordinal) ||
-                                    key.Contains("login", StringComparison.Ordinal) ||
-                                    key.Contains("user", StringComparison.Ordinal))
-                                {
-                                    return value;
-                                }
+                                return value;
                             }
                         }
-
-                        var nested = FindIdentityInJson(property.Value);
-                        if (!string.IsNullOrWhiteSpace(nested))
-                        {
-                            return nested;
-                        }
                     }
 
-                    break;
-
-                case JsonValueKind.Array:
-                    foreach (var item in element.EnumerateArray())
+                    var nested = FindIdentityInJson(property.Value);
+                    if (!string.IsNullOrWhiteSpace(nested))
                     {
-                        var nested = FindIdentityInJson(item);
-                        if (!string.IsNullOrWhiteSpace(nested))
-                        {
-                            return nested;
-                        }
+                        return nested;
                     }
+                }
 
-                    break;
-            }
+                break;
 
-            return null;
+            case JsonValueKind.Array:
+                foreach (var item in element.EnumerateArray())
+                {
+                    var nested = FindIdentityInJson(item);
+                    if (!string.IsNullOrWhiteSpace(nested))
+                    {
+                        return nested;
+                    }
+                }
+
+                break;
         }
 
-        public static bool IsEmailLike(string? value)
-        {
-            return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
-        }
+        return null;
+    }
+
+    public static bool IsEmailLike(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
     }
 }

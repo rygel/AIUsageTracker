@@ -2,12 +2,11 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Interfaces
-{
-    public interface ICodexAuthService
-    {
-        string? GetAccessToken();
+namespace AIUsageTracker.Core.Interfaces;
 
-        string? GetAccountId();
-    }
+public interface ICodexAuthService
+{
+    string? GetAccessToken();
+
+    string? GetAccountId();
 }

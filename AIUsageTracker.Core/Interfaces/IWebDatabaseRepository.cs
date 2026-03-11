@@ -2,14 +2,13 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Interfaces
+using AIUsageTracker.Core.Models;
+
+namespace AIUsageTracker.Core.Interfaces;
+
+public interface IWebDatabaseRepository
 {
-    using AIUsageTracker.Core.Models;
+    Task<IReadOnlyList<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples);
 
-    public interface IWebDatabaseRepository
-    {
-        Task<IReadOnlyList<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples);
-
-        Task<IReadOnlyList<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0);
-    }
+    Task<IReadOnlyList<ProviderUsage>> GetAllHistoryForExportAsync(int limit = 0);
 }

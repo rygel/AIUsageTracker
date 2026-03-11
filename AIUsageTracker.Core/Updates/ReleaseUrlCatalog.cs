@@ -2,48 +2,47 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Updates
+namespace AIUsageTracker.Core.Updates;
+
+public static class ReleaseUrlCatalog
 {
-    public static class ReleaseUrlCatalog
+    private const string RepositoryBaseUrl = "https://github.com/rygel/AIUsageTracker";
+    private const string RepositoryApiBaseUrl = "https://api.github.com/repos/rygel/AIUsageTracker";
+
+    public static string GetReleasesPageUrl()
     {
-        private const string RepositoryBaseUrl = "https://github.com/rygel/AIUsageTracker";
-        private const string RepositoryApiBaseUrl = "https://api.github.com/repos/rygel/AIUsageTracker";
+        return $"{RepositoryBaseUrl}/releases";
+    }
 
-        public static string GetReleasesPageUrl()
+    public static string GetLatestReleasePageUrl()
+    {
+        return $"{GetReleasesPageUrl()}/latest";
+    }
+
+    public static string GetReleaseTagUrl(string version)
+    {
+        return $"{GetReleasesPageUrl()}/tag/v{version}";
+    }
+
+    public static string GetGitHubReleaseApiUrl(string version)
+    {
+        return $"{RepositoryApiBaseUrl}/releases/tags/v{version}";
+    }
+
+    public static string GetAppcastUrl(string architecture, bool isBeta)
+    {
+        var normalizedArchitecture = architecture.ToLowerInvariant() switch
         {
-            return $"{RepositoryBaseUrl}/releases";
-        }
+            "arm" => "arm64",
+            "arm64" => "arm64",
+            "x86" => "x86",
+            _ => "x64",
+        };
 
-        public static string GetLatestReleasePageUrl()
-        {
-            return $"{GetReleasesPageUrl()}/latest";
-        }
+        var appcastName = isBeta
+            ? $"appcast_beta_{normalizedArchitecture}.xml"
+            : $"appcast_{normalizedArchitecture}.xml";
 
-        public static string GetReleaseTagUrl(string version)
-        {
-            return $"{GetReleasesPageUrl()}/tag/v{version}";
-        }
-
-        public static string GetGitHubReleaseApiUrl(string version)
-        {
-            return $"{RepositoryApiBaseUrl}/releases/tags/v{version}";
-        }
-
-        public static string GetAppcastUrl(string architecture, bool isBeta)
-        {
-            var normalizedArchitecture = architecture.ToLowerInvariant() switch
-            {
-                "arm" => "arm64",
-                "arm64" => "arm64",
-                "x86" => "x86",
-                _ => "x64",
-            };
-
-            var appcastName = isBeta
-                ? $"appcast_beta_{normalizedArchitecture}.xml"
-                : $"appcast_{normalizedArchitecture}.xml";
-
-            return $"{GetReleasesPageUrl()}/latest/download/{appcastName}";
-        }
+        return $"{GetReleasesPageUrl()}/latest/download/{appcastName}";
     }
 }

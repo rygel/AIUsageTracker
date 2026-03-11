@@ -7,4 +7,5 @@ namespace AIUsageTracker.UI.Slim;
 internal sealed record ProviderAuthIdentities(
     string? GitHubUsername,
     string? OpenAiUsername,
-    string? CodexUsername);
+    string? CodexUsername,
+    string? AntigravityUsername = null);

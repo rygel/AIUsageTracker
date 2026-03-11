@@ -2,65 +2,65 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Monitor.Endpoints
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Monitor.Services;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
+
+namespace AIUsageTracker.Monitor.Endpoints;
+
+internal static class MonitorConfigEndpoints
 {
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.Monitor.Services;
-    using Microsoft.AspNetCore.Builder;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.Extensions.Logging;
-
-    internal static class MonitorConfigEndpoints
+    public static void Map(WebApplication app)
     {
-        public static void Map(WebApplication app)
+        app.MapGet(MonitorApiRoutes.Config, async (IConfigService configService, ILogger<Program> logger) =>
         {
-            app.MapGet(MonitorApiRoutes.Config, async (IConfigService configService, ILogger<Program> logger) =>
+            logger.LogDebug("GET {Route}", MonitorApiRoutes.Config);
+            var configs = await configService.GetConfigsAsync().ConfigureAwait(false);
+            return Results.Ok(configs);
+        });
+
+        app.MapPost(MonitorApiRoutes.Config, async (ProviderConfig config, IConfigService configService, ILogger<Program> logger) =>
+        {
+            if (string.IsNullOrWhiteSpace(config.ProviderId))
             {
-                logger.LogDebug("GET {Route}", MonitorApiRoutes.Config);
-                var configs = await configService.GetConfigsAsync().ConfigureAwait(false);
-                return Results.Ok(configs);
-            });
+                return Results.BadRequest(new { message = "providerId is required." });
+            }
 
-            app.MapPost(MonitorApiRoutes.Config, async (ProviderConfig config, IConfigService configService, ILogger<Program> logger) =>
+            logger.LogDebug("POST {Route} ({ProviderId})", MonitorApiRoutes.Config, config.ProviderId);
+            await configService.SaveConfigAsync(config).ConfigureAwait(false);
+            return Results.Ok(new { message = "Config saved" });
+        });
+
+        app.MapDelete(MonitorApiRoutes.ConfigByProviderTemplate, async (string providerId, IConfigService configService, ILogger<Program> logger) =>
+        {
+            if (string.IsNullOrWhiteSpace(providerId))
             {
-                if (string.IsNullOrWhiteSpace(config.ProviderId))
-                {
-                    return Results.BadRequest(new { message = "providerId is required." });
-                }
+                return Results.BadRequest(new { message = "providerId is required." });
+            }
 
-                logger.LogDebug("POST {Route} ({ProviderId})", MonitorApiRoutes.Config, config.ProviderId);
-                await configService.SaveConfigAsync(config).ConfigureAwait(false);
-                return Results.Ok(new { message = "Config saved" });
-            });
+            logger.LogDebug("DELETE {Route}: {ProviderId}", MonitorApiRoutes.ConfigByProviderTemplate, providerId);
+            await configService.RemoveConfigAsync(providerId).ConfigureAwait(false);
+            return Results.Ok(new { message = "Config removed" });
+        });
 
-            app.MapDelete(MonitorApiRoutes.ConfigByProvider, async (string providerId, IConfigService configService, ILogger<Program> logger) =>
+        app.MapPost(MonitorApiRoutes.ScanKeys, async ([FromServices] IConfigService configService, [FromServices] ProviderRefreshService refreshService, ILogger<Program> logger) =>
+        {
+            logger.LogDebug("POST {Route}", MonitorApiRoutes.ScanKeys);
+            var discovered = await configService.ScanForKeysAsync().ConfigureAwait(false);
+            logger.LogDebug("Discovered {Count} keys", discovered.Count);
+
+            // Queue a high-priority force refresh so newly discovered keys bypass temporary backoff and appear quickly.
+            var refreshQueued = refreshService.QueueForceRefresh(forceAll: true);
+
+            return Results.Ok(new AgentScanKeysResponse
             {
-                if (string.IsNullOrWhiteSpace(providerId))
-                {
-                    return Results.BadRequest(new { message = "providerId is required." });
-                }
-
-                logger.LogDebug("DELETE {Route}: {ProviderId}", MonitorApiRoutes.ConfigByProvider, providerId);
-                await configService.RemoveConfigAsync(providerId).ConfigureAwait(false);
-                return Results.Ok(new { message = "Config removed" });
+                Discovered = discovered.Count,
+                RefreshQueued = refreshQueued,
+                Configs = discovered,
             });
-
-            app.MapPost(MonitorApiRoutes.ScanKeys, async ([FromServices] IConfigService configService, [FromServices] ProviderRefreshService refreshService, ILogger<Program> logger) =>
-            {
-                logger.LogDebug("POST {Route}", MonitorApiRoutes.ScanKeys);
-                var discovered = await configService.ScanForKeysAsync().ConfigureAwait(false);
-                logger.LogDebug("Discovered {Count} keys", discovered.Count);
-
-                // Queue a high-priority refresh so newly discovered keys appear in /api/usage quickly.
-                var refreshQueued = refreshService.QueueManualRefresh(forceAll: true);
-
-                return Results.Ok(new
-                {
-                    discovered = discovered.Count,
-                    refreshQueued,
-                    configs = discovered,
-                });
-            });
-        }
+        });
     }
 }

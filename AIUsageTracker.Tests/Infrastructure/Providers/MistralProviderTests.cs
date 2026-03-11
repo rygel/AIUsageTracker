@@ -4,7 +4,6 @@
 
 using System.Net;
 using AIUsageTracker.Core.Exceptions;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;

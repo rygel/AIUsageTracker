@@ -12,6 +12,7 @@ namespace AIUsageTracker.Core.MonitorClient;
 public class MonitorLauncher
 {
     internal const int DefaultPort = 5000;
+    internal const int MaxStaleMetadataBackups = 10;
     private const int MaxWaitSeconds = 30;
     private const int StopWaitSeconds = 5;
     private static ILogger<MonitorLauncher>? _logger;
@@ -21,19 +22,6 @@ public class MonitorLauncher
     private static Func<int, Task<bool>>? _processRunningOverride;
     private static Func<int, Task<bool>>? _stopProcessOverride;
     private static Func<Task<bool>>? _stopNamedProcessesOverride;
-
-    public readonly record struct MonitorStatusInfo(
-        bool IsRunning,
-        int Port,
-        bool HasMetadata,
-        string Message,
-        string? Error);
-
-    internal readonly record struct MonitorMetadataSnapshot(
-        MonitorInfo? Info,
-        bool IsUsable,
-        bool HealthOk,
-        bool ProcessRunning);
 
     public static void SetLogger(ILogger<MonitorLauncher> logger) => _logger = logger;
 
@@ -110,7 +98,7 @@ public class MonitorLauncher
         return (status.IsRunning, status.Port, status.HasMetadata);
     }
 
-    public static async Task<MonitorStatusInfo> GetAgentStatusInfoAsync()
+    public static async Task<MonitorAgentStatus> GetAgentStatusInfoAsync()
     {
         return await MonitorLauncherStateResolver.GetAgentStatusInfoAsync(
             ReadValidatedAgentInfoAsync,
@@ -182,14 +170,14 @@ public class MonitorLauncher
         return metadataState.IsUsable ? metadataState.Info : null;
     }
 
-    internal static async Task<MonitorMetadataSnapshot> GetMonitorMetadataSnapshotAsync()
+    internal static async Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
     {
         var metadataState = await ReadValidatedAgentInfoAsync().ConfigureAwait(false);
-        return new MonitorMetadataSnapshot(
-            metadataState.Info,
-            metadataState.IsUsable,
-            metadataState.HealthOk,
-            metadataState.ProcessRunning);
+        return new MonitorMetadataStatus
+        {
+            Info = metadataState.Info,
+            IsUsable = metadataState.IsUsable,
+        };
     }
 
     public static Task InvalidateMonitorInfoAsync()
@@ -225,6 +213,35 @@ public class MonitorLauncher
         var backupPath = infoPath + ".stale." + DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         File.Move(infoPath, backupPath, overwrite: true);
         MonitorService.LogDiagnostic($"Backed up stale metadata to: {backupPath}");
+        CleanupOldStaleMetadataBackups(infoPath);
+    }
+
+    private static void CleanupOldStaleMetadataBackups(string infoPath)
+    {
+        var directory = Path.GetDirectoryName(infoPath);
+        var fileName = Path.GetFileName(infoPath);
+        if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
+        {
+            return;
+        }
+
+        var pattern = fileName + ".stale.*";
+        try
+        {
+            var staleFiles = Directory.GetFiles(directory, pattern, SearchOption.TopDirectoryOnly)
+                .OrderByDescending(path => File.GetLastWriteTimeUtc(path))
+                .Skip(MaxStaleMetadataBackups)
+                .ToList();
+
+            foreach (var staleFile in staleFiles)
+            {
+                File.Delete(staleFile);
+            }
+        }
+        catch (Exception ex)
+        {
+            MonitorService.LogDiagnostic($"Failed pruning stale monitor metadata backups: {ex.Message}");
+        }
     }
 
     public static async Task<bool> StartAgentAsync()

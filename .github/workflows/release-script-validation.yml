@@ -9,6 +9,7 @@ on:
       - "scripts/validate-setup-build.ps1"
       - "scripts/validate-release-consistency.sh"
       - "scripts/generate-appcast.sh"
+      - "scripts/verify-release-artifacts.ps1"
       - "Directory.Build.props"
       - ".github/workflows/release-script-validation.yml"
       - ".github/workflows/publish.yml"
@@ -20,6 +21,7 @@ on:
       - "scripts/validate-setup-build.ps1"
       - "scripts/validate-release-consistency.sh"
       - "scripts/generate-appcast.sh"
+      - "scripts/verify-release-artifacts.ps1"
       - "Directory.Build.props"
       - ".github/workflows/release-script-validation.yml"
       - ".github/workflows/publish.yml"
@@ -76,6 +78,15 @@ jobs:
             exit 1
           fi
 
+          channel="stable"
+          if [[ "$version" =~ -beta ]]; then
+            channel="beta"
+          fi
+
           bash scripts/validate-release-consistency.sh "$version"
-          bash scripts/generate-appcast.sh "$version"
-          rm -f appcast/appcast.xml appcast/appcast_x64.xml appcast/appcast_x86.xml appcast/appcast_arm64.xml
+          bash scripts/generate-appcast.sh "$version" "$channel"
+
+          pwsh -NoProfile -ExecutionPolicy Bypass -File ./scripts/verify-release-artifacts.ps1 -Version "$version" -Channel "$channel" -SkipArtifactChecks
+
+          rm -f appcast/appcast.xml appcast/appcast_x64.xml appcast/appcast_x86.xml appcast/appcast_arm64.xml \
+                appcast/appcast_beta.xml appcast/appcast_beta_x64.xml appcast/appcast_beta_x86.xml appcast/appcast_beta_arm64.xml

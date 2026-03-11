@@ -2,12 +2,11 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Interfaces
-{
-    public interface IUpdateCheckerService
-    {
-        Task<UpdateInfo?> CheckForUpdatesAsync();
+namespace AIUsageTracker.Core.Interfaces;
 
-        Task<bool> DownloadAndInstallUpdateAsync(UpdateInfo updateInfo, IProgress<double>? progress = null);
-    }
+public interface IUpdateCheckerService
+{
+    Task<UpdateInfo?> CheckForUpdatesAsync();
+
+    Task<bool> DownloadAndInstallUpdateAsync(UpdateInfo updateInfo, IProgress<double>? progress = null);
 }

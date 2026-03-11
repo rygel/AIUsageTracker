@@ -16,7 +16,7 @@ public class ImportService
         this._database = database;
     }
 
-    public async Task<(int imported, int skipped, List<string> errors)> ImportHistoryAsync(Stream stream, string format)
+    public async Task<(int Imported, int Skipped, List<string> Errors)> ImportHistoryAsync(Stream stream, string format)
     {
         var imported = 0;
         var skipped = 0;

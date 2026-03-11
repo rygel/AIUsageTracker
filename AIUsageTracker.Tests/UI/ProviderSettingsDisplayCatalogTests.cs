@@ -56,14 +56,14 @@ public sealed class ProviderSettingsDisplayCatalogTests
         {
             new() { ProviderId = "xiaomi" },
             new() { ProviderId = "codex" },
-            new() { ProviderId = "opencode" },
+            new() { ProviderId = "opencode-zen" },
         };
 
         var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.Equal(
-            new[] { "codex", "opencode", "xiaomi" },
-            items.Where(item => new[] { "codex", "opencode", "xiaomi" }.Contains(item.Config.ProviderId, StringComparer.Ordinal))
+            new[] { "codex", "opencode-zen", "xiaomi" },
+            items.Where(item => new[] { "codex", "opencode-zen", "xiaomi" }.Contains(item.Config.ProviderId, StringComparer.Ordinal))
                 .Select(item => item.Config.ProviderId)
                 .ToArray());
     }
@@ -75,7 +75,9 @@ public sealed class ProviderSettingsDisplayCatalogTests
 
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) && !item.IsDerived);
-        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "opencode", StringComparison.Ordinal) && !item.IsDerived);
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "opencode-zen", StringComparison.Ordinal) && !item.IsDerived);
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax", StringComparison.Ordinal) && !item.IsDerived);
+        Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "minimax-io", StringComparison.Ordinal) && !item.IsDerived);
     }
 
     [Fact]

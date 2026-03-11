@@ -10,6 +10,18 @@ namespace AIUsageTracker.Monitor.Services;
 public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 {
     private readonly ILogger<ProviderUsageProcessingPipeline> _logger;
+    private long _totalProcessedEntries;
+    private long _totalAcceptedEntries;
+    private long _totalRejectedEntries;
+    private long _invalidIdentityCount;
+    private long _inactiveProviderFilteredCount;
+    private long _placeholderFilteredCount;
+    private long _detailContractAdjustedCount;
+    private long _normalizedCount;
+    private long _privacyRedactedCount;
+    private long _lastProcessedAtUtcTicks;
+    private int _lastRunTotalEntries;
+    private int _lastRunAcceptedEntries;
 
     public ProviderUsageProcessingPipeline(ILogger<ProviderUsageProcessingPipeline> logger)
     {
@@ -35,9 +47,11 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         var detailContractAdjustedCount = 0;
         var normalizedCount = 0;
         var privacyRedactedCount = 0;
+        var totalProcessedEntries = 0;
 
         foreach (var usage in usages)
         {
+            totalProcessedEntries++;
             var normalized = this.NormalizeUsage(
                 usage,
                 isPrivacyMode,
@@ -71,6 +85,16 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             accepted.Add(normalized);
         }
 
+        this.RecordSnapshot(
+            totalProcessedEntries,
+            accepted.Count,
+            invalidIdentityCount,
+            inactiveProviderFilteredCount,
+            placeholderFilteredCount,
+            detailContractAdjustedCount,
+            normalizedCount,
+            privacyRedactedCount);
+
         return new ProviderUsageProcessingResult
         {
             Usages = accepted,
@@ -81,6 +105,57 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             NormalizedCount = normalizedCount,
             PrivacyRedactedCount = privacyRedactedCount,
         };
+    }
+
+    public ProviderUsageProcessingTelemetrySnapshot GetSnapshot()
+    {
+        var lastProcessedTicks = Interlocked.Read(ref this._lastProcessedAtUtcTicks);
+        var lastProcessedAtUtc = lastProcessedTicks > 0
+            ? (DateTime?)new DateTime(lastProcessedTicks, DateTimeKind.Utc)
+            : null;
+
+        return new ProviderUsageProcessingTelemetrySnapshot
+        {
+            TotalProcessedEntries = Interlocked.Read(ref this._totalProcessedEntries),
+            TotalAcceptedEntries = Interlocked.Read(ref this._totalAcceptedEntries),
+            TotalRejectedEntries = Interlocked.Read(ref this._totalRejectedEntries),
+            InvalidIdentityCount = Interlocked.Read(ref this._invalidIdentityCount),
+            InactiveProviderFilteredCount = Interlocked.Read(ref this._inactiveProviderFilteredCount),
+            PlaceholderFilteredCount = Interlocked.Read(ref this._placeholderFilteredCount),
+            DetailContractAdjustedCount = Interlocked.Read(ref this._detailContractAdjustedCount),
+            NormalizedCount = Interlocked.Read(ref this._normalizedCount),
+            PrivacyRedactedCount = Interlocked.Read(ref this._privacyRedactedCount),
+            LastProcessedAtUtc = lastProcessedAtUtc,
+            LastRunTotalEntries = Volatile.Read(ref this._lastRunTotalEntries),
+            LastRunAcceptedEntries = Volatile.Read(ref this._lastRunAcceptedEntries),
+        };
+    }
+
+    private void RecordSnapshot(
+        int totalProcessedEntries,
+        int acceptedEntries,
+        int invalidIdentityCount,
+        int inactiveProviderFilteredCount,
+        int placeholderFilteredCount,
+        int detailContractAdjustedCount,
+        int normalizedCount,
+        int privacyRedactedCount)
+    {
+        var rejectedEntries = totalProcessedEntries - acceptedEntries;
+
+        Interlocked.Add(ref this._totalProcessedEntries, totalProcessedEntries);
+        Interlocked.Add(ref this._totalAcceptedEntries, acceptedEntries);
+        Interlocked.Add(ref this._totalRejectedEntries, rejectedEntries);
+        Interlocked.Add(ref this._invalidIdentityCount, invalidIdentityCount);
+        Interlocked.Add(ref this._inactiveProviderFilteredCount, inactiveProviderFilteredCount);
+        Interlocked.Add(ref this._placeholderFilteredCount, placeholderFilteredCount);
+        Interlocked.Add(ref this._detailContractAdjustedCount, detailContractAdjustedCount);
+        Interlocked.Add(ref this._normalizedCount, normalizedCount);
+        Interlocked.Add(ref this._privacyRedactedCount, privacyRedactedCount);
+
+        Volatile.Write(ref this._lastRunTotalEntries, totalProcessedEntries);
+        Volatile.Write(ref this._lastRunAcceptedEntries, acceptedEntries);
+        Interlocked.Exchange(ref this._lastProcessedAtUtcTicks, DateTime.UtcNow.Ticks);
     }
 
     private ProviderUsage NormalizeUsage(

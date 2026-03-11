@@ -5,6 +5,7 @@
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -16,7 +17,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
 
     public DatabaseMigrationServiceTests()
     {
-        this._dbPath = Path.Combine(Path.GetTempPath(), $"ai-migration-tests-{Guid.NewGuid():N}.db");
+        this._dbPath = TestTempPaths.CreateFilePath("ai-migration-tests", "migration.db");
     }
 
     [Fact]
@@ -69,17 +70,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            if (File.Exists(this._dbPath))
-            {
-                File.Delete(this._dbPath);
-            }
-        }
-        catch
-        {
-            // Ignore cleanup failures for temp db files.
-        }
+        TestTempPaths.CleanupPath(this._dbPath);
     }
 
     private void CreateLegacySchemaWithoutEvolveMetadata()

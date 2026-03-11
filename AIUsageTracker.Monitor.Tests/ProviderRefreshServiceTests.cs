@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -11,6 +12,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
 using AIUsageTracker.Monitor.Hubs;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -37,6 +39,9 @@ public class ProviderRefreshServiceTests
     {
         this._mockLogger = new Mock<ILogger<ProviderRefreshService>>();
         this._mockLoggerFactory = new Mock<ILoggerFactory>();
+        this._mockLoggerFactory
+            .Setup(factory => factory.CreateLogger(It.IsAny<string>()))
+            .Returns(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         this._mockDatabase = new Mock<IUsageDatabase>();
         this._mockNotificationService = new Mock<INotificationService>();
         this._mockHttpClientFactory = new Mock<IHttpClientFactory>();
@@ -157,7 +162,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
 
         var telemetry = scenario.Service.GetRefreshTelemetrySnapshot();
@@ -180,6 +185,30 @@ public class ProviderRefreshServiceTests
     }
 
     [Fact]
+    public async Task TriggerRefreshAsync_EmitsRefreshActivityWithErrorStatusWhenProviderManagerMissingAsync()
+    {
+        var stoppedActivities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => string.Equals(source.Name, MonitorActivitySources.RefreshSourceName, StringComparison.Ordinal),
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => stoppedActivities.Add(activity),
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        await this._service.TriggerRefreshAsync();
+
+        var refreshActivity = Assert.Single(
+            stoppedActivities,
+            activity => string.Equals(activity.OperationName, "monitor.provider_refresh", StringComparison.Ordinal));
+        Assert.Equal(ActivityStatusCode.Error, refreshActivity.Status);
+        Assert.Equal(false, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.force_all", StringComparison.Ordinal)).Value);
+        Assert.Equal(0, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.include_provider_ids.count", StringComparison.Ordinal)).Value);
+        Assert.Equal(false, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.bypass_circuit_breaker", StringComparison.Ordinal)).Value);
+    }
+
+    [Fact]
     public void QueueManualRefresh_UsesHighPriorityScheduler()
     {
         this._mockJobScheduler
@@ -198,8 +227,96 @@ public class ProviderRefreshServiceTests
                 "manual-provider-refresh",
                 It.IsAny<Func<CancellationToken, Task>>(),
                 MonitorJobPriority.High,
-                null),
+                "manual-provider-refresh"),
             Times.Once);
+    }
+
+    [Fact]
+    public void QueueManualRefresh_WithScopedRequest_UsesRequestAwareCoalesceKey()
+    {
+        this._mockJobScheduler
+            .Setup(s => s.Enqueue(
+                It.IsAny<string>(),
+                It.IsAny<Func<CancellationToken, Task>>(),
+                It.IsAny<MonitorJobPriority>(),
+                It.IsAny<string?>()))
+            .Returns(true);
+
+        var queued = this._service.QueueManualRefresh(
+            includeProviderIds: new[] { "zai", "OpenAI" },
+            bypassCircuitBreaker: true);
+
+        Assert.True(queued);
+        this._mockJobScheduler.Verify(
+            s => s.Enqueue(
+                "manual-provider-refresh",
+                It.IsAny<Func<CancellationToken, Task>>(),
+                MonitorJobPriority.High,
+                "manual-provider-refresh|forceAll=False|bypass=True|include=openai,zai"),
+            Times.Once);
+    }
+
+    [Fact]
+    public void BuildManualRefreshCoalesceKey_EquivalentProviderScopes_ProducesSameKey()
+    {
+        var first = ProviderRefreshService.BuildManualRefreshCoalesceKey(
+            forceAll: false,
+            includeProviderIds: new[] { "OpenAI", "zai" },
+            bypassCircuitBreaker: true);
+        var second = ProviderRefreshService.BuildManualRefreshCoalesceKey(
+            forceAll: false,
+            includeProviderIds: new[] { "ZAI", "openai", "openai" },
+            bypassCircuitBreaker: true);
+
+        Assert.Equal(first, second);
+        Assert.Equal("manual-provider-refresh|forceAll=False|bypass=True|include=openai,zai", first);
+    }
+
+    [Fact]
+    public void BuildManualRefreshCoalesceKey_DefaultManualRefresh_ReturnsNull()
+    {
+        var key = ProviderRefreshService.BuildManualRefreshCoalesceKey(
+            forceAll: false,
+            includeProviderIds: null,
+            bypassCircuitBreaker: false);
+
+        Assert.Null(key);
+    }
+
+    [Fact]
+    public async Task QueueForceRefresh_QueuedWorkBypassesCircuitBreakerAsync()
+    {
+        Func<CancellationToken, Task>? queuedWork = null;
+        this._mockJobScheduler
+            .Setup(s => s.Enqueue(
+                It.IsAny<string>(),
+                It.IsAny<Func<CancellationToken, Task>>(),
+                It.IsAny<MonitorJobPriority>(),
+                It.IsAny<string?>()))
+            .Callback<string, Func<CancellationToken, Task>, MonitorJobPriority, string?>((_, work, _, _) => queuedWork = work)
+            .Returns(true);
+
+        var stoppedActivities = new List<Activity>();
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => string.Equals(source.Name, MonitorActivitySources.RefreshSourceName, StringComparison.Ordinal),
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => stoppedActivities.Add(activity),
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        var queued = this._service.QueueForceRefresh(forceAll: true);
+        Assert.True(queued);
+        Assert.NotNull(queuedWork);
+
+        await queuedWork!(CancellationToken.None);
+
+        var refreshActivity = Assert.Single(
+            stoppedActivities,
+            activity => string.Equals(activity.OperationName, "monitor.provider_refresh", StringComparison.Ordinal));
+        Assert.Equal(true, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.force_all", StringComparison.Ordinal)).Value);
+        Assert.Equal(true, refreshActivity.TagObjects.FirstOrDefault(tag => string.Equals(tag.Key, "refresh.bypass_circuit_breaker", StringComparison.Ordinal)).Value);
     }
 
     [Fact]
@@ -302,7 +419,7 @@ public class ProviderRefreshServiceTests
         }
         finally
         {
-            Directory.Delete(scenario.Files.Root, recursive: true);
+            TestTempPaths.CleanupPath(scenario.Files.Root);
         }
 
         scenario.Pipeline.Verify(
@@ -316,6 +433,69 @@ public class ProviderRefreshServiceTests
             d => d.StoreHistoryAsync(It.Is<IEnumerable<ProviderUsage>>(items =>
                 items.Any(u => u.ProviderId == "codex" && Math.Abs(u.RequestsPercentage - 50) < 0.001))),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task CheckProviderAsync_UsesPipelineOutputAndReturnsConnectedAsync()
+    {
+        var scenario = CreatePipelinePrivacyScenario();
+        InvokeInitializeProviders(scenario.Service, 6);
+        try
+        {
+            var (success, message, status) = await scenario.Service.CheckProviderAsync("openai");
+
+            Assert.True(success);
+            Assert.Equal("Connected", message);
+            Assert.Equal(200, status);
+            scenario.Pipeline.Verify(
+                p => p.Process(
+                    It.IsAny<IEnumerable<ProviderUsage>>(),
+                    It.Is<IReadOnlyCollection<string>>(ids => ids.Contains("openai", StringComparer.OrdinalIgnoreCase)),
+                    true),
+                Times.Once);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(scenario.Files.Root);
+        }
+    }
+
+    [Fact]
+    public async Task CheckProviderAsync_WhenPipelineMarksUnavailable_ReturnsServiceUnavailableAsync()
+    {
+        var scenario = CreatePipelinePrivacyScenario();
+        scenario.Pipeline.Setup(
+                p => p.Process(
+                    It.IsAny<IEnumerable<ProviderUsage>>(),
+                    It.IsAny<IReadOnlyCollection<string>>(),
+                    true))
+            .Returns(new ProviderUsageProcessingResult
+            {
+                Usages = new[]
+                {
+                    new ProviderUsage
+                    {
+                        ProviderId = "openai",
+                        ProviderName = "OpenAI",
+                        IsAvailable = false,
+                        Description = "Invalid detail contract",
+                    },
+                },
+            });
+
+        InvokeInitializeProviders(scenario.Service, 6);
+        try
+        {
+            var (success, message, status) = await scenario.Service.CheckProviderAsync("openai");
+
+            Assert.False(success);
+            Assert.Equal("Invalid detail contract", message);
+            Assert.Equal(503, status);
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(scenario.Files.Root);
+        }
     }
 
     private static PipelinePrivacyScenario CreatePipelinePrivacyScenario()
@@ -405,7 +585,8 @@ public class ProviderRefreshServiceTests
             displayName: "OpenAI (Codex)",
             planType: PlanType.Usage,
             isQuotaBased: false,
-            defaultConfigType: "pay-as-you-go");
+            defaultConfigType: "pay-as-you-go",
+            autoIncludeWhenUnconfigured: true);
         var provider = new Mock<IProviderService>();
         provider.SetupGet(p => p.ProviderId).Returns("codex");
         provider.SetupGet(p => p.Definition).Returns(providerDefinition);
@@ -465,8 +646,7 @@ public class ProviderRefreshServiceTests
 
     private static PipelineTestFiles CreatePipelineTestFiles()
     {
-        var root = Path.Combine(Path.GetTempPath(), $"provider-refresh-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(root);
+        var root = TestTempPaths.CreateDirectory("provider-refresh-test");
         var authPath = Path.Combine(root, "auth.json");
         var providersPath = Path.Combine(root, "providers.json");
         var preferencesPath = Path.Combine(root, "preferences.json");
@@ -495,14 +675,13 @@ public class ProviderRefreshServiceTests
 
     private static int GetProviderManagerConcurrency(ProviderRefreshService service)
     {
-        var providerManagerField = typeof(ProviderRefreshService).GetField(
-            "_providerManager",
+        var lifecycleField = typeof(ProviderRefreshService).GetField(
+            "_providerManagerLifecycle",
             BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.NotNull(providerManagerField);
+        Assert.NotNull(lifecycleField);
 
-        var manager = providerManagerField!.GetValue(service) as ProviderManager;
-        Assert.NotNull(manager);
-        return manager!.MaxConcurrentProviderRequests;
+        var lifecycle = Assert.IsType<ProviderManagerLifecycleService>(lifecycleField!.GetValue(service));
+        return lifecycle.CurrentMaxConcurrency;
     }
 
     private sealed record PipelineTestFiles(string Root, string AuthPath, string ProvidersPath, string PreferencesPath);

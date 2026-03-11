@@ -2,14 +2,13 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Interfaces
+namespace AIUsageTracker.Core.Interfaces;
+
+public interface IDataExportService
 {
-    public interface IDataExportService
-    {
-        Task<string> ExportHistoryToCsvAsync();
+    Task<string> ExportHistoryToCsvAsync();
 
-        Task<string> ExportHistoryToJsonAsync();
+    Task<string> ExportHistoryToJsonAsync();
 
-        Task<byte[]?> CreateDatabaseBackupAsync();
-    }
+    Task<byte[]?> CreateDatabaseBackupAsync();
 }

@@ -2,13 +2,12 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Models
+namespace AIUsageTracker.Core.Models;
+
+public enum ProviderSettingsMode
 {
-    public enum ProviderSettingsMode
-    {
-        StandardApiKey,
-        AutoDetectedStatus,
-        ExternalAuthStatus,
-        SessionAuthStatus,
-    }
+    StandardApiKey,
+    AutoDetectedStatus,
+    ExternalAuthStatus,
+    SessionAuthStatus,
 }

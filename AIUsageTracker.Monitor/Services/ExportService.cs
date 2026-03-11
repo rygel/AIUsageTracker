@@ -18,7 +18,7 @@ public class ExportService
         this._database = database;
     }
 
-    public async Task<(byte[] content, string contentType, string fileName)> ExportAsync(string format, int days)
+    public async Task<(byte[] Content, string ContentType, string FileName)> ExportAsync(string format, int days)
     {
         // Limit days to reasonable range
         if (days < 1)

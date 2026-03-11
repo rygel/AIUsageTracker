@@ -2,72 +2,72 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Helpers
+using System.Globalization;
+using System.Text.Json;
+
+namespace AIUsageTracker.Core.Helpers;
+
+public static class JsonElementExtensions
 {
-    using System.Text.Json;
-
-    public static class JsonElementExtensions
+    public static string? ReadString(this JsonElement root, params string[] path)
     {
-        public static string? ReadString(this JsonElement root, params string[] path)
+        var current = root;
+        foreach (var segment in path)
         {
-            var current = root;
-            foreach (var segment in path)
+            if (!current.TryGetProperty(segment, out current))
             {
-                if (!current.TryGetProperty(segment, out current))
-                {
-                    return null;
-                }
+                return null;
             }
-
-            return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
         }
 
-        public static double? ReadDouble(this JsonElement root, params string[] path)
+        return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
+    }
+
+    public static double? ReadDouble(this JsonElement root, params string[] path)
+    {
+        var current = root;
+        foreach (var segment in path)
         {
-            var current = root;
-            foreach (var segment in path)
+            if (!current.TryGetProperty(segment, out current))
             {
-                if (!current.TryGetProperty(segment, out current))
-                {
-                    return null;
-                }
+                return null;
             }
-
-            if (current.ValueKind == JsonValueKind.Number && current.TryGetDouble(out var number))
-            {
-                return number;
-            }
-
-            if (current.ValueKind == JsonValueKind.String)
-            {
-                var raw = current.GetString();
-                if (!string.IsNullOrWhiteSpace(raw) &&
-                    double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
-                {
-                    return parsed;
-                }
-            }
-
-            return null;
         }
 
-        public static bool? ReadBool(this JsonElement root, params string[] path)
+        if (current.ValueKind == JsonValueKind.Number && current.TryGetDouble(out var number))
         {
-            var current = root;
-            foreach (var segment in path)
-            {
-                if (!current.TryGetProperty(segment, out current))
-                {
-                    return null;
-                }
-            }
-
-            return current.ValueKind switch
-            {
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                _ => null
-            };
+            return number;
         }
+
+        if (current.ValueKind == JsonValueKind.String)
+        {
+            var raw = current.GetString();
+            if (!string.IsNullOrWhiteSpace(raw) &&
+                double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+        }
+
+        return null;
+    }
+
+    public static bool? ReadBool(this JsonElement root, params string[] path)
+    {
+        var current = root;
+        foreach (var segment in path)
+        {
+            if (!current.TryGetProperty(segment, out current))
+            {
+                return null;
+            }
+        }
+
+        return current.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            _ => null
+        };
     }
 }

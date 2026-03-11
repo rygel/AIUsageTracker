@@ -41,19 +41,21 @@ internal sealed class ScenarioMonitorLauncherClient : IMonitorLauncherClient
         this._stopAgentResult = scenario.StopAgentResult;
     }
 
-    public Task<MonitorLauncher.MonitorStatusInfo> GetAgentStatusInfoAsync()
+    public Task<MonitorAgentStatus> GetAgentStatusInfoAsync()
     {
         lock (this._syncRoot)
         {
             var index = Math.Min(this._statusIndex, this._statusSequence.Count - 1);
             var status = this._statusSequence[index];
             this._statusIndex++;
-            return Task.FromResult(new MonitorLauncher.MonitorStatusInfo(
-                status.IsRunning,
-                status.Port,
-                status.HasMetadata,
-                status.Message,
-                status.Error));
+            return Task.FromResult(new MonitorAgentStatus
+            {
+                IsRunning = status.IsRunning,
+                Port = status.Port,
+                HasMetadata = status.HasMetadata,
+                Message = status.Message,
+                Error = status.Error,
+            });
         }
     }
 

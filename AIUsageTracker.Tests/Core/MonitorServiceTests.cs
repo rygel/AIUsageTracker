@@ -7,6 +7,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;
@@ -38,11 +39,11 @@ public class MonitorServiceTests
         this.SetupMockResponse(HttpStatusCode.OK, responseObj);
 
         // Act
-        var (success, message) = await this._service.CheckProviderAsync("openai");
+        var result = await this._service.CheckProviderAsync("openai");
 
         // Assert
-        Assert.True(success);
-        Assert.Equal("Connected", message);
+        Assert.True(result.Success);
+        Assert.Equal("Connected", result.Message);
         this.VerifyPath("/api/providers/openai/check");
     }
 
@@ -54,11 +55,11 @@ public class MonitorServiceTests
         this.SetupMockResponse(HttpStatusCode.Unauthorized, responseObj);
 
         // Act
-        var (success, message) = await this._service.CheckProviderAsync("openai");
+        var result = await this._service.CheckProviderAsync("openai");
 
         // Assert
-        Assert.False(success);
-        Assert.Equal("Invalid Key", message);
+        Assert.False(result.Success);
+        Assert.Equal("Invalid Key", result.Message);
     }
 
     [Fact]
@@ -112,8 +113,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task GetUsageAsync_RevalidatesEndpointBeforeRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -163,15 +163,14 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
     [Fact]
     public async Task GetUsageAsync_RequestTimesOut_RefreshesEndpointAndRetriesAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -223,15 +222,14 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
     [Fact]
     public async Task GetUsageAsync_RequestTimesOutTwice_ReturnsEmptyListAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -262,15 +260,14 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
     [Fact]
     public async Task TriggerRefreshAsync_RevalidatesEndpointBeforeRefreshRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -303,7 +300,7 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
@@ -332,8 +329,7 @@ public class MonitorServiceTests
     [Fact]
     public async Task CheckHealthAsync_RevalidatesEndpointBeforeHealthRequestAsync()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = this.CreateTempDirectory();
 
         try
         {
@@ -370,7 +366,7 @@ public class MonitorServiceTests
         }
         finally
         {
-            Directory.Delete(tempDirectory, recursive: true);
+            TestTempPaths.CleanupPath(tempDirectory);
         }
     }
 
@@ -397,13 +393,58 @@ public class MonitorServiceTests
     }
 
     [Fact]
-    public async Task CheckApiContractAsync_Mismatch_ReturnsWarningResultAsync()
+    public async Task CheckApiContractAsync_Compatible_UsesCanonicalContractVersionFieldAsync()
     {
         // Arrange
         var responseObj = new
         {
             status = "healthy",
-            apiContractVersion = "999",
+            contractVersion = MonitorService.ExpectedApiContractVersion,
+            agentVersion = "2.1.3",
+        };
+        this.SetupMockResponse(HttpStatusCode.OK, responseObj);
+
+        // Act
+        var result = await this._service.CheckApiContractAsync();
+
+        // Assert
+        Assert.True(result.IsReachable);
+        Assert.True(result.IsCompatible);
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.AgentContractVersion);
+        this.VerifyPath("/api/health");
+    }
+
+    [Fact]
+    public async Task CheckApiContractAsync_Compatible_AcceptsNewerMinorVersionAsync()
+    {
+        // Arrange
+        var responseObj = new
+        {
+            status = "healthy",
+            contractVersion = "1.3",
+            agentVersion = "2.1.3",
+        };
+        this.SetupMockResponse(HttpStatusCode.OK, responseObj);
+
+        // Act
+        var result = await this._service.CheckApiContractAsync();
+
+        // Assert
+        Assert.True(result.IsReachable);
+        Assert.True(result.IsCompatible);
+        Assert.Equal("1.3", result.AgentContractVersion);
+        this.VerifyPath("/api/health");
+    }
+
+    [Fact]
+    public async Task CheckApiContractAsync_Mismatch_WhenMonitorRequiresNewerClientContractAsync()
+    {
+        // Arrange
+        var responseObj = new
+        {
+            status = "healthy",
+            contractVersion = "1.3",
+            minClientContractVersion = "2.0",
             agentVersion = "2.1.3",
         };
         this.SetupMockResponse(HttpStatusCode.OK, responseObj);
@@ -414,8 +455,31 @@ public class MonitorServiceTests
         // Assert
         Assert.True(result.IsReachable);
         Assert.False(result.IsCompatible);
-        Assert.Equal("999", result.AgentContractVersion);
-        Assert.True(result.Message.Contains("mismatch", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal("1.3", result.AgentContractVersion);
+        Assert.Equal("2.0", result.MinClientContractVersion);
+        Assert.Contains("requires client contract", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CheckApiContractAsync_Mismatch_ReturnsWarningResultAsync()
+    {
+        // Arrange
+        var responseObj = new
+        {
+            status = "healthy",
+            contractVersion = "2.0",
+            agentVersion = "2.1.3",
+        };
+        this.SetupMockResponse(HttpStatusCode.OK, responseObj);
+
+        // Act
+        var result = await this._service.CheckApiContractAsync();
+
+        // Assert
+        Assert.True(result.IsReachable);
+        Assert.False(result.IsCompatible);
+        Assert.Equal("2.0", result.AgentContractVersion);
+        Assert.Contains("major mismatch", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -436,6 +500,47 @@ public class MonitorServiceTests
         Assert.False(result.IsReachable);
         Assert.False(result.IsCompatible);
         Assert.True(result.Message.Contains("failed", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void EvaluateApiContractCompatibility_AllowsMatchingMajorAsync()
+    {
+        var result = MonitorService.EvaluateApiContractCompatibility("1.7", null, "2.1.3");
+
+        Assert.True(result.IsReachable);
+        Assert.True(result.IsCompatible);
+        Assert.Equal("1.7", result.AgentContractVersion);
+    }
+
+    [Fact]
+    public void EvaluateApiContractCompatibility_AllowsVersionPrefixAsync()
+    {
+        var result = MonitorService.EvaluateApiContractCompatibility("v1.2", "v1", "2.1.3");
+
+        Assert.True(result.IsReachable);
+        Assert.True(result.IsCompatible);
+        Assert.Equal("v1.2", result.AgentContractVersion);
+        Assert.Equal("v1", result.MinClientContractVersion);
+    }
+
+    [Fact]
+    public void EvaluateApiContractCompatibility_RejectsMajorMismatchAsync()
+    {
+        var result = MonitorService.EvaluateApiContractCompatibility("2.0", null, "2.1.3");
+
+        Assert.True(result.IsReachable);
+        Assert.False(result.IsCompatible);
+        Assert.Contains("major mismatch", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void EvaluateApiContractCompatibility_RejectsWhenMinClientIsHigherAsync()
+    {
+        var result = MonitorService.EvaluateApiContractCompatibility("1.4", "1.1", "2.1.3");
+
+        Assert.True(result.IsReachable);
+        Assert.False(result.IsCompatible);
+        Assert.Contains("requires client contract", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -467,7 +572,8 @@ public class MonitorServiceTests
             timestamp = new DateTime(2026, 3, 10, 9, 0, 0, DateTimeKind.Utc),
             port = 5000,
             processId = 4242,
-            apiContractVersion = MonitorService.ExpectedApiContractVersion,
+            contractVersion = MonitorService.ExpectedApiContractVersion,
+            minClientContractVersion = MonitorService.ExpectedApiContractVersion,
             agentVersion = "2.2.28",
             refreshHealth = new
             {
@@ -490,7 +596,14 @@ public class MonitorServiceTests
         Assert.Equal(5000, result.Port);
         Assert.Equal(4242, result.ProcessId);
         Assert.Equal("2.2.28", result.AgentVersion);
-        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.ApiContractVersion);
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.ContractVersion);
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.MinClientContractVersion);
+#pragma warning disable CS0618
+        Assert.Null(result.ApiContractVersion);
+        Assert.Null(result.MinClientApiContractVersion);
+#pragma warning restore CS0618
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.EffectiveContractVersion);
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.EffectiveMinClientContractVersion);
         Assert.Equal("degraded", result.RefreshHealth.Status);
         Assert.Equal("ProviderManager not ready", result.RefreshHealth.LastError);
         Assert.Equal(2, result.RefreshHealth.ProvidersInBackoff);
@@ -674,6 +787,11 @@ public class MonitorServiceTests
                 req.RequestUri.AbsolutePath == path &&
                 queryParts.All(qp => req.RequestUri.Query.Contains(qp))),
             ItExpr.IsAny<CancellationToken>());
+    }
+
+    private string CreateTempDirectory()
+    {
+        return TestTempPaths.CreateDirectory("monitor-service-tests");
     }
 
     private async Task<string> CreateMonitorInfoAsync(string directory, MonitorInfo info)

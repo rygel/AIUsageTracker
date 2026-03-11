@@ -2,42 +2,41 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Paths
+using System.IO;
+
+namespace AIUsageTracker.Core.Paths;
+
+public static class AppPathCatalog
 {
-    using System.IO;
+    private const string AppDirectoryName = "AIUsageTracker";
 
-    public static class AppPathCatalog
+    public static string GetCanonicalAppDataRoot(string localAppDataRoot)
     {
-        private const string AppDirectoryName = "AIUsageTracker";
+        return Path.Combine(localAppDataRoot, AppDirectoryName);
+    }
 
-        public static string GetCanonicalAppDataRoot(string localAppDataRoot)
-        {
-            return Path.Combine(localAppDataRoot, AppDirectoryName);
-        }
+    public static string GetCanonicalDatabasePath(string localAppDataRoot)
+    {
+        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "usage.db");
+    }
 
-        public static string GetCanonicalDatabasePath(string localAppDataRoot)
-        {
-            return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "usage.db");
-        }
+    public static string GetCanonicalLogDirectory(string localAppDataRoot)
+    {
+        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "logs");
+    }
 
-        public static string GetCanonicalLogDirectory(string localAppDataRoot)
-        {
-            return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "logs");
-        }
+    public static string GetCanonicalPreferencesPath(string localAppDataRoot)
+    {
+        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "preferences.json");
+    }
 
-        public static string GetCanonicalPreferencesPath(string localAppDataRoot)
-        {
-            return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "preferences.json");
-        }
+    public static string GetCanonicalProviderConfigPath(string localAppDataRoot)
+    {
+        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "providers.json");
+    }
 
-        public static string GetCanonicalProviderConfigPath(string localAppDataRoot)
-        {
-            return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "providers.json");
-        }
-
-        public static string GetCanonicalAuthFilePath(string userProfileRoot)
-        {
-            return Path.Combine(userProfileRoot, ".opencode", "auth.json");
-        }
+    public static string GetCanonicalAuthFilePath(string userProfileRoot)
+    {
+        return Path.Combine(userProfileRoot, ".opencode", "auth.json");
     }
 }

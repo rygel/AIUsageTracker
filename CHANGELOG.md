@@ -2,13 +2,40 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.25] - 2026-03-11
+
+### Fixed
+- **Auth Discovery Regression**: Restored support for legacy/shared OpenCode auth file locations so provider keys are discovered when present outside `~/.opencode/auth.json`.
+- **Provider Key Loading in Beta**: Fixed Synthetic and Z.AI key resolution when keys exist in `~/.local/share/opencode/auth.json`.
+
+### Changed
+- **CI Test Stability**: Hardened test workflow defaults for deterministic .NET execution and consolidated test-assembly path resolution to reduce flaky CI failures.
+
+## [2.2.28-beta.24] - 2026-03-11
+
+### Added
+- **Gemini CLI Auth Fallback**: Added provider-level fallback from OpenCode Antigravity accounts to native Gemini CLI auth files (`.gemini/oauth_creds.json` + project mapping), with account identity extraction and deterministic project resolution.
+- **Provider Auth Contract Guardrails**: Added regression tests that enforce provider-specific auth fallback declarations to prevent discovery drift.
+
+### Changed
+- **Provider-Specific Fallback Coverage**: Added missing discovery fallback metadata for DeepSeek, Synthetic, and Z.AI (environment and Roo mappings), plus Gemini environment variable discovery parity.
+- **Auth Flow Documentation**: Updated data-flow and environment-variable docs to reflect actual per-provider fallback order and supported sources.
+
+## [2.2.28-beta.23] - 2026-03-11
+
+### Changed
+- **Auth Source Precedence**: Added app-local auth (`%LOCALAPPDATA%\\AIUsageTracker\\auth.json`) as a final auth source so app-owned keys are read last and override earlier auth sources.
+- **Config Path Deduplication**: Deduplicated config entries when auth paths resolve to the same file to prevent duplicate merges.
+- **Auth Flow Documentation**: Added a dedicated auth information flow reference in `docs/auth_information_flow.md`.
+
+### Tests
+- **Auth Flow Guardrails**: Added tests that lock config source ordering and verify app-owned auth precedence over earlier auth files.
+
 ## [2.2.28-beta.22] - 2026-03-11
 
 ### Changed
-- **Codex/OpenAI Visibility**: Enforced Codex as the canonical OpenAI provider in UI and monitor flows, suppressing legacy standalone OpenAI display behavior.
-- **Provider Labeling**: Renamed Synthetic display label to `Synthetic.new` while keeping provider id compatibility.
-- **Usage Window Formatting**: Standardized usage-window labels so minute-only windows normalize to hour labels where appropriate (for example `300m` -> `5h`).
-- **Info Dialog Versioning**: Updated the Slim UI info dialog to show prerelease suffixes such as Beta/RC from informational assembly version metadata.
+- **Beta Version Bump**: Updated shared tracker version, README badge, and release packaging scripts for `2.2.28-beta.22`.
+- **Release Validation Reliability**: Fixed release script validation to generate appcasts for the correct channel and hardened appcast verification for namespaced Sparkle fields.
 
 ## [2.2.28-beta.21] - 2026-03-10
 

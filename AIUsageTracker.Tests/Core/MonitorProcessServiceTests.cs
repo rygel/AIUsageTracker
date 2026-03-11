@@ -6,6 +6,7 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
@@ -19,11 +20,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
 
     public MonitorProcessServiceTests()
     {
-        this._tempDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "monitor-process-service-tests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("monitor-process-service-tests");
     }
 
     [Fact]
@@ -209,6 +206,9 @@ public sealed class MonitorProcessServiceTests : IDisposable
         {
             Status = "healthy",
             ServiceHealth = "degraded",
+            AgentVersion = "2.2.0",
+            ContractVersion = MonitorService.ExpectedApiContractVersion,
+            MinClientContractVersion = MonitorService.ExpectedApiContractVersion,
             RefreshHealth = new MonitorRefreshHealthSnapshot
             {
                 Status = "degraded",
@@ -227,10 +227,51 @@ public sealed class MonitorProcessServiceTests : IDisposable
         Assert.Equal("ProviderManager not ready", result.LastRefreshError);
         Assert.Equal(2, result.ProvidersInBackoff);
         Assert.Equal(new[] { "openai", "anthropic" }, result.FailingProviders);
+        Assert.True(result.IsContractCompatible);
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.ContractVersion);
+        Assert.Equal(MonitorService.ExpectedApiContractVersion, result.MinClientContractVersion);
         Assert.Null(result.StartupState);
         Assert.Null(result.StartupFailureReason);
         Assert.Contains("degraded", result.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("openai", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task GetAgentStatusDetailedAsync_AppendsContractWarning_WhenContractIsIncompatibleAsync()
+    {
+        var infoPath = await this.CreateMonitorInfoAsync(new MonitorInfo
+        {
+            Port = 6444,
+            ProcessId = 7007,
+        });
+
+        using var overrides = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: new[] { infoPath },
+            healthCheckAsync: port => Task.FromResult(port == 6444),
+            processRunningAsync: processId => Task.FromResult(processId == 7007));
+
+        var healthSnapshot = new MonitorHealthSnapshot
+        {
+            Status = "healthy",
+            ServiceHealth = "healthy",
+            AgentVersion = "2.2.0",
+            ContractVersion = "2.0",
+            MinClientContractVersion = "2.0",
+            RefreshHealth = new MonitorRefreshHealthSnapshot
+            {
+                Status = "healthy",
+            },
+        };
+        var service = this.CreateService(healthSnapshot);
+
+        var result = await service.GetAgentStatusDetailedAsync();
+
+        Assert.True(result.IsRunning);
+        Assert.False(result.IsContractCompatible);
+        Assert.Equal("2.0", result.ContractVersion);
+        Assert.Equal("2.0", result.MinClientContractVersion);
+        Assert.Contains("Contract warning", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("major mismatch", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -251,10 +292,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null)

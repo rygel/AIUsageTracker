@@ -55,6 +55,7 @@ public partial class MainWindow : Window
 
     private readonly MainViewModel _viewModel;
     private readonly IMonitorService _monitorService;
+    private readonly IMonitorLifecycleService _monitorLifecycleService;
     private readonly ILogger<MainWindow> _logger;
     private readonly UiPreferencesStore _preferencesStore;
     private readonly Dictionary<string, ImageSource> _iconCache = new(StringComparer.Ordinal);
@@ -113,10 +114,11 @@ public partial class MainWindow : Window
     public MainWindow(
         MainViewModel viewModel,
         IMonitorService monitorService,
+        IMonitorLifecycleService monitorLifecycleService,
         ILogger<MainWindow> logger,
         IUpdateCheckerService updateChecker,
         UiPreferencesStore preferencesStore)
-        : this(skipUiInitialization: false, viewModel, monitorService, logger, updateChecker, preferencesStore)
+        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, logger, updateChecker, preferencesStore)
     {
     }
 
@@ -124,6 +126,7 @@ public partial class MainWindow : Window
         : this(
             App.Host.Services.GetRequiredService<MainViewModel>(),
             App.Host.Services.GetRequiredService<IMonitorService>(),
+            App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
             App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
             App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
             App.Host.Services.GetRequiredService<UiPreferencesStore>())
@@ -131,7 +134,7 @@ public partial class MainWindow : Window
     }
 
     internal MainWindow(bool skipUiInitialization)
-        : this(skipUiInitialization, null, null, null, null, null)
+        : this(skipUiInitialization, null, null, null, null, null, null)
     {
     }
 
@@ -139,6 +142,7 @@ public partial class MainWindow : Window
         bool skipUiInitialization,
         MainViewModel? viewModel,
         IMonitorService? monitorService,
+        IMonitorLifecycleService? monitorLifecycleService,
         ILogger<MainWindow>? logger,
         IUpdateCheckerService? updateChecker,
         UiPreferencesStore? preferencesStore)
@@ -152,6 +156,7 @@ public partial class MainWindow : Window
         // Fallbacks for internal/test use
         this._logger = logger ?? App.CreateLogger<MainWindow>();
         this._monitorService = monitorService ?? App.MonitorService;
+        this._monitorLifecycleService = monitorLifecycleService ?? App.Host.Services.GetRequiredService<IMonitorLifecycleService>();
         this._updateChecker = updateChecker ?? App.Host.Services.GetRequiredService<IUpdateCheckerService>();
         this._preferencesStore = preferencesStore ?? App.Host.Services.GetRequiredService<UiPreferencesStore>();
         this._viewModel = viewModel ?? App.Host.Services.GetRequiredService<MainViewModel>();
@@ -480,7 +485,7 @@ public partial class MainWindow : Window
                     // Refresh the monitor endpoint from authoritative metadata/health before first contact.
                     await this._monitorService.RefreshPortAsync();
 
-                    var monitorStatus = await MonitorLauncher.GetAgentStatusInfoAsync();
+                    var monitorStatus = await this._monitorLifecycleService.GetAgentStatusInfoAsync();
 
                     // Check if Monitor is running on the discovered port
                     var isRunning = monitorStatus.IsRunning || await this._monitorService.CheckHealthAsync();
@@ -492,7 +497,7 @@ public partial class MainWindow : Window
                             : "Monitor not running. Starting monitor...";
                         await this.Dispatcher.InvokeAsync(() => this.ShowStatus(launchMessage, StatusType.Warning));
                         await this.Dispatcher.InvokeAsync(() => this.ShowStatus("Waiting for monitor...", StatusType.Warning));
-                        var monitorReady = await MonitorLauncher.EnsureAgentRunningAsync();
+                        var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
                         if (!monitorReady)
                         {
                             await this._monitorService.RefreshAgentInfoAsync();
@@ -685,14 +690,14 @@ public partial class MainWindow : Window
 
     private string BuildMonitorLaunchErrorMessage()
     {
-        return BuildMonitorErrorMessage(
+        return this.BuildMonitorErrorMessage(
             "Monitor failed to start.",
             "Please ensure AIUsageTracker.Monitor is installed and try again.");
     }
 
     private string BuildMonitorConnectionErrorMessage()
     {
-        return BuildMonitorErrorMessage(
+        return this.BuildMonitorErrorMessage(
             "Cannot connect to Monitor.",
             "Please ensure:\n1. Monitor is running\n2. Port is correct (check monitor.json)\n3. Firewall is not blocking\n\nTry restarting the Monitor.");
     }
@@ -767,7 +772,7 @@ public partial class MainWindow : Window
 #pragma warning disable VSTHRD001 // Recovery runs from a background delay and must marshal back to the UI thread explicitly.
         _ = Task.Run(async () =>
         {
-            await Task.Delay(delay).ConfigureAwait(false);
+            await Task.Delay(delay).ConfigureAwait(false); // ui-thread-guardrail-allow: continuation immediately marshals via Dispatcher.
             await this.Dispatcher.InvokeAsync(
                 () =>
             {
@@ -2212,11 +2217,6 @@ public partial class MainWindow : Window
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Debug", "net8.0", "AIUsageTracker.Web.exe"),
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Release", "net8.0", "AIUsageTracker.Web.exe"),
                 Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Web.exe"),
-
-                // Legacy compatibility
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Debug", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Release", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Web.exe"),
             };
 
             var webPath = possiblePaths.FirstOrDefault(File.Exists);
@@ -2782,7 +2782,7 @@ public partial class MainWindow : Window
             this.ShowStatus("Restarting monitor...", StatusType.Warning);
 
             // Try to start agent
-            var monitorReady = await MonitorLauncher.EnsureAgentRunningAsync();
+            var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
             if (monitorReady)
             {
                 this.ShowStatus("Monitor restarted", StatusType.Success);
@@ -2803,13 +2803,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            var (isRunning, _) = await MonitorLauncher.IsAgentRunningWithPortAsync();
+            var (isRunning, _) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync();
 
             if (isRunning)
             {
                 // Stop the agent
                 this.ShowStatus("Stopping monitor...", StatusType.Warning);
-                var stopped = await MonitorLauncher.StopAgentAsync();
+                var stopped = await this._monitorLifecycleService.StopAgentAsync();
                 if (stopped)
                 {
                     this.ShowStatus("Monitor stopped", StatusType.Info);
@@ -2824,7 +2824,7 @@ public partial class MainWindow : Window
             {
                 // Start the monitor
                 this.ShowStatus("Starting monitor...", StatusType.Warning);
-                var monitorReady = await MonitorLauncher.EnsureAgentRunningAsync();
+                var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
                 if (monitorReady)
                 {
                     this.ShowStatus("Monitor started", StatusType.Success);
@@ -2858,7 +2858,7 @@ public partial class MainWindow : Window
 
     private async Task UpdateMonitorToggleButtonStateAsync()
     {
-        var (isRunning, _) = await MonitorLauncher.IsAgentRunningWithPortAsync();
+        var (isRunning, _) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync();
         this.Dispatcher.Invoke(() => this.UpdateMonitorToggleButton(isRunning));
     }
 

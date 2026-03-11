@@ -12,4 +12,6 @@ public interface IProviderUsageProcessingPipeline
         IEnumerable<ProviderUsage> usages,
         IReadOnlyCollection<string> activeProviderIds,
         bool isPrivacyMode);
+
+    ProviderUsageProcessingTelemetrySnapshot GetSnapshot();
 }

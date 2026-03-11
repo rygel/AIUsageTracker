@@ -2,74 +2,72 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.UI
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim;
+
+namespace AIUsageTracker.Tests.UI;
+public sealed class ProviderSettingsCatalogTests
 {
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.UI.Slim;
-
-    public sealed class ProviderSettingsCatalogTests
+    [Fact]
+    public void GetInputMode_ReturnsDerivedReadOnly_ForDerivedProviders()
     {
-        [Fact]
-        public void GetInputMode_ReturnsDerivedReadOnly_ForDerivedProviders()
-        {
-            var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
+        var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
 
-            var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
+        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
 
-            Assert.Equal(ProviderInputMode.DerivedReadOnly, behavior.InputMode);
-        }
+        Assert.Equal(ProviderInputMode.DerivedReadOnly, behavior.InputMode);
+    }
 
-        [Fact]
-        public void GetInputMode_ReturnsOpenAiSession_ForSessionToken()
-        {
-            var config = new ProviderConfig { ProviderId = "openai", ApiKey = "sess-token" };
+    [Fact]
+    public void GetInputMode_ReturnsOpenAiSession_ForSessionToken()
+    {
+        var config = new ProviderConfig { ProviderId = "openai", ApiKey = "sess-token" };
 
-            var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: false);
+        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: false);
 
-            Assert.Equal(ProviderInputMode.OpenAiSessionStatus, behavior.InputMode);
-        }
+        Assert.Equal(ProviderInputMode.OpenAiSessionStatus, behavior.InputMode);
+    }
 
-        [Fact]
-        public void IsInactive_ReturnsFalse_ForDerivedProviders()
-        {
-            var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
+    [Fact]
+    public void IsInactive_ReturnsFalse_ForDerivedProviders()
+    {
+        var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
 
-            var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
+        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
 
-            Assert.False(behavior.IsInactive);
-        }
+        Assert.False(behavior.IsInactive);
+    }
 
-        [Fact]
-        public void IsDerivedProviderVisible_ReturnsTrue_ForCodexSpark()
-        {
-            Assert.True(ProviderSettingsCatalog.IsDerivedProviderVisible("codex.spark"));
-        }
+    [Fact]
+    public void IsDerivedProviderVisible_ReturnsTrue_ForCodexSpark()
+    {
+        Assert.True(ProviderSettingsCatalog.IsDerivedProviderVisible("codex.spark"));
+    }
 
-        [Fact]
-        public void Resolve_ReturnsCodexSessionBehavior_ForCodex()
-        {
-            var config = new ProviderConfig { ProviderId = "codex", ApiKey = "sess-token" };
+    [Fact]
+    public void Resolve_ReturnsCodexSessionBehavior_ForCodex()
+    {
+        var config = new ProviderConfig { ProviderId = "codex", ApiKey = "sess-token" };
 
-            var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: false);
+        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: false);
 
-            Assert.Equal(ProviderInputMode.OpenAiSessionStatus, behavior.InputMode);
-            Assert.Equal("OpenAI Codex", behavior.SessionProviderLabel);
-            Assert.True(behavior.PreferCodexIdentity);
-            Assert.False(behavior.IsInactive);
-        }
+        Assert.Equal(ProviderInputMode.OpenAiSessionStatus, behavior.InputMode);
+        Assert.Equal("OpenAI Codex", behavior.SessionProviderLabel);
+        Assert.True(behavior.PreferCodexIdentity);
+        Assert.False(behavior.IsInactive);
+    }
 
-        [Fact]
-        public void Resolve_ReturnsOpenAiSessionBehavior_ForQuotaBasedOpenAi()
-        {
-            var config = new ProviderConfig { ProviderId = "openai", ApiKey = string.Empty };
-            var usage = new ProviderUsage { ProviderId = "openai", IsQuotaBased = true, IsAvailable = true };
+    [Fact]
+    public void Resolve_ReturnsOpenAiSessionBehavior_ForQuotaBasedOpenAi()
+    {
+        var config = new ProviderConfig { ProviderId = "openai", ApiKey = string.Empty };
+        var usage = new ProviderUsage { ProviderId = "openai", IsQuotaBased = true, IsAvailable = true };
 
-            var behavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived: false);
+        var behavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived: false);
 
-            Assert.Equal(ProviderInputMode.OpenAiSessionStatus, behavior.InputMode);
-            Assert.Equal("OpenAI", behavior.SessionProviderLabel);
-            Assert.False(behavior.PreferCodexIdentity);
-            Assert.False(behavior.IsInactive);
-        }
+        Assert.Equal(ProviderInputMode.OpenAiSessionStatus, behavior.InputMode);
+        Assert.Equal("OpenAI (API)", behavior.SessionProviderLabel);
+        Assert.False(behavior.PreferCodexIdentity);
+        Assert.False(behavior.IsInactive);
     }
 }

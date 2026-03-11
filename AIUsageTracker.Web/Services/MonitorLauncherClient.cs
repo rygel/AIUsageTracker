@@ -8,7 +8,7 @@ namespace AIUsageTracker.Web.Services;
 
 public sealed class MonitorLauncherClient : IMonitorLauncherClient
 {
-    public Task<MonitorLauncher.MonitorStatusInfo> GetAgentStatusInfoAsync()
+    public Task<MonitorAgentStatus> GetAgentStatusInfoAsync()
     {
         return MonitorLauncher.GetAgentStatusInfoAsync();
     }

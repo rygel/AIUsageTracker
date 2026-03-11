@@ -59,7 +59,7 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
     }
 
     [Fact]
-    public async Task DiscoverTokensAsync_FindsOpenCodeAuthAsync()
+    public async Task DiscoverTokensAsync_DoesNotMapOpenCodeAuthToCodexAsync()
     {
         // Arrange
         var content = "{\"openai\": {\"access\": \"opencode-session-token\"}}";
@@ -70,8 +70,7 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
 
         // Assert
         var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "codex", StringComparison.Ordinal));
-        Assert.NotNull(config);
-        Assert.Equal("opencode-session-token", config.ApiKey);
+        Assert.True(config == null || string.IsNullOrWhiteSpace(config.ApiKey));
     }
 
     [Fact]

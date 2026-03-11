@@ -25,6 +25,7 @@ public class GeminiProvider : ProviderBase
         autoIncludeWhenUnconfigured: true,
         includeInWellKnownProviders: true,
         handledProviderIds: new[] { "gemini-cli", "gemini" },
+        discoveryEnvironmentVariables: new[] { "GEMINI_API_KEY", "GOOGLE_API_KEY" },
         rooConfigPropertyNames: new[] { "geminiApiKey" },
         iconAssetName: "google",
         fallbackBadgeColorHex: "#1E90FF",
@@ -40,6 +41,8 @@ public class GeminiProvider : ProviderBase
     private readonly ILogger<GeminiProvider> _logger;
     private readonly string? _accountsPathOverride;
     private readonly string? _oauthCredsPathOverride;
+    private readonly string? _geminiConfigDirectoryOverride;
+    private readonly string? _currentDirectoryOverride;
 
     // Public OAuth client ID embedded in the open-source gemini-cli tool.
     // This is NOT a secret — it is intentionally public and shipped with the CLI.
@@ -53,24 +56,38 @@ public class GeminiProvider : ProviderBase
     private const string GeminiPluginClientSecret = "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";
 
     public GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger)
-        : this(httpClient, logger, null, null)
+        : this(httpClient, logger, null, null, null, null)
     {
     }
 
     // Constructor for testing
     internal GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger, string? accountsPathOverride, string? oauthCredsPathOverride)
+        : this(httpClient, logger, accountsPathOverride, oauthCredsPathOverride, null, null)
+    {
+    }
+
+    // Constructor for testing
+    internal GeminiProvider(
+        HttpClient httpClient,
+        ILogger<GeminiProvider> logger,
+        string? accountsPathOverride,
+        string? oauthCredsPathOverride,
+        string? geminiConfigDirectoryOverride,
+        string? currentDirectoryOverride)
     {
         this._httpClient = httpClient;
         this._logger = logger;
         this._accountsPathOverride = accountsPathOverride;
         this._oauthCredsPathOverride = oauthCredsPathOverride;
+        this._geminiConfigDirectoryOverride = geminiConfigDirectoryOverride;
+        this._currentDirectoryOverride = currentDirectoryOverride;
     }
 
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         // 1. Load Accounts
-        var accounts = this.LoadAntigravityAccounts();
+        var accounts = this.LoadAccounts();
         if (accounts == null || accounts.Accounts == null || !accounts.Accounts.Any())
         {
             return new[]
@@ -233,6 +250,17 @@ public class GeminiProvider : ProviderBase
         return results;
     }
 
+    private AntigravityAccounts? LoadAccounts()
+    {
+        var opencodeAccounts = this.LoadAntigravityAccounts();
+        if (opencodeAccounts?.Accounts?.Any() == true)
+        {
+            return opencodeAccounts;
+        }
+
+        return this.LoadGeminiCliAccounts();
+    }
+
     private AntigravityAccounts? LoadAntigravityAccounts()
     {
         var path = this._accountsPathOverride ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "opencode", "antigravity-accounts.json");
@@ -253,16 +281,205 @@ public class GeminiProvider : ProviderBase
         }
     }
 
+    private AntigravityAccounts? LoadGeminiCliAccounts()
+    {
+        var oauthPath = this.ResolveOauthCredsPath();
+        if (!File.Exists(oauthPath))
+        {
+            this._logger.LogDebug("Gemini oauth creds file not found at {Path}", oauthPath);
+            return null;
+        }
+
+        try
+        {
+            var oauthJson = File.ReadAllText(oauthPath);
+            var oauthCreds = JsonSerializer.Deserialize<GeminiOauthCreds>(
+                oauthJson,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (oauthCreds == null || string.IsNullOrWhiteSpace(oauthCreds.RefreshToken))
+            {
+                this._logger.LogWarning("Gemini oauth creds did not include refresh_token");
+                return null;
+            }
+
+            var email = this.ExtractEmailFromIdToken(oauthCreds.IdToken) ?? this.LoadActiveGoogleAccountEmail();
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                email = "Gemini Account";
+            }
+
+            var projectId = this.ResolveGeminiProjectId();
+            if (string.IsNullOrWhiteSpace(projectId))
+            {
+                this._logger.LogWarning("Gemini projects.json did not provide a usable project ID");
+                return null;
+            }
+
+            return new AntigravityAccounts
+            {
+                Accounts = new List<Account>
+                {
+                    new()
+                    {
+                        Email = email,
+                        RefreshToken = oauthCreds.RefreshToken,
+                        ProjectId = projectId,
+                    },
+                },
+            };
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Failed to load Gemini CLI auth files");
+            return null;
+        }
+    }
+
+    private string ResolveOauthCredsPath()
+    {
+        if (!string.IsNullOrWhiteSpace(this._oauthCredsPathOverride))
+        {
+            return this._oauthCredsPathOverride;
+        }
+
+        return Path.Combine(this.ResolveGeminiConfigDirectory(), "oauth_creds.json");
+    }
+
+    private string ResolveGeminiConfigDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(this._geminiConfigDirectoryOverride))
+        {
+            return this._geminiConfigDirectoryOverride;
+        }
+
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".gemini");
+    }
+
+    private string? ResolveGeminiProjectId()
+    {
+        var projectsPath = Path.Combine(this.ResolveGeminiConfigDirectory(), "projects.json");
+        if (!File.Exists(projectsPath))
+        {
+            this._logger.LogDebug("Gemini projects.json not found at {Path}", projectsPath);
+            return null;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(projectsPath);
+            var projects = JsonSerializer.Deserialize<GeminiProjects>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (projects?.Projects == null || projects.Projects.Count == 0)
+            {
+                return null;
+            }
+
+            var currentDirectory = this._currentDirectoryOverride ?? Directory.GetCurrentDirectory();
+            var normalizedCurrentDirectory = this.NormalizePath(currentDirectory);
+            var bestMatch = projects.Projects
+                .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value))
+                .Select(pair => new
+                {
+                    Key = this.NormalizePath(pair.Key),
+                    Value = pair.Value,
+                })
+                .Where(pair => normalizedCurrentDirectory.StartsWith(pair.Key, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(pair => pair.Key.Length)
+                .FirstOrDefault();
+            if (bestMatch != null)
+            {
+                return bestMatch.Value;
+            }
+
+            return projects.Projects.Values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Failed to load Gemini projects.json");
+            return null;
+        }
+    }
+
+    private string? LoadActiveGoogleAccountEmail()
+    {
+        var accountsPath = Path.Combine(this.ResolveGeminiConfigDirectory(), "google_accounts.json");
+        if (!File.Exists(accountsPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(accountsPath);
+            var accounts = JsonSerializer.Deserialize<GeminiGoogleAccounts>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return accounts?.Active;
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogWarning(ex, "Failed to parse google_accounts.json");
+            return null;
+        }
+    }
+
+    private string? ExtractEmailFromIdToken(string? idToken)
+    {
+        if (string.IsNullOrWhiteSpace(idToken))
+        {
+            return null;
+        }
+
+        try
+        {
+            var parts = idToken.Split('.');
+            if (parts.Length < 2)
+            {
+                return null;
+            }
+
+            var payload = this.DecodeBase64Url(parts[1]);
+            using var payloadDoc = JsonDocument.Parse(payload);
+            if (payloadDoc.RootElement.TryGetProperty("email", out var emailElement))
+            {
+                return emailElement.GetString();
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogDebug(ex, "Failed to extract email from Gemini id_token");
+        }
+
+        return null;
+    }
+
+    private string NormalizePath(string path)
+    {
+        var normalized = path.Replace('/', '\\').Trim();
+        return normalized.TrimEnd('\\');
+    }
+
+    private string DecodeBase64Url(string base64UrlValue)
+    {
+        var normalized = base64UrlValue.Replace('-', '+').Replace('_', '/');
+        var padding = (4 - (normalized.Length % 4)) % 4;
+        normalized = normalized.PadRight(normalized.Length + padding, '=');
+        var bytes = Convert.FromBase64String(normalized);
+        return Encoding.UTF8.GetString(bytes);
+    }
+
     private async Task<string> RefreshTokenAsync(string refreshToken)
     {
         string clientId = GeminiCliClientId;
 
-        // Logic to prefer Plugin Client ID if specified in oauth_creds.json (used in tests)
-        if (!string.IsNullOrEmpty(this._oauthCredsPathOverride) && File.Exists(this._oauthCredsPathOverride))
+        // Logic to prefer Plugin Client ID if specified in oauth_creds.json.
+        var oauthCredsPath = this.ResolveOauthCredsPath();
+        if (File.Exists(oauthCredsPath))
         {
             try
             {
-                var json = File.ReadAllText(this._oauthCredsPathOverride);
+                var json = File.ReadAllText(oauthCredsPath);
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("id_token", out var idToken))
                 {
@@ -282,8 +499,9 @@ public class GeminiProvider : ProviderBase
                     }
                 }
             }
-            catch
-            { /* Ignore */
+            catch (Exception ex)
+            {
+                this._logger.LogDebug(ex, "Failed to inspect Gemini oauth creds for client-id preference");
             }
         }
 
@@ -351,6 +569,27 @@ public class GeminiProvider : ProviderBase
     {
         [JsonPropertyName("access_token")]
         public string? AccessToken { get; set; }
+    }
+
+    private class GeminiOauthCreds
+    {
+        [JsonPropertyName("refresh_token")]
+        public string? RefreshToken { get; set; }
+
+        [JsonPropertyName("id_token")]
+        public string? IdToken { get; set; }
+    }
+
+    private class GeminiGoogleAccounts
+    {
+        [JsonPropertyName("active")]
+        public string? Active { get; set; }
+    }
+
+    private class GeminiProjects
+    {
+        [JsonPropertyName("projects")]
+        public Dictionary<string, string>? Projects { get; set; }
     }
 
     private class GeminiQuotaResponse

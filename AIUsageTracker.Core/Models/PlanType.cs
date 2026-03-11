@@ -2,11 +2,10 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Models
+namespace AIUsageTracker.Core.Models;
+
+public enum PlanType
 {
-    public enum PlanType
-    {
-        Usage,
-        Coding,
-    }
+    Usage,
+    Coding,
 }

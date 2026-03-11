@@ -63,8 +63,8 @@ public class SettingsViewModel : BaseViewModel
         this.StatusMessage = "Loading settings...";
         try
         {
-            this.Configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(false)).ToList();
-            this._usages = (await this._monitorService.GetUsageAsync().ConfigureAwait(false)).ToList();
+            this.Configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
+            this._usages = (await this._monitorService.GetUsageAsync().ConfigureAwait(true)).ToList();
 
             if (this.Configs.Count == 0)
             {
@@ -94,6 +94,6 @@ public class SettingsViewModel : BaseViewModel
 
     public async Task<string> ExportDataAsync()
     {
-        return await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);
+        return await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(true);
     }
 }

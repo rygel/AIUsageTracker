@@ -27,7 +27,7 @@ public abstract class DatabaseTestBase : IDisposable
     protected DatabaseTestBase()
     {
         // Use a real file for WebDatabaseService because it creates its own connections
-        this.DbPath = Path.Combine(Path.GetTempPath(), $"ai-tracker-test-{Guid.NewGuid():N}.db");
+        this.DbPath = TestTempPaths.CreateFilePath("ai-tracker-test", "database.db");
         this.ConnectionString = $"Data Source={this.DbPath}";
 
         // Ensure directory exists
@@ -142,16 +142,6 @@ public abstract class DatabaseTestBase : IDisposable
         this._sharedConnection.Close();
         this._sharedConnection.Dispose();
         this.Cache.Dispose();
-        try
-        {
-            if (File.Exists(this.DbPath))
-            {
-                File.Delete(this.DbPath);
-            }
-        }
-        catch
-        {
-            // Ignore cleanup errors
-        }
+        TestTempPaths.CleanupPath(this.DbPath);
     }
 }

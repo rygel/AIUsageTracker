@@ -27,7 +27,7 @@ public class UsageAlertsService
         this._configService = configService;
     }
 
-    public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)
+    public void CheckUsageAlerts(IReadOnlyList<ProviderUsage> usages, AppPreferences prefs, IReadOnlyList<ProviderConfig> configs)
     {
         if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
         {
@@ -45,7 +45,7 @@ public class UsageAlertsService
         }
     }
 
-    public async Task DetectResetEventsAsync(List<ProviderUsage> currentUsages)
+    public async Task DetectResetEventsAsync(IReadOnlyList<ProviderUsage> currentUsages)
     {
         this._logger.LogDebug("Checking for reset events...");
 
@@ -60,7 +60,7 @@ public class UsageAlertsService
             {
                 if (!historyMap.TryGetValue(usage.ProviderId, out var history) || history.Count < 2)
                 {
-                    LogInsufficientHistory(usage);
+                    this.LogInsufficientHistory(usage);
                     continue;
                 }
 

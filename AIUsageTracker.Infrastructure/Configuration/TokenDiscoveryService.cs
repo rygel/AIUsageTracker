@@ -60,9 +60,6 @@ public class TokenDiscoveryService
         // 6. Discover native Codex session token
         await this.DiscoverCodexSessionTokenAsync(discoveredConfigs).ConfigureAwait(false);
 
-        // 7. Discover OpenAI session token from OpenCode auth files
-        await this.DiscoverOpenAiSessionTokenAsync(discoveredConfigs).ConfigureAwait(false);
-
         return discoveredConfigs;
     }
 
@@ -93,41 +90,6 @@ public class TokenDiscoveryService
         catch (Exception ex)
         {
             this._logger.LogDebug("Codex session discovery failed: {Message}", ex.Message);
-        }
-    }
-
-    private async Task DiscoverOpenAiSessionTokenAsync(List<ProviderConfig> configs)
-    {
-        try
-        {
-            foreach (var path in this.GetOpenCodeAuthCandidates())
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                using var doc = JsonDocument.Parse(json);
-                var token = TryReadOpenAiSessionAccessToken(doc.RootElement);
-                if (string.IsNullOrWhiteSpace(token))
-                {
-                    continue;
-                }
-
-                // Session-based OpenAI access should be represented by the canonical session provider.
-                this.AddOrUpdate(
-                    configs,
-                    OpenAIProvider.StaticDefinition.SessionAuthCanonicalProviderId ?? CodexProvider.StaticDefinition.ProviderId,
-                    token,
-                    "Discovered in OpenCode auth",
-                    $"Config: {path}");
-                return;
-            }
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogDebug("OpenCode session discovery failed: {Message}", ex.Message);
         }
     }
 
@@ -182,19 +144,9 @@ public class TokenDiscoveryService
         return this.GetCandidatePaths(CodexProvider.StaticDefinition);
     }
 
-    private IEnumerable<string> GetOpenCodeAuthCandidates()
-    {
-        return this.GetCandidatePaths(OpenAIProvider.StaticDefinition);
-    }
-
     private static string? TryReadCodexAccessToken(JsonElement root)
     {
         return TryReadAccessToken(root, CodexProvider.StaticDefinition);
-    }
-
-    private static string? TryReadOpenAiSessionAccessToken(JsonElement root)
-    {
-        return TryReadAccessToken(root, OpenAIProvider.StaticDefinition);
     }
 
     private static string? TryReadAccessToken(JsonElement root, ProviderDefinition definition)

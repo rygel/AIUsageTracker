@@ -80,6 +80,10 @@ public class StartupAntiHammerTests
             mockConfigService.Object);
         var providerCircuitBreakerService = new ProviderRefreshCircuitBreakerService(mockCircuitBreakerLogger.Object);
 
+        // Setup logger factory to return a mock logger for any type
+        mockLoggerFactory.Setup(lf => lf.CreateLogger(It.IsAny<string>()))
+            .Returns(new Mock<ILogger>().Object);
+
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
             .ReturnsAsync(false);
 
@@ -146,6 +150,10 @@ public class StartupAntiHammerTests
             mockNotificationService.Object,
             mockConfigService.Object);
         var providerCircuitBreakerService = new ProviderRefreshCircuitBreakerService(mockCircuitBreakerLogger.Object);
+
+        // Setup logger factory to return a mock logger for any type
+        mockLoggerFactory.Setup(lf => lf.CreateLogger(It.IsAny<string>()))
+            .Returns(new Mock<ILogger>().Object);
 
         mockDb.Setup(db => db.IsHistoryEmptyAsync())
             .ReturnsAsync(true);

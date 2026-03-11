@@ -22,4 +22,8 @@
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\AIUsageTracker.Tests\Infrastructure\TestTempPaths.cs" Link="Infrastructure\TestTempPaths.cs" />
+  </ItemGroup>
+
 </Project>

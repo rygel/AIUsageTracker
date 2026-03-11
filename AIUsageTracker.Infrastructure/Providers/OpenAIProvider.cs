@@ -24,7 +24,7 @@ public class OpenAIProvider : ProviderBase
 
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "openai",
-        displayName: "OpenAI",
+        displayName: "OpenAI (API)",
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
@@ -35,7 +35,7 @@ public class OpenAIProvider : ProviderBase
         sessionAuthMigrationDescription: "Migrated from OpenAI session config",
         settingsMode: ProviderSettingsMode.SessionAuthStatus,
         useSessionAuthStatusWhenQuotaBasedOrSessionToken: true,
-        sessionStatusLabel: "OpenAI",
+        sessionStatusLabel: "OpenAI (API)",
         sessionIdentitySource: ProviderSessionIdentitySource.OpenAi,
         iconAssetName: "openai",
         fallbackBadgeColorHex: "#008B8B",

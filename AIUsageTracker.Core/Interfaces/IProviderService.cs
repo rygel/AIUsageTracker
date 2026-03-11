@@ -2,24 +2,20 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Interfaces
+using AIUsageTracker.Core.Models;
+
+namespace AIUsageTracker.Core.Interfaces;
+
+public interface IProviderService
 {
-    using AIUsageTracker.Core.Models;
+    string ProviderId { get; }
 
-    public interface IProviderService
+    ProviderDefinition Definition { get; }
+
+    bool CanHandleProviderId(string providerId)
     {
-        string ProviderId { get; }
-
-        ProviderDefinition Definition { get; }
-
-        bool CanHandleProviderId(string providerId)
-        {
-            return this.Definition.HandlesProviderId(providerId);
-        }
-
-        Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null);
+        return this.Definition.HandlesProviderId(providerId);
     }
 
-
-
+    Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null);
 }

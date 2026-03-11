@@ -1,11 +1,13 @@
-namespace AIUsageTracker.Infrastructure.Services;
-
 using System.Text.Json;
+
 using Microsoft.Extensions.Logging;
+
 using AIUsageTracker.Core.Helpers;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Paths;
+
+namespace AIUsageTracker.Infrastructure.Services;
 
 public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 {
@@ -13,7 +15,7 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 
     public ProviderDiscoveryService(ILogger<ProviderDiscoveryService> logger)
     {
-        _logger = logger;
+        this._logger = logger;
     }
 
     public async Task<ProviderAuthData?> DiscoverAuthAsync(ProviderDefinition definition)
@@ -24,7 +26,7 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
             var value = Environment.GetEnvironmentVariable(envVar);
             if (!string.IsNullOrWhiteSpace(value))
             {
-                _logger.LogDebug("Discovered auth for {ProviderId} via environment variable {EnvVar}", definition.ProviderId, envVar);
+                this._logger.LogDebug("Discovered auth for {ProviderId} via environment variable {EnvVar}", definition.ProviderId, envVar);
                 return new ProviderAuthData(value);
             }
         }
@@ -44,13 +46,13 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
                 var authData = await LoadAuthFromFileAsync(path, definition.SessionAuthFileSchemas);
                 if (authData != null)
                 {
-                    _logger.LogDebug("Discovered auth for {ProviderId} via file {Path}", definition.ProviderId, path);
+                    this._logger.LogDebug("Discovered auth for {ProviderId} via file {Path}", definition.ProviderId, path);
                     return authData with { SourcePath = path };
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to read auth file for {ProviderId} at {Path}", definition.ProviderId, path);
+                this._logger.LogDebug(ex, "Failed to read auth file for {ProviderId} at {Path}", definition.ProviderId, path);
             }
         }
 
@@ -72,10 +74,12 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
         {
             var sessionRoot = root;
             var parts = schema.RootProperty.Split('.');
+            var lastPart = parts[^1];
             bool foundRoot = true;
             foreach (var part in parts)
             {
-                if (!sessionRoot.TryGetProperty(part, out sessionRoot) || (sessionRoot.ValueKind != JsonValueKind.Object && part != parts.Last()))
+                if (!sessionRoot.TryGetProperty(part, out sessionRoot) ||
+                    (sessionRoot.ValueKind != JsonValueKind.Object && !string.Equals(part, lastPart, StringComparison.Ordinal)))
                 {
                     foundRoot = false;
                     break;

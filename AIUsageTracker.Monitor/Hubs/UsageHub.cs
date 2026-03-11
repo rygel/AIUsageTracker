@@ -16,9 +16,10 @@ public class UsageHub : Hub
     /// This is typically called by the Monitor service after a successful provider refresh.
     /// </summary>
     /// <returns>A Task representing the asynchronous operation.</returns>
+#pragma warning disable VSTHRD200 // SignalR hub method names are part of the external contract.
     public async Task NotifyUsageUpdated()
     {
-        await Clients.All.SendAsync("UsageUpdated").ConfigureAwait(false);
+        await this.Clients.All.SendAsync("UsageUpdated").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -27,6 +28,7 @@ public class UsageHub : Hub
     /// <returns>A Task representing the asynchronous operation.</returns>
     public async Task NotifyRefreshStarted()
     {
-        await Clients.All.SendAsync("RefreshStarted").ConfigureAwait(false);
+        await this.Clients.All.SendAsync("RefreshStarted").ConfigureAwait(false);
     }
+#pragma warning restore VSTHRD200
 }

@@ -1,6 +1,6 @@
-namespace AIUsageTracker.Core.Interfaces;
-
 using AIUsageTracker.Core.Models;
+
+namespace AIUsageTracker.Core.Interfaces;
 
 public interface IProviderDiscoveryService
 {

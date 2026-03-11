@@ -2,11 +2,10 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Models
+namespace AIUsageTracker.Core.Models;
+
+public enum UpdateChannel
 {
-    public enum UpdateChannel
-    {
-        Stable,
-        Beta,
-    }
+    Stable,
+    Beta,
 }

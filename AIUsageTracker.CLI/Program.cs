@@ -4,7 +4,6 @@
 
 namespace AIUsageTracker.CLI
 {
-    using System.Diagnostics;
     using System.Text.Json;
     using AIUsageTracker.Core.Interfaces;
     using AIUsageTracker.Core.Models;
@@ -19,16 +18,19 @@ namespace AIUsageTracker.CLI
     {
         public static async Task Main(string[] args)
         {
+            var serviceProvider = CreateServiceProvider();
+
             try
             {
                 // Ensure Agent is running
-                if (!await MonitorLauncher.IsAgentRunningAsync().ConfigureAwait(false))
+                var lifecycleService = serviceProvider.GetRequiredService<IMonitorLifecycleService>();
+                if (!await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false))
                 {
                     Console.WriteLine("Agent is not running. Attempting to start...");
-                    if (await MonitorLauncher.StartAgentAsync().ConfigureAwait(false))
+                    if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
                     {
                         Console.Write("Waiting for Agent to initialize...");
-                        if (await MonitorLauncher.WaitForAgentAsync().ConfigureAwait(false))
+                        if (await lifecycleService.WaitForAgentAsync().ConfigureAwait(false))
                         {
                             Console.WriteLine(" Done.");
                         }
@@ -46,15 +48,37 @@ namespace AIUsageTracker.CLI
                     }
                 }
 
-                await Run(args).ConfigureAwait(false);
+                await Run(args, serviceProvider).ConfigureAwait(false);
             }
             finally
             {
                 // We don't kill the process anymore since we might have started the shared Agent
+                if (serviceProvider is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
             }
         }
 
-        private static async Task Run(string[] args)
+        private static ServiceProvider CreateServiceProvider()
+        {
+            var services = new ServiceCollection();
+
+            services.AddLogging(configure =>
+            {
+                configure.AddConsole();
+                configure.SetMinimumLevel(LogLevel.Warning); // Reduce log noise
+            });
+
+            services.AddHttpClient();
+            services.AddResilientHttpClient();
+            services.AddSingleton<IMonitorService, MonitorService>();
+            services.AddSingleton<IMonitorLifecycleService, MonitorLifecycleService>();
+
+            return services.BuildServiceProvider();
+        }
+
+        private static async Task Run(string[] args, ServiceProvider serviceProvider)
         {
             if (args.Length == 0)
             {
@@ -78,21 +102,8 @@ namespace AIUsageTracker.CLI
             var showAll = args.Contains("--all", StringComparer.Ordinal);
             var json = args.Contains("--json", StringComparer.Ordinal);
 
-            // Setup DI
-            var services = new ServiceCollection();
-
-            services.AddLogging(configure =>
-            {
-                configure.AddConsole();
-                configure.SetMinimumLevel(LogLevel.Warning); // Reduce log noise
-            });
-
-            services.AddHttpClient();
-            services.AddResilientHttpClient();
-            services.AddSingleton<MonitorService>();
-
-            var serviceProvider = services.BuildServiceProvider();
-            var agentService = serviceProvider.GetRequiredService<MonitorService>();
+            var agentService = serviceProvider.GetRequiredService<IMonitorService>();
+            var lifecycleService = serviceProvider.GetRequiredService<IMonitorLifecycleService>();
 
             switch (command)
             {
@@ -154,7 +165,7 @@ namespace AIUsageTracker.CLI
                         return;
                     }
 
-                    await ManageAgent(agentService, args[1]).ConfigureAwait(false);
+                    await ManageAgent(lifecycleService, args[1]).ConfigureAwait(false);
                     break;
                 case "check":
                     string? providerId = args.Length > 1 ? args[1] : null;
@@ -169,7 +180,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task CheckProvider(MonitorService service, string? providerId)
+        private static async Task CheckProvider(IMonitorService service, string? providerId)
         {
             if (string.IsNullOrEmpty(providerId))
             {
@@ -186,25 +197,25 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task CheckSingleProvider(MonitorService service, string providerId)
+        private static async Task CheckSingleProvider(IMonitorService service, string providerId)
         {
             Console.Write($"Checking {providerId}... ");
-            var (success, message) = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
-            if (success)
+            var result = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
+            if (result.Success)
             {
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine($"OK ({message})");
+                Console.WriteLine($"OK ({result.Message})");
             }
             else
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"FAILED ({message})");
+                Console.WriteLine($"FAILED ({result.Message})");
             }
 
             Console.ResetColor();
         }
 
-        private static async Task ExportData(MonitorService service, string[] args)
+        private static async Task ExportData(IMonitorService service, string[] args)
         {
             string format = "csv";
             int days = 30;
@@ -248,7 +259,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ShowHistory(MonitorService service, int days, bool json)
+        private static async Task ShowHistory(IMonitorService service, int days, bool json)
         {
             // For CLI simplicity, we'll just show the last N entries or a summary if possible.
             // The Agent API currently supports ?limit=N.
@@ -298,7 +309,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task SetKey(MonitorService service, string providerId, string apiKey)
+        private static async Task SetKey(IMonitorService service, string providerId, string apiKey)
         {
             Console.WriteLine($"Setting key for '{providerId}'...");
 
@@ -338,7 +349,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task RemoveKey(MonitorService service, string providerId)
+        private static async Task RemoveKey(IMonitorService service, string providerId)
         {
             Console.WriteLine($"Removing key for '{providerId}'...");
             if (await service.RemoveConfigAsync(providerId).ConfigureAwait(false))
@@ -352,15 +363,15 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ScanKeys(MonitorService service)
+        private static async Task ScanKeys(IMonitorService service)
         {
             Console.WriteLine("Scanning for API keys from known applications...");
-            var (count, configs) = await service.ScanForKeysAsync().ConfigureAwait(false);
+            var result = await service.ScanForKeysAsync().ConfigureAwait(false);
 
-            if (count > 0)
+            if (result.Count > 0)
             {
-                Console.WriteLine($"Found {count} new API keys:");
-                foreach (var config in configs)
+                Console.WriteLine($"Found {result.Count} new API keys:");
+                foreach (var config in result.Configs)
                 {
                     Console.WriteLine($" - {config.ProviderId}");
                 }
@@ -429,19 +440,19 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ManageAgent(MonitorService service, string action)
+        private static async Task ManageAgent(IMonitorLifecycleService lifecycleService, string action)
         {
             switch (action.ToLower(System.Globalization.CultureInfo.InvariantCulture))
             {
                 case "info":
-                    var port = await MonitorLauncher.GetAgentPortAsync().ConfigureAwait(false);
-                    var running = await MonitorLauncher.IsAgentRunningAsync().ConfigureAwait(false);
+                    var port = await lifecycleService.GetAgentPortAsync().ConfigureAwait(false);
+                    var running = await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false);
                     Console.WriteLine($"Agent Status: {(running ? "Running" : "Stopped")}");
                     Console.WriteLine($"Port: {port}");
                     break;
                 case "stop":
                     Console.WriteLine("Stopping Agent...");
-                    if (await MonitorLauncher.StopAgentAsync().ConfigureAwait(false))
+                    if (await lifecycleService.StopAgentAsync().ConfigureAwait(false))
                     {
                         Console.WriteLine("Agent stopped.");
                     }
@@ -453,7 +464,7 @@ namespace AIUsageTracker.CLI
                     break;
                 case "start":
                     Console.WriteLine("Starting Agent...");
-                    if (await MonitorLauncher.StartAgentAsync().ConfigureAwait(false))
+                    if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
                     {
                         Console.WriteLine("Agent started.");
                     }
@@ -465,9 +476,9 @@ namespace AIUsageTracker.CLI
                     break;
                 case "restart":
                     Console.WriteLine("Restarting Agent...");
-                    await MonitorLauncher.StopAgentAsync().ConfigureAwait(false);
+                    await lifecycleService.StopAgentAsync().ConfigureAwait(false);
                     await Task.Delay(1000).ConfigureAwait(false); // Wait a bit
-                    if (await MonitorLauncher.StartAgentAsync().ConfigureAwait(false))
+                    if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
                     {
                         Console.WriteLine("Agent restarted.");
                     }
@@ -483,7 +494,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ShowStatus(MonitorService service, bool json, bool showAll)
+        private static async Task ShowStatus(IMonitorService service, bool json, bool showAll)
         {
             var usage = await service.GetUsageAsync().ConfigureAwait(false);
 
@@ -560,7 +571,7 @@ namespace AIUsageTracker.CLI
             }
         }
 
-        private static async Task ShowList(MonitorService service, bool json)
+        private static async Task ShowList(IMonitorService service, bool json)
         {
             var configs = await service.GetConfigsAsync().ConfigureAwait(false);
             if (json)

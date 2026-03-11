@@ -7,6 +7,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Monitor.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AIUsageTracker.Tests.Core;
@@ -18,15 +19,14 @@ public sealed class MonitorProgramTests : IDisposable
 
     public MonitorProgramTests()
     {
-        this._tempDirectory = Path.Combine(Path.GetTempPath(), "monitor-program-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("monitor-program-tests");
         this._pathProvider = new TestAppPathProvider(this._tempDirectory);
     }
 
     [Fact]
     public void SaveMonitorInfo_WritesStartupStatusToCandidatePaths()
     {
-        InvokeMonitorProgramMethod(
+        this.InvokeMonitorProgramMethod(
             "SaveMonitorInfo",
             5123,
             true,
@@ -59,16 +59,28 @@ public sealed class MonitorProgramTests : IDisposable
     }
 
     [Fact]
+    public void WriteCandidatePaths_DoesNotAppendProductFolderTwice_WhenRootAlreadyCanonical()
+    {
+        var canonicalRoot = Path.Combine(this._tempDirectory, "AIUsageTracker");
+        var candidatePaths = MonitorInfoPathCatalog.GetWriteCandidatePaths(
+            canonicalRoot,
+            this._pathProvider.GetUserProfileRoot());
+
+        var path = Assert.Single(candidatePaths);
+        Assert.Equal(Path.Combine(canonicalRoot, "monitor.json"), path);
+    }
+
+    [Fact]
     public void ReportError_AppendsMessageToExistingMonitorInfo()
     {
         var path = MonitorInfoPathCatalog.GetWriteCandidatePaths(
             this._pathProvider.GetAppDataRoot(),
             this._pathProvider.GetUserProfileRoot())[0];
 
-        WriteMonitorInfoFile(path, "Startup status: running");
+        this.WriteMonitorInfoFile(path, "Startup status: running");
         File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(1));
 
-        InvokeMonitorProgramMethod(
+        this.InvokeMonitorProgramMethod(
             "ReportError",
             "Refresh failed: boom",
             this._pathProvider,
@@ -88,9 +100,9 @@ public sealed class MonitorProgramTests : IDisposable
             this._pathProvider.GetUserProfileRoot());
         var path = candidatePaths[0];
 
-        WriteMonitorInfoFile(path, "existing");
+        this.WriteMonitorInfoFile(path, "existing");
 
-        InvokeMonitorProgramMethod(
+        this.InvokeMonitorProgramMethod(
             "ReportError",
             "Refresh failed: newest",
             this._pathProvider,
@@ -103,10 +115,7 @@ public sealed class MonitorProgramTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private MonitorInfo DeserializeMonitorInfo(string path)
@@ -125,7 +134,7 @@ public sealed class MonitorProgramTests : IDisposable
             this._pathProvider.GetUserProfileRoot());
     }
 
-    private static void InvokeMonitorProgramMethod(string methodName, params object?[] arguments)
+    private void InvokeMonitorProgramMethod(string methodName, params object?[] arguments)
     {
         var monitorAssembly = typeof(ProviderRefreshService).Assembly;
         var programType =
@@ -141,7 +150,7 @@ public sealed class MonitorProgramTests : IDisposable
         method!.Invoke(null, arguments);
     }
 
-    private static void WriteMonitorInfoFile(string path, string error)
+    private void WriteMonitorInfoFile(string path, string error)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 

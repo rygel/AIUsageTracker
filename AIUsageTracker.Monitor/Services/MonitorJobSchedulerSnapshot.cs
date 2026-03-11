@@ -19,4 +19,28 @@ public sealed class MonitorJobSchedulerSnapshot
     public long ExecutedJobs { get; init; }
 
     public long FailedJobs { get; init; }
+
+    public long EnqueuedJobs { get; init; }
+
+    public long DequeuedJobs { get; init; }
+
+    public long CoalescedSkippedJobs { get; init; }
+
+    public long CoalescedCompletedJobs { get; init; }
+
+    public long DispatchNoopSignals { get; init; }
+
+    public long InFlightJobs { get; init; }
+
+    public long OldestQueuedJobAgeMs { get; init; }
+
+    public long MaxObservedQueueWaitMs { get; init; }
+
+    public long AverageExecutionDurationMs { get; init; }
+
+    public long LastExecutionDurationMs { get; init; }
+
+    public string? LastDequeuedPriority { get; init; }
+
+    public string? NextDispatchPriority { get; init; }
 }

@@ -43,7 +43,7 @@ export DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 
 echo ""
-echo "Step 1: Checking whitespace formatting..."
+echo "Step 1: Checking formatting (whitespace/style)..."
 
 declare -a include_paths=()
 if [[ "${CHECK_MODE}" == "staged" ]]; then
@@ -68,8 +68,10 @@ if [[ "${CHECK_MODE}" == "all" ]] || [[ ${#include_paths[@]} -gt 0 ]]; then
 
     if [[ "${CHECK_MODE}" == "all" ]]; then
         dotnet format whitespace AIUsageTracker.sln --verify-no-changes --verbosity minimal
+        dotnet format style AIUsageTracker.sln --verify-no-changes --severity warn --verbosity minimal
     else
         dotnet format whitespace AIUsageTracker.sln --verify-no-changes --verbosity minimal --include "${include_paths[@]}"
+        dotnet format style AIUsageTracker.sln --verify-no-changes --severity warn --verbosity minimal --include "${include_paths[@]}"
     fi
 fi
 

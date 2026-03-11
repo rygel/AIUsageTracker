@@ -220,7 +220,8 @@ public class Program
                 logger.LogDebug("Registering API endpoints...");
             }
 
-            const string apiContractVersion = "1";
+            const string contractVersion = MonitorApiContract.CurrentVersion;
+            const string minClientContractVersion = MonitorApiContract.MinimumClientVersion;
             var agentVersion = typeof(UsageDatabase).Assembly.GetName().Version?.ToString() ?? "unknown";
 
             MonitorEndpointsRegistration.MapAll(
@@ -228,7 +229,8 @@ public class Program
                 isDebugMode,
                 port,
                 agentVersion,
-                apiContractVersion,
+                contractVersion,
+                minClientContractVersion,
                 args);
 
             await app.StartAsync().ConfigureAwait(false);

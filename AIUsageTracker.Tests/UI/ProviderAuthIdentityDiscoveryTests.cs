@@ -4,6 +4,7 @@
 
 using System.Text;
 using System.Text.Json;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.UI.Slim;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -17,11 +18,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
 
     public ProviderAuthIdentityDiscoveryTests()
     {
-        this._tempDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "provider-auth-tests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("provider-auth-tests");
     }
 
     [Fact]
@@ -91,7 +88,7 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
     }
 
     [Fact]
-    public async Task TryGetCodexUsernameAsync_ReadsOpenCodeCompatibilityTokenAsync()
+    public async Task TryGetCodexUsernameAsync_IgnoresOpenCodeCompatibilityTokenAsync()
     {
         var openCodeCompatibilityAuthJson =
             $$"""
@@ -110,15 +107,36 @@ public sealed class ProviderAuthIdentityDiscoveryTests : IDisposable
                 this._logger,
                 new[] { authPath });
 
-        Assert.Equal("openai@example.com", username);
+        Assert.Null(username);
+    }
+
+    [Fact]
+    public async Task TryGetAntigravityUsernameAsync_ReadsFirstAccountEmailAsync()
+    {
+        var antigravityAccountsJson =
+            """
+            {
+              "accounts": [
+                { "email": "primary@example.com" },
+                { "email": "secondary@example.com" }
+              ]
+            }
+            """;
+
+        var accountsPath = this.CreateFile(
+            "antigravity-accounts.json",
+            antigravityAccountsJson);
+
+        var username = await ProviderAuthIdentityDiscovery.TryGetAntigravityUsernameAsync(
+            this._logger,
+            new[] { accountsPath });
+
+        Assert.Equal("primary@example.com", username);
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private string CreateFile(string relativePath, string content)

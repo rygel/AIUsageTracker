@@ -2,23 +2,22 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Interfaces
+namespace AIUsageTracker.Core.Interfaces;
+
+public interface IAppPathProvider
 {
-    public interface IAppPathProvider
-    {
-        string GetAppDataRoot();
+    string GetAppDataRoot();
 
-        string GetDatabasePath();
+    string GetDatabasePath();
 
-        string GetLogDirectory();
+    string GetLogDirectory();
 
-        string GetAuthFilePath();
+    string GetAuthFilePath();
 
-        string GetPreferencesFilePath();
+    string GetPreferencesFilePath();
 
-        string GetProviderConfigFilePath();
+    string GetProviderConfigFilePath();
 
-        // Discovery root for external tools (e.g., .claude, .codex)
-        string GetUserProfileRoot();
-    }
+    // Discovery root for external tools (e.g., .claude, .codex)
+    string GetUserProfileRoot();
 }

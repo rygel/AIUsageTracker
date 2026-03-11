@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Text.Json;
+using AIUsageTracker.Tests.Infrastructure;
 
 namespace AIUsageTracker.Web.Tests;
 
@@ -24,16 +25,12 @@ internal sealed class TestWebHost : IDisposable
 
     public static async Task<TestWebHost> StartAsync(object scenario)
     {
-        var tempDirectory = Path.Combine(
-            Path.GetTempPath(),
-            "aiusagetracker-webtests",
-            Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
+        var tempDirectory = TestTempPaths.CreateDirectory("aiusagetracker-webtests");
 
         var scenarioPath = Path.Combine(tempDirectory, "monitor-scenario.json");
         await File.WriteAllTextAsync(scenarioPath, JsonSerializer.Serialize(scenario)).ConfigureAwait(false);
 
-        var factory = new KestrelWebApplicationFactory<Program>(new Dictionary<string, string>
+        var factory = new KestrelWebApplicationFactory<Program>(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [ScenarioPathEnvironmentVariable] = scenarioPath,
         });
@@ -49,9 +46,6 @@ internal sealed class TestWebHost : IDisposable
     {
         this.Client.Dispose();
         this._factory.Dispose();
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 }

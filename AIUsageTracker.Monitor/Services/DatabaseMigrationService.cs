@@ -31,6 +31,7 @@ public class DatabaseMigrationService
                 this._logger.LogWarning(
                     "Existing database found without applied Evolve metadata. Applying compatibility bootstrap and skipping Evolve migrations.");
                 this.EnsureSchemaCompatibility(connection);
+                this.CleanupLegacyAnthropicRows(connection);
                 this.ApplyPerformancePragmas(connection);
                 return;
             }
@@ -51,10 +52,12 @@ public class DatabaseMigrationService
                     "Evolve migration conflicted with an existing schema ({Message}). Applying compatibility bootstrap instead.",
                     ex.Message);
                 this.EnsureSchemaCompatibility(connection);
+                this.CleanupLegacyAnthropicRows(connection);
                 this.ApplyPerformancePragmas(connection);
                 return;
             }
 
+            this.CleanupLegacyAnthropicRows(connection);
             this.ApplyPerformancePragmas(connection);
 
             this._logger.LogInformation("DB migrated ({Count} applied)", evolve.NbMigration);
@@ -220,6 +223,36 @@ public class DatabaseMigrationService
         }
 
         return false;
+    }
+
+    private void CleanupLegacyAnthropicRows(SqliteConnection connection)
+    {
+        const string deleteProviderHistorySql = "DELETE FROM provider_history WHERE lower(provider_id) = 'anthropic';";
+        const string deleteRawSnapshotsSql = "DELETE FROM raw_snapshots WHERE lower(provider_id) = 'anthropic';";
+        const string deleteResetEventsSql = "DELETE FROM reset_events WHERE lower(provider_id) = 'anthropic';";
+        const string deleteProvidersSql = "DELETE FROM providers WHERE lower(provider_id) = 'anthropic';";
+
+        var deletedHistory = ExecuteDelete(connection, deleteProviderHistorySql);
+        var deletedRawSnapshots = ExecuteDelete(connection, deleteRawSnapshotsSql);
+        var deletedResetEvents = ExecuteDelete(connection, deleteResetEventsSql);
+        var deletedProviders = ExecuteDelete(connection, deleteProvidersSql);
+
+        if (deletedHistory + deletedRawSnapshots + deletedResetEvents + deletedProviders > 0)
+        {
+            this._logger.LogInformation(
+                "Removed legacy anthropic rows from database. providers={Providers}, history={History}, snapshots={Snapshots}, resets={Resets}",
+                deletedProviders,
+                deletedHistory,
+                deletedRawSnapshots,
+                deletedResetEvents);
+        }
+    }
+
+    private static int ExecuteDelete(SqliteConnection connection, string sql)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return command.ExecuteNonQuery();
     }
 
     private void ApplyPerformancePragmas(SqliteConnection connection)

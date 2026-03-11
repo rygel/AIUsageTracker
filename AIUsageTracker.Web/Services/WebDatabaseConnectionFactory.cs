@@ -2,41 +2,31 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Web.Services
+using Microsoft.Data.Sqlite;
+
+namespace AIUsageTracker.Web.Services;
+
+internal sealed class WebDatabaseConnectionFactory
 {
-    using Microsoft.Data.Sqlite;
+    private readonly string _databasePath;
+    private readonly string _readConnectionString;
 
-    internal sealed class WebDatabaseConnectionFactory
+    public WebDatabaseConnectionFactory(string databasePath)
     {
-        private readonly string _databasePath;
-        private readonly string _readConnectionString;
-
-        public WebDatabaseConnectionFactory(string databasePath)
+        this._databasePath = databasePath;
+        this._readConnectionString = new SqliteConnectionStringBuilder
         {
-            this._databasePath = databasePath;
-            this._readConnectionString = new SqliteConnectionStringBuilder
-            {
-                DataSource = this._databasePath,
-                Mode = SqliteOpenMode.ReadOnly,
-                Cache = SqliteCacheMode.Private,
-                Pooling = false,
-                DefaultTimeout = 10,
-            }.ToString();
-        }
-
-        public bool IsDatabaseAvailable()
-        {
-            return File.Exists(this._databasePath);
-        }
-
-        public string GetDatabasePath()
-        {
-            return this._databasePath;
-        }
-
-        public SqliteConnection CreateReadConnection()
-        {
-            return new SqliteConnection(this._readConnectionString);
-        }
+            DataSource = this._databasePath,
+            Mode = SqliteOpenMode.ReadOnly,
+            Cache = SqliteCacheMode.Private,
+            Pooling = false,
+            DefaultTimeout = 10,
+        }.ToString();
     }
+
+    public bool IsDatabaseAvailable() => File.Exists(this._databasePath);
+
+    public string GetDatabasePath() => this._databasePath;
+
+    public SqliteConnection CreateReadConnection() => new(this._readConnectionString);
 }

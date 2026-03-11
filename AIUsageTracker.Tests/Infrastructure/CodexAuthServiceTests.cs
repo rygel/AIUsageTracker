@@ -15,8 +15,7 @@ public sealed class CodexAuthServiceTests : IDisposable
 
     public CodexAuthServiceTests()
     {
-        this._tempDirectory = Path.Combine(Path.GetTempPath(), "codex-auth-service-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(this._tempDirectory);
+        this._tempDirectory = TestTempPaths.CreateDirectory("codex-auth-service-tests");
     }
 
     [Fact]
@@ -43,7 +42,7 @@ public sealed class CodexAuthServiceTests : IDisposable
     }
 
     [Fact]
-    public void GetAccessToken_ReadsCompatibilityAuth()
+    public void GetAccessToken_IgnoresCompatibilityAuth()
     {
         var compatibilityAuthJson =
             """
@@ -61,16 +60,13 @@ public sealed class CodexAuthServiceTests : IDisposable
 
         var service = new CodexAuthService(this._logger, authPath);
 
-        Assert.Equal("compat-token", service.GetAccessToken());
-        Assert.Equal("acct-compat", service.GetAccountId());
+        Assert.Null(service.GetAccessToken());
+        Assert.Null(service.GetAccountId());
     }
 
     public void Dispose()
     {
-        if (Directory.Exists(this._tempDirectory))
-        {
-            Directory.Delete(this._tempDirectory, recursive: true);
-        }
+        TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
     private string CreateFile(string relativePath, string content)

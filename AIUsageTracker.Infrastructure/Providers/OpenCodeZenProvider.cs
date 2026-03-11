@@ -47,7 +47,12 @@ public class OpenCodeZenProvider : ProviderBase
         planType: PlanType.Usage,
         isQuotaBased: false,
         defaultConfigType: "pay-as-you-go",
-        autoIncludeWhenUnconfigured: true);
+        autoIncludeWhenUnconfigured: true,
+        handledProviderIds: new[] { "opencode-zen", "opencode-go" },
+        displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["opencode-go"] = "Opencode Go",
+        });
 
     public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger)
     {

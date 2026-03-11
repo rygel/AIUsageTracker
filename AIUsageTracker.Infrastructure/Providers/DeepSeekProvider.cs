@@ -21,6 +21,8 @@ public class DeepSeekProvider : ProviderBase
         isQuotaBased: false,
         defaultConfigType: "pay-as-you-go",
         includeInWellKnownProviders: true,
+        discoveryEnvironmentVariables: new[] { "DEEPSEEK_API_KEY" },
+        rooConfigPropertyNames: new[] { "deepseekApiKey" },
         iconAssetName: "deepseek",
         fallbackBadgeColorHex: "#00BFFF",
         fallbackBadgeInitial: "DS");

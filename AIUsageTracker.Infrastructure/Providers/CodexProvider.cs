@@ -44,15 +44,10 @@ public class CodexProvider : ProviderBase
         {
             "%USERPROFILE%\\.codex\\auth.json",
             "%APPDATA%\\codex\\auth.json",
-            "%USERPROFILE%\\.local\\share\\opencode\\auth.json",
-            "%APPDATA%\\opencode\\auth.json",
-            "%LOCALAPPDATA%\\opencode\\auth.json",
-            "%USERPROFILE%\\.opencode\\auth.json",
         },
         sessionAuthFileSchemas: new[]
         {
             new ProviderAuthFileSchema("tokens", "access_token", "account_id", "id_token"),
-            new ProviderAuthFileSchema("openai", "access", "accountId", "id_token"),
         });
 
     public override ProviderDefinition Definition => StaticDefinition;

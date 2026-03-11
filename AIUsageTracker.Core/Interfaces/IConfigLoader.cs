@@ -2,18 +2,17 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Core.Interfaces
+using AIUsageTracker.Core.Models;
+
+namespace AIUsageTracker.Core.Interfaces;
+
+public interface IConfigLoader
 {
-    using AIUsageTracker.Core.Models;
+    Task<IReadOnlyList<ProviderConfig>> LoadConfigAsync();
 
-    public interface IConfigLoader
-    {
-        Task<IReadOnlyList<ProviderConfig>> LoadConfigAsync();
+    Task SaveConfigAsync(IEnumerable<ProviderConfig> configs);
 
-        Task SaveConfigAsync(IEnumerable<ProviderConfig> configs);
+    Task<AppPreferences> LoadPreferencesAsync();
 
-        Task<AppPreferences> LoadPreferencesAsync();
-
-        Task SavePreferencesAsync(AppPreferences preferences);
-    }
+    Task SavePreferencesAsync(AppPreferences preferences);
 }

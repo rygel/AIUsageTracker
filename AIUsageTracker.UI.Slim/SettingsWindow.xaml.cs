@@ -24,7 +24,14 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
+    private static readonly JsonSerializerOptions BundleJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        WriteIndented = true,
+    };
+
     private readonly IMonitorService _monitorService;
+    private readonly IMonitorLifecycleService _monitorLifecycleService;
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
@@ -36,13 +43,19 @@ public partial class SettingsWindow : Window
     private string? _gitHubAuthUsername;
     private string? _openAiAuthUsername;
     private string? _codexAuthUsername;
+    private string? _antigravityAuthUsername;
     private AppPreferences _preferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isDeterministicScreenshotMode;
     private bool _isLoadingSettings;
     private bool _hasPendingAutoSave;
 
-    public SettingsWindow(IMonitorService monitorService, ILogger<SettingsWindow> logger, UiPreferencesStore preferencesStore, IAppPathProvider pathProvider)
+    public SettingsWindow(
+        IMonitorService monitorService,
+        IMonitorLifecycleService monitorLifecycleService,
+        ILogger<SettingsWindow> logger,
+        UiPreferencesStore preferencesStore,
+        IAppPathProvider pathProvider)
     {
         this._autoSaveTimer = new DispatcherTimer
         {
@@ -52,6 +65,7 @@ public partial class SettingsWindow : Window
 
         this.InitializeComponent();
         this._monitorService = monitorService;
+        this._monitorLifecycleService = monitorLifecycleService;
         this._logger = logger;
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
@@ -64,6 +78,7 @@ public partial class SettingsWindow : Window
     public SettingsWindow()
         : this(
         App.Host.Services.GetRequiredService<IMonitorService>(),
+        App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
         App.Host.Services.GetRequiredService<ILogger<SettingsWindow>>(),
         App.Host.Services.GetRequiredService<UiPreferencesStore>(),
         App.Host.Services.GetRequiredService<IAppPathProvider>())
@@ -114,10 +129,11 @@ public partial class SettingsWindow : Window
                            "Try clicking 'Refresh Data' or restarting the Monitor.";
             }
 
-            this._gitHubAuthUsername = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(this._logger).ConfigureAwait(false);
-            this._openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger).ConfigureAwait(false);
-            this._codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger).ConfigureAwait(false);
-            this._preferences = await this._preferencesStore.LoadAsync().ConfigureAwait(false);
+            this._gitHubAuthUsername = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(this._logger).ConfigureAwait(true);
+            this._openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger).ConfigureAwait(true);
+            this._codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger).ConfigureAwait(true);
+            this._antigravityAuthUsername = await ProviderAuthIdentityDiscovery.TryGetAntigravityUsernameAsync(this._logger).ConfigureAwait(true);
+            this._preferences = await this._preferencesStore.LoadAsync().ConfigureAwait(true);
             App.Preferences = this._preferences;
             this._isPrivacyMode = this._preferences.IsPrivacyMode;
             App.SetPrivacyMode(this._isPrivacyMode);
@@ -126,8 +142,8 @@ public partial class SettingsWindow : Window
             this.PopulateProviders();
             this.RefreshTrayIcons();
             this.PopulateLayoutSettings();
-            await this.LoadHistoryAsync().ConfigureAwait(false);
-            await this.UpdateMonitorStatusAsync().ConfigureAwait(false);
+            await this.LoadHistoryAsync().ConfigureAwait(true);
+            await this.UpdateMonitorStatusAsync().ConfigureAwait(true);
             this.RefreshDiagnosticsLog();
         }
         catch (HttpRequestException ex)
@@ -364,10 +380,10 @@ public partial class SettingsWindow : Window
         try
         {
             // Check if agent is running
-            var isRunning = await MonitorLauncher.IsAgentRunningAsync();
+            var isRunning = await this._monitorLifecycleService.IsAgentRunningAsync().ConfigureAwait(true);
 
             // Get the actual port from the agent
-            int port = await MonitorLauncher.GetAgentPortAsync();
+            int port = await this._monitorLifecycleService.GetAgentPortAsync().ConfigureAwait(true);
 
             if (this.MonitorStatusText != null)
             {
@@ -521,7 +537,11 @@ public partial class SettingsWindow : Window
             usage,
             settingsBehavior.InputMode,
             this._isPrivacyMode,
-            new ProviderAuthIdentities(this._gitHubAuthUsername, this._openAiAuthUsername, this._codexAuthUsername));
+            new ProviderAuthIdentities(
+                this._gitHubAuthUsername,
+                this._openAiAuthUsername,
+                this._codexAuthUsername,
+                this._antigravityAuthUsername));
 
         var panel = new StackPanel
         {
@@ -1094,12 +1114,12 @@ public partial class SettingsWindow : Window
             this.ScanBtn.IsEnabled = false;
             this.ScanBtn.Content = "Scanning...";
 
-            var (count, configs) = await this._monitorService.ScanForKeysAsync();
+            var scanResult = await this._monitorService.ScanForKeysAsync();
 
-            if (count > 0)
+            if (scanResult.Count > 0)
             {
                 MessageBox.Show(
-                    $"Found {count} new API key(s). They have been added to your configuration.",
+                    $"Found {scanResult.Count} new API key(s). They have been added to your configuration.",
                     "Scan Complete",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
@@ -1340,7 +1360,7 @@ public partial class SettingsWindow : Window
             await Task.Delay(1000);
 
             // Restart agent
-            if (await MonitorLauncher.EnsureAgentRunningAsync())
+            if (await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(true))
             {
                 MessageBox.Show(
                     "Monitor restarted successfully.",
@@ -1375,10 +1395,7 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            await this._monitorService.RefreshPortAsync();
-            await this._monitorService.RefreshAgentInfoAsync();
-
-            var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
+            var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
             var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
             var status = isRunning ? "Running" : "Not Running";
 
@@ -1415,7 +1432,13 @@ public partial class SettingsWindow : Window
 
         builder.AppendLine($"Service Health: {healthSnapshot.ServiceHealth}");
         builder.AppendLine($"Monitor Version: {healthSnapshot.AgentVersion ?? "unknown"}");
-        builder.AppendLine($"API Contract: {healthSnapshot.ApiContractVersion ?? "unknown"}");
+        var contractVersion = healthSnapshot.EffectiveContractVersion ?? "unknown";
+        builder.AppendLine($"API Contract: {contractVersion}");
+        if (!string.IsNullOrWhiteSpace(healthSnapshot.EffectiveMinClientContractVersion))
+        {
+            builder.AppendLine($"Min Client Contract: {healthSnapshot.EffectiveMinClientContractVersion}");
+        }
+
         builder.AppendLine($"Last Health Ping: {FormatHealthTimestamp(healthSnapshot.Timestamp)}");
         builder.AppendLine($"Refresh Status: {healthSnapshot.RefreshHealth.Status}");
         builder.AppendLine($"Last Refresh Attempt: {FormatHealthTimestamp(healthSnapshot.RefreshHealth.LastRefreshAttemptUtc)}");
@@ -1464,10 +1487,15 @@ public partial class SettingsWindow : Window
             await this._monitorService.RefreshPortAsync();
             await this._monitorService.RefreshAgentInfoAsync();
 
-            var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
+            var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
             var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
-            var healthDetails = await this._monitorService.GetHealthDetailsAsync();
-            var diagnosticsDetails = await this._monitorService.GetDiagnosticsDetailsAsync();
+            var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync();
+            var healthDetails = this.SerializeBundlePayload(
+                healthSnapshot,
+                "Health payload unavailable.");
+            var diagnosticsDetails = this.SerializeBundlePayload(
+                diagnosticsSnapshot,
+                "Diagnostics payload unavailable.");
 
             var saveDialog = new SaveFileDialog
             {
@@ -1497,11 +1525,13 @@ public partial class SettingsWindow : Window
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Health ===");
-            bundle.AppendLine(this.FormatJsonForBundle(healthDetails));
+            bundle.AppendLine(healthDetails);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Diagnostics ===");
-            bundle.AppendLine(this.FormatJsonForBundle(diagnosticsDetails));
+            this.AppendMonitorDiagnosticsSummary(bundle, diagnosticsSnapshot);
+            bundle.AppendLine();
+            bundle.AppendLine(diagnosticsDetails);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Errors (monitor.json) ===");
@@ -1573,24 +1603,92 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private string FormatJsonForBundle(string content)
+    private string SerializeBundlePayload<T>(T? payload, string emptyFallback)
     {
-        if (string.IsNullOrWhiteSpace(content))
+        if (payload == null)
         {
-            return "(empty)";
+            return emptyFallback;
         }
 
-        try
+        return JsonSerializer.Serialize(payload, BundleJsonOptions);
+    }
+
+    private void AppendMonitorDiagnosticsSummary(StringBuilder bundle, AgentDiagnosticsSnapshot? diagnostics)
+    {
+        if (diagnostics == null)
         {
-            using var document = JsonDocument.Parse(content);
-            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
-            {
-                WriteIndented = true,
-            });
+            bundle.AppendLine("Summary unavailable (typed diagnostics not available).");
+            return;
         }
-        catch
+
+        bundle.AppendLine("Summary:");
+        bundle.AppendFormat(
+            System.Globalization.CultureInfo.InvariantCulture,
+            "- Endpoint: port={0}, pid={1}, runtime={2}, args={3}\r\n",
+            diagnostics.Port,
+            diagnostics.ProcessId,
+            diagnostics.Runtime,
+            diagnostics.Args.Count);
+
+        if (diagnostics.RefreshTelemetry != null)
         {
-            return content;
+            var refresh = diagnostics.RefreshTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Refresh telemetry: count={0}, success={1}, failure={2}, error_rate={3:F1}%, avg={4:F1}ms, last={5}ms\r\n",
+                refresh.RefreshCount,
+                refresh.RefreshSuccessCount,
+                refresh.RefreshFailureCount,
+                refresh.ErrorRatePercent,
+                refresh.AverageLatencyMs,
+                refresh.LastLatencyMs);
+        }
+
+        if (diagnostics.SchedulerTelemetry != null)
+        {
+            var scheduler = diagnostics.SchedulerTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Scheduler telemetry: queued={0} (h={1}, n={2}, l={3}), recurring={4}, executed={5}, failed={6}, enqueued={7}, dequeued={8}, coalesced_skipped={9}, noop_signals={10}, in_flight={11}\r\n",
+                scheduler.TotalQueuedJobs,
+                scheduler.HighPriorityQueuedJobs,
+                scheduler.NormalPriorityQueuedJobs,
+                scheduler.LowPriorityQueuedJobs,
+                scheduler.RecurringJobs,
+                scheduler.ExecutedJobs,
+                scheduler.FailedJobs,
+                scheduler.EnqueuedJobs,
+                scheduler.DequeuedJobs,
+                scheduler.CoalescedSkippedJobs,
+                scheduler.DispatchNoopSignals,
+                scheduler.InFlightJobs);
+        }
+
+        if (diagnostics.PipelineTelemetry != null)
+        {
+            var pipeline = diagnostics.PipelineTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Pipeline telemetry: processed={0}, accepted={1}, rejected={2}, invalid_identity={3}, inactive_filtered={4}, placeholders={5}, detail_adjusted={6}, normalized={7}, privacy_redacted={8}, last_run={9}/{10}\r\n",
+                pipeline.TotalProcessedEntries,
+                pipeline.TotalAcceptedEntries,
+                pipeline.TotalRejectedEntries,
+                pipeline.InvalidIdentityCount,
+                pipeline.InactiveProviderFilteredCount,
+                pipeline.PlaceholderFilteredCount,
+                pipeline.DetailContractAdjustedCount,
+                pipeline.NormalizedCount,
+                pipeline.PrivacyRedactedCount,
+                pipeline.LastRunAcceptedEntries,
+                pipeline.LastRunTotalEntries);
+        }
+
+        if (diagnostics.Observability?.ActivitySourceNames.Count > 0)
+        {
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Observability: activity_sources={0}\r\n",
+                string.Join(", ", diagnostics.Observability.ActivitySourceNames));
         }
     }
 
