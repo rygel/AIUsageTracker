@@ -113,4 +113,32 @@ public class ConfigLoaderTests : IntegrationTestBase
             Environment.SetEnvironmentVariable("OPENAI_API_KEY", priorValue);
         }
     }
+
+    [Fact]
+    public async Task LoadConfigAsync_AppOwnedAuthFileOverridesEarlierAuthSourceAsync()
+    {
+        var authPath = this.CreateFile("external/auth.json", "{\"synthetic\":{\"key\":\"external-key\"}}");
+        var providersPath = this.CreateFile("config/providers.json", "{}");
+        var appDataRoot = Path.Combine(this.TestRootPath, "appdata");
+        this.CreateFile(Path.Combine("appdata", "auth.json"), "{\"synthetic\":{\"key\":\"app-owned-key\"}}");
+
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetAuthFilePath()).Returns(authPath);
+        mockPathProvider.Setup(p => p.GetProviderConfigFilePath()).Returns(providersPath);
+        mockPathProvider.Setup(p => p.GetUserProfileRoot()).Returns(this.TestRootPath);
+        mockPathProvider.Setup(p => p.GetPreferencesFilePath()).Returns(Path.Combine(this.TestRootPath, "preferences.json"));
+        mockPathProvider.Setup(p => p.GetAppDataRoot()).Returns(appDataRoot);
+        mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(Path.Combine(this.TestRootPath, "usage.db"));
+        mockPathProvider.Setup(p => p.GetLogDirectory()).Returns(Path.Combine(this.TestRootPath, "logs"));
+
+        var loader = new JsonConfigLoader(
+            logger: NullLogger<JsonConfigLoader>.Instance,
+            tokenDiscoveryLogger: NullLogger<TokenDiscoveryService>.Instance,
+            pathProvider: mockPathProvider.Object);
+
+        var configs = await loader.LoadConfigAsync();
+
+        var synthetic = Assert.Single(configs, config => string.Equals(config.ProviderId, "synthetic", StringComparison.Ordinal));
+        Assert.Equal("app-owned-key", synthetic.ApiKey);
+    }
 }
