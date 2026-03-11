@@ -9,6 +9,7 @@ public static class AuthSource
     public const string None = "none";
     public const string Unknown = "Unknown";
     public const string SystemDefault = "System Default";
+    public const string OpenCodeSession = "OpenCode Session";
     public const string EnvironmentPrefix = "Env";
     public const string ConfigPrefix = "Config";
     public const string RooPrefix = "Roo Code";
@@ -27,6 +28,11 @@ public static class AuthSource
     public static string FromRooPath(string path)
     {
         return $"{RooPrefix}: {path}";
+    }
+
+    public static string CodexNative(string planType)
+    {
+        return $"Codex Native ({planType})";
     }
 
     public static bool IsEnvironment(string? value)

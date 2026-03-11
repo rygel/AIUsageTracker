@@ -224,7 +224,7 @@ public class OpenAIProvider : ProviderBase
             RequestsAvailable = 100,
             UsageUnit = "Quota %",
             Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}",
-            AuthSource = "OpenCode Session",
+            AuthSource = AuthSource.OpenCodeSession,
             NextResetTime = nextResetTime,
             Details = BuildOpenAiSessionDetails(doc.RootElement),
             RawJson = content,

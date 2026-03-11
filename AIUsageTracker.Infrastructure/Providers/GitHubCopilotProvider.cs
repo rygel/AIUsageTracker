@@ -299,7 +299,7 @@ public class GitHubCopilotProvider : ProviderBase
             UsageUnit = "Requests",
             PlanType = PlanType.Coding,
             IsQuotaBased = true,
-            AuthSource = string.IsNullOrEmpty(state.PlanName) ? "Unknown" : state.PlanName,
+            AuthSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName,
             NextResetTime = state.ResetTime,
             Details = state.Details,
             RawJson = state.RawJson,

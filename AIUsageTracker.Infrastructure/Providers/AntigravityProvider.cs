@@ -781,7 +781,7 @@ public class AntigravityProvider : ProviderBase
                 AccountName = accountName,
                 IsAvailable = true,
                 FetchedAt = DateTime.UtcNow,
-                AuthSource = "antigravity",
+                AuthSource = this.ProviderId,
                 DisplayAsFraction = detailTotal.HasValue && detailTotal > 0,
                 NextResetTime = detail.NextResetTime,
             };

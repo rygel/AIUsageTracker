@@ -45,4 +45,12 @@ public class AuthSourceTests
 
         Assert.Equal(expected, result);
     }
+
+    [Fact]
+    public void CodexNative_ReturnsExpectedFormat()
+    {
+        var result = AuthSource.CodexNative("pro");
+
+        Assert.Equal("Codex Native (pro)", result);
+    }
 }
