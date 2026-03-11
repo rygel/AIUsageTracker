@@ -165,7 +165,8 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
             normalizedOutput,
             "0x800705aa",
             "Bash/Service/CreateInstance/CreateVm/HCS",
-            "Insufficient system resources exist to complete the requested service");
+            "Insufficient system resources exist to complete the requested service",
+            "Windows Subsystem for Linux has no installed distributions");
     }
 
     private static string NormalizeOutput(string output)

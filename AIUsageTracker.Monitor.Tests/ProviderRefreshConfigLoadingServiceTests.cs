@@ -41,7 +41,6 @@ public class ProviderRefreshConfigLoadingServiceTests
     {
         this._configService.Setup(service => service.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
         {
-            new() { ProviderId = "openai" },
             new() { ProviderId = "codex" },
         });
 
@@ -49,9 +48,7 @@ public class ProviderRefreshConfigLoadingServiceTests
 
         var (_, activeConfigs) = await service.LoadConfigsForRefreshAsync(forceAll: true, includeProviderIds: null);
 
-        Assert.Equal(
-            new[] { "codex", "openai" },
-            activeConfigs.Select(config => config.ProviderId).OrderBy(id => id, StringComparer.Ordinal).ToArray());
+        Assert.Equal(new[] { "codex" }, activeConfigs.Select(config => config.ProviderId).ToArray());
     }
 
     [Fact]
@@ -60,17 +57,16 @@ public class ProviderRefreshConfigLoadingServiceTests
         this._configService.Setup(service => service.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
         {
             new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "sk-live-openai" },
         });
 
         var service = this.CreateService();
 
         var (_, activeConfigs) = await service.LoadConfigsForRefreshAsync(
             forceAll: false,
-            includeProviderIds: new[] { "openai" });
+            includeProviderIds: new[] { "codex" });
 
         var activeConfig = Assert.Single(activeConfigs);
-        Assert.Equal("openai", activeConfig.ProviderId);
+        Assert.Equal("codex", activeConfig.ProviderId);
     }
 
     [Fact]

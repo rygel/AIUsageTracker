@@ -68,12 +68,16 @@ public partial class InfoDialog : Window
             this._isPrivacyMode = App.IsPrivacyMode;
         }
 
-        // Application version
-        var appVersion = Assembly.GetEntryAssembly()?.GetName().Version;
-        if (appVersion != null)
-        {
-            this.InternalVersionText.Text = $"v{appVersion.Major}.{appVersion.Minor}.{appVersion.Build}";
-        }
+        // Application version (include prerelease label like Beta/RC when present)
+        var assembly = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+        var appVersion = assembly.GetName().Version;
+        var versionCore = appVersion != null
+            ? $"{appVersion.Major}.{appVersion.Minor}.{appVersion.Build}"
+            : "0.0.0";
+        var suffix = GetPrereleaseLabel(assembly);
+        this.InternalVersionText.Text = string.IsNullOrWhiteSpace(suffix)
+            ? $"v{versionCore}"
+            : $"v{versionCore} {suffix}";
 
         // .NET Runtime version
         this.DotNetVersionText.Text = RuntimeInformation.FrameworkDescription;
@@ -143,6 +147,46 @@ public partial class InfoDialog : Window
 
         var filename = Path.GetFileName(path);
         return Path.Combine("C:\\Users\\***\\...", filename);
+    }
+
+    private static string? GetPrereleaseLabel(Assembly assembly)
+    {
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            return null;
+        }
+
+        var normalized = informationalVersion.Split('+')[0];
+        var dashIndex = normalized.IndexOf('-');
+        if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
+        {
+            return null;
+        }
+
+        var suffix = normalized[(dashIndex + 1)..];
+        if (suffix.StartsWith("beta.", StringComparison.OrdinalIgnoreCase))
+        {
+            var betaPart = suffix["beta.".Length..];
+            return string.IsNullOrWhiteSpace(betaPart) ? "Beta" : $"Beta {betaPart}";
+        }
+
+        if (suffix.StartsWith("alpha.", StringComparison.OrdinalIgnoreCase))
+        {
+            var alphaPart = suffix["alpha.".Length..];
+            return string.IsNullOrWhiteSpace(alphaPart) ? "Alpha" : $"Alpha {alphaPart}";
+        }
+
+        if (suffix.StartsWith("rc.", StringComparison.OrdinalIgnoreCase))
+        {
+            var rcPart = suffix["rc.".Length..];
+            return string.IsNullOrWhiteSpace(rcPart) ? "RC" : $"RC {rcPart}";
+        }
+
+        return suffix.Replace('.', ' ');
     }
 
     private async Task PrivacyBtn_ClickAsync(object sender, RoutedEventArgs e)

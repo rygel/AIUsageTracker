@@ -10,6 +10,7 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public static class ProviderMetadataCatalog
 {
+    private const string LegacyOpenAiProviderId = "openai";
     private static readonly Lazy<IReadOnlyList<ProviderDefinition>> DefinitionsValue = new(LoadDefinitions);
 
     public static IReadOnlyList<ProviderDefinition> Definitions => DefinitionsValue.Value;
@@ -124,6 +125,11 @@ public static class ProviderMetadataCatalog
             definition.VisibleDerivedProviderIds.Contains(providerId, StringComparer.OrdinalIgnoreCase));
     }
 
+    public static bool ShouldHideInSettings(string providerId)
+    {
+        return string.Equals(providerId, LegacyOpenAiProviderId, StringComparison.OrdinalIgnoreCase);
+    }
+
     public static IReadOnlyList<string> GetStartupRefreshProviderIds()
     {
         return Definitions
@@ -161,6 +167,11 @@ public static class ProviderMetadataCatalog
 
     public static bool ShouldSuppressUsageProviderId(IReadOnlyCollection<ProviderConfig> configs, string providerId)
     {
+        if (string.Equals(providerId, LegacyOpenAiProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
         if (!TryGet(providerId, out var definition) ||
             string.IsNullOrWhiteSpace(definition.SessionAuthCanonicalProviderId) ||
             string.Equals(definition.SessionAuthCanonicalProviderId, definition.ProviderId, StringComparison.OrdinalIgnoreCase))

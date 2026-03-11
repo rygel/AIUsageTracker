@@ -44,13 +44,12 @@ public class ProviderRefreshConfigSelectorTests
         var selector = CreateSelector();
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "openai" },
             new() { ProviderId = "codex" },
         };
 
         var selection = selector.SelectActiveConfigs(configs, forceAll: true, includeProviderIds: null);
 
-        Assert.Equal(2, selection.ActiveConfigs.Count);
+        Assert.Single(selection.ActiveConfigs);
         Assert.Equal(0, selection.SuppressedConfigCount);
     }
 
@@ -96,12 +95,11 @@ public class ProviderRefreshConfigSelectorTests
         var configs = new List<ProviderConfig>
         {
             new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "sk-live-openai" },
         };
 
         var selection = selector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
 
-        Assert.Equal(2, selection.ActiveConfigs.Count);
+        Assert.Single(selection.ActiveConfigs);
         Assert.Equal(0, selection.SuppressedConfigCount);
     }
 
@@ -112,16 +110,15 @@ public class ProviderRefreshConfigSelectorTests
         var configs = new List<ProviderConfig>
         {
             new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "sk-live-openai" },
         };
 
         var selection = selector.SelectActiveConfigs(
             configs,
             forceAll: false,
-            includeProviderIds: new[] { "openai" });
+            includeProviderIds: new[] { "codex" });
 
         var activeConfig = Assert.Single(selection.ActiveConfigs);
-        Assert.Equal("openai", activeConfig.ProviderId);
+        Assert.Equal("codex", activeConfig.ProviderId);
     }
 
     private static ProviderRefreshConfigSelector CreateSelector(params IProviderService[] providers)

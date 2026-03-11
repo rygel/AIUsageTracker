@@ -20,7 +20,7 @@ public sealed class SyntheticProvider : ProviderBase
 
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "synthetic",
-        displayName: "Synthetic",
+        displayName: "Synthetic.new",
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
@@ -93,7 +93,7 @@ public sealed class SyntheticProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Synthetic",
+                    ProviderName = "Synthetic.new",
                     RequestsPercentage = remainingPercent,
                     RequestsUsed = used,
                     RequestsAvailable = total,

@@ -184,6 +184,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var secondary = usage.Details!.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
         Assert.NotNull(primary);   // 300-minute window → Primary
         Assert.NotNull(secondary); // usage block → Secondary
+        Assert.Equal("5h Limit", primary!.Name);
         Assert.Contains("% used", primary.Used, StringComparison.Ordinal);
         Assert.Contains("% used", secondary.Used, StringComparison.Ordinal);
     }

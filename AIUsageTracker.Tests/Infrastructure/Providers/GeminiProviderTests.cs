@@ -3,11 +3,14 @@
 // </copyright>
 
 using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Tests.Infrastructure;
+using Moq;
+using Moq.Protected;
 using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
@@ -36,7 +39,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             },
         }));
 
-        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, null);
+        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, Path.Combine(tempDir, "oauth_creds_override.json"));
 
         this.SetupHttpResponse("https://oauth2.googleapis.com/token", new HttpResponseMessage
         {
@@ -151,5 +154,106 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
     {
         var bytes = Encoding.UTF8.GetBytes(value);
         return Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_RefreshToken_UsesClientSecretAndFallbackClientAsync()
+    {
+        // Arrange
+        var cliClientId = GetPrivateConstValue(nameof(GeminiProvider), "GeminiCliClientId");
+        var cliClientSecret = GetPrivateConstValue(nameof(GeminiProvider), "GeminiCliClientSecret");
+        var pluginClientId = GetPrivateConstValue(nameof(GeminiProvider), "GeminiPluginClientId");
+        var pluginClientSecret = GetPrivateConstValue(nameof(GeminiProvider), "GeminiPluginClientSecret");
+
+        var tempDir = Path.Combine(Path.GetTempPath(), $"gemini-test-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
+
+        await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
+        {
+            accounts = new[]
+            {
+                new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" },
+            },
+        }));
+
+        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, Path.Combine(tempDir, "oauth_creds_override.json"));
+
+        this.SetupHttpResponse(
+            request =>
+                request.RequestUri != null &&
+                request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
+                RequestContentContains(request, $"client_id={cliClientId}") &&
+                RequestContentContains(request, $"client_secret={cliClientSecret}"),
+            new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.Unauthorized,
+                Content = new StringContent("{\"error\":\"unauthorized_client\"}"),
+            });
+
+        this.SetupHttpResponse(
+            request =>
+                request.RequestUri != null &&
+                request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
+                RequestContentContains(request, $"client_id={pluginClientId}") &&
+                RequestContentContains(request, $"client_secret={pluginClientSecret}"),
+            new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("{\"access_token\":\"at\"}"),
+            });
+
+        this.SetupHttpResponse("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("{\"buckets\":[{\"remainingFraction\":0.7}]}"),
+        });
+
+        // Act
+        var result = await provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.True(usage.IsAvailable);
+
+        this.MessageHandler.Protected()
+            .Verify(
+                "SendAsync",
+                Times.Once(),
+                ItExpr.Is<HttpRequestMessage>(request =>
+                    request.RequestUri != null &&
+                    request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
+                    RequestContentContains(request, $"client_id={cliClientId}") &&
+                    RequestContentContains(request, $"client_secret={cliClientSecret}")),
+                ItExpr.IsAny<CancellationToken>());
+
+        this.MessageHandler.Protected()
+            .Verify(
+                "SendAsync",
+                Times.Once(),
+                ItExpr.Is<HttpRequestMessage>(request =>
+                    request.RequestUri != null &&
+                    request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
+                    RequestContentContains(request, $"client_id={pluginClientId}") &&
+                    RequestContentContains(request, $"client_secret={pluginClientSecret}")),
+                ItExpr.IsAny<CancellationToken>());
+
+        Directory.Delete(tempDir, recursive: true);
+    }
+
+    private static bool RequestContentContains(HttpRequestMessage request, string value)
+    {
+        var content = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+        return content?.Contains(value, StringComparison.Ordinal) == true;
+    }
+
+    private static string GetPrivateConstValue(string typeName, string fieldName)
+    {
+        var providerType = typeof(GeminiProvider);
+        var field = providerType.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(field);
+        var value = field!.GetRawConstantValue() as string;
+        Assert.False(string.IsNullOrWhiteSpace(value), $"Expected non-empty const field '{fieldName}' on type '{typeName}'.");
+        return value!;
     }
 }

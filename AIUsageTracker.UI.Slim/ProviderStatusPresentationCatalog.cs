@@ -138,7 +138,10 @@ internal static class ProviderStatusPresentationCatalog
         }
 
         var hasUsername = !string.IsNullOrWhiteSpace(username) && username is not ("Unknown" or "User");
-        var isAuthenticated = !string.IsNullOrWhiteSpace(config.ApiKey) || !string.IsNullOrWhiteSpace(authIdentities.GitHubUsername);
+        var isAuthenticated = !string.IsNullOrWhiteSpace(config.ApiKey) ||
+                              !string.IsNullOrWhiteSpace(authIdentities.GitHubUsername) ||
+                              usage?.IsAvailable == true ||
+                              hasUsername;
         var displayText = !isAuthenticated
             ? "Not Authenticated"
             : !hasUsername

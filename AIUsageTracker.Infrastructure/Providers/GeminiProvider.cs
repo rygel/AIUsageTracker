@@ -48,10 +48,12 @@ public class GeminiProvider : ProviderBase
     // This is NOT a secret — it is intentionally public and shipped with the CLI.
     private const string GeminiCliClientId =
         "10710060605" + "91-tmhssin2h21lcre235vtoloj" + "h4g403ep.apps.googleusercontent.com";
+    private const string GeminiCliClientSecret = "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";
 
     // Alternative client ID from the VS Code / JetBrains plugin which sometimes has better access.
     private const string GeminiPluginClientId =
         "681255809395" + "-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com";
+    private const string GeminiPluginClientSecret = "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";
 
     public GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger)
         : this(httpClient, logger, null, null, null, null)
@@ -505,22 +507,25 @@ public class GeminiProvider : ProviderBase
 
         try
         {
-            return await this.DoRefreshTokenAsync(refreshToken, clientId).ConfigureAwait(false);
+            var clientSecret = string.Equals(clientId, GeminiPluginClientId, StringComparison.Ordinal)
+                ? GeminiPluginClientSecret
+                : GeminiCliClientSecret;
+            return await this.DoRefreshTokenAsync(refreshToken, clientId, clientSecret).ConfigureAwait(false);
         }
         catch when (string.Equals(clientId, GeminiCliClientId, StringComparison.Ordinal))
         {
             // If default client fails, retry with plugin client
-            return await this.DoRefreshTokenAsync(refreshToken, GeminiPluginClientId).ConfigureAwait(false);
+            return await this.DoRefreshTokenAsync(refreshToken, GeminiPluginClientId, GeminiPluginClientSecret).ConfigureAwait(false);
         }
     }
 
-    private async Task<string> DoRefreshTokenAsync(string refreshToken, string clientId)
+    private async Task<string> DoRefreshTokenAsync(string refreshToken, string clientId, string clientSecret)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
         var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "client_id", clientId },
-            { "client_secret", string.Empty },
+            { "client_secret", clientSecret },
             { "refresh_token", refreshToken },
             { "grant_type", "refresh_token" },
         });
