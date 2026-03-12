@@ -164,6 +164,11 @@ public static class ProviderMetadataCatalog
         return TryGet(providerId, out var definition) && definition.ShowInSettings;
     }
 
+    public static bool SupportsAccountIdentity(string providerId)
+    {
+        return TryGet(providerId, out var definition) && definition.SupportsAccountIdentity;
+    }
+
     public static IReadOnlyList<string> GetDefaultSettingsProviderIds()
     {
         return Definitions

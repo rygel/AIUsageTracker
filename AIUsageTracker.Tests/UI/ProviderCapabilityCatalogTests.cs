@@ -83,4 +83,58 @@ public sealed class ProviderCapabilityCatalogTests
 
         Assert.Equal(["codex", "codex.spark"], providerIds);
     }
+
+    [Fact]
+    public void GetDisplayName_PreservesDerivedProviderName_WhenCapabilityHandlesChildren()
+    {
+        var snapshot = new AgentProviderCapabilitiesSnapshot
+        {
+            Providers =
+            [
+                new AgentProviderCapabilityDefinition
+                {
+                    ProviderId = "antigravity",
+                    DisplayName = "Google Antigravity",
+                    SupportsChildProviderIds = true,
+                    HandledProviderIds = ["antigravity"],
+                },
+            ],
+        };
+
+        var result = ProviderCapabilityCatalog.GetDisplayName(
+            "antigravity.gpt-oss",
+            "GPT OSS (Anti-Gravity)",
+            snapshot);
+
+        Assert.Equal("GPT OSS (Anti-Gravity)", result);
+    }
+
+    [Fact]
+    public void SupportsAccountIdentity_UsesSnapshotOverride_WhenPresent()
+    {
+        var snapshot = new AgentProviderCapabilitiesSnapshot
+        {
+            Providers =
+            [
+                new AgentProviderCapabilityDefinition
+                {
+                    ProviderId = "github-copilot",
+                    SupportsAccountIdentity = true,
+                    HandledProviderIds = ["github-copilot"],
+                },
+            ],
+        };
+
+        var result = ProviderCapabilityCatalog.SupportsAccountIdentity("github-copilot", snapshot);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void SupportsAccountIdentity_FallsBackToMetadata_WhenSnapshotMissing()
+    {
+        var result = ProviderCapabilityCatalog.SupportsAccountIdentity("github-copilot", snapshot: null);
+
+        Assert.True(result);
+    }
 }

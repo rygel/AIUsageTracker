@@ -15,15 +15,14 @@ internal static class ProviderStatusPresentationCatalog
         ProviderConfig config,
         ProviderUsage? usage,
         ProviderInputMode inputMode,
-        bool isPrivacyMode,
-        ProviderAuthIdentities authIdentities)
+        bool isPrivacyMode)
     {
         return inputMode switch
         {
             ProviderInputMode.DerivedReadOnly => CreateDerivedPresentation(usage),
-            ProviderInputMode.AntigravityAutoDetected => CreateAntigravityPresentation(usage, isPrivacyMode, authIdentities),
-            ProviderInputMode.GitHubCopilotAuthStatus => CreateGitHubPresentation(config, usage, isPrivacyMode, authIdentities),
-            ProviderInputMode.OpenAiSessionStatus => CreateOpenAiSessionPresentation(config, usage, isPrivacyMode, authIdentities),
+            ProviderInputMode.AntigravityAutoDetected => CreateAntigravityPresentation(usage, isPrivacyMode),
+            ProviderInputMode.GitHubCopilotAuthStatus => CreateGitHubPresentation(config, usage, isPrivacyMode),
+            ProviderInputMode.OpenAiSessionStatus => CreateOpenAiSessionPresentation(config, usage, isPrivacyMode),
             _ => throw new ArgumentOutOfRangeException(
                 nameof(inputMode),
                 inputMode,
@@ -87,16 +86,10 @@ internal static class ProviderStatusPresentationCatalog
 
     private static ProviderStatusPresentation CreateAntigravityPresentation(
         ProviderUsage? usage,
-        bool isPrivacyMode,
-        ProviderAuthIdentities authIdentities)
+        bool isPrivacyMode)
     {
         var isConnected = usage?.IsAvailable == true;
         var accountInfo = usage?.AccountName;
-        if (string.IsNullOrWhiteSpace(accountInfo) || accountInfo is "Unknown" or "User")
-        {
-            accountInfo = authIdentities.AntigravityUsername;
-        }
-
         var hasAccountInfo = !string.IsNullOrWhiteSpace(accountInfo) && accountInfo is not ("Unknown" or "User");
         var displayAccount = hasAccountInfo
             ? (isPrivacyMode ? MaskAccountIdentifier(accountInfo!) : accountInfo!)
@@ -128,18 +121,11 @@ internal static class ProviderStatusPresentationCatalog
     private static ProviderStatusPresentation CreateGitHubPresentation(
         ProviderConfig config,
         ProviderUsage? usage,
-        bool isPrivacyMode,
-        ProviderAuthIdentities authIdentities)
+        bool isPrivacyMode)
     {
         var username = usage?.AccountName;
-        if (string.IsNullOrWhiteSpace(username) || username is "Unknown" or "User")
-        {
-            username = authIdentities.GitHubUsername;
-        }
-
         var hasUsername = !string.IsNullOrWhiteSpace(username) && username is not ("Unknown" or "User");
         var isAuthenticated = !string.IsNullOrWhiteSpace(config.ApiKey) ||
-                              !string.IsNullOrWhiteSpace(authIdentities.GitHubUsername) ||
                               usage?.IsAvailable == true ||
                               hasUsername;
         var displayText = !isAuthenticated
@@ -161,21 +147,13 @@ internal static class ProviderStatusPresentationCatalog
     private static ProviderStatusPresentation CreateOpenAiSessionPresentation(
         ProviderConfig config,
         ProviderUsage? usage,
-        bool isPrivacyMode,
-        ProviderAuthIdentities authIdentities)
+        bool isPrivacyMode)
     {
         var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived: false);
         var providerSessionLabel = settingsBehavior.SessionProviderLabel ?? "OpenAI";
         var hasSessionToken = ProviderSettingsCatalog.IsSessionToken(config.ApiKey);
         var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
         var accountName = usage?.AccountName;
-
-        if (string.IsNullOrWhiteSpace(accountName) || accountName is "Unknown" or "User")
-        {
-            accountName = settingsBehavior.PreferCodexIdentity
-                ? (authIdentities.CodexUsername ?? authIdentities.OpenAiUsername)
-                : authIdentities.OpenAiUsername;
-        }
 
         string displayText;
         if (!isAuthenticated)

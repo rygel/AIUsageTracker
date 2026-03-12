@@ -22,8 +22,7 @@ public sealed class ProviderStatusPresentationCatalogTests
             config,
             usage,
             ProviderInputMode.DerivedReadOnly,
-            isPrivacyMode: false,
-            new ProviderAuthIdentities(null, null, null));
+            isPrivacyMode: false);
 
         Assert.Equal("Derived from Codex usage (read-only)", presentation.PrimaryText);
         Assert.Single(presentation.SecondaryLines);
@@ -50,8 +49,7 @@ public sealed class ProviderStatusPresentationCatalogTests
             config,
             usage,
             ProviderInputMode.AntigravityAutoDetected,
-            isPrivacyMode: true,
-            new ProviderAuthIdentities(null, null, null));
+            isPrivacyMode: true);
 
         Assert.Equal("Auto-Detected (u**r@*******.***)", presentation.PrimaryText);
         Assert.Single(presentation.SecondaryLines);
@@ -60,7 +58,7 @@ public sealed class ProviderStatusPresentationCatalogTests
     }
 
     [Fact]
-    public void Create_ReturnsAntigravityPresentation_UsesDiscoveredIdentityWhenUsageMissingAccount()
+    public void Create_ReturnsAntigravityPresentation_UsesUnknownWhenUsageMissingAccount()
     {
         var config = new ProviderConfig { ProviderId = "antigravity" };
         var usage = new ProviderUsage
@@ -74,14 +72,13 @@ public sealed class ProviderStatusPresentationCatalogTests
             config,
             usage,
             ProviderInputMode.AntigravityAutoDetected,
-            isPrivacyMode: false,
-            new ProviderAuthIdentities(null, null, null, "fallback@example.com"));
+            isPrivacyMode: false);
 
-        Assert.Equal("Auto-Detected (fallback@example.com)", presentation.PrimaryText);
+        Assert.Equal("Auto-Detected (Unknown)", presentation.PrimaryText);
     }
 
     [Fact]
-    public void Create_ReturnsGitHubPresentation_FromAuthIdentity()
+    public void Create_ReturnsGitHubPresentation_AuthenticatedWithoutUsername_WhenUsageMissingAccount()
     {
         var config = new ProviderConfig { ProviderId = "github-copilot", ApiKey = string.Empty };
 
@@ -89,11 +86,10 @@ public sealed class ProviderStatusPresentationCatalogTests
             config,
             usage: null,
             ProviderInputMode.GitHubCopilotAuthStatus,
-            isPrivacyMode: false,
-            new ProviderAuthIdentities("octocat", null, null));
+            isPrivacyMode: false);
 
         Assert.True(presentation.UseHorizontalLayout);
-        Assert.Equal("Authenticated (octocat)", presentation.PrimaryText);
+        Assert.Equal("Not Authenticated", presentation.PrimaryText);
         Assert.Empty(presentation.SecondaryLines);
     }
 
@@ -111,8 +107,7 @@ public sealed class ProviderStatusPresentationCatalogTests
             config,
             usage,
             ProviderInputMode.GitHubCopilotAuthStatus,
-            isPrivacyMode: false,
-            new ProviderAuthIdentities(null, null, null));
+            isPrivacyMode: false);
 
         Assert.True(presentation.UseHorizontalLayout);
         Assert.Equal("Authenticated (octocat-from-usage)", presentation.PrimaryText);
@@ -120,7 +115,7 @@ public sealed class ProviderStatusPresentationCatalogTests
     }
 
     [Fact]
-    public void Create_ReturnsOpenAiPresentation_FromCodexIdentity_AndLoadingReset()
+    public void Create_ReturnsOpenAiPresentation_WithoutIdentity_AndLoadingReset()
     {
         var config = new ProviderConfig { ProviderId = "codex", ApiKey = "sess-token" };
 
@@ -128,25 +123,28 @@ public sealed class ProviderStatusPresentationCatalogTests
             config,
             usage: null,
             ProviderInputMode.OpenAiSessionStatus,
-            isPrivacyMode: true,
-            new ProviderAuthIdentities(null, "fallback@example.com", "codex@example.com"));
+            isPrivacyMode: true);
 
-        Assert.Equal("Authenticated (c***x@*******.***)", presentation.PrimaryText);
+        Assert.Equal("Authenticated via OpenAI Codex - refresh to load quota", presentation.PrimaryText);
         Assert.Single(presentation.SecondaryLines);
         Assert.Equal("Next reset: loading...", presentation.SecondaryLines[0].Text);
     }
 
     [Fact]
-    public void Create_ReturnsOpenAiPresentation_FromOpenAiIdentity()
+    public void Create_ReturnsOpenAiPresentation_FromUsageIdentity()
     {
         var config = new ProviderConfig { ProviderId = "openai", ApiKey = "sess-token" };
+        var usage = new ProviderUsage
+        {
+            IsAvailable = true,
+            AccountName = "openai-user@example.com",
+        };
 
         var presentation = ProviderStatusPresentationCatalog.Create(
             config,
-            usage: null,
+            usage,
             ProviderInputMode.OpenAiSessionStatus,
-            isPrivacyMode: false,
-            new ProviderAuthIdentities(null, "openai-user@example.com", "codex-user@example.com"));
+            isPrivacyMode: false);
 
         Assert.Equal("Authenticated (openai-user@example.com)", presentation.PrimaryText);
         Assert.Single(presentation.SecondaryLines);

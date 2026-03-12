@@ -37,6 +37,7 @@ public sealed class ProviderDefinition
         string? iconAssetName = null,
         string? fallbackBadgeColorHex = null,
         string? fallbackBadgeInitial = null,
+        bool supportsAccountIdentity = false,
         IEnumerable<string>? authIdentityCandidatePathTemplates = null,
         IEnumerable<ProviderAuthFileSchema>? sessionAuthFileSchemas = null)
     {
@@ -76,6 +77,7 @@ public sealed class ProviderDefinition
         this.IconAssetName = iconAssetName;
         this.FallbackBadgeColorHex = fallbackBadgeColorHex;
         this.FallbackBadgeInitial = fallbackBadgeInitial;
+        this.SupportsAccountIdentity = supportsAccountIdentity;
         this.AuthIdentityCandidatePathTemplates = NormalizeValues(authIdentityCandidatePathTemplates);
         this.SessionAuthFileSchemas = sessionAuthFileSchemas?
             .Where(schema => schema != null)
@@ -159,6 +161,8 @@ public sealed class ProviderDefinition
     public string? FallbackBadgeColorHex { get; }
 
     public string? FallbackBadgeInitial { get; }
+
+    public bool SupportsAccountIdentity { get; }
 
     public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; }
 

@@ -64,6 +64,7 @@ internal static class MonitorUsageEndpoints
                     ProviderId = definition.ProviderId,
                     DisplayName = definition.DisplayName,
                     SupportsChildProviderIds = definition.SupportsChildProviderIds,
+                    SupportsAccountIdentity = definition.SupportsAccountIdentity,
                     ShowInSettings = definition.ShowInSettings,
                     CollapseDerivedChildrenInMainWindow = definition.CollapseDerivedChildrenInMainWindow,
                     RenderAggregateDetailsInMainWindow = ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(definition.ProviderId),

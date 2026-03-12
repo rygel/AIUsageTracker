@@ -27,6 +27,7 @@ public class GeminiProvider : ProviderBase
         handledProviderIds: new[] { "gemini-cli", "gemini" },
         discoveryEnvironmentVariables: new[] { "GEMINI_API_KEY", "GOOGLE_API_KEY" },
         rooConfigPropertyNames: new[] { "geminiApiKey" },
+        supportsAccountIdentity: true,
         iconAssetName: "google",
         fallbackBadgeColorHex: "#1E90FF",
         fallbackBadgeInitial: "G");

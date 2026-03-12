@@ -41,10 +41,6 @@ public partial class SettingsWindow : Window
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
     private AgentProviderCapabilitiesSnapshot? _providerCapabilities;
-    private string? _gitHubAuthUsername;
-    private string? _openAiAuthUsername;
-    private string? _codexAuthUsername;
-    private string? _antigravityAuthUsername;
     private AppPreferences _preferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isDeterministicScreenshotMode;
@@ -131,10 +127,6 @@ public partial class SettingsWindow : Window
                            "Try clicking 'Refresh Data' or restarting the Monitor.";
             }
 
-            this._gitHubAuthUsername = await ProviderAuthIdentityDiscovery.TryGetGitHubUsernameAsync(this._logger).ConfigureAwait(true);
-            this._openAiAuthUsername = await ProviderAuthIdentityDiscovery.TryGetOpenAiUsernameAsync(this._logger).ConfigureAwait(true);
-            this._codexAuthUsername = await ProviderAuthIdentityDiscovery.TryGetCodexUsernameAsync(this._logger).ConfigureAwait(true);
-            this._antigravityAuthUsername = await ProviderAuthIdentityDiscovery.TryGetAntigravityUsernameAsync(this._logger).ConfigureAwait(true);
             this._preferences = await this._preferencesStore.LoadAsync().ConfigureAwait(true);
             App.Preferences = this._preferences;
             this._isPrivacyMode = this._preferences.IsPrivacyMode;
@@ -559,12 +551,7 @@ public partial class SettingsWindow : Window
             config,
             usage,
             settingsBehavior.InputMode,
-            this._isPrivacyMode,
-            new ProviderAuthIdentities(
-                this._gitHubAuthUsername,
-                this._openAiAuthUsername,
-                this._codexAuthUsername,
-                this._antigravityAuthUsername));
+            this._isPrivacyMode);
 
         var panel = new StackPanel
         {

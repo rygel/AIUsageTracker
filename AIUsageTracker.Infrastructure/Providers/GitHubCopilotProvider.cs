@@ -20,6 +20,7 @@ public class GitHubCopilotProvider : ProviderBase
         defaultConfigType: "quota-based",
         includeInWellKnownProviders: true,
         settingsMode: ProviderSettingsMode.ExternalAuthStatus,
+        supportsAccountIdentity: true,
         iconAssetName: "github",
         fallbackBadgeColorHex: "#9370DB",
         fallbackBadgeInitial: "GH",

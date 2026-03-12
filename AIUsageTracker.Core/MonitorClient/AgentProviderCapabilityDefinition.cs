@@ -12,6 +12,8 @@ public sealed class AgentProviderCapabilityDefinition
 
     public bool SupportsChildProviderIds { get; set; }
 
+    public bool SupportsAccountIdentity { get; set; }
+
     public bool ShowInSettings { get; set; } = true;
 
     public bool CollapseDerivedChildrenInMainWindow { get; set; }

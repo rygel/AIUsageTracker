@@ -551,6 +551,8 @@ components:
           type: string
         supports_child_provider_ids:
           type: boolean
+        supports_account_identity:
+          type: boolean
         show_in_settings:
           type: boolean
         collapse_derived_children_in_main_window:
@@ -573,6 +575,7 @@ components:
         - provider_id
         - display_name
         - supports_child_provider_ids
+        - supports_account_identity
         - show_in_settings
         - collapse_derived_children_in_main_window
         - render_aggregate_details_in_main_window

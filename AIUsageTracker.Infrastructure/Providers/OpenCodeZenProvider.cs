@@ -15,6 +15,7 @@ public class OpenCodeZenProvider : ProviderBase
 {
     private const string ProviderDisplayName = "OpenCode Zen";
     private const string DefaultCliCommand = "opencode";
+    private static readonly TimeSpan DefaultCliTimeout = TimeSpan.FromSeconds(20);
     private static readonly Regex[] CleanupPatterns =
     {
         new("\u001b\\[[0-9;]*m", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)),
@@ -39,6 +40,7 @@ public class OpenCodeZenProvider : ProviderBase
         TimeSpan.FromSeconds(1));
 
     private readonly ILogger<OpenCodeZenProvider> _logger;
+    private readonly TimeSpan _cliTimeout;
     private string _cliPath;
 
     public static ProviderDefinition StaticDefinition { get; } = new(
@@ -57,15 +59,17 @@ public class OpenCodeZenProvider : ProviderBase
     public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger)
     {
         this._logger = logger;
+        this._cliTimeout = DefaultCliTimeout;
         this._cliPath = OperatingSystem.IsWindows()
             ? @"C:\Users\Alexander\AppData\Roaming\npm\opencode.cmd"
             : DefaultCliCommand;
     }
 
-    public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger, string cliPath)
+    public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger, string cliPath, TimeSpan? cliTimeout = null)
         : this(logger)
     {
         this._cliPath = cliPath;
+        this._cliTimeout = cliTimeout ?? this._cliTimeout;
     }
 
     /// <inheritdoc/>
@@ -383,8 +387,27 @@ public class OpenCodeZenProvider : ProviderBase
             throw new InvalidOperationException("Failed to start OpenCode CLI");
         }
 
-        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await process.WaitForExitAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+        using var cancellationTokenSource = new CancellationTokenSource(this._cliTimeout);
+        try
+        {
+            await process.WaitForExitAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                this._logger.LogDebug(ex, "Failed to kill timed-out OpenCode CLI process");
+            }
+
+            throw new TimeoutException($"OpenCode CLI timed out after {this._cliTimeout.TotalSeconds:F0}s");
+        }
 
         if (process.ExitCode != 0)
         {

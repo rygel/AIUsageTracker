@@ -37,6 +37,7 @@ public class OpenAIProvider : ProviderBase
         useSessionAuthStatusWhenQuotaBasedOrSessionToken: true,
         sessionStatusLabel: "OpenAI (API)",
         sessionIdentitySource: ProviderSessionIdentitySource.OpenAi,
+        supportsAccountIdentity: true,
         showInSettings: false,
         iconAssetName: "openai",
         fallbackBadgeColorHex: "#008B8B",

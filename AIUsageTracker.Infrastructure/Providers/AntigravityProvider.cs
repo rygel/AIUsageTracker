@@ -32,6 +32,7 @@ public class AntigravityProvider : ProviderBase
         settingsMode: ProviderSettingsMode.AutoDetectedStatus,
         refreshOnStartupWithCachedData: true,
         collapseDerivedChildrenInMainWindow: true,
+        supportsAccountIdentity: true,
         iconAssetName: "google",
         fallbackBadgeColorHex: "#1E90FF",
         fallbackBadgeInitial: "G");
@@ -514,13 +515,11 @@ public class AntigravityProvider : ProviderBase
         {
             configMap.TryGetValue(label, out var modelConfig);
             var remainingPct = this.ResolveRemainingPercentage(label, modelConfig);
-            if (!remainingPct.HasValue)
-            {
-                continue;
-            }
-
             var (resetDescription, nextResetTime) = ResolveResetInfo(modelConfig);
             var modelName = ResolveDisplayModelName(label);
+            var usedText = remainingPct.HasValue
+                ? $"{remainingPct.Value.ToString("F0", CultureInfo.InvariantCulture)}%"
+                : "Unknown";
 
             details.Add(new ProviderUsageDetail
             {
@@ -529,16 +528,19 @@ public class AntigravityProvider : ProviderBase
                 GroupName = labelToGroup.TryGetValue(label, out var groupName)
                     ? groupName
                     : "Ungrouped Models",
-                Used = $"{remainingPct.Value.ToString("F0", CultureInfo.InvariantCulture)}%",
+                Used = usedText,
                 Description = resetDescription,
                 NextResetTime = nextResetTime,
                 DetailType = ProviderUsageDetailType.Model,
                 WindowKind = WindowKind.None,
             });
 
-            minRemaining = minRemaining.HasValue
-                ? Math.Min(minRemaining.Value, remainingPct.Value)
-                : remainingPct.Value;
+            if (remainingPct.HasValue)
+            {
+                minRemaining = minRemaining.HasValue
+                    ? Math.Min(minRemaining.Value, remainingPct.Value)
+                    : remainingPct.Value;
+            }
         }
 
         if (!minRemaining.HasValue)

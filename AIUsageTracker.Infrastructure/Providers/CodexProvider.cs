@@ -37,6 +37,7 @@ public class CodexProvider : ProviderBase
         settingsMode: ProviderSettingsMode.SessionAuthStatus,
         sessionStatusLabel: "OpenAI Codex",
         sessionIdentitySource: ProviderSessionIdentitySource.Codex,
+        supportsAccountIdentity: true,
         iconAssetName: "openai",
         fallbackBadgeColorHex: "#008B8B",
         fallbackBadgeInitial: "AI",
