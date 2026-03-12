@@ -51,10 +51,10 @@ public class ProviderDetailContractTests
         {
             Name = "5-hour quota",
             DetailType = ProviderUsageDetailType.QuotaWindow,
-            WindowKind = WindowKind.Primary,
+            QuotaBucketKind = WindowKind.Primary,
         };
 
-        Assert.True(detail.WindowKind != WindowKind.None, "QuotaWindow details must have WindowKind set");
+        Assert.True(detail.QuotaBucketKind != WindowKind.None, "QuotaWindow details must have WindowKind set");
     }
 
     [Fact]
@@ -64,11 +64,11 @@ public class ProviderDetailContractTests
         {
             Name = "Credits",
             DetailType = ProviderUsageDetailType.Credit,
-            WindowKind = WindowKind.None,
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.Equal(ProviderUsageDetailType.Credit, detail.DetailType);
-        Assert.Equal(WindowKind.None, detail.WindowKind);
+        Assert.Equal(WindowKind.None, detail.QuotaBucketKind);
     }
 
     [Fact]
@@ -78,11 +78,11 @@ public class ProviderDetailContractTests
         {
             Name = "GPT-5",
             DetailType = ProviderUsageDetailType.Model,
-            WindowKind = WindowKind.None,
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.Equal(ProviderUsageDetailType.Model, detail.DetailType);
-        Assert.Equal(WindowKind.None, detail.WindowKind);
+        Assert.Equal(WindowKind.None, detail.QuotaBucketKind);
     }
 
     [Theory]
@@ -100,7 +100,7 @@ public class ProviderDetailContractTests
         {
             Name = "Test Detail",
             DetailType = type,
-            WindowKind = kind,
+            QuotaBucketKind = kind,
         };
 
         var isValid = ValidateDetailCombination(detail);
@@ -114,7 +114,7 @@ public class ProviderDetailContractTests
             return false;
         }
 
-        if (detail.DetailType == ProviderUsageDetailType.QuotaWindow && detail.WindowKind == WindowKind.None)
+        if (detail.DetailType == ProviderUsageDetailType.QuotaWindow && detail.QuotaBucketKind == WindowKind.None)
         {
             return false;
         }
@@ -129,7 +129,7 @@ public class ProviderDetailContractTests
         {
             Name = string.Empty,
             DetailType = ProviderUsageDetailType.Other,
-            WindowKind = WindowKind.None,
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.True(string.IsNullOrEmpty(detail.Name), "Empty name should be flagged");

@@ -114,6 +114,22 @@ public class ProviderMetadataCatalogTests
         Assert.Equal(expectedCanonicalId, ProviderMetadataCatalog.GetCanonicalProviderId(providerId));
     }
 
+    [Fact]
+    public void GetDerivedModelDisplayName_AppendsConfiguredSuffix()
+    {
+        var name = ProviderMetadataCatalog.GetDerivedModelDisplayName("gemini-cli", "Gemini 2.5 Flash Lite");
+
+        Assert.Equal("Gemini 2.5 Flash Lite [Gemini CLI]", name);
+    }
+
+    [Fact]
+    public void GetDerivedModelDisplayName_LeavesNameUnchanged_WhenNoSuffixConfigured()
+    {
+        var name = ProviderMetadataCatalog.GetDerivedModelDisplayName("codex", "GPT-5.3 Codex");
+
+        Assert.Equal("GPT-5.3 Codex", name);
+    }
+
     [Theory]
     [InlineData("antigravity", true)]
     [InlineData("antigravity.some-model", false)]
@@ -310,6 +326,7 @@ public class ProviderMetadataCatalogTests
         Assert.Contains("GEMINI_API_KEY", gemini!.DiscoveryEnvironmentVariables);
         Assert.Contains("GOOGLE_API_KEY", gemini.DiscoveryEnvironmentVariables);
         Assert.Contains("geminiApiKey", gemini.RooConfigPropertyNames);
+        Assert.Equal("[Gemini CLI]", gemini.DerivedModelDisplaySuffix);
 
         var deepSeek = ProviderMetadataCatalog.Find("deepseek");
         Assert.NotNull(deepSeek);

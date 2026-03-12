@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Tests.Models;
@@ -39,7 +41,7 @@ public class ProviderUsageDetailTests
         {
             Name = "5-hour quota",
             DetailType = ProviderUsageDetailType.QuotaWindow,
-            WindowKind = WindowKind.Primary,
+            QuotaBucketKind = WindowKind.Primary,
         };
 
         Assert.True(detail.IsPrimaryQuotaDetail());
@@ -52,7 +54,7 @@ public class ProviderUsageDetailTests
         {
             Name = "Weekly quota",
             DetailType = ProviderUsageDetailType.QuotaWindow,
-            WindowKind = WindowKind.Secondary,
+            QuotaBucketKind = WindowKind.Secondary,
         };
 
         Assert.False(detail.IsPrimaryQuotaDetail());
@@ -65,10 +67,46 @@ public class ProviderUsageDetailTests
         {
             Name = "Weekly quota",
             DetailType = ProviderUsageDetailType.QuotaWindow,
-            WindowKind = WindowKind.Secondary,
+            QuotaBucketKind = WindowKind.Secondary,
         };
 
         Assert.True(detail.IsSecondaryQuotaDetail());
+    }
+
+    [Fact]
+    public void IsPrimaryQuotaBucket_WithQuotaWindowAndPrimaryBucketKind_ReturnsTrue()
+    {
+        var detail = new ProviderUsageDetail
+        {
+            Name = "5-hour quota",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Primary,
+        };
+
+        Assert.True(detail.IsPrimaryQuotaBucket());
+    }
+
+    [Fact]
+    public void QuotaBucketKind_Setter_PersistsValue()
+    {
+        var detail = new ProviderUsageDetail
+        {
+            QuotaBucketKind = WindowKind.Secondary,
+        };
+
+        Assert.Equal(WindowKind.Secondary, detail.QuotaBucketKind);
+    }
+
+    [Fact]
+    public void WindowKindAlias_Setter_UpdatesQuotaBucketKind()
+    {
+        var detail = new ProviderUsageDetail();
+
+#pragma warning disable CS0618 // compatibility alias is intentionally tested
+        detail.WindowKind = WindowKind.Spark;
+#pragma warning restore CS0618
+
+        Assert.Equal(WindowKind.Spark, detail.QuotaBucketKind);
     }
 
     [Fact]
@@ -78,7 +116,7 @@ public class ProviderUsageDetailTests
         {
             Name = "5-hour quota",
             DetailType = ProviderUsageDetailType.QuotaWindow,
-            WindowKind = WindowKind.Primary,
+            QuotaBucketKind = WindowKind.Primary,
         };
 
         Assert.True(detail.IsWindowQuotaDetail());
@@ -91,7 +129,7 @@ public class ProviderUsageDetailTests
         {
             Name = "Credits",
             DetailType = ProviderUsageDetailType.Credit,
-            WindowKind = WindowKind.None,
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.True(detail.IsCreditDetail());
@@ -104,7 +142,7 @@ public class ProviderUsageDetailTests
         {
             Name = "Avg Cost/Day",
             DetailType = ProviderUsageDetailType.Other,
-            WindowKind = WindowKind.None,
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.True(detail.IsDisplayableSubProviderDetail());
@@ -115,7 +153,7 @@ public class ProviderUsageDetailTests
     {
         var detail = new ProviderUsageDetail();
 
-        Assert.Equal(WindowKind.None, detail.WindowKind);
+        Assert.Equal(WindowKind.None, detail.QuotaBucketKind);
     }
 
     [Fact]
@@ -124,5 +162,44 @@ public class ProviderUsageDetailTests
         var detail = new ProviderUsageDetail();
 
         Assert.Equal(ProviderUsageDetailType.Unknown, detail.DetailType);
+    }
+
+    [Fact]
+    public void Serialization_UsesWindowKindContractFieldName()
+    {
+        var detail = new ProviderUsageDetail
+        {
+            Name = "Requests / Hour",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Primary,
+        };
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        };
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
+
+        var json = JsonSerializer.Serialize(detail, options);
+
+        Assert.Contains("\"window_kind\":\"primary\"", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("quota_bucket_kind", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Deserialization_FromWindowKindContractField_SetsQuotaBucketKind()
+    {
+        var options = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        };
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
+
+        var detail = JsonSerializer.Deserialize<ProviderUsageDetail>(
+            "{\"name\":\"Requests / Day\",\"detail_type\":\"quota_window\",\"window_kind\":\"secondary\"}",
+            options);
+
+        Assert.NotNull(detail);
+        Assert.Equal(WindowKind.Secondary, detail!.QuotaBucketKind);
+        Assert.Equal(ProviderUsageDetailType.QuotaWindow, detail.DetailType);
     }
 }

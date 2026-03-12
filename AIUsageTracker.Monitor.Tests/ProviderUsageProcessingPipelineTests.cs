@@ -37,7 +37,7 @@ public class ProviderUsageProcessingPipelineTests
                 {
                     Name = string.Empty,
                     DetailType = ProviderUsageDetailType.Unknown,
-                    WindowKind = WindowKind.None,
+                    QuotaBucketKind = WindowKind.None,
                 },
             },
         };
@@ -314,7 +314,7 @@ public class ProviderUsageProcessingPipelineTests
                     Name = "Weekly Quota",
                     Used = "14% used",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Secondary,
+                    QuotaBucketKind = WindowKind.Secondary,
                     NextResetTime = futureReset,
                 },
             ],
@@ -422,7 +422,7 @@ public class ProviderUsageProcessingPipelineTests
                     {
                         Name = string.Empty,
                         DetailType = ProviderUsageDetailType.Unknown,
-                        WindowKind = WindowKind.None,
+                        QuotaBucketKind = WindowKind.None,
                     },
                 ],
             },

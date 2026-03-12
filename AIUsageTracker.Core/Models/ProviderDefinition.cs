@@ -23,6 +23,7 @@ public sealed class ProviderDefinition
         IEnumerable<string>? rooConfigPropertyNames = null,
         IEnumerable<string>? nonPersistedProviderIds = null,
         IEnumerable<string>? visibleDerivedProviderIds = null,
+        IEnumerable<ProviderDerivedModelSelector>? derivedModelSelectors = null,
         IEnumerable<string>? explicitApiKeyPrefixes = null,
         string? sessionAuthCanonicalProviderId = null,
         string? sessionAuthMigrationDescription = null,
@@ -39,7 +40,8 @@ public sealed class ProviderDefinition
         string? fallbackBadgeInitial = null,
         bool supportsAccountIdentity = false,
         IEnumerable<string>? authIdentityCandidatePathTemplates = null,
-        IEnumerable<ProviderAuthFileSchema>? sessionAuthFileSchemas = null)
+        IEnumerable<ProviderAuthFileSchema>? sessionAuthFileSchemas = null,
+        string? derivedModelDisplaySuffix = null)
     {
         if (string.IsNullOrWhiteSpace(providerId))
         {
@@ -63,6 +65,7 @@ public sealed class ProviderDefinition
         this.RooConfigPropertyNames = NormalizeValues(rooConfigPropertyNames);
         this.NonPersistedProviderIds = NormalizeValues(nonPersistedProviderIds);
         this.VisibleDerivedProviderIds = NormalizeValues(visibleDerivedProviderIds);
+        this.DerivedModelSelectors = NormalizeDerivedModelSelectors(derivedModelSelectors);
         this.ExplicitApiKeyPrefixes = NormalizeValues(explicitApiKeyPrefixes);
         this.SessionAuthCanonicalProviderId = sessionAuthCanonicalProviderId;
         this.SessionAuthMigrationDescription = sessionAuthMigrationDescription;
@@ -84,6 +87,7 @@ public sealed class ProviderDefinition
             .Distinct()
             .ToArray()
             ?? Array.Empty<ProviderAuthFileSchema>();
+        this.DerivedModelDisplaySuffix = derivedModelDisplaySuffix;
 
         var normalizedHandledIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -134,6 +138,8 @@ public sealed class ProviderDefinition
 
     public IReadOnlyCollection<string> VisibleDerivedProviderIds { get; }
 
+    public IReadOnlyCollection<ProviderDerivedModelSelector> DerivedModelSelectors { get; }
+
     public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; }
 
     public string? SessionAuthCanonicalProviderId { get; }
@@ -167,6 +173,8 @@ public sealed class ProviderDefinition
     public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; }
 
     public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; }
+
+    public string? DerivedModelDisplaySuffix { get; }
 
     public bool HandlesProviderId(string providerId)
     {
@@ -219,6 +227,21 @@ public sealed class ProviderDefinition
         return values
             .Where(value => !string.IsNullOrWhiteSpace(value))
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    private static IReadOnlyCollection<ProviderDerivedModelSelector> NormalizeDerivedModelSelectors(
+        IEnumerable<ProviderDerivedModelSelector>? selectors)
+    {
+        if (selectors == null)
+        {
+            return Array.Empty<ProviderDerivedModelSelector>();
+        }
+
+        return selectors
+            .Where(selector => selector != null)
+            .GroupBy(selector => selector.DerivedProviderId, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
             .ToArray();
     }
 }

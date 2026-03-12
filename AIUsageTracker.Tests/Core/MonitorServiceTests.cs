@@ -761,39 +761,68 @@ public class MonitorServiceTests
     }
 
     [Fact]
-    public async Task GetProviderCapabilitiesAsync_Success_ReturnsCapabilitySnapshotAsync()
+    public async Task GetGroupedUsageAsync_Success_ReturnsGroupedSnapshotAsync()
     {
+        var expectedEffectiveReset = new DateTime(2026, 3, 12, 13, 30, 0, DateTimeKind.Utc);
         this.SetupMockResponse(
             HttpStatusCode.OK,
             new
             {
                 contractVersion = MonitorService.ExpectedApiContractVersion,
-                generatedAtUtc = new DateTime(2026, 3, 11, 8, 0, 0, DateTimeKind.Utc),
+                generatedAtUtc = new DateTime(2026, 3, 12, 8, 0, 0, DateTimeKind.Utc),
                 providers = new[]
                 {
                     new
                     {
-                        providerId = "codex",
-                        displayName = "OpenAI (Codex)",
-                        supportsChildProviderIds = true,
-                        showInSettings = true,
-                        collapseDerivedChildrenInMainWindow = false,
-                        renderAggregateDetailsInMainWindow = false,
-                        handledProviderIds = new[] { "codex", "openai" },
-                        visibleDerivedProviderIds = new[] { "codex.spark" },
-                        settingsAdditionalProviderIds = new[] { "codex.spark" },
+                        providerId = "gemini-cli",
+                        providerName = "Google Gemini CLI",
+                        isAvailable = true,
+                        modelCount = 1,
+                        models = new[]
+                        {
+                            new
+                            {
+                                modelId = "gemini-2.5-flash-lite",
+                                modelName = "Gemini 2.5 Flash Lite",
+                                remainingPercentage = 97.1,
+                                usedPercentage = 2.9,
+                                effectiveRemainingPercentage = 96.2,
+                                effectiveUsedPercentage = 3.8,
+                                effectiveDescription = "96.2% remaining",
+                                effectiveNextResetTime = expectedEffectiveReset,
+                                quotaBuckets = new[]
+                                {
+                                    new
+                                    {
+                                        bucketId = "effective",
+                                        bucketName = "Effective Quota",
+                                        remainingPercentage = 97.1,
+                                        usedPercentage = 2.9,
+                                        description = "97.1% remaining",
+                                    },
+                                },
+                            },
+                        },
                     },
                 },
             });
 
-        var result = await this._service.GetProviderCapabilitiesAsync();
+        var result = await this._service.GetGroupedUsageAsync();
 
         Assert.NotNull(result);
         Assert.Equal(MonitorService.ExpectedApiContractVersion, result!.ContractVersion);
         var provider = Assert.Single(result.Providers);
-        Assert.Equal("codex", provider.ProviderId);
-        Assert.Contains("openai", provider.HandledProviderIds);
-        this.VerifyPath("/api/providers/capabilities");
+        Assert.Equal("gemini-cli", provider.ProviderId);
+        Assert.Equal(1, provider.ModelCount);
+        var model = Assert.Single(provider.Models);
+        Assert.Equal("gemini-2.5-flash-lite", model.ModelId);
+        Assert.Equal(96.2, model.EffectiveRemainingPercentage);
+        Assert.Equal(3.8, model.EffectiveUsedPercentage);
+        Assert.Equal("96.2% remaining", model.EffectiveDescription);
+        Assert.Equal(expectedEffectiveReset, model.EffectiveNextResetTime);
+        var quotaBucket = Assert.Single(model.QuotaBuckets);
+        Assert.Equal("effective", quotaBucket.BucketId);
+        this.VerifyPath("/api/usage/grouped");
     }
 
     private void SetupMockResponse(HttpStatusCode status, object body)

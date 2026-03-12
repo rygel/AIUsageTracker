@@ -102,7 +102,7 @@ public sealed class ProviderCardPresentationCatalogTests
     }
 
     [Fact]
-    public void Create_FormatsDualWindowStatus_AndSuppressesSingleResetTime()
+    public void Create_FormatsDualQuotaBucketStatus_AndSuppressesSingleResetTime()
     {
         var usage = new ProviderUsage
         {
@@ -118,14 +118,14 @@ public sealed class ProviderCardPresentationCatalogTests
                     Name = "5-hour quota",
                     Used = "96% remaining (4% used)",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Primary,
+                    QuotaBucketKind = WindowKind.Primary,
                 },
                 new()
                 {
                     Name = "Weekly quota",
                     Used = "49% remaining (51% used)",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Secondary,
+                    QuotaBucketKind = WindowKind.Secondary,
                 },
             },
         };

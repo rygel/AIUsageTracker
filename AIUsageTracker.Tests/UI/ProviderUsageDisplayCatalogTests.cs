@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
@@ -106,7 +105,7 @@ public sealed class ProviderUsageDisplayCatalogTests
     }
 
     [Fact]
-    public void PrepareForMainWindow_UsesProviderMetadata_WhenSnapshotTriesToOverride()
+    public void PrepareForMainWindow_UsesProviderMetadata_ForCodexFamilyBehavior()
     {
         var usages = new List<ProviderUsage>
         {
@@ -114,22 +113,7 @@ public sealed class ProviderUsageDisplayCatalogTests
             new() { ProviderId = "codex.spark", IsAvailable = true },
         };
 
-        var capabilities = new AgentProviderCapabilitiesSnapshot
-        {
-            Providers =
-            [
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "codex",
-                    DisplayName = "OpenAI (Codex)",
-                    SupportsChildProviderIds = true,
-                    CollapseDerivedChildrenInMainWindow = true,
-                    HandledProviderIds = ["codex", "codex.spark"],
-                },
-            ],
-        };
-
-        var preparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages, capabilities);
+        var preparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages);
 
         Assert.Equal(2, preparation.DisplayableUsages.Count);
         Assert.Contains(preparation.DisplayableUsages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
@@ -155,7 +139,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                         Name = "Requests / Minute",
                         Used = "67.9%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Primary,
+                        QuotaBucketKind = WindowKind.Primary,
                         NextResetTime = new DateTime(2026, 3, 12, 14, 38, 28),
                     },
                     new()
@@ -163,7 +147,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                         Name = "Requests / Day",
                         Used = "97.5%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Secondary,
+                        QuotaBucketKind = WindowKind.Secondary,
                         NextResetTime = new DateTime(2026, 3, 12, 14, 35, 2),
                     },
                     new()
@@ -171,7 +155,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                         Name = "Requests / Hour",
                         Used = "88.0%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Spark,
+                        QuotaBucketKind = WindowKind.Spark,
                         NextResetTime = new DateTime(2026, 3, 12, 15, 10, 0),
                     },
                 },
@@ -204,14 +188,14 @@ public sealed class ProviderUsageDisplayCatalogTests
                         Name = "Requests / Minute",
                         Used = "67.9%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Primary,
+                        QuotaBucketKind = WindowKind.Primary,
                     },
                     new()
                     {
                         Name = "Requests / Hour",
                         Used = "88.0%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Secondary,
+                        QuotaBucketKind = WindowKind.Secondary,
                     },
                     new()
                     {
@@ -219,7 +203,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                         ModelName = "gemini-3.1-pro-preview",
                         Used = "0.0%",
                         DetailType = ProviderUsageDetailType.Model,
-                        WindowKind = WindowKind.None,
+                        QuotaBucketKind = WindowKind.None,
                     },
                 },
             },
@@ -278,21 +262,21 @@ public sealed class ProviderUsageDisplayCatalogTests
                     Name = "Requests / Minute",
                     Used = "67.9%",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Primary,
+                    QuotaBucketKind = WindowKind.Primary,
                 },
                 new()
                 {
                     Name = "Requests / Hour",
                     Used = "88.0%",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Secondary,
+                    QuotaBucketKind = WindowKind.Secondary,
                 },
                 new()
                 {
                     Name = "Requests / Day",
                     Used = "97.5%",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Spark,
+                    QuotaBucketKind = WindowKind.Spark,
                 },
             },
         };

@@ -373,7 +373,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 Description = (detail.Description ?? string.Empty).Trim(),
                 NextResetTime = detail.NextResetTime?.ToUniversalTime(),
                 DetailType = detail.DetailType,
-                WindowKind = detail.WindowKind,
+                QuotaBucketKind = detail.QuotaBucketKind,
             });
         }
 
@@ -451,7 +451,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             }
 
             if (detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                detail.WindowKind == WindowKind.None)
+                detail.QuotaBucketKind == WindowKind.None)
             {
                 validationErrors.Add("QuotaWindow details must have WindowKind set (Primary, Secondary, or Spark)");
             }
@@ -516,3 +516,4 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         }
     }
 }
+

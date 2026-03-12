@@ -45,7 +45,7 @@ public sealed class ProviderMainWindowOrderingCatalogTests
         };
 
         var orderedProviderIds = ProviderMainWindowOrderingCatalog
-            .OrderForMainWindow(usages, capabilities: null)
+            .OrderForMainWindow(usages)
             .Select(usage => usage.ProviderId)
             .ToList();
 

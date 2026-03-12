@@ -532,7 +532,7 @@ public class AntigravityProvider : ProviderBase
                 Description = resetDescription,
                 NextResetTime = nextResetTime,
                 DetailType = ProviderUsageDetailType.Model,
-                WindowKind = WindowKind.None,
+                QuotaBucketKind = WindowKind.None,
             });
 
             if (remainingPct.HasValue)

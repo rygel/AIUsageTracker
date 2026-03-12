@@ -3,36 +3,30 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.UI.Slim;
 
 internal static class ProviderMainWindowOrderingCatalog
 {
-    public static IEnumerable<ProviderUsage> OrderForMainWindow(
-        IEnumerable<ProviderUsage> usages,
-        AgentProviderCapabilitiesSnapshot? capabilities)
+    public static IEnumerable<ProviderUsage> OrderForMainWindow(IEnumerable<ProviderUsage> usages)
     {
         return usages
             .OrderByDescending(usage => usage.IsQuotaBased)
             .ThenBy(
-                usage => GetFamilyDisplayName(usage, capabilities),
+                usage => GetFamilyDisplayName(usage),
                 StringComparer.OrdinalIgnoreCase)
             .ThenBy(
                 usage => ProviderCapabilityCatalog.GetDisplayName(
                     usage.ProviderId ?? string.Empty,
-                    usage.ProviderName,
-                    capabilities),
+                    usage.ProviderName),
                 StringComparer.OrdinalIgnoreCase)
             .ThenBy(usage => usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string GetFamilyDisplayName(
-        ProviderUsage usage,
-        AgentProviderCapabilitiesSnapshot? capabilities)
+    private static string GetFamilyDisplayName(ProviderUsage usage)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId, capabilities);
-        return ProviderCapabilityCatalog.GetDisplayName(canonicalProviderId, providerName: null, capabilities);
+        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
+        return ProviderCapabilityCatalog.GetDisplayName(canonicalProviderId, providerName: null);
     }
 }

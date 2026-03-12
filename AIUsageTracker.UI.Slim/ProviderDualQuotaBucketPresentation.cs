@@ -1,10 +1,10 @@
-// <copyright file="ProviderDualWindowPresentation.cs" company="AIUsageTracker">
+// <copyright file="ProviderDualQuotaBucketPresentation.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
 namespace AIUsageTracker.UI.Slim;
 
-internal sealed record ProviderDualWindowPresentation(
+internal sealed record ProviderDualQuotaBucketPresentation(
     string PrimaryLabel,
     double PrimaryUsedPercent,
     DateTime? PrimaryResetTime,

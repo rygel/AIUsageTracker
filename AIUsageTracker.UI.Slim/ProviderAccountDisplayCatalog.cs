@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.MonitorClient;
-
 namespace AIUsageTracker.UI.Slim;
 
 internal static class ProviderAccountDisplayCatalog
@@ -11,10 +9,9 @@ internal static class ProviderAccountDisplayCatalog
     public static string ResolveDisplayAccountName(
         string providerId,
         string? usageAccountName,
-        bool isPrivacyMode,
-        AgentProviderCapabilitiesSnapshot? capabilities)
+        bool isPrivacyMode)
     {
-        if (!ProviderCapabilityCatalog.SupportsAccountIdentity(providerId, capabilities))
+        if (!ProviderCapabilityCatalog.SupportsAccountIdentity(providerId))
         {
             return string.Empty;
         }

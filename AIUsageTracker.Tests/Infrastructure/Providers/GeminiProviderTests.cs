@@ -148,7 +148,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_DeduplicatesQuotaBucketsAndAssignsWindowKindsAsync()
+    public async Task GetUsageAsync_DeduplicatesBuckets_AndDoesNotEmitLegacySlotBars_WithoutModelIdsAsync()
     {
         // Arrange
         var tempDir = TestTempPaths.CreateDirectory("gemini-bucket-dedupe-test");
@@ -197,19 +197,19 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         Assert.True(usage.IsAvailable);
         Assert.Null(usage.Details);
 
-        var windowBars = result
-            .Where(item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(item => item.ProviderId, StringComparer.OrdinalIgnoreCase)
+        var slotBars = result
+            .Where(item =>
+                string.Equals(item.ProviderId, "gemini-cli.minute", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.ProviderId, "gemini-cli.hourly", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(item.ProviderId, "gemini-cli.daily", StringComparison.OrdinalIgnoreCase))
             .ToList();
-        Assert.Equal(
-            new[] { "gemini-cli.daily", "gemini-cli.hourly", "gemini-cli.minute" },
-            windowBars.Select(item => item.ProviderId).ToArray());
+        Assert.Empty(slotBars);
 
         TestTempPaths.CleanupPath(tempDir);
     }
 
     [Fact]
-    public async Task GetUsageAsync_IncludesModelQuotaDetails_WhenBucketsContainModelIdsAsync()
+    public async Task GetUsageAsync_IncludesModelQuotaDetails_AndDoesNotEmitLegacySlotBars_WhenBucketsContainModelIdsAsync()
     {
         // Arrange
         var tempDir = TestTempPaths.CreateDirectory("gemini-model-quota-test");
@@ -268,22 +268,16 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         Assert.Contains(modelDetails, detail => detail.Name == "Gemini 3.1 Pro Preview");
         Assert.All(modelDetails, detail => Assert.False(string.IsNullOrWhiteSpace(detail.Used)));
 
-        var windowBars = result
-            .Where(item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(item => item.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        Assert.Equal(
-            new[] { "gemini-cli.daily", "gemini-cli.hourly", "gemini-cli.minute" },
-            windowBars.Select(item => item.ProviderId).ToArray());
-        Assert.Contains(windowBars, item => item.ProviderId == "gemini-cli.minute" && item.ProviderName.Contains("Gemini 2.5 Flash Lite", StringComparison.Ordinal));
-        Assert.Contains(windowBars, item => item.ProviderId == "gemini-cli.hourly" && item.ProviderName.Contains("Gemini 3 Flash Preview", StringComparison.Ordinal));
-        Assert.Contains(windowBars, item => item.ProviderId == "gemini-cli.daily" && item.ProviderName.Contains("Gemini 2.5 Pro", StringComparison.Ordinal));
+        Assert.Single(result);
+        Assert.DoesNotContain(
+            result,
+            item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
         TestTempPaths.CleanupPath(tempDir);
     }
 
     [Fact]
-    public async Task GetUsageAsync_KeepsThreeGeminiWindows_WhenKnownQuotaIdsArePartialAsync()
+    public async Task GetUsageAsync_KeepsModelDetails_WhenModelIdsArePresentAsync()
     {
         var tempDir = TestTempPaths.CreateDirectory("gemini-partial-window-test");
         var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
@@ -322,15 +316,120 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
 
         var result = await provider.GetUsageAsync(this.Config);
 
-        var windowBars = result
-            .Where(item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(item => item.ProviderId, StringComparer.OrdinalIgnoreCase)
+        var summary = Assert.Single(result, item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
+        Assert.NotNull(summary.Details);
+        var modelDetails = summary.Details!
+            .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
+            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        Assert.Equal(3, modelDetails.Count);
+        Assert.Contains(modelDetails, detail => detail.ModelName == "gemini-2.5-flash-lite");
+        Assert.Contains(modelDetails, detail => detail.ModelName == "gemini-3-flash-preview");
+        Assert.Contains(modelDetails, detail => detail.ModelName == "gemini-2.5-pro");
+        Assert.DoesNotContain(
+            result,
+            item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
-        Assert.Equal(3, windowBars.Count);
-        Assert.Contains(windowBars, item => string.Equals(item.ProviderId, "gemini-cli.primary", StringComparison.Ordinal));
-        Assert.Contains(windowBars, item => string.Equals(item.ProviderId, "gemini-cli.hourly", StringComparison.Ordinal));
-        Assert.Contains(windowBars, item => string.Equals(item.ProviderId, "gemini-cli.daily", StringComparison.Ordinal));
+        TestTempPaths.CleanupPath(tempDir);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_UsesModelLabels_WhenQuotaIdsDifferFromModelBucketsAsync()
+    {
+        var tempDir = TestTempPaths.CreateDirectory("gemini-quotaid-fallback-test");
+        var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
+
+        await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
+        {
+            accounts = new[]
+            {
+                new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" },
+            },
+        }));
+
+        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, Path.Combine(tempDir, "oauth_creds_override.json"));
+
+        this.SetupHttpResponse("https://oauth2.googleapis.com/token", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("{\"access_token\":\"at\"}"),
+        });
+
+        var quotaResponse = new
+        {
+            buckets = new object[]
+            {
+                new { remainingFraction = 0.971, resetTime = "2030-03-12T14:53:00Z", quotaId = "FreeTierRequestsPerMinute" },
+                new { remainingFraction = 0.657, resetTime = "2030-03-12T14:56:00Z", quotaId = "FreeTierRequestsPerHour" },
+                new { remainingFraction = 0.000, resetTime = "2030-03-12T17:40:00Z", quotaId = "FreeTierRequestsPerDay" },
+                new { remainingFraction = 0.971, resetTime = "2030-03-12T14:53:00Z", quotaId = "ModelMinute", modelId = "gemini-2.5-flash-lite" },
+                new { remainingFraction = 0.657, resetTime = "2030-03-12T14:56:00Z", quotaId = "ModelHour", modelId = "gemini-3-flash-preview" },
+                new { remainingFraction = 0.000, resetTime = "2030-03-12T17:40:00Z", quotaId = "ModelDay", modelId = "gemini-2.5-pro" },
+            },
+        };
+
+        this.SetupHttpResponse("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(quotaResponse)),
+        });
+
+        var result = await provider.GetUsageAsync(this.Config);
+
+        var summary = Assert.Single(result, item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
+        Assert.NotNull(summary.Details);
+        var modelDetails = summary.Details!
+            .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
+            .ToList();
+        Assert.Contains(modelDetails, detail => detail.Name == "Gemini 2.5 Flash Lite");
+        Assert.Contains(modelDetails, detail => detail.Name == "Gemini 3 Flash Preview");
+        Assert.Contains(modelDetails, detail => detail.Name == "Gemini 2.5 Pro");
+        Assert.DoesNotContain(
+            result,
+            item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
+
+        TestTempPaths.CleanupPath(tempDir);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_UsesRealGeminiFixtureShape_ForModelDetailsWithoutLegacySlotBarsAsync()
+    {
+        var tempDir = TestTempPaths.CreateDirectory("gemini-real-fixture-test");
+        var accountsPath = Path.Combine(tempDir, "antigravity-accounts.json");
+
+        await File.WriteAllTextAsync(accountsPath, JsonSerializer.Serialize(new
+        {
+            accounts = new[]
+            {
+                new { email = "user@example.com", refreshToken = "rt", projectId = "proj1" },
+            },
+        }));
+
+        var provider = new GeminiProvider(this.HttpClient, this.Logger.Object, accountsPath, Path.Combine(tempDir, "oauth_creds_override.json"));
+
+        this.SetupHttpResponse("https://oauth2.googleapis.com/token", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("{\"access_token\":\"at\"}"),
+        });
+
+        var quotaFixture = LoadFixture("gemini_cli_retrieve_user_quota.snapshot.json");
+        this.SetupHttpResponse("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(quotaFixture),
+        });
+
+        var result = await provider.GetUsageAsync(this.Config);
+
+        var summary = Assert.Single(result, item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
+        Assert.NotNull(summary.Details);
+        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && detail.Name == "Gemini 2.5 Flash Lite");
+        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && detail.Name == "Gemini 3.1 Pro Preview");
+
+        Assert.DoesNotContain(
+            result,
+            item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
 
         TestTempPaths.CleanupPath(tempDir);
     }

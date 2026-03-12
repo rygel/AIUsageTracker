@@ -41,8 +41,16 @@ public class MonitorApiRoutesTests
     }
 
     [Fact]
-    public void ProviderCapabilities_UsesStableContractRoute()
+    public void UsageGrouped_UsesStableContractRoute()
     {
-        Assert.Equal("/api/providers/capabilities", MonitorApiRoutes.ProviderCapabilities);
+        Assert.Equal("/api/usage/grouped", MonitorApiRoutes.UsageGrouped);
+    }
+
+    [Fact]
+    public void LegacyProviderCapabilitiesRoute_IsNotExposed()
+    {
+        var legacyField = typeof(MonitorApiRoutes).GetField("ProviderCapabilities");
+
+        Assert.Null(legacyField);
     }
 }

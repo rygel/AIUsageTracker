@@ -331,6 +331,16 @@ public class MonitorService : IMonitorService
         }
     }
 
+    /// <inheritdoc/>
+    public async Task<AgentGroupedUsageSnapshot?> GetGroupedUsageAsync()
+    {
+        await this.RefreshPortAsync().ConfigureAwait(false);
+        return await this.GetFromMonitorJsonAsync<AgentGroupedUsageSnapshot>(
+            MonitorApiRoutes.UsageGrouped,
+            nameof(this.GetGroupedUsageAsync),
+            UsageRequestTimeoutSeconds).ConfigureAwait(false);
+    }
+
     private async Task<List<ProviderUsage>?> GetUsageOnceAsync()
     {
         using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
@@ -444,15 +454,6 @@ public class MonitorService : IMonitorService
             nameof(this.GetConfigsAsync),
             ConfigRequestTimeoutSeconds).ConfigureAwait(false);
         return configs ?? new List<ProviderConfig>();
-    }
-
-    /// <inheritdoc/>
-    public async Task<AgentProviderCapabilitiesSnapshot?> GetProviderCapabilitiesAsync()
-    {
-        return await this.GetFromMonitorJsonAsync<AgentProviderCapabilitiesSnapshot>(
-            MonitorApiRoutes.ProviderCapabilities,
-            nameof(this.GetProviderCapabilitiesAsync),
-            ConfigRequestTimeoutSeconds).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

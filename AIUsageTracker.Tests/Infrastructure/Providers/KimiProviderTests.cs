@@ -128,9 +128,9 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.NotNull(usage.Details);
         Assert.Equal(3, usage.Details.Count); // Weekly limit from usage + Hourly + Weekly from limits array
 
-        var hourlyDetail = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
-        var weeklyDetailFromUsage = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
-        var weeklyDetailFromLimits = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary && string.Equals(d.Name, "7d Limit", StringComparison.Ordinal));
+        var hourlyDetail = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Primary);
+        var weeklyDetailFromUsage = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Secondary && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
+        var weeklyDetailFromLimits = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Secondary && string.Equals(d.Name, "7d Limit", StringComparison.Ordinal));
 
         Assert.NotNull(hourlyDetail);
         Assert.NotNull(weeklyDetailFromUsage);
@@ -180,8 +180,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.NotNull(usage.Details);
 
         // Should have: Secondary (weekly from usage block) + Primary (300min window from limits)
-        var primary = usage.Details!.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
-        var secondary = usage.Details!.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
+        var primary = usage.Details!.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Primary);
+        var secondary = usage.Details!.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Secondary);
         Assert.NotNull(primary);   // 300-minute window → Primary
         Assert.NotNull(secondary); // usage block → Secondary
         Assert.Equal("5h Limit", primary!.Name);

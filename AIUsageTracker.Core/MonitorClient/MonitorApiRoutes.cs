@@ -9,6 +9,7 @@ namespace AIUsageTracker.Core.MonitorClient;
 public static class MonitorApiRoutes
 {
     public const string Usage = "/api/usage";
+    public const string UsageGrouped = "/api/usage/grouped";
     public const string History = "/api/history";
     public const string Refresh = "/api/refresh";
     public const string Config = "/api/config";
@@ -17,7 +18,6 @@ public static class MonitorApiRoutes
     public const string Health = "/api/health";
     public const string Diagnostics = "/api/diagnostics";
     public const string Export = "/api/export";
-    public const string ProviderCapabilities = "/api/providers/capabilities";
     public const string UsageByProviderTemplate = "/api/usage/{providerId}";
     public const string HistoryByProviderTemplate = "/api/history/{providerId}";
     public const string ConfigByProviderTemplate = "/api/config/{providerId}";

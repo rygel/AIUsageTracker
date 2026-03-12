@@ -3,24 +3,21 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.UI.Slim;
 
 internal static class ProviderUsageDisplayCatalog
 {
-    public static ProviderRenderPreparation PrepareForMainWindow(
-        IReadOnlyCollection<ProviderUsage> usages,
-        AgentProviderCapabilitiesSnapshot? capabilities = null)
+    public static ProviderRenderPreparation PrepareForMainWindow(IReadOnlyCollection<ProviderUsage> usages)
     {
         var filteredUsages = usages
-            .Where(usage => ProviderCapabilityCatalog.ShouldShowInMainWindow(usage.ProviderId ?? string.Empty, capabilities))
+            .Where(usage => ProviderCapabilityCatalog.ShouldShowInMainWindow(usage.ProviderId ?? string.Empty))
             .ToList();
-        var hasAntigravityParent = filteredUsages.Any(usage => IsAntigravityParent(usage, capabilities));
-        var collapsedParentProviderIds = ResolveCollapsedParentProviderIds(filteredUsages, capabilities);
+        var hasAntigravityParent = filteredUsages.Any(IsAntigravityParent);
+        var collapsedParentProviderIds = ResolveCollapsedParentProviderIds(filteredUsages);
 
         filteredUsages = filteredUsages
-            .Where(ShouldDisplayUsage(collapsedParentProviderIds, capabilities))
+            .Where(ShouldDisplayUsage(collapsedParentProviderIds))
             .ToList();
 
         filteredUsages = filteredUsages
@@ -48,38 +45,34 @@ internal static class ProviderUsageDisplayCatalog
             .ToList();
     }
 
-    private static HashSet<string> ResolveCollapsedParentProviderIds(
-        IEnumerable<ProviderUsage> usages,
-        AgentProviderCapabilitiesSnapshot? capabilities)
+    private static HashSet<string> ResolveCollapsedParentProviderIds(IEnumerable<ProviderUsage> usages)
     {
         return usages
             .Where(usage =>
             {
                 var providerId = usage.ProviderId ?? string.Empty;
-                var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId, capabilities);
+                var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
                 return string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase) &&
-                       ProviderCapabilityCatalog.ShouldCollapseDerivedChildrenInMainWindow(providerId, capabilities);
+                       ProviderCapabilityCatalog.ShouldCollapseDerivedChildrenInMainWindow(providerId);
             })
             .Select(usage => usage.ProviderId ?? string.Empty)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
-    private static Func<ProviderUsage, bool> ShouldDisplayUsage(
-        IReadOnlySet<string> collapsedParentProviderIds,
-        AgentProviderCapabilitiesSnapshot? capabilities)
+    private static Func<ProviderUsage, bool> ShouldDisplayUsage(IReadOnlySet<string> collapsedParentProviderIds)
     {
         return usage =>
         {
             var providerId = usage.ProviderId ?? string.Empty;
-            var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId, capabilities);
+            var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
             var isDerivedChild = !string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase);
             return !isDerivedChild || !collapsedParentProviderIds.Contains(canonicalProviderId);
         };
     }
 
-    private static bool IsAntigravityParent(ProviderUsage usage, AgentProviderCapabilitiesSnapshot? capabilities)
+    private static bool IsAntigravityParent(ProviderUsage usage)
     {
-        return ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(usage.ProviderId ?? string.Empty, capabilities);
+        return ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(usage.ProviderId ?? string.Empty);
     }
 
     private static ProviderUsage SelectPreferredUsage(IGrouping<string, ProviderUsage> group)

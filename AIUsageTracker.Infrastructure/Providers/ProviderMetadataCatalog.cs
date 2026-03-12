@@ -66,6 +66,22 @@ public static class ProviderMetadataCatalog
         return providerId ?? string.Empty;
     }
 
+    public static string GetDerivedModelDisplayName(string providerId, string modelName)
+    {
+        if (string.IsNullOrWhiteSpace(modelName))
+        {
+            return modelName;
+        }
+
+        if (TryGet(providerId, out var definition) &&
+            !string.IsNullOrWhiteSpace(definition.DerivedModelDisplaySuffix))
+        {
+            return $"{modelName} {definition.DerivedModelDisplaySuffix}";
+        }
+
+        return modelName;
+    }
+
     public static bool IsAutoIncluded(string providerId)
     {
         return TryGet(providerId, out var definition) && definition.AutoIncludeWhenUnconfigured;
@@ -272,6 +288,7 @@ public static class ProviderMetadataCatalog
 
         ValidateNoDuplicateProviderIds(definitions);
         ValidateNoDuplicateHandledProviderIds(definitions);
+        ValidateDerivedModelSelectors(definitions);
 
         return definitions;
     }
@@ -460,6 +477,52 @@ public static class ProviderMetadataCatalog
         {
             throw new InvalidOperationException(
                 $"Duplicate handled provider ids detected: {string.Join(", ", duplicateHandledIds)}");
+        }
+    }
+
+    private static void ValidateDerivedModelSelectors(IReadOnlyCollection<ProviderDefinition> definitions)
+    {
+        var missingSelectors = definitions
+            .Select(definition => new
+            {
+                definition.ProviderId,
+                Missing = definition.VisibleDerivedProviderIds
+                    .Where(derivedProviderId => definition.DerivedModelSelectors.All(selector =>
+                        !string.Equals(selector.DerivedProviderId, derivedProviderId, StringComparison.OrdinalIgnoreCase)))
+                    .ToList(),
+            })
+            .Where(entry => entry.Missing.Count > 0)
+            .ToList();
+        if (missingSelectors.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Missing derived model selectors: " +
+                string.Join(
+                    "; ",
+                    missingSelectors.Select(entry => $"{entry.ProviderId}: {string.Join(", ", entry.Missing)}")));
+        }
+
+        var unknownSelectorTargets = definitions
+            .Select(definition => new
+            {
+                definition.ProviderId,
+                Unknown = definition.DerivedModelSelectors
+                    .Select(selector => selector.DerivedProviderId)
+                    .Where(derivedProviderId => !definition.VisibleDerivedProviderIds.Contains(
+                        derivedProviderId,
+                        StringComparer.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
+            })
+            .Where(entry => entry.Unknown.Count > 0)
+            .ToList();
+        if (unknownSelectorTargets.Count > 0)
+        {
+            throw new InvalidOperationException(
+                "Derived model selectors reference unknown provider ids: " +
+                string.Join(
+                    "; ",
+                    unknownSelectorTargets.Select(entry => $"{entry.ProviderId}: {string.Join(", ", entry.Unknown)}")));
         }
     }
 }

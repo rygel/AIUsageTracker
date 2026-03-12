@@ -107,6 +107,70 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
+    public async Task GetLatestHistoryAsync_DoesNotMergeStaleQuotaWindowDetails_IntoCurrentModelDetails()
+    {
+        var database = await this.CreateDatabaseAsync();
+        var providerId = "gemini-cli";
+
+        await database.StoreHistoryAsync(new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = providerId,
+                ProviderName = "Google Gemini",
+                RequestsUsed = 10,
+                RequestsAvailable = 100,
+                RequestsPercentage = 90,
+                IsAvailable = true,
+                Description = "ok",
+                FetchedAt = DateTime.UtcNow.AddDays(-1),
+                Details = new List<ProviderUsageDetail>
+                {
+                    new()
+                    {
+                        Name = "Quota Bucket (Primary)",
+                        DetailType = ProviderUsageDetailType.QuotaWindow,
+                        QuotaBucketKind = WindowKind.Primary,
+                        Used = "65.0%",
+                    },
+                },
+            },
+        });
+
+        await database.StoreHistoryAsync(new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = providerId,
+                ProviderName = "Google Gemini",
+                RequestsUsed = 35,
+                RequestsAvailable = 100,
+                RequestsPercentage = 65,
+                IsAvailable = true,
+                Description = "ok",
+                FetchedAt = DateTime.UtcNow,
+                Details = new List<ProviderUsageDetail>
+                {
+                    new()
+                    {
+                        Name = "Gemini 3 Flash Preview",
+                        ModelName = "gemini-3-flash-preview",
+                        DetailType = ProviderUsageDetailType.Model,
+                        QuotaBucketKind = WindowKind.None,
+                        Used = "65.0%",
+                    },
+                },
+            },
+        });
+
+        var latest = await database.GetLatestHistoryAsync();
+        var gemini = Assert.Single(latest, x => string.Equals(x.ProviderId, providerId, StringComparison.Ordinal));
+        Assert.NotNull(gemini.Details);
+        Assert.Contains(gemini.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model);
+        Assert.DoesNotContain(gemini.Details!, detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow);
+    }
+
+    [Fact]
     public async Task StoreHistoryAsync_PersistsUnavailableUsage_WithNonPlaceholderDescriptionAndAccountName()
     {
         var database = await this.CreateDatabaseAsync();
@@ -198,6 +262,33 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
+    public async Task StoreHistoryAsync_PersistsUnknownProviderIds_WhenPassedByPipeline()
+    {
+        var database = await this.CreateDatabaseAsync();
+
+        await database.StoreHistoryAsync(new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "custom-provider.experimental-model",
+                ProviderName = "Custom Provider Experimental",
+                RequestsUsed = 5,
+                RequestsAvailable = 100,
+                RequestsPercentage = 95,
+                IsAvailable = true,
+                Description = "Connected",
+                FetchedAt = DateTime.UtcNow,
+            },
+        });
+
+        var latest = await database.GetLatestHistoryAsync();
+        var usage = Assert.Single(
+            latest,
+            item => string.Equals(item.ProviderId, "custom-provider.experimental-model", StringComparison.Ordinal));
+        Assert.Equal("Custom Provider Experimental", usage.ProviderName);
+    }
+
+    [Fact]
     public async Task GetLatestHistoryAsync_ComputesUpstreamResponseValidity_FromHttpStatus()
     {
         var database = await this.CreateDatabaseAsync();
@@ -248,7 +339,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                         Name = "Weekly Quota",
                         Used = "14% used",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Secondary,
+                        QuotaBucketKind = WindowKind.Secondary,
                         NextResetTime = weeklyReset,
                     },
                 },

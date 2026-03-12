@@ -40,7 +40,6 @@ public partial class SettingsWindow : Window
 
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
-    private AgentProviderCapabilitiesSnapshot? _providerCapabilities;
     private AppPreferences _preferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isDeterministicScreenshotMode;
@@ -115,8 +114,7 @@ public partial class SettingsWindow : Window
             this._isDeterministicScreenshotMode = false;
 
             this._configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
-            this._usages = (await this._monitorService.GetUsageAsync().ConfigureAwait(true)).ToList();
-            this._providerCapabilities = await this._monitorService.GetProviderCapabilitiesAsync().ConfigureAwait(true);
+            this._usages = (await this.GetUsageForDisplayAsync().ConfigureAwait(true)).ToList();
 
             if (this._configs.Count == 0)
             {
@@ -162,6 +160,18 @@ public partial class SettingsWindow : Window
                     MessageBoxImage.Warning);
             }
         }
+    }
+
+    private async Task<IReadOnlyList<ProviderUsage>> GetUsageForDisplayAsync()
+    {
+        var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync().ConfigureAwait(true);
+        if (groupedSnapshot == null)
+        {
+            this._logger.LogWarning("Grouped usage snapshot is unavailable.");
+            return Array.Empty<ProviderUsage>();
+        }
+
+        return GroupedUsageDisplayAdapter.Expand(groupedSnapshot);
     }
 
 #pragma warning disable VSTHRD001 // Headless screenshot capture intentionally waits for dispatcher idle before rendering.
@@ -263,7 +273,6 @@ public partial class SettingsWindow : Window
         var fixture = SettingsWindowDeterministicFixture.Create();
         this._configs = fixture.Configs;
         this._usages = fixture.Usages;
-        this._providerCapabilities = null;
 
         this.PopulateProviders();
         this.PopulateLayoutSettings();
@@ -459,7 +468,7 @@ public partial class SettingsWindow : Window
     {
         this.ProvidersStack.Children.Clear();
 
-        var displayItems = ProviderSettingsDisplayCatalog.CreateDisplayItems(this._configs, this._usages, this._providerCapabilities);
+        var displayItems = ProviderSettingsDisplayCatalog.CreateDisplayItems(this._configs, this._usages);
         var usageByProviderId = this._usages.ToDictionary(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in displayItems)
@@ -471,7 +480,7 @@ public partial class SettingsWindow : Window
 
     private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
     {
-        var isSubItem = this.ShouldRenderAsSettingsSubItem(config.ProviderId, isDerived);
+        var isSubItem = ShouldRenderAsSettingsSubItem(config.ProviderId, isDerived);
 
         var card = new Border
         {
@@ -487,7 +496,7 @@ public partial class SettingsWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
 
-        var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived, this._providerCapabilities);
+        var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived);
         var headerPanel = this.BuildProviderHeader(config, settingsBehavior, isSubItem);
 
         grid.Children.Add(headerPanel);
@@ -503,9 +512,7 @@ public partial class SettingsWindow : Window
         Grid.SetRow(keyPanel, 1);
         grid.Children.Add(keyPanel);
 
-        var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(
-            usage,
-            this._providerCapabilities);
+        var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(usage);
 
         if (!isSubItem && subTrayDetails is { Count: > 0 })
         {
@@ -518,20 +525,14 @@ public partial class SettingsWindow : Window
 
     internal static bool ShouldRenderAsSettingsSubItem(
         string providerId,
-        bool isDerived,
-        AgentProviderCapabilitiesSnapshot? capabilities = null)
+        bool isDerived)
     {
         if (!isDerived)
         {
             return false;
         }
 
-        return ProviderCapabilityCatalog.ShouldRenderAsSettingsSubItem(providerId, capabilities);
-    }
-
-    private bool ShouldRenderAsSettingsSubItem(string providerId, bool isDerived)
-    {
-        return ShouldRenderAsSettingsSubItem(providerId, isDerived, this._providerCapabilities);
+        return ProviderCapabilityCatalog.ShouldRenderAsSettingsSubItem(providerId);
     }
 
     private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
@@ -599,8 +600,8 @@ public partial class SettingsWindow : Window
         var title = new TextBlock
         {
             Text = isDerived
-                ? $"-> {ProviderCapabilityCatalog.GetDisplayName(config.ProviderId, this._providerCapabilities)}"
-                : ProviderCapabilityCatalog.GetDisplayName(config.ProviderId, this._providerCapabilities),
+                ? $"-> {ProviderCapabilityCatalog.GetDisplayName(config.ProviderId)}"
+                : ProviderCapabilityCatalog.GetDisplayName(config.ProviderId),
             FontWeight = FontWeights.SemiBold,
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,

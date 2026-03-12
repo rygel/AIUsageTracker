@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.IO;
+using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using System.Text.Json;
@@ -23,6 +24,7 @@ public class GitHubAuthService : IGitHubAuthService
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubAuthService> _logger;
     private string? _currentToken;
+    private bool _cliTokenLookupAttempted;
 
     /// <inheritdoc/>
     public bool IsAuthenticated => !string.IsNullOrEmpty(this._currentToken);
@@ -151,6 +153,17 @@ public class GitHubAuthService : IGitHubAuthService
         }
 
         this._currentToken = TryLoadTokenFromHostsFile();
+        if (!string.IsNullOrWhiteSpace(this._currentToken))
+        {
+            return this._currentToken;
+        }
+
+        if (!this._cliTokenLookupAttempted)
+        {
+            this._cliTokenLookupAttempted = true;
+            this._currentToken = TryLoadTokenFromGhCli(this._logger);
+        }
+
         return this._currentToken;
     }
 
@@ -211,6 +224,8 @@ public class GitHubAuthService : IGitHubAuthService
             this._currentToken = token;
             this._cachedUsername = null; // Reset cache if token changes
         }
+
+        this._cliTokenLookupAttempted = false;
     }
 
     // Helper class for JSON deserialization
@@ -252,6 +267,71 @@ public class GitHubAuthService : IGitHubAuthService
         }
 
         return null;
+    }
+
+    private static string? TryLoadTokenFromGhCli(ILogger<GitHubAuthService> logger)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "gh",
+                    Arguments = "auth token",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                },
+            };
+
+            if (!process.Start())
+            {
+                logger.LogDebug("GitHub CLI token discovery failed: process did not start");
+                return null;
+            }
+
+            const int timeoutMs = 4000;
+            if (!process.WaitForExit(timeoutMs))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // Ignore kill failures; token discovery is best-effort.
+                }
+
+                logger.LogDebug("GitHub CLI token discovery timed out after {TimeoutMs}ms", timeoutMs);
+                return null;
+            }
+
+            if (process.ExitCode != 0)
+            {
+                var stderr = process.StandardError.ReadToEnd();
+                logger.LogDebug(
+                    "GitHub CLI token discovery failed with exit code {ExitCode}: {Message}",
+                    process.ExitCode,
+                    string.IsNullOrWhiteSpace(stderr) ? "no stderr" : stderr.Trim());
+                return null;
+            }
+
+            var token = process.StandardOutput.ReadToEnd().Trim();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                logger.LogDebug("GitHub CLI token discovery returned an empty token");
+                return null;
+            }
+
+            return token;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "GitHub CLI token discovery failed");
+            return null;
+        }
     }
 
     private static string? TryLoadUsernameFromHostsFile()

@@ -113,7 +113,7 @@ public class DeepSeekProvider : ProviderBase
                         Used = $"{currencySymbol}{info.TotalBalance.ToString("F2", CultureInfo.InvariantCulture)}",
                         Description = $"{currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)} (Topped-up: {currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)}, Granted: {currencySymbol}{info.GrantedBalance.ToString("F2", CultureInfo.InvariantCulture)})",
                         DetailType = ProviderUsageDetailType.Credit,
-                        WindowKind = WindowKind.None,
+                        QuotaBucketKind = WindowKind.None,
                     });
 
                     // If it's the first or a primary currency, use for main description

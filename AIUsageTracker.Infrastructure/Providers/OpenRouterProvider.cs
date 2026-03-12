@@ -197,7 +197,7 @@ public class OpenRouterProvider : ProviderBase
                             Used = string.Empty,
                             NextResetTime = nextResetTime,
                             DetailType = ProviderUsageDetailType.Other,
-                            WindowKind = WindowKind.None,
+                            QuotaBucketKind = WindowKind.None,
                         });
                     }
                     else
@@ -211,7 +211,7 @@ public class OpenRouterProvider : ProviderBase
                         Description = keyData.Data.IsFreeTier ? "Yes" : "No",
                         Used = string.Empty,
                         DetailType = ProviderUsageDetailType.Other,
-                        WindowKind = WindowKind.None,
+                        QuotaBucketKind = WindowKind.None,
                     });
                 }
                 else

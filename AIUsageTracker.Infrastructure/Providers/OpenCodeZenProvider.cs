@@ -231,7 +231,7 @@ public class OpenCodeZenProvider : ProviderBase
             Name = name,
             Description = description,
             DetailType = ProviderUsageDetailType.Other,
-            WindowKind = WindowKind.None,
+            QuotaBucketKind = WindowKind.None,
         };
     }
 

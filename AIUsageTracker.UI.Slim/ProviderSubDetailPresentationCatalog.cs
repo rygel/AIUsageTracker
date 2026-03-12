@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
@@ -12,19 +11,12 @@ internal static class ProviderSubDetailPresentationCatalog
 {
     public static IReadOnlyList<ProviderUsageDetail> GetDisplayableDetails(ProviderUsage usage)
     {
-        return GetDisplayableDetails(usage, capabilities: null);
-    }
-
-    public static IReadOnlyList<ProviderUsageDetail> GetDisplayableDetails(
-        ProviderUsage usage,
-        AgentProviderCapabilitiesSnapshot? capabilities)
-    {
         if (usage.Details?.Any() != true)
         {
             return Array.Empty<ProviderUsageDetail>();
         }
 
-        if (ProviderCapabilityCatalog.HasVisibleDerivedProviders(usage.ProviderId ?? string.Empty, capabilities))
+        if (ProviderCapabilityCatalog.HasVisibleDerivedProviders(usage.ProviderId ?? string.Empty))
         {
             return Array.Empty<ProviderUsageDetail>();
         }
@@ -91,7 +83,7 @@ internal static class ProviderSubDetailPresentationCatalog
 
     private static int GetDetailSortOrder(ProviderUsageDetail detail)
     {
-        return (detail.DetailType, detail.WindowKind) switch
+        return (detail.DetailType, detail.QuotaBucketKind) switch
         {
             (ProviderUsageDetailType.QuotaWindow, WindowKind.Primary) => 0,
             (ProviderUsageDetailType.QuotaWindow, WindowKind.Secondary) => 1,

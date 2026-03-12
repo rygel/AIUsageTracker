@@ -4,7 +4,6 @@
 
 using System.Globalization;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
@@ -13,8 +12,7 @@ internal static class ProviderCardPresentationCatalog
 {
     public static ProviderCardPresentation Create(
         ProviderUsage usage,
-        bool showUsed,
-        AgentProviderCapabilitiesSnapshot? capabilities = null)
+        bool showUsed)
     {
         var providerId = usage.ProviderId ?? string.Empty;
         var description = usage.Description ?? string.Empty;
@@ -22,9 +20,9 @@ internal static class ProviderCardPresentationCatalog
         var isConsoleCheck = description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
         var isError = description.Contains("[Error]", StringComparison.OrdinalIgnoreCase);
         var isUnknown = description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
-        var isAntigravityParent = ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId, capabilities);
+        var isAntigravityParent = ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId);
         var isStatusOnlyProvider = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
-        var hasDualWindowPresentation = ProviderDualWindowPresentationCatalog.TryGetPresentation(usage, out var dualWindowPresentation);
+        var hasDualQuotaBucketPresentation = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out var dualQuotaBucketPresentation);
         var remainingPercent = usage.IsQuotaBased
             ? usage.RequestsPercentage
             : Math.Max(0, 100 - usage.RequestsPercentage);
@@ -59,8 +57,8 @@ internal static class ProviderCardPresentationCatalog
             isUnknown,
             isAntigravityParent,
             isStatusOnlyProvider,
-            hasDualWindowPresentation,
-            dualWindowPresentation);
+            hasDualQuotaBucketPresentation,
+            dualQuotaBucketPresentation);
 
         return CreatePresentation(
             isMissing,
@@ -145,8 +143,8 @@ internal static class ProviderCardPresentationCatalog
         bool isUnknown,
         bool isAntigravityParent,
         bool isStatusOnlyProvider,
-        bool hasDualWindowPresentation,
-        ProviderDualWindowPresentation dualWindowPresentation)
+        bool hasDualQuotaBucketPresentation,
+        ProviderDualQuotaBucketPresentation dualQuotaBucketPresentation)
     {
         if (isAntigravityParent)
         {
@@ -158,9 +156,9 @@ internal static class ProviderCardPresentationCatalog
             return (GetTooltipOnlyCompactStatus(usage, description), false);
         }
 
-        if (hasDualWindowPresentation)
+        if (hasDualQuotaBucketPresentation)
         {
-            return (BuildDualWindowStatusText(dualWindowPresentation, showUsed), true);
+            return (BuildDualQuotaBucketStatusText(dualQuotaBucketPresentation, showUsed), true);
         }
 
         if (!isUnknown && !isStatusOnlyProvider && usage.IsQuotaBased)
@@ -237,13 +235,13 @@ internal static class ProviderCardPresentationCatalog
             StatusTone: statusTone);
     }
 
-    private static string BuildDualWindowStatusText(ProviderDualWindowPresentation presentation, bool showUsed)
+    private static string BuildDualQuotaBucketStatusText(ProviderDualQuotaBucketPresentation presentation, bool showUsed)
     {
-        return $"{FormatDualWindowSegment(presentation.PrimaryLabel, presentation.PrimaryUsedPercent, showUsed)} | " +
-               $"{FormatDualWindowSegment(presentation.SecondaryLabel, presentation.SecondaryUsedPercent, showUsed)}";
+        return $"{FormatDualQuotaBucketSegment(presentation.PrimaryLabel, presentation.PrimaryUsedPercent, showUsed)} | " +
+               $"{FormatDualQuotaBucketSegment(presentation.SecondaryLabel, presentation.SecondaryUsedPercent, showUsed)}";
     }
 
-    private static string FormatDualWindowSegment(string label, double usedPercent, bool showUsed)
+    private static string FormatDualQuotaBucketSegment(string label, double usedPercent, bool showUsed)
     {
         var clampedUsed = UsageMath.ClampPercent(usedPercent);
         var clampedRemaining = UsageMath.ClampPercent(100.0 - clampedUsed);

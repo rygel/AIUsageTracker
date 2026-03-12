@@ -70,11 +70,12 @@ internal static class ProviderTooltipPresentationCatalog
 
     private static int GetDetailSortOrder(ProviderUsageDetail detail)
     {
-        return (detail.DetailType, detail.WindowKind) switch
+        return (detail.DetailType, detail.QuotaBucketKind) switch
         {
             (ProviderUsageDetailType.QuotaWindow, WindowKind.Primary) => 0,
             (ProviderUsageDetailType.QuotaWindow, WindowKind.Secondary) => 1,
             (ProviderUsageDetailType.QuotaWindow, WindowKind.Spark) => 2,
+            (ProviderUsageDetailType.QuotaWindow, _) => 3,
             (ProviderUsageDetailType.Model, _) => 3,
             (ProviderUsageDetailType.Credit, _) => 4,
             _ => 5,

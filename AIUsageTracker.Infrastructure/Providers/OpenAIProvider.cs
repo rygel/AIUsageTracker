@@ -255,7 +255,7 @@ public class OpenAIProvider : ProviderBase
                 Description = reset.HasValue && reset.Value > 0 ? $"Resets in {(int)reset.Value}s" : string.Empty,
                 NextResetTime = primaryResetTime,
                 DetailType = ProviderUsageDetailType.QuotaWindow,
-                WindowKind = WindowKind.Primary,
+                QuotaBucketKind = WindowKind.Primary,
             });
         }
 
@@ -271,7 +271,7 @@ public class OpenAIProvider : ProviderBase
                 Description = weeklyReset.HasValue && weeklyReset.Value > 0 ? $"Resets in {(int)weeklyReset.Value}s" : string.Empty,
                 NextResetTime = weeklyResetTime,
                 DetailType = ProviderUsageDetailType.QuotaWindow,
-                WindowKind = WindowKind.Secondary,
+                QuotaBucketKind = WindowKind.Secondary,
             });
         }
 
@@ -284,7 +284,7 @@ public class OpenAIProvider : ProviderBase
                 Name = "Credits",
                 Used = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
                 DetailType = ProviderUsageDetailType.Credit,
-                WindowKind = WindowKind.None,
+                QuotaBucketKind = WindowKind.None,
             });
         }
 

@@ -199,8 +199,9 @@ public class GitHubCopilotProvider : ProviderBase
                 state.Description = BuildAuthenticatedDescription(state.Username, null);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            this._logger.LogDebug(ex, "Failed to resolve GitHub Copilot plan name");
             state.Description = BuildAuthenticatedDescription(state.Username, null);
         }
     }
@@ -212,7 +213,7 @@ public class GitHubCopilotProvider : ProviderBase
             return;
         }
 
-        var fallbackUsername = NormalizeUsername(await this._authService.GetUsernameAsync());
+        var fallbackUsername = NormalizeUsername(await this._authService.GetUsernameAsync().ConfigureAwait(false));
         if (!string.IsNullOrEmpty(fallbackUsername))
         {
             state.Username = fallbackUsername;
@@ -261,57 +262,148 @@ public class GitHubCopilotProvider : ProviderBase
 
             if (root.TryGetProperty("quota_snapshots", out var snapshots))
             {
-                // 1. Primary Window (Hourly/Short-term)
-                if (snapshots.TryGetProperty("usage", out var usageSnapshot) &&
-                    usageSnapshot.TryGetProperty("entitlement", out var uEntProp) &&
-                    usageSnapshot.TryGetProperty("remaining", out var uRemProp) &&
-                    uEntProp.TryGetDouble(out var uEnt) &&
-                    uRemProp.TryGetDouble(out var uRem) &&
-                    uEnt > 0)
-                {
-                    var uUsed = Math.Max(0, uEnt - uRem);
-                    var uPct = ((uEnt - uRem) / uEnt) * 100.0;
-                    state.Details.Add(new ProviderUsageDetail
-                    {
-                        Name = "5-hour Window",
-                        Used = $"{uPct:F0}% used",
-                        Description = $"{uRem:F0} / {uEnt:F0} remaining",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Primary,
-                    });
-                }
+                var selectedWindowName = string.Empty;
+                var selectedWindowEntitlement = 0.0;
+                var selectedWindowRemaining = 0.0;
+                var selectedWindowRemainingPercent = 0.0;
 
-                // 2. Secondary Window (Premium/Interaction-based)
+                // 1. Premium/interaction window is the primary top-level signal for Copilot quota.
                 if (snapshots.TryGetProperty("premium_interactions", out var premium) &&
-                    premium.TryGetProperty("entitlement", out var entitlementProp) &&
-                    premium.TryGetProperty("remaining", out var remainingProp) &&
-                    entitlementProp.TryGetDouble(out var entitlement) &&
-                    remainingProp.TryGetDouble(out var remaining) &&
-                    entitlement > 0)
+                    TryParseFiniteQuotaSnapshot(premium, out var entitlement, out var remaining, out var remainingPercent))
                 {
                     var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
-                    var used = Math.Max(0, entitlement - normalizedRemaining);
-                    state.CostLimit = entitlement;
-                    state.CostUsed = used;
-                    state.Percentage = UsageMath.CalculateRemainingPercent(used, entitlement);
-                    state.HasCopilotQuotaData = true;
+                    var usedPercent = Math.Clamp(100.0 - remainingPercent, 0.0, 100.0);
+                    selectedWindowName = "Weekly Quota";
+                    selectedWindowEntitlement = entitlement;
+                    selectedWindowRemaining = normalizedRemaining;
+                    selectedWindowRemainingPercent = remainingPercent;
 
                     state.Details.Add(new ProviderUsageDetail
                     {
                         Name = "Weekly Quota",
-                        Used = $"{100.0 - state.Percentage:F0}% used",
+                        Used = $"{usedPercent:F0}% used",
                         Description = $"{normalizedRemaining:F0} / {entitlement:F0} remaining",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Secondary,
+                        QuotaBucketKind = WindowKind.Secondary,
                         NextResetTime = state.ResetTime,
                     });
                 }
+
+                // 2. Usage/session window is supplementary when present.
+                if (snapshots.TryGetProperty("usage", out var usageSnapshot) &&
+                    TryParseFiniteQuotaSnapshot(usageSnapshot, out var uEnt, out var uRem, out var uRemainingPercent))
+                {
+                    var normalizedRemaining = Math.Clamp(uRem, 0, uEnt);
+                    var uUsedPercent = Math.Clamp(100.0 - uRemainingPercent, 0.0, 100.0);
+                    if (string.IsNullOrEmpty(selectedWindowName))
+                    {
+                        selectedWindowName = "5-hour Window";
+                        selectedWindowEntitlement = uEnt;
+                        selectedWindowRemaining = normalizedRemaining;
+                        selectedWindowRemainingPercent = uRemainingPercent;
+                    }
+
+                    state.Details.Add(new ProviderUsageDetail
+                    {
+                        Name = "5-hour Window",
+                        Used = $"{uUsedPercent:F0}% used",
+                        Description = $"{normalizedRemaining:F0} / {uEnt:F0} remaining",
+                        DetailType = ProviderUsageDetailType.QuotaWindow,
+                        QuotaBucketKind = WindowKind.Primary,
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(selectedWindowName))
+                {
+                    ApplyQuotaWindowSnapshot(
+                        state,
+                        selectedWindowName,
+                        selectedWindowEntitlement,
+                        selectedWindowRemaining,
+                        selectedWindowRemainingPercent);
+                }
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Continue with fallback sources.
+            this._logger.LogDebug(ex, "Failed to parse GitHub Copilot quota snapshot");
         }
+    }
+
+    private static bool TryParseFiniteQuotaSnapshot(
+        System.Text.Json.JsonElement snapshot,
+        out double entitlement,
+        out double remaining,
+        out double remainingPercent)
+    {
+        entitlement = 0;
+        remaining = 0;
+        remainingPercent = 0;
+
+        if (snapshot.TryGetProperty("unlimited", out var unlimitedProp) &&
+            unlimitedProp.ValueKind == System.Text.Json.JsonValueKind.True)
+        {
+            return false;
+        }
+
+        if (!snapshot.TryGetProperty("entitlement", out var entitlementProp) ||
+            !entitlementProp.TryGetDouble(out entitlement) ||
+            entitlement <= 0)
+        {
+            return false;
+        }
+
+        if (snapshot.TryGetProperty("quota_remaining", out var quotaRemainingProp) &&
+            quotaRemainingProp.TryGetDouble(out var quotaRemaining))
+        {
+            remaining = quotaRemaining;
+        }
+        else if (snapshot.TryGetProperty("remaining", out var remainingProp) &&
+                 remainingProp.TryGetDouble(out var remainingValue))
+        {
+            remaining = remainingValue;
+        }
+        else
+        {
+            remaining = entitlement;
+        }
+
+        remaining = Math.Clamp(remaining, 0, entitlement);
+
+        if (snapshot.TryGetProperty("percent_remaining", out var remainingPercentProp) &&
+            remainingPercentProp.TryGetDouble(out var parsedRemainingPercent))
+        {
+            remainingPercent = Math.Clamp(parsedRemainingPercent, 0, 100);
+        }
+        else
+        {
+            var used = Math.Max(0, entitlement - remaining);
+            remainingPercent = UsageMath.CalculateRemainingPercent(used, entitlement);
+        }
+
+        return true;
+    }
+
+    private static void ApplyQuotaWindowSnapshot(
+        CopilotUsageState state,
+        string windowName,
+        double entitlement,
+        double remaining,
+        double remainingPercent)
+    {
+        if (entitlement <= 0)
+        {
+            return;
+        }
+
+        var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
+        var used = Math.Max(0, entitlement - normalizedRemaining);
+        var normalizedRemainingPercent = Math.Clamp(remainingPercent, 0, 100);
+        state.HasCopilotQuotaData = true;
+        state.CostLimit = entitlement;
+        state.CostUsed = used;
+        state.Percentage = normalizedRemainingPercent;
+        state.PrimaryQuotaWindowName = windowName;
     }
 
     private ProviderUsage BuildUsageResult(CopilotUsageState state)
@@ -341,7 +433,7 @@ public class GitHubCopilotProvider : ProviderBase
     {
         if (state.HasCopilotQuotaData)
         {
-            var description = $"Premium Requests: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
+            var description = $"{state.PrimaryQuotaWindowName}: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
             if (!string.IsNullOrEmpty(state.PlanName))
             {
                 description += $" ({state.PlanName})";
@@ -350,7 +442,7 @@ public class GitHubCopilotProvider : ProviderBase
             return description;
         }
 
-        return state.Description;
+        return $"{state.Description} (quota unknown)";
     }
 
     private static bool HasMeaningfulUsername(string? username)
@@ -389,6 +481,10 @@ public class GitHubCopilotProvider : ProviderBase
     {
         return plan switch
         {
+            "individual" => "Copilot Individual",
+            "business" => "Copilot Business",
+            "enterprise" => "Copilot Enterprise",
+            "free" => "Copilot Free",
             "copilot_individual" => "Copilot Individual",
             "copilot_business" => "Copilot Business",
             "copilot_enterprise" => "Copilot Enterprise",
@@ -416,6 +512,8 @@ public class GitHubCopilotProvider : ProviderBase
         public double CostLimit { get; set; }
 
         public bool HasCopilotQuotaData { get; set; }
+
+        public string PrimaryQuotaWindowName { get; set; } = "Quota";
 
         public List<ProviderUsageDetail>? Details { get; set; }
 

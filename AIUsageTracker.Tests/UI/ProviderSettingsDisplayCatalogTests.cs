@@ -3,7 +3,6 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
@@ -152,7 +151,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
     }
 
     [Fact]
-    public void CreateDisplayItems_UsesProviderMetadata_WhenSnapshotTriesToHideProvider()
+    public void CreateDisplayItems_UsesProviderMetadata_ForSettingsVisibility()
     {
         var configs = new List<ProviderConfig>
         {
@@ -160,30 +159,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "codex.spark" },
         };
 
-        var capabilities = new AgentProviderCapabilitiesSnapshot
-        {
-            Providers =
-            [
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "codex",
-                    DisplayName = "OpenAI (Codex)",
-                    SupportsChildProviderIds = false,
-                    ShowInSettings = true,
-                    HandledProviderIds = ["codex"],
-                },
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "codex.spark",
-                    DisplayName = "Codex Spark",
-                    SupportsChildProviderIds = false,
-                    ShowInSettings = false,
-                    HandledProviderIds = ["codex.spark"],
-                },
-            ],
-        };
-
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>(), capabilities);
+        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));

@@ -73,11 +73,6 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null)
     {
-        if (!ProviderMetadataCatalog.ShouldPersistProviderId(config.ProviderId))
-        {
-            return;
-        }
-
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -125,8 +120,9 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
     {
-        var validUsages = usages.Where(u =>
-            ProviderMetadataCatalog.ShouldPersistProviderId(u.ProviderId)).ToList();
+        var validUsages = usages
+            .Where(u => !string.IsNullOrWhiteSpace(u.ProviderId))
+            .ToList();
 
         if (!validUsages.Any())
         {
@@ -332,9 +328,6 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY h.provider_id";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
-            results = results
-                .Where(usage => ProviderMetadataCatalog.ShouldPersistProviderId(usage.ProviderId))
-                .ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -478,9 +471,20 @@ public class UsageDatabase : IUsageDatabase
                 .Where(detail => detail != null)
                 .Select(BuildDetailMergeKey)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var allowedDetailTypes = currentDetails
+                .Where(detail => detail != null)
+                .Select(detail => detail.DetailType)
+                .Distinct()
+                .ToHashSet();
 
             foreach (var snapshot in recentDetails.Values.OrderByDescending(x => x.FetchedAtUtc))
             {
+                if (allowedDetailTypes.Count > 0 &&
+                    !allowedDetailTypes.Contains(snapshot.Detail.DetailType))
+                {
+                    continue;
+                }
+
                 var key = BuildDetailMergeKey(snapshot.Detail);
                 if (currentKeys.Contains(key))
                 {
@@ -535,7 +539,7 @@ public class UsageDatabase : IUsageDatabase
 
     private static string BuildDetailMergeKey(ProviderUsageDetail detail)
     {
-        return $"{detail.DetailType}|{detail.WindowKind}|{detail.Name.Trim()}|{detail.ModelName.Trim()}|{detail.GroupName.Trim()}";
+        return $"{detail.DetailType}|{detail.QuotaBucketKind}|{detail.Name.Trim()}|{detail.ModelName.Trim()}|{detail.GroupName.Trim()}";
     }
 
     private static ProviderUsageDetail CloneDetail(ProviderUsageDetail source)
@@ -549,7 +553,7 @@ public class UsageDatabase : IUsageDatabase
             Description = source.Description,
             NextResetTime = source.NextResetTime,
             DetailType = source.DetailType,
-            WindowKind = source.WindowKind,
+            QuotaBucketKind = source.QuotaBucketKind,
         };
     }
 
@@ -598,9 +602,6 @@ public class UsageDatabase : IUsageDatabase
                 LIMIT {limit}";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
-            results = results
-                .Where(usage => ProviderMetadataCatalog.ShouldPersistProviderId(usage.ProviderId))
-                .ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -653,9 +654,6 @@ public class UsageDatabase : IUsageDatabase
                 LIMIT {limit}";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
-            results = results
-                .Where(usage => ProviderMetadataCatalog.ShouldPersistProviderId(usage.ProviderId))
-                .ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -800,3 +798,4 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 }
+

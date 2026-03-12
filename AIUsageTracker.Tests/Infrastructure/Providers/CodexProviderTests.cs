@@ -124,8 +124,8 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             Assert.Equal("user@example.com", usage.AccountName);
             Assert.Equal(75.0, usage.RequestsPercentage);
             Assert.NotNull(usage.Details);
-            Assert.Contains(usage.Details, d => d.WindowKind == WindowKind.Primary);
-            Assert.Contains(usage.Details, d => d.WindowKind == WindowKind.Secondary);
+            Assert.Contains(usage.Details, d => d.QuotaBucketKind == WindowKind.Primary);
+            Assert.Contains(usage.Details, d => d.QuotaBucketKind == WindowKind.Secondary);
         }
         finally
         {
@@ -134,7 +134,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_PrefersSparkSpecificAdditionalRateLimit_WhenMultipleCandidatesExist()
+    public async Task GetUsageAsync_PrefersSparkSpecificAdditionalRateLimit_InParentDetails_WhenMultipleCandidatesExist()
     {
         var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-window");
         var authPath = Path.Combine(tempDir, "auth.json");
@@ -187,9 +187,13 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var spark = Assert.Single(usages.Where(usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal)));
-            Assert.Equal(60, spark.RequestsPercentage);
-            Assert.Equal(40, spark.RequestsUsed);
+            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
+            Assert.DoesNotContain(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
+            Assert.NotNull(parent.Details);
+            Assert.Contains(
+                parent.Details!,
+                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                          detail.Name.Contains("Spark", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -198,7 +202,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_ParsesSparkPrimaryAndSecondaryWindows()
+    public async Task GetUsageAsync_ParsesSparkPrimaryAndSecondaryWindows_InParentDetails()
     {
         var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-secondary-window");
         var authPath = Path.Combine(tempDir, "auth.json");
@@ -243,14 +247,21 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var spark = Assert.Single(usages.Where(usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal)));
-
-            Assert.Equal(60, spark.RequestsPercentage);
-            Assert.Equal(40, spark.RequestsUsed);
-            Assert.NotNull(spark.Details);
-            Assert.Contains(spark.Details!, detail => detail.WindowKind == WindowKind.Primary && detail.DetailType == ProviderUsageDetailType.QuotaWindow);
-            Assert.Contains(spark.Details!, detail => detail.WindowKind == WindowKind.Secondary && detail.DetailType == ProviderUsageDetailType.QuotaWindow);
-            Assert.Contains("Weekly: 75% used", spark.Description, StringComparison.Ordinal);
+            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
+            Assert.DoesNotContain(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
+            Assert.NotNull(parent.Details);
+            Assert.Contains(
+                parent.Details!,
+                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                          detail.Name.Contains("Spark", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(
+                parent.Details!,
+                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                          detail.Name == "5-hour quota");
+            Assert.Contains(
+                parent.Details!,
+                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                          detail.Name == "Weekly quota");
         }
         finally
         {

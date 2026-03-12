@@ -2,6 +2,9 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.ComponentModel;
+using System.Text.Json.Serialization;
+
 namespace AIUsageTracker.Core.Models;
 
 public class ProviderUsageDetail
@@ -20,16 +23,36 @@ public class ProviderUsageDetail
 
     public ProviderUsageDetailType DetailType { get; set; } = ProviderUsageDetailType.Unknown;
 
-    public WindowKind WindowKind { get; set; } = WindowKind.None;
+    [JsonPropertyName("window_kind")]
+    public WindowKind QuotaBucketKind { get; set; } = WindowKind.None;
+
+    [JsonIgnore]
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    [Obsolete("Use QuotaBucketKind.")]
+    public WindowKind WindowKind
+    {
+        get => this.QuotaBucketKind;
+        set => this.QuotaBucketKind = value;
+    }
 
     public bool IsPrimaryQuotaDetail()
     {
-        return this.DetailType == ProviderUsageDetailType.QuotaWindow && this.WindowKind == WindowKind.Primary;
+        return this.IsPrimaryQuotaBucket();
     }
 
     public bool IsSecondaryQuotaDetail()
     {
-        return this.DetailType == ProviderUsageDetailType.QuotaWindow && this.WindowKind == WindowKind.Secondary;
+        return this.IsSecondaryQuotaBucket();
+    }
+
+    public bool IsPrimaryQuotaBucket()
+    {
+        return this.DetailType == ProviderUsageDetailType.QuotaWindow && this.QuotaBucketKind == WindowKind.Primary;
+    }
+
+    public bool IsSecondaryQuotaBucket()
+    {
+        return this.DetailType == ProviderUsageDetailType.QuotaWindow && this.QuotaBucketKind == WindowKind.Secondary;
     }
 
     public bool IsWindowQuotaDetail()

@@ -4,7 +4,6 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
@@ -17,8 +16,8 @@ internal static class MonitorUsageEndpoints
     public static void Map(WebApplication app)
     {
         MapGetUsage(app);
+        MapGetGroupedUsage(app);
         MapGetUsageByProvider(app);
-        MapGetProviderCapabilities(app);
         MapPostRefresh(app);
         MapPostNotificationTest(app);
     }
@@ -38,6 +37,22 @@ internal static class MonitorUsageEndpoints
         });
     }
 
+    private static void MapGetGroupedUsage(WebApplication app)
+    {
+        app.MapGet(MonitorApiRoutes.UsageGrouped, async (UsageDatabase db, ILogger<Program> logger) =>
+        {
+            var usage = await db.GetLatestHistoryAsync().ConfigureAwait(false);
+            var snapshot = GroupedUsageProjectionService.Build(usage);
+
+            logger.LogDebug(
+                "GET {Route} returning {Count} grouped providers",
+                MonitorApiRoutes.UsageGrouped,
+                snapshot.Providers.Count);
+
+            return Results.Ok(snapshot);
+        });
+    }
+
     private static void MapGetUsageByProvider(WebApplication app)
     {
         app.MapGet(MonitorApiRoutes.UsageByProviderTemplate, async (string providerId, UsageDatabase db, ILogger<Program> logger) =>
@@ -51,41 +66,6 @@ internal static class MonitorUsageEndpoints
             var usage = await db.GetHistoryByProviderAsync(providerId, 1).ConfigureAwait(false);
             var result = usage.FirstOrDefault();
             return result != null ? Results.Ok(result) : Results.NotFound();
-        });
-    }
-
-    private static void MapGetProviderCapabilities(WebApplication app)
-    {
-        app.MapGet(MonitorApiRoutes.ProviderCapabilities, (ILogger<Program> logger) =>
-        {
-            var providers = ProviderMetadataCatalog.Definitions
-                .Select(definition => new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = definition.ProviderId,
-                    DisplayName = definition.DisplayName,
-                    SupportsChildProviderIds = definition.SupportsChildProviderIds,
-                    SupportsAccountIdentity = definition.SupportsAccountIdentity,
-                    ShowInSettings = definition.ShowInSettings,
-                    CollapseDerivedChildrenInMainWindow = definition.CollapseDerivedChildrenInMainWindow,
-                    RenderAggregateDetailsInMainWindow = ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(definition.ProviderId),
-                    HandledProviderIds = definition.HandledProviderIds.ToArray(),
-                    VisibleDerivedProviderIds = definition.VisibleDerivedProviderIds.ToArray(),
-                    SettingsAdditionalProviderIds = definition.SettingsAdditionalProviderIds.ToArray(),
-                })
-                .OrderBy(item => item.ProviderId, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            logger.LogDebug(
-                "GET {Route} returning {Count} capability definitions",
-                MonitorApiRoutes.ProviderCapabilities,
-                providers.Count);
-
-            return Results.Ok(new AgentProviderCapabilitiesSnapshot
-            {
-                ContractVersion = MonitorApiContract.CurrentVersion,
-                GeneratedAtUtc = DateTime.UtcNow,
-                Providers = providers,
-            });
         });
     }
 

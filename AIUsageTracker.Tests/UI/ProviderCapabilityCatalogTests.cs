@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
@@ -10,31 +9,9 @@ namespace AIUsageTracker.Tests.UI;
 public sealed class ProviderCapabilityCatalogTests
 {
     [Fact]
-    public void ShouldShowInSettings_UsesProviderMetadata_WhenSnapshotTriesToOverride()
+    public void ShouldShowInSettings_UsesProviderMetadata()
     {
-        var snapshot = new AgentProviderCapabilitiesSnapshot
-        {
-            Providers =
-            [
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "codex",
-                    DisplayName = "OpenAI (Codex)",
-                    ShowInSettings = false,
-                    HandledProviderIds = ["codex"],
-                },
-            ],
-        };
-
-        var result = ProviderCapabilityCatalog.ShouldShowInSettings("codex", snapshot);
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void ShouldShowInSettings_UsesProviderMetadata_WhenSnapshotMissing()
-    {
-        var result = ProviderCapabilityCatalog.ShouldShowInSettings("codex", snapshot: null);
+        var result = ProviderCapabilityCatalog.ShouldShowInSettings("codex");
 
         Assert.True(result);
     }
@@ -43,31 +20,15 @@ public sealed class ProviderCapabilityCatalogTests
     public void GetCanonicalProviderId_UsesProviderMetadata()
     {
         var canonical = ProviderCapabilityCatalog.GetCanonicalProviderId(
-            "antigravity.gpt-5",
-            snapshot: null);
+            "antigravity.gpt-5");
 
         Assert.Equal("antigravity", canonical);
     }
 
     [Fact]
-    public void GetDefaultSettingsProviderIds_UsesProviderMetadata_WhenSnapshotProvided()
+    public void GetDefaultSettingsProviderIds_UsesProviderMetadata()
     {
-        var snapshot = new AgentProviderCapabilitiesSnapshot
-        {
-            Providers =
-            [
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "codex",
-                    DisplayName = "OpenAI (Codex)",
-                    ShowInSettings = true,
-                    HandledProviderIds = ["codex"],
-                    SettingsAdditionalProviderIds = ["codex.spark"],
-                },
-            ],
-        };
-
-        var providerIds = ProviderCapabilityCatalog.GetDefaultSettingsProviderIds(snapshot);
+        var providerIds = ProviderCapabilityCatalog.GetDefaultSettingsProviderIds();
 
         Assert.Contains("codex", providerIds);
         Assert.Contains("codex.spark", providerIds);
@@ -76,24 +37,9 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void GetDisplayName_PreservesDerivedProviderName_WhenProvided()
     {
-        var snapshot = new AgentProviderCapabilitiesSnapshot
-        {
-            Providers =
-            [
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "antigravity",
-                    DisplayName = "Google Antigravity",
-                    SupportsChildProviderIds = true,
-                    HandledProviderIds = ["antigravity"],
-                },
-            ],
-        };
-
         var result = ProviderCapabilityCatalog.GetDisplayName(
             "antigravity.gpt-oss",
-            "GPT OSS (Anti-Gravity)",
-            snapshot);
+            "GPT OSS (Anti-Gravity)");
 
         Assert.Equal("GPT OSS (Anti-Gravity)", result);
     }
@@ -103,37 +49,15 @@ public sealed class ProviderCapabilityCatalogTests
     {
         var result = ProviderCapabilityCatalog.GetDisplayName(
             "gemini-cli.minute",
-            "Gemini 2.5 Flash Lite [Gemini CLI]",
-            snapshot: null);
+            "Gemini 2.5 Flash Lite [Gemini CLI]");
 
         Assert.Equal("Gemini 2.5 Flash Lite [Gemini CLI]", result);
     }
 
     [Fact]
-    public void SupportsAccountIdentity_UsesProviderMetadata_WhenSnapshotTriesToOverride()
+    public void SupportsAccountIdentity_UsesProviderMetadata()
     {
-        var snapshot = new AgentProviderCapabilitiesSnapshot
-        {
-            Providers =
-            [
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "github-copilot",
-                    SupportsAccountIdentity = false,
-                    HandledProviderIds = ["github-copilot"],
-                },
-            ],
-        };
-
-        var result = ProviderCapabilityCatalog.SupportsAccountIdentity("github-copilot", snapshot);
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void SupportsAccountIdentity_UsesProviderMetadata_WhenSnapshotMissing()
-    {
-        var result = ProviderCapabilityCatalog.SupportsAccountIdentity("github-copilot", snapshot: null);
+        var result = ProviderCapabilityCatalog.SupportsAccountIdentity("github-copilot");
 
         Assert.True(result);
     }

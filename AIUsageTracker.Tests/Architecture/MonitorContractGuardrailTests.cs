@@ -44,13 +44,50 @@ public class MonitorContractGuardrailTests
     }
 
     [Fact]
-    public void MonitorUsageEndpoints_ExposeSharedProviderCapabilitiesRoute()
+    public void MonitorUsageEndpoints_DoNotExposeLegacyProviderCapabilitiesRoute()
     {
         var endpointPath = GetRepoPath("AIUsageTracker.Monitor", "Endpoints", "MonitorUsageEndpoints.cs");
         var source = File.ReadAllText(endpointPath);
 
-        Assert.Contains("MonitorApiRoutes.ProviderCapabilities", source, StringComparison.Ordinal);
-        Assert.Contains("AgentProviderCapabilitiesSnapshot", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MonitorApiRoutes.ProviderCapabilities", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AgentProviderCapabilitiesSnapshot", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MonitorOpenApi_DoesNotExposeLegacyProviderCapabilitiesRoute()
+    {
+        var openApiPath = GetRepoPath("AIUsageTracker.Monitor", "openapi.yaml");
+        var source = File.ReadAllText(openApiPath);
+
+        Assert.DoesNotContain("/api/providers/capabilities", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AgentProviderCapabilitiesSnapshot", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MonitorClientContract_DoesNotExposeLegacyProviderCapabilitiesApi()
+    {
+        var monitorClientContractPath = GetRepoPath("AIUsageTracker.Core", "Interfaces", "IMonitorService.cs");
+        var source = File.ReadAllText(monitorClientContractPath);
+
+        Assert.DoesNotContain("GetProviderCapabilitiesAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GroupedUsageProjection_DoesNotUseDerivedProviderRowsAsModelFallback()
+    {
+        var projectionPath = GetRepoPath("AIUsageTracker.Monitor", "Services", "GroupedUsageProjectionService.cs");
+        var source = File.ReadAllText(projectionPath);
+
+        Assert.DoesNotContain("BuildModelsFromDerivedProviderRows", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UsageDatabase_DoesNotApplyProviderPersistenceFiltering()
+    {
+        var usageDatabasePath = GetRepoPath("AIUsageTracker.Monitor", "Services", "UsageDatabase.cs");
+        var source = File.ReadAllText(usageDatabasePath);
+
+        Assert.DoesNotContain("ShouldPersistProviderId(", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoPath(params string[] segments)

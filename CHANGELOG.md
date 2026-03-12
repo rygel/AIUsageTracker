@@ -2,12 +2,10 @@
 
 ## [Unreleased]
 
-### Added
-- **Monitor Capability Contract**: Added `/api/providers/capabilities` so the Monitor publishes provider visibility/grouping capabilities as a runtime contract for UI consumers.
-
 ### Changed
-- **Slim UI Capability Consumption**: Main window and settings now consume Monitor-published provider capabilities for display/grouping behavior, with metadata fallback when the endpoint is unavailable.
-- **Contract Guardrails**: Added regression tests covering route stability, monitor-client parsing, capability-policy behavior, and UI grouping/settings consumption paths.
+- **Metadata-Only Provider Catalog**: Slim UI provider capability decisions are now sourced directly from `ProviderMetadataCatalog`; snapshot-based overrides and dead capability wiring were removed.
+- **Monitor Contract Simplification**: Removed the unused `/api/providers/capabilities` endpoint, deleted its client/server DTOs, and pruned route/client contract surface accordingly.
+- **Contract Guardrails**: Updated architecture guardrails to enforce grouped-usage consumption and prevent reintroduction of legacy provider-capability snapshot flows.
 
 ## [2.2.28-beta.27] - 2026-03-11
 

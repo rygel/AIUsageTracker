@@ -52,6 +52,18 @@ paths:
                 items:
                   $ref: "#/components/schemas/ProviderUsage"
 
+  /api/usage/grouped:
+    get:
+      summary: Latest usage grouped by provider with nested model rows
+      operationId: getGroupedUsage
+      responses:
+        "200":
+          description: Canonical grouped provider usage snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupedUsageSnapshot"
+
   /api/usage/{providerId}:
     get:
       summary: Latest usage for a specific provider
@@ -71,18 +83,6 @@ paths:
                 $ref: "#/components/schemas/ProviderUsage"
         "404":
           description: Provider not found
-
-  /api/providers/capabilities:
-    get:
-      summary: Provider capability contract for UI consumers
-      operationId: getProviderCapabilities
-      responses:
-        "200":
-          description: Provider capability snapshot
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ProviderCapabilitiesSnapshot"
 
   /api/refresh:
     post:
@@ -547,48 +547,133 @@ components:
         - is_available
         - description
 
-    ProviderCapabilityDefinition:
+    GroupedModelUsage:
+      type: object
+      properties:
+        model_id:
+          type: string
+        model_name:
+          type: string
+        used_percentage:
+          type: number
+          format: double
+          nullable: true
+        remaining_percentage:
+          type: number
+          format: double
+          nullable: true
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+        effective_used_percentage:
+          type: number
+          format: double
+          nullable: true
+        effective_remaining_percentage:
+          type: number
+          format: double
+          nullable: true
+        effective_next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        effective_description:
+          type: string
+          nullable: true
+        quota_buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupedQuotaBucketUsage"
+      required:
+        - model_id
+        - model_name
+        - description
+        - quota_buckets
+
+    GroupedQuotaBucketUsage:
+      type: object
+      properties:
+        bucket_id:
+          type: string
+        bucket_name:
+          type: string
+        used_percentage:
+          type: number
+          format: double
+          nullable: true
+        remaining_percentage:
+          type: number
+          format: double
+          nullable: true
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+      required:
+        - bucket_id
+        - bucket_name
+        - description
+
+    GroupedProviderUsage:
       type: object
       properties:
         provider_id:
           type: string
-        display_name:
+        provider_name:
           type: string
-        supports_child_provider_ids:
+        account_name:
+          type: string
+        is_available:
           type: boolean
-        supports_account_identity:
+        plan_type:
+          $ref: "#/components/schemas/PlanType"
+        is_quota_based:
           type: boolean
-        show_in_settings:
-          type: boolean
-        collapse_derived_children_in_main_window:
-          type: boolean
-        render_aggregate_details_in_main_window:
-          type: boolean
-        handled_provider_ids:
+        requests_used:
+          type: number
+          format: double
+        requests_available:
+          type: number
+          format: double
+        requests_percentage:
+          type: number
+          format: double
+        description:
+          type: string
+        fetched_at:
+          type: string
+          format: date-time
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        model_count:
+          type: integer
+        models:
           type: array
           items:
-            type: string
-        visible_derived_provider_ids:
-          type: array
-          items:
-            type: string
-        settings_additional_provider_ids:
-          type: array
-          items:
-            type: string
+            $ref: "#/components/schemas/GroupedModelUsage"
       required:
         - provider_id
-        - display_name
-        - supports_child_provider_ids
-        - supports_account_identity
-        - show_in_settings
-        - collapse_derived_children_in_main_window
-        - render_aggregate_details_in_main_window
-        - handled_provider_ids
-        - visible_derived_provider_ids
-        - settings_additional_provider_ids
+        - provider_name
+        - account_name
+        - is_available
+        - plan_type
+        - is_quota_based
+        - requests_used
+        - requests_available
+        - requests_percentage
+        - description
+        - fetched_at
+        - model_count
+        - models
 
-    ProviderCapabilitiesSnapshot:
+    GroupedUsageSnapshot:
       type: object
       properties:
         contract_version:
@@ -599,7 +684,7 @@ components:
         providers:
           type: array
           items:
-            $ref: "#/components/schemas/ProviderCapabilityDefinition"
+            $ref: "#/components/schemas/GroupedProviderUsage"
       required:
         - contract_version
         - generated_at_utc

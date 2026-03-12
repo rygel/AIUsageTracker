@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
@@ -15,8 +14,7 @@ public sealed class ProviderAccountDisplayCatalogTests
         var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
             providerId: "github-copilot",
             usageAccountName: "actual-gh-user",
-            isPrivacyMode: false,
-            capabilities: null);
+            isPrivacyMode: false);
 
         Assert.Equal("actual-gh-user", result);
     }
@@ -27,8 +25,7 @@ public sealed class ProviderAccountDisplayCatalogTests
         var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
             providerId: "github-copilot",
             usageAccountName: null,
-            isPrivacyMode: false,
-            capabilities: null);
+            isPrivacyMode: false);
 
         Assert.Equal(string.Empty, result);
     }
@@ -39,8 +36,7 @@ public sealed class ProviderAccountDisplayCatalogTests
         var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
             providerId: "synthetic",
             usageAccountName: "should-not-render",
-            isPrivacyMode: false,
-            capabilities: null);
+            isPrivacyMode: false);
 
         Assert.Equal(string.Empty, result);
     }
@@ -51,35 +47,19 @@ public sealed class ProviderAccountDisplayCatalogTests
         var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
             providerId: "github-copilot",
             usageAccountName: "github-user@example.com",
-            isPrivacyMode: true,
-            capabilities: null);
+            isPrivacyMode: true);
 
         Assert.NotEqual("github-user@example.com", result);
         Assert.Contains("@", result, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ResolveDisplayAccountName_UsesProviderMetadata_ForIdentitySupport()
+    public void ResolveDisplayAccountName_DoesNotInferIdentitySupport_ForUnknownDerivedId()
     {
-        var snapshot = new AgentProviderCapabilitiesSnapshot
-        {
-            Providers =
-            [
-                new AgentProviderCapabilityDefinition
-                {
-                    ProviderId = "github-copilot",
-                    SupportsAccountIdentity = true,
-                    SupportsChildProviderIds = true,
-                    HandledProviderIds = ["github-copilot"],
-                },
-            ],
-        };
-
         var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
             providerId: "github-copilot.enterprise",
             usageAccountName: "octocat",
-            isPrivacyMode: false,
-            snapshot);
+            isPrivacyMode: false);
 
         Assert.Equal(string.Empty, result);
     }

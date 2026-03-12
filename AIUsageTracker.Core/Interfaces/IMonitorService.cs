@@ -19,6 +19,8 @@ public interface IMonitorService
 
     Task<IReadOnlyList<ProviderUsage>> GetUsageAsync();
 
+    Task<AgentGroupedUsageSnapshot?> GetGroupedUsageAsync();
+
     Task<ProviderUsage?> GetUsageByProviderAsync(string providerId);
 
     Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100);
@@ -28,8 +30,6 @@ public interface IMonitorService
     Task<bool> TriggerRefreshAsync();
 
     Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync();
-
-    Task<AgentProviderCapabilitiesSnapshot?> GetProviderCapabilitiesAsync();
 
     Task<bool> SaveConfigAsync(ProviderConfig config);
 

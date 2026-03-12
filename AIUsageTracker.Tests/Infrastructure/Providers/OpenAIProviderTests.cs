@@ -104,8 +104,8 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
 
         // Regression test for Dual Progress Bars
         Assert.NotNull(usage.Details);
-        var primary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Primary);
-        var secondary = usage.Details.FirstOrDefault(d => d.WindowKind == WindowKind.Secondary);
+        var primary = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Primary);
+        var secondary = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Secondary);
 
         Assert.NotNull(primary);
         Assert.Equal("5-hour quota", primary.Name);
