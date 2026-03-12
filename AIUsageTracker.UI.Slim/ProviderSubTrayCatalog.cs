@@ -2,9 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Text.RegularExpressions;
-
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -12,7 +11,19 @@ internal static class ProviderSubTrayCatalog
 {
     public static IReadOnlyList<ProviderUsageDetail> GetEligibleDetails(ProviderUsage? usage)
     {
+        return GetEligibleDetails(usage, capabilities: null);
+    }
+
+    public static IReadOnlyList<ProviderUsageDetail> GetEligibleDetails(
+        ProviderUsage? usage,
+        AgentProviderCapabilitiesSnapshot? capabilities)
+    {
         if (usage?.Details == null)
+        {
+            return Array.Empty<ProviderUsageDetail>();
+        }
+
+        if (ProviderCapabilityCatalog.HasVisibleDerivedProviders(usage.ProviderId ?? string.Empty, capabilities))
         {
             return Array.Empty<ProviderUsageDetail>();
         }
@@ -35,17 +46,7 @@ internal static class ProviderSubTrayCatalog
             return false;
         }
 
-        if (detail.DetailType != ProviderUsageDetailType.Model && detail.DetailType != ProviderUsageDetailType.Other)
-        {
-            return false;
-        }
-
-        var match = Regex.Match(
-            detail.Used ?? string.Empty,
-            @"(?<percent>\d+(\.\d+)?)\s*%",
-            RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture,
-            TimeSpan.FromSeconds(1));
-        return match.Success &&
-               double.TryParse(match.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out _);
+        return detail.DetailType == ProviderUsageDetailType.Model ||
+               detail.DetailType == ProviderUsageDetailType.Other;
     }
 }

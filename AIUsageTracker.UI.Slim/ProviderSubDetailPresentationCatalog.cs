@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -10,7 +11,19 @@ internal static class ProviderSubDetailPresentationCatalog
 {
     public static IReadOnlyList<ProviderUsageDetail> GetDisplayableDetails(ProviderUsage usage)
     {
+        return GetDisplayableDetails(usage, capabilities: null);
+    }
+
+    public static IReadOnlyList<ProviderUsageDetail> GetDisplayableDetails(
+        ProviderUsage usage,
+        AgentProviderCapabilitiesSnapshot? capabilities)
+    {
         if (usage.Details?.Any() != true)
+        {
+            return Array.Empty<ProviderUsageDetail>();
+        }
+
+        if (ProviderCapabilityCatalog.HasVisibleDerivedProviders(usage.ProviderId ?? string.Empty, capabilities))
         {
             return Array.Empty<ProviderUsageDetail>();
         }

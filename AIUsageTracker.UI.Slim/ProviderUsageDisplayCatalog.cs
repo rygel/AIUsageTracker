@@ -36,11 +36,12 @@ internal static class ProviderUsageDisplayCatalog
         }
 
         return parentUsage.Details
-            .Where(detail => !string.IsNullOrWhiteSpace(detail.Name) && !detail.Name.StartsWith("[", StringComparison.Ordinal))
-            .GroupBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(detail => new { Detail = detail, ModelDisplayName = ResolveAntigravityModelDisplayName(detail) })
+            .Where(x => !string.IsNullOrWhiteSpace(x.ModelDisplayName) && !x.ModelDisplayName.StartsWith("[", StringComparison.Ordinal))
+            .GroupBy(x => x.ModelDisplayName, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
-            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(detail => CreateAntigravityModelUsage(detail, parentUsage))
+            .OrderBy(x => x.ModelDisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(x => CreateAntigravityModelUsage(x.Detail, x.ModelDisplayName, parentUsage))
             .ToList();
     }
 
@@ -78,7 +79,10 @@ internal static class ProviderUsageDisplayCatalog
         return ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(usage.ProviderId ?? string.Empty, capabilities);
     }
 
-    private static ProviderUsage CreateAntigravityModelUsage(ProviderUsageDetail detail, ProviderUsage parentUsage)
+    private static ProviderUsage CreateAntigravityModelUsage(
+        ProviderUsageDetail detail,
+        string modelDisplayName,
+        ProviderUsage parentUsage)
     {
         var remainingPercent = UsageMath.ParsePercent(detail.Used);
         var hasRemainingPercent = remainingPercent.HasValue;
@@ -86,8 +90,8 @@ internal static class ProviderUsageDisplayCatalog
 
         return new ProviderUsage
         {
-            ProviderId = $"antigravity.{detail.Name.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal)}",
-            ProviderName = $"{detail.Name} [Antigravity]",
+            ProviderId = $"antigravity.{modelDisplayName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal)}",
+            ProviderName = $"{modelDisplayName} [Antigravity]",
             RequestsPercentage = effectiveRemaining,
             RequestsUsed = 100.0 - effectiveRemaining,
             RequestsAvailable = 100,
@@ -98,6 +102,19 @@ internal static class ProviderUsageDisplayCatalog
             NextResetTime = detail.NextResetTime,
             IsAvailable = parentUsage.IsAvailable,
             AuthSource = parentUsage.AuthSource,
+            AccountName = parentUsage.AccountName,
         };
+    }
+
+    private static string ResolveAntigravityModelDisplayName(ProviderUsageDetail detail)
+    {
+        if (!string.IsNullOrWhiteSpace(detail.Name))
+        {
+            return detail.Name.Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(detail.ModelName)
+            ? string.Empty
+            : detail.ModelName.Trim();
     }
 }

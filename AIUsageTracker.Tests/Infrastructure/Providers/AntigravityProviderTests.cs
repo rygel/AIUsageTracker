@@ -88,6 +88,53 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
         Assert.Contains("Usage unknown", summary.Description, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task FetchUsage_MixedQuotaData_PreservesUnknownModelEntriesInDetailsAsync()
+    {
+        var snapshotJson = """
+    {
+      "userStatus": {
+        "email": "snapshot@example.com",
+        "cascadeModelConfigData": {
+          "clientModelConfigs": [
+            {
+              "label": "gemini-3-pro",
+              "modelOrAlias": {
+                "model": "gemini-3-pro"
+              },
+              "quotaInfo": {
+                "remainingFraction": 0.42
+              }
+            },
+            {
+              "label": "gpt-oss",
+              "modelOrAlias": {
+                "model": "gpt-oss"
+              },
+              "quotaInfo": {}
+            }
+          ]
+        }
+      }
+    }
+    """;
+
+        this.SetupHttpResponse(_ => true, new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(snapshotJson),
+        });
+
+        var usages = await InvokeFetchUsageAsync(this._provider, 5109, "csrf-token", this.Config);
+        var summary = usages.First();
+
+        Assert.NotNull(summary.Details);
+        Assert.Contains(summary.Details!, detail => string.Equals(detail.Name, "gpt-oss", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(summary.Details!, detail =>
+            string.Equals(detail.Name, "gpt-oss", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(detail.Used, "Unknown", StringComparison.Ordinal));
+    }
+
     private static async Task<List<ProviderUsage>> InvokeFetchUsageAsync(AntigravityProvider provider, int port, string csrfToken, ProviderConfig config)
     {
         var method = typeof(AntigravityProvider).GetMethod("FetchUsageAsync", BindingFlags.Instance | BindingFlags.NonPublic);

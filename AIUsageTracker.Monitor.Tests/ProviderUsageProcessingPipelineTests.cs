@@ -230,6 +230,39 @@ public class ProviderUsageProcessingPipelineTests
     }
 
     [Fact]
+    public void Process_WhenNextResetMissing_InferNextResetFromDetails()
+    {
+        var futureReset = DateTime.UtcNow.AddHours(2);
+        var usage = new ProviderUsage
+        {
+            ProviderId = "github-copilot",
+            ProviderName = "GitHub Copilot",
+            IsAvailable = false,
+            NextResetTime = null,
+            Details =
+            [
+                new ProviderUsageDetail
+                {
+                    Name = "Weekly Quota",
+                    Used = "14% used",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Secondary,
+                    NextResetTime = futureReset,
+                },
+            ],
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "github-copilot" },
+            isPrivacyMode: false);
+
+        var processed = Assert.Single(result.Usages);
+        Assert.NotNull(processed.NextResetTime);
+        Assert.Equal(futureReset, processed.NextResetTime!.Value, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
     public void GetSnapshot_BeforeProcess_ReturnsZeroedTelemetry()
     {
         var snapshot = this._pipeline.GetSnapshot();

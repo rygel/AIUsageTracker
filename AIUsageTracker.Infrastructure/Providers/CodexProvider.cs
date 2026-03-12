@@ -74,12 +74,14 @@ public class CodexProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
+        string? knownAccountIdentity = null;
         try
         {
             var auth = await this.LoadNativeAuthAsync().ConfigureAwait(false);
             var accessToken = auth?.AccessToken;
             var accountId = auth?.AccountId;
             var authIdentity = auth?.Identity;
+            knownAccountIdentity = ResolveKnownAccountIdentity(authIdentity, accountId);
 
             // Allow explicit config/env token as fallback when auth.json is not available.
             if (string.IsNullOrWhiteSpace(accessToken) && !string.IsNullOrWhiteSpace(config.ApiKey))
@@ -89,13 +91,14 @@ public class CodexProvider : ProviderBase
 
             if (string.IsNullOrWhiteSpace(accessToken))
             {
-                return new[] { this.CreateUnavailableUsage("Codex auth token not found (~/.codex/auth.json or CODEX_API_KEY)") };
+                return new[] { this.CreateUnavailableUsageWithIdentity("Codex auth token not found (~/.codex/auth.json or CODEX_API_KEY)", knownAccountIdentity) };
             }
 
             var resolvedAccessToken = accessToken!;
             var payload = SessionIdentityHelper.TryDecodeJwtPayload(resolvedAccessToken);
             var email = payload.HasValue ? SessionIdentityHelper.TryGetPreferredIdentity(payload.Value) : null;
             var jwtPlanType = payload?.ReadString(AuthClaimKey, "chatgpt_plan_type");
+            knownAccountIdentity = ResolveKnownAccountIdentity(email, authIdentity, accountId);
 
             using var request = CreateUsageRequest(resolvedAccessToken, accountId);
             using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
@@ -103,13 +106,18 @@ public class CodexProvider : ProviderBase
 
             if (!response.IsSuccessStatusCode)
             {
-                return new[] { this.CreateUnavailableUsageFromStatus(response) };
+                return new[]
+                {
+                    this.CreateUnavailableUsageWithIdentity(
+                        $"HTTP {(int)response.StatusCode}: {response.ReasonPhrase}",
+                        knownAccountIdentity),
+                };
             }
 
             using var jsonDoc = JsonDocument.Parse(content);
             if (TryGetErrorDetailMessage(jsonDoc.RootElement, out var detailMessage))
             {
-                return new[] { this.CreateUnavailableUsage(detailMessage) };
+                return new[] { this.CreateUnavailableUsageWithIdentity(detailMessage, knownAccountIdentity) };
             }
 
             try
@@ -120,18 +128,18 @@ public class CodexProvider : ProviderBase
             catch (Exception ex)
             {
                 this._logger.LogWarning(ex, "Failed to parse Codex usage data. Raw response: {RawResponse}", content.Substring(0, Math.Min(2000, content.Length)));
-                return new[] { this.CreateUnavailableUsage("Failed to parse Codex usage data") };
+                return new[] { this.CreateUnavailableUsageWithIdentity("Failed to parse Codex usage data", knownAccountIdentity) };
             }
         }
         catch (JsonException ex)
         {
             this._logger.LogWarning(ex, "Failed to parse Codex native usage response");
-            return new[] { this.CreateUnavailableUsage("Invalid Codex usage response format") };
+            return new[] { this.CreateUnavailableUsageWithIdentity("Invalid Codex usage response format", knownAccountIdentity) };
         }
         catch (Exception ex)
         {
             this._logger.LogWarning(ex, "Codex native usage lookup failed");
-            return new[] { this.CreateUnavailableUsage($"Codex native lookup failed: {ex.Message}") };
+            return new[] { this.CreateUnavailableUsageWithIdentity($"Codex native lookup failed: {ex.Message}", knownAccountIdentity) };
         }
     }
 
@@ -167,6 +175,26 @@ public class CodexProvider : ProviderBase
         return false;
     }
 
+    private ProviderUsage CreateUnavailableUsageWithIdentity(string message, string? accountIdentity)
+    {
+        var usage = this.CreateUnavailableUsage(message);
+        usage.AccountName = accountIdentity ?? string.Empty;
+        return usage;
+    }
+
+    private static string? ResolveKnownAccountIdentity(params string?[] candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (!string.IsNullOrWhiteSpace(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
     private List<ProviderUsage> BuildUsages(
         JsonElement root,
         string? jwtEmail,
@@ -194,7 +222,7 @@ public class CodexProvider : ProviderBase
             sparkWindow,
             modelNames,
             root);
-        var nextResetTime = ResolveNextResetTime(primaryResetSeconds, sparkWindow.ResetAfterSeconds);
+        var nextResetTime = ResolveNextResetTime(primaryResetSeconds, sparkWindow.PrimaryResetAfterSeconds);
         var usages = new List<ProviderUsage>
         {
             new ProviderUsage
@@ -208,7 +236,7 @@ public class CodexProvider : ProviderBase
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 IsAvailable = true,
-                Description = BuildUsageDescription(remainingPercent, primaryUsedPercent, sparkWindow.UsedPercent, planType),
+                Description = BuildUsageDescription(remainingPercent, primaryUsedPercent, sparkWindow.PrimaryUsedPercent, planType),
                 AccountName = accountIdentity ?? string.Empty,
                 AuthSource = AuthSource.CodexNative(planType),
                 NextResetTime = nextResetTime,
@@ -218,7 +246,7 @@ public class CodexProvider : ProviderBase
             },
         };
 
-        if (sparkWindow.UsedPercent.HasValue)
+        if (sparkWindow.HasWindowData)
         {
             usages.Add(CreateSparkUsage(sparkWindow, modelNames, planType, accountIdentity));
         }
@@ -232,8 +260,11 @@ public class CodexProvider : ProviderBase
         string planType,
         string? accountIdentity)
     {
-        var usedPercent = Math.Clamp(sparkWindow.UsedPercent ?? 0.0, 0.0, 100.0);
+        var usedPercent = Math.Clamp(sparkWindow.PrimaryUsedPercent ?? sparkWindow.SecondaryUsedPercent ?? 0.0, 0.0, 100.0);
         var remainingPercent = Math.Clamp(100.0 - usedPercent, 0.0, 100.0);
+        var weeklyUsedPercent = sparkWindow.SecondaryUsedPercent.HasValue
+            ? Math.Clamp(sparkWindow.SecondaryUsedPercent.Value, 0.0, 100.0)
+            : (double?)null;
 
         return new ProviderUsage
         {
@@ -246,31 +277,72 @@ public class CodexProvider : ProviderBase
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             IsAvailable = true,
-            Description = $"{remainingPercent:F0}% remaining ({usedPercent:F0}% used) | Plan: {planType} (Spark)",
+            Description = BuildSparkUsageDescription(remainingPercent, usedPercent, weeklyUsedPercent, planType),
             AccountName = accountIdentity ?? string.Empty,
             AuthSource = AuthSource.CodexNative(planType),
-            NextResetTime = ResolveDetailResetTime(sparkWindow.ResetAfterSeconds),
-            Details = new List<ProviderUsageDetail>
+            NextResetTime = ResolveNextResetTime(sparkWindow.PrimaryResetAfterSeconds, sparkWindow.SecondaryResetAfterSeconds),
+            Details = BuildSparkDetails(sparkWindow, modelNames, remainingPercent, usedPercent),
+        };
+    }
+
+    private static string BuildSparkUsageDescription(
+        double remainingPercent,
+        double primaryUsedPercent,
+        double? secondaryUsedPercent,
+        string planType)
+    {
+        var description = $"{remainingPercent:F0}% remaining ({primaryUsedPercent:F0}% used) | Plan: {planType} (Spark)";
+        if (secondaryUsedPercent.HasValue)
+        {
+            description += $" | Weekly: {secondaryUsedPercent.Value:F0}% used";
+        }
+
+        return description;
+    }
+
+    private static List<ProviderUsageDetail> BuildSparkDetails(
+        SparkWindow sparkWindow,
+        (string PrimaryModelName, string? SparkModelName) modelNames,
+        double primaryRemainingPercent,
+        double primaryUsedPercent)
+    {
+        var details = new List<ProviderUsageDetail>
+        {
+            new()
             {
-                new()
-                {
-                    Name = modelNames.SparkModelName ?? "OpenAI (GPT-5.3-Codex-Spark)",
-                    Used = $"{remainingPercent:F0}% remaining ({usedPercent:F0}% used)",
-                    Description = "Model quota",
-                    DetailType = ProviderUsageDetailType.Model,
-                    WindowKind = WindowKind.Spark,
-                },
-                new()
-                {
-                    Name = $"Spark ({sparkWindow.Label ?? "window"})",
-                    Used = $"{remainingPercent:F0}% remaining ({usedPercent:F0}% used)",
-                    Description = FormatResetDescription(sparkWindow.ResetAfterSeconds),
-                    NextResetTime = ResolveDetailResetTime(sparkWindow.ResetAfterSeconds),
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    WindowKind = WindowKind.Spark
-                },
+                Name = modelNames.SparkModelName ?? "OpenAI (GPT-5.3-Codex-Spark)",
+                Used = $"{primaryRemainingPercent:F0}% remaining ({primaryUsedPercent:F0}% used)",
+                Description = "Model quota",
+                DetailType = ProviderUsageDetailType.Model,
+                WindowKind = WindowKind.Spark,
             },
         };
+
+        details.Add(new ProviderUsageDetail
+        {
+            Name = "5-hour quota",
+            Used = $"{primaryRemainingPercent:F0}% remaining ({primaryUsedPercent:F0}% used)",
+            Description = FormatResetDescription(sparkWindow.PrimaryResetAfterSeconds),
+            NextResetTime = ResolveDetailResetTime(sparkWindow.PrimaryResetAfterSeconds),
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            WindowKind = WindowKind.Primary,
+        });
+
+        if (sparkWindow.SecondaryUsedPercent.HasValue)
+        {
+            var secondaryRemaining = Math.Clamp(100.0 - sparkWindow.SecondaryUsedPercent.Value, 0.0, 100.0);
+            details.Add(new ProviderUsageDetail
+            {
+                Name = "Weekly quota",
+                Used = $"{secondaryRemaining:F0}% remaining ({sparkWindow.SecondaryUsedPercent.Value:F0}% used)",
+                Description = FormatResetDescription(sparkWindow.SecondaryResetAfterSeconds),
+                NextResetTime = ResolveDetailResetTime(sparkWindow.SecondaryResetAfterSeconds),
+                DetailType = ProviderUsageDetailType.QuotaWindow,
+                WindowKind = WindowKind.Secondary,
+            });
+        }
+
+        return details;
     }
 
     private static string? ResolveAccountIdentity(
@@ -382,11 +454,6 @@ public class CodexProvider : ProviderBase
             }
 
             var accessToken = authRoot.ReadString(schema.AccessTokenProperty);
-            if (string.IsNullOrWhiteSpace(accessToken))
-            {
-                continue;
-            }
-
             var identityToken = !string.IsNullOrWhiteSpace(schema.IdentityTokenProperty)
                 ? authRoot.ReadString(schema.IdentityTokenProperty)
                 : null;
@@ -398,12 +465,19 @@ public class CodexProvider : ProviderBase
             var identitySource = string.Equals(schema.RootProperty, "tokens", StringComparison.OrdinalIgnoreCase)
                 ? root
                 : authRoot;
+            var identity = ResolveIdentityFromAuthPayload(identitySource, accessToken ?? string.Empty, identityToken);
+            if (string.IsNullOrWhiteSpace(accessToken) &&
+                string.IsNullOrWhiteSpace(identity) &&
+                string.IsNullOrWhiteSpace(accountId))
+            {
+                continue;
+            }
 
             return new CodexAuth
             {
                 AccessToken = accessToken,
                 AccountId = accountId,
-                Identity = ResolveIdentityFromAuthPayload(identitySource, accessToken, identityToken),
+                Identity = identity,
             };
         }
 
@@ -481,18 +555,23 @@ public class CodexProvider : ProviderBase
             });
         }
 
-        if (sparkWindow.UsedPercent.HasValue)
+        if (sparkWindow.HasWindowData)
         {
-            var sparkRemaining = Math.Clamp(100.0 - sparkWindow.UsedPercent.Value, 0.0, 100.0);
-            details.Add(new ProviderUsageDetail
+            var sparkUsedPercent = sparkWindow.PrimaryUsedPercent ?? sparkWindow.SecondaryUsedPercent;
+            if (sparkUsedPercent.HasValue)
             {
-                Name = $"Spark ({sparkWindow.Label ?? "window"})",
-                Used = $"{sparkRemaining:F0}% remaining ({sparkWindow.UsedPercent.Value:F0}% used)",
-                Description = FormatResetDescription(sparkWindow.ResetAfterSeconds),
-                NextResetTime = ResolveDetailResetTime(sparkWindow.ResetAfterSeconds),
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                WindowKind = WindowKind.Spark,
-            });
+                var sparkRemaining = Math.Clamp(100.0 - sparkUsedPercent.Value, 0.0, 100.0);
+                var sparkResetAfterSeconds = sparkWindow.PrimaryResetAfterSeconds ?? sparkWindow.SecondaryResetAfterSeconds;
+                details.Add(new ProviderUsageDetail
+                {
+                    Name = $"Spark ({sparkWindow.Label ?? "window"})",
+                    Used = $"{sparkRemaining:F0}% remaining ({sparkUsedPercent.Value:F0}% used)",
+                    Description = FormatResetDescription(sparkResetAfterSeconds),
+                    NextResetTime = ResolveDetailResetTime(sparkResetAfterSeconds),
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    WindowKind = WindowKind.Spark,
+                });
+            }
         }
 
         var creditsBalance = root.ReadDouble("credits", "balance");
@@ -525,7 +604,7 @@ public class CodexProvider : ProviderBase
         var primaryModelName = NormalizeModelName(primaryRaw, "OpenAI (Codex)") ?? "OpenAI (Codex)";
 
         string? sparkModelName = null;
-        if (sparkWindow.UsedPercent.HasValue)
+        if (sparkWindow.HasWindowData)
         {
             sparkModelName = ResolveSparkModelName(sparkWindow);
         }
@@ -612,6 +691,8 @@ public class CodexProvider : ProviderBase
 
     private static SparkWindow ExtractSparkWindow(JsonElement root)
     {
+        var candidates = new List<SparkWindow>();
+
         // Look in additional_rate_limits array - these are spark windows by structure
         if (root.TryGetProperty("additional_rate_limits", out var additionalRateLimits) &&
             additionalRateLimits.ValueKind == JsonValueKind.Array)
@@ -626,32 +707,91 @@ public class CodexProvider : ProviderBase
                     continue;
                 }
 
-                var usedPercent = sparkRateLimit.ReadDouble("primary_window", "used_percent");
-                var resetAfterSeconds = sparkRateLimit.ReadDouble("primary_window", "reset_after_seconds");
-                if (usedPercent.HasValue || resetAfterSeconds.HasValue)
+                var primaryUsedPercent = sparkRateLimit.ReadDouble("primary_window", "used_percent");
+                var primaryResetAfterSeconds = sparkRateLimit.ReadDouble("primary_window", "reset_after_seconds");
+                var secondaryUsedPercent = sparkRateLimit.ReadDouble("secondary_window", "used_percent");
+                var secondaryResetAfterSeconds = sparkRateLimit.ReadDouble("secondary_window", "reset_after_seconds");
+                if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
                 {
                     var limitName = item.ReadString("limit_name");
-                    return new SparkWindow(limitName, modelName, usedPercent, resetAfterSeconds);
+                    candidates.Add(new SparkWindow(
+                        limitName,
+                        modelName,
+                        primaryUsedPercent,
+                        primaryResetAfterSeconds,
+                        secondaryUsedPercent,
+                        secondaryResetAfterSeconds));
                 }
             }
+        }
+
+        var preferredAdditionalCandidate = SelectPreferredSparkCandidate(candidates);
+        if (preferredAdditionalCandidate.HasValue)
+        {
+            return preferredAdditionalCandidate.Value;
         }
 
         // Look in rate_limit object properties
         if (root.TryGetProperty("rate_limit", out var rateLimit) && rateLimit.ValueKind == JsonValueKind.Object)
         {
+            candidates.Clear();
             foreach (var property in rateLimit.EnumerateObject())
             {
-                var usedPercent = property.Value.ReadDouble("primary_window", "used_percent");
-                var resetAfterSeconds = property.Value.ReadDouble("primary_window", "reset_after_seconds");
-                if (usedPercent.HasValue || resetAfterSeconds.HasValue)
+                if (property.Name.Equals("primary_window", StringComparison.OrdinalIgnoreCase) ||
+                    property.Name.Equals("secondary_window", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var primaryUsedPercent = property.Value.ReadDouble("primary_window", "used_percent");
+                var primaryResetAfterSeconds = property.Value.ReadDouble("primary_window", "reset_after_seconds");
+                var secondaryUsedPercent = property.Value.ReadDouble("secondary_window", "used_percent");
+                var secondaryResetAfterSeconds = property.Value.ReadDouble("secondary_window", "reset_after_seconds");
+                if (primaryUsedPercent.HasValue || primaryResetAfterSeconds.HasValue || secondaryUsedPercent.HasValue || secondaryResetAfterSeconds.HasValue)
                 {
                     var modelName = property.Value.ReadString("model_name") ?? property.Value.ReadString("model");
-                    return new SparkWindow(property.Name, modelName, usedPercent, resetAfterSeconds);
+                    candidates.Add(new SparkWindow(
+                        property.Name,
+                        modelName,
+                        primaryUsedPercent,
+                        primaryResetAfterSeconds,
+                        secondaryUsedPercent,
+                        secondaryResetAfterSeconds));
                 }
             }
         }
 
-        return new SparkWindow(null, null, null, null);
+        var preferredRateLimitCandidate = SelectPreferredSparkCandidate(candidates);
+        return preferredRateLimitCandidate ?? new SparkWindow(null, null, null, null, null, null);
+    }
+
+    private static SparkWindow? SelectPreferredSparkCandidate(IReadOnlyCollection<SparkWindow> candidates)
+    {
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        foreach (var candidate in candidates)
+        {
+            if (LooksLikeSparkWindow(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return candidates.First();
+    }
+
+    private static bool LooksLikeSparkWindow(SparkWindow candidate)
+    {
+        return ContainsSparkToken(candidate.Label) || ContainsSparkToken(candidate.ModelName);
+    }
+
+    private static bool ContainsSparkToken(string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.Contains("spark", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class CodexAuth
@@ -666,6 +806,13 @@ public class CodexProvider : ProviderBase
     private readonly record struct SparkWindow(
         string? Label,
         string? ModelName,
-        double? UsedPercent,
-        double? ResetAfterSeconds);
+        double? PrimaryUsedPercent,
+        double? PrimaryResetAfterSeconds,
+        double? SecondaryUsedPercent,
+        double? SecondaryResetAfterSeconds)
+    {
+        public bool HasWindowData => this.PrimaryUsedPercent.HasValue || this.SecondaryUsedPercent.HasValue;
+
+        public double? UsedPercent => this.PrimaryUsedPercent ?? this.SecondaryUsedPercent;
+    }
 }

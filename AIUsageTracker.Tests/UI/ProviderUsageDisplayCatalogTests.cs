@@ -82,20 +82,25 @@ public sealed class ProviderUsageDisplayCatalogTests
             ProviderId = "antigravity",
             IsAvailable = true,
             AuthSource = "test",
+            AccountName = "test.user@example.com",
             Details = new List<ProviderUsageDetail>
             {
                 new() { Name = "Gemini Pro", Used = "75% remaining", NextResetTime = new DateTime(2026, 3, 7, 10, 0, 0) },
                 new() { Name = "Gemini Pro", Used = "80% remaining" },
                 new() { Name = "[internal]", Used = "10% remaining" },
                 new() { Name = "Gemini Flash", Used = "55% remaining" },
+                new() { Name = string.Empty, ModelName = "GPT OSS", Used = "100% remaining" },
             },
         };
 
         var children = ProviderUsageDisplayCatalog.CreateAntigravityModelUsages(parent);
 
         Assert.Equal(
-            new[] { "antigravity.gemini-flash", "antigravity.gemini-pro" },
+            new[] { "antigravity.gemini-flash", "antigravity.gemini-pro", "antigravity.gpt-oss" },
             children.Select(child => child.ProviderId).ToArray());
+        Assert.Contains(children, child => string.Equals(child.ProviderName, "Gemini Pro [Antigravity]", StringComparison.Ordinal));
+        Assert.Contains(children, child => string.Equals(child.ProviderName, "GPT OSS [Antigravity]", StringComparison.Ordinal));
+        Assert.All(children, child => Assert.Equal("test.user@example.com", child.AccountName));
         Assert.All(children, child => Assert.Equal(PlanType.Coding, child.PlanType));
         Assert.All(children, child => Assert.True(child.IsQuotaBased));
     }

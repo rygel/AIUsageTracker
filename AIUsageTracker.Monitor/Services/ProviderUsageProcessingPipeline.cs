@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
@@ -84,6 +85,8 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
             accepted.Add(normalized);
         }
+
+        this.NormalizeFamilyAccountIdentity(accepted);
 
         this.RecordSnapshot(
             totalProcessedEntries,
@@ -183,6 +186,8 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         var httpStatus = usage.HttpStatus is >= 0 and <= 599 ? usage.HttpStatus : 0;
 
         var details = this.NormalizeDetails(usage.Details);
+        var usageNextResetTimeUtc = usage.NextResetTime?.ToUniversalTime();
+        var normalizedNextResetTimeUtc = usageNextResetTimeUtc ?? InferResetTimeFromDetails(details);
 
         var rawJson = usage.RawJson;
         var accountName = usage.AccountName;
@@ -210,6 +215,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             fetchedAt != usage.FetchedAt ||
             !this.StringEquals(description, usage.Description) ||
             httpStatus != usage.HttpStatus ||
+            normalizedNextResetTimeUtc != usageNextResetTimeUtc ||
             !ReferenceEquals(details, usage.Details))
         {
             normalizedCount++;
@@ -232,12 +238,41 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             Details = details,
             AccountName = accountName ?? string.Empty,
             ConfigKey = configKey ?? string.Empty,
-            NextResetTime = usage.NextResetTime?.ToUniversalTime(),
+            NextResetTime = normalizedNextResetTimeUtc,
             FetchedAt = fetchedAt,
             ResponseLatencyMs = responseLatencyMs,
             RawJson = rawJson,
             HttpStatus = httpStatus,
         };
+    }
+
+    private static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
+    {
+        if (details == null || details.Count == 0)
+        {
+            return null;
+        }
+
+        var resetCandidatesUtc = details
+            .Where(detail => detail.NextResetTime.HasValue)
+            .Select(detail => detail.NextResetTime!.Value.ToUniversalTime())
+            .OrderBy(reset => reset)
+            .ToList();
+        if (resetCandidatesUtc.Count == 0)
+        {
+            return null;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        foreach (var resetCandidateUtc in resetCandidatesUtc)
+        {
+            if (resetCandidateUtc > nowUtc)
+            {
+                return resetCandidateUtc;
+            }
+        }
+
+        return resetCandidatesUtc[^1];
     }
 
     private bool StringEquals(string? left, string? right)
@@ -404,5 +439,30 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         };
 
         return true;
+    }
+
+    private void NormalizeFamilyAccountIdentity(List<ProviderUsage> usages)
+    {
+        foreach (var group in usages.GroupBy(
+                     usage => ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId),
+                     StringComparer.OrdinalIgnoreCase))
+        {
+            var resolvedAccountName = group
+                .Select(usage => usage.AccountName?.Trim())
+                .FirstOrDefault(accountName => !string.IsNullOrWhiteSpace(accountName));
+
+            if (string.IsNullOrWhiteSpace(resolvedAccountName))
+            {
+                continue;
+            }
+
+            foreach (var usage in group)
+            {
+                if (string.IsNullOrWhiteSpace(usage.AccountName))
+                {
+                    usage.AccountName = resolvedAccountName;
+                }
+            }
+        }
     }
 }

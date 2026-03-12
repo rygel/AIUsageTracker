@@ -38,5 +38,39 @@ namespace AIUsageTracker.Tests.UI
 
             Assert.Empty(details);
         }
+
+        [Fact]
+        public void GetEligibleDetails_IncludesModelEntriesWithoutPercentUsage()
+        {
+            var usage = new ProviderUsage
+            {
+                Details = new List<ProviderUsageDetail>
+                {
+                    new() { Name = "GPT OSS", Used = "Unknown", DetailType = ProviderUsageDetailType.Model },
+                },
+            };
+
+            var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+
+            var detail = Assert.Single(details);
+            Assert.Equal("GPT OSS", detail.Name);
+        }
+
+        [Fact]
+        public void GetEligibleDetails_ReturnsEmpty_ForProvidersWithVisibleDerivedProviders()
+        {
+            var usage = new ProviderUsage
+            {
+                ProviderId = "codex",
+                Details = new List<ProviderUsageDetail>
+                {
+                    new() { Name = "OpenAI (Codex)", DetailType = ProviderUsageDetailType.Model },
+                },
+            };
+
+            var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+
+            Assert.Empty(details);
+        }
     }
 }

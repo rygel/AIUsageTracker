@@ -92,6 +92,7 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("antigravity", true)]
     [InlineData("antigravity.some-model", true)]
+    [InlineData("github-copilot", true)]
     [InlineData("codex", false)]
     [InlineData("openrouter", false)]
     public void IsAutoIncluded_UsesProviderDefinitions(string providerId, bool expected)

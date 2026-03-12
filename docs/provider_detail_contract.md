@@ -47,6 +47,15 @@ Clients (Slim UI, Web UI, CLI) must use typed semantics only:
 
 String heuristics such as checking for `"window"`/`"credit"` in `Name` must not be used.
 
+## Slim UI presentation contract (Antigravity)
+
+For Antigravity model rows rendered in Slim UI:
+
+1. Label format must be: `<Model Name> [Antigravity]`.
+2. The parent Antigravity `AccountName` must be propagated to model child rows.
+3. Username rendering must respect privacy mode (masked when privacy mode is enabled).
+4. Username visual treatment should be secondary (non-bold, italic) to keep model name primary.
+
 ## Migration posture
 
 - Existing historical records are preserved.

@@ -18,6 +18,7 @@ public class GitHubCopilotProvider : ProviderBase
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
+        autoIncludeWhenUnconfigured: true,
         includeInWellKnownProviders: true,
         settingsMode: ProviderSettingsMode.ExternalAuthStatus,
         supportsAccountIdentity: true,
@@ -49,10 +50,38 @@ public class GitHubCopilotProvider : ProviderBase
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         var token = this.ResolveToken(config);
+        if (string.IsNullOrEmpty(token) && this.DiscoveryService != null)
+        {
+            var discoveredAuth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(discoveredAuth?.AccessToken))
+            {
+                token = discoveredAuth.AccessToken;
+                config.ApiKey = token;
+            }
+        }
+
         if (string.IsNullOrEmpty(token))
         {
-            return new[] { this.CreateUnavailableUsage("Not authenticated. Please login in Settings.") };
+            var username = NormalizeUsername(await this._authService.GetUsernameAsync().ConfigureAwait(false));
+            return new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = this.ProviderId,
+                    ProviderName = "GitHub Copilot",
+                    AccountName = username,
+                    IsAvailable = false,
+                    Description = "Not authenticated. Please login in Settings.",
+                    PlanType = PlanType.Coding,
+                    IsQuotaBased = true,
+                    UsageUnit = "Requests",
+                },
+            };
         }
+
+        // Keep auth-service state in sync with the token source so username resolution
+        // works even when token comes from persisted config (not device-flow memory state).
+        this._authService.InitializeToken(token);
 
         var state = new CopilotUsageState
         {

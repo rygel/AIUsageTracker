@@ -126,7 +126,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
     }
 
     [Fact]
-    public void CreateDisplayItems_PositionsCodexSparkNextToCodex_AsCatalogProvider()
+    public void CreateDisplayItems_SortsAlphabeticallyByDisplayName()
     {
         var configs = new List<ProviderConfig>
         {
@@ -140,22 +140,15 @@ public sealed class ProviderSettingsDisplayCatalogTests
         };
 
         var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, usages);
-        var codexIndex = items
-            .Select((item, index) => new { item, index })
-            .Where(entry => string.Equals(entry.item.Config.ProviderId, "codex", StringComparison.Ordinal))
-            .Select(entry => entry.index)
-            .DefaultIfEmpty(-1)
-            .First();
-        var sparkIndex = items
-            .Select((item, index) => new { item, index })
-            .Where(entry => string.Equals(entry.item.Config.ProviderId, "codex.spark", StringComparison.Ordinal))
-            .Select(entry => entry.index)
-            .DefaultIfEmpty(-1)
-            .First();
+        var orderedIds = items
+            .Where(item =>
+                string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) ||
+                string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal) ||
+                string.Equals(item.Config.ProviderId, "deepseek", StringComparison.Ordinal))
+            .Select(item => item.Config.ProviderId)
+            .ToArray();
 
-        Assert.True(codexIndex >= 0);
-        Assert.Equal(codexIndex + 1, sparkIndex);
-        Assert.False(items[sparkIndex].IsDerived);
+        Assert.Equal(new[] { "deepseek", "codex", "codex.spark" }, orderedIds);
     }
 
     [Fact]

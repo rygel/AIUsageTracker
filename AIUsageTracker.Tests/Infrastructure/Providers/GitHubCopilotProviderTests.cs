@@ -17,11 +17,13 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
 {
     private readonly GitHubCopilotProvider _provider;
     private readonly Mock<IGitHubAuthService> _authService;
+    private readonly Mock<IProviderDiscoveryService> _discoveryService;
 
     public GitHubCopilotProviderTests()
     {
         this._authService = new Mock<IGitHubAuthService>();
-        this._provider = new GitHubCopilotProvider(this.ResilientHttpClient.Object, this.Logger.Object, this._authService.Object, new Mock<IProviderDiscoveryService>().Object);
+        this._discoveryService = new Mock<IProviderDiscoveryService>();
+        this._provider = new GitHubCopilotProvider(this.ResilientHttpClient.Object, this.Logger.Object, this._authService.Object, this._discoveryService.Object);
         this.Config.ApiKey = "test-key";
     }
 
@@ -66,5 +68,75 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         Assert.Equal("user123", usage.AccountName);
         Assert.Equal(70.0, usage.RequestsPercentage);
         Assert.Contains("Copilot Individual", usage.AuthSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_ConfigToken_InitializesAuthService_AndPreservesUsernameFallbackAsync()
+    {
+        // Arrange
+        this._authService.Setup(s => s.GetCurrentToken()).Returns((string?)null);
+        this._authService.Setup(s => s.GetUsernameAsync()).ReturnsAsync("octocat");
+
+        this.SetupHttpResponse("https://api.github.com/user", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.Forbidden,
+            Content = new StringContent("{\"message\":\"forbidden\"}"),
+        });
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.Equal("octocat", usage.AccountName);
+        this._authService.Verify(s => s.InitializeToken("test-key"), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_UsesDiscoveryToken_WhenConfigAndAuthServiceAreEmptyAsync()
+    {
+        // Arrange
+        this.Config.ApiKey = string.Empty;
+        this._authService.Setup(s => s.GetCurrentToken()).Returns((string?)null);
+        this._authService.Setup(s => s.GetUsernameAsync()).ReturnsAsync("octocat");
+        this._discoveryService
+            .Setup(s => s.DiscoverAuthAsync(GitHubCopilotProvider.StaticDefinition))
+            .ReturnsAsync(new ProviderAuthData("discovered-token"));
+
+        this.SetupHttpResponse("https://api.github.com/user", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.Forbidden,
+            Content = new StringContent("{\"message\":\"forbidden\"}"),
+        });
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.Equal("octocat", usage.AccountName);
+        Assert.Equal("discovered-token", this.Config.ApiKey);
+        this._authService.Verify(s => s.InitializeToken("discovered-token"), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_ReturnsDiscoveredUsername_WhenTokenMissingAsync()
+    {
+        // Arrange
+        this.Config.ApiKey = string.Empty;
+        this._authService.Setup(s => s.GetCurrentToken()).Returns((string?)null);
+        this._authService.Setup(s => s.GetUsernameAsync()).ReturnsAsync("rygel");
+        this._discoveryService
+            .Setup(s => s.DiscoverAuthAsync(GitHubCopilotProvider.StaticDefinition))
+            .ReturnsAsync((ProviderAuthData?)null);
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Equal("rygel", usage.AccountName);
+        Assert.Contains("Not authenticated", usage.Description, StringComparison.OrdinalIgnoreCase);
     }
 }

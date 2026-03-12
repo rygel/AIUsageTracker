@@ -2,7 +2,9 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.IO;
 using System.Net.Http.Json;
+using System.Text.RegularExpressions;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -141,7 +143,16 @@ public class GitHubAuthService : IGitHubAuthService
     }
 
     /// <inheritdoc/>
-    public string? GetCurrentToken() => this._currentToken;
+    public string? GetCurrentToken()
+    {
+        if (!string.IsNullOrWhiteSpace(this._currentToken))
+        {
+            return this._currentToken;
+        }
+
+        this._currentToken = TryLoadTokenFromHostsFile();
+        return this._currentToken;
+    }
 
     /// <inheritdoc/>
     public void Logout()
@@ -161,7 +172,8 @@ public class GitHubAuthService : IGitHubAuthService
 
         if (!this.IsAuthenticated)
         {
-            return null;
+            this._cachedUsername = TryLoadUsernameFromHostsFile();
+            return this._cachedUsername;
         }
 
         try
@@ -213,5 +225,126 @@ public class GitHubAuthService : IGitHubAuthService
         public int Expires_in { get; set; }
 
         public int Interval { get; set; }
+    }
+
+    private static string? TryLoadTokenFromHostsFile()
+    {
+        foreach (var path in GetCandidateHostsPaths())
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var content = File.ReadAllText(path);
+                var token = TryExtractTokenFromHostsContent(content);
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    return token;
+                }
+            }
+            catch
+            {
+                // Keep auth loading resilient; provider handles auth failures.
+            }
+        }
+
+        return null;
+    }
+
+    private static string? TryLoadUsernameFromHostsFile()
+    {
+        foreach (var path in GetCandidateHostsPaths())
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var content = File.ReadAllText(path);
+                var username = TryExtractUsernameFromHostsContent(content);
+                if (!string.IsNullOrWhiteSpace(username))
+                {
+                    return username;
+                }
+            }
+            catch
+            {
+                // Keep auth loading resilient; provider handles auth failures.
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetCandidateHostsPaths()
+    {
+        var appData = Environment.GetEnvironmentVariable("APPDATA");
+        if (!string.IsNullOrWhiteSpace(appData))
+        {
+            yield return Path.Combine(appData, "GitHub CLI", "hosts.yml");
+        }
+
+        var userProfile = Environment.GetEnvironmentVariable("USERPROFILE");
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            yield return Path.Combine(userProfile, ".config", "gh", "hosts.yml");
+        }
+    }
+
+    private static string? TryExtractTokenFromHostsContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        var githubSection = Regex.Match(
+            content,
+            @"(?ms)^\s*github\.com:\s*(?<section>.*?)(?=^\S|\z)",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        var source = githubSection.Success
+            ? githubSection.Groups["section"].Value
+            : content;
+
+        var tokenMatch = Regex.Match(
+            source,
+            @"(?m)^\s*oauth_token:\s*(?<token>\S+)\s*$",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        return tokenMatch.Success ? tokenMatch.Groups["token"].Value.Trim() : null;
+    }
+
+    private static string? TryExtractUsernameFromHostsContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        var githubSection = Regex.Match(
+            content,
+            @"(?ms)^\s*github\.com:\s*(?<section>.*?)(?=^\S|\z)",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        var source = githubSection.Success
+            ? githubSection.Groups["section"].Value
+            : content;
+
+        var userMatch = Regex.Match(
+            source,
+            @"(?m)^\s*user:\s*(?<user>\S+)\s*$",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        return userMatch.Success ? userMatch.Groups["user"].Value.Trim() : null;
     }
 }

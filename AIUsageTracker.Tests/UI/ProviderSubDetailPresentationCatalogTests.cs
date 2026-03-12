@@ -29,6 +29,23 @@ namespace AIUsageTracker.Tests.UI
         }
 
         [Fact]
+        public void GetDisplayableDetails_ReturnsEmpty_ForProvidersWithVisibleDerivedProviders()
+        {
+            var usage = new ProviderUsage
+            {
+                ProviderId = "codex",
+                Details = new List<ProviderUsageDetail>
+                {
+                    new() { Name = "OpenAI (Codex)", DetailType = ProviderUsageDetailType.Model },
+                },
+            };
+
+            var details = ProviderSubDetailPresentationCatalog.GetDisplayableDetails(usage);
+
+            Assert.Empty(details);
+        }
+
+        [Fact]
         public void Create_UsesPercentDisplay_WhenPercentAvailable()
         {
             var detail = new ProviderUsageDetail

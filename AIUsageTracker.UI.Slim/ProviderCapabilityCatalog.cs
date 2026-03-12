@@ -128,6 +128,17 @@ internal static class ProviderCapabilityCatalog
         return isCanonicalChild && ShouldUseSharedSubDetailCollapsePreference(canonicalProviderId, snapshot);
     }
 
+    public static bool HasVisibleDerivedProviders(string providerId, AgentProviderCapabilitiesSnapshot? snapshot)
+    {
+        if (TryGetCapability(providerId, snapshot, out var capability))
+        {
+            return capability.VisibleDerivedProviderIds.Count > 0;
+        }
+
+        return ProviderMetadataCatalog.TryGet(providerId, out var definition) &&
+               definition.VisibleDerivedProviderIds.Count > 0;
+    }
+
     private static bool TryGetCapability(
         string providerId,
         AgentProviderCapabilitiesSnapshot? snapshot,

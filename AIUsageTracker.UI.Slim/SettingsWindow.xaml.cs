@@ -503,7 +503,9 @@ public partial class SettingsWindow : Window
         Grid.SetRow(keyPanel, 1);
         grid.Children.Add(keyPanel);
 
-        var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(
+            usage,
+            this._providerCapabilities);
 
         if (!isSubItem && subTrayDetails is { Count: > 0 })
         {
