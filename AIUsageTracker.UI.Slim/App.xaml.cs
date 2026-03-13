@@ -9,6 +9,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.DependencyInjection;
@@ -127,6 +128,12 @@ public partial class App : Application
         services.AddSingleton<IDataExportService, NoOpDataExportService>();
         services.AddSingleton<IUpdateCheckerService, GitHubUpdateChecker>();
         services.AddSingleton<HttpClient>();
+
+        // UI Services
+        services.AddSingleton<IWindowBehaviorService, WindowBehaviorService>();
+        services.AddSingleton<IErrorDisplayService, ErrorDisplayService>();
+        services.AddSingleton<IDialogService, DialogService>();
+        services.AddSingleton<IPollingService, PollingService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

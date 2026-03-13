@@ -2,29 +2,14 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AIUsageTracker.UI.Slim.ViewModels;
 
-public abstract class BaseViewModel : INotifyPropertyChanged
+/// <summary>
+/// Base class for all ViewModels in the application.
+/// Inherits from CommunityToolkit.Mvvm's ObservableObject for INotifyPropertyChanged support.
+/// </summary>
+public abstract class BaseViewModel : ObservableObject
 {
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        this.PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-        {
-            return false;
-        }
-
-        field = value;
-        this.OnPropertyChanged(propertyName);
-        return true;
-    }
 }

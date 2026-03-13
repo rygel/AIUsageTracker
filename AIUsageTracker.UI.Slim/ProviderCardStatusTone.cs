@@ -4,7 +4,7 @@
 
 namespace AIUsageTracker.UI.Slim;
 
-internal enum ProviderCardStatusTone
+public enum ProviderCardStatusTone
 {
     Secondary,
     Missing,

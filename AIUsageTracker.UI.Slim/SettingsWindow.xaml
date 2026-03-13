@@ -573,7 +573,7 @@
                                     BorderBrush="{DynamicResource CardBorder}" 
                                     BorderThickness="1" 
                                     CornerRadius="4">
-                                <DataGrid x:Name="HistoryDataGrid" 
+                                <DataGrid x:Name="HistoryDataGrid"
                                           AutoGenerateColumns="False"
                                           HeadersVisibility="Column"
                                           GridLinesVisibility="Horizontal"
@@ -587,6 +587,9 @@
                                           CanUserReorderColumns="True"
                                           CanUserResizeColumns="True"
                                           CanUserSortColumns="True"
+                                          VirtualizingPanel.IsVirtualizing="True"
+                                          VirtualizingPanel.VirtualizationMode="Recycling"
+                                          EnableRowVirtualization="True"
                                           Height="400">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Provider" Binding="{Binding ProviderName}" Width="120"/>

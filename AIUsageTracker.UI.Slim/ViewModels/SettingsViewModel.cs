@@ -5,20 +5,35 @@
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim.ViewModels;
 
-public class SettingsViewModel : BaseViewModel
+/// <summary>
+/// ViewModel for the settings window, managing provider configurations and preferences.
+/// </summary>
+public partial class SettingsViewModel : BaseViewModel
 {
     private readonly IMonitorService _monitorService;
     private readonly IUsageAnalyticsService _analyticsService;
     private readonly IDataExportService _exportService;
     private readonly ILogger<SettingsViewModel> _logger;
+
+    [ObservableProperty]
     private bool _isPrivacyMode;
+
+    [ObservableProperty]
     private string _statusMessage = "Ready";
+
+    [ObservableProperty]
     private bool _isLoading;
+
+    [ObservableProperty]
     private IReadOnlyList<ProviderConfig> _configs = Array.Empty<ProviderConfig>();
+
+    [ObservableProperty]
     private List<ProviderUsage> _usages = new();
 
     public SettingsViewModel(
@@ -33,38 +48,15 @@ public class SettingsViewModel : BaseViewModel
         this._logger = logger;
     }
 
-    public bool IsPrivacyMode
-    {
-        get => this._isPrivacyMode;
-        set => this.SetProperty(ref this._isPrivacyMode, value);
-    }
-
-    public string StatusMessage
-    {
-        get => this._statusMessage;
-        set => this.SetProperty(ref this._statusMessage, value);
-    }
-
-    public bool IsLoading
-    {
-        get => this._isLoading;
-        set => this.SetProperty(ref this._isLoading, value);
-    }
-
-    public IReadOnlyList<ProviderConfig> Configs
-    {
-        get => this._configs;
-        private set => this.SetProperty(ref this._configs, value);
-    }
-
-    public async Task LoadDataAsync()
+    [RelayCommand]
+    internal async Task LoadDataAsync()
     {
         this.IsLoading = true;
         this.StatusMessage = "Loading settings...";
         try
         {
             this.Configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
-            this._usages = (await this._monitorService.GetUsageAsync().ConfigureAwait(true)).ToList();
+            this.Usages = (await this._monitorService.GetUsageAsync().ConfigureAwait(true)).ToList();
 
             if (this.Configs.Count == 0)
             {
@@ -86,13 +78,15 @@ public class SettingsViewModel : BaseViewModel
         }
     }
 
-    public void TogglePrivacyMode()
+    [RelayCommand]
+    internal void TogglePrivacyMode()
     {
         this.IsPrivacyMode = !this.IsPrivacyMode;
         this.StatusMessage = this.IsPrivacyMode ? "Privacy Mode Enabled" : "Privacy Mode Disabled";
     }
 
-    public async Task<string> ExportDataAsync()
+    [RelayCommand]
+    private async Task<string> ExportDataAsync()
     {
         return await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(true);
     }

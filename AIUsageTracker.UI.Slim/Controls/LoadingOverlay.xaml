@@ -1,0 +1,29 @@
+<UserControl x:Class="AIUsageTracker.UI.Slim.Controls.LoadingOverlay"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="clr-namespace:AIUsageTracker.UI.Slim.Converters">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </UserControl.Resources>
+
+    <Grid Background="#80000000"
+          Visibility="{Binding IsVisible, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <!-- Loading indicator -->
+            <ProgressBar IsIndeterminate="True"
+                         Width="200"
+                         Height="4"
+                         Background="{DynamicResource ProgressBarBackground}"
+                         Foreground="{DynamicResource AccentColor}"/>
+
+            <!-- Loading message -->
+            <TextBlock Text="{Binding Message, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                       Foreground="White"
+                       FontSize="12"
+                       HorizontalAlignment="Center"
+                       Margin="0,10,0,0"
+                       Visibility="{Binding HasMessage, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </StackPanel>
+    </Grid>
+</UserControl>

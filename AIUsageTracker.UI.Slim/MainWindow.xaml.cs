@@ -65,6 +65,7 @@ public partial class MainWindow : Window
 
     private IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
+    private readonly object _dataLock = new();
     private List<ProviderUsage> _usages = new();
     private List<ProviderConfig> _configs = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
@@ -354,77 +355,6 @@ public partial class MainWindow : Window
         return suffix.Replace('.', ' ');
     }
 
-    private void OnSourceInitialized(object? sender, EventArgs e)
-    {
-        this._windowSource = PresentationSource.FromVisual(this) as HwndSource;
-        this._windowSource?.AddHook(this.WndProc);
-    }
-
-    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        const int WM_ACTIVATEAPP = 0x001C;
-
-        if (msg == WM_ACTIVATEAPP)
-        {
-            var isActive = wParam != IntPtr.Zero;
-            this.LogWindowFocusTransition($"WM_ACTIVATEAPP -> {(isActive ? "active" : "inactive")}");
-        }
-
-        return IntPtr.Zero;
-    }
-
-    private void LogWindowFocusTransition(string eventName)
-    {
-        var foregroundSummary = this.GetForegroundWindowSummary();
-        var message = $"[WINDOW] evt={eventName} fg={foregroundSummary} vis={this.IsVisible} state={this.WindowState} top={this.Topmost}";
-        this._logger.LogDebug("{WindowMessage}", message);
-    }
-
-    private string GetForegroundWindowSummary()
-    {
-        var hwnd = GetForegroundWindow();
-        if (hwnd == IntPtr.Zero)
-        {
-            return "none";
-        }
-
-        var titleLength = GetWindowTextLength(hwnd);
-        var builder = new StringBuilder(Math.Max(titleLength + 1, 1));
-        _ = GetWindowText(hwnd, builder, builder.Capacity);
-
-        _ = GetWindowThreadProcessId(hwnd, out var processId);
-        var processName = "unknown";
-        if (processId > 0)
-        {
-            try
-            {
-                processName = Process.GetProcessById((int)processId).ProcessName;
-            }
-            catch
-            {
-                processName = "unavailable";
-            }
-        }
-
-        var title = builder
-            .ToString()
-            .Replace('\r', ' ')
-            .Replace('\n', ' ')
-            .Trim();
-
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            title = "<no-title>";
-        }
-
-        if (title.Length > 80)
-        {
-            title = title[..80] + "...";
-        }
-
-        return $"pid={processId} proc={processName} title={title}";
-    }
-
     private void PositionWindowNearTray()
     {
         // If saved position exists, use it
@@ -555,6 +485,22 @@ public partial class MainWindow : Window
 
                 this.ShowStatus("Connected", StatusType.Success);
             }
+            else
+            {
+                // Ensure UI shows an error state if background initialization failed
+                // and no error message was shown (e.g., due to unhandled exception in Task.Run)
+                bool hasUsages;
+                lock (this._dataLock)
+                {
+                    hasUsages = this._usages.Any();
+                }
+
+                if (!hasUsages && this.ProvidersList.Children.Count <= 1)
+                {
+                    // Still showing default "Loading..." - update to error state
+                    this.ShowErrorState("Failed to connect to Monitor. Try refreshing.");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -604,7 +550,11 @@ public partial class MainWindow : Window
                     this.LogDiagnostic("[DIAGNOSTIC] Data available, rendering...");
 
                     // Data is available - render and stop rapid polling
-                    this._usages = usages.ToList();
+                    lock (this._dataLock)
+                    {
+                        this._usages = usages.ToList();
+                    }
+
                     this.RenderProviders();
                     this._lastMonitorUpdate = DateTime.Now;
                     this.ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
@@ -764,102 +714,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void EnsureAlwaysOnTop()
-    {
-        if (this._isSettingsDialogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
-        {
-            return;
-        }
-
-        if (!this.Topmost)
-        {
-            this.Topmost = true;
-        }
-
-        this.ApplyWin32Topmost(noActivate: true);
-    }
-
-    private void ApplyTopmostState(bool alwaysOnTop)
-    {
-        this.Topmost = alwaysOnTop;
-
-        if (this._preferences.ForceWin32Topmost)
-        {
-            this.ApplyWin32Topmost(noActivate: true, alwaysOnTop);
-        }
-    }
-
-    private void ScheduleTopmostRecovery(int generation, TimeSpan delay)
-    {
-#pragma warning disable VSTHRD001 // Recovery runs from a background delay and must marshal back to the UI thread explicitly.
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(delay).ConfigureAwait(false); // ui-thread-guardrail-allow: continuation immediately marshals via Dispatcher.
-            await this.Dispatcher.InvokeAsync(
-                () =>
-            {
-                if (generation != this._topmostRecoveryGeneration)
-                {
-                    return;
-                }
-
-                this.ReassertTopmostWithoutFocus();
-                this.LogWindowFocusTransition($"TopmostRecovery +{delay.TotalMilliseconds:0}ms");
-            }, DispatcherPriority.Normal);
-        });
-#pragma warning restore VSTHRD001
-    }
-
-    private void ReassertTopmostWithoutFocus()
-    {
-        if (this._isSettingsDialogOpen || this._isTooltipOpen || !this._preferences.AlwaysOnTop || !this.IsVisible || this.WindowState == WindowState.Minimized)
-        {
-            return;
-        }
-
-        if (!this.Topmost)
-        {
-            this.Topmost = true;
-            this.ApplyWin32Topmost(noActivate: true);
-            return;
-        }
-
-        if (this._preferences.AggressiveAlwaysOnTop)
-        {
-            this.Topmost = false;
-            this.Topmost = true;
-        }
-
-        this.ApplyWin32Topmost(noActivate: true);
-    }
-
-    private void ApplyWin32Topmost(bool noActivate, bool alwaysOnTop = true)
-    {
-        var handle = new WindowInteropHelper(this).Handle;
-        if (handle == IntPtr.Zero)
-        {
-            return;
-        }
-
-        var flags = SwpNoMove | SwpNoSize | SwpNoOwnerZOrder;
-        if (noActivate)
-        {
-            flags |= SwpNoActivate;
-        }
-
-        var insertAfter = alwaysOnTop ? HwndTopmost : HwndNoTopmost;
-        var applied = SetWindowPos(handle, insertAfter, 0, 0, 0, 0, flags);
-        if (!applied)
-        {
-            var win32Error = Marshal.GetLastWin32Error();
-            this._logger.LogWarning(
-                "SetWindowPos failed err={Win32Error} alwaysOnTop={AlwaysOnTop} noActivate={NoActivate}",
-                win32Error,
-                alwaysOnTop,
-                noActivate);
-        }
-    }
-
     internal void ShowAndActivate()
     {
         this.Show();
@@ -941,7 +795,13 @@ public partial class MainWindow : Window
         this._preferences.IsPrivacyMode = e.IsPrivacyMode;
         this.UpdatePrivacyButtonState();
 
-        if (this._usages.Count > 0)
+        bool hasUsages;
+        lock (this._dataLock)
+        {
+            hasUsages = this._usages.Count > 0;
+        }
+
+        if (hasUsages)
         {
             this.RenderProviders();
         }
@@ -979,7 +839,11 @@ public partial class MainWindow : Window
             var latestUsages = await this.GetUsageForDisplayAsync();
             if (latestUsages.Any())
             {
-                this._usages = latestUsages.ToList();
+                lock (this._dataLock)
+                {
+                    this._usages = latestUsages.ToList();
+                }
+
                 this.RenderProviders();
                 this._lastMonitorUpdate = DateTime.Now;
                 this.ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
@@ -987,7 +851,13 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (this._usages.Any())
+            bool hasUsages;
+            lock (this._dataLock)
+            {
+                hasUsages = this._usages.Any();
+            }
+
+            if (hasUsages)
             {
                 this.ShowStatus("Refresh returned no data, keeping last snapshot", StatusType.Warning);
                 return;
@@ -1064,9 +934,16 @@ public partial class MainWindow : Window
     {
         this.LogDiagnostic("[DIAGNOSTIC] RenderProviders called");
         this.ProvidersList.Children.Clear();
-        this.LogDiagnostic($"[DIAGNOSTIC] ProvidersList cleared, _usages count: {this._usages?.Count ?? 0}");
 
-        if (this._usages == null || !this._usages.Any())
+        List<ProviderUsage> usagesCopy;
+        lock (this._dataLock)
+        {
+            usagesCopy = this._usages?.ToList() ?? new List<ProviderUsage>();
+        }
+
+        this.LogDiagnostic($"[DIAGNOSTIC] ProvidersList cleared, _usages count: {usagesCopy.Count}");
+
+        if (!usagesCopy.Any())
         {
             this.LogDiagnostic("[DIAGNOSTIC] No usages, creating 'No provider data available' message");
             try
@@ -1086,13 +963,13 @@ public partial class MainWindow : Window
 
         try
         {
-            this.LogDiagnostic($"[DIAGNOSTIC] Rendering {this._usages.Count} providers...");
+            this.LogDiagnostic($"[DIAGNOSTIC] Rendering {usagesCopy.Count} providers...");
 
-            var renderPreparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(this._usages);
+            var renderPreparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usagesCopy);
             var filteredUsages = renderPreparation.DisplayableUsages;
 
             this.LogDiagnostic(
-                $"[DIAGNOSTIC] Provider render counts: raw={this._usages.Count}, filtered={filteredUsages.Count}, hasAggregateParent={renderPreparation.HasAggregateParent}");
+                $"[DIAGNOSTIC] Provider render counts: raw={usagesCopy.Count}, filtered={filteredUsages.Count}, hasAggregateParent={renderPreparation.HasAggregateParent}");
 
             if (!filteredUsages.Any())
             {
@@ -1869,9 +1746,15 @@ public partial class MainWindow : Window
     {
         this._pollingTimer?.Stop();
 
+        bool hasUsages;
+        lock (this._dataLock)
+        {
+            hasUsages = this._usages.Any();
+        }
+
         this._pollingTimer = new DispatcherTimer
         {
-            Interval = this._usages.Any() ? NormalPollingInterval : StartupPollingInterval,
+            Interval = hasUsages ? NormalPollingInterval : StartupPollingInterval,
         };
 
         this._pollingTimer.Tick += async (s, e) =>
@@ -1927,7 +1810,13 @@ public partial class MainWindow : Window
                         await this.FetchDataAsync(" (refreshed)");
                     });
 
-                    if (!this._usages.Any())
+                    bool hasCurrentUsages;
+                    lock (this._dataLock)
+                    {
+                        hasCurrentUsages = this._usages.Any();
+                    }
+
+                    if (!hasCurrentUsages)
                     {
                         // No current data and no previous data - show warning
                         this.ShowStatus("No data - waiting for Monitor", StatusType.Warning);
@@ -1946,7 +1835,13 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 this._logger.LogWarning(ex, "Polling loop error");
-                if (this._usages.Any())
+                bool hasOldData;
+                lock (this._dataLock)
+                {
+                    hasOldData = this._usages.Any();
+                }
+
+                if (hasOldData)
                 {
                     // Has old data - show yellow warning, keep displaying stale data
                     this.ShowStatus("Connection lost - showing stale data", StatusType.Warning);
@@ -1982,16 +1877,33 @@ public partial class MainWindow : Window
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            var shouldRefreshConfigs = !this._configs.Any() ||
-                (DateTime.UtcNow - this._lastTrayConfigRefresh) >= TrayConfigRefreshInterval;
+            bool shouldRefreshConfigs;
+            lock (this._dataLock)
+            {
+                shouldRefreshConfigs = !this._configs.Any() ||
+                    (DateTime.UtcNow - this._lastTrayConfigRefresh) >= TrayConfigRefreshInterval;
+            }
 
             if (shouldRefreshConfigs)
             {
-                this._configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
+                var configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
+                lock (this._dataLock)
+                {
+                    this._configs = configs;
+                }
+
                 this._lastTrayConfigRefresh = DateTime.UtcNow;
             }
 
-            app.UpdateProviderTrayIcons(this._usages, this._configs, this._preferences);
+            List<ProviderUsage> usagesCopy;
+            List<ProviderConfig> configsCopy;
+            lock (this._dataLock)
+            {
+                usagesCopy = this._usages.ToList();
+                configsCopy = this._configs.ToList();
+            }
+
+            app.UpdateProviderTrayIcons(usagesCopy, configsCopy, this._preferences);
         }
         catch (Exception ex)
         {
@@ -2022,9 +1934,9 @@ public partial class MainWindow : Window
                 .WithAutomaticReconnect()
                 .Build();
 
-            this._hubConnection.On("RefreshStarted", () =>
+            this._hubConnection.On("RefreshStarted", async () =>
             {
-                this.Dispatcher.Invoke(() =>
+                await this.Dispatcher.InvokeAsync(() =>
                 {
                     this.ShowStatus("Monitor refreshing...", StatusType.Info);
                 });
@@ -2061,7 +1973,11 @@ public partial class MainWindow : Window
             var usages = await this.GetUsageForDisplayAsync();
             if (usages.Any())
             {
-                this._usages = usages.ToList();
+                lock (this._dataLock)
+                {
+                    this._usages = usages.ToList();
+                }
+
                 this.RenderProviders();
                 this._lastMonitorUpdate = DateTime.Now;
                 this.ShowStatus($"{DateTime.Now:HH:mm:ss}{statusSuffix}", StatusType.Success);
@@ -2151,7 +2067,13 @@ public partial class MainWindow : Window
 
     private void ShowErrorState(string message)
     {
-        if (this._usages.Any())
+        bool hasUsages;
+        lock (this._dataLock)
+        {
+            hasUsages = this._usages.Any();
+        }
+
+        if (hasUsages)
         {
             // Preserve visible data and only surface status when we have a stale snapshot.
             this.ShowStatus(message, StatusType.Warning);
