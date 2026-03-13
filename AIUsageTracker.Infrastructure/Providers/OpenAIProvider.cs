@@ -254,6 +254,7 @@ public class OpenAIProvider : ProviderBase
 
         if (used.HasValue)
         {
+            var primaryRemaining = Math.Clamp(100.0 - used.Value, 0.0, 100.0);
             details.Add(new ProviderUsageDetail
             {
                 Name = "5-hour quota",
@@ -261,8 +262,8 @@ public class OpenAIProvider : ProviderBase
                 NextResetTime = primaryResetTime,
                 DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Primary,
-                PercentageValue = used.Value,
-                PercentageSemantic = PercentageValueSemantic.Used,
+                PercentageValue = primaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
             });
         }
 
@@ -271,6 +272,7 @@ public class OpenAIProvider : ProviderBase
         var weeklyResetTime = ResolveWindowResetTime(root, "secondary_window");
         if (weeklyUsed.HasValue)
         {
+            var secondaryRemaining = Math.Clamp(100.0 - weeklyUsed.Value, 0.0, 100.0);
             details.Add(new ProviderUsageDetail
             {
                 Name = "Weekly quota",
@@ -278,8 +280,8 @@ public class OpenAIProvider : ProviderBase
                 NextResetTime = weeklyResetTime,
                 DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Secondary,
-                PercentageValue = weeklyUsed.Value,
-                PercentageSemantic = PercentageValueSemantic.Used,
+                PercentageValue = secondaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
             });
         }
 

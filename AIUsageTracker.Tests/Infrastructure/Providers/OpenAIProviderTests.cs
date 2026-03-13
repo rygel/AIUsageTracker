@@ -110,11 +110,15 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
 
         Assert.NotNull(primary);
         Assert.Equal("5-hour quota", primary.Name);
-        Assert.Contains("46% used", primary.Used, StringComparison.Ordinal);
+        Assert.Equal(54.5, primary.PercentageValue);
+        Assert.Equal(PercentageValueSemantic.Remaining, primary.PercentageSemantic);
+        Assert.Contains("remaining", primary.Used, StringComparison.Ordinal);
 
         Assert.NotNull(secondary);
         Assert.Equal("Weekly quota", secondary.Name);
-        Assert.Contains("10% used", secondary.Used, StringComparison.Ordinal);
+        Assert.Equal(90.0, secondary.PercentageValue);
+        Assert.Equal(PercentageValueSemantic.Remaining, secondary.PercentageSemantic);
+        Assert.Contains("remaining", secondary.Used, StringComparison.Ordinal);
     }
 
     [Fact]
