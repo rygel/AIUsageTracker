@@ -220,6 +220,15 @@ public sealed class ProviderDefinition
         return null;
     }
 
+    public ProviderAuthDiscoverySpec CreateAuthDiscoverySpec()
+    {
+        return new ProviderAuthDiscoverySpec(
+            this.ProviderId,
+            this.DiscoveryEnvironmentVariables,
+            this.AuthIdentityCandidatePathTemplates,
+            this.SessionAuthFileSchemas);
+    }
+
     private static IReadOnlyCollection<string> NormalizeValues(IEnumerable<string>? values)
     {
         if (values == null)

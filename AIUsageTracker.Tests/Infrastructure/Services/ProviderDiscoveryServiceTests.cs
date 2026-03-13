@@ -47,7 +47,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
         try
         {
             // Act
-            var result = await this._service.DiscoverAuthAsync(definition);
+            var result = await this._service.DiscoverAuthAsync(definition.CreateAuthDiscoverySpec());
 
             // Assert
             Assert.NotNull(result);
@@ -90,7 +90,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
             });
 
         // Act
-        var result = await this._service.DiscoverAuthAsync(definition);
+        var result = await this._service.DiscoverAuthAsync(definition.CreateAuthDiscoverySpec());
 
         // Assert
         Assert.NotNull(result);
@@ -113,7 +113,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
             authIdentityCandidatePathTemplates: new[] { Path.Combine(this._tempTestDir, "non-existent.json") });
 
         // Act
-        var result = await this._service.DiscoverAuthAsync(definition);
+        var result = await this._service.DiscoverAuthAsync(definition.CreateAuthDiscoverySpec());
 
         // Assert
         Assert.Null(result);

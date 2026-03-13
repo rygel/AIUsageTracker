@@ -52,7 +52,7 @@ public class GitHubCopilotProvider : ProviderBase
         var token = this.ResolveToken(config);
         if (string.IsNullOrEmpty(token) && this.DiscoveryService != null)
         {
-            var discoveredAuth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition).ConfigureAwait(false);
+            var discoveredAuth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition.CreateAuthDiscoverySpec()).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(discoveredAuth?.AccessToken))
             {
                 token = discoveredAuth.AccessToken;

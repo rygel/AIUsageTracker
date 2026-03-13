@@ -120,7 +120,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     public async Task GetUsageAsync_LoadsSessionAuthFromDiscoveryServiceAsync()
     {
         // Arrange
-        this._discoveryService.Setup(d => d.DiscoverAuthAsync(It.IsAny<ProviderDefinition>()))
+        this._discoveryService.Setup(d => d.DiscoverAuthAsync(It.IsAny<ProviderAuthDiscoverySpec>()))
             .ReturnsAsync(new ProviderAuthData("session-from-mock", "acct-from-mock"));
 
         this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage

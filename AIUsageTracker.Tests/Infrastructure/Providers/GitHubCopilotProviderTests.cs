@@ -216,7 +216,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         this._authService.Setup(s => s.GetCurrentToken()).Returns((string?)null);
         this._authService.Setup(s => s.GetUsernameAsync()).ReturnsAsync("octocat");
         this._discoveryService
-            .Setup(s => s.DiscoverAuthAsync(GitHubCopilotProvider.StaticDefinition))
+            .Setup(s => s.DiscoverAuthAsync(GitHubCopilotProvider.StaticDefinition.CreateAuthDiscoverySpec()))
             .ReturnsAsync(new ProviderAuthData("discovered-token"));
 
         this.SetupHttpResponse("https://api.github.com/user", new HttpResponseMessage
@@ -243,7 +243,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         this._authService.Setup(s => s.GetCurrentToken()).Returns((string?)null);
         this._authService.Setup(s => s.GetUsernameAsync()).ReturnsAsync("rygel");
         this._discoveryService
-            .Setup(s => s.DiscoverAuthAsync(GitHubCopilotProvider.StaticDefinition))
+            .Setup(s => s.DiscoverAuthAsync(GitHubCopilotProvider.StaticDefinition.CreateAuthDiscoverySpec()))
             .ReturnsAsync((ProviderAuthData?)null);
 
         // Act

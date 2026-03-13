@@ -84,7 +84,7 @@ public class OpenAIProvider : ProviderBase
 
         if (string.IsNullOrWhiteSpace(accessToken) && this.DiscoveryService != null)
         {
-            var auth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition).ConfigureAwait(false);
+            var auth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition.CreateAuthDiscoverySpec()).ConfigureAwait(false);
             accessToken = auth?.AccessToken;
             accountId = auth?.AccountId;
         }

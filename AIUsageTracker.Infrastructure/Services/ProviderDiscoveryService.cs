@@ -18,22 +18,22 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
         this._logger = logger;
     }
 
-    public async Task<ProviderAuthData?> DiscoverAuthAsync(ProviderDefinition definition)
+    public async Task<ProviderAuthData?> DiscoverAuthAsync(ProviderAuthDiscoverySpec discoverySpec)
     {
         // 1. Check environment variables
-        foreach (var envVar in definition.DiscoveryEnvironmentVariables)
+        foreach (var envVar in discoverySpec.DiscoveryEnvironmentVariables)
         {
             var value = Environment.GetEnvironmentVariable(envVar);
             if (!string.IsNullOrWhiteSpace(value))
             {
-                this._logger.LogDebug("Discovered auth for {ProviderId} via environment variable {EnvVar}", definition.ProviderId, envVar);
+                this._logger.LogDebug("Discovered auth for {ProviderId} via environment variable {EnvVar}", discoverySpec.ProviderId, envVar);
                 return new ProviderAuthData(value);
             }
         }
 
         // 2. Check auth file candidates
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        foreach (var pathTemplate in definition.AuthIdentityCandidatePathTemplates)
+        foreach (var pathTemplate in discoverySpec.AuthIdentityCandidatePathTemplates)
         {
             var path = AuthPathTemplateResolver.Resolve(pathTemplate, userProfile);
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
@@ -43,16 +43,16 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 
             try
             {
-                var authData = await LoadAuthFromFileAsync(path, definition.SessionAuthFileSchemas);
+                var authData = await LoadAuthFromFileAsync(path, discoverySpec.SessionAuthFileSchemas);
                 if (authData != null)
                 {
-                    this._logger.LogDebug("Discovered auth for {ProviderId} via file {Path}", definition.ProviderId, path);
+                    this._logger.LogDebug("Discovered auth for {ProviderId} via file {Path}", discoverySpec.ProviderId, path);
                     return authData with { SourcePath = path };
                 }
             }
             catch (Exception ex)
             {
-                this._logger.LogDebug(ex, "Failed to read auth file for {ProviderId} at {Path}", definition.ProviderId, path);
+                this._logger.LogDebug(ex, "Failed to read auth file for {ProviderId} at {Path}", discoverySpec.ProviderId, path);
             }
         }
 
