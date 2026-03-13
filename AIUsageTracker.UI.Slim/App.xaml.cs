@@ -134,6 +134,8 @@ public partial class App : Application
         services.AddSingleton<IErrorDisplayService, ErrorDisplayService>();
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IPollingService, PollingService>();
+        services.AddSingleton<IReactivePollingService, ReactivePollingService>();
+        services.AddSingleton<IBrowserService, BrowserService>();
 
         // ViewModels
         services.AddSingleton<MainViewModel>();

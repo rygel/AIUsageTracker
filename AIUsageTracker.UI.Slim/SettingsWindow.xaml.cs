@@ -1127,11 +1127,6 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void CloseBtn_Click(object sender, RoutedEventArgs e)
-    {
-        this.Close();
-    }
-
     private async void ScanBtn_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -1984,11 +1979,4 @@ public partial class SettingsWindow : Window
     }
 #pragma warning restore VSTHRD100
 
-    private void Window_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Escape)
-        {
-            this.Close();
-        }
-    }
 }

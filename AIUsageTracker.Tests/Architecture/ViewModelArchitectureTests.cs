@@ -58,7 +58,9 @@ public class ViewModelArchitectureTests
                         !t.IsAbstract &&
                         !t.IsInterface &&
                         t != typeof(BaseViewModel) &&
-                        t != typeof(AsyncViewModel))
+                        t != typeof(AsyncViewModel) &&
+                        // Exclude design-time ViewModels which are for XAML designer only
+                        !t.Namespace?.Contains("DesignTime", StringComparison.Ordinal) == true)
             .ToList();
 
         var violations = new List<string>();

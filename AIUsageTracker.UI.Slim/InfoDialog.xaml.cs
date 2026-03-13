@@ -13,12 +13,13 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
 
-public partial class InfoDialog : Window
+public partial class InfoDialog : Window, IWeakEventListener
 {
     private readonly ILogger<InfoDialog> _logger;
     private readonly IAppPathProvider _pathProvider;
@@ -53,16 +54,25 @@ public partial class InfoDialog : Window
         this.PrivacyBtn.Foreground = Brushes.Gold;
     }
 
+    /// <inheritdoc />
+    public bool ReceiveWeakEvent(Type managerType, object sender, EventArgs e)
+    {
+        if (managerType == typeof(PrivacyChangedWeakEventManager) && e is PrivacyChangedEventArgs args)
+        {
+            this._isPrivacyMode = args.IsPrivacyMode;
+            this.UpdatePrivacyUI();
+            return true;
+        }
+
+        return false;
+    }
+
     private void LoadInfo()
     {
-        // Subscribe to global privacy changes
+        // Subscribe to global privacy changes using WeakEventManager to prevent memory leaks
         if (Application.Current is App)
         {
-            App.PrivacyChanged += (_, e) =>
-            {
-                this._isPrivacyMode = e.IsPrivacyMode;
-                this.UpdatePrivacyUI();
-            };
+            PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
 
             // Set initial privacy state
             this._isPrivacyMode = App.IsPrivacyMode;
@@ -149,6 +159,12 @@ public partial class InfoDialog : Window
         return Path.Combine("C:\\Users\\***\\...", filename);
     }
 
+    private void OnPrivacyChanged(object? sender, PrivacyChangedEventArgs e)
+    {
+        this._isPrivacyMode = e.IsPrivacyMode;
+        this.UpdatePrivacyUI();
+    }
+
     private static string? GetPrereleaseLabel(Assembly assembly)
     {
         var informationalVersion = assembly
@@ -208,19 +224,6 @@ public partial class InfoDialog : Window
 #pragma warning disable VSTHRD100 // XAML click handlers must be async void wrappers.
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e) => await this.PrivacyBtn_ClickAsync(sender, e);
 #pragma warning restore VSTHRD100
-
-    private void CloseBtn_Click(object sender, RoutedEventArgs e)
-    {
-        this.Close();
-    }
-
-    private void Header_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton == System.Windows.Input.MouseButton.Left)
-        {
-            this.DragMove();
-        }
-    }
 
     private void ConfigDir_Click(object sender, RoutedEventArgs e)
     {

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:behaviors="clr-namespace:AIUsageTracker.UI.Slim.Behaviors"
         mc:Ignorable="d"
         Title="About AI Usage Tracker" Width="450"
         SizeToContent="Height"
@@ -44,12 +45,13 @@
             </Grid.RowDefinitions>
 
             <!-- Header -->
-            <Border x:Name="HeaderBorder" Background="{DynamicResource HeaderBackground}" Padding="12" MouseDown="Header_MouseDown">
+            <Border x:Name="HeaderBorder" Background="{DynamicResource HeaderBackground}" Padding="12"
+                    behaviors:WindowDragBehavior.EnableDrag="True">
                 <DockPanel>
                     <TextBlock Text="Info" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource PrimaryText}" DockPanel.Dock="Left"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <Button x:Name="PrivacyBtn" Content="🔒" Click="PrivacyBtn_Click" Background="Transparent" Foreground="{DynamicResource SecondaryText}" Width="30" Margin="0,0,10,0" ToolTip="Toggle Privacy Mode" WindowChrome.IsHitTestVisibleInChrome="True"/>
-                        <Button Content="X" Click="CloseBtn_Click" Background="Transparent" Foreground="{DynamicResource SecondaryText}" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
+                        <Button Content="X" behaviors:CloseWindowBehavior.CloseOnClick="True" Background="Transparent" Foreground="{DynamicResource SecondaryText}" Width="20" WindowChrome.IsHitTestVisibleInChrome="True"/>
                     </StackPanel>
                 </DockPanel>
             </Border>
@@ -107,7 +109,7 @@
             <!-- Footer -->
             <Border x:Name="FooterBorder" Grid.Row="2" Background="{DynamicResource FooterBackground}" Padding="12,8">
                 <DockPanel>
-                    <Button x:Name="CloseBtn" Content="Close" HorizontalAlignment="Right" Click="CloseBtn_Click" Width="80"/>
+                    <Button x:Name="CloseBtn" Content="Close" HorizontalAlignment="Right" behaviors:CloseWindowBehavior.CloseOnClick="True" Width="80"/>
                 </DockPanel>
             </Border>
         </Grid>
