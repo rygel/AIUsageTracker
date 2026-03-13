@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -15,6 +16,16 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class ClaudeCodeProvider : ProviderBase
 {
+    /// <summary>
+    /// The OAuth usage endpoint for Claude subscriptions.
+    /// </summary>
+    internal const string OAuthUsageEndpoint = "https://api.anthropic.com/api/oauth/usage";
+
+    /// <summary>
+    /// The beta header required for OAuth usage endpoint.
+    /// </summary>
+    internal const string OAuthBetaHeader = "oauth-2025-04-20";
+
     private readonly ILogger<ClaudeCodeProvider> _logger;
     private readonly HttpClient _httpClient;
 
@@ -28,8 +39,8 @@ public class ClaudeCodeProvider : ProviderBase
         providerId: "claude-code",
         displayName: "Claude Code",
         planType: PlanType.Usage,
-        isQuotaBased: false,
-        defaultConfigType: "pay-as-you-go",
+        isQuotaBased: true,
+        defaultConfigType: "quota-based",
         autoIncludeWhenUnconfigured: true,
         discoveryEnvironmentVariables: new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         iconAssetName: "anthropic",
@@ -65,7 +76,7 @@ public class ClaudeCodeProvider : ProviderBase
                 IsAvailable = false,
                 Description = "No API key configured",
                 UsageUnit = "Status",
-                IsQuotaBased = false,
+                IsQuotaBased = true,
                 PlanType = PlanType.Usage,
                 RawJson = "{\"source\":\"claude-code\",\"status\":\"api_key_missing\"}",
                 HttpStatus = 401,
@@ -73,7 +84,21 @@ public class ClaudeCodeProvider : ProviderBase
             };
         }
 
-        // Try to get usage from Anthropic API first
+        // Try OAuth usage endpoint first (for subscription users)
+        try
+        {
+            var oauthUsage = await this.GetUsageFromOAuthAsync(config.ApiKey).ConfigureAwait(false);
+            if (oauthUsage != null)
+            {
+                return new[] { oauthUsage };
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogDebug(ex, "OAuth usage endpoint not available, trying rate limit headers");
+        }
+
+        // Try to get usage from Anthropic API rate limit headers
         try
         {
             var apiUsage = await this.GetUsageFromApiAsync(config.ApiKey).ConfigureAwait(false);
@@ -89,6 +114,169 @@ public class ClaudeCodeProvider : ProviderBase
 
         // Fall back to CLI if API fails
         return await this.GetUsageFromCliAsync(config).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Gets usage information from the OAuth usage endpoint for subscription users.
+    /// </summary>
+    /// <param name="accessToken">The OAuth access token from credentials file.</param>
+    /// <returns>Provider usage if successful, null otherwise.</returns>
+    internal async Task<ProviderUsage?> GetUsageFromOAuthAsync(string accessToken)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, OAuthUsageEndpoint);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Add("anthropic-beta", OAuthBetaHeader);
+
+            using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                this._logger.LogDebug("OAuth usage endpoint returned {StatusCode}: {Body}", response.StatusCode, responseBody);
+                return null;
+            }
+
+            var usageResponse = JsonSerializer.Deserialize<OAuthUsageResponse>(responseBody);
+            if (usageResponse == null)
+            {
+                this._logger.LogWarning("Failed to deserialize OAuth usage response");
+                return null;
+            }
+
+            return this.ParseOAuthUsageResponse(usageResponse, responseBody, (int)response.StatusCode);
+        }
+        catch (HttpRequestException ex)
+        {
+            this._logger.LogDebug(ex, "OAuth usage endpoint request failed");
+            return null;
+        }
+        catch (JsonException ex)
+        {
+            this._logger.LogWarning(ex, "Failed to parse OAuth usage response");
+            return null;
+        }
+    }
+
+    private ProviderUsage ParseOAuthUsageResponse(OAuthUsageResponse response, string rawJson, int httpStatus)
+    {
+        // Use 5-hour quota as primary (burst limit) and 7-day as secondary (rolling window)
+        var primaryPercent = response.FiveHour?.Utilization ?? 0;
+        var secondaryPercent = response.SevenDay?.Utilization ?? 0;
+
+        // Determine the "main" percentage to show - use the higher of the two quotas
+        var mainPercent = Math.Max(primaryPercent, secondaryPercent);
+
+        // Build details for the sub-provider cards
+        var details = new List<ProviderUsageDetail>();
+
+        // 5-hour quota bucket
+        if (response.FiveHour != null)
+        {
+            var fiveHourDetail = new ProviderUsageDetail
+            {
+                Name = "5-Hour Limit",
+                DetailType = ProviderUsageDetailType.QuotaWindow,
+                QuotaBucketKind = WindowKind.Primary,
+                NextResetTime = response.FiveHour.ResetsAt,
+            };
+            fiveHourDetail.SetPercentageValue(
+                response.FiveHour.Utilization,
+                PercentageValueSemantic.Used,
+                decimalPlaces: 0);
+            details.Add(fiveHourDetail);
+        }
+
+        // 7-day quota bucket
+        if (response.SevenDay != null)
+        {
+            var sevenDayDetail = new ProviderUsageDetail
+            {
+                Name = "7-Day Limit",
+                DetailType = ProviderUsageDetailType.QuotaWindow,
+                QuotaBucketKind = WindowKind.Secondary,
+                NextResetTime = response.SevenDay.ResetsAt,
+            };
+            sevenDayDetail.SetPercentageValue(
+                response.SevenDay.Utilization,
+                PercentageValueSemantic.Used,
+                decimalPlaces: 0);
+            details.Add(sevenDayDetail);
+        }
+
+        // Model-specific breakdowns
+        if (response.SevenDaySonnet != null)
+        {
+            var sonnetDetail = new ProviderUsageDetail
+            {
+                Name = "Sonnet (7-day)",
+                DetailType = ProviderUsageDetailType.Model,
+                QuotaBucketKind = WindowKind.None,
+            };
+            sonnetDetail.SetPercentageValue(
+                response.SevenDaySonnet.Utilization,
+                PercentageValueSemantic.Used,
+                decimalPlaces: 0);
+            details.Add(sonnetDetail);
+        }
+
+        if (response.SevenDayOpus != null)
+        {
+            var opusDetail = new ProviderUsageDetail
+            {
+                Name = "Opus (7-day)",
+                DetailType = ProviderUsageDetailType.Model,
+                QuotaBucketKind = WindowKind.None,
+            };
+            opusDetail.SetPercentageValue(
+                response.SevenDayOpus.Utilization,
+                PercentageValueSemantic.Used,
+                decimalPlaces: 0);
+            details.Add(opusDetail);
+        }
+
+        // Determine reset time - use the sooner of the two quota resets
+        DateTime? nextReset = null;
+        if (response.FiveHour?.ResetsAt != null && response.SevenDay?.ResetsAt != null)
+        {
+            nextReset = response.FiveHour.ResetsAt < response.SevenDay.ResetsAt
+                ? response.FiveHour.ResetsAt
+                : response.SevenDay.ResetsAt;
+        }
+        else
+        {
+            nextReset = response.FiveHour?.ResetsAt ?? response.SevenDay?.ResetsAt;
+        }
+
+        // Build description
+        var description = $"5h: {primaryPercent:F0}% | 7d: {secondaryPercent:F0}%";
+        if (response.ExtraUsage?.IsEnabled == true)
+        {
+            description += " | Extra usage enabled";
+        }
+
+        // For quota-based providers, RequestsPercentage represents REMAINING percentage
+        // The UI expects this semantic: higher RequestsPercentage = more quota remaining
+        var remainingPercent = 100 - mainPercent;
+
+        return new ProviderUsage
+        {
+            ProviderId = this.ProviderId,
+            ProviderName = "Claude Code",
+            RequestsPercentage = remainingPercent,
+            RequestsUsed = mainPercent,
+            RequestsAvailable = 100,
+            UsageUnit = "%",
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            IsAvailable = true,
+            Description = description,
+            Details = details,
+            NextResetTime = nextReset,
+            RawJson = rawJson,
+            HttpStatus = httpStatus,
+        };
     }
 
     private async Task<ProviderUsage?> GetUsageFromApiAsync(string apiKey)
@@ -395,5 +583,56 @@ public class ClaudeCodeProvider : ProviderBase
                 _ => "Custom",
             };
         }
+    }
+
+    /// <summary>
+    /// Response model for the OAuth usage endpoint.
+    /// </summary>
+    internal class OAuthUsageResponse
+    {
+        [JsonPropertyName("five_hour")]
+        public OAuthQuotaBucket? FiveHour { get; set; }
+
+        [JsonPropertyName("seven_day")]
+        public OAuthQuotaBucket? SevenDay { get; set; }
+
+        [JsonPropertyName("seven_day_sonnet")]
+        public OAuthModelQuota? SevenDaySonnet { get; set; }
+
+        [JsonPropertyName("seven_day_opus")]
+        public OAuthModelQuota? SevenDayOpus { get; set; }
+
+        [JsonPropertyName("extra_usage")]
+        public OAuthExtraUsage? ExtraUsage { get; set; }
+    }
+
+    /// <summary>
+    /// Quota bucket with utilization percentage and reset time.
+    /// </summary>
+    internal class OAuthQuotaBucket
+    {
+        [JsonPropertyName("utilization")]
+        public double Utilization { get; set; }
+
+        [JsonPropertyName("resets_at")]
+        public DateTime? ResetsAt { get; set; }
+    }
+
+    /// <summary>
+    /// Model-specific quota information.
+    /// </summary>
+    internal class OAuthModelQuota
+    {
+        [JsonPropertyName("utilization")]
+        public double Utilization { get; set; }
+    }
+
+    /// <summary>
+    /// Extra usage (overage) information.
+    /// </summary>
+    internal class OAuthExtraUsage
+    {
+        [JsonPropertyName("is_enabled")]
+        public bool IsEnabled { get; set; }
     }
 }
