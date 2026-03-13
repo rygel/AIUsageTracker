@@ -43,7 +43,7 @@ public sealed class GitHubAuthServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetUsernameAsync_LoadsUsernameFromHostsYml_WhenNotAuthenticated()
+    public async Task GetUsernameAsync_LoadsUsernameFromHostsYml_WhenNotAuthenticatedAsync()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), "aiusage-gh-test-" + Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture));
         var appData = Path.Combine(tempRoot, "AppData", "Roaming");

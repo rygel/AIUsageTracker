@@ -14,6 +14,15 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class DeepSeekProvider : ProviderBase
 {
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<DeepSeekProvider> _logger;
+
+    public DeepSeekProvider(HttpClient httpClient, ILogger<DeepSeekProvider> logger)
+    {
+        this._httpClient = httpClient;
+        this._logger = logger;
+    }
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "deepseek",
         displayName: "DeepSeek",
@@ -30,15 +39,6 @@ public class DeepSeekProvider : ProviderBase
     public override ProviderDefinition Definition => StaticDefinition;
 
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<DeepSeekProvider> _logger;
-
-    public DeepSeekProvider(HttpClient httpClient, ILogger<DeepSeekProvider> logger)
-    {
-        this._httpClient = httpClient;
-        this._logger = logger;
-    }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {

@@ -11,8 +11,6 @@ namespace AIUsageTracker.Core.Exceptions;
 /// </summary>
 public class ProviderResponseException : ProviderException
 {
-    public string? ResponseBody { get; }
-
     public ProviderResponseException(
         string providerId,
         string message = "Invalid response from provider",
@@ -22,4 +20,6 @@ public class ProviderResponseException : ProviderException
     {
         this.ResponseBody = responseBody;
     }
+
+    public string? ResponseBody { get; }
 }

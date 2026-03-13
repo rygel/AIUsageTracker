@@ -11,12 +11,6 @@ namespace AIUsageTracker.Core.Exceptions;
 /// </summary>
 public class ProviderException : Exception
 {
-    public string ProviderId { get; }
-
-    public ProviderErrorType ErrorType { get; }
-
-    public int? HttpStatusCode { get; }
-
     public ProviderException(
         string providerId,
         string message,
@@ -29,4 +23,10 @@ public class ProviderException : Exception
         this.ErrorType = errorType;
         this.HttpStatusCode = httpStatusCode;
     }
+
+    public string ProviderId { get; }
+
+    public ProviderErrorType ErrorType { get; }
+
+    public int? HttpStatusCode { get; }
 }

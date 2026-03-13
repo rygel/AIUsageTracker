@@ -18,6 +18,15 @@ public class MinimaxProvider : ProviderBase
     public const string InternationalProviderId = "minimax-io";
     public const string InternationalLegacyProviderId = "minimax-global";
 
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<MinimaxProvider> _logger;
+
+    public MinimaxProvider(HttpClient httpClient, ILogger<MinimaxProvider> logger)
+    {
+        this._httpClient = httpClient;
+        this._logger = logger;
+    }
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: ChinaProviderId,
         displayName: "Minimax (China)",
@@ -42,15 +51,6 @@ public class MinimaxProvider : ProviderBase
 
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<MinimaxProvider> _logger;
-
-    public MinimaxProvider(HttpClient httpClient, ILogger<MinimaxProvider> logger)
-    {
-        this._httpClient = httpClient;
-        this._logger = logger;
-    }
 
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

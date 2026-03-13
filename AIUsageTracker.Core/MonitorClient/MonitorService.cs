@@ -16,32 +16,30 @@ namespace AIUsageTracker.Core.MonitorClient;
 
 public class MonitorService : IMonitorService
 {
-    private readonly HttpClient _httpClient;
-    private readonly JsonSerializerOptions _jsonOptions;
-    private readonly ILogger<MonitorService>? _logger;
     private const int UsageRequestTimeoutSeconds = 8;
     private const int ConfigRequestTimeoutSeconds = 3;
 
     public const string ExpectedApiContractVersion = MonitorApiContract.CurrentVersion;
 
-    /// <inheritdoc/>
-    public string AgentUrl { get; set; } = "http://localhost:5000";
-
     private static HttpClient? _sharedHttpClient;
+    private static readonly List<string> _diagnosticsLog = new();
+    private static long _usageRequestCount;
+    private static long _usageErrorCount;
+    private static long _usageTotalLatencyMs;
+    private static long _usageLastLatencyMs;
+    private static long _refreshRequestCount;
+    private static long _refreshErrorCount;
+    private static long _refreshTotalLatencyMs;
+    private static long _refreshLastLatencyMs;
+    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
+
+    private readonly HttpClient _httpClient;
+    private readonly JsonSerializerOptions _jsonOptions;
+    private readonly ILogger<MonitorService>? _logger;
 
     public MonitorService()
         : this(GetOrCreateHttpClient(), null)
     {
-    }
-
-    private static HttpClient GetOrCreateHttpClient()
-    {
-        if (_sharedHttpClient == null)
-        {
-            _sharedHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-        }
-
-        return _sharedHttpClient;
     }
 
     public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger)
@@ -60,21 +58,22 @@ public class MonitorService : IMonitorService
     }
 
     /// <inheritdoc/>
-    public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
+    public string AgentUrl { get; set; } = "http://localhost:5000";
 
-    private static readonly List<string> _diagnosticsLog = new();
+    /// <inheritdoc/>
+    public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
 
     public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
 
-    private static long _usageRequestCount;
-    private static long _usageErrorCount;
-    private static long _usageTotalLatencyMs;
-    private static long _usageLastLatencyMs;
-    private static long _refreshRequestCount;
-    private static long _refreshErrorCount;
-    private static long _refreshTotalLatencyMs;
-    private static long _refreshLastLatencyMs;
-    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
+    private static HttpClient GetOrCreateHttpClient()
+    {
+        if (_sharedHttpClient == null)
+        {
+            _sharedHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
+        }
+
+        return _sharedHttpClient;
+    }
 
     public static void LogDiagnostic(string message)
     {

@@ -23,58 +23,6 @@ public class ScreenshotTests : WebTestBase
     private readonly Dictionary<string, (string BgPrimary, string AccentPrimary)> _representativeThemeTokens;
     private readonly string _outputDir;
 
-    private sealed class ThemeCatalog
-    {
-        [JsonPropertyName("themes")]
-        public List<ThemeCatalogEntry> Themes { get; set; } = [];
-    }
-
-    private sealed class ThemeCatalogEntry
-    {
-        [JsonPropertyName("webKey")]
-        public string WebKey { get; set; } = string.Empty;
-
-        [JsonPropertyName("representative")]
-        public bool Representative { get; set; }
-
-        [JsonPropertyName("tokens")]
-        public ThemeTokenEntry? Tokens { get; set; }
-    }
-
-    private sealed class ThemeTokenEntry
-    {
-        [JsonPropertyName("bgPrimary")]
-        public string BgPrimary { get; set; } = string.Empty;
-
-        [JsonPropertyName("accentPrimary")]
-        public string AccentPrimary { get; set; } = string.Empty;
-    }
-
-    private sealed class PlaywrightSession : IAsyncDisposable
-    {
-        private readonly IPlaywright _playwright;
-        private readonly IBrowser _browser;
-        private readonly IBrowserContext _context;
-
-        public IPage Page { get; }
-
-        public PlaywrightSession(IPlaywright playwright, IBrowser browser, IBrowserContext context, IPage page)
-        {
-            this._playwright = playwright;
-            this._browser = browser;
-            this._context = context;
-            this.Page = page;
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            await this.Page.CloseAsync().ConfigureAwait(false);
-            await this._context.CloseAsync().ConfigureAwait(false);
-            await this._browser.CloseAsync().ConfigureAwait(false);
-            this._playwright.Dispose();
-        }
-    }
-
     public ScreenshotTests()
     {
         var binPath = AppContext.BaseDirectory;
@@ -543,6 +491,58 @@ public class ScreenshotTests : WebTestBase
 
             var contrast = ScreenshotTests.ContrastRatio(tokens[2], tokens[0]);
             Assert.IsTrue(contrast >= 4.5, $"Theme '{theme}' has insufficient text/background contrast ({contrast:F2}).");
+        }
+    }
+
+    private sealed class ThemeCatalog
+    {
+        [JsonPropertyName("themes")]
+        public List<ThemeCatalogEntry> Themes { get; set; } = [];
+    }
+
+    private sealed class ThemeCatalogEntry
+    {
+        [JsonPropertyName("webKey")]
+        public string WebKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("representative")]
+        public bool Representative { get; set; }
+
+        [JsonPropertyName("tokens")]
+        public ThemeTokenEntry? Tokens { get; set; }
+    }
+
+    private sealed class ThemeTokenEntry
+    {
+        [JsonPropertyName("bgPrimary")]
+        public string BgPrimary { get; set; } = string.Empty;
+
+        [JsonPropertyName("accentPrimary")]
+        public string AccentPrimary { get; set; } = string.Empty;
+    }
+
+    private sealed class PlaywrightSession : IAsyncDisposable
+    {
+        private readonly IPlaywright _playwright;
+        private readonly IBrowser _browser;
+        private readonly IBrowserContext _context;
+
+        public IPage Page { get; }
+
+        public PlaywrightSession(IPlaywright playwright, IBrowser browser, IBrowserContext context, IPage page)
+        {
+            this._playwright = playwright;
+            this._browser = browser;
+            this._context = context;
+            this.Page = page;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await this.Page.CloseAsync().ConfigureAwait(false);
+            await this._context.CloseAsync().ConfigureAwait(false);
+            await this._browser.CloseAsync().ConfigureAwait(false);
+            this._playwright.Dispose();
         }
     }
 }

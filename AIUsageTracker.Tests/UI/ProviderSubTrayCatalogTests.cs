@@ -2,75 +2,74 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-namespace AIUsageTracker.Tests.UI
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim;
+
+namespace AIUsageTracker.Tests.UI;
+
+public sealed class ProviderSubTrayCatalogTests
 {
-    using AIUsageTracker.Core.Models;
-    using AIUsageTracker.UI.Slim;
-
-    public sealed class ProviderSubTrayCatalogTests
+    [Fact]
+    public void GetEligibleDetails_FiltersDeduplicatesAndSorts()
     {
-        [Fact]
-        public void GetEligibleDetails_FiltersDeduplicatesAndSorts()
+        var usage = new ProviderUsage
         {
-            var usage = new ProviderUsage
+            Details = new List<ProviderUsageDetail>
             {
-                Details = new List<ProviderUsageDetail>
-                {
-                    new() { Name = "Gemini 2.5 Pro", Used = "45% used", DetailType = ProviderUsageDetailType.Model },
-                    new() { Name = "Gemini 2.5 Flash", Used = "12% used", DetailType = ProviderUsageDetailType.Model },
-                    new() { Name = "Gemini 2.5 Pro", Used = "50% used", DetailType = ProviderUsageDetailType.Model },
-                    new() { Name = "[internal]", Used = "10% used", DetailType = ProviderUsageDetailType.Model },
-                    new() { Name = "Credits", Used = "Unlimited", DetailType = ProviderUsageDetailType.Credit },
-                },
-            };
+                new() { Name = "Gemini 2.5 Pro", Used = "45% used", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "Gemini 2.5 Flash", Used = "12% used", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "Gemini 2.5 Pro", Used = "50% used", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "[internal]", Used = "10% used", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "Credits", Used = "Unlimited", DetailType = ProviderUsageDetailType.Credit },
+            },
+        };
 
-            var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
 
-            Assert.Equal(
-                new[] { "Gemini 2.5 Flash", "Gemini 2.5 Pro" },
-                details.Select(detail => detail.Name).ToArray());
-        }
+        Assert.Equal(
+            new[] { "Gemini 2.5 Flash", "Gemini 2.5 Pro" },
+            details.Select(detail => detail.Name).ToArray());
+    }
 
-        [Fact]
-        public void GetEligibleDetails_ReturnsEmpty_WhenUsageMissing()
+    [Fact]
+    public void GetEligibleDetails_ReturnsEmpty_WhenUsageMissing()
+    {
+        var details = ProviderSubTrayCatalog.GetEligibleDetails(null);
+
+        Assert.Empty(details);
+    }
+
+    [Fact]
+    public void GetEligibleDetails_IncludesModelEntriesWithoutPercentUsage()
+    {
+        var usage = new ProviderUsage
         {
-            var details = ProviderSubTrayCatalog.GetEligibleDetails(null);
-
-            Assert.Empty(details);
-        }
-
-        [Fact]
-        public void GetEligibleDetails_IncludesModelEntriesWithoutPercentUsage()
-        {
-            var usage = new ProviderUsage
+            Details = new List<ProviderUsageDetail>
             {
-                Details = new List<ProviderUsageDetail>
-                {
-                    new() { Name = "GPT OSS", Used = "Unknown", DetailType = ProviderUsageDetailType.Model },
-                },
-            };
+                new() { Name = "GPT OSS", Used = "Unknown", DetailType = ProviderUsageDetailType.Model },
+            },
+        };
 
-            var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
 
-            var detail = Assert.Single(details);
-            Assert.Equal("GPT OSS", detail.Name);
-        }
+        var detail = Assert.Single(details);
+        Assert.Equal("GPT OSS", detail.Name);
+    }
 
-        [Fact]
-        public void GetEligibleDetails_ReturnsEmpty_ForProvidersWithVisibleDerivedProviders()
+    [Fact]
+    public void GetEligibleDetails_ReturnsEmpty_ForProvidersWithVisibleDerivedProviders()
+    {
+        var usage = new ProviderUsage
         {
-            var usage = new ProviderUsage
+            ProviderId = "codex",
+            Details = new List<ProviderUsageDetail>
             {
-                ProviderId = "codex",
-                Details = new List<ProviderUsageDetail>
-                {
-                    new() { Name = "OpenAI (Codex)", DetailType = ProviderUsageDetailType.Model },
-                },
-            };
+                new() { Name = "OpenAI (Codex)", DetailType = ProviderUsageDetailType.Model },
+            },
+        };
 
-            var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
 
-            Assert.Empty(details);
-        }
+        Assert.Empty(details);
     }
 }

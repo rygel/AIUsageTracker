@@ -15,72 +15,6 @@ namespace Seeder;
 
 public class Program
 {
-    private sealed class ProviderFixture
-    {
-        [JsonPropertyName("provider_id")]
-        public string ProviderId { get; set; } = string.Empty;
-
-        [JsonPropertyName("provider_name")]
-        public string ProviderName { get; set; } = string.Empty;
-
-        [JsonPropertyName("account_name")]
-        public string? AccountName { get; set; }
-
-        [JsonPropertyName("is_active")]
-        public int IsActive { get; set; }
-
-        [JsonPropertyName("config_json")]
-        public string? ConfigJson { get; set; }
-    }
-
-    private sealed class HistoryFixture
-    {
-        [JsonPropertyName("provider_id")]
-        public string ProviderId { get; set; } = string.Empty;
-
-        [JsonPropertyName("requests_used")]
-        public double RequestsUsed { get; set; }
-
-        [JsonPropertyName("requests_available")]
-        public double RequestsAvailable { get; set; }
-
-        [JsonPropertyName("requests_percentage")]
-        public double RequestsPercentage { get; set; }
-
-        [JsonPropertyName("is_available")]
-        public int IsAvailable { get; set; }
-
-        [JsonPropertyName("status_message")]
-        public string StatusMessage { get; set; } = string.Empty;
-
-        [JsonPropertyName("next_reset_time")]
-        public string? NextResetTime { get; set; }
-
-        [JsonPropertyName("fetched_at")]
-        public string FetchedAt { get; set; } = string.Empty;
-
-        [JsonPropertyName("details_json")]
-        public string? DetailsJson { get; set; }
-
-        [JsonPropertyName("response_latency_ms")]
-        public double ResponseLatencyMs { get; set; }
-    }
-
-    private sealed class TestDataFixture
-    {
-        [JsonPropertyName("exported_at")]
-        public string ExportedAt { get; set; } = string.Empty;
-
-        [JsonPropertyName("providers")]
-        public List<ProviderFixture> Providers { get; set; } = [];
-
-        [JsonPropertyName("latest_history")]
-        public List<HistoryFixture> LatestHistory { get; set; } = [];
-
-        [JsonPropertyName("history_7days")]
-        public List<HistoryFixture> History7Days { get; set; } = [];
-    }
-
     public static int Main(string[] args)
     {
         if (args.Length > 0 && string.Equals(args[0], "export", StringComparison.Ordinal))
@@ -369,5 +303,71 @@ public class Program
 
         Console.WriteLine($"Seeded {fixture.Providers.Count} providers with {historyToInsert.Count} history records.");
         return 0;
+    }
+
+    private sealed class ProviderFixture
+    {
+        [JsonPropertyName("provider_id")]
+        public string ProviderId { get; set; } = string.Empty;
+
+        [JsonPropertyName("provider_name")]
+        public string ProviderName { get; set; } = string.Empty;
+
+        [JsonPropertyName("account_name")]
+        public string? AccountName { get; set; }
+
+        [JsonPropertyName("is_active")]
+        public int IsActive { get; set; }
+
+        [JsonPropertyName("config_json")]
+        public string? ConfigJson { get; set; }
+    }
+
+    private sealed class HistoryFixture
+    {
+        [JsonPropertyName("provider_id")]
+        public string ProviderId { get; set; } = string.Empty;
+
+        [JsonPropertyName("requests_used")]
+        public double RequestsUsed { get; set; }
+
+        [JsonPropertyName("requests_available")]
+        public double RequestsAvailable { get; set; }
+
+        [JsonPropertyName("requests_percentage")]
+        public double RequestsPercentage { get; set; }
+
+        [JsonPropertyName("is_available")]
+        public int IsAvailable { get; set; }
+
+        [JsonPropertyName("status_message")]
+        public string StatusMessage { get; set; } = string.Empty;
+
+        [JsonPropertyName("next_reset_time")]
+        public string? NextResetTime { get; set; }
+
+        [JsonPropertyName("fetched_at")]
+        public string FetchedAt { get; set; } = string.Empty;
+
+        [JsonPropertyName("details_json")]
+        public string? DetailsJson { get; set; }
+
+        [JsonPropertyName("response_latency_ms")]
+        public double ResponseLatencyMs { get; set; }
+    }
+
+    private sealed class TestDataFixture
+    {
+        [JsonPropertyName("exported_at")]
+        public string ExportedAt { get; set; } = string.Empty;
+
+        [JsonPropertyName("providers")]
+        public List<ProviderFixture> Providers { get; set; } = [];
+
+        [JsonPropertyName("latest_history")]
+        public List<HistoryFixture> LatestHistory { get; set; } = [];
+
+        [JsonPropertyName("history_7days")]
+        public List<HistoryFixture> History7Days { get; set; } = [];
     }
 }

@@ -12,6 +12,18 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class GitHubCopilotProvider : ProviderBase
 {
+    private readonly IGitHubAuthService _authService;
+    private readonly IResilientHttpClient _resilientHttpClient;
+    private readonly ILogger<GitHubCopilotProvider> _logger;
+
+    public GitHubCopilotProvider(IResilientHttpClient resilientHttpClient, ILogger<GitHubCopilotProvider> logger, IGitHubAuthService authService, IProviderDiscoveryService? discoveryService = null)
+        : base(discoveryService)
+    {
+        this._resilientHttpClient = resilientHttpClient;
+        this._logger = logger;
+        this._authService = authService;
+    }
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "github-copilot",
         displayName: "GitHub Copilot",
@@ -34,18 +46,6 @@ public class GitHubCopilotProvider : ProviderBase
     public override ProviderDefinition Definition => StaticDefinition;
 
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private readonly IGitHubAuthService _authService;
-    private readonly IResilientHttpClient _resilientHttpClient;
-    private readonly ILogger<GitHubCopilotProvider> _logger;
-
-    public GitHubCopilotProvider(IResilientHttpClient resilientHttpClient, ILogger<GitHubCopilotProvider> logger, IGitHubAuthService authService, IProviderDiscoveryService? discoveryService = null)
-        : base(discoveryService)
-    {
-        this._resilientHttpClient = resilientHttpClient;
-        this._logger = logger;
-        this._authService = authService;
-    }
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {

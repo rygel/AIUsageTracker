@@ -474,8 +474,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             request =>
                 request.RequestUri != null &&
                 string.Equals(request.RequestUri.ToString(), "https://oauth2.googleapis.com/token", StringComparison.Ordinal) &&
-                RequestContentContains(request, $"client_id={cliClientId}") &&
-                RequestContentContains(request, $"client_secret={cliClientSecret}"),
+RequestContentContainsAsync(request, $"client_id={cliClientId}") &&
+RequestContentContainsAsync(request, $"client_secret={cliClientSecret}"),
             new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.Unauthorized,
@@ -486,8 +486,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             request =>
                 request.RequestUri != null &&
                 string.Equals(request.RequestUri.ToString(), "https://oauth2.googleapis.com/token", StringComparison.Ordinal) &&
-                RequestContentContains(request, $"client_id={pluginClientId}") &&
-                RequestContentContains(request, $"client_secret={pluginClientSecret}"),
+RequestContentContainsAsync(request, $"client_id={pluginClientId}") &&
+RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}"),
             new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.OK,
@@ -516,8 +516,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
                 ItExpr.Is<HttpRequestMessage>(request =>
                     request.RequestUri != null &&
                     request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
-                    RequestContentContains(request, $"client_id={cliClientId}") &&
-                    RequestContentContains(request, $"client_secret={cliClientSecret}")),
+RequestContentContainsAsync(request, $"client_id={cliClientId}") &&
+RequestContentContainsAsync(request, $"client_secret={cliClientSecret}")),
                 ItExpr.IsAny<CancellationToken>());
 
         this.MessageHandler.Protected()
@@ -527,16 +527,21 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
                 ItExpr.Is<HttpRequestMessage>(request =>
                     request.RequestUri != null &&
                     request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
-                    RequestContentContains(request, $"client_id={pluginClientId}") &&
-                    RequestContentContains(request, $"client_secret={pluginClientSecret}")),
+RequestContentContainsAsync(request, $"client_id={pluginClientId}") &&
+RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}")),
                 ItExpr.IsAny<CancellationToken>());
 
         Directory.Delete(tempDir, recursive: true);
     }
 
-    private static bool RequestContentContains(HttpRequestMessage request, string value)
+    private static bool RequestContentContainsAsync(HttpRequestMessage request, string value)
     {
-        var content = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+        if (request.Content == null)
+        {
+            return false;
+        }
+
+        var content = request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
         return content?.Contains(value, StringComparison.Ordinal) == true;
     }
 

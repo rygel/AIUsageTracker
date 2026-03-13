@@ -16,19 +16,19 @@ public interface IGitHubAuthService
     /// <summary>
     /// Initiates the Device Flow. Returns the user code, device code, and verification URI.
     /// </summary>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<(string DeviceCode, string UserCode, string VerificationUri, int ExpiresIn, int Interval)> InitiateDeviceFlowAsync();
 
     /// <summary>
     /// Polls GitHub for the access token using the device code.
     /// </summary>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<string?> PollForTokenAsync(string deviceCode, int interval);
 
     /// <summary>
     /// Refreshes the access token if needed (though Device Flow tokens generally don't expire quickly, keeping for completeness).
     /// </summary>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<string?> RefreshTokenAsync(string refreshToken);
 
     /// <summary>
@@ -50,6 +50,6 @@ public interface IGitHubAuthService
     /// <summary>
     /// Gets the username of the authenticated user.
     /// </summary>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<string?> GetUsernameAsync();
 }

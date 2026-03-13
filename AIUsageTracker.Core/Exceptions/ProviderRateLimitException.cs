@@ -11,8 +11,6 @@ namespace AIUsageTracker.Core.Exceptions;
 /// </summary>
 public class ProviderRateLimitException : ProviderException
 {
-    public DateTime? RetryAfter { get; }
-
     public ProviderRateLimitException(
         string providerId,
         DateTime? retryAfter = null,
@@ -22,4 +20,6 @@ public class ProviderRateLimitException : ProviderException
     {
         this.RetryAfter = retryAfter;
     }
+
+    public DateTime? RetryAfter { get; }
 }

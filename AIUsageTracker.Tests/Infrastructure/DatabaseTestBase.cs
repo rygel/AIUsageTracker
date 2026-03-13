@@ -144,7 +144,22 @@ public abstract class DatabaseTestBase : IDisposable
     {
         this._sharedConnection.Close();
         this._sharedConnection.Dispose();
-        this.Cache.Dispose();
-        TestTempPaths.CleanupPath(this.DbPath);
+        this.Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            this._sharedConnection?.Close();
+            this._sharedConnection?.Dispose();
+            this.Cache?.Dispose();
+            TestTempPaths.CleanupPath(this.DbPath);
+        }
     }
 }

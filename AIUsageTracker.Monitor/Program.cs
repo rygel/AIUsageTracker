@@ -39,7 +39,7 @@ public class Program
             var resolvedLogPath = MonitorLogPathResolver.Resolve(pathProvider, DateTime.Now);
             if (resolvedLogPath.UsedFallback)
             {
-                Console.Error.WriteLine(
+                await Console.Error.WriteLineAsync(
                     $"Preferred monitor log directory '{resolvedLogPath.PreferredDirectory}' unavailable. Using fallback '{resolvedLogPath.LogDirectory}'.");
             }
 
@@ -275,7 +275,7 @@ public class Program
             }
             else
             {
-                Console.Error.WriteLine($"Monitor startup failed before logger initialization: {ex}");
+                await Console.Error.WriteLineAsync($"Monitor startup failed before logger initialization: {ex}");
             }
 
             throw;

@@ -11,8 +11,6 @@ namespace AIUsageTracker.Core.Exceptions;
 /// </summary>
 public class ProviderTimeoutException : ProviderException
 {
-    public TimeSpan TimeoutDuration { get; }
-
     public ProviderTimeoutException(
         string providerId,
         TimeSpan timeoutDuration,
@@ -22,4 +20,6 @@ public class ProviderTimeoutException : ProviderException
     {
         this.TimeoutDuration = timeoutDuration;
     }
+
+    public TimeSpan TimeoutDuration { get; }
 }

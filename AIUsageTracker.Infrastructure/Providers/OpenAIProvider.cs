@@ -23,6 +23,16 @@ public class OpenAIProvider : ProviderBase
 {
     private const string WhamUsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
 
+    private readonly IResilientHttpClient _resilientHttpClient;
+    private readonly ILogger<OpenAIProvider> _logger;
+
+    public OpenAIProvider(IResilientHttpClient resilientHttpClient, IProviderDiscoveryService discoveryService, ILogger<OpenAIProvider> logger)
+        : base(discoveryService)
+    {
+        this._resilientHttpClient = resilientHttpClient;
+        this._logger = logger;
+    }
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "openai",
         displayName: "OpenAI (API)",
@@ -65,16 +75,6 @@ public class OpenAIProvider : ProviderBase
 
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private readonly IResilientHttpClient _resilientHttpClient;
-    private readonly ILogger<OpenAIProvider> _logger;
-
-    public OpenAIProvider(IResilientHttpClient resilientHttpClient, IProviderDiscoveryService discoveryService, ILogger<OpenAIProvider> logger)
-        : base(discoveryService)
-    {
-        this._resilientHttpClient = resilientHttpClient;
-        this._logger = logger;
-    }
 
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

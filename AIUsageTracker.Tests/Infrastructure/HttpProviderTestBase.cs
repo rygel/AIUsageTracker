@@ -11,12 +11,6 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public abstract class HttpProviderTestBase<TProvider> : ProviderTestBase<TProvider>
     where TProvider : class
 {
-    protected Mock<HttpMessageHandler> MessageHandler { get; }
-
-    protected Mock<IResilientHttpClient> ResilientHttpClient { get; }
-
-    protected HttpClient HttpClient { get; }
-
     protected HttpProviderTestBase()
     {
         this.MessageHandler = new Mock<HttpMessageHandler>();
@@ -33,6 +27,12 @@ public abstract class HttpProviderTestBase<TProvider> : ProviderTestBase<TProvid
             .Setup(x => x.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns<HttpRequestMessage, string, CancellationToken>((req, policy, ct) => this.HttpClient.SendAsync(req, ct));
     }
+
+    protected Mock<HttpMessageHandler> MessageHandler { get; }
+
+    protected Mock<IResilientHttpClient> ResilientHttpClient { get; }
+
+    protected HttpClient HttpClient { get; }
 
     protected void SetupHttpResponse(string url, HttpResponseMessage response)
     {

@@ -11,8 +11,6 @@ namespace AIUsageTracker.Core.Exceptions;
 /// </summary>
 public class ProviderDeserializationException : ProviderException
 {
-    public string? RawResponse { get; }
-
     public ProviderDeserializationException(
         string providerId,
         string message = "Failed to deserialize provider response",
@@ -22,4 +20,6 @@ public class ProviderDeserializationException : ProviderException
     {
         this.RawResponse = rawResponse;
     }
+
+    public string? RawResponse { get; }
 }

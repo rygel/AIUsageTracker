@@ -39,8 +39,6 @@ public sealed class KestrelWebApplicationFactory<TEntryPoint> : IDisposable
     {
     }
 
-    public string? LocalAppDataRoot => this._localAppDataRoot;
-
     private KestrelWebApplicationFactory(
         string? localAppDataRoot,
         bool ownsLocalAppDataRoot,
@@ -52,6 +50,8 @@ public sealed class KestrelWebApplicationFactory<TEntryPoint> : IDisposable
         this._localAppDataRoot = localAppDataRoot;
         this._ownsLocalAppDataRoot = ownsLocalAppDataRoot;
     }
+
+    public string? LocalAppDataRoot => this._localAppDataRoot;
 
     public string ServerAddress
     {

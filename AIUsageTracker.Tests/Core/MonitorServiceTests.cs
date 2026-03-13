@@ -503,7 +503,7 @@ public class MonitorServiceTests
     }
 
     [Fact]
-    public void EvaluateApiContractCompatibility_AllowsMatchingMajorAsync()
+    public void EvaluateApiContractCompatibility_AllowsMatchingMajor()
     {
         var result = MonitorService.EvaluateApiContractCompatibility("1.7", null, "2.1.3");
 
@@ -513,7 +513,7 @@ public class MonitorServiceTests
     }
 
     [Fact]
-    public void EvaluateApiContractCompatibility_AllowsVersionPrefixAsync()
+    public void EvaluateApiContractCompatibility_AllowsVersionPrefix()
     {
         var result = MonitorService.EvaluateApiContractCompatibility("v1.2", "v1", "2.1.3");
 
@@ -524,7 +524,7 @@ public class MonitorServiceTests
     }
 
     [Fact]
-    public void EvaluateApiContractCompatibility_RejectsMajorMismatchAsync()
+    public void EvaluateApiContractCompatibility_RejectsMajorMismatch()
     {
         var result = MonitorService.EvaluateApiContractCompatibility("2.0", null, "2.1.3");
 
@@ -534,7 +534,7 @@ public class MonitorServiceTests
     }
 
     [Fact]
-    public void EvaluateApiContractCompatibility_RejectsWhenMinClientIsHigherAsync()
+    public void EvaluateApiContractCompatibility_RejectsWhenMinClientIsHigher()
     {
         var result = MonitorService.EvaluateApiContractCompatibility("1.4", "1.1", "2.1.3");
 

@@ -13,6 +13,15 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class OpenRouterProvider : ProviderBase
 {
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<OpenRouterProvider> _logger;
+
+    public OpenRouterProvider(HttpClient httpClient, ILogger<OpenRouterProvider> logger)
+    {
+        this._httpClient = httpClient;
+        this._logger = logger;
+    }
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "openrouter",
         displayName: "OpenRouter",
@@ -31,15 +40,6 @@ public class OpenRouterProvider : ProviderBase
 
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<OpenRouterProvider> _logger;
-
-    public OpenRouterProvider(HttpClient httpClient, ILogger<OpenRouterProvider> logger)
-    {
-        this._httpClient = httpClient;
-        this._logger = logger;
-    }
 
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

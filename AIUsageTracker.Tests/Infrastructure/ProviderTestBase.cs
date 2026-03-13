@@ -13,10 +13,6 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public abstract class ProviderTestBase<TProvider>
     where TProvider : class
 {
-    protected Mock<ILogger<TProvider>> Logger { get; }
-
-    protected ProviderConfig Config { get; }
-
     protected ProviderTestBase()
     {
         this.Logger = new Mock<ILogger<TProvider>>();
@@ -28,6 +24,10 @@ public abstract class ProviderTestBase<TProvider>
             Type = definition?.DefaultConfigType ?? "pay-as-you-go",
         };
     }
+
+    protected Mock<ILogger<TProvider>> Logger { get; }
+
+    protected ProviderConfig Config { get; }
 
     protected static string GetProviderId()
     {
@@ -46,6 +46,13 @@ public abstract class ProviderTestBase<TProvider>
         return providerTypeName.ToLowerInvariant().Replace(" ", "-");
     }
 
+    protected static string LoadFixture(string fileName)
+    {
+        var fixturePath = Path.Combine(AppContext.BaseDirectory, "TestData", "Providers", fileName);
+        Assert.True(File.Exists(fixturePath), $"Fixture file not found: {fixturePath}");
+        return File.ReadAllText(fixturePath);
+    }
+
     private static ProviderDefinition? GetProviderDefinition()
     {
         var property = typeof(TProvider).GetProperty(
@@ -55,12 +62,5 @@ public abstract class ProviderTestBase<TProvider>
         return property?.PropertyType == typeof(ProviderDefinition)
             ? property.GetValue(null) as ProviderDefinition
             : null;
-    }
-
-    protected static string LoadFixture(string fileName)
-    {
-        var fixturePath = Path.Combine(AppContext.BaseDirectory, "TestData", "Providers", fileName);
-        Assert.True(File.Exists(fixturePath), $"Fixture file not found: {fixturePath}");
-        return File.ReadAllText(fixturePath);
     }
 }

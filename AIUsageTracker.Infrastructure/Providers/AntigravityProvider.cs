@@ -20,6 +20,13 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class AntigravityProvider : ProviderBase
 {
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<AntigravityProvider> _logger;
+    private ProviderUsage? _cachedUsage;
+    private DateTime _cacheTimestamp;
+    private List<(int Pid, string Token, int? Port)>? _cachedProcessInfos;
+    private DateTime _lastProcessCheck = DateTime.MinValue;
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "antigravity",
         displayName: "Google Antigravity",
@@ -43,13 +50,6 @@ public class AntigravityProvider : ProviderBase
 
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<AntigravityProvider> _logger;
-    private ProviderUsage? _cachedUsage;
-    private DateTime _cacheTimestamp;
-    private List<(int Pid, string Token, int? Port)>? _cachedProcessInfos;
-    private DateTime _lastProcessCheck = DateTime.MinValue;
 
     public AntigravityProvider(ILogger<AntigravityProvider> logger)
         : this(CreateLocalhostClient(), logger)

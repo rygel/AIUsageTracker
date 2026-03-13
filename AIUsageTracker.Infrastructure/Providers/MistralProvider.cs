@@ -15,6 +15,16 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class MistralProvider : ProviderBase
 {
+    private readonly IResilientHttpClient _resilientHttpClient;
+    private readonly ILogger<MistralProvider> _logger;
+
+    public MistralProvider(IResilientHttpClient resilientHttpClient, ILogger<MistralProvider> logger, IProviderDiscoveryService? discoveryService = null)
+        : base(discoveryService)
+    {
+        this._resilientHttpClient = resilientHttpClient;
+        this._logger = logger;
+    }
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "mistral",
         displayName: "Mistral",
@@ -31,16 +41,6 @@ public class MistralProvider : ProviderBase
 
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private readonly IResilientHttpClient _resilientHttpClient;
-    private readonly ILogger<MistralProvider> _logger;
-
-    public MistralProvider(IResilientHttpClient resilientHttpClient, ILogger<MistralProvider> logger, IProviderDiscoveryService? discoveryService = null)
-        : base(discoveryService)
-    {
-        this._resilientHttpClient = resilientHttpClient;
-        this._logger = logger;
-    }
 
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

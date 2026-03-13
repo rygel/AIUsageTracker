@@ -6,6 +6,8 @@ namespace AIUsageTracker.Core.Interfaces;
 
 public interface INotificationService
 {
+    event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked;
+
     void ShowNotification(string title, string message, string? action = null, string? argument = null);
 
     void ShowUsageAlert(string providerName, double usagePercentage);
@@ -15,6 +17,4 @@ public interface INotificationService
     void Initialize();
 
     void Unregister();
-
-    event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked;
 }

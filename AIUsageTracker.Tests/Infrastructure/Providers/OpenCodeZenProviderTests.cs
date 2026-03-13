@@ -20,7 +20,7 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
     }
 
     [Fact]
-    public async Task GetUsageAsync_CliNotFound_ReturnsUnavailable()
+    public async Task GetUsageAsync_CliNotFound_ReturnsUnavailableAsync()
     {
         // Arrange
         var provider = new OpenCodeZenProvider(this.Logger.Object, "non-existent-cli");
@@ -36,7 +36,7 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
     }
 
     [Fact]
-    public async Task GetUsageAsync_CliTimeout_ReturnsUnavailableWithTimeoutMessage()
+    public async Task GetUsageAsync_CliTimeout_ReturnsUnavailableWithTimeoutMessageAsync()
     {
         // Arrange
         var tempDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));

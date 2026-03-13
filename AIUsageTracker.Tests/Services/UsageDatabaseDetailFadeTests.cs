@@ -20,7 +20,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLatestHistoryAsync_IncludesMissingDetail_WhenSeenWithinSevenDays()
+    public async Task GetLatestHistoryAsync_IncludesMissingDetail_WhenSeenWithinSevenDaysAsync()
     {
         var database = await this.CreateDatabaseAsync();
         var providerId = "antigravity";
@@ -53,19 +53,19 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
         });
 
         var latest = await database.GetLatestHistoryAsync();
-        var antigravity = Assert.Single(latest.Where(x => x.ProviderId == providerId));
+        var antigravity = Assert.Single(latest.Where(x => string.Equals(x.ProviderId, providerId, StringComparison.Ordinal)));
         Assert.NotNull(antigravity.Details);
 
         var names = antigravity.Details!.Select(d => d.Name).ToList();
         Assert.Contains("Gemini 3 Flash", names);
         Assert.Contains("GPT OSS", names);
 
-        var restored = antigravity.Details.First(d => d.Name == "GPT OSS");
+        var restored = antigravity.Details.First(d => string.Equals(d.Name, "GPT OSS", StringComparison.Ordinal));
         Assert.Contains("stale; last seen", restored.Description, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public async Task GetLatestHistoryAsync_DoesNotIncludeMissingDetail_WhenOlderThanSevenDays()
+    public async Task GetLatestHistoryAsync_DoesNotIncludeMissingDetail_WhenOlderThanSevenDaysAsync()
     {
         var database = await this.CreateDatabaseAsync();
         var providerId = "antigravity";
@@ -98,7 +98,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
         });
 
         var latest = await database.GetLatestHistoryAsync();
-        var antigravity = Assert.Single(latest.Where(x => x.ProviderId == providerId));
+        var antigravity = Assert.Single(latest.Where(x => string.Equals(x.ProviderId, providerId, StringComparison.Ordinal)));
         Assert.NotNull(antigravity.Details);
 
         var names = antigravity.Details!.Select(d => d.Name).ToList();
@@ -107,7 +107,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLatestHistoryAsync_DoesNotMergeStaleQuotaWindowDetails_IntoCurrentModelDetails()
+    public async Task GetLatestHistoryAsync_DoesNotMergeStaleQuotaWindowDetails_IntoCurrentModelDetailsAsync()
     {
         var database = await this.CreateDatabaseAsync();
         var providerId = "gemini-cli";
@@ -171,7 +171,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
-    public async Task StoreHistoryAsync_PersistsUnavailableUsage_WithNonPlaceholderDescriptionAndAccountName()
+    public async Task StoreHistoryAsync_PersistsUnavailableUsage_WithNonPlaceholderDescriptionAndAccountNameAsync()
     {
         var database = await this.CreateDatabaseAsync();
         var providerId = "github-copilot";
@@ -193,7 +193,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
         });
 
         var latest = await database.GetLatestHistoryAsync();
-        var copilot = Assert.Single(latest.Where(x => x.ProviderId == providerId));
+        var copilot = Assert.Single(latest.Where(x => string.Equals(x.ProviderId, providerId, StringComparison.Ordinal)));
         Assert.False(copilot.IsAvailable);
         Assert.Equal("rygel", copilot.AccountName);
         Assert.Contains("Not authenticated", copilot.Description, StringComparison.OrdinalIgnoreCase);
@@ -202,7 +202,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     [Theory]
     [InlineData("github-copilot", "octocat")]
     [InlineData("antigravity", "user@example.com")]
-    public async Task StoreProviderAsync_DoesNotClearExistingAccountName(
+    public async Task StoreProviderAsync_DoesNotClearExistingAccountNameAsync(
         string providerId,
         string accountName)
     {
@@ -236,7 +236,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
-    public async Task StoreHistoryAsync_PersistsPlaceholderUnavailableUsage_WhenPassedByCaller()
+    public async Task StoreHistoryAsync_PersistsPlaceholderUnavailableUsage_WhenPassedByCallerAsync()
     {
         var database = await this.CreateDatabaseAsync();
 
@@ -262,7 +262,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
-    public async Task StoreHistoryAsync_PersistsUnknownProviderIds_WhenPassedByPipeline()
+    public async Task StoreHistoryAsync_PersistsUnknownProviderIds_WhenPassedByPipelineAsync()
     {
         var database = await this.CreateDatabaseAsync();
 
@@ -289,7 +289,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLatestHistoryAsync_ComputesUpstreamResponseValidity_FromHttpStatus()
+    public async Task GetLatestHistoryAsync_ComputesUpstreamResponseValidity_FromHttpStatusAsync()
     {
         var database = await this.CreateDatabaseAsync();
 
@@ -316,7 +316,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLatestHistoryAsync_RestoresTopLevelResetTime_FromStaleDetailWhenCurrentIsMissing()
+    public async Task GetLatestHistoryAsync_RestoresTopLevelResetTime_FromStaleDetailWhenCurrentIsMissingAsync()
     {
         var database = await this.CreateDatabaseAsync();
         var providerId = "github-copilot";
