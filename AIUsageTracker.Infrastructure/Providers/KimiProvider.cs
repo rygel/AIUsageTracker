@@ -211,21 +211,6 @@ public class KimiProvider : ProviderBase
         }
     }
 
-    private string FormatDuration(long duration, string unit)
-    {
-        return UsageWindowLabelFormatter.FormatDuration(duration, unit);
-    }
-
-    private string FormatResetTime(string resetTime)
-    {
-        if (DateTime.TryParse(resetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
-        {
-            return $"({dt:MMM dd HH:mm})";
-        }
-
-        return resetTime;
-    }
-
     private static WindowKind DetermineWindowKind(long duration, string? unit)
     {
         if (string.Equals(unit, "TIME_UNIT_DAY", StringComparison.Ordinal) && duration >= 7)
@@ -239,19 +224,27 @@ public class KimiProvider : ProviderBase
             return WindowKind.Primary;
         }
 
-        // 3h or 5h windows should be Primary
-        if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal) && (duration == 3 || duration == 5))
+        if (string.Equals(unit, "TIME_UNIT_HOUR", StringComparison.Ordinal) && duration >= 12)
         {
             return WindowKind.Primary;
         }
 
-        // Minutes-based windows (like 60m for 1h, 180m for 3h, 300m for 5h)
-        if (string.Equals(unit, "TIME_UNIT_MINUTE", StringComparison.Ordinal) && (duration >= 60 && duration <= 300))
+        return WindowKind.Secondary;
+    }
+
+    private string FormatDuration(long duration, string unit)
+    {
+        return UsageWindowLabelFormatter.FormatDuration(duration, unit);
+    }
+
+    private string FormatResetTime(string resetTime)
+    {
+        if (DateTime.TryParse(resetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
         {
-            return WindowKind.Primary;
+            return $"({dt:MMM dd HH:mm})";
         }
 
-        return WindowKind.None;
+        return resetTime;
     }
 
     private class KimiUsageResponse

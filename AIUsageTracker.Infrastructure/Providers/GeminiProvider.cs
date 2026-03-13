@@ -27,6 +27,8 @@ public class GeminiProvider : ProviderBase
     private const string GeminiPluginClientId =
         "681255809395" + "-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com";
 
+    private const string GeminiPluginClientSecret = "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";
+
     private readonly HttpClient _httpClient;
     private readonly ILogger<GeminiProvider> _logger;
     private readonly string? _accountsPathOverride;
@@ -77,8 +79,6 @@ public class GeminiProvider : ProviderBase
 
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
-
-    private const string GeminiPluginClientSecret = "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";
 
     public GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger)
         : this(httpClient, logger, null, null, null, null)
