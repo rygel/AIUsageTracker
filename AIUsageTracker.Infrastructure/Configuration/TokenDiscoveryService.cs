@@ -27,13 +27,13 @@ public class TokenDiscoveryService
         this._sessionResolvers = new List<ProviderSessionTokenResolver>
         {
             new(
-                definition: ClaudeCodeProvider.StaticDefinition,
+                discoverySpec: ClaudeCodeProvider.StaticDefinition.CreateAuthDiscoverySpec(),
                 description: "Discovered in Claude Code credentials",
                 sourcePrefix: "Claude Code",
                 logger: this._logger,
                 pathProvider: this._pathProvider),
             new(
-                definition: CodexProvider.StaticDefinition,
+                discoverySpec: CodexProvider.StaticDefinition.CreateAuthDiscoverySpec(),
                 description: "Discovered in Codex auth",
                 sourcePrefix: "Config",
                 logger: this._logger,

@@ -51,7 +51,7 @@ public class ProviderSessionTokenResolverTests
                 });
 
             var resolver = new ProviderSessionTokenResolver(
-                definition,
+                definition.CreateAuthDiscoverySpec(),
                 "GitHub auth session",
                 "GitHub session",
                 NullLogger<TokenDiscoveryService>.Instance,

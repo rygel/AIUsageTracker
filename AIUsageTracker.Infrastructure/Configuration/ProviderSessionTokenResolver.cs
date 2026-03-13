@@ -12,20 +12,20 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 
 internal sealed class ProviderSessionTokenResolver
 {
-    private readonly ProviderDefinition _definition;
+    private readonly ProviderAuthDiscoverySpec _discoverySpec;
     private readonly string _description;
     private readonly string _sourcePrefix;
     private readonly ILogger<TokenDiscoveryService> _logger;
     private readonly IAppPathProvider _pathProvider;
 
     public ProviderSessionTokenResolver(
-        ProviderDefinition definition,
+        ProviderAuthDiscoverySpec discoverySpec,
         string description,
         string sourcePrefix,
         ILogger<TokenDiscoveryService> logger,
         IAppPathProvider pathProvider)
     {
-        this._definition = definition;
+        this._discoverySpec = discoverySpec;
         this._description = description;
         this._sourcePrefix = sourcePrefix;
         this._logger = logger;
@@ -45,14 +45,14 @@ internal sealed class ProviderSessionTokenResolver
 
                 var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
                 using var doc = JsonDocument.Parse(json);
-                var token = TryReadAccessToken(doc.RootElement, this._definition);
+                var token = TryReadAccessToken(doc.RootElement, this._discoverySpec);
                 if (string.IsNullOrWhiteSpace(token))
                 {
                     continue;
                 }
 
                 return new DiscoveredSessionToken(
-                    this._definition.ProviderId,
+                    this._discoverySpec.ProviderId,
                     token,
                     this._description,
                     $"{this._sourcePrefix}: {path}");
@@ -60,7 +60,7 @@ internal sealed class ProviderSessionTokenResolver
         }
         catch (Exception ex)
         {
-            this._logger.LogDebug(ex, "Session token discovery failed for provider {ProviderId}", this._definition.ProviderId);
+            this._logger.LogDebug(ex, "Session token discovery failed for provider {ProviderId}", this._discoverySpec.ProviderId);
         }
 
         return null;
@@ -70,14 +70,14 @@ internal sealed class ProviderSessionTokenResolver
     {
         var userProfilePath = this._pathProvider.GetUserProfileRoot();
 
-        return this._definition.AuthIdentityCandidatePathTemplates
+        return this._discoverySpec.AuthIdentityCandidatePathTemplates
             .Select(pathTemplate => AuthPathTemplateResolver.Resolve(pathTemplate, userProfilePath))
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)!;
     }
 
-    private static string? TryReadAccessToken(JsonElement root, ProviderDefinition definition)
+    private static string? TryReadAccessToken(JsonElement root, ProviderAuthDiscoverySpec discoverySpec)
     {
-        return ProviderAuthFileSchemaReader.Read(root, definition.SessionAuthFileSchemas)?.AccessToken;
+        return ProviderAuthFileSchemaReader.Read(root, discoverySpec.SessionAuthFileSchemas)?.AccessToken;
     }
 }
