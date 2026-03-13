@@ -268,8 +268,12 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task StoreResetEventAsync(string providerId, string providerName,
-        double? previousUsage, double? newUsage, string resetType)
+    public async Task StoreResetEventAsync(
+        string providerId,
+        string providerName,
+        double? previousUsage,
+        double? newUsage,
+        string resetType)
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try

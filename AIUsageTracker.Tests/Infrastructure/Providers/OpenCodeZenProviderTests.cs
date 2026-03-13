@@ -60,13 +60,13 @@ public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider
                 CancellationToken.None);
             File.SetUnixFileMode(
                 scriptPath,
-                UnixFileMode.UserRead |
-                UnixFileMode.UserWrite |
-                UnixFileMode.UserExecute |
-                UnixFileMode.GroupRead |
-                UnixFileMode.GroupExecute |
-                UnixFileMode.OtherRead |
-                UnixFileMode.OtherExecute);
+                UnixFileMode.UserRead
+                | UnixFileMode.UserWrite
+                | UnixFileMode.UserExecute
+                | UnixFileMode.GroupRead
+                | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherRead
+                | UnixFileMode.OtherExecute);
         }
 
         try

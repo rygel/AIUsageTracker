@@ -805,7 +805,8 @@ public partial class MainWindow : Window
 
                 this.ReassertTopmostWithoutFocus();
                 this.LogWindowFocusTransition($"TopmostRecovery +{delay.TotalMilliseconds:0}ms");
-            }, DispatcherPriority.Normal);
+            },
+            DispatcherPriority.Normal);
         });
 #pragma warning restore VSTHRD001
     }

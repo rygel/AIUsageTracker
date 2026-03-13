@@ -161,7 +161,9 @@ public class DatabaseMigrationService
 
     private void EnsureSchemaCompatibility(SqliteConnection connection)
     {
-        ExecuteNonQuery(connection, @"
+        ExecuteNonQuery(
+            connection,
+            @"
             CREATE TABLE IF NOT EXISTS providers (
                 provider_id TEXT PRIMARY KEY,
                 provider_name TEXT,
@@ -225,7 +227,9 @@ public class DatabaseMigrationService
         EnsureColumn(connection, "provider_history", "upstream_response_validity", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "provider_history", "upstream_response_note", "TEXT NOT NULL DEFAULT ''");
 
-        ExecuteNonQuery(connection, @"
+        ExecuteNonQuery(
+            connection,
+            @"
             CREATE INDEX IF NOT EXISTS idx_history_provider_time ON provider_history(provider_id, fetched_at);
             CREATE INDEX IF NOT EXISTS idx_raw_fetched ON raw_snapshots(fetched_at);
             CREATE INDEX IF NOT EXISTS idx_reset_provider_time ON reset_events(provider_id, timestamp);
@@ -263,7 +267,9 @@ public class DatabaseMigrationService
 
     private void ApplyPerformancePragmas(SqliteConnection connection)
     {
-        ExecuteNonQuery(connection, @"
+        ExecuteNonQuery(
+            connection,
+            @"
             PRAGMA journal_mode=WAL;
             PRAGMA synchronous=NORMAL;
             PRAGMA busy_timeout=5000;

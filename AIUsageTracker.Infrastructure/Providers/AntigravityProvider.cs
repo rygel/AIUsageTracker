@@ -167,9 +167,11 @@ public class AntigravityProvider : ProviderBase
                 {
                     var (pid, csrfToken, commandLinePort) = info;
                     var tokenPreview = csrfToken.Length > 8 ? csrfToken[..8] : csrfToken;
-                    this._logger.LogDebug(
-                        "Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
-                        pid, tokenPreview, commandLinePort?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none");
+                this._logger.LogDebug(
+                    "Checking Antigravity process: PID={Pid}, CSRF={Csrf}, PortHint={PortHint}",
+                    pid,
+                    tokenPreview,
+                    commandLinePort?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none");
 
                     // 2. Resolve candidate ports (extension port hint + all listening loopback ports)
                     var candidatePorts = new List<int>();

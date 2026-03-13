@@ -49,7 +49,9 @@ public class DatabaseMigrationServiceTests
         using var connection = new SqliteConnection($"Data Source={dbPath}");
         connection.Open();
 
-        ExecuteNonQuery(connection, """
+        ExecuteNonQuery(
+            connection,
+            """
             CREATE TABLE providers (
                 provider_id TEXT PRIMARY KEY,
                 provider_name TEXT,
@@ -93,7 +95,9 @@ public class DatabaseMigrationServiceTests
             );
             """);
 
-        ExecuteNonQuery(connection, """
+        ExecuteNonQuery(
+            connection,
+            """
             INSERT INTO providers (provider_id, provider_name) VALUES ('anthropic', 'Anthropic');
             INSERT INTO providers (provider_id, provider_name) VALUES ('openai', 'OpenAI');
 

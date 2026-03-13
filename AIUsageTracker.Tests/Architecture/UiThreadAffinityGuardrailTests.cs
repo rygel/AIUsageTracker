@@ -47,9 +47,9 @@ public class UiThreadAffinityGuardrailTests
 
         Assert.True(
             violations.Count == 0,
-            "UI-bound code must not use ConfigureAwait(false) because it can resume off-dispatcher and crash with cross-thread access." +
-            Environment.NewLine +
-            string.Join(Environment.NewLine, violations));
+            "UI-bound code must not use ConfigureAwait(false) because it can resume off-dispatcher and crash with cross-thread access."
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, violations));
     }
 
     private static string GetRepoRoot()
