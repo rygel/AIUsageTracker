@@ -19,7 +19,7 @@ internal static class ProviderStatusPresentationCatalog
     {
         return inputMode switch
         {
-            ProviderInputMode.DerivedReadOnly => CreateDerivedPresentation(usage),
+            ProviderInputMode.DerivedReadOnly => CreateDerivedPresentation(config, usage),
             ProviderInputMode.AutoDetectedStatus => CreateAntigravityPresentation(usage, isPrivacyMode),
             ProviderInputMode.ExternalAuthStatus => CreateGitHubPresentation(config, usage, isPrivacyMode),
             ProviderInputMode.SessionAuthStatus => CreateOpenAiSessionPresentation(config, usage, isPrivacyMode),
@@ -63,11 +63,13 @@ internal static class ProviderStatusPresentationCatalog
         return MaskString(input);
     }
 
-    private static ProviderStatusPresentation CreateDerivedPresentation(ProviderUsage? usage)
+    private static ProviderStatusPresentation CreateDerivedPresentation(ProviderConfig config, ProviderUsage? usage)
     {
         var secondaryLines = new List<ProviderStatusLine>();
+        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
+        var sourceLabel = ProviderCapabilityCatalog.GetDisplayName(canonicalProviderId);
         var primaryText = usage?.IsAvailable == true
-            ? "Derived from Codex usage (read-only)"
+            ? $"Derived from {sourceLabel} usage (read-only)"
             : "Derived provider (waiting for usage data)";
         var primaryResourceKey = usage?.IsAvailable == true ? "ProgressBarGreen" : "TertiaryText";
 
@@ -150,7 +152,9 @@ internal static class ProviderStatusPresentationCatalog
         bool isPrivacyMode)
     {
         var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived: false);
-        var providerSessionLabel = settingsBehavior.SessionProviderLabel ?? "OpenAI";
+        var providerSessionLabel = settingsBehavior.SessionProviderLabel ??
+                                   ProviderCapabilityCatalog.GetDisplayName(
+                                       ProviderCapabilityCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty));
         var hasSessionToken = ProviderSettingsCatalog.IsSessionToken(config.ApiKey);
         var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
         var accountName = usage?.AccountName;

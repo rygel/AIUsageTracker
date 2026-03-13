@@ -24,9 +24,27 @@ public sealed class ProviderStatusPresentationCatalogTests
             ProviderInputMode.DerivedReadOnly,
             isPrivacyMode: false);
 
-        Assert.Equal("Derived from Codex usage (read-only)", presentation.PrimaryText);
+        Assert.Equal("Derived from OpenAI usage (read-only)", presentation.PrimaryText);
         Assert.Single(presentation.SecondaryLines);
         Assert.StartsWith("Next reset:", presentation.SecondaryLines[0].Text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Create_ReturnsDerivedPresentation_UsesCanonicalProviderDisplayName()
+    {
+        var config = new ProviderConfig { ProviderId = "gemini-cli.hourly" };
+        var usage = new ProviderUsage
+        {
+            IsAvailable = true,
+        };
+
+        var presentation = ProviderStatusPresentationCatalog.Create(
+            config,
+            usage,
+            ProviderInputMode.DerivedReadOnly,
+            isPrivacyMode: false);
+
+        Assert.Equal("Derived from Google Gemini usage (read-only)", presentation.PrimaryText);
     }
 
     [Fact]
