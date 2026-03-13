@@ -28,76 +28,84 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        // Check for debug flag early
         bool isDebugMode = args.Contains("--debug", StringComparer.Ordinal);
-
-        // Initialize path provider
         IAppPathProvider pathProvider = new DefaultAppPathProvider();
+        ILoggerFactory? loggerFactory = null;
+        ILogger? logger = null;
+        Mutex? startupMutex = null;
 
-        // Set up file logging
-        var logDir = pathProvider.GetLogDirectory();
-        Directory.CreateDirectory(logDir);
-
-        var logFile = Path.Combine(logDir, $"monitor_{DateTime.Now:yyyy-MM-dd}.log");
-
-        // Create a simple logger factory that writes to both console (debug mode) and file
-        var loggerFactory = LoggerFactory.Create(builder =>
-        {
-            builder
-                .SetMinimumLevel(isDebugMode ? LogLevel.Debug : LogLevel.Information)
-                .AddProvider(new FileLoggerProvider(logFile));
-            if (isDebugMode)
-            {
-                builder.AddConsole();
-            }
-        });
-
-        var logger = loggerFactory.CreateLogger("Monitor");
-
-        // Rotate logs: keep only last 7 days
         try
         {
-            var cutoffDate = DateTime.Now.AddDays(-7);
-            foreach (var log in Directory.GetFiles(logDir, "monitor_*.log"))
+            var resolvedLogPath = MonitorLogPathResolver.Resolve(pathProvider, DateTime.Now);
+            if (resolvedLogPath.UsedFallback)
             {
-                var fileInfo = new FileInfo(log);
-                if (fileInfo.LastWriteTime < cutoffDate)
-                {
-                    fileInfo.Delete();
-                }
+                Console.Error.WriteLine(
+                    $"Preferred monitor log directory '{resolvedLogPath.PreferredDirectory}' unavailable. Using fallback '{resolvedLogPath.LogDirectory}'.");
             }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Log rotation error");
-        }
 
-        logger.LogInformation("=== Monitor starting ===");
+            loggerFactory = LoggerFactory.Create(builder =>
+            {
+                builder
+                    .SetMinimumLevel(isDebugMode ? LogLevel.Debug : LogLevel.Information)
+                    .AddProvider(new FileLoggerProvider(resolvedLogPath.LogFile));
+                if (isDebugMode)
+                {
+                    builder.AddConsole();
+                }
+            });
 
-        // Machine-wide mutex to prevent concurrent launches
-        string mutexName = @"Global\AIUsageTracker_Monitor_" + Environment.UserName;
-        bool createdNew;
-        using var startupMutex = new Mutex(true, mutexName, out createdNew);
+            logger = loggerFactory.CreateLogger("Monitor");
 
-        if (!createdNew)
-        {
-            logger.LogWarning("Another Monitor instance appears to be starting. Waiting for it to complete...");
+            if (resolvedLogPath.UsedFallback)
+            {
+                logger.LogWarning(
+                    "Preferred monitor log directory {PreferredLogDirectory} unavailable. Using fallback {FallbackLogDirectory}.",
+                    resolvedLogPath.PreferredDirectory,
+                    resolvedLogPath.LogDirectory);
+            }
+
+            // Rotate logs: keep only last 7 days
             try
             {
-                if (!startupMutex.WaitOne(TimeSpan.FromSeconds(10)))
+                var cutoffDate = DateTime.Now.AddDays(-7);
+                foreach (var log in Directory.GetFiles(resolvedLogPath.LogDirectory, "monitor_*.log"))
                 {
-                    logger.LogError("Timeout waiting for other Monitor instance");
-                    return;
+                    var fileInfo = new FileInfo(log);
+                    if (fileInfo.LastWriteTime < cutoffDate)
+                    {
+                        fileInfo.Delete();
+                    }
                 }
             }
-            catch (AbandonedMutexException)
+            catch (Exception ex)
             {
-                logger.LogWarning("Other Monitor instance exited unexpectedly. Proceeding.");
+                logger.LogError(ex, "Log rotation error");
             }
-        }
 
-        try
-        {
+            logger.LogInformation("=== Monitor starting ===");
+
+            // Machine-wide mutex to prevent concurrent launches
+            string mutexName = @"Global\AIUsageTracker_Monitor_" + Environment.UserName;
+            bool createdNew;
+            startupMutex = new Mutex(true, mutexName, out createdNew);
+
+            if (!createdNew)
+            {
+                logger.LogWarning("Another Monitor instance appears to be starting. Waiting for it to complete...");
+                try
+                {
+                    if (!startupMutex.WaitOne(TimeSpan.FromSeconds(10)))
+                    {
+                        logger.LogError("Timeout waiting for other Monitor instance");
+                        return;
+                    }
+                }
+                catch (AbandonedMutexException)
+                {
+                    logger.LogWarning("Other Monitor instance exited unexpectedly. Proceeding.");
+                }
+            }
+
             MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: "starting");
 
             if (isDebugMode)
@@ -260,14 +268,23 @@ public class Program
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Monitor startup failed");
-            MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: $"failed: {ex.Message}");
+            if (logger is not null)
+            {
+                logger.LogError(ex, "Monitor startup failed");
+                MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: $"failed: {ex.Message}");
+            }
+            else
+            {
+                Console.Error.WriteLine($"Monitor startup failed before logger initialization: {ex}");
+            }
+
             throw;
         }
         finally
         {
             // Release the startup mutex
             startupMutex?.Dispose();
+            loggerFactory?.Dispose();
         }
     }
 

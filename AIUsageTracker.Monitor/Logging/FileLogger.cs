@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Diagnostics;
 using System.Globalization;
 
 using Microsoft.Extensions.Logging;
@@ -58,13 +59,31 @@ public class FileLogger : ILogger
         {
             try
             {
+                var directory = Path.GetDirectoryName(this._logFile);
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
                 File.AppendAllText(this._logFile, logEntry + Environment.NewLine);
             }
-            catch (Exception)
+            catch (Exception ex) when (
+                ex is UnauthorizedAccessException or
+                IOException or
+                ArgumentException or
+                NotSupportedException or
+                PathTooLongException)
             {
-                // Intentionally suppressed: File logging failure in custom logger.
-                // Cannot log this error anywhere since logging itself failed.
-                // This prevents recursive logging attempts and ensures the application continues.
+                try
+                {
+                    Console.Error.WriteLine(
+                        $"Monitor file logging failed for '{this._logFile}': {ex.Message}");
+                }
+                catch (Exception stderrEx) when (stderrEx is IOException or ObjectDisposedException)
+                {
+                    Debug.WriteLine(
+                        $"Monitor stderr logging failed for '{this._logFile}': {stderrEx.Message}");
+                }
             }
         }
     }

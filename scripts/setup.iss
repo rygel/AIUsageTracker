@@ -13,15 +13,46 @@
   #define InstallerCompression "balanced"
 #endif
 
+#include "inno\CodeDependencies.iss"
+
 [Code]
 var
   RestartApplications: Boolean;
   DeleteDatabase: Boolean;
 
+procedure ConfigureRuntimeDependencies();
+var
+  NeedsDesktopRuntime: Boolean;
+  NeedsAspNetRuntime: Boolean;
+  NeedsNetRuntime: Boolean;
+begin
+  SetArrayLength(Dependency_List, 0);
+  Dependency_Memo := '';
+
+  NeedsDesktopRuntime := WizardIsComponentSelected('apps\tracker');
+  NeedsAspNetRuntime := WizardIsComponentSelected('apps\monitor') or WizardIsComponentSelected('apps\web');
+  NeedsNetRuntime := WizardIsComponentSelected('apps\cli') and (not NeedsDesktopRuntime) and (not NeedsAspNetRuntime);
+
+  if NeedsDesktopRuntime then
+  begin
+    Dependency_AddDotNet80Desktop;
+  end;
+
+  if NeedsAspNetRuntime then
+  begin
+    Dependency_AddDotNet80Asp;
+  end;
+
+  if NeedsNetRuntime then
+  begin
+    Dependency_AddDotNet80;
+  end;
+end;
+
 function InitializeSetup(): Boolean;
 var
   Arch: String;
-  i: Integer;
+  I: Integer;
   Param: String;
 begin
   Result := True;
@@ -29,9 +60,9 @@ begin
   RestartApplications := False;
 
   // Check for /RESTARTAPPLICATIONS parameter
-  for i := 1 to ParamCount do
+  for I := 1 to ParamCount do
   begin
-    Param := ParamStr(i);
+    Param := ParamStr(I);
     if CompareText(Param, '/RESTARTAPPLICATIONS') = 0 then
     begin
       RestartApplications := True;
@@ -62,6 +93,20 @@ begin
   end;
 end;
 
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpReady then
+  begin
+    ConfigureRuntimeDependencies();
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  ConfigureRuntimeDependencies();
+  Result := '';
+end;
+
 function ShouldRunApplication(): Boolean;
 begin
   // Always offer launch option for interactive installs.
@@ -76,16 +121,16 @@ var
 begin
   Result := True;
   DeleteDatabase := False;
-  
+
   // Check if data directory exists (contains Monitor database and UI.Slim preferences)
   DatabasePath := ExpandConstant('{localappdata}\AIUsageTracker');
   DatabaseExists := DirExists(DatabasePath);
-  
+
   if DatabaseExists and not UninstallSilent then
   begin
-    if MsgBox('Do you want to delete your AI Usage Tracker data? This includes your usage history, settings, and preferences.' + #13#10#13#10 + 
-              'Location: ' + DatabasePath + #13#10#13#10 + 
-              'Click Yes to delete all data, or No to keep it for future use.', 
+    if MsgBox('Do you want to delete your AI Usage Tracker data? This includes your usage history, settings, and preferences.' + #13#10#13#10 +
+              'Location: ' + DatabasePath + #13#10#13#10 +
+              'Click Yes to delete all data, or No to keep it for future use.',
               mbConfirmation, MB_YESNO) = IDYES then
     begin
       DeleteDatabase := True;
@@ -143,8 +188,8 @@ UninstallDisplayIcon={app}\AIUsageTracker.exe
 PrivilegesRequired=lowest
 
 #if MyAppArch == "x64"
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64os
+ArchitecturesInstallIn64BitMode=x64os
 #elif MyAppArch == "arm64"
 ArchitecturesAllowed=arm64
 ArchitecturesInstallIn64BitMode=arm64
@@ -173,6 +218,7 @@ Name: "startupmonitor"; Description: "Run AI Usage Tracker Monitor at Windows St
 Source: "..\AIUsageTracker.UI.Slim\Assets\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourcePath}\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#SourcePath}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "inno\LICENSE.InnoDependencyInstaller.txt"; DestDir: "{app}\THIRD-PARTY-LICENSES"; DestName: "InnoDependencyInstaller.txt"; Flags: ignoreversion
 Source: "{#SourcePath}\Tracker\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\tracker
 Source: "{#SourcePath}\Monitor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\monitor
 Source: "{#SourcePath}\Web\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Components: apps\web
@@ -189,5 +235,4 @@ Name: "{userstartup}\AI Usage Tracker Monitor"; Filename: "{app}\AIUsageTracker.
 
 [Run]
 Filename: "{app}\AIUsageTracker.exe"; Description: "{cm:LaunchProgram,AI Usage Tracker UI}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
-
 
