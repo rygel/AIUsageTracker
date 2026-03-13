@@ -174,13 +174,16 @@ public class MinimaxProvider : ProviderBase
 
         var utilization = total > 0 ? (used / total) * 100.0 : 0;
 
+        // For quota-based providers, RequestsPercentage represents REMAINING percentage
+        var remainingPercent = Math.Clamp(100.0 - utilization, 0, 100);
+
         return new[]
         {
             new ProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = providerLabel,
-            RequestsPercentage = Math.Min(utilization, 100),
+            RequestsPercentage = remainingPercent,
             RequestsUsed = used,
             RequestsAvailable = total,
             PlanType = PlanType.Coding,
