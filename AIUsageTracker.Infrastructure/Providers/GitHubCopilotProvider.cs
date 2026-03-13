@@ -4,8 +4,8 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Http;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Http;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;

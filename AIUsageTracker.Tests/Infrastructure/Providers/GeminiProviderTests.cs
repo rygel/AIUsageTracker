@@ -88,7 +88,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var googleAccountsPath = Path.Combine(tempDir, "google_accounts.json");
 
         const string email = "fallback@example.com";
-        var idToken = this.CreateUnsignedJwt(new Dictionary<string, object>
+        var idToken = this.CreateUnsignedJwt(new Dictionary<string, object>(StringComparer.Ordinal)
         {
             ["aud"] = "681255809395-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com",
             ["email"] = email,
@@ -264,8 +264,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
         Assert.Equal(5, modelDetails.Count);
-        Assert.Contains(modelDetails, detail => detail.ModelName == "gemini-2.5-pro");
-        Assert.Contains(modelDetails, detail => detail.Name == "Gemini 3.1 Pro Preview");
+        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-2.5-pro", StringComparison.Ordinal));
+        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));
         Assert.All(modelDetails, detail => Assert.False(string.IsNullOrWhiteSpace(detail.Used)));
 
         Assert.Single(result);
@@ -323,9 +323,9 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
         Assert.Equal(3, modelDetails.Count);
-        Assert.Contains(modelDetails, detail => detail.ModelName == "gemini-2.5-flash-lite");
-        Assert.Contains(modelDetails, detail => detail.ModelName == "gemini-3-flash-preview");
-        Assert.Contains(modelDetails, detail => detail.ModelName == "gemini-2.5-pro");
+        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-2.5-flash-lite", StringComparison.Ordinal));
+        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-3-flash-preview", StringComparison.Ordinal));
+        Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-2.5-pro", StringComparison.Ordinal));
         Assert.DoesNotContain(
             result,
             item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
@@ -381,9 +381,9 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         var modelDetails = summary.Details!
             .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
             .ToList();
-        Assert.Contains(modelDetails, detail => detail.Name == "Gemini 2.5 Flash Lite");
-        Assert.Contains(modelDetails, detail => detail.Name == "Gemini 3 Flash Preview");
-        Assert.Contains(modelDetails, detail => detail.Name == "Gemini 2.5 Pro");
+        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
+        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 3 Flash Preview", StringComparison.Ordinal));
+        Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 2.5 Pro", StringComparison.Ordinal));
         Assert.DoesNotContain(
             result,
             item => item.ProviderId.StartsWith("gemini-cli.", StringComparison.OrdinalIgnoreCase));
@@ -424,8 +424,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
 
         var summary = Assert.Single(result, item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
         Assert.NotNull(summary.Details);
-        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && detail.Name == "Gemini 2.5 Flash Lite");
-        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && detail.Name == "Gemini 3.1 Pro Preview");
+        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && string.Equals(detail.Name, "Gemini 2.5 Flash Lite", StringComparison.Ordinal));
+        Assert.Contains(summary.Details!, detail => detail.DetailType == ProviderUsageDetailType.Model && string.Equals(detail.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));
 
         Assert.DoesNotContain(
             result,
@@ -473,7 +473,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         this.SetupHttpResponse(
             request =>
                 request.RequestUri != null &&
-                request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
+                string.Equals(request.RequestUri.ToString(), "https://oauth2.googleapis.com/token", StringComparison.Ordinal) &&
                 RequestContentContains(request, $"client_id={cliClientId}") &&
                 RequestContentContains(request, $"client_secret={cliClientSecret}"),
             new HttpResponseMessage
@@ -485,7 +485,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         this.SetupHttpResponse(
             request =>
                 request.RequestUri != null &&
-                request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
+                string.Equals(request.RequestUri.ToString(), "https://oauth2.googleapis.com/token", StringComparison.Ordinal) &&
                 RequestContentContains(request, $"client_id={pluginClientId}") &&
                 RequestContentContains(request, $"client_secret={pluginClientSecret}"),
             new HttpResponseMessage

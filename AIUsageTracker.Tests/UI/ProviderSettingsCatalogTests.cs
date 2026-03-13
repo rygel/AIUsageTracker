@@ -6,6 +6,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
+
 public sealed class ProviderSettingsCatalogTests
 {
     [Fact]

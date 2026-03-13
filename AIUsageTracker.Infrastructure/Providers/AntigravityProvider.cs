@@ -117,7 +117,7 @@ public class AntigravityProvider : ProviderBase
                                 AccountName = this._cachedUsage.AccountName,
                                 Description = description,
                                 IsQuotaBased = true,
-                                PlanType = PlanType.Coding
+                                PlanType = PlanType.Coding,
                             },
                             };
                         }
@@ -142,7 +142,7 @@ public class AntigravityProvider : ProviderBase
                         AccountName = this._cachedUsage.AccountName,
                         Description = description,
                         IsQuotaBased = true,
-                        PlanType = PlanType.Coding
+                        PlanType = PlanType.Coding,
                     },
                     };
                 }
@@ -163,7 +163,7 @@ public class AntigravityProvider : ProviderBase
                             ? "Antigravity running, waiting for language server"
                             : "Application not running",
                         IsQuotaBased = true,
-                        PlanType = PlanType.Coding
+                        PlanType = PlanType.Coding,
                     },
                     };
                 }
@@ -254,7 +254,7 @@ public class AntigravityProvider : ProviderBase
                      RequestsAvailable = 0,
                      Description = "Not running",
                      IsQuotaBased = true,
-                     PlanType = PlanType.Coding
+                     PlanType = PlanType.Coding,
                  },
                 };
             }
@@ -303,7 +303,7 @@ public class AntigravityProvider : ProviderBase
                     ? "Antigravity running, waiting for language server"
                     : "Application not running",
                 IsQuotaBased = true,
-                PlanType = PlanType.Coding
+                PlanType = PlanType.Coding,
             },
             };
         }
@@ -567,7 +567,7 @@ public class AntigravityProvider : ProviderBase
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     Description = "Usage unknown (no model quota data)",
-                    AccountName = data.UserStatus.Email ?? string.Empty
+                    AccountName = data.UserStatus.Email ?? string.Empty,
                 },
             };
         }

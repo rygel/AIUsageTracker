@@ -292,5 +292,4 @@ public sealed class ProviderUsageDisplayCatalogTests
         Assert.NotNull(gemini.Details);
         Assert.Equal(3, gemini.Details!.Count);
     }
-
 }

@@ -177,7 +177,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_PrefersSparkSpecificAdditionalRateLimit_InParentDetails_WhenMultipleCandidatesExist()
+    public async Task GetUsageAsync_PrefersSparkSpecificAdditionalRateLimit_InParentDetails_WhenMultipleCandidatesExistAsync()
     {
         var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-window");
         var authPath = Path.Combine(tempDir, "auth.json");
@@ -245,7 +245,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_ParsesSparkPrimaryAndSecondaryWindows_InParentDetails()
+    public async Task GetUsageAsync_ParsesSparkPrimaryAndSecondaryWindows_InParentDetailsAsync()
     {
         var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-secondary-window");
         var authPath = Path.Combine(tempDir, "auth.json");
@@ -300,11 +300,11 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             Assert.Contains(
                 parent.Details!,
                 detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                          detail.Name == "5-hour quota");
+string.Equals(detail.Name, "5-hour quota", StringComparison.Ordinal));
             Assert.Contains(
                 parent.Details!,
                 detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                          detail.Name == "Weekly quota");
+string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         }
         finally
         {

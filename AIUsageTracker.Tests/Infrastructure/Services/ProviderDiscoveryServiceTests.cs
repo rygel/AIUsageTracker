@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -34,7 +34,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DiscoverAuthAsync_FromEnvironmentVariable_ReturnsAuthData()
+    public async Task DiscoverAuthAsync_FromEnvironmentVariable_ReturnsAuthDataAsync()
     {
         // Arrange
         var envVarName = "TEST_AUTH_KEY_" + Guid.NewGuid().ToString("N");
@@ -64,7 +64,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DiscoverAuthAsync_FromAuthFile_ReturnsAuthData()
+    public async Task DiscoverAuthAsync_FromAuthFile_ReturnsAuthDataAsync()
     {
         // Arrange
         var authFilePath = Path.Combine(this._tempTestDir, "auth.json");
@@ -104,7 +104,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DiscoverAuthAsync_WhenNothingFound_ReturnsNull()
+    public async Task DiscoverAuthAsync_WhenNothingFound_ReturnsNullAsync()
     {
         // Arrange
         var definition = new ProviderDefinition(

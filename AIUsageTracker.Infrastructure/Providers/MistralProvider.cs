@@ -7,8 +7,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Http;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Http;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -82,7 +82,7 @@ public class MistralProvider : ProviderBase
                     Description = "Connected (Check Dashboard)",
                     UsageUnit = "Status",
                     RawJson = content,
-                    HttpStatus = (int)response.StatusCode
+                    HttpStatus = (int)response.StatusCode,
                 },
                 };
             }

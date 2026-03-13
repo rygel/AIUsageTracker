@@ -11,10 +11,10 @@ using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Helpers;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Infrastructure.Constants;
-using AIUsageTracker.Infrastructure.Http;
 using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Core.Providers;
+using AIUsageTracker.Infrastructure.Constants;
+using AIUsageTracker.Infrastructure.Http;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -98,7 +98,7 @@ public class OpenAIProvider : ProviderBase
         {
             return new[]
             {
-                this.CreateUnavailableUsage("OpenAI API key or OpenCode session not found.")
+                this.CreateUnavailableUsage("OpenAI API key or OpenCode session not found."),
             };
         }
 

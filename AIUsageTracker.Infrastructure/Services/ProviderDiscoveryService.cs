@@ -1,11 +1,9 @@
 using System.Text.Json;
-
-using Microsoft.Extensions.Logging;
-
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Infrastructure.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
@@ -45,7 +43,7 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 
             try
             {
-                var authData = await LoadAuthFromFileAsync(path, discoverySpec.SessionAuthFileSchemas);
+                var authData = await LoadAuthFromFileAsync(path, discoverySpec.SessionAuthFileSchemas).ConfigureAwait(false);
                 if (authData != null)
                 {
                     this._logger.LogDebug("Discovered auth for {ProviderId} via file {Path}", discoverySpec.ProviderId, path);
@@ -68,7 +66,7 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 
     private static async Task<ProviderAuthData?> LoadAuthFromFileAsync(string path, IEnumerable<ProviderAuthFileSchema> schemas)
     {
-        var json = await File.ReadAllTextAsync(path);
+        var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
         using var doc = JsonDocument.Parse(json);
         return ProviderAuthFileSchemaReader.Read(doc.RootElement, schemas);
     }

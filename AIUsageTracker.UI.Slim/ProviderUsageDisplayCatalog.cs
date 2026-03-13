@@ -174,5 +174,4 @@ internal static class ProviderUsageDisplayCatalog
             ? string.Empty
             : detail.ModelName.Trim();
     }
-
 }

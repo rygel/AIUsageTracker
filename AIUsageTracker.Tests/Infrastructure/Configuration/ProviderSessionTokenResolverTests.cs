@@ -14,7 +14,7 @@ namespace AIUsageTracker.Tests.Infrastructure.Configuration;
 public class ProviderSessionTokenResolverTests
 {
     [Fact]
-    public async Task TryResolveAsync_ReadsAccessTokenFromDottedSchemaRoot()
+    public async Task TryResolveAsync_ReadsAccessTokenFromDottedSchemaRootAsync()
     {
         var testRoot = TestTempPaths.CreateDirectory("provider-session-token-resolver");
 

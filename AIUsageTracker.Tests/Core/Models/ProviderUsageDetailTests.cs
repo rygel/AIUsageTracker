@@ -217,7 +217,6 @@ public class ProviderUsageDetailTests
         Assert.Equal("73.5% remaining", detail.Used);
     }
 
-
     [Fact]
     public void Used_LegacySemanticText_BackfillsTypedPercentageFields()
     {

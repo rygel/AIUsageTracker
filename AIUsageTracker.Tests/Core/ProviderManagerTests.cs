@@ -131,7 +131,7 @@ public class ProviderManagerTests
     }
 
     [Fact]
-    public async Task GetUsageAsync_WhenAutoIncludedProviderMissingConfig_UsesGeneratedDefaultConfig()
+    public async Task GetUsageAsync_WhenAutoIncludedProviderMissingConfig_UsesGeneratedDefaultConfigAsync()
     {
         var configLoader = new Mock<IConfigLoader>();
         configLoader.Setup(loader => loader.LoadConfigAsync()).ReturnsAsync([]);
