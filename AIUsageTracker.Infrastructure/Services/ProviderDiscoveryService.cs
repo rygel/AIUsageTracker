@@ -12,10 +12,14 @@ namespace AIUsageTracker.Infrastructure.Services;
 public sealed class ProviderDiscoveryService : IProviderDiscoveryService
 {
     private readonly ILogger<ProviderDiscoveryService> _logger;
+    private readonly IAppPathProvider _pathProvider;
 
-    public ProviderDiscoveryService(ILogger<ProviderDiscoveryService> logger)
+    public ProviderDiscoveryService(
+        ILogger<ProviderDiscoveryService> logger,
+        IAppPathProvider pathProvider)
     {
         this._logger = logger;
+        this._pathProvider = pathProvider;
     }
 
     public async Task<ProviderAuthData?> DiscoverAuthAsync(ProviderAuthDiscoverySpec discoverySpec)
@@ -32,11 +36,9 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
         }
 
         // 2. Check auth file candidates
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        foreach (var pathTemplate in discoverySpec.AuthIdentityCandidatePathTemplates)
+        foreach (var path in ProviderAuthCandidatePathResolver.ResolvePaths(discoverySpec, this._pathProvider))
         {
-            var path = AuthPathTemplateResolver.Resolve(pathTemplate, userProfile);
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            if (!File.Exists(path))
             {
                 continue;
             }

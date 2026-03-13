@@ -68,12 +68,7 @@ internal sealed class ProviderSessionTokenResolver
 
     private IEnumerable<string> GetCandidatePaths()
     {
-        var userProfilePath = this._pathProvider.GetUserProfileRoot();
-
-        return this._discoverySpec.AuthIdentityCandidatePathTemplates
-            .Select(pathTemplate => AuthPathTemplateResolver.Resolve(pathTemplate, userProfilePath))
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)!;
+        return ProviderAuthCandidatePathResolver.ResolvePaths(this._discoverySpec, this._pathProvider);
     }
 
     private static string? TryReadAccessToken(JsonElement root, ProviderAuthDiscoverySpec discoverySpec)

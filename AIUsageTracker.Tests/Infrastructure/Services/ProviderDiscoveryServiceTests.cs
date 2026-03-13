@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -14,14 +15,17 @@ namespace AIUsageTracker.Tests.Infrastructure.Services;
 public class ProviderDiscoveryServiceTests : IDisposable
 {
     private readonly Mock<ILogger<ProviderDiscoveryService>> _mockLogger;
+    private readonly Mock<IAppPathProvider> _mockPathProvider;
     private readonly ProviderDiscoveryService _service;
     private readonly string _tempTestDir;
 
     public ProviderDiscoveryServiceTests()
     {
-        this._mockLogger = new Mock<ILogger<ProviderDiscoveryService>>();
-        this._service = new ProviderDiscoveryService(this._mockLogger.Object);
         this._tempTestDir = TestTempPaths.CreateDirectory("ProviderDiscoveryTests");
+        this._mockLogger = new Mock<ILogger<ProviderDiscoveryService>>();
+        this._mockPathProvider = new Mock<IAppPathProvider>();
+        this._mockPathProvider.Setup(pathProvider => pathProvider.GetUserProfileRoot()).Returns(this._tempTestDir);
+        this._service = new ProviderDiscoveryService(this._mockLogger.Object, this._mockPathProvider.Object);
     }
 
     public void Dispose()
