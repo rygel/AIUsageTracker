@@ -7,7 +7,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using AIUsageTracker.Core.Helpers;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Paths;
+using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Core.Providers;
 using Microsoft.Extensions.Logging;
 
@@ -343,16 +343,11 @@ public class CodexProvider : ProviderBase
             yield break;
         }
 
+        var discoverySpec = StaticDefinition.CreateAuthDiscoverySpec();
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-        foreach (var pathTemplate in StaticDefinition.AuthIdentityCandidatePathTemplates)
+        foreach (var path in ProviderAuthCandidatePathResolver.ResolvePaths(discoverySpec, userProfile))
         {
-            var path = AuthPathTemplateResolver.Resolve(pathTemplate, userProfile);
-
-            if (!string.IsNullOrWhiteSpace(path))
-            {
-                yield return path;
-            }
+            yield return path;
         }
     }
 

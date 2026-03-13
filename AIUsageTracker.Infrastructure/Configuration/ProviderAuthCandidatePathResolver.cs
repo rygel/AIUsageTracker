@@ -14,8 +14,13 @@ internal static class ProviderAuthCandidatePathResolver
         ProviderAuthDiscoverySpec discoverySpec,
         IAppPathProvider pathProvider)
     {
-        var userProfilePath = pathProvider.GetUserProfileRoot();
+        return ResolvePaths(discoverySpec, pathProvider.GetUserProfileRoot());
+    }
 
+    public static IReadOnlyList<string> ResolvePaths(
+        ProviderAuthDiscoverySpec discoverySpec,
+        string userProfilePath)
+    {
         return discoverySpec.AuthIdentityCandidatePathTemplates
             .Select(pathTemplate => AuthPathTemplateResolver.Resolve(pathTemplate, userProfilePath))
             .Where(path => !string.IsNullOrWhiteSpace(path))

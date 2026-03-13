@@ -5,7 +5,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Core.Paths;
+using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 
@@ -70,50 +70,27 @@ public class CodexAuthService : ICodexAuthService
             yield break;
         }
 
+        var discoverySpec = CodexProvider.StaticDefinition.CreateAuthDiscoverySpec();
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        foreach (var pathTemplate in CodexProvider.StaticDefinition.AuthIdentityCandidatePathTemplates)
+        foreach (var path in ProviderAuthCandidatePathResolver.ResolvePaths(discoverySpec, home))
         {
-            var path = AuthPathTemplateResolver.Resolve(pathTemplate, home);
-            if (!string.IsNullOrWhiteSpace(path))
-            {
-                yield return path;
-            }
+            yield return path;
         }
     }
 
     private static CodexAuth? TryReadAuth(JsonElement root)
     {
-        foreach (var schema in CodexProvider.StaticDefinition.SessionAuthFileSchemas)
+        var authData = ProviderAuthFileSchemaReader.Read(root, CodexProvider.StaticDefinition.SessionAuthFileSchemas);
+        if (string.IsNullOrWhiteSpace(authData?.AccessToken))
         {
-            if (!root.TryGetProperty(schema.RootProperty, out var element) || element.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var accessToken = element.TryGetProperty(schema.AccessTokenProperty, out var accessTokenElement) &&
-                              accessTokenElement.ValueKind == JsonValueKind.String
-                ? accessTokenElement.GetString()
-                : null;
-
-            if (string.IsNullOrWhiteSpace(accessToken))
-            {
-                continue;
-            }
-
-            var accountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty) &&
-                            element.TryGetProperty(schema.AccountIdProperty, out var accountIdElement) &&
-                            accountIdElement.ValueKind == JsonValueKind.String
-                ? accountIdElement.GetString()
-                : null;
-
-            return new CodexAuth
-            {
-                AccessToken = accessToken,
-                AccountId = accountId,
-            };
+            return null;
         }
 
-        return null;
+        return new CodexAuth
+        {
+            AccessToken = authData.AccessToken,
+            AccountId = authData.AccountId,
+        };
     }
 
     private sealed class CodexAuth
