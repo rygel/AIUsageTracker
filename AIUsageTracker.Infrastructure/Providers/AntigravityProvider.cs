@@ -62,14 +62,6 @@ public class AntigravityProvider : ProviderBase
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
 
-    private static HttpClient CreateLocalhostClient()
-    {
-        return new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(1.5),
-        };
-    }
-
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
@@ -309,6 +301,330 @@ public class AntigravityProvider : ProviderBase
         }
     }
 
+    private static HttpClient CreateLocalhostClient()
+    {
+        return new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(1.5),
+        };
+    }
+
+    private static string? ParseCsrfToken(string commandLine)
+    {
+        var match = Regex.Match(commandLine, @"--csrf[_-]token(?:=|\s+)(?<token>[a-zA-Z0-9-]+)", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+        return match.Success ? match.Groups["token"].Value : null;
+    }
+
+    private static int? ParseExtensionServerPort(string commandLine)
+    {
+        var match = Regex.Match(commandLine, @"--extension_server_port(?:=|\s+)(?<port>\d+)", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
+        if (match.Success && int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var port))
+        {
+            return port;
+        }
+
+        return null;
+    }
+
+    private static bool IsAntigravityDesktopRunning()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        try
+        {
+            return Process.GetProcessesByName("Antigravity").Any();
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static (Dictionary<string, string> LabelToGroup, List<string> MasterModelLabels) BuildGroupingMetadata(
+        List<ClientModelSort> modelSorts,
+        List<ClientModelConfig> modelConfigs)
+    {
+        var labelToGroup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var masterModelLabelSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var masterModelLabels = new List<string>();
+
+        for (var sortIndex = 0; sortIndex < modelSorts.Count; sortIndex++)
+        {
+            var modelSort = modelSorts[sortIndex];
+            var sortName = ResolveModelSortName(modelSort, sortIndex);
+            var modelGroups = modelSort.Groups ?? new List<ModelGroup>();
+
+            for (var groupIndex = 0; groupIndex < modelGroups.Count; groupIndex++)
+            {
+                var groupName = ResolveModelGroupName(modelGroups[groupIndex], sortName, groupIndex);
+                foreach (var label in GetModelLabels(modelGroups[groupIndex]))
+                {
+                    if (string.IsNullOrWhiteSpace(label))
+                    {
+                        continue;
+                    }
+
+                    if (masterModelLabelSet.Add(label))
+                    {
+                        masterModelLabels.Add(label);
+                    }
+
+                    if (!labelToGroup.ContainsKey(label))
+                    {
+                        labelToGroup[label] = groupName;
+                    }
+                }
+            }
+        }
+
+        if (!masterModelLabels.Any())
+        {
+            masterModelLabels = modelConfigs
+                .Where(c => !string.IsNullOrWhiteSpace(c.Label))
+                .Select(c => c.Label!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        return (labelToGroup, masterModelLabels);
+    }
+
+    private static Dictionary<string, ClientModelConfig> BuildConfigMap(List<ClientModelConfig> modelConfigs)
+    {
+        return modelConfigs
+            .Where(c => !string.IsNullOrEmpty(c.Label))
+            .ToDictionary(c => c.Label!, c => c, StringComparer.Ordinal);
+    }
+
+    private static (string Description, DateTime? NextResetTime) ResolveResetInfo(ClientModelConfig? modelConfig)
+    {
+        if (string.IsNullOrEmpty(modelConfig?.QuotaInfo?.ResetTime))
+        {
+            return (string.Empty, null);
+        }
+
+        if (!DateTime.TryParse(modelConfig.QuotaInfo.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+        {
+            return (string.Empty, null);
+        }
+
+        var localReset = dt.ToLocalTime();
+        var diff = localReset - DateTime.Now;
+        if (diff.TotalSeconds <= 0)
+        {
+            return (string.Empty, null);
+        }
+
+        return ($" (Resets: ({localReset:MMM dd HH:mm}))", localReset);
+    }
+
+    private static string ResolveDisplayModelName(string label)
+    {
+        return label;
+    }
+
+    private static List<ProviderUsageDetail> SortDetails(List<ProviderUsageDetail> details)
+    {
+        return details
+            .OrderBy(d => d.Name.StartsWith("[Credits]", StringComparison.Ordinal) ? "0" + d.Name : "1" + d.Name, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static void ApplySummaryRawNumbers(ProviderUsage summary, Dictionary<string, ClientModelConfig> configMap)
+    {
+        long totalLimit = 0;
+        long totalUsed = 0;
+        var hasRawNumbers = false;
+
+        foreach (var cfg in configMap.Values)
+        {
+            if (cfg.QuotaInfo?.TotalRequests.HasValue == true)
+            {
+                totalLimit += cfg.QuotaInfo.TotalRequests.Value;
+                totalUsed += cfg.QuotaInfo.UsedRequests ?? 0;
+                hasRawNumbers = true;
+            }
+        }
+
+        if (!hasRawNumbers || totalLimit <= 0)
+        {
+            return;
+        }
+
+        summary.RequestsAvailable = totalLimit;
+        summary.RequestsUsed = totalUsed;
+        summary.UsageUnit = "Tokens";
+        summary.DisplayAsFraction = true;
+    }
+
+    private static List<string> GetModelLabels(ModelGroup group)
+    {
+        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (group.ModelLabels != null)
+        {
+            foreach (var label in group.ModelLabels)
+            {
+                if (!string.IsNullOrWhiteSpace(label))
+                {
+                    labels.Add(label);
+                }
+            }
+        }
+
+        if (group.ExtensionData != null)
+        {
+            foreach (var key in new[] { "labels", "modelLabels", "models", "items", "model_ids", "modelIds" })
+            {
+                if (!group.ExtensionData.TryGetValue(key, out var element) || element.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var item in element.EnumerateArray())
+                {
+                    if (item.ValueKind == JsonValueKind.String)
+                    {
+                        var value = item.GetString();
+                        if (!string.IsNullOrWhiteSpace(value))
+                        {
+                            labels.Add(value);
+                        }
+                    }
+                    else if (item.ValueKind == JsonValueKind.Object)
+                    {
+                        foreach (var property in new[] { "label", "name", "modelLabel", "model_name" })
+                        {
+                            if (!item.TryGetProperty(property, out var valueElement) || valueElement.ValueKind != JsonValueKind.String)
+                            {
+                                continue;
+                            }
+
+                            var value = valueElement.GetString();
+                            if (!string.IsNullOrWhiteSpace(value))
+                            {
+                                labels.Add(value);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return labels.ToList();
+    }
+
+    private static string ResolveModelSortName(ClientModelSort sort, int index)
+    {
+        if (!string.IsNullOrWhiteSpace(sort.Name))
+        {
+            return sort.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort.Label))
+        {
+            return sort.Label;
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort.Title))
+        {
+            return sort.Title;
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort.SortId))
+        {
+            return sort.SortId;
+        }
+
+        if (sort.ExtensionData != null)
+        {
+            foreach (var key in new[] { "name", "label", "title", "id", "sortName", "sort_name" })
+            {
+                if (sort.ExtensionData.TryGetValue(key, out var element))
+                {
+                    var value = TryReadStringFromJsonElement(element);
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+        }
+
+        return $"Sort {index + 1}";
+    }
+
+    private static string ResolveModelGroupName(ModelGroup group, string sortName, int index)
+    {
+        if (!string.IsNullOrWhiteSpace(group.Name))
+        {
+            return group.Name;
+        }
+
+        if (!string.IsNullOrWhiteSpace(group.Label))
+        {
+            return group.Label;
+        }
+
+        if (!string.IsNullOrWhiteSpace(group.Title))
+        {
+            return group.Title;
+        }
+
+        if (!string.IsNullOrWhiteSpace(group.GroupName))
+        {
+            return group.GroupName;
+        }
+
+        if (!string.IsNullOrWhiteSpace(group.DisplayName))
+        {
+            return group.DisplayName;
+        }
+
+        if (group.ExtensionData != null)
+        {
+            foreach (var key in new[] { "name", "label", "title", "groupName", "displayName", "group_label", "group_name" })
+            {
+                if (group.ExtensionData.TryGetValue(key, out var element))
+                {
+                    var value = TryReadStringFromJsonElement(element);
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(sortName)
+            ? $"Group {index + 1}"
+            : $"{sortName} Group {index + 1}";
+    }
+
+    private static string? TryReadStringFromJsonElement(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.String)
+        {
+            return element.GetString();
+        }
+
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            foreach (var key in new[] { "name", "label", "title", "displayName" })
+            {
+                if (element.TryGetProperty(key, out var nested) && nested.ValueKind == JsonValueKind.String)
+                {
+                    return nested.GetString();
+                }
+            }
+        }
+
+        return null;
+    }
+
     private List<(int Pid, string Token, int? Port)> FindProcessInfos()
     {
         if (DateTime.Now - this._lastProcessCheck < TimeSpan.FromSeconds(30) && this._cachedProcessInfos != null)
@@ -366,40 +682,6 @@ public class AntigravityProvider : ProviderBase
         this._cachedProcessInfos = candidates;
         this._lastProcessCheck = DateTime.Now;
         return candidates;
-    }
-
-    private static string? ParseCsrfToken(string commandLine)
-    {
-        var match = Regex.Match(commandLine, @"--csrf[_-]token(?:=|\s+)(?<token>[a-zA-Z0-9-]+)", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        return match.Success ? match.Groups["token"].Value : null;
-    }
-
-    private static int? ParseExtensionServerPort(string commandLine)
-    {
-        var match = Regex.Match(commandLine, @"--extension_server_port(?:=|\s+)(?<port>\d+)", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        if (match.Success && int.TryParse(match.Groups[1].Value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var port))
-        {
-            return port;
-        }
-
-        return null;
-    }
-
-    private static bool IsAntigravityDesktopRunning()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return false;
-        }
-
-        try
-        {
-            return Process.GetProcessesByName("Antigravity").Any();
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private async Task<List<int>> FindListeningPortsAsync(int pid)
@@ -585,62 +867,6 @@ public class AntigravityProvider : ProviderBase
         return results;
     }
 
-    private static (Dictionary<string, string> LabelToGroup, List<string> MasterModelLabels) BuildGroupingMetadata(
-        List<ClientModelSort> modelSorts,
-        List<ClientModelConfig> modelConfigs)
-    {
-        var labelToGroup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var masterModelLabelSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var masterModelLabels = new List<string>();
-
-        for (var sortIndex = 0; sortIndex < modelSorts.Count; sortIndex++)
-        {
-            var modelSort = modelSorts[sortIndex];
-            var sortName = ResolveModelSortName(modelSort, sortIndex);
-            var modelGroups = modelSort.Groups ?? new List<ModelGroup>();
-
-            for (var groupIndex = 0; groupIndex < modelGroups.Count; groupIndex++)
-            {
-                var groupName = ResolveModelGroupName(modelGroups[groupIndex], sortName, groupIndex);
-                foreach (var label in GetModelLabels(modelGroups[groupIndex]))
-                {
-                    if (string.IsNullOrWhiteSpace(label))
-                    {
-                        continue;
-                    }
-
-                    if (masterModelLabelSet.Add(label))
-                    {
-                        masterModelLabels.Add(label);
-                    }
-
-                    if (!labelToGroup.ContainsKey(label))
-                    {
-                        labelToGroup[label] = groupName;
-                    }
-                }
-            }
-        }
-
-        if (!masterModelLabels.Any())
-        {
-            masterModelLabels = modelConfigs
-                .Where(c => !string.IsNullOrWhiteSpace(c.Label))
-                .Select(c => c.Label!)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
-        return (labelToGroup, masterModelLabels);
-    }
-
-    private static Dictionary<string, ClientModelConfig> BuildConfigMap(List<ClientModelConfig> modelConfigs)
-    {
-        return modelConfigs
-            .Where(c => !string.IsNullOrEmpty(c.Label))
-            .ToDictionary(c => c.Label!, c => c, StringComparer.Ordinal);
-    }
-
     private double? ResolveRemainingPercentage(string label, ClientModelConfig? modelConfig)
     {
         if (modelConfig == null)
@@ -673,40 +899,6 @@ public class AntigravityProvider : ProviderBase
         return null;
     }
 
-    private static (string Description, DateTime? NextResetTime) ResolveResetInfo(ClientModelConfig? modelConfig)
-    {
-        if (string.IsNullOrEmpty(modelConfig?.QuotaInfo?.ResetTime))
-        {
-            return (string.Empty, null);
-        }
-
-        if (!DateTime.TryParse(modelConfig.QuotaInfo.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
-        {
-            return (string.Empty, null);
-        }
-
-        var localReset = dt.ToLocalTime();
-        var diff = localReset - DateTime.Now;
-        if (diff.TotalSeconds <= 0)
-        {
-            return (string.Empty, null);
-        }
-
-        return ($" (Resets: ({localReset:MMM dd HH:mm}))", localReset);
-    }
-
-    private static string ResolveDisplayModelName(string label)
-    {
-        return label;
-    }
-
-    private static List<ProviderUsageDetail> SortDetails(List<ProviderUsageDetail> details)
-    {
-        return details
-            .OrderBy(d => d.Name.StartsWith("[Credits]", StringComparison.Ordinal) ? "0" + d.Name : "1" + d.Name, StringComparer.Ordinal)
-            .ToList();
-    }
-
     private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ProviderUsageDetail> sortedDetails, double remainingPctTotal, string? rawJson = null, int httpStatus = 200)
     {
         return new ProviderUsage
@@ -726,33 +918,6 @@ public class AntigravityProvider : ProviderBase
             RawJson = rawJson,
             HttpStatus = httpStatus,
         };
-    }
-
-    private static void ApplySummaryRawNumbers(ProviderUsage summary, Dictionary<string, ClientModelConfig> configMap)
-    {
-        long totalLimit = 0;
-        long totalUsed = 0;
-        var hasRawNumbers = false;
-
-        foreach (var cfg in configMap.Values)
-        {
-            if (cfg.QuotaInfo?.TotalRequests.HasValue == true)
-            {
-                totalLimit += cfg.QuotaInfo.TotalRequests.Value;
-                totalUsed += cfg.QuotaInfo.UsedRequests ?? 0;
-                hasRawNumbers = true;
-            }
-        }
-
-        if (!hasRawNumbers || totalLimit <= 0)
-        {
-            return;
-        }
-
-        summary.RequestsAvailable = totalLimit;
-        summary.RequestsUsed = totalUsed;
-        summary.UsageUnit = "Tokens";
-        summary.DisplayAsFraction = true;
     }
 
     private List<ProviderUsage> BuildChildUsages(
@@ -842,171 +1007,6 @@ public class AntigravityProvider : ProviderBase
         }
 
         return (childId, childName);
-    }
-
-    private static List<string> GetModelLabels(ModelGroup group)
-    {
-        var labels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (group.ModelLabels != null)
-        {
-            foreach (var label in group.ModelLabels)
-            {
-                if (!string.IsNullOrWhiteSpace(label))
-                {
-                    labels.Add(label);
-                }
-            }
-        }
-
-        if (group.ExtensionData != null)
-        {
-            foreach (var key in new[] { "labels", "modelLabels", "models", "items", "model_ids", "modelIds" })
-            {
-                if (!group.ExtensionData.TryGetValue(key, out var element) || element.ValueKind != JsonValueKind.Array)
-                {
-                    continue;
-                }
-
-                foreach (var item in element.EnumerateArray())
-                {
-                    if (item.ValueKind == JsonValueKind.String)
-                    {
-                        var value = item.GetString();
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            labels.Add(value);
-                        }
-                    }
-                    else if (item.ValueKind == JsonValueKind.Object)
-                    {
-                        foreach (var property in new[] { "label", "name", "modelLabel", "model_name" })
-                        {
-                            if (!item.TryGetProperty(property, out var valueElement) || valueElement.ValueKind != JsonValueKind.String)
-                            {
-                                continue;
-                            }
-
-                            var value = valueElement.GetString();
-                            if (!string.IsNullOrWhiteSpace(value))
-                            {
-                                labels.Add(value);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        return labels.ToList();
-    }
-
-    private static string ResolveModelSortName(ClientModelSort sort, int index)
-    {
-        if (!string.IsNullOrWhiteSpace(sort.Name))
-        {
-            return sort.Name;
-        }
-
-        if (!string.IsNullOrWhiteSpace(sort.Label))
-        {
-            return sort.Label;
-        }
-
-        if (!string.IsNullOrWhiteSpace(sort.Title))
-        {
-            return sort.Title;
-        }
-
-        if (!string.IsNullOrWhiteSpace(sort.SortId))
-        {
-            return sort.SortId;
-        }
-
-        if (sort.ExtensionData != null)
-        {
-            foreach (var key in new[] { "name", "label", "title", "id", "sortName", "sort_name" })
-            {
-                if (sort.ExtensionData.TryGetValue(key, out var element))
-                {
-                    var value = TryReadStringFromJsonElement(element);
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-        }
-
-        return $"Sort {index + 1}";
-    }
-
-    private static string ResolveModelGroupName(ModelGroup group, string sortName, int index)
-    {
-        if (!string.IsNullOrWhiteSpace(group.Name))
-        {
-            return group.Name;
-        }
-
-        if (!string.IsNullOrWhiteSpace(group.Label))
-        {
-            return group.Label;
-        }
-
-        if (!string.IsNullOrWhiteSpace(group.Title))
-        {
-            return group.Title;
-        }
-
-        if (!string.IsNullOrWhiteSpace(group.GroupName))
-        {
-            return group.GroupName;
-        }
-
-        if (!string.IsNullOrWhiteSpace(group.DisplayName))
-        {
-            return group.DisplayName;
-        }
-
-        if (group.ExtensionData != null)
-        {
-            foreach (var key in new[] { "name", "label", "title", "groupName", "displayName", "group_label", "group_name" })
-            {
-                if (group.ExtensionData.TryGetValue(key, out var element))
-                {
-                    var value = TryReadStringFromJsonElement(element);
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-        }
-
-        return string.IsNullOrWhiteSpace(sortName)
-            ? $"Group {index + 1}"
-            : $"{sortName} Group {index + 1}";
-    }
-
-    private static string? TryReadStringFromJsonElement(JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.String)
-        {
-            return element.GetString();
-        }
-
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var key in new[] { "name", "label", "title", "displayName" })
-            {
-                if (element.TryGetProperty(key, out var nested) && nested.ValueKind == JsonValueKind.String)
-                {
-                    return nested.GetString();
-                }
-            }
-        }
-
-        return null;
     }
 
     private class AntigravityResponse
