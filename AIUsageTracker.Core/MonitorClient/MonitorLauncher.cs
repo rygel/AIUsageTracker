@@ -122,23 +122,6 @@ public class MonitorLauncher
         };
     }
 
-    public static Task InvalidateMonitorInfoAsync()
-    {
-        try
-        {
-            foreach (var infoPath in GetExistingAgentInfoPaths())
-            {
-                InvalidateMonitorInfoPath(infoPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            MonitorService.LogDiagnostic($"Failed to invalidate monitor metadata: {ex.Message}");
-        }
-
-        return Task.CompletedTask;
-    }
-
     private static Task QuarantineMonitorInfoAsync(string infoPath, string? diagnosticMessage = null)
     {
         if (!string.IsNullOrEmpty(diagnosticMessage))
@@ -271,6 +254,23 @@ public class MonitorLauncher
         MonitorService.LogDiagnostic($"Waiting for Monitor to start (max {MaxWaitSeconds}s)...");
         var readyState = await WaitForReadyStateAsync(cancellationToken).ConfigureAwait(false);
         return readyState.HasValue;
+    }
+
+    public static Task InvalidateMonitorInfoAsync()
+    {
+        try
+        {
+            foreach (var infoPath in GetExistingAgentInfoPaths())
+            {
+                InvalidateMonitorInfoPath(infoPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            MonitorService.LogDiagnostic($"Failed to invalidate monitor metadata: {ex.Message}");
+        }
+
+        return Task.CompletedTask;
     }
 
     private static async Task<bool> CheckHealthAsync(int port)

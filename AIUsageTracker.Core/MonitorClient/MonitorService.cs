@@ -60,10 +60,10 @@ public class MonitorService : IMonitorService
     /// <inheritdoc/>
     public string AgentUrl { get; set; } = "http://localhost:5000";
 
+    public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
+
     /// <inheritdoc/>
     public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
-
-    public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
 
     private static HttpClient GetOrCreateHttpClient()
     {
@@ -717,6 +717,18 @@ public class MonitorService : IMonitorService
         }
     }
 
+    public static AgentContractHandshakeResult EvaluateApiContractCompatibility(
+        string? contractVersion,
+        string? minClientContractVersion,
+        string? reportedAgentVersion)
+    {
+        return MonitorApiContractEvaluator.Evaluate(
+            contractVersion,
+            minClientContractVersion,
+            reportedAgentVersion,
+            ExpectedApiContractVersion);
+    }
+
     private static string? TryGetJsonString(JsonElement root, string propertyName)
     {
         if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var property))
@@ -746,18 +758,6 @@ public class MonitorService : IMonitorService
         }
 
         return null;
-    }
-
-    public static AgentContractHandshakeResult EvaluateApiContractCompatibility(
-        string? contractVersion,
-        string? minClientContractVersion,
-        string? reportedAgentVersion)
-    {
-        return MonitorApiContractEvaluator.Evaluate(
-            contractVersion,
-            minClientContractVersion,
-            reportedAgentVersion,
-            ExpectedApiContractVersion);
     }
 
     // Diagnostics & Export

@@ -127,6 +127,17 @@ public class JsonConfigLoader : IConfigLoader
         return mergedConfigs;
     }
 
+    private static string ResolveConfigProviderId(string providerId)
+    {
+        if (ProviderMetadataCatalog.ShouldPersistProviderId(providerId) &&
+            ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId))
+        {
+            return providerId;
+        }
+
+        return ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+    }
+
     private async Task MergeConfigFileAsync(Dictionary<string, ProviderConfig> mergedConfigs, string path, bool isAuthFile)
     {
         var rawConfigs = await JsonConfigFileStore.ReadJsonElementMapAsync(
@@ -143,17 +154,6 @@ public class JsonConfigLoader : IConfigLoader
         {
             this.MergeConfigEntry(mergedConfigs, entry, path, isAuthFile);
         }
-    }
-
-    private static string ResolveConfigProviderId(string providerId)
-    {
-        if (ProviderMetadataCatalog.ShouldPersistProviderId(providerId) &&
-            ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId))
-        {
-            return providerId;
-        }
-
-        return ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
     }
 
     private void MergeConfigEntry(

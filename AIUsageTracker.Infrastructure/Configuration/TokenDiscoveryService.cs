@@ -27,31 +27,6 @@ public class TokenDiscoveryService
         this._sessionResolvers = BuildSessionResolvers(this._logger, this._pathProvider);
     }
 
-    private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
-
-    private static IReadOnlyList<IProviderAuthFallbackResolver> BuildExplicitProviderFallbackResolvers()
-    {
-        return ProviderMetadataCatalog.GetProviderIdsWithDiscoveryEnvironmentVariables()
-            .Select(providerId => (IProviderAuthFallbackResolver)new ProviderAuthFallbackResolver(
-                providerId,
-                ProviderMetadataCatalog.GetDiscoveryEnvironmentVariables(providerId).ToArray()))
-            .ToArray();
-    }
-
-    private static IReadOnlyList<ProviderSessionTokenResolver> BuildSessionResolvers(
-        ILogger<TokenDiscoveryService> logger,
-        IAppPathProvider pathProvider)
-    {
-        return ProviderMetadataCatalog.GetProviderIdsWithDedicatedSessionAuthFiles()
-            .Select(providerId => new ProviderSessionTokenResolver(
-                discoverySpec: ProviderMetadataCatalog.Find(providerId)!.CreateAuthDiscoverySpec(),
-                description: $"Discovered in {ProviderMetadataCatalog.GetDisplayName(providerId)} session auth",
-                sourcePrefix: "Config",
-                logger: logger,
-                pathProvider: pathProvider))
-            .ToArray();
-    }
-
     public async Task<IReadOnlyList<ProviderConfig>> DiscoverTokensAsync()
     {
         var discoveredConfigs = new List<ProviderConfig>();
@@ -79,6 +54,31 @@ public class TokenDiscoveryService
         await this.DiscoverSessionTokensAsync(discoveredConfigs).ConfigureAwait(false);
 
         return discoveredConfigs;
+    }
+
+    private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
+
+    private static IReadOnlyList<IProviderAuthFallbackResolver> BuildExplicitProviderFallbackResolvers()
+    {
+        return ProviderMetadataCatalog.GetProviderIdsWithDiscoveryEnvironmentVariables()
+            .Select(providerId => (IProviderAuthFallbackResolver)new ProviderAuthFallbackResolver(
+                providerId,
+                ProviderMetadataCatalog.GetDiscoveryEnvironmentVariables(providerId).ToArray()))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<ProviderSessionTokenResolver> BuildSessionResolvers(
+        ILogger<TokenDiscoveryService> logger,
+        IAppPathProvider pathProvider)
+    {
+        return ProviderMetadataCatalog.GetProviderIdsWithDedicatedSessionAuthFiles()
+            .Select(providerId => new ProviderSessionTokenResolver(
+                discoverySpec: ProviderMetadataCatalog.Find(providerId)!.CreateAuthDiscoverySpec(),
+                description: $"Discovered in {ProviderMetadataCatalog.GetDisplayName(providerId)} session auth",
+                sourcePrefix: "Config",
+                logger: logger,
+                pathProvider: pathProvider))
+            .ToArray();
     }
 
     private IReadOnlyDictionary<string, string> GetNormalizedEnvironmentVariables()
