@@ -16,9 +16,7 @@ internal static class ProviderMainWindowOrderingCatalog
                 usage => GetFamilyDisplayName(usage),
                 StringComparer.OrdinalIgnoreCase)
             .ThenBy(
-                usage => ProviderCapabilityCatalog.GetDisplayName(
-                    usage.ProviderId ?? string.Empty,
-                    usage.ProviderName),
+                usage => ProviderCapabilityCatalog.ResolveDisplayLabel(usage),
                 StringComparer.OrdinalIgnoreCase)
             .ThenBy(usage => usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase);
     }
@@ -27,6 +25,6 @@ internal static class ProviderMainWindowOrderingCatalog
     {
         var providerId = usage.ProviderId ?? string.Empty;
         var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
-        return ProviderCapabilityCatalog.GetDisplayName(canonicalProviderId, providerName: null);
+        return ProviderCapabilityCatalog.GetConfiguredDisplayName(canonicalProviderId);
     }
 }

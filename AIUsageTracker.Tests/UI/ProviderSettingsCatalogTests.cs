@@ -56,7 +56,7 @@ public sealed class ProviderSettingsCatalogTests
         var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: false);
 
         Assert.Equal(ProviderInputMode.SessionAuthStatus, behavior.InputMode);
-        Assert.Equal("OpenAI", behavior.SessionProviderLabel);
+        Assert.Equal("OpenAI (Codex)", behavior.SessionProviderLabel);
         Assert.False(behavior.IsInactive);
     }
 

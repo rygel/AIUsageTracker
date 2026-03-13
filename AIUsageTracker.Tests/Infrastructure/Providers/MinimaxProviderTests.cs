@@ -46,7 +46,33 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
+        Assert.Equal("Minimax (China)", usage.ProviderName);
         Assert.Contains("30", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
         Assert.Contains("100", usage.RequestsAvailable.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetUsageAsync_InternationalAlias_UsesMetadataDisplayNameAsync()
+    {
+        var responseData = new
+        {
+            usage = new
+            {
+                tokens_used = 30.0,
+                tokens_limit = 100.0,
+            },
+        };
+
+        this.Config.ProviderId = MinimaxProvider.InternationalProviderId;
+        this.SetupHttpResponse("https://api.minimax.io/v1/user/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
+        });
+
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        var usage = result.Single();
+        Assert.Equal("Minimax (International)", usage.ProviderName);
     }
 }

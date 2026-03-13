@@ -108,7 +108,7 @@ public class AntigravityProvider : ProviderBase
                                 new ProviderUsage
                             {
                                 ProviderId = this.ProviderId,
-                                ProviderName = "Antigravity",
+                                ProviderName = this.Definition.DisplayName,
                                 IsAvailable = true,
                                 RequestsPercentage = 0,
                                 RequestsUsed = 0,
@@ -133,7 +133,7 @@ public class AntigravityProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = "Antigravity",
+                        ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         RequestsPercentage = 0,
                         RequestsUsed = 0,
@@ -154,7 +154,7 @@ public class AntigravityProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = "Antigravity",
+                        ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         RequestsPercentage = 0,
                         RequestsUsed = 0,
@@ -247,7 +247,7 @@ public class AntigravityProvider : ProviderBase
                     new ProviderUsage
                  {
                      ProviderId = this.ProviderId,
-                     ProviderName = "Antigravity",
+                     ProviderName = this.Definition.DisplayName,
                      IsAvailable = true,
                      RequestsPercentage = 0,
                      RequestsUsed = 0,
@@ -294,7 +294,7 @@ public class AntigravityProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "Antigravity",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = true,
                 RequestsPercentage = 0,
                 RequestsUsed = 0,
@@ -558,7 +558,7 @@ public class AntigravityProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Antigravity",
+                    ProviderName = this.Definition.DisplayName,
                     IsAvailable = true,
                     RequestsPercentage = 0,
                     RequestsUsed = 0,
@@ -712,7 +712,7 @@ public class AntigravityProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = "Antigravity",
+            ProviderName = this.Definition.DisplayName,
             RequestsPercentage = remainingPctTotal,
             RequestsUsed = 100 - remainingPctTotal,
             RequestsAvailable = 100,

@@ -141,8 +141,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             result,
             item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
         Assert.True(usage.IsAvailable);
+        Assert.Equal("Google Gemini", usage.ProviderName);
         Assert.Equal(email, usage.AccountName);
-        Assert.Equal("Gemini CLI", usage.ProviderName);
 
         TestTempPaths.CleanupPath(tempDir);
     }

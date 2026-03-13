@@ -70,13 +70,7 @@ public static class GroupedUsageProjectionService
 
     private static string ResolveProviderDisplayName(ProviderUsage primary, string canonicalProviderId)
     {
-        if (string.Equals(primary.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(primary.ProviderName))
-        {
-            return primary.ProviderName;
-        }
-
-        return ProviderMetadataCatalog.GetDisplayName(canonicalProviderId, primary.ProviderName);
+        return ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
     }
 
     private static ProviderUsage SelectPrimaryUsage(IEnumerable<ProviderUsage> group, string canonicalProviderId)

@@ -53,6 +53,8 @@ public class ZaiProvider : ProviderBase
             throw new ArgumentException("API Key not found for Z.AI provider.", nameof(config));
         }
 
+        var providerLabel = this.Definition.DisplayName;
+
         var request = new HttpRequestMessage(HttpMethod.Get, "https://api.z.ai/api/monitor/usage/quota/limit");
 
         // Z.AI uses raw key in Authorization header without "Bearer" prefix based on Swift ref
@@ -89,7 +91,7 @@ public class ZaiProvider : ProviderBase
                 new ProviderUsage
              {
                  ProviderId = this.ProviderId,
-                 ProviderName = "Z.AI",
+                 ProviderName = providerLabel,
                  IsAvailable = false,
                  Description = "No usage data available",
                  IsQuotaBased = true,
@@ -276,9 +278,9 @@ public class ZaiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = $"Z.AI {planDescription}",
+                ProviderName = providerLabel,
                 IsAvailable = false,
-                Description = "Usage unknown (missing quota metrics)",
+                Description = FormatDescription("Usage unknown (missing quota metrics)", planDescription),
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RawJson = responseString,
@@ -299,14 +301,14 @@ public class ZaiProvider : ProviderBase
 
         this._logger.LogInformation(
             "Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, RequestsPercentage: {RequestsPercentage}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
-            this.ProviderId, $"Z.AI {planDescription}", finalRequestsPercentage, finalRequestsUsedReal, finalDescription, true);
+            this.ProviderId, providerLabel, finalRequestsPercentage, finalRequestsUsedReal, finalDescription, true);
 
         return new[]
         {
             new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = $"Z.AI {planDescription}",
+            ProviderName = providerLabel,
             RequestsPercentage = finalRequestsPercentage,
             RequestsUsed = finalRequestsUsedReal,  // Store actual used count/percentage
             RequestsAvailable = finalRequestsAvailable, // Store actual total limit
@@ -314,13 +316,20 @@ public class ZaiProvider : ProviderBase
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
-            Description = finalDescription,
+            Description = FormatDescription(finalDescription, planDescription),
             NextResetTime = nextResetTime,
             IsAvailable = true,
             RawJson = responseString,
             HttpStatus = httpStatus,
         },
         };
+    }
+
+    private static string FormatDescription(string description, string planDescription)
+    {
+        return string.Equals(planDescription, "API", StringComparison.OrdinalIgnoreCase)
+            ? description
+            : $"{description} | Plan: {planDescription}";
     }
 
     private class ZaiEnvelope<T>

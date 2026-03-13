@@ -51,9 +51,9 @@ public sealed class ProviderCapabilityCatalogTests
     }
 
     [Fact]
-    public void GetDisplayName_PreservesDerivedProviderName_WhenProvided()
+    public void ResolveDisplayLabel_PreservesDerivedProviderName_WhenProvided()
     {
-        var result = ProviderCapabilityCatalog.GetDisplayName(
+        var result = ProviderCapabilityCatalog.ResolveDisplayLabel(
             "antigravity.gpt-oss",
             "GPT OSS (Anti-Gravity)");
 
@@ -61,13 +61,21 @@ public sealed class ProviderCapabilityCatalogTests
     }
 
     [Fact]
-    public void GetDisplayName_PreservesRuntimeName_ForGeminiDerivedProvider()
+    public void ResolveDisplayLabel_PreservesRuntimeName_ForGeminiDerivedProvider()
     {
-        var result = ProviderCapabilityCatalog.GetDisplayName(
+        var result = ProviderCapabilityCatalog.ResolveDisplayLabel(
             "gemini-cli.minute",
             "Gemini 2.5 Flash Lite [Gemini CLI]");
 
         Assert.Equal("Gemini 2.5 Flash Lite [Gemini CLI]", result);
+    }
+
+    [Fact]
+    public void GetConfiguredDisplayName_UsesMetadataLabelForFamilyChildWithoutRuntimeLabel()
+    {
+        var result = ProviderCapabilityCatalog.GetConfiguredDisplayName("antigravity.gpt-oss");
+
+        Assert.Equal("Google Antigravity", result);
     }
 
     [Fact]

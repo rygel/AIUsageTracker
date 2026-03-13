@@ -26,7 +26,7 @@ internal static class GroupedUsageDisplayAdapter
             var parentUsage = new ProviderUsage
             {
                 ProviderId = provider.ProviderId,
-                ProviderName = provider.ProviderName,
+                ProviderName = ProviderMetadataCatalog.GetConfiguredDisplayName(provider.ProviderId),
                 AccountName = provider.AccountName,
                 IsAvailable = provider.IsAvailable,
                 PlanType = provider.PlanType,
@@ -119,7 +119,7 @@ internal static class GroupedUsageDisplayAdapter
             childRows.Add(new ProviderUsage
             {
                 ProviderId = assignment.ProviderId,
-                ProviderName = ProviderMetadataCatalog.GetDisplayName(
+                ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(
                     assignment.ProviderId,
                     ProviderMetadataCatalog.GetDerivedModelDisplayName(provider.ProviderId, model.ModelName)),
                 AccountName = parentUsage.AccountName,

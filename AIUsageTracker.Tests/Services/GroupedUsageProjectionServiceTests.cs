@@ -52,6 +52,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
+        Assert.Equal("Google Antigravity", provider.ProviderName);
         var model = Assert.Single(provider.Models);
         Assert.Equal("gemini-3-flash", model.ModelId);
         Assert.Equal("Gemini 3 Flash", model.ModelName);

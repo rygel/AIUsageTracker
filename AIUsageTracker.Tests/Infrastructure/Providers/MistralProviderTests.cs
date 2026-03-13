@@ -40,7 +40,7 @@ public class MistralProviderTests : HttpProviderTestBase<MistralProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal("Mistral AI", usage.ProviderName);
+        Assert.Equal("Mistral", usage.ProviderName);
         Assert.Equal("Connected (Check Dashboard)", usage.Description);
         Assert.Equal(200, usage.HttpStatus);
     }

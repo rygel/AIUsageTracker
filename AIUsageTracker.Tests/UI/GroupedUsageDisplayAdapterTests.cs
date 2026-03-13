@@ -66,6 +66,7 @@ public class GroupedUsageDisplayAdapterTests
 
         Assert.Equal(4, usages.Count);
         var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "gemini-cli", StringComparison.Ordinal));
+        Assert.Equal("Google Gemini", parent.ProviderName);
         Assert.Equal(3, parent.Details?.Count);
 
         var minute = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "gemini-cli.gemini-2.5-flash-lite", StringComparison.Ordinal));
@@ -109,7 +110,9 @@ public class GroupedUsageDisplayAdapterTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
 
         Assert.Equal(2, usages.Count);
+        var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
         var spark = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
+        Assert.Equal("OpenAI (Codex)", parent.ProviderName);
         Assert.Equal("OpenAI (GPT-5.3 Codex Spark)", spark.ProviderName);
         Assert.Equal(72, spark.RequestsPercentage, 1);
     }

@@ -50,7 +50,8 @@ public partial class App
             {
                 var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                 var statusText = ProviderCardPresentationCatalog.Create(usage, showUsed).StatusText;
-                desiredIcons[config.ProviderId] = ($"{usage.ProviderName}: {statusText}", usage.RequestsPercentage, isQuota);
+                var providerLabel = ProviderCapabilityCatalog.ResolveDisplayLabel(usage);
+                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RequestsPercentage, isQuota);
             }
 
             if (config.EnabledSubTrays == null || usage.Details == null)
@@ -78,8 +79,9 @@ public partial class App
                 }
 
                 var key = $"{config.ProviderId}:{subName}";
+                var providerLabel = ProviderCapabilityCatalog.ResolveDisplayLabel(usage);
                 desiredIcons[key] = (
-                    $"{usage.ProviderName} - {subName}: {detailPresentation.DisplayText}",
+                    $"{providerLabel} - {subName}: {detailPresentation.DisplayText}",
                     showUsed ? detailPresentation.UsedPercent : detailPresentation.IndicatorWidth,
                     isQuotaSub);
             }

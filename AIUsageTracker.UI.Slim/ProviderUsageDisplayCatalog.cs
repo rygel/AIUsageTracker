@@ -46,7 +46,7 @@ internal static class ProviderUsageDisplayCatalog
             isQuotaBased = configuredIsQuotaBased;
         }
 
-        var aggregateDetailDisplaySuffix = ProviderMetadataCatalog.GetAggregateDetailDisplaySuffix(canonicalProviderId, parentUsage.ProviderName);
+        var aggregateDetailDisplaySuffix = ProviderMetadataCatalog.GetAggregateDetailDisplaySuffix(canonicalProviderId);
 
         return parentUsage.Details
             .Select(detail => new { Detail = detail, ModelDisplayName = ResolveAggregateDetailDisplayName(detail) })

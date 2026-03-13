@@ -122,7 +122,7 @@ public class OpenAIProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "OpenAI",
+                    ProviderName = this.Definition.DisplayName,
                     IsAvailable = false,
                     Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
                     IsQuotaBased = true,
@@ -144,7 +144,7 @@ public class OpenAIProvider : ProviderBase
                     new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = "OpenAI",
+                        ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         RequestsPercentage = 0,
                         IsQuotaBased = true,
@@ -160,7 +160,7 @@ public class OpenAIProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "OpenAI",
+                    ProviderName = this.Definition.DisplayName,
                     IsAvailable = false,
                     Description = $"Invalid Key ({response.StatusCode})",
                     IsQuotaBased = true,
@@ -176,7 +176,7 @@ public class OpenAIProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "OpenAI",
+                    ProviderName = this.Definition.DisplayName,
                     IsAvailable = false,
                     Description = "Connection Failed",
                     IsQuotaBased = true,
@@ -222,7 +222,7 @@ public class OpenAIProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = "OpenAI",
+            ProviderName = this.Definition.DisplayName,
             AccountName = GetAccountIdentity(doc.RootElement, accessToken, accountId) ?? string.Empty,
             IsAvailable = true,
             IsQuotaBased = true,

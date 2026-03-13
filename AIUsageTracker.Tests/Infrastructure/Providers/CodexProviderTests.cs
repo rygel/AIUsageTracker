@@ -120,7 +120,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
 
             // Assert
             Assert.True(usage.IsAvailable);
-            Assert.Equal("OpenAI", usage.ProviderName);
+            Assert.Equal("OpenAI (Codex)", usage.ProviderName);
             Assert.Equal("user@example.com", usage.AccountName);
             Assert.Equal(75.0, usage.RequestsPercentage);
             Assert.NotNull(usage.Details);

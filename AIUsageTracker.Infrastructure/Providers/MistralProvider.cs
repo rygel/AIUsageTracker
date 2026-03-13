@@ -74,7 +74,7 @@ public class MistralProvider : ProviderBase
                     new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Mistral AI",
+                    ProviderName = this.Definition.DisplayName,
                     IsAvailable = true,
                     RequestsPercentage = 0,
                     IsQuotaBased = false,

@@ -55,9 +55,11 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 
         // Assert
         var usage = result.Single();
+        Assert.Equal("Z.ai Coding Plan", usage.ProviderName);
         Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 80% remaining
         Assert.Contains("80", usage.Description, StringComparison.Ordinal);
-    }
+        Assert.Contains("Coding Plan", usage.Description, StringComparison.Ordinal);
+        }
 
     [Fact]
     public async Task GetUsageAsync_NullTotalValue_ReturnsUnavailableAsync()

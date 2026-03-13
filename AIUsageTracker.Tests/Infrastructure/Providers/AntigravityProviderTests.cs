@@ -47,6 +47,7 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
         // Assert
         var usage = result.First();
         Assert.Equal("antigravity", usage.ProviderId);
+        Assert.Equal("Google Antigravity", usage.ProviderName);
         Assert.True(usage.IsQuotaBased);
         Assert.Equal(PlanType.Coding, usage.PlanType);
     }
@@ -155,6 +156,7 @@ public class AntigravityProviderTests : HttpProviderTestBase<AntigravityProvider
             usages,
             usage => string.Equals(usage.ProviderId, "antigravity.gemini-3-flash", StringComparison.Ordinal));
 
+        Assert.Equal("Google Antigravity", summary.ProviderName);
         Assert.Equal("100% remaining", geminiFlashDetail.Used);
         Assert.Equal(100, geminiFlashChild.RequestsPercentage);
         Assert.Equal(0, geminiFlashChild.RequestsUsed);

@@ -39,7 +39,23 @@ public static class ProviderMetadataCatalog
         return true;
     }
 
-    public static string GetDisplayName(string providerId, string? providerName = null)
+    public static string GetConfiguredDisplayName(string providerId)
+    {
+        if (TryGet(providerId, out var definition))
+        {
+            var mapped = definition.ResolveDisplayName(providerId);
+            if (!string.IsNullOrWhiteSpace(mapped))
+            {
+                return mapped;
+            }
+
+            return definition.DisplayName;
+        }
+
+        return providerId ?? string.Empty;
+    }
+
+    public static string ResolveDisplayLabel(string providerId, string? runtimeLabel = null)
     {
         if (TryGet(providerId, out var definition))
         {
@@ -52,28 +68,35 @@ public static class ProviderMetadataCatalog
             if (!string.IsNullOrWhiteSpace(mapped) &&
                 (!isDerivedProviderId ||
                  definition.PreferDisplayNameOverridesForDerivedProviderIds ||
-                 string.IsNullOrWhiteSpace(providerName)))
+                 string.IsNullOrWhiteSpace(runtimeLabel)))
             {
                 return mapped;
             }
 
-            if (isDerivedProviderId && !string.IsNullOrWhiteSpace(providerName))
+            if (isDerivedProviderId && !string.IsNullOrWhiteSpace(runtimeLabel))
             {
-                return providerName;
+                return runtimeLabel;
             }
 
             if (!string.IsNullOrWhiteSpace(mapped))
             {
                 return mapped;
             }
+
+            return definition.DisplayName;
         }
 
-        if (!string.IsNullOrWhiteSpace(providerName))
+        if (!string.IsNullOrWhiteSpace(runtimeLabel))
         {
-            return providerName;
+            return runtimeLabel;
         }
 
         return providerId ?? string.Empty;
+    }
+
+    public static string GetDisplayName(string providerId, string? providerName = null)
+    {
+        return ResolveDisplayLabel(providerId, providerName);
     }
 
     public static string GetDerivedModelDisplayName(string providerId, string modelName)
@@ -256,7 +279,7 @@ public static class ProviderMetadataCatalog
         return IsAggregateParentProviderId(canonicalProviderId);
     }
 
-    public static string GetAggregateDetailDisplaySuffix(string providerId, string? providerName = null)
+    public static string GetAggregateDetailDisplaySuffix(string providerId)
     {
         var canonicalProviderId = GetCanonicalProviderId(providerId);
         if (TryGet(canonicalProviderId, out var definition) &&
@@ -265,7 +288,7 @@ public static class ProviderMetadataCatalog
             return definition.AggregateDetailDisplaySuffix!;
         }
 
-        var displayName = GetDisplayName(canonicalProviderId, providerName);
+        var displayName = GetConfiguredDisplayName(canonicalProviderId);
         return $"[{displayName}]";
     }
 

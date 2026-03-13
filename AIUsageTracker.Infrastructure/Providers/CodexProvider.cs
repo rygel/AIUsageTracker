@@ -21,7 +21,7 @@ public class CodexProvider : ProviderBase
 
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "codex",
-        displayName: "OpenAI",
+        displayName: "OpenAI (Codex)",
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
@@ -43,7 +43,7 @@ public class CodexProvider : ProviderBase
                 modelNameContains: new[] { "spark" }),
         },
         settingsMode: ProviderSettingsMode.SessionAuthStatus,
-        sessionStatusLabel: "OpenAI",
+        sessionStatusLabel: "OpenAI (Codex)",
         sessionIdentitySource: ProviderSessionIdentitySource.Codex,
         supportsAccountIdentity: true,
         iconAssetName: "openai",
@@ -242,7 +242,7 @@ public class CodexProvider : ProviderBase
             new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "OpenAI",
+                ProviderName = StaticDefinition.DisplayName,
                 RequestsPercentage = remainingPercent,
                 RequestsUsed = 100.0 - remainingPercent,
                 RequestsAvailable = 100.0,

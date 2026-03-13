@@ -55,6 +55,37 @@ public class ProviderMetadataCatalogTests
         Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.GetDisplayName(providerId));
     }
 
+    [Theory]
+    [InlineData("codex", "OpenAI (Codex)", "OpenAI (Codex)")]
+    [InlineData("openai", "OpenAI (API)", "OpenAI (API)")]
+    public void ProviderLabels_UseDefinitionAuthority(
+        string providerId,
+        string expectedDisplayName,
+        string expectedSessionLabel)
+    {
+        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.GetDisplayName(providerId));
+        Assert.Equal(expectedSessionLabel, ProviderMetadataCatalog.GetSessionStatusLabel(providerId));
+    }
+
+    [Theory]
+    [InlineData("codex.spark", "OpenAI (GPT-5.3 Codex Spark)")]
+    [InlineData("antigravity.gpt-oss", "Google Antigravity")]
+    public void GetConfiguredDisplayName_UsesMetadataAuthority(string providerId, string expectedDisplayName)
+    {
+        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.GetConfiguredDisplayName(providerId));
+    }
+
+    [Theory]
+    [InlineData("antigravity.gpt-oss", "GPT OSS (Anti-Gravity)", "GPT OSS (Anti-Gravity)")]
+    [InlineData("gemini-cli.minute", "Gemini 2.5 Flash Lite [Gemini CLI]", "Gemini 2.5 Flash Lite [Gemini CLI]")]
+    public void ResolveDisplayLabel_PreservesIntentionalRuntimeLabels_ForDynamicChildren(
+        string providerId,
+        string runtimeLabel,
+        string expectedDisplayLabel)
+    {
+        Assert.Equal(expectedDisplayLabel, ProviderMetadataCatalog.ResolveDisplayLabel(providerId, runtimeLabel));
+    }
+
     [Fact]
     public void Definitions_DoNotExposeDuplicateHandledProviderIds()
     {

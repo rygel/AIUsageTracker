@@ -1327,7 +1327,7 @@ public partial class MainWindow : Window
     private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = ProviderCapabilityCatalog.GetDisplayName(providerId, usage.ProviderName);
+        var friendlyName = ProviderCapabilityCatalog.ResolveDisplayLabel(usage);
         var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed);
 
@@ -1482,7 +1482,7 @@ public partial class MainWindow : Window
         var reason = string.IsNullOrWhiteSpace(usage.Description)
             ? "Model quota details are missing from the latest monitor refresh."
             : usage.Description;
-        var providerName = ProviderCapabilityCatalog.GetDisplayName(usage.ProviderId ?? string.Empty, usage.ProviderName);
+        var providerName = ProviderCapabilityCatalog.GetConfiguredDisplayName(usage.ProviderId ?? string.Empty);
 
         var message =
             $"{providerName} model quotas unavailable. " +
@@ -1707,7 +1707,7 @@ public partial class MainWindow : Window
         var useAntigravityCollapsePreference = ProviderCapabilityCatalog.ShouldUseSharedSubDetailCollapsePreference(
             usage.ProviderId ?? string.Empty);
         var (subHeader, subContainer) = this.CreateCollapsibleHeader(
-            $"{usage.ProviderName} Details",
+            $"{ProviderCapabilityCatalog.ResolveDisplayLabel(usage)} Details",
             Brushes.DeepSkyBlue,
             isGroupHeader: false,
             groupKey: null,

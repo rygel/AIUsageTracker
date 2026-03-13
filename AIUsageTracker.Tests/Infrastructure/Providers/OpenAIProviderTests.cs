@@ -42,7 +42,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal("OpenAI", usage.ProviderName);
+        Assert.Equal("OpenAI (API)", usage.ProviderName);
         Assert.Equal("Connected (API Key)", usage.Description);
         Assert.Equal(200, usage.HttpStatus);
     }
