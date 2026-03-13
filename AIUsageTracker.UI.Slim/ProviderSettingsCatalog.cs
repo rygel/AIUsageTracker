@@ -30,15 +30,12 @@ internal static class ProviderSettingsCatalog
         var sessionProviderLabel = inputMode == ProviderInputMode.SessionAuthStatus
             ? ProviderMetadataCatalog.GetSessionStatusLabel(canonicalProviderId)
             : null;
-        var preferCodexIdentity = inputMode == ProviderInputMode.SessionAuthStatus &&
-            ProviderMetadataCatalog.GetSessionIdentitySource(canonicalProviderId) == ProviderSessionIdentitySource.Codex;
 
         return new ProviderSettingsBehavior(
             InputMode: inputMode,
             IsInactive: isInactive,
             IsDerivedVisible: ProviderCapabilityCatalog.IsVisibleDerivedProviderId(config.ProviderId ?? string.Empty),
-            SessionProviderLabel: sessionProviderLabel,
-            PreferCodexIdentity: preferCodexIdentity);
+            SessionProviderLabel: sessionProviderLabel);
     }
 
     public static bool IsSessionToken(string? apiKey)

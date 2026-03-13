@@ -8,5 +8,4 @@ internal sealed record ProviderSettingsBehavior(
     ProviderInputMode InputMode,
     bool IsInactive,
     bool IsDerivedVisible,
-    string? SessionProviderLabel,
-    bool PreferCodexIdentity);
+    string? SessionProviderLabel);

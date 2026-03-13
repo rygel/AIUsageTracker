@@ -57,7 +57,6 @@ public sealed class ProviderSettingsCatalogTests
 
         Assert.Equal(ProviderInputMode.SessionAuthStatus, behavior.InputMode);
         Assert.Equal("OpenAI", behavior.SessionProviderLabel);
-        Assert.True(behavior.PreferCodexIdentity);
         Assert.False(behavior.IsInactive);
     }
 
@@ -71,7 +70,6 @@ public sealed class ProviderSettingsCatalogTests
 
         Assert.Equal(ProviderInputMode.SessionAuthStatus, behavior.InputMode);
         Assert.Equal("OpenAI (API)", behavior.SessionProviderLabel);
-        Assert.False(behavior.PreferCodexIdentity);
         Assert.False(behavior.IsInactive);
     }
 }
