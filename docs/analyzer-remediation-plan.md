@@ -2,147 +2,232 @@
 
 ## Summary
 
-This document outlines the plan for systematically fixing analyzer warnings across the codebase.
+This document is the current handoff plan for repository-wide warning reduction. The previous plan was outdated and no longer matched the actual warning distribution. A fresh Debug solution build shows that the remaining backlog is now concentrated in a few repeatable syntax/style families plus a smaller set of deeper async and method-structure warnings.
 
-## Current Status
+The goal is to reduce warnings quickly without mixing low-risk mechanical cleanup with behavior-sensitive refactors.
 
-**Fixed so far (3 commits):**
-1. VSTHRD200 - Added "Async" suffix to async method names
-2. MA0011 - Added CultureInfo.InvariantCulture to ToString() calls
-3. MA0002 - Added StringComparer.OrdinalIgnoreCase to dictionary constructors
+## Current Baseline
 
-## Remaining Warnings
+- Fresh local command used:
+  - `dotnet build AIUsageTracker.sln --configuration Debug -m:1`
+- Current warning count from that build:
+  - approximately `760`
 
-### High Volume (>100 occurrences) - Plan for separate PRs
+### Biggest Warning Families
 
-#### MA0004: Use Task.ConfigureAwait(false) (~200+ warnings)
-- **Risk**: High - can cause deadlocks in WPF/WinForms UI code
-- **Strategy**: Fix in Infrastructure/Core only (not UI), use ConfigureAwait(false) in library code
-- **Estimated Effort**: 2-3 focused PRs
-- **Files to tackle**: Provider implementations, TokenDiscoveryService
+- `MA0051` - 136
+- `SA1201` - 92
+- `IDE0065` - 84
+- `SA1202` - 72
+- `SA1204` - 68
+- `SA1117` - 32
+- `IDE0161` - 28
+- `VSTHRD200` - 26
+- `MA0016` - 22
+- `VSTHRD001` - 20
+- `SA0001` - 20
 
-#### MA0016: Prefer collection abstractions (~30+ warnings)
-- **Risk**: Medium - changes public API signatures
-- **Strategy**: Change internal implementation first, then tackle interfaces
-- **Estimated Effort**: 3-4 PRs
-- **Files to tackle**: ProviderManager, interfaces, models
+## Hotspots
 
-### Medium Volume (20-50 occurrences) - Fix in current PR or next
+### Highest-Warning Projects
 
-#### MA0048: File name must match type name (~40 warnings)
-- **Risk**: Low - organizational change only
-- **Strategy**: Move nested types to separate files
-- **Estimated Effort**: 1 PR
-- **Files to tackle**: Exception files, Model files with multiple types
+- `AIUsageTracker.Infrastructure` - about 190
+- `AIUsageTracker.Tests` - about 160
+- `AIUsageTracker.Monitor` - about 106
+- `AIUsageTracker.Core` - about 90
+- `AIUsageTracker.UI.Slim` - about 80
+- `AIUsageTracker.CLI` - about 66
+- `scripts/Seeder` - about 28
 
-### Low Volume (1-10 occurrences) - Fix opportunistically
+### Highest-Warning Files Seen in the Fresh Build
 
-#### MA0006: Use string.Equals instead of ==/!= (~100+ warnings, mostly in tests)
-- **Risk**: Low - functional equivalent
-- **Strategy**: Skip tests, fix only production code
-- **Estimated Effort**: 1 PR for production files only
+- `AIUsageTracker.CLI\Program.cs`
+- `AIUsageTracker.UI.Slim\MainWindow.xaml.cs`
+- `scripts\Seeder\Program.cs`
+- `AIUsageTracker.UI.Slim\SettingsWindow.xaml.cs`
+- `AIUsageTracker.Core\MonitorClient\MonitorService.cs`
+- `AIUsageTracker.Infrastructure\Providers\ZaiProvider.cs`
+- `AIUsageTracker.Infrastructure\Providers\AntigravityProvider.cs`
+- `AIUsageTracker.Monitor\Services\ProviderRefreshService.cs`
+- `AIUsageTracker.Monitor\Services\UsageDatabase.cs`
+- `AIUsageTracker.Infrastructure\Providers\CodexProvider.cs`
 
-#### MA0051: Method too long (~15 warnings)
-- **Risk**: Medium - requires refactoring
-- **Strategy**: Extract helper methods
-- **Estimated Effort**: 1-2 PRs
+## What Recently Improved
 
-#### MA0009: Regex timeout (~5 warnings)
-- **Risk**: Low - add RegexOptions or timeout
-- **Strategy**: Add timeouts to regex patterns
-- **Estimated Effort**: 1 commit
+- Recent cleanup work appears to have already removed a meaningful amount of changed-file analyzer noise, especially in the areas touched by the latest PRs.
+- The remaining backlog is now dominated less by random drift and more by a small set of repeatable warning families:
+  - namespace and using placement
+  - member ordering
+  - blank-line and argument formatting
+  - long-method warnings
+  - async analyzer warnings
 
-#### MA0011: CultureInfo in format strings (~5 warnings remaining)
-- **Risk**: Low - already partially fixed
-- **Strategy**: Add CultureInfo to remaining ToString/TryParse calls
-- **Estimated Effort**: 1 commit
+## Concrete Execution Order
 
-## Recommended Order
+### 1. Mechanical Syntax and Style Batch
 
-### Phase 1: Organizational (Low Risk)
-1. **MA0048** - Split files with multiple types into separate files
-   - Exception files (ProviderException.cs, ProviderConfigurationException.cs, etc.)
-   - Model files (ProviderUsage.cs, BudgetPolicy.cs, etc.)
-   
-2. **MA0009** - Add regex timeouts
+Target these first:
 
-3. **MA0011** - Complete CultureInfo fixes for TryParse
+- `IDE0065` - move `using` directives outside namespace declarations
+- `IDE0161` - convert remaining block namespaces to file-scoped namespaces where it matches repo conventions
+- `SA1201`, `SA1202`, `SA1204`, `SA1210` - reorder members and usings
+- `SA1516`, `SA1117`, `SA1118`, `SA1122`, `SA1413` - spacing, argument, and formatting fixes
 
-### Phase 2: Code Quality (Medium Risk)
-4. **MA0051** - Extract long methods into smaller ones
-   - Focus on MonitorService.cs, ProviderManager.cs, AntigravityProvider.cs
-   
-5. **MA0006** - Replace string operators with Equals (production code only)
+Why this batch goes first:
 
-### Phase 3: API Changes (Higher Risk)
-6. **MA0016** - Collection abstraction changes
-   - Start with internal implementations
-   - Update interfaces last
-   
-7. **MA0004** - ConfigureAwait(false)
-   - Infrastructure project first
-   - Core project second
-   - Skip UI/Tests (may need sync context)
+- high volume
+- low behavioral risk
+- mostly mechanical edits
+- fast warning-count reduction
+- removes noise before deeper refactors
 
-## Implementation Guidelines
+Best initial targets:
 
-### For MA0048 (File Organization)
-```csharp
-// BEFORE: ProviderException.cs contains multiple types
-public class ProviderException : Exception { }
-public enum ProviderErrorType { }
+- `AIUsageTracker.CLI\Program.cs`
+- `AIUsageTracker.CLI\AppJsonContext.cs`
+- `scripts\Seeder\Program.cs`
+- `AIUsageTracker.Tests\**` files with `IDE0065` or `IDE0161`
+- `AIUsageTracker.Infrastructure\**` files with `IDE0065` or `IDE0161`
 
-// AFTER: Split into separate files
-// ProviderException.cs
-public class ProviderException : Exception { }
+### 2. Policy Decision Batch
 
-// ProviderErrorType.cs
-public enum ProviderErrorType { }
-```
+Resolve `SA0001`.
 
-### For MA0016 (Collection Abstractions)
-```csharp
-// BEFORE
-public List<ProviderConfig> LoadConfigAsync()
+Current meaning:
 
-// AFTER
-public IList<ProviderConfig> LoadConfigAsync()
-// or
-public IReadOnlyList<ProviderConfig> LoadConfigAsync()
-```
+- StyleCop XML comment analysis is disabled by project configuration
+- the compiler emits `SA0001` once per project
 
-### For MA0004 (ConfigureAwait)
-```csharp
-// BEFORE
-var result = await _httpClient.GetAsync(url);
+Recommended decision:
 
-// AFTER (in Infrastructure/Core only)
-var result = await _httpClient.GetAsync(url).ConfigureAwait(false);
-```
+- either explicitly suppress `SA0001` repo-wide if this configuration is intentional
+- or re-enable the expected XML documentation analysis policy consistently
 
-## Success Criteria
+Do not leave this undecided, because it adds stable noise without actionable value.
 
-- All new warnings prevented by analyzer gate
-- No functional changes to behavior
-- All existing tests pass
-- Build time should not significantly increase
-- Analyzer guardrails are scoped to active cleanup areas (`AIUsageTracker.Web` and `AIUsageTracker.Web.Tests`) unless global analyzer settings change.
+### 3. Async Analyzer Batch
 
-## Notes
+After the mechanical cleanup, address:
 
-- The `.editorconfig` currently suppresses MA0004, MA0016, MA0048
-- Remove suppressions progressively as each category is fixed
-- Consider keeping MA0051 as "suggestion" (not warning) since 60-line limit is arbitrary
-- MA0006 in tests can be permanently suppressed in test .csproj files
-- The analyzer gate compares against `origin/develop` and keys warnings by `Rule + Project + File + Line` to prevent cross-project noise.
+- `MA0004`
+- `VSTHRD001`
+- `VSTHRD200`
 
-## Current Branch
+Focus on library and runtime code first:
 
-`feature/unsuppress-more-analyzers-v2`
+- `AIUsageTracker.Core`
+- `AIUsageTracker.Infrastructure`
+- `AIUsageTracker.Monitor`
 
-## Next Steps
+Guidance:
 
-1. Create separate PR for MA0048 (file organization)
-2. Address MA0009 and remaining MA0011
-3. Tackle MA0051 (method extraction)
-4. Finally address MA0016 and MA0004
+- add `ConfigureAwait(false)` only where library code truly should not capture context
+- be more careful in WPF UI code and test code
+- validate each batch because these are more behavior-sensitive than formatting fixes
+
+### 4. Method-Structure Batch
+
+Tackle `MA0051` last.
+
+These warnings usually require helper extraction or logic reshaping, not just reformatting.
+
+Highest-value starting points:
+
+- `AIUsageTracker.CLI\Program.cs`
+- `AIUsageTracker.Core\MonitorClient\MonitorService.cs`
+- `AIUsageTracker.Core\MonitorClient\MonitorLauncher.cs`
+- provider files with long parsing and mapping methods such as:
+  - `OpenAIProvider`
+  - `MinimaxProvider`
+  - `DeepSeekProvider`
+
+### 5. Collection-Abstraction and Smaller Semantic Cleanup
+
+Address `MA0016` and similar semantic warnings after the large style passes.
+
+These are often easy individually, but they are more scattered and some touch public signatures, so they are better handled once the warning list is smaller and easier to reason about.
+
+## Suggested Workstreams
+
+### Workstream A: CLI and Seeder Mechanical Cleanup
+
+Goal:
+
+- eliminate `IDE0065`, `IDE0161`, and easy ordering warnings in `AIUsageTracker.CLI` and `scripts\Seeder`
+
+Why:
+
+- high warning density
+- low behavioral risk
+
+### Workstream B: Tests Mechanical Cleanup
+
+Goal:
+
+- sweep `AIUsageTracker.Tests` for namespace, using, ordering, and other mechanical style warnings
+
+Why:
+
+- many warnings
+- low runtime risk
+- good bulk reduction
+
+### Workstream C: Infrastructure Mechanical Cleanup
+
+Goal:
+
+- remove syntax and style warnings in `AIUsageTracker.Infrastructure`
+
+Why:
+
+- largest project-level backlog
+
+### Workstream D: Monitor and Core Async Cleanup
+
+Goal:
+
+- handle `MA0004` and `VSTHRD*` carefully in non-UI runtime code
+
+Why:
+
+- fewer warnings than style cleanup, but more correctness-sensitive
+
+### Workstream E: Long-Method Refactors
+
+Goal:
+
+- reduce `MA0051`
+
+Why:
+
+- harder work
+- should not be mixed into purely mechanical cleanup batches
+
+## Validation Strategy
+
+After each workstream:
+
+- `dotnet build AIUsageTracker.sln --configuration Debug -m:1`
+
+For changed files:
+
+- `./scripts/pre-push-validation.ps1`
+
+For regression tracking:
+
+- use the existing analyzer gate workflow and artifacts
+- note that the current `.analyzer-gate/scope.json` only targets `AIUsageTracker.Web` and `AIUsageTracker.Web.Tests`
+
+## Recommended Follow-up to the Analyzer Gate
+
+- Expand `.analyzer-gate/scope.json` once repo-wide warning cleanup becomes active.
+- Right now it is not a good source of truth for overall warning reduction because it only scopes `Web` and `Web.Tests`.
+- If the team wants to measure progress across the repo, add tracked path prefixes and build targets for the projects being cleaned in each wave.
+
+## Important Notes for the Next Engineer
+
+- Keep mechanical style cleanup separate from behavior changes.
+- Avoid mixing provider logic refactors with warning cleanup unless a warning fix truly requires it.
+- Prefer project-by-project or workstream-by-workstream commits so warning reductions are easy to review.
+- Re-run builds after every batch, because member reordering and namespace conversion can create merge or generated-code edge cases.
+- `SA0001` should be resolved as a policy choice early, otherwise the warning count will keep looking artificially inflated.
