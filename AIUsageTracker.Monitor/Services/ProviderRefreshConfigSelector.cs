@@ -11,16 +11,17 @@ namespace AIUsageTracker.Monitor.Services;
 
 internal sealed class ProviderRefreshConfigSelector
 {
-    private readonly IReadOnlyList<ProviderDefinition> _providerDefinitions;
+    private readonly HashSet<string> _autoIncludedProviderIds;
     private readonly ILogger<ProviderRefreshConfigSelector> _logger;
 
     public ProviderRefreshConfigSelector(
         IEnumerable<IProviderService> providers,
         ILogger<ProviderRefreshConfigSelector> logger)
     {
-        this._providerDefinitions = providers
-            .Select(provider => provider.Definition)
-            .ToArray();
+        this._autoIncludedProviderIds = providers
+            .Select(provider => provider.ProviderId)
+            .Where(ProviderMetadataCatalog.IsAutoIncluded)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         this._logger = logger;
     }
 
@@ -30,18 +31,18 @@ internal sealed class ProviderRefreshConfigSelector
             .Select(config => config.ProviderId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var definition in this._providerDefinitions.Where(definition => definition.AutoIncludeWhenUnconfigured))
+        foreach (var providerId in this._autoIncludedProviderIds)
         {
-            if (configuredProviderIds.Contains(definition.ProviderId))
+            if (configuredProviderIds.Contains(providerId))
             {
                 continue;
             }
 
-            if (!ProviderMetadataCatalog.TryCreateDefaultConfig(definition.ProviderId, out var config))
+            if (!ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config))
             {
                 this._logger.LogWarning(
                     "Failed to create default config for auto-included provider {ProviderId}.",
-                    definition.ProviderId);
+                    providerId);
                 continue;
             }
 
@@ -78,8 +79,7 @@ internal sealed class ProviderRefreshConfigSelector
 
     private bool IsAutoIncludedProviderConfig(string providerId)
     {
-        return this._providerDefinitions.Any(definition =>
-            definition.AutoIncludeWhenUnconfigured &&
-            definition.HandlesProviderId(providerId));
+        return ProviderMetadataCatalog.IsAutoIncluded(providerId) &&
+               this._autoIncludedProviderIds.Contains(ProviderMetadataCatalog.GetCanonicalProviderId(providerId));
     }
 }

@@ -71,6 +71,25 @@ public class ProviderRefreshConfigSelectorTests
     }
 
     [Fact]
+    public void SelectActiveConfigs_IncludesChildProviderIdsForAutoIncludedFamilies()
+    {
+        var selector = CreateSelector(
+            CreateProvider(
+                "antigravity",
+                autoIncludeWhenUnconfigured: true,
+                familyMode: ProviderFamilyMode.DynamicChildProviderRows));
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "antigravity.claude-4-sonnet" },
+        };
+
+        var selection = selector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
+
+        var activeConfig = Assert.Single(selection.ActiveConfigs);
+        Assert.Equal("antigravity.claude-4-sonnet", activeConfig.ProviderId);
+    }
+
+    [Fact]
     public void SelectActiveConfigs_ExcludesNonPersistedProviders()
     {
         var selector = CreateSelector();
