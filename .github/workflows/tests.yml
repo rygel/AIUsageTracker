@@ -15,7 +15,11 @@ on:
       - "AIUsageTracker.Tests/**"
       - "AIUsageTracker.Monitor.Tests/**"
       - "AIUsageTracker.Web.Tests/**"
-      - "scripts/**"
+      - "scripts/Seeder/**"
+      - "scripts/run-vstest-with-retry.ps1"
+      - "scripts/resolve-test-assembly.ps1"
+      - "scripts/validate-test-quarantine.ps1"
+      - "scripts/verify-theme-contract.ps1"
       - ".github/workflows/tests.yml"
   pull_request:
     branches: [ main, develop ]
@@ -31,7 +35,11 @@ on:
       - "AIUsageTracker.Tests/**"
       - "AIUsageTracker.Monitor.Tests/**"
       - "AIUsageTracker.Web.Tests/**"
-      - "scripts/**"
+      - "scripts/Seeder/**"
+      - "scripts/run-vstest-with-retry.ps1"
+      - "scripts/resolve-test-assembly.ps1"
+      - "scripts/validate-test-quarantine.ps1"
+      - "scripts/verify-theme-contract.ps1"
       - ".github/workflows/tests.yml"
   workflow_dispatch:
 
@@ -199,7 +207,7 @@ jobs:
   core-tests-windows:
     name: Core Tests (Windows)
     needs: [detect-changes, prepare]
-    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' }}
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' || needs.detect-changes.outputs.run_monitor == 'true' || needs.detect-changes.outputs.run_web == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 5
 
@@ -441,7 +449,7 @@ jobs:
   core-tests-cross-platform:
     name: Core Tests (${{ matrix.os }})
     needs: [detect-changes, prepare]
-    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_cross == 'true' }}
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' || needs.detect-changes.outputs.run_monitor == 'true' || needs.detect-changes.outputs.run_web == 'true' || needs.detect-changes.outputs.run_cross == 'true' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
@@ -513,7 +521,7 @@ jobs:
           fi
 
           should_run_core="false"
-          if [ "$RUN_ALL" = "true" ] || [ "$RUN_CORE" = "true" ]; then
+          if [ "$RUN_ALL" = "true" ] || [ "$RUN_CORE" = "true" ] || [ "$RUN_MONITOR" = "true" ] || [ "$RUN_WEB" = "true" ]; then
             should_run_core="true"
           fi
 
@@ -528,7 +536,7 @@ jobs:
           fi
 
           should_run_cross="false"
-          if [ "$RUN_ALL" = "true" ] || [ "$RUN_CROSS" = "true" ]; then
+          if [ "$RUN_ALL" = "true" ] || [ "$RUN_CORE" = "true" ] || [ "$RUN_MONITOR" = "true" ] || [ "$RUN_WEB" = "true" ] || [ "$RUN_CROSS" = "true" ]; then
             should_run_cross="true"
           fi
 
