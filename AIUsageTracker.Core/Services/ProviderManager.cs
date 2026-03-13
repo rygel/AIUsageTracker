@@ -137,13 +137,7 @@ public class ProviderManager : IDisposable
                 throw new ArgumentException($"Provider '{providerId}' not found in configuration.", nameof(providerId));
             }
 
-            config = new ProviderConfig
-            {
-                ProviderId = providerId,
-                ApiKey = string.Empty,
-                Type = definition.DefaultConfigType,
-                PlanType = definition.PlanType,
-            };
+            config = definition.CreateDefaultConfig(providerId);
         }
 
         return await this.FetchSingleProviderUsageAsync(config, null).ConfigureAwait(false);
@@ -313,13 +307,7 @@ public class ProviderManager : IDisposable
                     continue;
                 }
 
-                configs.Add(new ProviderConfig
-                {
-                    ProviderId = definition.ProviderId,
-                    ApiKey = string.Empty,
-                    Type = definition.DefaultConfigType,
-                    PlanType = definition.PlanType,
-                });
+                configs.Add(definition.CreateDefaultConfig());
             }
         }
 

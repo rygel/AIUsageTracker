@@ -427,15 +427,7 @@ public static class ProviderMetadataCatalog
             return false;
         }
 
-        config = new ProviderConfig
-        {
-            ProviderId = providerId,
-            ApiKey = apiKey ?? string.Empty,
-            Type = definition.DefaultConfigType,
-            PlanType = definition.PlanType,
-            AuthSource = authSource ?? AuthSource.Unknown,
-            Description = description,
-        };
+        config = definition.CreateDefaultConfig(providerId, apiKey, authSource, description);
 
         return true;
     }

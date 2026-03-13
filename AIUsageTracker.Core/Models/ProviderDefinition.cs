@@ -229,6 +229,23 @@ public sealed class ProviderDefinition
             this.SessionAuthFileSchemas);
     }
 
+    public ProviderConfig CreateDefaultConfig(
+        string? providerId = null,
+        string? apiKey = null,
+        string? authSource = null,
+        string? description = null)
+    {
+        return new ProviderConfig
+        {
+            ProviderId = string.IsNullOrWhiteSpace(providerId) ? this.ProviderId : providerId,
+            ApiKey = apiKey ?? string.Empty,
+            Type = this.DefaultConfigType,
+            PlanType = this.PlanType,
+            AuthSource = authSource ?? AuthSource.Unknown,
+            Description = description,
+        };
+    }
+
     private static IReadOnlyCollection<string> NormalizeValues(IEnumerable<string>? values)
     {
         if (values == null)
