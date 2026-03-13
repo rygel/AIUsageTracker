@@ -102,6 +102,63 @@ public class DatabaseMigrationService
         }
     }
 
+    private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
+    {
+        using var infoCommand = connection.CreateCommand();
+        infoCommand.CommandText = $"PRAGMA table_info({tableName});";
+
+        var exists = false;
+        using (var reader = infoCommand.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+
+        if (exists)
+        {
+            return;
+        }
+
+        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
+    }
+
+    private static void ExecuteNonQuery(SqliteConnection connection, string sql)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.ExecuteNonQuery();
+    }
+
+    private static bool IsExistingSchemaConflict(Exception ex)
+    {
+        var current = ex;
+        while (current != null)
+        {
+            if (current.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
+                current.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            current = current.InnerException!;
+        }
+
+        return false;
+    }
+
+    private static int ExecuteDelete(SqliteConnection connection, string sql)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        return command.ExecuteNonQuery();
+    }
+
     private void EnsureSchemaCompatibility(SqliteConnection connection)
     {
         ExecuteNonQuery(connection, @"
@@ -181,56 +238,6 @@ public class DatabaseMigrationService
         this._logger.LogInformation("Legacy database compatibility bootstrap completed.");
     }
 
-    private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
-    {
-        using var infoCommand = connection.CreateCommand();
-        infoCommand.CommandText = $"PRAGMA table_info({tableName});";
-
-        var exists = false;
-        using (var reader = infoCommand.ExecuteReader())
-        {
-            while (reader.Read())
-            {
-                if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
-                {
-                    exists = true;
-                    break;
-                }
-            }
-        }
-
-        if (exists)
-        {
-            return;
-        }
-
-        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
-    }
-
-    private static void ExecuteNonQuery(SqliteConnection connection, string sql)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        command.ExecuteNonQuery();
-    }
-
-    private static bool IsExistingSchemaConflict(Exception ex)
-    {
-        var current = ex;
-        while (current != null)
-        {
-            if (current.Message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
-                current.Message.Contains("duplicate column", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            current = current.InnerException!;
-        }
-
-        return false;
-    }
-
     private void CleanupLegacyAnthropicRows(SqliteConnection connection)
     {
         const string deleteProviderHistorySql = "DELETE FROM provider_history WHERE lower(provider_id) = 'anthropic';";
@@ -252,13 +259,6 @@ public class DatabaseMigrationService
                 deletedRawSnapshots,
                 deletedResetEvents);
         }
-    }
-
-    private static int ExecuteDelete(SqliteConnection connection, string sql)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        return command.ExecuteNonQuery();
     }
 
     private void ApplyPerformancePragmas(SqliteConnection connection)

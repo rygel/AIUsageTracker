@@ -123,6 +123,33 @@ public class UsageAlertsService
         return (false, string.Empty);
     }
 
+    private static bool IsInQuietHours(AppPreferences prefs)
+    {
+        if (!prefs.EnableQuietHours)
+        {
+            return false;
+        }
+
+        if (!TimeSpan.TryParse(prefs.QuietHoursStart, out var start) ||
+            !TimeSpan.TryParse(prefs.QuietHoursEnd, out var end))
+        {
+            return false;
+        }
+
+        var now = DateTime.Now.TimeOfDay;
+        if (start == end)
+        {
+            return true;
+        }
+
+        if (start < end)
+        {
+            return now >= start && now < end;
+        }
+
+        return now >= start || now < end;
+    }
+
     private async Task SendResetNotificationAsync(ProviderUsage usage)
     {
         var prefs = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
@@ -151,32 +178,5 @@ public class UsageAlertsService
         }
 
         this._logger.LogDebug("{ProviderId}: Not enough history for reset detection", usage.ProviderId);
-    }
-
-    private static bool IsInQuietHours(AppPreferences prefs)
-    {
-        if (!prefs.EnableQuietHours)
-        {
-            return false;
-        }
-
-        if (!TimeSpan.TryParse(prefs.QuietHoursStart, out var start) ||
-            !TimeSpan.TryParse(prefs.QuietHoursEnd, out var end))
-        {
-            return false;
-        }
-
-        var now = DateTime.Now.TimeOfDay;
-        if (start == end)
-        {
-            return true;
-        }
-
-        if (start < end)
-        {
-            return now >= start && now < end;
-        }
-
-        return now >= start || now < end;
     }
 }

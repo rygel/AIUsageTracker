@@ -104,6 +104,59 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         };
     }
 
+    public ProviderUsageProcessingTelemetrySnapshot GetSnapshot()
+    {
+        var lastProcessedTicks = Interlocked.Read(ref this._lastProcessedAtUtcTicks);
+        var lastProcessedAtUtc = lastProcessedTicks > 0
+            ? (DateTime?)new DateTime(lastProcessedTicks, DateTimeKind.Utc)
+            : null;
+
+        return new ProviderUsageProcessingTelemetrySnapshot
+        {
+            TotalProcessedEntries = Interlocked.Read(ref this._totalProcessedEntries),
+            TotalAcceptedEntries = Interlocked.Read(ref this._totalAcceptedEntries),
+            TotalRejectedEntries = Interlocked.Read(ref this._totalRejectedEntries),
+            InvalidIdentityCount = Interlocked.Read(ref this._invalidIdentityCount),
+            InactiveProviderFilteredCount = Interlocked.Read(ref this._inactiveProviderFilteredCount),
+            PlaceholderFilteredCount = Interlocked.Read(ref this._placeholderFilteredCount),
+            DetailContractAdjustedCount = Interlocked.Read(ref this._detailContractAdjustedCount),
+            NormalizedCount = Interlocked.Read(ref this._normalizedCount),
+            PrivacyRedactedCount = Interlocked.Read(ref this._privacyRedactedCount),
+            LastProcessedAtUtc = lastProcessedAtUtc,
+            LastRunTotalEntries = Volatile.Read(ref this._lastRunTotalEntries),
+            LastRunAcceptedEntries = Volatile.Read(ref this._lastRunAcceptedEntries),
+        };
+    }
+
+    private static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
+    {
+        if (details == null || details.Count == 0)
+        {
+            return null;
+        }
+
+        var resetCandidatesUtc = details
+            .Where(detail => detail.NextResetTime.HasValue)
+            .Select(detail => detail.NextResetTime!.Value.ToUniversalTime())
+            .OrderBy(reset => reset)
+            .ToList();
+        if (resetCandidatesUtc.Count == 0)
+        {
+            return null;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        foreach (var resetCandidateUtc in resetCandidatesUtc)
+        {
+            if (resetCandidateUtc > nowUtc)
+            {
+                return resetCandidateUtc;
+            }
+        }
+
+        return resetCandidatesUtc[^1];
+    }
+
     private HashSet<string> BuildActiveProviderSet(IReadOnlyCollection<string> activeProviderIds)
     {
         return activeProviderIds
@@ -173,30 +226,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
         placeholderFilteredCount++;
         return true;
-    }
-
-    public ProviderUsageProcessingTelemetrySnapshot GetSnapshot()
-    {
-        var lastProcessedTicks = Interlocked.Read(ref this._lastProcessedAtUtcTicks);
-        var lastProcessedAtUtc = lastProcessedTicks > 0
-            ? (DateTime?)new DateTime(lastProcessedTicks, DateTimeKind.Utc)
-            : null;
-
-        return new ProviderUsageProcessingTelemetrySnapshot
-        {
-            TotalProcessedEntries = Interlocked.Read(ref this._totalProcessedEntries),
-            TotalAcceptedEntries = Interlocked.Read(ref this._totalAcceptedEntries),
-            TotalRejectedEntries = Interlocked.Read(ref this._totalRejectedEntries),
-            InvalidIdentityCount = Interlocked.Read(ref this._invalidIdentityCount),
-            InactiveProviderFilteredCount = Interlocked.Read(ref this._inactiveProviderFilteredCount),
-            PlaceholderFilteredCount = Interlocked.Read(ref this._placeholderFilteredCount),
-            DetailContractAdjustedCount = Interlocked.Read(ref this._detailContractAdjustedCount),
-            NormalizedCount = Interlocked.Read(ref this._normalizedCount),
-            PrivacyRedactedCount = Interlocked.Read(ref this._privacyRedactedCount),
-            LastProcessedAtUtc = lastProcessedAtUtc,
-            LastRunTotalEntries = Volatile.Read(ref this._lastRunTotalEntries),
-            LastRunAcceptedEntries = Volatile.Read(ref this._lastRunAcceptedEntries),
-        };
     }
 
     private void RecordSnapshot(
@@ -344,35 +373,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             UpstreamResponseValidity = upstreamResponseValidity,
             UpstreamResponseNote = upstreamResponseNote ?? string.Empty,
         };
-    }
-
-    private static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
-    {
-        if (details == null || details.Count == 0)
-        {
-            return null;
-        }
-
-        var resetCandidatesUtc = details
-            .Where(detail => detail.NextResetTime.HasValue)
-            .Select(detail => detail.NextResetTime!.Value.ToUniversalTime())
-            .OrderBy(reset => reset)
-            .ToList();
-        if (resetCandidatesUtc.Count == 0)
-        {
-            return null;
-        }
-
-        var nowUtc = DateTime.UtcNow;
-        foreach (var resetCandidateUtc in resetCandidatesUtc)
-        {
-            if (resetCandidateUtc > nowUtc)
-            {
-                return resetCandidateUtc;
-            }
-        }
-
-        return resetCandidatesUtc[^1];
     }
 
     private bool StringEquals(string? left, string? right)
