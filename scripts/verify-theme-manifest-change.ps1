@@ -28,8 +28,7 @@ $manifestPath = "design/theme-catalog.json"
 $isManifestChanged = $changedFiles -contains $manifestPath
 
 $themeRelatedRegex =
-    '^(AIUsageTracker\.UI\.Slim/App\.xaml\.cs|' +
-    'AIUsageTracker\.Web/wwwroot/js/theme\.js|' +
+    '^(AIUsageTracker\.Web/wwwroot/js/theme\.js|' +
     'scripts/verify-theme-contract\.ps1|' +
     'scripts/sync-theme-catalog\.ps1)$'
 
