@@ -2,10 +2,10 @@ using System.Text.Json;
 
 using Microsoft.Extensions.Logging;
 
-using AIUsageTracker.Core.Helpers;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Paths;
+using AIUsageTracker.Infrastructure.Configuration;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
@@ -68,46 +68,6 @@ public sealed class ProviderDiscoveryService : IProviderDiscoveryService
     {
         var json = await File.ReadAllTextAsync(path);
         using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
-
-        foreach (var schema in schemas)
-        {
-            var sessionRoot = root;
-            var parts = schema.RootProperty.Split('.');
-            var lastPart = parts[^1];
-            bool foundRoot = true;
-            foreach (var part in parts)
-            {
-                if (!sessionRoot.TryGetProperty(part, out sessionRoot) ||
-                    (sessionRoot.ValueKind != JsonValueKind.Object && !string.Equals(part, lastPart, StringComparison.Ordinal)))
-                {
-                    foundRoot = false;
-                    break;
-                }
-            }
-
-            if (!foundRoot || sessionRoot.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var accessToken = sessionRoot.ReadString(schema.AccessTokenProperty);
-            if (string.IsNullOrWhiteSpace(accessToken))
-            {
-                continue;
-            }
-
-            var accountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty)
-                ? sessionRoot.ReadString(schema.AccountIdProperty)
-                : null;
-
-            var identityToken = !string.IsNullOrWhiteSpace(schema.IdentityTokenProperty)
-                ? sessionRoot.ReadString(schema.IdentityTokenProperty)
-                : null;
-
-            return new ProviderAuthData(accessToken, accountId, identityToken);
-        }
-
-        return null;
+        return ProviderAuthFileSchemaReader.Read(doc.RootElement, schemas);
     }
 }

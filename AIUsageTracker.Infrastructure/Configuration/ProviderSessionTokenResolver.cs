@@ -6,7 +6,6 @@ using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Paths;
-using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Configuration;
@@ -79,20 +78,6 @@ internal sealed class ProviderSessionTokenResolver
 
     private static string? TryReadAccessToken(JsonElement root, ProviderDefinition definition)
     {
-        foreach (var schema in definition.SessionAuthFileSchemas)
-        {
-            if (!root.TryGetProperty(schema.RootProperty, out var element) || element.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            if (element.TryGetProperty(schema.AccessTokenProperty, out var accessElement) &&
-                accessElement.ValueKind == JsonValueKind.String)
-            {
-                return accessElement.GetString();
-            }
-        }
-
-        return null;
+        return ProviderAuthFileSchemaReader.Read(root, definition.SessionAuthFileSchemas)?.AccessToken;
     }
 }
