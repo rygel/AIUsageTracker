@@ -277,6 +277,7 @@ public class MonitorService : IMonitorService
     }
 
     // Provider usage endpoints
+
     /// <inheritdoc/>
     public async Task<IReadOnlyList<ProviderUsage>> GetUsageAsync()
     {
@@ -446,6 +447,7 @@ public class MonitorService : IMonitorService
     }
 
     // Config endpoints
+
     /// <inheritdoc/>
     public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync()
     {
@@ -529,6 +531,7 @@ public class MonitorService : IMonitorService
     }
 
     // Scan for keys endpoint
+
     /// <inheritdoc/>
     public async Task<AgentScanKeysResult> ScanForKeysAsync()
     {
@@ -554,6 +557,7 @@ public class MonitorService : IMonitorService
     }
 
     // Health check
+
     /// <inheritdoc/>
     public async Task<bool> CheckHealthAsync()
     {

@@ -67,7 +67,7 @@ public static class JsonElementExtensions
         {
             JsonValueKind.True => true,
             JsonValueKind.False => false,
-            _ => null
+            _ => null,
         };
     }
 }

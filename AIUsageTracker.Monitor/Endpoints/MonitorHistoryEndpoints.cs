@@ -2,8 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Monitor.Services;
 using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Monitor.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Logging;
 

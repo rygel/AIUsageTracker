@@ -80,7 +80,7 @@ public class DeepSeekProvider : ProviderBase
                     RequestsPercentage = 0,
                     RequestsUsed = 0,
                     RequestsAvailable = 0,
-                    RawJson = content
+                    RawJson = content,
                 },
                 };
             }
@@ -140,7 +140,7 @@ public class DeepSeekProvider : ProviderBase
                 Description = mainDescription,
                 Details = details,
                 RawJson = content,
-                HttpStatus = (int)response.StatusCode
+                HttpStatus = (int)response.StatusCode,
             },
             };
         }

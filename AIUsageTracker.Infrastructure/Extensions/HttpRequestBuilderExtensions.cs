@@ -90,7 +90,7 @@ public static class HttpRequestBuilderExtensions
     /// Sends a GET request with Bearer token and handles common error patterns.
     /// Maps HTTP status codes and exceptions to specific ProviderException types.
     /// </summary>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public static async Task<HttpResponseMessage> SendGetBearerAsync(
         this HttpClient httpClient,
         string url,
@@ -161,7 +161,7 @@ public static class HttpRequestBuilderExtensions
     /// <summary>
     /// Sends a GET request and deserializes the JSON response.
     /// </summary>
-    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public static async Task<T?> SendGetBearerAsync<T>(
         this HttpClient httpClient,
         string url,

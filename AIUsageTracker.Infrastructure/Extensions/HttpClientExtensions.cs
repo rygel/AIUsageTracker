@@ -15,8 +15,9 @@ namespace AIUsageTracker.Infrastructure.Extensions;
 public static class HttpClientExtensions
 {
     /// <summary>
-    /// Adds HttpClient with Polly retry and circuit breaker policies
+    /// Adds HttpClient with Polly retry and circuit breaker policies.
     /// </summary>
+    /// <returns></returns>
     public static IServiceCollection AddResilientHttpClient(this IServiceCollection services)
     {
         // Register ResilienceProvider as singleton

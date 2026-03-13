@@ -15,6 +15,7 @@ public static class ProviderRegistrationExtensions
     /// <summary>
     /// Automatically registers all IProviderService implementations from the Infrastructure assembly.
     /// </summary>
+    /// <returns></returns>
     public static IServiceCollection AddProvidersFromAssembly(this IServiceCollection services)
     {
         var assembly = Assembly.GetExecutingAssembly();
@@ -35,6 +36,7 @@ public static class ProviderRegistrationExtensions
     /// <summary>
     /// Registers a specific provider type.
     /// </summary>
+    /// <returns></returns>
     public static IServiceCollection AddProvider<TProvider>(this IServiceCollection services)
         where TProvider : class, IProviderService
     {

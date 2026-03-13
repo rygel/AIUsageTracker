@@ -35,7 +35,7 @@ public class ProviderManagerLifecycleServiceTests
     }
 
     [Fact]
-    public async Task EnsureConcurrencyAsync_WhenConfigurationUnchanged_PreservesManagerInstance()
+    public async Task EnsureConcurrencyAsync_WhenConfigurationUnchanged_PreservesManagerInstanceAsync()
     {
         var preferences = new AppPreferences { MaxConcurrentProviderRequests = 4 };
         var service = CreateService(preferences);
@@ -49,7 +49,7 @@ public class ProviderManagerLifecycleServiceTests
     }
 
     [Fact]
-    public async Task EnsureConcurrencyAsync_WhenConfigurationChanges_ReinitializesManager()
+    public async Task EnsureConcurrencyAsync_WhenConfigurationChanges_ReinitializesManagerAsync()
     {
         var preferences = new AppPreferences { MaxConcurrentProviderRequests = 6 };
         var service = CreateService(preferences);

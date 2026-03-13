@@ -17,17 +17,17 @@ public static class UsageMath
     private const double AnomalyMadScale = 1.4826;
     private const double MinimumAbsoluteRateDeltaPerDay = 1.0;
 
-    private static readonly Regex S_usedPattern = new(
+    private static readonly Regex SUsedPattern = new(
         @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         RegexTimeout);
 
-    private static readonly Regex S_remainingPattern = new(
+    private static readonly Regex SRemainingPattern = new(
         @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         RegexTimeout);
 
-    private static readonly Regex S_percentPattern = new(
+    private static readonly Regex SPercentPattern = new(
         @"(?<percent>\d+(?:\.\d+)?)\s*%",
         RegexOptions.CultureInvariant,
         RegexTimeout);
@@ -159,7 +159,7 @@ public static class UsageMath
     private static bool TryParseUsedPercent(string value, out double percent)
     {
         percent = 0;
-        var usedMatch = S_usedPattern.Match(value);
+        var usedMatch = SUsedPattern.Match(value);
         if (!usedMatch.Success)
         {
             return false;
@@ -175,7 +175,7 @@ public static class UsageMath
     private static bool TryParseRemainingPercent(string value, out double percent)
     {
         percent = 0;
-        var remainingMatch = S_remainingPattern.Match(value);
+        var remainingMatch = SRemainingPattern.Match(value);
         if (!remainingMatch.Success)
         {
             return false;
@@ -193,7 +193,7 @@ public static class UsageMath
         percent = 0;
         isUsed = null;
 
-        var match = S_percentPattern.Match(value);
+        var match = SPercentPattern.Match(value);
         if (!match.Success)
         {
             return false;

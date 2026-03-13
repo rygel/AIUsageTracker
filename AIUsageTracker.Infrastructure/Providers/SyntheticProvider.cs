@@ -105,7 +105,7 @@ public sealed class SyntheticProvider : ProviderBase
                     NextResetTime = nextResetTime,
                     AuthSource = config.AuthSource ?? string.Empty,
                     RawJson = content,
-                    HttpStatus = (int)response.StatusCode
+                    HttpStatus = (int)response.StatusCode,
                 },
             };
         }

@@ -10,7 +10,7 @@ namespace AIUsageTracker.Infrastructure.Constants;
 public static class HttpHeaders
 {
     /// <summary>
-    /// Common HTTP header names
+    /// Common HTTP header names.
     /// </summary>
     public static class Names
     {
@@ -26,7 +26,7 @@ public static class HttpHeaders
     }
 
     /// <summary>
-    /// Common HTTP header values
+    /// Common HTTP header values.
     /// </summary>
     public static class Values
     {
@@ -36,7 +36,7 @@ public static class HttpHeaders
     }
 
     /// <summary>
-    /// Standard User-Agent string
+    /// Standard User-Agent string.
     /// </summary>
     public static class UserAgents
     {

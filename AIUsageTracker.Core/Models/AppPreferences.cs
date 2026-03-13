@@ -130,7 +130,7 @@ public class AppPreferences
     private static bool TryGetBooleanProperty(JsonElement element, string propertyName, out bool value)
     {
         value = false;
-        if (!TryGetProperty(element, propertyName, out var property) || property.ValueKind != JsonValueKind.True && property.ValueKind != JsonValueKind.False)
+        if (!TryGetProperty(element, propertyName, out var property) || (property.ValueKind != JsonValueKind.True && property.ValueKind != JsonValueKind.False))
         {
             return false;
         }

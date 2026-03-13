@@ -51,7 +51,7 @@ public class XiaomiProvider : ProviderBase
                 IsAvailable = false,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                Description = "API Key missing"
+                Description = "API Key missing",
             },
             };
         }
@@ -103,7 +103,7 @@ public class XiaomiProvider : ProviderBase
                     ? $"{balance} remaining / {quota} total"
                     : $"Balance: {balance}",
                 RawJson = content,
-                HttpStatus = (int)response.StatusCode
+                HttpStatus = (int)response.StatusCode,
             },
             };
         }
@@ -119,7 +119,7 @@ public class XiaomiProvider : ProviderBase
                 IsAvailable = false,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                Description = $"Error: {ex.Message}"
+                Description = $"Error: {ex.Message}",
             },
             };
         }

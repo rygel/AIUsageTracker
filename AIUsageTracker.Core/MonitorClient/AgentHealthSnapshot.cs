@@ -33,14 +33,14 @@ public sealed class AgentHealthSnapshot
     public string? ResolveApiContractVersion()
     {
         return this.ApiContractVersion
-            ?? TryReadString("apiContractVersion");
+            ?? this.TryReadString("apiContractVersion");
     }
 
     public string? ResolveAgentVersion()
     {
         return this.AgentVersion
-            ?? TryReadString("agentVersion")
-            ?? TryReadString("version");
+            ?? this.TryReadString("agentVersion")
+            ?? this.TryReadString("version");
     }
 
     private string? TryReadString(string propertyName)

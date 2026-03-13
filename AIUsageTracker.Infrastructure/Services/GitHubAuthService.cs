@@ -2,11 +2,11 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.IO;
 using System.Diagnostics;
+using System.IO;
 using System.Net.Http.Json;
-using System.Text.RegularExpressions;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AIUsageTracker.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
