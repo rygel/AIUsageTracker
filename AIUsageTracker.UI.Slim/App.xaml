@@ -5,18 +5,12 @@
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Value Converters -->
-            <converters:PercentageToColorConverter x:Key="PercentageToColorConverter"/>
-            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-            <converters:BoolToVisibilityConverter x:Key="InvertedBoolToVisibilityConverter" Invert="True"/>
-            <converters:PrivacyMaskConverter x:Key="PrivacyMaskConverter"/>
-            <converters:RelativeTimeConverter x:Key="RelativeTimeConverter"/>
-            <converters:RelativeTimeConverter x:Key="RelativeTimeWithParensConverter" IncludeParentheses="True"/>
-            <converters:PercentageToWidthConverter x:Key="PercentageToWidthConverter"/>
-            <converters:RemainingPercentageConverter x:Key="RemainingPercentageConverter"/>
-            <converters:StatusToneToColorConverter x:Key="StatusToneToColorConverter"/>
-            <converters:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
-            <converters:NullToVisibilityConverter x:Key="InvertedNullToVisibilityConverter" Invert="True"/>
+            <!-- Merged Resources - Order matters: Converters first, then templates that use them -->
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/ConverterResources.xaml"/>
+                <ResourceDictionary Source="Resources/ProviderCardResources.xaml"/>
+                <ResourceDictionary Source="Resources/CollapsibleSectionResources.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
 
             <!-- Colors -->
             <SolidColorBrush x:Key="Background" Color="#1E1E1E"/>

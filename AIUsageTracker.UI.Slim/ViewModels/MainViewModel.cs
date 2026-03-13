@@ -5,6 +5,7 @@
 using System.Collections.ObjectModel;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,8 @@ public partial class MainViewModel : BaseViewModel
     private readonly IMonitorService _monitorService;
     private readonly IUsageAnalyticsService _analyticsService;
     private readonly ILogger<MainViewModel> _logger;
+    private readonly IBrowserService? _browserService;
+    private readonly IDialogService? _dialogService;
 
     [ObservableProperty]
     private bool _isLoading;
@@ -41,14 +44,29 @@ public partial class MainViewModel : BaseViewModel
     [ObservableProperty]
     private bool _showUsedPercentages;
 
+    [ObservableProperty]
+    private bool _isAlwaysOnTop = true;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MainViewModel"/> class.
+    /// </summary>
+    /// <param name="monitorService">The monitor service.</param>
+    /// <param name="analyticsService">The analytics service.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="browserService">Optional browser service for URL operations.</param>
+    /// <param name="dialogService">Optional dialog service for showing dialogs.</param>
     public MainViewModel(
         IMonitorService monitorService,
         IUsageAnalyticsService analyticsService,
-        ILogger<MainViewModel> logger)
+        ILogger<MainViewModel> logger,
+        IBrowserService? browserService = null,
+        IDialogService? dialogService = null)
     {
         this._monitorService = monitorService;
         this._analyticsService = analyticsService;
         this._logger = logger;
+        this._browserService = browserService;
+        this._dialogService = dialogService;
         this._isPrivacyMode = false;
     }
 
@@ -91,6 +109,74 @@ public partial class MainViewModel : BaseViewModel
     private void TogglePrivacyMode()
     {
         this.IsPrivacyMode = !this.IsPrivacyMode;
+    }
+
+    /// <summary>
+    /// Opens the Web UI in the default browser.
+    /// </summary>
+    /// <returns>A task representing the async operation.</returns>
+    [RelayCommand]
+    internal async Task OpenWebUIAsync()
+    {
+        if (this._browserService == null)
+        {
+            this._logger.LogWarning("Browser service not available");
+            return;
+        }
+
+        try
+        {
+            await this._browserService.OpenWebUIAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Failed to open Web UI");
+            this.StatusMessage = "Failed to open Web UI";
+        }
+    }
+
+    /// <summary>
+    /// Opens the releases page in the default browser.
+    /// </summary>
+    [RelayCommand]
+    internal void ViewChangelog()
+    {
+        if (this._browserService == null)
+        {
+            this._logger.LogWarning("Browser service not available");
+            return;
+        }
+
+        this._browserService.OpenReleasesPage();
+    }
+
+    /// <summary>
+    /// Opens the settings dialog.
+    /// </summary>
+    /// <returns>A task representing the async operation.</returns>
+    [RelayCommand]
+    internal async Task OpenSettingsAsync()
+    {
+        if (this._dialogService == null)
+        {
+            this._logger.LogWarning("Dialog service not available");
+            return;
+        }
+
+        try
+        {
+            var hasChanges = await this._dialogService.ShowSettingsAsync().ConfigureAwait(true);
+            if (hasChanges == true)
+            {
+                // Refresh data after settings change
+                await this.RefreshDataAsync().ConfigureAwait(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Failed to open settings");
+            this.StatusMessage = "Failed to open settings";
+        }
     }
 
     public void SetPrivacyMode(bool enabled)
