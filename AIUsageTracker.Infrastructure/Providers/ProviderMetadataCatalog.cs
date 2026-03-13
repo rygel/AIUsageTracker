@@ -97,6 +97,20 @@ public static class ProviderMetadataCatalog
         return TryGet(providerId, out var definition) && definition.AutoIncludeWhenUnconfigured;
     }
 
+    public static bool TryGetUsageSemantics(string providerId, out PlanType planType, out bool isQuotaBased)
+    {
+        if (TryGet(providerId, out var definition))
+        {
+            planType = definition.PlanType;
+            isQuotaBased = definition.IsQuotaBased;
+            return true;
+        }
+
+        planType = default;
+        isQuotaBased = false;
+        return false;
+    }
+
     public static string GetCanonicalProviderId(string providerId)
     {
         if (TryGet(providerId, out var definition))
@@ -185,6 +199,33 @@ public static class ProviderMetadataCatalog
         return GetVisibleDerivedProviderIds(providerId).Count > 0;
     }
 
+    public static string GetIconAssetName(string providerId)
+    {
+        var canonicalProviderId = GetCanonicalProviderId(providerId);
+        return TryGet(canonicalProviderId, out var definition) &&
+               !string.IsNullOrWhiteSpace(definition.IconAssetName)
+            ? definition.IconAssetName
+            : canonicalProviderId;
+    }
+
+    public static bool TryGetFallbackBadgeDefinition(string providerId, out string colorHex, out string initial)
+    {
+        var canonicalProviderId = GetCanonicalProviderId(providerId);
+        colorHex = string.Empty;
+        initial = string.Empty;
+
+        if (!TryGet(canonicalProviderId, out var definition) ||
+            string.IsNullOrWhiteSpace(definition.FallbackBadgeColorHex) ||
+            string.IsNullOrWhiteSpace(definition.FallbackBadgeInitial))
+        {
+            return false;
+        }
+
+        colorHex = definition.FallbackBadgeColorHex;
+        initial = definition.FallbackBadgeInitial;
+        return true;
+    }
+
     public static bool IsAggregateParentProviderId(string providerId)
     {
         return TryGet(providerId, out var definition) &&
@@ -213,6 +254,19 @@ public static class ProviderMetadataCatalog
     {
         var canonicalProviderId = GetCanonicalProviderId(providerId);
         return IsAggregateParentProviderId(canonicalProviderId);
+    }
+
+    public static string GetAggregateDetailDisplaySuffix(string providerId, string? providerName = null)
+    {
+        var canonicalProviderId = GetCanonicalProviderId(providerId);
+        if (TryGet(canonicalProviderId, out var definition) &&
+            !string.IsNullOrWhiteSpace(definition.AggregateDetailDisplaySuffix))
+        {
+            return definition.AggregateDetailDisplaySuffix!;
+        }
+
+        var displayName = GetDisplayName(canonicalProviderId, providerName);
+        return $"[{displayName}]";
     }
 
     public static bool ShouldUseSharedSubDetailCollapsePreference(string providerId)

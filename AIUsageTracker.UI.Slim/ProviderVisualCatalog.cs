@@ -19,11 +19,7 @@ internal static class ProviderVisualCatalog
 
     public static string GetIconAssetName(string providerId)
     {
-        var canonicalProviderId = GetCanonicalProviderId(providerId);
-        return ProviderMetadataCatalog.TryGet(canonicalProviderId, out var definition) &&
-               !string.IsNullOrWhiteSpace(definition.IconAssetName)
-            ? definition.IconAssetName
-            : canonicalProviderId;
+        return ProviderMetadataCatalog.GetIconAssetName(providerId);
     }
 
     public static (Brush Color, string Initial) GetFallbackBadge(string providerId, Brush defaultBrush)
@@ -39,15 +35,13 @@ internal static class ProviderVisualCatalog
         color = null!;
         initial = string.Empty;
 
-        if (!ProviderMetadataCatalog.TryGet(providerId, out var definition) ||
-            string.IsNullOrWhiteSpace(definition.FallbackBadgeColorHex) ||
-            string.IsNullOrWhiteSpace(definition.FallbackBadgeInitial))
+        if (!ProviderMetadataCatalog.TryGetFallbackBadgeDefinition(providerId, out var colorHex, out var badgeInitial))
         {
             return false;
         }
 
-        color = GetOrCreateBrush(definition.FallbackBadgeColorHex);
-        initial = definition.FallbackBadgeInitial;
+        color = GetOrCreateBrush(colorHex);
+        initial = badgeInitial;
         return true;
     }
 

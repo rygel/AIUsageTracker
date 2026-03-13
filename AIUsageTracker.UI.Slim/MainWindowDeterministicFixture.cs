@@ -60,17 +60,19 @@ internal static class MainWindowDeterministicFixture
         bool isAvailable = true,
         IReadOnlyList<ProviderUsageDetail>? details = null)
     {
-        var definition = ProviderMetadataCatalog.Find(scenario.ProviderId)
-            ?? throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
+        if (!ProviderMetadataCatalog.TryGetUsageSemantics(scenario.ProviderId, out var planType, out var isQuotaBased))
+        {
+            throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
+        }
 
         return new ProviderUsage
         {
             ProviderId = scenario.ProviderId,
             ProviderName = ProviderMetadataCatalog.GetDisplayName(scenario.ProviderId),
             IsAvailable = isAvailable,
-            IsQuotaBased = definition.IsQuotaBased,
-            PlanType = definition.PlanType,
-            DisplayAsFraction = definition.IsQuotaBased,
+            IsQuotaBased = isQuotaBased,
+            PlanType = planType,
+            DisplayAsFraction = isQuotaBased,
             RequestsPercentage = usageScenario.RequestsPercentage,
             RequestsUsed = usageScenario.RequestsUsed,
             RequestsAvailable = usageScenario.RequestsAvailable,

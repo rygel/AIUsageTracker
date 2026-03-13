@@ -93,7 +93,7 @@ public static class GroupedUsageProjectionService
         string canonicalProviderId)
     {
         var usages = group.ToList();
-        if (ProviderMetadataCatalog.TryGet(canonicalProviderId, out var definition) &&
+        if (ProviderMetadataCatalog.ShouldUseChildProviderRowsForGroupedModels(canonicalProviderId) &&
             ShouldBuildModelsFromExplicitChildRows(usages, canonicalProviderId))
         {
             return BuildModelsFromExplicitChildRows(usages, canonicalProviderId);

@@ -282,6 +282,45 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
+    [InlineData("codex.spark", PlanType.Coding, true)]
+    [InlineData("github-copilot", PlanType.Coding, true)]
+    public void TryGetUsageSemantics_UsesProviderDefinitions(
+        string providerId,
+        PlanType expectedPlanType,
+        bool expectedIsQuotaBased)
+    {
+        var success = ProviderMetadataCatalog.TryGetUsageSemantics(providerId, out var planType, out var isQuotaBased);
+
+        Assert.True(success);
+        Assert.Equal(expectedPlanType, planType);
+        Assert.Equal(expectedIsQuotaBased, isQuotaBased);
+    }
+
+    [Theory]
+    [InlineData("codex.spark", "openai")]
+    [InlineData("antigravity.claude-opus", "google")]
+    [InlineData("unknown-provider", "unknown-provider")]
+    public void GetIconAssetName_UsesProviderMetadata(string providerId, string expectedAssetName)
+    {
+        Assert.Equal(expectedAssetName, ProviderMetadataCatalog.GetIconAssetName(providerId));
+    }
+
+    [Theory]
+    [InlineData("github-copilot", true, "GH")]
+    [InlineData("claude-code", true, "C")]
+    [InlineData("unknown-provider", false, "")]
+    public void TryGetFallbackBadgeDefinition_UsesProviderMetadata(
+        string providerId,
+        bool expectedSuccess,
+        string expectedInitial)
+    {
+        var success = ProviderMetadataCatalog.TryGetFallbackBadgeDefinition(providerId, out _, out var initial);
+
+        Assert.Equal(expectedSuccess, success);
+        Assert.Equal(expectedInitial, initial);
+    }
+
+    [Theory]
     [InlineData("OPENAI_API_KEY", "openai")]
     [InlineData("CODEX_API_KEY", "codex")]
     [InlineData("GEMINI_API_KEY", "gemini-cli")]

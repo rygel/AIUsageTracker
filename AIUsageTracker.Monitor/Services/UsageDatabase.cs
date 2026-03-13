@@ -345,17 +345,13 @@ public class UsageDatabase : IUsageDatabase
 
             foreach (var usage in results)
             {
-                if (ProviderMetadataCatalog.TryGet(usage.ProviderId, out var definition))
+                if (ProviderMetadataCatalog.TryGetUsageSemantics(usage.ProviderId, out var planType, out var isQuotaBased))
                 {
-                    usage.PlanType = definition.PlanType;
-                    usage.IsQuotaBased = definition.IsQuotaBased;
-
-                    var mappedName = definition.ResolveDisplayName(usage.ProviderId);
-                    if (!string.IsNullOrWhiteSpace(mappedName))
-                    {
-                        usage.ProviderName = mappedName;
-                    }
+                    usage.PlanType = planType;
+                    usage.IsQuotaBased = isQuotaBased;
                 }
+
+                usage.ProviderName = ProviderMetadataCatalog.GetDisplayName(usage.ProviderId ?? string.Empty, usage.ProviderName);
 
                 if (!usage.DisplayAsFraction && usage.IsQuotaBased && usage.RequestsAvailable > 100)
                 {
@@ -798,4 +794,3 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 }
-

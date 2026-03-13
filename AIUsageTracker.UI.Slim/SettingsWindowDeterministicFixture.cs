@@ -70,16 +70,18 @@ internal static class SettingsWindowDeterministicFixture
         bool isAvailable = true,
         List<ProviderUsageDetail>? details = null)
     {
-        var definition = ProviderMetadataCatalog.Find(scenario.ProviderId)
-            ?? throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
+        if (!ProviderMetadataCatalog.TryGetUsageSemantics(scenario.ProviderId, out var planType, out var isQuotaBased))
+        {
+            throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
+        }
 
         return new ProviderUsage
         {
             ProviderId = scenario.ProviderId,
             ProviderName = ProviderMetadataCatalog.GetDisplayName(scenario.ProviderId),
             IsAvailable = isAvailable,
-            IsQuotaBased = definition.IsQuotaBased,
-            PlanType = definition.PlanType,
+            IsQuotaBased = isQuotaBased,
+            PlanType = planType,
             RequestsPercentage = usageScenario.RequestsPercentage,
             RequestsUsed = usageScenario.RequestsUsed,
             RequestsAvailable = usageScenario.RequestsAvailable,
@@ -106,8 +108,10 @@ internal static class SettingsWindowDeterministicFixture
 
     private static SettingsWindowHistoryRow CreateHistoryRow(string providerId, FixtureHistoryScenario scenario)
     {
-        var definition = ProviderMetadataCatalog.Find(providerId)
-            ?? throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot history.");
+        if (!ProviderMetadataCatalog.TryGetUsageSemantics(providerId, out var planType, out _))
+        {
+            throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot history.");
+        }
 
         return new SettingsWindowHistoryRow
         {
@@ -115,7 +119,7 @@ internal static class SettingsWindowDeterministicFixture
             UsagePercentage = scenario.UsagePercentage,
             Used = scenario.Used,
             Limit = scenario.Limit,
-            PlanType = definition.PlanType.ToString(),
+            PlanType = planType.ToString(),
             Description = scenario.Description,
             FetchedAt = scenario.FetchedAt,
         };

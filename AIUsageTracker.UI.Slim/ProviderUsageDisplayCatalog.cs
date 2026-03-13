@@ -40,13 +40,13 @@ internal static class ProviderUsageDisplayCatalog
 
         var planType = parentUsage.PlanType;
         var isQuotaBased = parentUsage.IsQuotaBased;
-        if (ProviderMetadataCatalog.TryGet(canonicalProviderId, out var definition))
+        if (ProviderMetadataCatalog.TryGetUsageSemantics(canonicalProviderId, out var configuredPlanType, out var configuredIsQuotaBased))
         {
-            planType = definition.PlanType;
-            isQuotaBased = definition.IsQuotaBased;
+            planType = configuredPlanType;
+            isQuotaBased = configuredIsQuotaBased;
         }
 
-        var aggregateDetailDisplaySuffix = ResolveAggregateDetailDisplaySuffix(canonicalProviderId, parentUsage.ProviderName);
+        var aggregateDetailDisplaySuffix = ProviderMetadataCatalog.GetAggregateDetailDisplaySuffix(canonicalProviderId, parentUsage.ProviderName);
 
         return parentUsage.Details
             .Select(detail => new { Detail = detail, ModelDisplayName = ResolveAggregateDetailDisplayName(detail) })
@@ -175,15 +175,4 @@ internal static class ProviderUsageDisplayCatalog
             : detail.ModelName.Trim();
     }
 
-    private static string ResolveAggregateDetailDisplaySuffix(string providerId, string? providerName)
-    {
-        if (ProviderMetadataCatalog.TryGet(providerId, out var definition) &&
-            !string.IsNullOrWhiteSpace(definition.AggregateDetailDisplaySuffix))
-        {
-            return definition.AggregateDetailDisplaySuffix!;
-        }
-
-        var displayName = ProviderCapabilityCatalog.GetDisplayName(providerId, providerName);
-        return $"[{displayName}]";
-    }
 }
