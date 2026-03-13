@@ -156,6 +156,21 @@ public static class UsageMath
         return null;
     }
 
+    /// <summary>
+    /// Simple wrapper for ParsePercent when 'isUsed' info is not needed.
+    /// </summary>
+    /// <returns></returns>
+    public static double? ParsePercent(string? value) => ParsePercent(value, out _);
+
+    public static double GetEffectiveUsedPercent(ProviderUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var percentage = ClampPercent(usage.RequestsPercentage);
+        var isQuota = usage.IsQuotaBased;
+        return isQuota ? ClampPercent(100 - percentage) : percentage;
+    }
+
     private static bool TryParseUsedPercent(string value, out double percent)
     {
         percent = 0;
@@ -216,28 +231,6 @@ public static class UsageMath
     }
 
     /// <summary>
-    /// Simple wrapper for ParsePercent when 'isUsed' info is not needed.
-    /// </summary>
-    /// <returns></returns>
-    public static double? ParsePercent(string? value) => ParsePercent(value, out _);
-
-    private static bool TryParseFallbackNumber(string value, out double result)
-    {
-        result = 0;
-        var cleanValue = new string(value.Where(c => char.IsDigit(c) || c == '.').ToArray());
-        return double.TryParse(cleanValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result);
-    }
-
-    public static double GetEffectiveUsedPercent(ProviderUsage usage)
-    {
-        ArgumentNullException.ThrowIfNull(usage);
-
-        var percentage = ClampPercent(usage.RequestsPercentage);
-        var isQuota = usage.IsQuotaBased;
-        return isQuota ? ClampPercent(100 - percentage) : percentage;
-    }
-
-    /// <summary>
     /// Gets the effective used percentage for a provider detail, accounting for parent quota status
     /// and explicit 'used'/'remaining' strings.
     /// </summary>
@@ -284,6 +277,13 @@ public static class UsageMath
         return val.Value;
     }
 
+    private static bool TryParseFallbackNumber(string value, out double result)
+    {
+        result = 0;
+        var cleanValue = new string(value.Where(c => char.IsDigit(c) || c == '.').ToArray());
+        return double.TryParse(cleanValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result);
+    }
+
     public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)
     {
         ArgumentNullException.ThrowIfNull(history);
@@ -325,6 +325,70 @@ public static class UsageMath
         }
 
         return CreateBurnRateForecast(burnRatePerDay, cycleSamples, elapsedDays);
+    }
+
+    public static ProviderReliabilitySnapshot CalculateReliabilitySnapshot(IEnumerable<ProviderUsage> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+
+        var samples = history
+            .Where(x => x.FetchedAt != default)
+            .OrderBy(x => x.FetchedAt)
+            .ToList();
+
+        if (samples.Count == 0)
+        {
+            return ProviderReliabilitySnapshot.Unavailable("No history");
+        }
+
+        var successCount = samples.Count(x => x.IsAvailable);
+        var failureCount = samples.Count - successCount;
+        var failureRatePercent = (failureCount / (double)samples.Count) * 100.0;
+
+        var latencySamples = samples
+            .Where(x => x.ResponseLatencyMs > 0)
+            .Select(x => x.ResponseLatencyMs)
+            .ToList();
+        var averageLatencyMs = latencySamples.Count == 0 ? 0 : latencySamples.Average();
+        var lastLatencyMs = latencySamples.Count == 0 ? 0 : latencySamples[^1];
+
+        return new ProviderReliabilitySnapshot
+        {
+            IsAvailable = true,
+            SampleCount = samples.Count,
+            SuccessCount = successCount,
+            FailureCount = failureCount,
+            FailureRatePercent = failureRatePercent,
+            AverageLatencyMs = averageLatencyMs,
+            LastLatencyMs = lastLatencyMs,
+            LastSuccessfulSyncUtc = samples.LastOrDefault(x => x.IsAvailable)?.FetchedAt.ToUniversalTime(),
+            LastSeenUtc = samples[^1].FetchedAt.ToUniversalTime(),
+        };
+    }
+
+    public static UsageAnomalySnapshot CalculateUsageAnomalySnapshot(IEnumerable<ProviderUsage> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+
+        var samples = FilterValidSamplesForAnomaly(history);
+        if (!ValidateMinimumSamplesForAnomaly(samples, 4, "Insufficient history", out var snapshotResult))
+        {
+            return snapshotResult;
+        }
+
+        var cycleSamples = TrimToLatestCycle(samples);
+        if (!ValidateMinimumSamplesForAnomaly(cycleSamples, 4, "Insufficient cycle history", out snapshotResult))
+        {
+            return snapshotResult;
+        }
+
+        var rates = CalculateRatesPerDay(cycleSamples);
+        if (!ValidateRatesAndCalculateBaseline(rates, out var baselineMedian, out var baselineRates, out var latest, out var snapshot))
+        {
+            return snapshot;
+        }
+
+        return CreateAnomalySnapshot(baselineMedian, baselineRates, latest, cycleSamples);
     }
 
     private static List<ProviderUsage> FilterValidSamples(IEnumerable<ProviderUsage> history)
@@ -403,70 +467,6 @@ public static class UsageMath
             SampleCount = cycleSamples.Count,
             TrendDirection = TrendDirection.Stable,
         };
-    }
-
-    public static ProviderReliabilitySnapshot CalculateReliabilitySnapshot(IEnumerable<ProviderUsage> history)
-    {
-        ArgumentNullException.ThrowIfNull(history);
-
-        var samples = history
-            .Where(x => x.FetchedAt != default)
-            .OrderBy(x => x.FetchedAt)
-            .ToList();
-
-        if (samples.Count == 0)
-        {
-            return ProviderReliabilitySnapshot.Unavailable("No history");
-        }
-
-        var successCount = samples.Count(x => x.IsAvailable);
-        var failureCount = samples.Count - successCount;
-        var failureRatePercent = (failureCount / (double)samples.Count) * 100.0;
-
-        var latencySamples = samples
-            .Where(x => x.ResponseLatencyMs > 0)
-            .Select(x => x.ResponseLatencyMs)
-            .ToList();
-        var averageLatencyMs = latencySamples.Count == 0 ? 0 : latencySamples.Average();
-        var lastLatencyMs = latencySamples.Count == 0 ? 0 : latencySamples[^1];
-
-        return new ProviderReliabilitySnapshot
-        {
-            IsAvailable = true,
-            SampleCount = samples.Count,
-            SuccessCount = successCount,
-            FailureCount = failureCount,
-            FailureRatePercent = failureRatePercent,
-            AverageLatencyMs = averageLatencyMs,
-            LastLatencyMs = lastLatencyMs,
-            LastSuccessfulSyncUtc = samples.LastOrDefault(x => x.IsAvailable)?.FetchedAt.ToUniversalTime(),
-            LastSeenUtc = samples[^1].FetchedAt.ToUniversalTime(),
-        };
-    }
-
-    public static UsageAnomalySnapshot CalculateUsageAnomalySnapshot(IEnumerable<ProviderUsage> history)
-    {
-        ArgumentNullException.ThrowIfNull(history);
-
-        var samples = FilterValidSamplesForAnomaly(history);
-        if (!ValidateMinimumSamplesForAnomaly(samples, 4, "Insufficient history", out var snapshotResult))
-        {
-            return snapshotResult;
-        }
-
-        var cycleSamples = TrimToLatestCycle(samples);
-        if (!ValidateMinimumSamplesForAnomaly(cycleSamples, 4, "Insufficient cycle history", out snapshotResult))
-        {
-            return snapshotResult;
-        }
-
-        var rates = CalculateRatesPerDay(cycleSamples);
-        if (!ValidateRatesAndCalculateBaseline(rates, out var baselineMedian, out var baselineRates, out var latest, out var snapshot))
-        {
-            return snapshot;
-        }
-
-        return CreateAnomalySnapshot(baselineMedian, baselineRates, latest, cycleSamples);
     }
 
     private static List<ProviderUsage> FilterValidSamplesForAnomaly(IEnumerable<ProviderUsage> history)

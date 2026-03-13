@@ -107,7 +107,12 @@ public class ZaiProvider : ProviderBase
         {
             this._logger.LogDebug(
                 "[ZAI LIMIT] Type={Type} Total={Total} CurrentValue={Current} Remaining={Remaining} Percentage={Pct} ResetTime={Ts}",
-                limit.Type, limit.Total, limit.CurrentValue, limit.Remaining, limit.Percentage, limit.NextResetTime);
+                limit.Type,
+                limit.Total,
+                limit.CurrentValue,
+                limit.Remaining,
+                limit.Percentage,
+                limit.NextResetTime);
         }
 
         // Helper to check if a limit is in the future (or has no expiry)
@@ -150,7 +155,8 @@ public class ZaiProvider : ProviderBase
 
         this._logger.LogDebug(
             "[ZAI] Found token limit: {Found}, mcp limit: {McpFound}",
-            tokenLimit != null, mcpLimit != null);
+            tokenLimit != null,
+            mcpLimit != null);
 
         double? remainingPercent = null;
         string detailInfo = string.Empty;
@@ -165,7 +171,10 @@ public class ZaiProvider : ProviderBase
             planDescription = "Coding Plan";
             this._logger.LogDebug(
                 "[ZAI] Processing TOKENS_LIMIT - Percentage={Pct} Total={Total} Current={Current} Remaining={Remaining}",
-                tokenLimit.Percentage, tokenLimit.Total, tokenLimit.CurrentValue, tokenLimit.Remaining);
+                tokenLimit.Percentage,
+                tokenLimit.Total,
+                tokenLimit.CurrentValue,
+                tokenLimit.Remaining);
 
             if (tokenLimit.Percentage.HasValue && tokenLimit.Total == null && tokenLimit.CurrentValue == null && tokenLimit.Remaining == null)
             {
@@ -200,7 +209,9 @@ public class ZaiProvider : ProviderBase
 
                     this._logger.LogDebug(
                         "[ZAI] Calculation: Remaining={RemainingVal} / Total={TotalVal} = {Percent}%",
-                        remainingVal, totalVal, remainingPercentVal);
+                        remainingVal,
+                        totalVal,
+                        remainingPercentVal);
 
                     remainingPercent = remainingPercent.HasValue
                         ? Math.Min(remainingPercent.Value, remainingPercentVal)
@@ -257,7 +268,8 @@ public class ZaiProvider : ProviderBase
                 nextResetTime = utcTime.LocalDateTime;
                 this._logger.LogDebug(
                     "[ZAI] Interpreted as SECONDS: {Utc} UTC -> {Local} Local",
-                    utcTime.UtcDateTime, nextResetTime);
+                    utcTime.UtcDateTime,
+                    nextResetTime);
             }
             else // Likely milliseconds (e.g., 1773532800000)
             {
@@ -265,7 +277,8 @@ public class ZaiProvider : ProviderBase
                 nextResetTime = utcTime.LocalDateTime;
                 this._logger.LogDebug(
                     "[ZAI] Interpreted as MILLISECONDS: {Utc} UTC -> {Local} Local",
-                    utcTime.UtcDateTime, nextResetTime);
+                    utcTime.UtcDateTime,
+                    nextResetTime);
             }
 
             resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
@@ -301,7 +314,12 @@ public class ZaiProvider : ProviderBase
 
         this._logger.LogInformation(
             "Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, RequestsPercentage: {RequestsPercentage}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
-            this.ProviderId, providerLabel, finalRequestsPercentage, finalRequestsUsedReal, finalDescription, true);
+            this.ProviderId,
+            providerLabel,
+            finalRequestsPercentage,
+            finalRequestsUsedReal,
+            finalDescription,
+            true);
 
         return new[]
         {

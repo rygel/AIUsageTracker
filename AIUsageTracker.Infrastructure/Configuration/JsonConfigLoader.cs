@@ -106,6 +106,17 @@ public class JsonConfigLoader : IConfigLoader
         }
     }
 
+    private static string ResolveConfigProviderId(string providerId)
+    {
+        if (ProviderMetadataCatalog.ShouldPersistProviderId(providerId) &&
+            ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId))
+        {
+            return providerId;
+        }
+
+        return ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+    }
+
     private string GetTrackerConfigPath() => this._pathProvider.GetAuthFilePath();
 
     private string GetProvidersConfigPath() => this._pathProvider.GetProviderConfigFilePath();
@@ -143,17 +154,6 @@ public class JsonConfigLoader : IConfigLoader
         {
             this.MergeConfigEntry(mergedConfigs, entry, path, isAuthFile);
         }
-    }
-
-    private static string ResolveConfigProviderId(string providerId)
-    {
-        if (ProviderMetadataCatalog.ShouldPersistProviderId(providerId) &&
-            ProviderMetadataCatalog.IsVisibleDerivedProviderId(providerId))
-        {
-            return providerId;
-        }
-
-        return ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
     }
 
     private void MergeConfigEntry(

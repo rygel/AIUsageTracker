@@ -34,6 +34,21 @@ public class CodexAuthService : ICodexAuthService
         return auth?.AccountId;
     }
 
+    private static CodexAuth? TryReadAuth(JsonElement root)
+    {
+        var authData = ProviderAuthFileSchemaReader.Read(root, CodexProvider.StaticDefinition.SessionAuthFileSchemas);
+        if (string.IsNullOrWhiteSpace(authData?.AccessToken))
+        {
+            return null;
+        }
+
+        return new CodexAuth
+        {
+            AccessToken = authData.AccessToken,
+            AccountId = authData.AccountId,
+        };
+    }
+
     private CodexAuth? LoadAuth()
     {
         foreach (var path in this.GetAuthFileCandidates())
@@ -62,7 +77,7 @@ public class CodexAuthService : ICodexAuthService
         return null;
     }
 
-    private static CodexAuth? TryReadAuth(JsonElement root)
+    private static CodexAuth? TryReadAuthDuplicate(JsonElement root)
     {
         var authData = ProviderAuthFileSchemaReader.Read(root, CodexProvider.StaticDefinition.SessionAuthFileSchemas);
         if (string.IsNullOrWhiteSpace(authData?.AccessToken))

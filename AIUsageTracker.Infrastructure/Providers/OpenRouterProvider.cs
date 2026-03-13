@@ -81,7 +81,8 @@ public class OpenRouterProvider : ProviderBase
             {
                 this._logger.LogError(
                     "OpenRouter credits API failed with status {StatusCode}. Response: {Response}",
-                    response.StatusCode, creditsResponseBody);
+                    response.StatusCode,
+                    creditsResponseBody);
                 return new[] { this.CreateUnavailableUsageFromStatus(response) };
             }
 
@@ -113,9 +114,10 @@ public class OpenRouterProvider : ProviderBase
                 };
             }
 
-            this._logger.LogDebug(
-                "Successfully parsed credits data - Total: {Total}, Usage: {Usage}",
-                creditsData.Data.TotalCredits, creditsData.Data.TotalUsage);
+                this._logger.LogDebug(
+                    "Successfully parsed credits data - Total: {Total}, Usage: {Usage}",
+                    creditsData.Data.TotalCredits,
+                    creditsData.Data.TotalUsage);
         }
         catch (Exception ex)
         {
@@ -163,7 +165,9 @@ public class OpenRouterProvider : ProviderBase
                     label = keyData.Data.Label ?? "OpenRouter";
                     this._logger.LogDebug(
                         "OpenRouter key label: {Label}, Limit: {Limit}, IsFreeTier: {IsFreeTier}",
-                        label, keyData.Data.Limit, keyData.Data.IsFreeTier);
+                        label,
+                        keyData.Data.Limit,
+                        keyData.Data.IsFreeTier);
 
                     if (keyData.Data.Limit > 0)
                     {
@@ -223,7 +227,8 @@ public class OpenRouterProvider : ProviderBase
             {
                 this._logger.LogWarning(
                     "OpenRouter key API returned {StatusCode}. Key info unavailable. Response: {Response}",
-                    keyResponse.StatusCode, keyResponseBody);
+                    keyResponse.StatusCode,
+                    keyResponseBody);
             }
         }
         catch (Exception ex)
@@ -239,7 +244,10 @@ public class OpenRouterProvider : ProviderBase
 
         this._logger.LogInformation(
             "OpenRouter usage calculated - Total: {Total}, Used: {Used}, Remaining: {Remaining}, RemainingPercentage: {RemainingPercentage}%",
-            total, used, remaining, remainingPercentage);
+            total,
+            used,
+            remaining,
+            remainingPercentage);
 
         // Find spending limit detail for reset time (use typed fields, not string matching)
         string mainReset = string.Empty;

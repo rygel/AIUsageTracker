@@ -578,21 +578,6 @@ public class GeminiProvider : ProviderBase
         return data?.Buckets;
     }
 
-    private static string TruncateForLog(string? value, int maxLength = 600)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        if (value.Length <= maxLength)
-        {
-            return value;
-        }
-
-        return value[..maxLength] + "...";
-    }
-
     private static IReadOnlyList<ProviderUsageDetail> BuildModelQuotaDetails(IEnumerable<Bucket> buckets)
     {
         var modelBuckets = buckets
@@ -723,6 +708,21 @@ public class GeminiProvider : ProviderBase
             "exp" => "Exp",
             _ => char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant(),
         };
+    }
+
+    private static string TruncateForLog(string? value, int maxLength = 600)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (value.Length <= maxLength)
+        {
+            return value;
+        }
+
+        return value[..maxLength] + "...";
     }
 
     private class AntigravityAccounts

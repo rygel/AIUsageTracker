@@ -202,67 +202,6 @@ public class CodexProvider : ProviderBase
         return null;
     }
 
-    private ProviderUsage CreateUnavailableUsageWithIdentity(string message, string? accountIdentity)
-    {
-        var usage = this.CreateUnavailableUsage(message);
-        usage.AccountName = accountIdentity ?? string.Empty;
-        return usage;
-    }
-
-    private List<ProviderUsage> BuildUsages(
-        JsonElement root,
-        string? jwtEmail,
-        string? jwtPlanType,
-        string? authIdentity,
-        string? accountId,
-        string? rawJson = null,
-        int httpStatus = 200)
-    {
-        var planType = root.ReadString("plan_type") ?? jwtPlanType ?? "unknown";
-        var primaryUsedPercent = root.ReadDouble("rate_limit", "primary_window", "used_percent") ?? 0.0;
-        var primaryResetSeconds = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
-        var secondaryUsedPercent = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
-        var secondaryResetSeconds = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
-        var sparkWindow = ExtractSparkWindow(root);
-        var modelNames = ResolveModelNames(root, sparkWindow);
-        var accountIdentity = ResolveAccountIdentity(root, jwtEmail, authIdentity, accountId);
-
-        var remainingPercent = Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0);
-        var details = BuildDetails(
-            primaryUsedPercent,
-            primaryResetSeconds,
-            secondaryUsedPercent,
-            secondaryResetSeconds,
-            sparkWindow,
-            modelNames,
-            root);
-        var nextResetTime = ResolveNextResetTime(primaryResetSeconds, sparkWindow.PrimaryResetAfterSeconds);
-        var usages = new List<ProviderUsage>
-        {
-            new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = StaticDefinition.DisplayName,
-                RequestsPercentage = remainingPercent,
-                RequestsUsed = 100.0 - remainingPercent,
-                RequestsAvailable = 100.0,
-                UsageUnit = "Quota %",
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                IsAvailable = true,
-                Description = BuildUsageDescription(remainingPercent, primaryUsedPercent, sparkWindow.PrimaryUsedPercent, planType),
-                AccountName = accountIdentity ?? string.Empty,
-                AuthSource = AuthSource.CodexNative(planType),
-                NextResetTime = nextResetTime,
-                Details = details,
-                RawJson = rawJson,
-                HttpStatus = httpStatus,
-            },
-        };
-
-        return usages;
-    }
-
     private static string? ResolveAccountIdentity(
         JsonElement root,
         string? jwtEmail,
@@ -311,239 +250,6 @@ public class CodexProvider : ProviderBase
         }
 
         return description;
-    }
-
-    private async Task<CodexAuth?> LoadNativeAuthAsync()
-    {
-        foreach (var path in this.GetAuthFileCandidates())
-        {
-            if (!File.Exists(path))
-            {
-                continue;
-            }
-
-            try
-            {
-                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-                using var doc = JsonDocument.Parse(json);
-                var auth = TryReadNativeAuth(doc.RootElement);
-                if (auth != null)
-                {
-                    return auth;
-                }
-            }
-            catch (Exception ex)
-            {
-                this._logger.LogDebug(ex, "Failed to read Codex auth file at {Path}", path);
-            }
-        }
-
-        return null;
-    }
-
-    private IEnumerable<string> GetAuthFileCandidates()
-    {
-        if (!string.IsNullOrWhiteSpace(this._authFilePath))
-        {
-            yield return this._authFilePath;
-            yield break;
-        }
-
-        var discoverySpec = StaticDefinition.CreateAuthDiscoverySpec();
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        foreach (var path in ProviderAuthCandidatePathResolver.ResolvePaths(discoverySpec, userProfile))
-        {
-            yield return path;
-        }
-    }
-
-    private static CodexAuth? TryReadNativeAuth(JsonElement root)
-    {
-        foreach (var schema in StaticDefinition.SessionAuthFileSchemas)
-        {
-            if (!root.TryGetProperty(schema.RootProperty, out var authRoot) || authRoot.ValueKind != JsonValueKind.Object)
-            {
-                continue;
-            }
-
-            var accessToken = authRoot.ReadString(schema.AccessTokenProperty);
-            var identityToken = !string.IsNullOrWhiteSpace(schema.IdentityTokenProperty)
-                ? authRoot.ReadString(schema.IdentityTokenProperty)
-                : null;
-
-            var accountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty)
-                ? authRoot.ReadString(schema.AccountIdProperty)
-                : null;
-
-            var identitySource = string.Equals(schema.RootProperty, "tokens", StringComparison.OrdinalIgnoreCase)
-                ? root
-                : authRoot;
-            var identity = ResolveIdentityFromAuthPayload(identitySource, accessToken ?? string.Empty, identityToken);
-            if (string.IsNullOrWhiteSpace(accessToken) &&
-                string.IsNullOrWhiteSpace(identity) &&
-                string.IsNullOrWhiteSpace(accountId))
-            {
-                continue;
-            }
-
-            return new CodexAuth
-            {
-                AccessToken = accessToken,
-                AccountId = accountId,
-                Identity = identity,
-            };
-        }
-
-        return null;
-    }
-
-    private static string? ResolveIdentityFromAuthPayload(JsonElement source, string accessToken, string? idToken = null)
-    {
-        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(source, StaticDefinition.SessionIdentityProfileRootProperties);
-        if (!string.IsNullOrWhiteSpace(directIdentity))
-        {
-            return directIdentity;
-        }
-
-        if (!string.IsNullOrWhiteSpace(idToken))
-        {
-            var emailFromIdToken = SessionIdentityHelper.TryGetIdentityFromJwt(idToken, StaticDefinition.SessionIdentityProfileRootProperties);
-            if (!string.IsNullOrWhiteSpace(emailFromIdToken))
-            {
-                return emailFromIdToken;
-            }
-        }
-
-        var emailFromJwt = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken, StaticDefinition.SessionIdentityProfileRootProperties);
-        if (!string.IsNullOrWhiteSpace(emailFromJwt))
-        {
-            return emailFromJwt;
-        }
-
-        return null;
-    }
-
-    private static List<ProviderUsageDetail> BuildDetails(
-        double primaryUsedPercent,
-        double? primaryResetSeconds,
-        double? secondaryUsedPercent,
-        double? secondaryResetSeconds,
-        SparkWindow sparkWindow,
-        (string PrimaryModelName, string? SparkModelName) modelNames,
-        JsonElement root)
-    {
-        var primaryRemaining = Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0);
-        var details = new List<ProviderUsageDetail>
-        {
-            new()
-            {
-                Name = modelNames.PrimaryModelName,
-                Description = "Model quota",
-                DetailType = ProviderUsageDetailType.Model,
-                QuotaBucketKind = WindowKind.Primary,
-                PercentageValue = primaryRemaining,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-            },
-            new()
-            {
-                Name = "5-hour quota",
-                Description = FormatResetDescription(primaryResetSeconds),
-                NextResetTime = ResolveDetailResetTime(primaryResetSeconds),
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Primary,
-                PercentageValue = primaryRemaining,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-            },
-        };
-
-        if (secondaryUsedPercent.HasValue)
-        {
-            var secondaryRemaining = Math.Clamp(100.0 - secondaryUsedPercent.Value, 0.0, 100.0);
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "Weekly quota",
-                Description = FormatResetDescription(secondaryResetSeconds),
-                NextResetTime = ResolveDetailResetTime(secondaryResetSeconds),
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Secondary,
-                PercentageValue = secondaryRemaining,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-            });
-        }
-
-        if (sparkWindow.HasWindowData)
-        {
-            var sparkUsedPercent = sparkWindow.PrimaryUsedPercent ?? sparkWindow.SecondaryUsedPercent;
-            if (sparkUsedPercent.HasValue)
-            {
-                var sparkRemaining = Math.Clamp(100.0 - sparkUsedPercent.Value, 0.0, 100.0);
-                var sparkResetAfterSeconds = sparkWindow.PrimaryResetAfterSeconds ?? sparkWindow.SecondaryResetAfterSeconds;
-                details.Add(new ProviderUsageDetail
-                {
-                    Name = $"Spark ({sparkWindow.Label ?? "window"})",
-                    Description = FormatResetDescription(sparkResetAfterSeconds),
-                    NextResetTime = ResolveDetailResetTime(sparkResetAfterSeconds),
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Spark,
-                    PercentageValue = sparkRemaining,
-                    PercentageSemantic = PercentageValueSemantic.Remaining,
-                });
-            }
-        }
-
-        var creditsBalance = root.ReadDouble("credits", "balance");
-        var creditsUnlimited = root.ReadBool("credits", "unlimited");
-        if (creditsBalance.HasValue || creditsUnlimited.HasValue)
-        {
-            var creditValue = creditsUnlimited == true
-                ? "Unlimited"
-                : creditsBalance?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
-
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "Credits",
-                Used = creditValue,
-                DetailType = ProviderUsageDetailType.Credit,
-                QuotaBucketKind = WindowKind.None,
-            });
-        }
-
-        return details;
-    }
-
-    private static (string PrimaryModelName, string? SparkModelName) ResolveModelNames(JsonElement root, SparkWindow sparkWindow)
-    {
-        var primaryRaw = root.ReadString("model_name")
-                         ?? root.ReadString("model")
-                         ?? root.ReadString("rate_limit", "primary_window", "model_name")
-                         ?? root.ReadString("rate_limit", "primary_window", "model")
-                         ?? root.ReadString("rate_limit", "primary_window", "limit_name");
-        var primaryModelName = NormalizeModelName(primaryRaw, "OpenAI") ?? "OpenAI";
-
-        string? sparkModelName = null;
-        if (sparkWindow.HasWindowData)
-        {
-            sparkModelName = ResolveSparkModelName(sparkWindow);
-        }
-
-        return (primaryModelName, sparkModelName);
-    }
-
-    private static string? ResolveSparkModelName(SparkWindow sparkWindow)
-    {
-        var explicitModelName = NormalizeModelName(sparkWindow.ModelName, null);
-        if (!string.IsNullOrWhiteSpace(explicitModelName))
-        {
-            return explicitModelName;
-        }
-
-        var label = NormalizeModelName(sparkWindow.Label, null);
-        if (!string.IsNullOrWhiteSpace(label) && LooksLikeModelName(label))
-        {
-            return label;
-        }
-
-        return null;
     }
 
     private static string? NormalizeModelName(string? raw, string? fallback)
@@ -709,6 +415,300 @@ public class CodexProvider : ProviderBase
     {
         return !string.IsNullOrWhiteSpace(value) &&
                value.Contains("spark", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static CodexAuth? TryReadNativeAuth(JsonElement root)
+    {
+        foreach (var schema in StaticDefinition.SessionAuthFileSchemas)
+        {
+            if (!root.TryGetProperty(schema.RootProperty, out var authRoot) || authRoot.ValueKind != JsonValueKind.Object)
+            {
+                continue;
+            }
+
+            var accessToken = authRoot.ReadString(schema.AccessTokenProperty);
+            var identityToken = !string.IsNullOrWhiteSpace(schema.IdentityTokenProperty)
+                ? authRoot.ReadString(schema.IdentityTokenProperty)
+                : null;
+
+            var accountId = !string.IsNullOrWhiteSpace(schema.AccountIdProperty)
+                ? authRoot.ReadString(schema.AccountIdProperty)
+                : null;
+
+            var identitySource = string.Equals(schema.RootProperty, "tokens", StringComparison.OrdinalIgnoreCase)
+                ? root
+                : authRoot;
+            var identity = ResolveIdentityFromAuthPayload(identitySource, accessToken ?? string.Empty, identityToken);
+            if (string.IsNullOrWhiteSpace(accessToken) &&
+                string.IsNullOrWhiteSpace(identity) &&
+                string.IsNullOrWhiteSpace(accountId))
+            {
+                continue;
+            }
+
+            return new CodexAuth
+            {
+                AccessToken = accessToken,
+                AccountId = accountId,
+                Identity = identity,
+            };
+        }
+
+        return null;
+    }
+
+    private static string? ResolveIdentityFromAuthPayload(JsonElement source, string accessToken, string? idToken = null)
+    {
+        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(source, StaticDefinition.SessionIdentityProfileRootProperties);
+        if (!string.IsNullOrWhiteSpace(directIdentity))
+        {
+            return directIdentity;
+        }
+
+        if (!string.IsNullOrWhiteSpace(idToken))
+        {
+            var emailFromIdToken = SessionIdentityHelper.TryGetIdentityFromJwt(idToken, StaticDefinition.SessionIdentityProfileRootProperties);
+            if (!string.IsNullOrWhiteSpace(emailFromIdToken))
+            {
+                return emailFromIdToken;
+            }
+        }
+
+        var emailFromJwt = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken, StaticDefinition.SessionIdentityProfileRootProperties);
+        if (!string.IsNullOrWhiteSpace(emailFromJwt))
+        {
+            return emailFromJwt;
+        }
+
+        return null;
+    }
+
+    private ProviderUsage CreateUnavailableUsageWithIdentity(string message, string? accountIdentity)
+    {
+        var usage = this.CreateUnavailableUsage(message);
+        usage.AccountName = accountIdentity ?? string.Empty;
+        return usage;
+    }
+
+    private List<ProviderUsage> BuildUsages(
+        JsonElement root,
+        string? jwtEmail,
+        string? jwtPlanType,
+        string? authIdentity,
+        string? accountId,
+        string? rawJson = null,
+        int httpStatus = 200)
+    {
+        var planType = root.ReadString("plan_type") ?? jwtPlanType ?? "unknown";
+        var primaryUsedPercent = root.ReadDouble("rate_limit", "primary_window", "used_percent") ?? 0.0;
+        var primaryResetSeconds = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
+        var secondaryUsedPercent = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
+        var secondaryResetSeconds = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
+        var sparkWindow = ExtractSparkWindow(root);
+        var modelNames = ResolveModelNames(root, sparkWindow);
+        var accountIdentity = ResolveAccountIdentity(root, jwtEmail, authIdentity, accountId);
+
+        var remainingPercent = Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0);
+        var details = BuildDetails(
+            primaryUsedPercent,
+            primaryResetSeconds,
+            secondaryUsedPercent,
+            secondaryResetSeconds,
+            sparkWindow,
+            modelNames,
+            root);
+        var nextResetTime = ResolveNextResetTime(primaryResetSeconds, sparkWindow.PrimaryResetAfterSeconds);
+        var usages = new List<ProviderUsage>
+        {
+            new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = StaticDefinition.DisplayName,
+                RequestsPercentage = remainingPercent,
+                RequestsUsed = 100.0 - remainingPercent,
+                RequestsAvailable = 100.0,
+                UsageUnit = "Quota %",
+                IsQuotaBased = true,
+                PlanType = PlanType.Coding,
+                IsAvailable = true,
+                Description = BuildUsageDescription(remainingPercent, primaryUsedPercent, sparkWindow.PrimaryUsedPercent, planType),
+                AccountName = accountIdentity ?? string.Empty,
+                AuthSource = AuthSource.CodexNative(planType),
+                NextResetTime = nextResetTime,
+                Details = details,
+                RawJson = rawJson,
+                HttpStatus = httpStatus,
+            },
+        };
+
+        return usages;
+    }
+
+    private async Task<CodexAuth?> LoadNativeAuthAsync()
+    {
+        foreach (var path in this.GetAuthFileCandidates())
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+                var auth = TryReadNativeAuth(doc.RootElement);
+                if (auth != null)
+                {
+                    return auth;
+                }
+            }
+            catch (Exception ex)
+            {
+                this._logger.LogDebug(ex, "Failed to read Codex auth file at {Path}", path);
+            }
+        }
+
+        return null;
+    }
+
+    private IEnumerable<string> GetAuthFileCandidates()
+    {
+        if (!string.IsNullOrWhiteSpace(this._authFilePath))
+        {
+            yield return this._authFilePath;
+            yield break;
+        }
+
+        var discoverySpec = StaticDefinition.CreateAuthDiscoverySpec();
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        foreach (var path in ProviderAuthCandidatePathResolver.ResolvePaths(discoverySpec, userProfile))
+        {
+            yield return path;
+        }
+    }
+
+    private static List<ProviderUsageDetail> BuildDetails(
+        double primaryUsedPercent,
+        double? primaryResetSeconds,
+        double? secondaryUsedPercent,
+        double? secondaryResetSeconds,
+        SparkWindow sparkWindow,
+        (string PrimaryModelName, string? SparkModelName) modelNames,
+        JsonElement root)
+    {
+        var primaryRemaining = Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0);
+        var details = new List<ProviderUsageDetail>
+        {
+            new()
+            {
+                Name = modelNames.PrimaryModelName,
+                Description = "Model quota",
+                DetailType = ProviderUsageDetailType.Model,
+                QuotaBucketKind = WindowKind.Primary,
+                PercentageValue = primaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
+            },
+            new()
+            {
+                Name = "5-hour quota",
+                Description = FormatResetDescription(primaryResetSeconds),
+                NextResetTime = ResolveDetailResetTime(primaryResetSeconds),
+                DetailType = ProviderUsageDetailType.QuotaWindow,
+                QuotaBucketKind = WindowKind.Primary,
+                PercentageValue = primaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
+            },
+        };
+
+        if (secondaryUsedPercent.HasValue)
+        {
+            var secondaryRemaining = Math.Clamp(100.0 - secondaryUsedPercent.Value, 0.0, 100.0);
+            details.Add(new ProviderUsageDetail
+            {
+                Name = "Weekly quota",
+                Description = FormatResetDescription(secondaryResetSeconds),
+                NextResetTime = ResolveDetailResetTime(secondaryResetSeconds),
+                DetailType = ProviderUsageDetailType.QuotaWindow,
+                QuotaBucketKind = WindowKind.Secondary,
+                PercentageValue = secondaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
+            });
+        }
+
+        if (sparkWindow.HasWindowData)
+        {
+            var sparkUsedPercent = sparkWindow.PrimaryUsedPercent ?? sparkWindow.SecondaryUsedPercent;
+            if (sparkUsedPercent.HasValue)
+            {
+                var sparkRemaining = Math.Clamp(100.0 - sparkUsedPercent.Value, 0.0, 100.0);
+                var sparkResetAfterSeconds = sparkWindow.PrimaryResetAfterSeconds ?? sparkWindow.SecondaryResetAfterSeconds;
+                details.Add(new ProviderUsageDetail
+                {
+                    Name = $"Spark ({sparkWindow.Label ?? "window"})",
+                    Description = FormatResetDescription(sparkResetAfterSeconds),
+                    NextResetTime = ResolveDetailResetTime(sparkResetAfterSeconds),
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    QuotaBucketKind = WindowKind.Spark,
+                    PercentageValue = sparkRemaining,
+                    PercentageSemantic = PercentageValueSemantic.Remaining,
+                });
+            }
+        }
+
+        var creditsBalance = root.ReadDouble("credits", "balance");
+        var creditsUnlimited = root.ReadBool("credits", "unlimited");
+        if (creditsBalance.HasValue || creditsUnlimited.HasValue)
+        {
+            var creditValue = creditsUnlimited == true
+                ? "Unlimited"
+                : creditsBalance?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown";
+
+            details.Add(new ProviderUsageDetail
+            {
+                Name = "Credits",
+                Used = creditValue,
+                DetailType = ProviderUsageDetailType.Credit,
+                QuotaBucketKind = WindowKind.None,
+            });
+        }
+
+        return details;
+    }
+
+    private static (string PrimaryModelName, string? SparkModelName) ResolveModelNames(JsonElement root, SparkWindow sparkWindow)
+    {
+        var primaryRaw = root.ReadString("model_name")
+                         ?? root.ReadString("model")
+                         ?? root.ReadString("rate_limit", "primary_window", "model_name")
+                         ?? root.ReadString("rate_limit", "primary_window", "model")
+                         ?? root.ReadString("rate_limit", "primary_window", "limit_name");
+        var primaryModelName = NormalizeModelName(primaryRaw, "OpenAI") ?? "OpenAI";
+
+        string? sparkModelName = null;
+        if (sparkWindow.HasWindowData)
+        {
+            sparkModelName = ResolveSparkModelName(sparkWindow);
+        }
+
+        return (primaryModelName, sparkModelName);
+    }
+
+    private static string? ResolveSparkModelName(SparkWindow sparkWindow)
+    {
+        var explicitModelName = NormalizeModelName(sparkWindow.ModelName, null);
+        if (!string.IsNullOrWhiteSpace(explicitModelName))
+        {
+            return explicitModelName;
+        }
+
+        var label = NormalizeModelName(sparkWindow.Label, null);
+        if (!string.IsNullOrWhiteSpace(label) && LooksLikeModelName(label))
+        {
+            return label;
+        }
+
+        return null;
     }
 
     private sealed class CodexAuth

@@ -16,10 +16,10 @@ namespace AIUsageTracker.Core.MonitorClient;
 
 public class MonitorService : IMonitorService
 {
+    public const string ExpectedApiContractVersion = MonitorApiContract.CurrentVersion;
+
     private const int UsageRequestTimeoutSeconds = 8;
     private const int ConfigRequestTimeoutSeconds = 3;
-
-    public const string ExpectedApiContractVersion = MonitorApiContract.CurrentVersion;
 
     private static HttpClient? _sharedHttpClient;
     private static readonly List<string> _diagnosticsLog = new();
@@ -60,9 +60,6 @@ public class MonitorService : IMonitorService
     /// <inheritdoc/>
     public string AgentUrl { get; set; } = "http://localhost:5000";
 
-    /// <inheritdoc/>
-    public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
-
     public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
 
     private static HttpClient GetOrCreateHttpClient()
@@ -74,6 +71,9 @@ public class MonitorService : IMonitorService
 
         return _sharedHttpClient;
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
 
     public static void LogDiagnostic(string message)
     {
@@ -717,6 +717,18 @@ public class MonitorService : IMonitorService
         }
     }
 
+    public static AgentContractHandshakeResult EvaluateApiContractCompatibility(
+        string? contractVersion,
+        string? minClientContractVersion,
+        string? reportedAgentVersion)
+    {
+        return MonitorApiContractEvaluator.Evaluate(
+            contractVersion,
+            minClientContractVersion,
+            reportedAgentVersion,
+            ExpectedApiContractVersion);
+    }
+
     private static string? TryGetJsonString(JsonElement root, string propertyName)
     {
         if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var property))
@@ -746,18 +758,6 @@ public class MonitorService : IMonitorService
         }
 
         return null;
-    }
-
-    public static AgentContractHandshakeResult EvaluateApiContractCompatibility(
-        string? contractVersion,
-        string? minClientContractVersion,
-        string? reportedAgentVersion)
-    {
-        return MonitorApiContractEvaluator.Evaluate(
-            contractVersion,
-            minClientContractVersion,
-            reportedAgentVersion,
-            ExpectedApiContractVersion);
     }
 
     // Diagnostics & Export

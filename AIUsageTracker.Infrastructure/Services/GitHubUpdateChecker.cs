@@ -84,7 +84,8 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                     {
                         this._logger.LogInformation(
                             "New version available: {LatestVersion} (Current: {CurrentVersion})",
-                            latestVersion, currentVersion);
+                            latestVersion,
+                            currentVersion);
 
                         // Fetch release notes from GitHub API
                         var releaseNotes = await this.FetchReleaseNotesFromGitHubAsync(latestVersionStr).ConfigureAwait(false);

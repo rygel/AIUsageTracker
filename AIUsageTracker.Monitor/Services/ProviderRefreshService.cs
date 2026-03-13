@@ -31,9 +31,9 @@ public class ProviderRefreshService : BackgroundService
     private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
     private readonly ProviderManagerLifecycleService _providerManagerLifecycle;
     private readonly ProviderRefreshNotificationService _refreshNotificationService;
-    private readonly StartupSequenceService _startupSequenceService;
     private static bool _debugMode = false;
     private static readonly ActivitySource ActivitySource = MonitorActivitySources.Refresh;
+    private readonly StartupSequenceService _startupSequenceService;
     private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
@@ -83,8 +83,6 @@ public class ProviderRefreshService : BackgroundService
         this._startupSequenceService = dependencies.StartupSequenceService;
         this._usageProcessingPipeline = dependencies.UsageProcessingPipeline;
     }
-
-    private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
 
     public bool QueueManualRefresh(
         bool forceAll = false,
@@ -170,21 +168,6 @@ public class ProviderRefreshService : BackgroundService
         }
 
         this._logger.LogInformation("Stopping...");
-    }
-
-    private async Task<int> GetConfiguredMaxConcurrentProviderRequestsAsync()
-    {
-        return await this._providerManagerLifecycle.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
-    }
-
-    private async Task EnsureProviderManagerConcurrencyAsync()
-    {
-        await this._providerManagerLifecycle.EnsureConcurrencyAsync().ConfigureAwait(false);
-    }
-
-    private void InitializeProviders(int maxConcurrentProviderRequests)
-    {
-        this._providerManagerLifecycle.Initialize(maxConcurrentProviderRequests);
     }
 
     public virtual async Task TriggerRefreshAsync(
@@ -389,5 +372,22 @@ public class ProviderRefreshService : BackgroundService
     {
         this._providerManagerLifecycle.Dispose();
         base.Dispose();
+    }
+
+    private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
+
+    private async Task<int> GetConfiguredMaxConcurrentProviderRequestsAsync()
+    {
+        return await this._providerManagerLifecycle.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
+    }
+
+    private async Task EnsureProviderManagerConcurrencyAsync()
+    {
+        await this._providerManagerLifecycle.EnsureConcurrencyAsync().ConfigureAwait(false);
+    }
+
+    private void InitializeProviders(int maxConcurrentProviderRequests)
+    {
+        this._providerManagerLifecycle.Initialize(maxConcurrentProviderRequests);
     }
 }

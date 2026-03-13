@@ -166,18 +166,6 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private async Task<IReadOnlyList<ProviderUsage>> GetUsageForDisplayAsync()
-    {
-        var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync().ConfigureAwait(true);
-        if (groupedSnapshot == null)
-        {
-            this._logger.LogWarning("Grouped usage snapshot is unavailable.");
-            return Array.Empty<ProviderUsage>();
-        }
-
-        return GroupedUsageDisplayAdapter.Expand(groupedSnapshot);
-    }
-
 #pragma warning disable VSTHRD001 // Headless screenshot capture intentionally waits for dispatcher idle before rendering.
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
     {
@@ -230,6 +218,18 @@ public partial class SettingsWindow : Window
         return capturedFiles;
     }
 #pragma warning restore VSTHRD001
+
+    private async Task<IReadOnlyList<ProviderUsage>> GetUsageForDisplayAsync()
+    {
+        var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync().ConfigureAwait(true);
+        if (groupedSnapshot == null)
+        {
+            this._logger.LogWarning("Grouped usage snapshot is unavailable.");
+            return Array.Empty<ProviderUsage>();
+        }
+
+        return GroupedUsageDisplayAdapter.Expand(groupedSnapshot);
+    }
 
     private void ApplyHeadlessCaptureWindowSize(string? tabHeader)
     {

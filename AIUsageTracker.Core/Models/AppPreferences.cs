@@ -102,16 +102,6 @@ public class AppPreferences
         return preferences;
     }
 
-    private void ApplyMigrations(string json)
-    {
-        using var document = JsonDocument.Parse(json);
-        if (!TryGetProperty(document.RootElement, nameof(this.SchemaVersion), out _) ||
-            this.SchemaVersion < CurrentSchemaVersion)
-        {
-            this.ApplyLegacyDisplayModeCompatibility(document.RootElement);
-        }
-    }
-
     private static bool TryGetBooleanProperty(JsonElement element, string propertyName, out bool value)
     {
         value = false;
@@ -137,6 +127,16 @@ public class AppPreferences
 
         property = default;
         return false;
+    }
+
+    private void ApplyMigrations(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        if (!TryGetProperty(document.RootElement, nameof(this.SchemaVersion), out _) ||
+            this.SchemaVersion < CurrentSchemaVersion)
+        {
+            this.ApplyLegacyDisplayModeCompatibility(document.RootElement);
+        }
     }
 
     private void ApplyLegacyDisplayModeCompatibility(JsonElement root)

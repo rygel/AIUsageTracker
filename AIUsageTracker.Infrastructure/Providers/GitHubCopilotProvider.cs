@@ -150,6 +150,146 @@ public class GitHubCopilotProvider : ProviderBase
         return request;
     }
 
+    private static bool TryParseFiniteQuotaSnapshot(
+        System.Text.Json.JsonElement snapshot,
+        out double entitlement,
+        out double remaining,
+        out double remainingPercent)
+    {
+        entitlement = 0;
+        remaining = 0;
+        remainingPercent = 0;
+
+        if (snapshot.TryGetProperty("unlimited", out var unlimitedProp) &&
+            unlimitedProp.ValueKind == System.Text.Json.JsonValueKind.True)
+        {
+            return false;
+        }
+
+        if (!snapshot.TryGetProperty("entitlement", out var entitlementProp) ||
+            !entitlementProp.TryGetDouble(out entitlement) ||
+            entitlement <= 0)
+        {
+            return false;
+        }
+
+        if (snapshot.TryGetProperty("quota_remaining", out var quotaRemainingProp) &&
+            quotaRemainingProp.TryGetDouble(out var quotaRemaining))
+        {
+            remaining = quotaRemaining;
+        }
+        else if (snapshot.TryGetProperty("remaining", out var remainingProp) &&
+                 remainingProp.TryGetDouble(out var remainingValue))
+        {
+            remaining = remainingValue;
+        }
+        else
+        {
+            remaining = entitlement;
+        }
+
+        remaining = Math.Clamp(remaining, 0, entitlement);
+
+        if (snapshot.TryGetProperty("percent_remaining", out var remainingPercentProp) &&
+            remainingPercentProp.TryGetDouble(out var parsedRemainingPercent))
+        {
+            remainingPercent = Math.Clamp(parsedRemainingPercent, 0, 100);
+        }
+        else
+        {
+            var used = Math.Max(0, entitlement - remaining);
+            remainingPercent = UsageMath.CalculateRemainingPercent(used, entitlement);
+        }
+
+        return true;
+    }
+
+    private static void ApplyQuotaWindowSnapshot(
+        CopilotUsageState state,
+        string windowName,
+        double entitlement,
+        double remaining,
+        double remainingPercent)
+    {
+        if (entitlement <= 0)
+        {
+            return;
+        }
+
+        var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
+        var used = Math.Max(0, entitlement - normalizedRemaining);
+        var normalizedRemainingPercent = Math.Clamp(remainingPercent, 0, 100);
+        state.HasCopilotQuotaData = true;
+        state.CostLimit = entitlement;
+        state.CostUsed = used;
+        state.Percentage = normalizedRemainingPercent;
+        state.PrimaryQuotaWindowName = windowName;
+    }
+
+    private static string BuildFinalDescription(CopilotUsageState state)
+    {
+        if (state.HasCopilotQuotaData)
+        {
+            var description = $"{state.PrimaryQuotaWindowName}: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
+            if (!string.IsNullOrEmpty(state.PlanName))
+            {
+                description += $" ({state.PlanName})";
+            }
+
+            return description;
+        }
+
+        return $"{state.Description} (quota unknown)";
+    }
+
+    private static bool HasMeaningfulUsername(string? username)
+    {
+        return !string.IsNullOrWhiteSpace(username) &&
+               !username.Equals("User", StringComparison.OrdinalIgnoreCase) &&
+               !username.Equals("Unknown", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeUsername(string? username)
+    {
+        return HasMeaningfulUsername(username) ? username! : string.Empty;
+    }
+
+    private static string BuildAuthenticatedDescription(string username, string? planName)
+    {
+        if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(planName))
+        {
+            return $"Authenticated as {username} ({planName})";
+        }
+
+        if (!string.IsNullOrEmpty(username))
+        {
+            return $"Authenticated as {username}";
+        }
+
+        if (!string.IsNullOrEmpty(planName))
+        {
+            return $"Authenticated ({planName})";
+        }
+
+        return "Authenticated";
+    }
+
+    private static string NormalizeCopilotPlanName(string plan)
+    {
+        return plan switch
+        {
+            "individual" => "Copilot Individual",
+            "business" => "Copilot Business",
+            "enterprise" => "Copilot Enterprise",
+            "free" => "Copilot Free",
+            "copilot_individual" => "Copilot Individual",
+            "copilot_business" => "Copilot Business",
+            "copilot_enterprise" => "Copilot Enterprise",
+            "copilot_free" => "Copilot Free",
+            _ => plan,
+        };
+    }
+
     private string? ResolveToken(ProviderConfig config)
     {
         var token = this._authService.GetCurrentToken();
@@ -332,82 +472,6 @@ public class GitHubCopilotProvider : ProviderBase
         }
     }
 
-    private static bool TryParseFiniteQuotaSnapshot(
-        System.Text.Json.JsonElement snapshot,
-        out double entitlement,
-        out double remaining,
-        out double remainingPercent)
-    {
-        entitlement = 0;
-        remaining = 0;
-        remainingPercent = 0;
-
-        if (snapshot.TryGetProperty("unlimited", out var unlimitedProp) &&
-            unlimitedProp.ValueKind == System.Text.Json.JsonValueKind.True)
-        {
-            return false;
-        }
-
-        if (!snapshot.TryGetProperty("entitlement", out var entitlementProp) ||
-            !entitlementProp.TryGetDouble(out entitlement) ||
-            entitlement <= 0)
-        {
-            return false;
-        }
-
-        if (snapshot.TryGetProperty("quota_remaining", out var quotaRemainingProp) &&
-            quotaRemainingProp.TryGetDouble(out var quotaRemaining))
-        {
-            remaining = quotaRemaining;
-        }
-        else if (snapshot.TryGetProperty("remaining", out var remainingProp) &&
-                 remainingProp.TryGetDouble(out var remainingValue))
-        {
-            remaining = remainingValue;
-        }
-        else
-        {
-            remaining = entitlement;
-        }
-
-        remaining = Math.Clamp(remaining, 0, entitlement);
-
-        if (snapshot.TryGetProperty("percent_remaining", out var remainingPercentProp) &&
-            remainingPercentProp.TryGetDouble(out var parsedRemainingPercent))
-        {
-            remainingPercent = Math.Clamp(parsedRemainingPercent, 0, 100);
-        }
-        else
-        {
-            var used = Math.Max(0, entitlement - remaining);
-            remainingPercent = UsageMath.CalculateRemainingPercent(used, entitlement);
-        }
-
-        return true;
-    }
-
-    private static void ApplyQuotaWindowSnapshot(
-        CopilotUsageState state,
-        string windowName,
-        double entitlement,
-        double remaining,
-        double remainingPercent)
-    {
-        if (entitlement <= 0)
-        {
-            return;
-        }
-
-        var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
-        var used = Math.Max(0, entitlement - normalizedRemaining);
-        var normalizedRemainingPercent = Math.Clamp(remainingPercent, 0, 100);
-        state.HasCopilotQuotaData = true;
-        state.CostLimit = entitlement;
-        state.CostUsed = used;
-        state.Percentage = normalizedRemainingPercent;
-        state.PrimaryQuotaWindowName = windowName;
-    }
-
     private ProviderUsage BuildUsageResult(CopilotUsageState state)
     {
         return new ProviderUsage
@@ -428,70 +492,6 @@ public class GitHubCopilotProvider : ProviderBase
             Details = state.Details,
             RawJson = state.RawJson,
             HttpStatus = state.HttpStatus,
-        };
-    }
-
-    private static string BuildFinalDescription(CopilotUsageState state)
-    {
-        if (state.HasCopilotQuotaData)
-        {
-            var description = $"{state.PrimaryQuotaWindowName}: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
-            if (!string.IsNullOrEmpty(state.PlanName))
-            {
-                description += $" ({state.PlanName})";
-            }
-
-            return description;
-        }
-
-        return $"{state.Description} (quota unknown)";
-    }
-
-    private static bool HasMeaningfulUsername(string? username)
-    {
-        return !string.IsNullOrWhiteSpace(username) &&
-               !username.Equals("User", StringComparison.OrdinalIgnoreCase) &&
-               !username.Equals("Unknown", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeUsername(string? username)
-    {
-        return HasMeaningfulUsername(username) ? username! : string.Empty;
-    }
-
-    private static string BuildAuthenticatedDescription(string username, string? planName)
-    {
-        if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(planName))
-        {
-            return $"Authenticated as {username} ({planName})";
-        }
-
-        if (!string.IsNullOrEmpty(username))
-        {
-            return $"Authenticated as {username}";
-        }
-
-        if (!string.IsNullOrEmpty(planName))
-        {
-            return $"Authenticated ({planName})";
-        }
-
-        return "Authenticated";
-    }
-
-    private static string NormalizeCopilotPlanName(string plan)
-    {
-        return plan switch
-        {
-            "individual" => "Copilot Individual",
-            "business" => "Copilot Business",
-            "enterprise" => "Copilot Enterprise",
-            "free" => "Copilot Free",
-            "copilot_individual" => "Copilot Individual",
-            "copilot_business" => "Copilot Business",
-            "copilot_enterprise" => "Copilot Enterprise",
-            "copilot_free" => "Copilot Free",
-            _ => plan,
         };
     }
 

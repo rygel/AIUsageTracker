@@ -268,8 +268,12 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task StoreResetEventAsync(string providerId, string providerName,
-        double? previousUsage, double? newUsage, string resetType)
+    public async Task StoreResetEventAsync(
+        string providerId,
+        string providerName,
+        double? previousUsage,
+        double? newUsage,
+        string resetType)
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
@@ -367,6 +371,74 @@ public class UsageDatabase : IUsageDatabase
         {
             this._semaphore.Release();
         }
+    }
+
+    private static DateTime? InferNextResetFromDetails(IReadOnlyList<ProviderUsageDetail> details)
+    {
+        if (details.Count == 0)
+        {
+            return null;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        DateTime? bestFuture = null;
+        DateTime? lastKnown = null;
+        foreach (var detail in details)
+        {
+            if (!detail.NextResetTime.HasValue)
+            {
+                continue;
+            }
+
+            var resetUtc = detail.NextResetTime.Value.ToUniversalTime();
+            if (!lastKnown.HasValue || resetUtc > lastKnown.Value)
+            {
+                lastKnown = resetUtc;
+            }
+
+            if (resetUtc > nowUtc && (!bestFuture.HasValue || resetUtc < bestFuture.Value))
+            {
+                bestFuture = resetUtc;
+            }
+        }
+
+        return bestFuture ?? lastKnown;
+    }
+
+    private static string BuildDetailMergeKey(ProviderUsageDetail detail)
+    {
+        return $"{detail.DetailType}|{detail.QuotaBucketKind}|{detail.Name.Trim()}|{detail.ModelName.Trim()}|{detail.GroupName.Trim()}";
+    }
+
+    private static ProviderUsageDetail CloneDetail(ProviderUsageDetail source)
+    {
+        return new ProviderUsageDetail
+        {
+            Name = source.Name,
+            ModelName = source.ModelName,
+            GroupName = source.GroupName,
+            Used = source.Used,
+            Description = source.Description,
+            NextResetTime = source.NextResetTime,
+            DetailType = source.DetailType,
+            QuotaBucketKind = source.QuotaBucketKind,
+        };
+    }
+
+    private static string AppendStaleSuffix(string description, DateTime lastSeenUtc)
+    {
+        var baseDescription = description ?? string.Empty;
+        var staleSuffix = $"(stale; last seen {lastSeenUtc:yyyy-MM-dd})";
+        return string.IsNullOrWhiteSpace(baseDescription)
+            ? staleSuffix
+            : $"{baseDescription} {staleSuffix}";
+    }
+
+    private static void ApplyUpstreamResponseValidity(ProviderUsage usage)
+    {
+        var evaluation = UpstreamResponseValidityCatalog.Evaluate(usage);
+        usage.UpstreamResponseValidity = evaluation.Validity;
+        usage.UpstreamResponseNote = evaluation.Note;
     }
 
     private async Task MergeRecentlySeenDetailsAsync(
@@ -499,74 +571,6 @@ public class UsageDatabase : IUsageDatabase
                 usage.NextResetTime = InferNextResetFromDetails(currentDetails);
             }
         }
-    }
-
-    private static DateTime? InferNextResetFromDetails(IReadOnlyList<ProviderUsageDetail> details)
-    {
-        if (details.Count == 0)
-        {
-            return null;
-        }
-
-        var nowUtc = DateTime.UtcNow;
-        DateTime? bestFuture = null;
-        DateTime? lastKnown = null;
-        foreach (var detail in details)
-        {
-            if (!detail.NextResetTime.HasValue)
-            {
-                continue;
-            }
-
-            var resetUtc = detail.NextResetTime.Value.ToUniversalTime();
-            if (!lastKnown.HasValue || resetUtc > lastKnown.Value)
-            {
-                lastKnown = resetUtc;
-            }
-
-            if (resetUtc > nowUtc && (!bestFuture.HasValue || resetUtc < bestFuture.Value))
-            {
-                bestFuture = resetUtc;
-            }
-        }
-
-        return bestFuture ?? lastKnown;
-    }
-
-    private static string BuildDetailMergeKey(ProviderUsageDetail detail)
-    {
-        return $"{detail.DetailType}|{detail.QuotaBucketKind}|{detail.Name.Trim()}|{detail.ModelName.Trim()}|{detail.GroupName.Trim()}";
-    }
-
-    private static ProviderUsageDetail CloneDetail(ProviderUsageDetail source)
-    {
-        return new ProviderUsageDetail
-        {
-            Name = source.Name,
-            ModelName = source.ModelName,
-            GroupName = source.GroupName,
-            Used = source.Used,
-            Description = source.Description,
-            NextResetTime = source.NextResetTime,
-            DetailType = source.DetailType,
-            QuotaBucketKind = source.QuotaBucketKind,
-        };
-    }
-
-    private static string AppendStaleSuffix(string description, DateTime lastSeenUtc)
-    {
-        var baseDescription = description ?? string.Empty;
-        var staleSuffix = $"(stale; last seen {lastSeenUtc:yyyy-MM-dd})";
-        return string.IsNullOrWhiteSpace(baseDescription)
-            ? staleSuffix
-            : $"{baseDescription} {staleSuffix}";
-    }
-
-    private static void ApplyUpstreamResponseValidity(ProviderUsage usage)
-    {
-        var evaluation = UpstreamResponseValidityCatalog.Evaluate(usage);
-        usage.UpstreamResponseValidity = evaluation.Validity;
-        usage.UpstreamResponseNote = evaluation.Note;
     }
 
     private sealed record RecentProviderDetailsRow(string ProviderId, string DetailsJson, string FetchedAt);

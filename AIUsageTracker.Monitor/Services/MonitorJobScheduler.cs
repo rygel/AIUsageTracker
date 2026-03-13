@@ -323,24 +323,6 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
             stoppingToken);
     }
 
-    private bool TryDequeueNext(out ScheduledJob job)
-    {
-        for (var attempts = 0; attempts < DispatchPattern.Length; attempts++)
-        {
-            var dispatchPatternIndex = this._dispatchPatternIndex;
-            var priority = DispatchPattern[dispatchPatternIndex];
-            this._dispatchPatternIndex = (dispatchPatternIndex + 1) % DispatchPattern.Length;
-
-            if (this.TryDequeue(priority, out job))
-            {
-                return true;
-            }
-        }
-
-        job = null!;
-        return false;
-    }
-
     private static void UpdateMaximum(ref long target, long value)
     {
         while (true)
@@ -369,6 +351,24 @@ public sealed class MonitorJobScheduler : BackgroundService, IMonitorJobSchedule
         var normal = GetOldestQueuedJobAgeMs(this._normalPriorityQueue, nowUtc);
         var low = GetOldestQueuedJobAgeMs(this._lowPriorityQueue, nowUtc);
         return Math.Max(high, Math.Max(normal, low));
+    }
+
+    private bool TryDequeueNext(out ScheduledJob job)
+    {
+        for (var attempts = 0; attempts < DispatchPattern.Length; attempts++)
+        {
+            var dispatchPatternIndex = this._dispatchPatternIndex;
+            var priority = DispatchPattern[dispatchPatternIndex];
+            this._dispatchPatternIndex = (dispatchPatternIndex + 1) % DispatchPattern.Length;
+
+            if (this.TryDequeue(priority, out job))
+            {
+                return true;
+            }
+        }
+
+        job = null!;
+        return false;
     }
 
     private static long GetOldestQueuedJobAgeMs(IEnumerable<ScheduledJob> jobs, DateTime nowUtc)

@@ -76,6 +76,128 @@ public class OpenAIProvider : ProviderBase
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
 
+    private static bool IsApiKey(string token)
+    {
+        return token.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<ProviderUsageDetail> BuildOpenAiSessionDetails(JsonElement root)
+    {
+        var details = new List<ProviderUsageDetail>();
+        var used = root.ReadDouble("rate_limit", "primary_window", "used_percent");
+        var reset = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
+        var primaryResetTime = ResolveWindowResetTime(root, "primary_window");
+
+        if (used.HasValue)
+        {
+            var primaryRemaining = Math.Clamp(100.0 - used.Value, 0.0, 100.0);
+            details.Add(new ProviderUsageDetail
+            {
+                Name = "5-hour quota",
+                Description = reset.HasValue && reset.Value > 0 ? $"Resets in {(int)reset.Value}s" : string.Empty,
+                NextResetTime = primaryResetTime,
+                DetailType = ProviderUsageDetailType.QuotaWindow,
+                QuotaBucketKind = WindowKind.Primary,
+                PercentageValue = primaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
+            });
+        }
+
+        var weeklyUsed = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
+        var weeklyReset = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
+        var weeklyResetTime = ResolveWindowResetTime(root, "secondary_window");
+        if (weeklyUsed.HasValue)
+        {
+            var secondaryRemaining = Math.Clamp(100.0 - weeklyUsed.Value, 0.0, 100.0);
+            details.Add(new ProviderUsageDetail
+            {
+                Name = "Weekly quota",
+                Description = weeklyReset.HasValue && weeklyReset.Value > 0 ? $"Resets in {(int)weeklyReset.Value}s" : string.Empty,
+                NextResetTime = weeklyResetTime,
+                DetailType = ProviderUsageDetailType.QuotaWindow,
+                QuotaBucketKind = WindowKind.Secondary,
+                PercentageValue = secondaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
+            });
+        }
+
+        var credits = root.ReadDouble("credits", "balance");
+        var unlimited = root.ReadBool("credits", "unlimited");
+        if (credits.HasValue || unlimited.HasValue)
+        {
+            details.Add(new ProviderUsageDetail
+            {
+                Name = "Credits",
+                Used = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
+                DetailType = ProviderUsageDetailType.Credit,
+                QuotaBucketKind = WindowKind.None,
+            });
+        }
+
+        return details;
+    }
+
+    private static DateTime? ResolveResetTime(JsonElement root)
+    {
+        var primaryReset = ResolveWindowResetTime(root, "primary_window");
+        if (primaryReset.HasValue)
+        {
+            return primaryReset;
+        }
+
+        return ResolveWindowResetTime(root, "secondary_window");
+    }
+
+    private static DateTime? ResolveWindowResetTime(JsonElement root, string windowName)
+    {
+        var resetSeconds = root.ReadDouble("rate_limit", windowName, "reset_after_seconds")
+                          ?? root.ReadDouble("rate_limit", windowName, "reset_after");
+
+        if (resetSeconds.HasValue && resetSeconds.Value > 0)
+        {
+            return DateTime.UtcNow.AddSeconds(resetSeconds.Value).ToLocalTime();
+        }
+
+        var resetAtIso = root.ReadString("rate_limit", windowName, "resets_at")
+                         ?? root.ReadString("rate_limit", windowName, "reset_at");
+
+        if (!string.IsNullOrWhiteSpace(resetAtIso) &&
+            DateTime.TryParse(resetAtIso, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedResetAt))
+        {
+            return parsedResetAt.ToLocalTime();
+        }
+
+        var resetAtEpoch = root.ReadDouble("rate_limit", windowName, "reset_at_unix");
+        if (resetAtEpoch.HasValue && resetAtEpoch.Value > 0)
+        {
+            return DateTimeOffset.FromUnixTimeSeconds((long)resetAtEpoch.Value).LocalDateTime;
+        }
+
+        return null;
+    }
+
+    private static string? GetAccountIdentity(JsonElement root, string accessToken, string? accountId)
+    {
+        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(root, StaticDefinition.SessionIdentityProfileRootProperties);
+        if (!string.IsNullOrWhiteSpace(directIdentity))
+        {
+            return directIdentity;
+        }
+
+        var fromToken = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken, StaticDefinition.SessionIdentityProfileRootProperties);
+        if (!string.IsNullOrWhiteSpace(fromToken))
+        {
+            return fromToken;
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountId))
+        {
+            return accountId;
+        }
+
+        return null;
+    }
+
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
@@ -238,127 +360,5 @@ public class OpenAIProvider : ProviderBase
             RawJson = content,
             HttpStatus = (int)response.StatusCode,
         };
-    }
-
-    private static bool IsApiKey(string token)
-    {
-        return token.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static List<ProviderUsageDetail> BuildOpenAiSessionDetails(JsonElement root)
-    {
-        var details = new List<ProviderUsageDetail>();
-        var used = root.ReadDouble("rate_limit", "primary_window", "used_percent");
-        var reset = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
-        var primaryResetTime = ResolveWindowResetTime(root, "primary_window");
-
-        if (used.HasValue)
-        {
-            var primaryRemaining = Math.Clamp(100.0 - used.Value, 0.0, 100.0);
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "5-hour quota",
-                Description = reset.HasValue && reset.Value > 0 ? $"Resets in {(int)reset.Value}s" : string.Empty,
-                NextResetTime = primaryResetTime,
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Primary,
-                PercentageValue = primaryRemaining,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-            });
-        }
-
-        var weeklyUsed = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
-        var weeklyReset = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
-        var weeklyResetTime = ResolveWindowResetTime(root, "secondary_window");
-        if (weeklyUsed.HasValue)
-        {
-            var secondaryRemaining = Math.Clamp(100.0 - weeklyUsed.Value, 0.0, 100.0);
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "Weekly quota",
-                Description = weeklyReset.HasValue && weeklyReset.Value > 0 ? $"Resets in {(int)weeklyReset.Value}s" : string.Empty,
-                NextResetTime = weeklyResetTime,
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Secondary,
-                PercentageValue = secondaryRemaining,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-            });
-        }
-
-        var credits = root.ReadDouble("credits", "balance");
-        var unlimited = root.ReadBool("credits", "unlimited");
-        if (credits.HasValue || unlimited.HasValue)
-        {
-            details.Add(new ProviderUsageDetail
-            {
-                Name = "Credits",
-                Used = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
-                DetailType = ProviderUsageDetailType.Credit,
-                QuotaBucketKind = WindowKind.None,
-            });
-        }
-
-        return details;
-    }
-
-    private static DateTime? ResolveResetTime(JsonElement root)
-    {
-        var primaryReset = ResolveWindowResetTime(root, "primary_window");
-        if (primaryReset.HasValue)
-        {
-            return primaryReset;
-        }
-
-        return ResolveWindowResetTime(root, "secondary_window");
-    }
-
-    private static DateTime? ResolveWindowResetTime(JsonElement root, string windowName)
-    {
-        var resetSeconds = root.ReadDouble("rate_limit", windowName, "reset_after_seconds")
-                          ?? root.ReadDouble("rate_limit", windowName, "reset_after");
-
-        if (resetSeconds.HasValue && resetSeconds.Value > 0)
-        {
-            return DateTime.UtcNow.AddSeconds(resetSeconds.Value).ToLocalTime();
-        }
-
-        var resetAtIso = root.ReadString("rate_limit", windowName, "resets_at")
-                         ?? root.ReadString("rate_limit", windowName, "reset_at");
-
-        if (!string.IsNullOrWhiteSpace(resetAtIso) &&
-            DateTime.TryParse(resetAtIso, System.Globalization.CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedResetAt))
-        {
-            return parsedResetAt.ToLocalTime();
-        }
-
-        var resetAtEpoch = root.ReadDouble("rate_limit", windowName, "reset_at_unix");
-        if (resetAtEpoch.HasValue && resetAtEpoch.Value > 0)
-        {
-            return DateTimeOffset.FromUnixTimeSeconds((long)resetAtEpoch.Value).LocalDateTime;
-        }
-
-        return null;
-    }
-
-    private static string? GetAccountIdentity(JsonElement root, string accessToken, string? accountId)
-    {
-        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(root, StaticDefinition.SessionIdentityProfileRootProperties);
-        if (!string.IsNullOrWhiteSpace(directIdentity))
-        {
-            return directIdentity;
-        }
-
-        var fromToken = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken, StaticDefinition.SessionIdentityProfileRootProperties);
-        if (!string.IsNullOrWhiteSpace(fromToken))
-        {
-            return fromToken;
-        }
-
-        if (!string.IsNullOrWhiteSpace(accountId))
-        {
-            return accountId;
-        }
-
-        return null;
     }
 }
