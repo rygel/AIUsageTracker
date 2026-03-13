@@ -35,10 +35,7 @@ public class SlimGroupedUsageGuardrailTests
             .Select(definition => new
             {
                 definition.ProviderId,
-                Missing = definition.VisibleDerivedProviderIds
-                    .Where(derivedProviderId => definition.DerivedModelSelectors.All(selector =>
-                        !string.Equals(selector.DerivedProviderId, derivedProviderId, StringComparison.OrdinalIgnoreCase)))
-                    .ToList(),
+                Missing = ProviderMetadataCatalog.GetMissingDerivedModelSelectorProviderIds(definition.ProviderId),
             })
             .Where(entry => entry.Missing.Count > 0)
             .ToList();

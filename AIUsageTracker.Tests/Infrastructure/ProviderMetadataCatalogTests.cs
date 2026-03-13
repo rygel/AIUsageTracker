@@ -258,6 +258,30 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
+    [InlineData("codex", new[] { "codex.spark" })]
+    [InlineData("gemini-cli", new[] { "gemini-cli.minute", "gemini-cli.hourly", "gemini-cli.daily" })]
+    [InlineData("antigravity", new string[0])]
+    public void GetVisibleDerivedProviderIds_UsesProviderDefinitions(string providerId, string[] expected)
+    {
+        var providerIds = ProviderMetadataCatalog.GetVisibleDerivedProviderIds(providerId);
+
+        Assert.Equal(expected, providerIds, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("codex", 0, 0)]
+    [InlineData("gemini-cli", 0, 0)]
+    [InlineData("antigravity", 0, 0)]
+    public void DerivedModelSelectorCoverageQueries_ReportConfiguredProviders(
+        string providerId,
+        int expectedMissingCount,
+        int expectedUnknownCount)
+    {
+        Assert.Equal(expectedMissingCount, ProviderMetadataCatalog.GetMissingDerivedModelSelectorProviderIds(providerId).Count);
+        Assert.Equal(expectedUnknownCount, ProviderMetadataCatalog.GetUnknownDerivedModelSelectorProviderIds(providerId).Count);
+    }
+
+    [Theory]
     [InlineData("OPENAI_API_KEY", "openai")]
     [InlineData("CODEX_API_KEY", "codex")]
     [InlineData("GEMINI_API_KEY", "gemini-cli")]

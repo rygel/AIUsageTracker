@@ -146,10 +146,43 @@ public static class ProviderMetadataCatalog
                ProviderFamilyPolicy.HasDisplayableDerivedProviders(definition.VisibleDerivedProviderIds, definition.FamilyMode);
     }
 
+    public static IReadOnlyCollection<string> GetVisibleDerivedProviderIds(string providerId)
+    {
+        return TryGet(providerId, out var definition)
+            ? definition.VisibleDerivedProviderIds
+            : Array.Empty<string>();
+    }
+
+    public static IReadOnlyCollection<ProviderDerivedModelSelector> GetDerivedModelSelectors(string providerId)
+    {
+        return TryGet(providerId, out var definition)
+            ? definition.DerivedModelSelectors
+            : Array.Empty<ProviderDerivedModelSelector>();
+    }
+
+    public static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
+    {
+        if (!TryGet(providerId, out var definition))
+        {
+            return Array.Empty<string>();
+        }
+
+        return GetMissingDerivedModelSelectorProviderIds(definition);
+    }
+
+    public static IReadOnlyList<string> GetUnknownDerivedModelSelectorProviderIds(string providerId)
+    {
+        if (!TryGet(providerId, out var definition))
+        {
+            return Array.Empty<string>();
+        }
+
+        return GetUnknownDerivedModelSelectorProviderIds(definition);
+    }
+
     public static bool HasStaticVisibleDerivedProviders(string providerId)
     {
-        return TryGet(providerId, out var definition) &&
-               definition.VisibleDerivedProviderIds.Count > 0;
+        return GetVisibleDerivedProviderIds(providerId).Count > 0;
     }
 
     public static bool IsAggregateParentProviderId(string providerId)
@@ -551,10 +584,7 @@ public static class ProviderMetadataCatalog
             .Select(definition => new
             {
                 definition.ProviderId,
-                Missing = definition.VisibleDerivedProviderIds
-                    .Where(derivedProviderId => definition.DerivedModelSelectors.All(selector =>
-                        !string.Equals(selector.DerivedProviderId, derivedProviderId, StringComparison.OrdinalIgnoreCase)))
-                    .ToList(),
+                Missing = GetMissingDerivedModelSelectorProviderIds(definition),
             })
             .Where(entry => entry.Missing.Count > 0)
             .ToList();
@@ -571,13 +601,7 @@ public static class ProviderMetadataCatalog
             .Select(definition => new
             {
                 definition.ProviderId,
-                Unknown = definition.DerivedModelSelectors
-                    .Select(selector => selector.DerivedProviderId)
-                    .Where(derivedProviderId => !definition.VisibleDerivedProviderIds.Contains(
-                        derivedProviderId,
-                        StringComparer.OrdinalIgnoreCase))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
+                Unknown = GetUnknownDerivedModelSelectorProviderIds(definition),
             })
             .Where(entry => entry.Unknown.Count > 0)
             .ToList();
@@ -652,5 +676,31 @@ public static class ProviderMetadataCatalog
                 "Providers using child provider rows for grouped models must support child provider ids and avoid synthetic child rendering: " +
                 string.Join(", ", invalidGroupedModelChildRowDefinitions));
         }
+    }
+
+    private static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(ProviderDefinition definition)
+    {
+        if (definition.VisibleDerivedProviderIds.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        return definition.VisibleDerivedProviderIds
+            .Where(derivedProviderId => definition.DerivedModelSelectors.All(selector =>
+                !string.Equals(selector.DerivedProviderId, derivedProviderId, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(derivedProviderId => derivedProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetUnknownDerivedModelSelectorProviderIds(ProviderDefinition definition)
+    {
+        return definition.DerivedModelSelectors
+            .Select(selector => selector.DerivedProviderId)
+            .Where(derivedProviderId => !definition.VisibleDerivedProviderIds.Contains(
+                derivedProviderId,
+                StringComparer.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(derivedProviderId => derivedProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }
