@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.31] - 2026-03-13
+
+### Changed
+- **Beta Version Bump**: Advanced shared version metadata and packaging references to `2.2.28-beta.31`.
+- **Provider Label Authority**: Split canonical provider labels from dynamic runtime labels so metadata is the source of truth for provider naming across monitor, UI, and CLI flows.
+- **Provider Source Label Cleanup**: Aligned Codex, OpenAI, Antigravity, Gemini, Minimax, Mistral, and Z.ai provider-emitted labels with provider metadata, keeping dynamic child/model labels intentional instead of accidental drift.
+
 ## [2.2.28-beta.30] - 2026-03-13
 
 ### Changed
