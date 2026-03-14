@@ -155,7 +155,9 @@ internal static class ProviderUsageDisplayCatalog
             UsageUnit = "Quota %",
             IsQuotaBased = isQuotaBased,
             PlanType = planType,
-            Description = hasRemainingPercent ? $"{effectiveRemaining:F0}% Remaining" : "Usage unknown",
+            Description = !parentUsage.IsAvailable && !string.IsNullOrWhiteSpace(parentUsage.Description)
+                ? parentUsage.Description
+                : hasRemainingPercent ? $"{effectiveRemaining:F0}% Remaining" : "Usage unknown",
             NextResetTime = detail.NextResetTime,
             IsAvailable = parentUsage.IsAvailable,
             AuthSource = parentUsage.AuthSource,

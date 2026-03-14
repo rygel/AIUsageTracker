@@ -68,10 +68,23 @@ internal static class ProviderStatusPresentationCatalog
         var secondaryLines = new List<ProviderStatusLine>();
         var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
         var sourceLabel = ProviderCapabilityCatalog.GetDisplayName(canonicalProviderId);
-        var primaryText = usage?.IsAvailable == true
-            ? $"Derived from {sourceLabel} usage (read-only)"
-            : "Derived provider (waiting for usage data)";
-        var primaryResourceKey = usage?.IsAvailable == true ? "ProgressBarGreen" : "TertiaryText";
+        string primaryText;
+        string primaryResourceKey;
+        if (usage?.IsAvailable == true)
+        {
+            primaryText = $"Derived from {sourceLabel} usage (read-only)";
+            primaryResourceKey = "ProgressBarGreen";
+        }
+        else if (usage != null && !string.IsNullOrWhiteSpace(usage.Description))
+        {
+            primaryText = usage.Description;
+            primaryResourceKey = "TertiaryText";
+        }
+        else
+        {
+            primaryText = "Derived provider (waiting for usage data)";
+            primaryResourceKey = "TertiaryText";
+        }
 
         if (usage?.NextResetTime is DateTime derivedReset)
         {

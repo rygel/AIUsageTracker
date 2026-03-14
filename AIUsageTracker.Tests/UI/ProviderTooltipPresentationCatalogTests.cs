@@ -82,18 +82,39 @@ public sealed class ProviderTooltipPresentationCatalogTests
         };
 
         var content = ProviderTooltipPresentationCatalog.BuildContent(usage, "Copilot");
+        var normalized = content?.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-        Assert.Equal("Copilot\nSource: local app", content);
+        Assert.Contains("Copilot", normalized!, StringComparison.Ordinal);
+        Assert.Contains("Source: local app", normalized!, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void BuildContent_ReturnsNull_WhenNoTooltipDataExists()
+    public void BuildContent_ShowsStatus_WhenNoDetailsOrAuthSourceExist()
     {
         var usage = new ProviderUsage();
 
         var content = ProviderTooltipPresentationCatalog.BuildContent(usage, "OpenCode");
+        var normalized = content?.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-        Assert.Null(content);
+        Assert.NotNull(content);
+        Assert.Contains("OpenCode", normalized!, StringComparison.Ordinal);
+        Assert.Contains("Status:", normalized!, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BuildContent_ShowsErrorDescription_WhenProviderUnavailable()
+    {
+        var usage = new ProviderUsage
+        {
+            IsAvailable = false,
+            Description = "Authentication failed (401)",
+        };
+
+        var content = ProviderTooltipPresentationCatalog.BuildContent(usage, "Kimi");
+        var normalized = content?.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("Status: Inactive", normalized!, StringComparison.Ordinal);
+        Assert.Contains("Authentication failed (401)", normalized!, StringComparison.Ordinal);
     }
 
     [Fact]
