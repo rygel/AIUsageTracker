@@ -53,6 +53,11 @@ public static class HttpClientExtensions
             .AddPolicyHandler(retryPolicy)
             .AddPolicyHandler(circuitBreakerPolicy);
 
+        // Add a plain HttpClient without retry/circuit-breaker policies.
+        // Used by providers (e.g. ClaudeCodeProvider) that handle retries themselves
+        // or where retrying 429s is counterproductive (burns rate-limit budget).
+        services.AddHttpClient("PlainClient");
+
         // Register ResilientHttpClient as transient
         services.AddTransient<IResilientHttpClient>(sp =>
         {

@@ -204,8 +204,9 @@ public class Program
             builder.Services.AddHttpClient();
             builder.Services.AddResilientHttpClient();
 
-            // Register plain HttpClient for providers that need it (e.g., ClaudeCodeProvider, KimiProvider)
-            builder.Services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient());
+            // Register plain HttpClient for providers that need it (e.g., ClaudeCodeProvider, KimiProvider).
+            // Uses "PlainClient" — no Polly retry-on-429 policy, so providers control their own retry behavior.
+            builder.Services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("PlainClient"));
 
             // Enable debug mode in refresh service
             if (isDebugMode)
