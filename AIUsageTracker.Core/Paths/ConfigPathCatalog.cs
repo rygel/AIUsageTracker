@@ -56,10 +56,13 @@ public static class ConfigPathCatalog
             yield break;
         }
 
-        yield return Path.Combine(userProfileRoot, ".local", "share", "opencode", "auth.json");
+        // Ordered least-authoritative to most-authoritative (later entries win).
+        // ~/.opencode/ is a legacy path with potentially stale keys.
+        // ~/.local/share/opencode/ is the active XDG data directory maintained by OpenCode.
+        yield return Path.Combine(userProfileRoot, ".opencode", "auth.json");
         yield return Path.Combine(userProfileRoot, ".config", "opencode", "auth.json");
         yield return Path.Combine(userProfileRoot, "AppData", "Roaming", "opencode", "auth.json");
         yield return Path.Combine(userProfileRoot, "AppData", "Local", "opencode", "auth.json");
-        yield return Path.Combine(userProfileRoot, ".opencode", "auth.json");
+        yield return Path.Combine(userProfileRoot, ".local", "share", "opencode", "auth.json");
     }
 }
