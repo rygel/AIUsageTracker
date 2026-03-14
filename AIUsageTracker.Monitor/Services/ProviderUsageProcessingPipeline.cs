@@ -445,6 +445,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 NextResetTime = detail.NextResetTime?.ToUniversalTime(),
                 DetailType = detail.DetailType,
                 QuotaBucketKind = detail.QuotaBucketKind,
+                PercentageValue = detail.PercentageValue,
+                PercentageSemantic = detail.PercentageSemantic,
+                IsStale = detail.IsStale,
             });
         }
 
@@ -508,7 +511,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             if (detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
                 detail.QuotaBucketKind == WindowKind.None)
             {
-                validationErrors.Add("QuotaWindow details must have WindowKind set (Primary, Secondary, or Spark)");
+                validationErrors.Add("QuotaWindow details must have WindowKind set (Burst, Rolling, or ModelSpecific)");
             }
         }
 
