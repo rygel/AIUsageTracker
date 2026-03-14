@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.39] - 2026-03-14
+
+### Fixed
+- **Codex Dual Bars**: Fixed both quota bars (5-hour burst + weekly rolling) not rendering on the Codex card. `NormalizeDetails` in the processing pipeline was dropping `PercentageValue` and `PercentageSemantic` when copying detail objects, causing `GetEffectiveUsedPercent` to return null for both windows and `TryGetPresentation` to bail out entirely.
+- **Stale Detail Visual**: Cards whose provider details are marked stale now render at 65% opacity to signal outdated data.
+- **Aggregate Fallback Text**: Provider cards in aggregate-parent mode now show "Quota details unavailable" instead of the misleading "Per-model quotas".
+
+### Changed
+- **Architecture Simplification**: Removed `ProviderCapabilityCatalog` (96-line pure pass-through layer — 15 forwarding wrappers with zero added logic). All 35+ call sites now reference `ProviderMetadataCatalog` directly. Removed `GetCanonicalProviderId` and `GetIconAssetName` pass-throughs from `ProviderVisualCatalog`.
+- **Presentation Record Cleanup**: Removed `IsAggregateParent` from `ProviderCardPresentation` (set but never read externally). Added `IsStale`, `DualBucketPrimaryUsed`, `DualBucketSecondaryUsed` to the record so consumers don't re-derive them.
+- **Repo Cleanup**: Moved documentation files from root into `docs/` (keeping README, CHANGELOG, CONTRIBUTING, LICENSE at root per GitHub conventions). Deleted stale session artifacts (`memory.md`, `task.md`, `problems.md`), legacy scripts (`fix_resources.js/py`), and accumulated build/test logs.
+- **Warning Cleanup**: Eliminated CS8625, CS8604, MA0006, SA1122, MA0011, MA0009, CS0618, MA0016 warning categories across the solution. Added `.ConfigureAwait(false)` to non-UI async code.
+
 ## [2.2.28-beta.38] - 2026-03-14
 
 ### Fixed
