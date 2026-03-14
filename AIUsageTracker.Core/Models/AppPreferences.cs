@@ -93,7 +93,7 @@ public class AppPreferences
 
     // Provider item visibility — IDs in this list are hidden in the Slim UI.
     // An empty list means all items are visible (default).
-    public List<string> HiddenProviderItemIds { get; set; } = new();
+    public IList<string> HiddenProviderItemIds { get; set; } = new List<string>();
 
     // Update channel (Stable or Beta)
     public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;

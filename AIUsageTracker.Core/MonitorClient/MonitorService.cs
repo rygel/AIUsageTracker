@@ -21,8 +21,9 @@ public class MonitorService : IMonitorService
     private const int UsageRequestTimeoutSeconds = 8;
     private const int ConfigRequestTimeoutSeconds = 3;
 
-    private static HttpClient? _sharedHttpClient;
     private static readonly List<string> _diagnosticsLog = new();
+    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
+    private static HttpClient? _sharedHttpClient;
     private static long _usageRequestCount;
     private static long _usageErrorCount;
     private static long _usageTotalLatencyMs;
@@ -31,7 +32,6 @@ public class MonitorService : IMonitorService
     private static long _refreshErrorCount;
     private static long _refreshTotalLatencyMs;
     private static long _refreshLastLatencyMs;
-    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
 
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
@@ -57,20 +57,10 @@ public class MonitorService : IMonitorService
         // to avoid race conditions where the Monitor port changes
     }
 
-    /// <inheritdoc/>
-    public string AgentUrl { get; set; } = "http://localhost:5000";
-
     public static IReadOnlyList<string> DiagnosticsLog => _diagnosticsLog;
 
-    private static HttpClient GetOrCreateHttpClient()
-    {
-        if (_sharedHttpClient == null)
-        {
-            _sharedHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-        }
-
-        return _sharedHttpClient;
-    }
+    /// <inheritdoc/>
+    public string AgentUrl { get; set; } = "http://localhost:5000";
 
     /// <inheritdoc/>
     public IReadOnlyList<string> LastAgentErrors { get; private set; } = new List<string>();
@@ -116,108 +106,16 @@ public class MonitorService : IMonitorService
         };
     }
 
-    private static void RecordUsageTelemetry(TimeSpan duration, bool success)
+    public static AgentContractHandshakeResult EvaluateApiContractCompatibility(
+        string? contractVersion,
+        string? minClientContractVersion,
+        string? reportedAgentVersion)
     {
-        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref _usageRequestCount);
-        Interlocked.Add(ref _usageTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref _usageLastLatencyMs, latencyMs);
-        if (!success)
-        {
-            Interlocked.Increment(ref _usageErrorCount);
-        }
-    }
-
-    private static void RecordRefreshTelemetry(TimeSpan duration, bool success)
-    {
-        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref _refreshRequestCount);
-        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref _refreshLastLatencyMs, latencyMs);
-        if (!success)
-        {
-            Interlocked.Increment(ref _refreshErrorCount);
-        }
-    }
-
-    private string BuildMonitorUrl(string relativePath)
-    {
-        return $"{this.AgentUrl}{relativePath}";
-    }
-
-    private async Task<T?> GetFromMonitorJsonAsync<T>(string relativePath, string operationName, int? timeoutSeconds = null)
-    {
-        try
-        {
-            if (timeoutSeconds.HasValue)
-            {
-                using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds.Value));
-                return await this._httpClient.GetFromJsonAsync<T>(
-                    this.BuildMonitorUrl(relativePath),
-                    this._jsonOptions,
-                    requestTimeout.Token).ConfigureAwait(false);
-            }
-
-            return await this._httpClient.GetFromJsonAsync<T>(
-                this.BuildMonitorUrl(relativePath),
-                this._jsonOptions).ConfigureAwait(false);
-        }
-        catch (TaskCanceledException ex)
-        {
-            this._logger?.LogWarning(
-                ex,
-                "{Operation} timeout after {TimeoutSeconds}s at {Url}",
-                operationName,
-                timeoutSeconds ?? 0,
-                this.BuildMonitorUrl(relativePath));
-            return default;
-        }
-        catch (Exception ex)
-        {
-            this._logger?.LogWarning(ex, "{Operation} failed at {Url}", operationName, this.BuildMonitorUrl(relativePath));
-            return default;
-        }
-    }
-
-    private async Task<HttpResponseMessage?> SendMonitorRequestAsync(
-        Func<HttpClient, Task<HttpResponseMessage>> requestFactory,
-        string operationName)
-    {
-        try
-        {
-            return await requestFactory(this._httpClient).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            this._logger?.LogWarning(ex, "{Operation} failed against {AgentUrl}", operationName, this.AgentUrl);
-            return null;
-        }
-    }
-
-    private async Task<bool> SendMonitorStatusRequestAsync(
-        Func<HttpClient, Task<HttpResponseMessage>> requestFactory,
-        string operationName)
-    {
-        using var response = await this.SendMonitorRequestAsync(requestFactory, operationName).ConfigureAwait(false);
-        return response?.IsSuccessStatusCode == true;
-    }
-
-    private async Task<T?> ReadMonitorResponseJsonAsync<T>(HttpResponseMessage response, string operationName)
-    {
-        try
-        {
-            return await response.Content.ReadFromJsonAsync<T>(this._jsonOptions).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            this._logger?.LogWarning(
-                ex,
-                "{Operation} returned unreadable JSON from {AgentUrl} with status {StatusCode}",
-                operationName,
-                this.AgentUrl,
-                (int)response.StatusCode);
-            return default;
-        }
+        return MonitorApiContractEvaluator.Evaluate(
+            contractVersion,
+            minClientContractVersion,
+            reportedAgentVersion,
+            ExpectedApiContractVersion);
     }
 
     /// <inheritdoc/>
@@ -339,59 +237,6 @@ public class MonitorService : IMonitorService
             MonitorApiRoutes.UsageGrouped,
             nameof(this.GetGroupedUsageAsync),
             UsageRequestTimeoutSeconds).ConfigureAwait(false);
-    }
-
-    private async Task<List<ProviderUsage>?> GetUsageOnceAsync()
-    {
-        using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
-        return await this._httpClient.GetFromJsonAsync<List<ProviderUsage>>(
-            this.BuildMonitorUrl(MonitorApiRoutes.Usage),
-            this._jsonOptions,
-            requestTimeout.Token).ConfigureAwait(false);
-    }
-
-    private static bool IsRecoverableUsageFailure(Exception ex)
-    {
-        return ex is HttpRequestException or TaskCanceledException;
-    }
-
-    private static string DescribeUsageFailure(Exception ex)
-    {
-        return ex switch
-        {
-            TaskCanceledException => $"Request timed out after {UsageRequestTimeoutSeconds}s",
-            HttpRequestException httpRequestException when !string.IsNullOrWhiteSpace(httpRequestException.Message) => httpRequestException.Message,
-            _ => "Connection error",
-        };
-    }
-
-    private static IReadOnlyList<string> GetActionableMetadataErrors(IReadOnlyList<string>? errors)
-    {
-        if (errors == null || errors.Count == 0)
-        {
-            return new List<string>();
-        }
-
-        return errors
-            .Where(IsActionableMetadataError)
-            .ToList();
-    }
-
-    private static bool IsActionableMetadataError(string error)
-    {
-        if (string.IsNullOrWhiteSpace(error))
-        {
-            return false;
-        }
-
-        if (error.StartsWith("Startup status:", StringComparison.OrdinalIgnoreCase))
-        {
-            return !error.Contains("running", StringComparison.OrdinalIgnoreCase);
-        }
-
-        return error.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
-               error.Contains("error", StringComparison.OrdinalIgnoreCase) ||
-               error.Contains("exception", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc/>
@@ -624,26 +469,6 @@ public class MonitorService : IMonitorService
         return this.GetEndpointDetailsAsync(MonitorApiRoutes.Diagnostics);
     }
 
-    private async Task<string> GetEndpointDetailsAsync(string endpointPath)
-    {
-        var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(endpointPath)),
-            nameof(this.GetEndpointDetailsAsync)).ConfigureAwait(false);
-        if (response == null)
-        {
-            return "Request failed: no response from Monitor.";
-        }
-
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            return $"HTTP {(int)response.StatusCode}: {body}";
-        }
-
-        return body;
-    }
-
     /// <inheritdoc/>
     public async Task<AgentContractHandshakeResult> CheckApiContractAsync()
     {
@@ -715,49 +540,6 @@ public class MonitorService : IMonitorService
                 Message = $"Agent API handshake failed: {ex.Message}",
             };
         }
-    }
-
-    public static AgentContractHandshakeResult EvaluateApiContractCompatibility(
-        string? contractVersion,
-        string? minClientContractVersion,
-        string? reportedAgentVersion)
-    {
-        return MonitorApiContractEvaluator.Evaluate(
-            contractVersion,
-            minClientContractVersion,
-            reportedAgentVersion,
-            ExpectedApiContractVersion);
-    }
-
-    private static string? TryGetJsonString(JsonElement root, string propertyName)
-    {
-        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var property))
-        {
-            return null;
-        }
-
-        return property.ValueKind switch
-        {
-            JsonValueKind.String => property.GetString(),
-            JsonValueKind.Number => property.GetRawText(),
-            JsonValueKind.True => bool.TrueString,
-            JsonValueKind.False => bool.FalseString,
-            _ => null,
-        };
-    }
-
-    private static string? TryGetJsonString(JsonElement root, IEnumerable<string> propertyNames)
-    {
-        foreach (var propertyName in propertyNames)
-        {
-            var value = TryGetJsonString(root, propertyName);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-        }
-
-        return null;
     }
 
     // Diagnostics & Export
@@ -833,5 +615,223 @@ public class MonitorService : IMonitorService
         }
 
         return null;
+    }
+
+    private static HttpClient GetOrCreateHttpClient()
+    {
+        if (_sharedHttpClient == null)
+        {
+            _sharedHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
+        }
+
+        return _sharedHttpClient;
+    }
+
+    private static void RecordUsageTelemetry(TimeSpan duration, bool success)
+    {
+        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
+        Interlocked.Increment(ref _usageRequestCount);
+        Interlocked.Add(ref _usageTotalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref _usageLastLatencyMs, latencyMs);
+        if (!success)
+        {
+            Interlocked.Increment(ref _usageErrorCount);
+        }
+    }
+
+    private static void RecordRefreshTelemetry(TimeSpan duration, bool success)
+    {
+        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
+        Interlocked.Increment(ref _refreshRequestCount);
+        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref _refreshLastLatencyMs, latencyMs);
+        if (!success)
+        {
+            Interlocked.Increment(ref _refreshErrorCount);
+        }
+    }
+
+    private static bool IsRecoverableUsageFailure(Exception ex)
+    {
+        return ex is HttpRequestException or TaskCanceledException;
+    }
+
+    private static string DescribeUsageFailure(Exception ex)
+    {
+        return ex switch
+        {
+            TaskCanceledException => $"Request timed out after {UsageRequestTimeoutSeconds}s",
+            HttpRequestException httpRequestException when !string.IsNullOrWhiteSpace(httpRequestException.Message) => httpRequestException.Message,
+            _ => "Connection error",
+        };
+    }
+
+    private static IReadOnlyList<string> GetActionableMetadataErrors(IReadOnlyList<string>? errors)
+    {
+        if (errors == null || errors.Count == 0)
+        {
+            return new List<string>();
+        }
+
+        return errors
+            .Where(IsActionableMetadataError)
+            .ToList();
+    }
+
+    private static bool IsActionableMetadataError(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+        {
+            return false;
+        }
+
+        if (error.StartsWith("Startup status:", StringComparison.OrdinalIgnoreCase))
+        {
+            return !error.Contains("running", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return error.Contains("failed", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+               error.Contains("exception", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? TryGetJsonString(JsonElement root, string propertyName)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty(propertyName, out var property))
+        {
+            return null;
+        }
+
+        return property.ValueKind switch
+        {
+            JsonValueKind.String => property.GetString(),
+            JsonValueKind.Number => property.GetRawText(),
+            JsonValueKind.True => bool.TrueString,
+            JsonValueKind.False => bool.FalseString,
+            _ => null,
+        };
+    }
+
+    private static string? TryGetJsonString(JsonElement root, IEnumerable<string> propertyNames)
+    {
+        foreach (var propertyName in propertyNames)
+        {
+            var value = TryGetJsonString(root, propertyName);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    private string BuildMonitorUrl(string relativePath)
+    {
+        return $"{this.AgentUrl}{relativePath}";
+    }
+
+    private async Task<T?> GetFromMonitorJsonAsync<T>(string relativePath, string operationName, int? timeoutSeconds = null)
+    {
+        try
+        {
+            if (timeoutSeconds.HasValue)
+            {
+                using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds.Value));
+                return await this._httpClient.GetFromJsonAsync<T>(
+                    this.BuildMonitorUrl(relativePath),
+                    this._jsonOptions,
+                    requestTimeout.Token).ConfigureAwait(false);
+            }
+
+            return await this._httpClient.GetFromJsonAsync<T>(
+                this.BuildMonitorUrl(relativePath),
+                this._jsonOptions).ConfigureAwait(false);
+        }
+        catch (TaskCanceledException ex)
+        {
+            this._logger?.LogWarning(
+                ex,
+                "{Operation} timeout after {TimeoutSeconds}s at {Url}",
+                operationName,
+                timeoutSeconds ?? 0,
+                this.BuildMonitorUrl(relativePath));
+            return default;
+        }
+        catch (Exception ex)
+        {
+            this._logger?.LogWarning(ex, "{Operation} failed at {Url}", operationName, this.BuildMonitorUrl(relativePath));
+            return default;
+        }
+    }
+
+    private async Task<HttpResponseMessage?> SendMonitorRequestAsync(
+        Func<HttpClient, Task<HttpResponseMessage>> requestFactory,
+        string operationName)
+    {
+        try
+        {
+            return await requestFactory(this._httpClient).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            this._logger?.LogWarning(ex, "{Operation} failed against {AgentUrl}", operationName, this.AgentUrl);
+            return null;
+        }
+    }
+
+    private async Task<bool> SendMonitorStatusRequestAsync(
+        Func<HttpClient, Task<HttpResponseMessage>> requestFactory,
+        string operationName)
+    {
+        using var response = await this.SendMonitorRequestAsync(requestFactory, operationName).ConfigureAwait(false);
+        return response?.IsSuccessStatusCode == true;
+    }
+
+    private async Task<T?> ReadMonitorResponseJsonAsync<T>(HttpResponseMessage response, string operationName)
+    {
+        try
+        {
+            return await response.Content.ReadFromJsonAsync<T>(this._jsonOptions).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            this._logger?.LogWarning(
+                ex,
+                "{Operation} returned unreadable JSON from {AgentUrl} with status {StatusCode}",
+                operationName,
+                this.AgentUrl,
+                (int)response.StatusCode);
+            return default;
+        }
+    }
+
+    private async Task<List<ProviderUsage>?> GetUsageOnceAsync()
+    {
+        using var requestTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(UsageRequestTimeoutSeconds));
+        return await this._httpClient.GetFromJsonAsync<List<ProviderUsage>>(
+            this.BuildMonitorUrl(MonitorApiRoutes.Usage),
+            this._jsonOptions,
+            requestTimeout.Token).ConfigureAwait(false);
+    }
+
+    private async Task<string> GetEndpointDetailsAsync(string endpointPath)
+    {
+        var response = await this.SendMonitorRequestAsync(
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(endpointPath)),
+            nameof(this.GetEndpointDetailsAsync)).ConfigureAwait(false);
+        if (response == null)
+        {
+            return "Request failed: no response from Monitor.";
+        }
+
+        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            return $"HTTP {(int)response.StatusCode}: {body}";
+        }
+
+        return body;
     }
 }

@@ -30,31 +30,6 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         }
     }
 
-    private string GetAppcastUrlForCurrentArchitecture()
-    {
-        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
-
-        // Map architecture names
-        var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["x64"] = "x64",
-            ["x86"] = "x86",
-            ["arm64"] = "arm64",
-            ["arm"] = "arm64",
-        };
-
-        var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
-
-        if (!archMapping.ContainsKey(currentArch))
-        {
-            this._logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
-        }
-
-        var url = ReleaseUrlCatalog.GetAppcastUrl(targetArch, this._channel == UpdateChannel.Beta);
-        this._logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, this._channel, url);
-        return url;
-    }
-
     public async Task<AIUsageTracker.Core.Interfaces.UpdateInfo?> CheckForUpdatesAsync()
     {
         try
@@ -153,6 +128,31 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         {
             File.Delete(path);
         }
+    }
+
+    private string GetAppcastUrlForCurrentArchitecture()
+    {
+        var currentArch = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLower(System.Globalization.CultureInfo.InvariantCulture);
+
+        // Map architecture names
+        var archMapping = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["x64"] = "x64",
+            ["x86"] = "x86",
+            ["arm64"] = "arm64",
+            ["arm"] = "arm64",
+        };
+
+        var targetArch = archMapping.GetValueOrDefault(currentArch, "x64");
+
+        if (!archMapping.ContainsKey(currentArch))
+        {
+            this._logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
+        }
+
+        var url = ReleaseUrlCatalog.GetAppcastUrl(targetArch, this._channel == UpdateChannel.Beta);
+        this._logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, this._channel, url);
+        return url;
     }
 
     private async Task<bool> DownloadInstallerAsync(string downloadUrl, string downloadPath, IProgress<double>? progress)

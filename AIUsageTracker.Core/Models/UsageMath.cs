@@ -169,65 +169,6 @@ public static class UsageMath
         return ClampPercent(usage.UsedPercent);
     }
 
-    private static bool TryParseUsedPercent(string value, out double percent)
-    {
-        percent = 0;
-        var usedMatch = SUsedPattern.Match(value);
-        if (!usedMatch.Success)
-        {
-            return false;
-        }
-
-        return double.TryParse(
-            usedMatch.Groups["percent"].Value,
-            System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out percent);
-    }
-
-    private static bool TryParseRemainingPercent(string value, out double percent)
-    {
-        percent = 0;
-        var remainingMatch = SRemainingPattern.Match(value);
-        if (!remainingMatch.Success)
-        {
-            return false;
-        }
-
-        return double.TryParse(
-            remainingMatch.Groups["percent"].Value,
-            System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out percent);
-    }
-
-    private static bool TryParseGenericPercent(string value, out double percent, out bool? isUsed)
-    {
-        percent = 0;
-        isUsed = null;
-
-        var match = SPercentPattern.Match(value);
-        if (!match.Success)
-        {
-            return false;
-        }
-
-        if (value.Contains("used", StringComparison.OrdinalIgnoreCase))
-        {
-            isUsed = true;
-        }
-        else if (value.Contains("remaining", StringComparison.OrdinalIgnoreCase))
-        {
-            isUsed = false;
-        }
-
-        return double.TryParse(
-            match.Groups["percent"].Value,
-            System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture,
-            out percent);
-    }
-
     /// <summary>
     /// Gets the effective used percentage for a provider detail, accounting for parent quota status
     /// and explicit 'used'/'remaining' strings.
@@ -273,13 +214,6 @@ public static class UsageMath
 
         // 4. PAYG/Other details are used % by default
         return val.Value;
-    }
-
-    private static bool TryParseFallbackNumber(string value, out double result)
-    {
-        result = 0;
-        var cleanValue = new string(value.Where(c => char.IsDigit(c) || c == '.').ToArray());
-        return double.TryParse(cleanValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result);
     }
 
     public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)
@@ -387,6 +321,72 @@ public static class UsageMath
         }
 
         return CreateAnomalySnapshot(baselineMedian, baselineRates, latest, cycleSamples);
+    }
+
+    private static bool TryParseUsedPercent(string value, out double percent)
+    {
+        percent = 0;
+        var usedMatch = SUsedPattern.Match(value);
+        if (!usedMatch.Success)
+        {
+            return false;
+        }
+
+        return double.TryParse(
+            usedMatch.Groups["percent"].Value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out percent);
+    }
+
+    private static bool TryParseRemainingPercent(string value, out double percent)
+    {
+        percent = 0;
+        var remainingMatch = SRemainingPattern.Match(value);
+        if (!remainingMatch.Success)
+        {
+            return false;
+        }
+
+        return double.TryParse(
+            remainingMatch.Groups["percent"].Value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out percent);
+    }
+
+    private static bool TryParseGenericPercent(string value, out double percent, out bool? isUsed)
+    {
+        percent = 0;
+        isUsed = null;
+
+        var match = SPercentPattern.Match(value);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        if (value.Contains("used", StringComparison.OrdinalIgnoreCase))
+        {
+            isUsed = true;
+        }
+        else if (value.Contains("remaining", StringComparison.OrdinalIgnoreCase))
+        {
+            isUsed = false;
+        }
+
+        return double.TryParse(
+            match.Groups["percent"].Value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out percent);
+    }
+
+    private static bool TryParseFallbackNumber(string value, out double result)
+    {
+        result = 0;
+        var cleanValue = new string(value.Where(c => char.IsDigit(c) || c == '.').ToArray());
+        return double.TryParse(cleanValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result);
     }
 
     private static List<ProviderUsage> FilterValidSamples(IEnumerable<ProviderUsage> history)

@@ -205,7 +205,7 @@ public class JsonConfigLoader : IConfigLoader
             var value = keyProp.GetString();
             if (!string.IsNullOrEmpty(value))
             {
-                if (!string.IsNullOrEmpty(config.ApiKey) && config.ApiKey != value)
+                if (!string.IsNullOrEmpty(config.ApiKey) && !string.Equals(config.ApiKey, value, StringComparison.Ordinal))
                 {
                     this._logger.LogDebug(
                         "Auth key for {ProviderId} overwritten by {Path} (previous {OldLength} chars -> new {NewLength} chars)",

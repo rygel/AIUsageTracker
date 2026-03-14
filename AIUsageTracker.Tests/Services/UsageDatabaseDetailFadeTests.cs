@@ -375,7 +375,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
     private async Task<UsageDatabase> CreateDatabaseAsync()
     {
         var database = new UsageDatabase(NullLogger<UsageDatabase>.Instance, new TestDbPathProvider(this._dbPath));
-        await database.InitializeAsync();
+        await database.InitializeAsync().ConfigureAwait(false);
         return database;
     }
 

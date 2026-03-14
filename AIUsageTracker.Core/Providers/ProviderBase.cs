@@ -23,14 +23,14 @@ public abstract class ProviderBase : IProviderService
         PropertyNameCaseInsensitive = true,
     };
 
-    public abstract string ProviderId { get; }
-
-    public abstract ProviderDefinition Definition { get; }
-
     protected ProviderBase(IProviderDiscoveryService? discoveryService = null)
     {
         this.DiscoveryService = discoveryService;
     }
+
+    public abstract string ProviderId { get; }
+
+    public abstract ProviderDefinition Definition { get; }
 
     protected IProviderDiscoveryService? DiscoveryService { get; }
 

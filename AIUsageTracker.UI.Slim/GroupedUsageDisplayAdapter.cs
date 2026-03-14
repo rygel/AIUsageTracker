@@ -130,9 +130,11 @@ internal static class GroupedUsageDisplayAdapter
                 IsQuotaBased = parentUsage.IsQuotaBased,
                 RequestsUsed = modelState.UsedPercentage,
                 RequestsAvailable = 100,
+#pragma warning disable CS0618 // RequestsPercentage: adapter sets raw field to drive computed UsedPercent/RemainingPercent
                 RequestsPercentage = parentUsage.IsQuotaBased
                     ? modelState.RemainingPercentage
                     : modelState.UsedPercentage,
+#pragma warning restore CS0618
                 Description = modelState.Description,
                 FetchedAt = parentUsage.FetchedAt,
                 NextResetTime = modelState.NextResetTime,

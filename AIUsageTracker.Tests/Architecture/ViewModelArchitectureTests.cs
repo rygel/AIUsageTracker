@@ -94,7 +94,7 @@ public class ViewModelArchitectureTests
         foreach (var type in serviceTypes)
         {
             var interfaceName = $"I{type.Name}";
-            var hasInterface = type.GetInterfaces().Any(i => i.Name == interfaceName);
+            var hasInterface = type.GetInterfaces().Any(i => string.Equals(i.Name, interfaceName, StringComparison.Ordinal));
 
             if (!hasInterface)
             {

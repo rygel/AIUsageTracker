@@ -172,7 +172,7 @@ public class ProviderDiRegistrationTests
         public bool IsAuthenticated => false;
 
         public Task<(string DeviceCode, string UserCode, string VerificationUri, int ExpiresIn, int Interval)> InitiateDeviceFlowAsync()
-            => Task.FromResult(("", "", "", 0, 0));
+            => Task.FromResult((string.Empty, string.Empty, string.Empty, 0, 0));
 
         public Task<string?> PollForTokenAsync(string deviceCode, int interval) => Task.FromResult<string?>(null);
 

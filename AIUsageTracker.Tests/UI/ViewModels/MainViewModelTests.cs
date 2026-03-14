@@ -71,7 +71,7 @@ public class MainViewModelTests
         var viewModel = this.CreateViewModel();
         viewModel.PropertyChanged += (s, e) =>
         {
-            if (e.PropertyName == nameof(viewModel.IsLoading))
+            if (string.Equals(e.PropertyName, nameof(viewModel.IsLoading), StringComparison.Ordinal))
             {
                 isLoadingValues.Add(viewModel.IsLoading);
             }

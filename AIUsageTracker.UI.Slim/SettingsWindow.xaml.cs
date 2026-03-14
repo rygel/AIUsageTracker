@@ -1480,8 +1480,8 @@ public partial class SettingsWindow : Window
     private string BuildHealthCheckMessage(string processStatus, int port, MonitorHealthSnapshot? healthSnapshot)
     {
         var builder = new StringBuilder();
-        builder.AppendLine($"Monitor Status: {processStatus}");
-        builder.AppendLine($"Port: {port}");
+        builder.AppendLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Monitor Status: {processStatus}"));
+        builder.AppendLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Port: {port}"));
 
         if (healthSnapshot == null)
         {
@@ -1501,7 +1501,7 @@ public partial class SettingsWindow : Window
         builder.AppendLine($"Refresh Status: {healthSnapshot.RefreshHealth.Status}");
         builder.AppendLine($"Last Refresh Attempt: {FormatHealthTimestamp(healthSnapshot.RefreshHealth.LastRefreshAttemptUtc)}");
         builder.AppendLine($"Last Successful Refresh: {FormatHealthTimestamp(healthSnapshot.RefreshHealth.LastSuccessfulRefreshUtc)}");
-        builder.AppendLine($"Providers In Backoff: {healthSnapshot.RefreshHealth.ProvidersInBackoff}");
+        builder.AppendLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Providers In Backoff: {healthSnapshot.RefreshHealth.ProvidersInBackoff}"));
 
         if (healthSnapshot.RefreshHealth.FailingProviders.Count > 0)
         {
@@ -1940,7 +1940,10 @@ public partial class SettingsWindow : Window
         }
         else
         {
-            list.RemoveAll(x => string.Equals(x, id, StringComparison.OrdinalIgnoreCase));
+            foreach (var item in list.Where(x => string.Equals(x, id, StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                list.Remove(item);
+            }
         }
     }
 

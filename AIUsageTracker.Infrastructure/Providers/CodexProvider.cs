@@ -18,9 +18,6 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class CodexProvider : ProviderBase
 {
-    private const string UsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
-    private const string AuthClaimKey = "https://api.openai.com/auth";
-
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "codex",
         displayName: "OpenAI (Codex)",
@@ -65,9 +62,8 @@ public class CodexProvider : ProviderBase
             ProviderEndpoints.OpenAI.ProfileClaimKey,
         });
 
-    public override ProviderDefinition Definition => StaticDefinition;
-
-    public override string ProviderId => StaticDefinition.ProviderId;
+    private const string UsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
+    private const string AuthClaimKey = "https://api.openai.com/auth";
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<CodexProvider> _logger;
@@ -85,6 +81,10 @@ public class CodexProvider : ProviderBase
         this._logger = logger;
         this._authFilePath = string.IsNullOrWhiteSpace(authFilePath) ? null : authFilePath;
     }
+
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    public override string ProviderId => StaticDefinition.ProviderId;
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
@@ -740,15 +740,6 @@ public class CodexProvider : ProviderBase
         return null;
     }
 
-    private sealed class CodexAuth
-    {
-        public string? AccessToken { get; set; }
-
-        public string? AccountId { get; set; }
-
-        public string? Identity { get; set; }
-    }
-
     private readonly record struct SparkWindow(
         string? Label,
         string? ModelName,
@@ -760,5 +751,14 @@ public class CodexProvider : ProviderBase
         public bool HasWindowData => this.PrimaryUsedPercent.HasValue || this.SecondaryUsedPercent.HasValue;
 
         public double? UsedPercent => this.PrimaryUsedPercent ?? this.SecondaryUsedPercent;
+    }
+
+    private sealed class CodexAuth
+    {
+        public string? AccessToken { get; set; }
+
+        public string? AccountId { get; set; }
+
+        public string? Identity { get; set; }
     }
 }

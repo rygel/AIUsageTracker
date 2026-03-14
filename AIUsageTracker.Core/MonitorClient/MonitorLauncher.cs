@@ -26,55 +26,6 @@ public class MonitorLauncher
 
     public static void SetLogger(ILogger<MonitorLauncher> logger) => _logger = logger;
 
-    internal static IDisposable PushTestOverrides(
-        IEnumerable<string>? monitorInfoCandidatePaths = null,
-        Func<int, Task<bool>>? healthCheckAsync = null,
-        Func<int, Task<bool>>? processRunningAsync = null,
-        Func<int, Task<bool>>? stopProcessAsync = null,
-        Func<Task<bool>>? stopNamedProcessesAsync = null)
-    {
-        var previousCandidatePaths = _monitorInfoCandidatePathsOverride;
-        var previousHealthCheck = _healthCheckOverride;
-        var previousProcessCheck = _processRunningOverride;
-        var previousStopProcess = _stopProcessOverride;
-        var previousStopNamedProcesses = _stopNamedProcessesOverride;
-
-        if (monitorInfoCandidatePaths != null)
-        {
-            var paths = monitorInfoCandidatePaths.ToArray();
-            _monitorInfoCandidatePathsOverride = () => paths;
-        }
-
-        if (healthCheckAsync != null)
-        {
-            _healthCheckOverride = healthCheckAsync;
-        }
-
-        if (processRunningAsync != null)
-        {
-            _processRunningOverride = processRunningAsync;
-        }
-
-        if (stopProcessAsync != null)
-        {
-            _stopProcessOverride = stopProcessAsync;
-        }
-
-        if (stopNamedProcessesAsync != null)
-        {
-            _stopNamedProcessesOverride = stopNamedProcessesAsync;
-        }
-
-        return new TestOverrideScope(() =>
-        {
-            _monitorInfoCandidatePathsOverride = previousCandidatePaths;
-            _healthCheckOverride = previousHealthCheck;
-            _processRunningOverride = previousProcessCheck;
-            _stopProcessOverride = previousStopProcess;
-            _stopNamedProcessesOverride = previousStopNamedProcesses;
-        });
-    }
-
     public static async Task<int> GetAgentPortAsync()
     {
         var readyState = await ResolveReadyStateAsync().ConfigureAwait(false);
@@ -110,16 +61,6 @@ public class MonitorLauncher
     {
         var metadataState = await ReadValidatedAgentInfoAsync().ConfigureAwait(false);
         return metadataState.IsUsable ? metadataState.Info : null;
-    }
-
-    internal static async Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
-    {
-        var metadataState = await ReadValidatedAgentInfoAsync().ConfigureAwait(false);
-        return new MonitorMetadataStatus
-        {
-            Info = metadataState.Info,
-            IsUsable = metadataState.IsUsable,
-        };
     }
 
     public static async Task<bool> StartAgentAsync()
@@ -224,6 +165,65 @@ public class MonitorLauncher
         }
 
         return Task.CompletedTask;
+    }
+
+    internal static async Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
+    {
+        var metadataState = await ReadValidatedAgentInfoAsync().ConfigureAwait(false);
+        return new MonitorMetadataStatus
+        {
+            Info = metadataState.Info,
+            IsUsable = metadataState.IsUsable,
+        };
+    }
+
+    internal static IDisposable PushTestOverrides(
+        IEnumerable<string>? monitorInfoCandidatePaths = null,
+        Func<int, Task<bool>>? healthCheckAsync = null,
+        Func<int, Task<bool>>? processRunningAsync = null,
+        Func<int, Task<bool>>? stopProcessAsync = null,
+        Func<Task<bool>>? stopNamedProcessesAsync = null)
+    {
+        var previousCandidatePaths = _monitorInfoCandidatePathsOverride;
+        var previousHealthCheck = _healthCheckOverride;
+        var previousProcessCheck = _processRunningOverride;
+        var previousStopProcess = _stopProcessOverride;
+        var previousStopNamedProcesses = _stopNamedProcessesOverride;
+
+        if (monitorInfoCandidatePaths != null)
+        {
+            var paths = monitorInfoCandidatePaths.ToArray();
+            _monitorInfoCandidatePathsOverride = () => paths;
+        }
+
+        if (healthCheckAsync != null)
+        {
+            _healthCheckOverride = healthCheckAsync;
+        }
+
+        if (processRunningAsync != null)
+        {
+            _processRunningOverride = processRunningAsync;
+        }
+
+        if (stopProcessAsync != null)
+        {
+            _stopProcessOverride = stopProcessAsync;
+        }
+
+        if (stopNamedProcessesAsync != null)
+        {
+            _stopNamedProcessesOverride = stopNamedProcessesAsync;
+        }
+
+        return new TestOverrideScope(() =>
+        {
+            _monitorInfoCandidatePathsOverride = previousCandidatePaths;
+            _healthCheckOverride = previousHealthCheck;
+            _processRunningOverride = previousProcessCheck;
+            _stopProcessOverride = previousStopProcess;
+            _stopNamedProcessesOverride = previousStopNamedProcesses;
+        });
     }
 
     private static Task QuarantineMonitorInfoAsync(string infoPath, string? diagnosticMessage = null)

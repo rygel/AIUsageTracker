@@ -263,7 +263,7 @@ public class ProviderRefreshService : BackgroundService
         }
     }
 
-    private async Task RefreshAndStoreProviderDataAsync(List<ProviderConfig> allConfigs, List<ProviderConfig> refreshableConfigs)
+    private async Task RefreshAndStoreProviderDataAsync(IList<ProviderConfig> allConfigs, IList<ProviderConfig> refreshableConfigs)
     {
         if (this.ProviderManager == null)
         {

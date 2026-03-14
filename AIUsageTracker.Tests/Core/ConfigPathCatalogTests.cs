@@ -86,7 +86,7 @@ public class ConfigPathCatalogTests
         var pathProvider = new Mock<IAppPathProvider>();
         pathProvider.Setup(p => p.GetAuthFilePath()).Returns(authPath);
         pathProvider.Setup(p => p.GetProviderConfigFilePath()).Returns(providerPath);
-        pathProvider.Setup(p => p.GetAppDataRoot()).Returns(appDataRoot);
+        pathProvider.Setup(p => p.GetAppDataRoot()).Returns(appDataRoot!);
         pathProvider.Setup(p => p.GetUserProfileRoot()).Returns(userProfileRoot ?? string.Empty);
         return pathProvider;
     }

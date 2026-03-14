@@ -636,34 +636,6 @@ public class ClaudeCodeProvider : ProviderBase
         };
     }
 
-    private class RateLimitInfo
-    {
-        public int RequestsLimit { get; set; }
-
-        public int RequestsRemaining { get; set; }
-
-        public int InputTokensLimit { get; set; }
-
-        public int InputTokensRemaining { get; set; }
-
-        public string GetTierName()
-        {
-            // Determine tier based on request limits
-            // Tier 1: 50 RPM
-            // Tier 2: 1,000 RPM
-            // Tier 3: 2,000 RPM
-            // Tier 4: 4,000 RPM
-            return this.RequestsLimit switch
-            {
-                <= 50 => "Tier 1",
-                <= 1000 => "Tier 2",
-                <= 2000 => "Tier 3",
-                <= 4000 => "Tier 4",
-                _ => "Custom",
-            };
-        }
-    }
-
     /// <summary>
     /// Response model for the OAuth usage endpoint.
     /// </summary>
@@ -713,5 +685,33 @@ public class ClaudeCodeProvider : ProviderBase
     {
         [JsonPropertyName("is_enabled")]
         public bool IsEnabled { get; set; }
+    }
+
+    private class RateLimitInfo
+    {
+        public int RequestsLimit { get; set; }
+
+        public int RequestsRemaining { get; set; }
+
+        public int InputTokensLimit { get; set; }
+
+        public int InputTokensRemaining { get; set; }
+
+        public string GetTierName()
+        {
+            // Determine tier based on request limits
+            // Tier 1: 50 RPM
+            // Tier 2: 1,000 RPM
+            // Tier 3: 2,000 RPM
+            // Tier 4: 4,000 RPM
+            return this.RequestsLimit switch
+            {
+                <= 50 => "Tier 1",
+                <= 1000 => "Tier 2",
+                <= 2000 => "Tier 3",
+                <= 4000 => "Tier 4",
+                _ => "Custom",
+            };
+        }
     }
 }

@@ -29,13 +29,6 @@ public class ResilienceProvider : IResilienceProvider
         this._defaultOptions = defaultOptions ?? new ResilientHttpClientOptions();
     }
 
-    private static bool TryGetHttpResponseMessage<T>(DelegateResult<T> outcome, out HttpResponseMessage? response)
-    {
-        var resultProperty = outcome.GetType().GetProperty("Result");
-        response = resultProperty?.GetValue(outcome) as HttpResponseMessage;
-        return response is not null;
-    }
-
     public IAsyncPolicy<T> GetPolicy<T>(string policyName)
     {
         return (IAsyncPolicy<T>)this._policies.GetOrAdd(policyName, name => this.CreateDefaultPolicy<T>(name));
@@ -45,6 +38,13 @@ public class ResilienceProvider : IResilienceProvider
     {
         var policyName = $"provider_{providerId}";
         return (IAsyncPolicy<T>)this._policies.GetOrAdd(policyName, name => this.CreateProviderSpecificPolicy<T>(providerId));
+    }
+
+    private static bool TryGetHttpResponseMessage<T>(DelegateResult<T> outcome, out HttpResponseMessage? response)
+    {
+        var resultProperty = outcome.GetType().GetProperty("Result");
+        response = resultProperty?.GetValue(outcome) as HttpResponseMessage;
+        return response is not null;
     }
 
     private IAsyncPolicy<T> CreateDefaultPolicy<T>(string name)

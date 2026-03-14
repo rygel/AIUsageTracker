@@ -555,7 +555,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     {
         url ??= ChinaEndpoint;
         this.SetupHttpResponse(
-            r => r.RequestUri?.ToString() == url,
+            r => string.Equals(r.RequestUri?.ToString(), url, StringComparison.Ordinal),
             new HttpResponseMessage
             {
                 StatusCode = statusCode,

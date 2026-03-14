@@ -38,11 +38,13 @@ internal sealed class ProviderRefreshNotificationService
     }
 
     public async Task ProcessUsageAlertsAsync(
-        List<ProviderUsage> usages,
+        IList<ProviderUsage> usages,
         AppPreferences preferences,
-        List<ProviderConfig> configs)
+        IList<ProviderConfig> configs)
     {
-        await this._usageAlertsService.DetectResetEventsAsync(usages).ConfigureAwait(false);
-        this._usageAlertsService.CheckUsageAlerts(usages, preferences, configs);
+        var usagesList = usages as IReadOnlyList<ProviderUsage> ?? usages.ToList();
+        var configsList = configs as IReadOnlyList<ProviderConfig> ?? configs.ToList();
+        await this._usageAlertsService.DetectResetEventsAsync(usagesList).ConfigureAwait(false);
+        this._usageAlertsService.CheckUsageAlerts(usagesList, preferences, configsList);
     }
 }

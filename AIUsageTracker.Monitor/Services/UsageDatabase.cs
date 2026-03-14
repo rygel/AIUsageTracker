@@ -306,7 +306,7 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task<List<ProviderUsage>> GetLatestHistoryAsync()
+    public async Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync()
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
@@ -597,7 +597,7 @@ public class UsageDatabase : IUsageDatabase
 
     private sealed record RecentDetailSnapshot(ProviderUsageDetail Detail, DateTime FetchedAtUtc);
 
-    public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
+    public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
@@ -648,7 +648,7 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
+    public async Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
@@ -700,7 +700,7 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
+    public async Task<IReadOnlyList<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
@@ -758,7 +758,7 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
+    public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try

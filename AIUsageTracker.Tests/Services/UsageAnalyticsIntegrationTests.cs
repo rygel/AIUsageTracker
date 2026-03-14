@@ -170,7 +170,8 @@ public class UsageAnalyticsIntegrationTests
                 next_reset_time TEXT,
                 response_latency_ms REAL NOT NULL DEFAULT 0
             );";
-            await using (var createCommand = connection.CreateCommand())
+            var createCommand = connection.CreateCommand();
+            await using (createCommand.ConfigureAwait(false))
             {
                 createCommand.CommandText = createSql;
                 await createCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
@@ -185,15 +186,18 @@ public class UsageAnalyticsIntegrationTests
 
             foreach (var row in rows)
             {
-                await using var insertCommand = connection.CreateCommand();
-                insertCommand.CommandText = insertSql;
-                insertCommand.Parameters.AddWithValue("$providerId", row.ProviderId);
-                insertCommand.Parameters.AddWithValue("$requestsUsed", row.RequestsUsed);
-                insertCommand.Parameters.AddWithValue("$requestsAvailable", row.RequestsAvailable);
-                insertCommand.Parameters.AddWithValue("$isAvailable", row.IsAvailable ? 1 : 0);
-                insertCommand.Parameters.AddWithValue("$fetchedAt", row.FetchedAt);
-                insertCommand.Parameters.AddWithValue("$responseLatencyMs", row.ResponseLatencyMs);
-                await insertCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
+                var insertCommand = connection.CreateCommand();
+                await using (insertCommand.ConfigureAwait(false))
+                {
+                    insertCommand.CommandText = insertSql;
+                    insertCommand.Parameters.AddWithValue("$providerId", row.ProviderId);
+                    insertCommand.Parameters.AddWithValue("$requestsUsed", row.RequestsUsed);
+                    insertCommand.Parameters.AddWithValue("$requestsAvailable", row.RequestsAvailable);
+                    insertCommand.Parameters.AddWithValue("$isAvailable", row.IsAvailable ? 1 : 0);
+                    insertCommand.Parameters.AddWithValue("$fetchedAt", row.FetchedAt);
+                    insertCommand.Parameters.AddWithValue("$responseLatencyMs", row.ResponseLatencyMs);
+                    await insertCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
+                }
             }
         }
     }

@@ -39,10 +39,11 @@ public class NoGitHubCliTests
             {
                 var line = lines[i];
 
-                if (Regex.IsMatch(line, @"FileName\s*=\s*[string.Empty']gh[string.Empty']", RegexOptions.IgnoreCase) ||
-                    Regex.IsMatch(line, @"Arguments\s*=\s*[string.Empty'].*gh.*[string.Empty']", RegexOptions.IgnoreCase) ||
-                    Regex.IsMatch(line, @"gh\s+auth\s+token", RegexOptions.IgnoreCase) ||
-                    Regex.IsMatch(line, @"Process\.Start.*gh", RegexOptions.IgnoreCase))
+                var regexTimeout = TimeSpan.FromSeconds(1);
+                if (Regex.IsMatch(line, @"FileName\s*=\s*[string.Empty']gh[string.Empty']", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, regexTimeout) ||
+                    Regex.IsMatch(line, @"Arguments\s*=\s*[string.Empty'].*gh.*[string.Empty']", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, regexTimeout) ||
+                    Regex.IsMatch(line, @"gh\s+auth\s+token", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, regexTimeout) ||
+                    Regex.IsMatch(line, @"Process\.Start.*gh", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, regexTimeout))
                 {
                     violations.Add($"{file}:{i + 1}: {line.Trim()}");
                 }

@@ -129,7 +129,7 @@ public class ProviderCardViewModelTests
         var propertyChangedCount = 0;
         viewModel.PropertyChanged += (s, e) =>
         {
-            if (e.PropertyName == nameof(viewModel.AccountDisplay))
+            if (string.Equals(e.PropertyName, nameof(viewModel.AccountDisplay), StringComparison.Ordinal))
             {
                 propertyChangedCount++;
             }
@@ -162,7 +162,7 @@ public class ProviderCardViewModelTests
         var propertyChangedCount = 0;
         viewModel.PropertyChanged += (s, e) =>
         {
-            if (e.PropertyName == nameof(viewModel.ProgressPercentage))
+            if (string.Equals(e.PropertyName, nameof(viewModel.ProgressPercentage), StringComparison.Ordinal))
             {
                 propertyChangedCount++;
             }

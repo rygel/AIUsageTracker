@@ -27,7 +27,7 @@ public class ConverterTests
         var result = converter.Convert(
             new object[] { percentage, yellow, red, isQuota },
             typeof(Brush),
-            null,
+            null!,
             CultureInfo.InvariantCulture);
 
         Assert.NotNull(result);
@@ -48,7 +48,7 @@ public class ConverterTests
         bool input, bool invert, string expectedVisibility)
     {
         var converter = new BoolToVisibilityConverter { Invert = invert };
-        var result = converter.Convert(input, typeof(System.Windows.Visibility), null, CultureInfo.InvariantCulture);
+        var result = converter.Convert(input, typeof(System.Windows.Visibility), null!, CultureInfo.InvariantCulture);
 
         Assert.Equal(expectedVisibility, result.ToString());
     }
@@ -60,7 +60,7 @@ public class ConverterTests
         var result = converter.Convert(
             new object[] { "SensitiveData", true },
             typeof(string),
-            null,
+            null!,
             CultureInfo.InvariantCulture);
 
         Assert.Equal("****", result);
@@ -73,7 +73,7 @@ public class ConverterTests
         var result = converter.Convert(
             new object[] { "SensitiveData", false },
             typeof(string),
-            null,
+            null!,
             CultureInfo.InvariantCulture);
 
         Assert.Equal("SensitiveData", result);
@@ -86,19 +86,19 @@ public class ConverterTests
 
         // Test future time - about 5 minutes (use a generous range to avoid timing issues)
         var fiveMinutes = DateTime.Now.AddMinutes(5).AddSeconds(30);
-        var result = converter.Convert(fiveMinutes, typeof(string), null, CultureInfo.InvariantCulture);
+        var result = converter.Convert(fiveMinutes, typeof(string), null!, CultureInfo.InvariantCulture);
         Assert.True(
-            result?.ToString() == "5m" || result?.ToString() == "6m",
+            string.Equals(result?.ToString(), "5m", StringComparison.Ordinal) || string.Equals(result?.ToString(), "6m", StringComparison.Ordinal),
             $"Expected 5m or 6m, got {result}");
 
         // Test future time - 2 hours
         var twoHours = DateTime.Now.AddHours(2).AddMinutes(1);
-        result = converter.Convert(twoHours, typeof(string), null, CultureInfo.InvariantCulture);
+        result = converter.Convert(twoHours, typeof(string), null!, CultureInfo.InvariantCulture);
         Assert.StartsWith("2h", result?.ToString() ?? string.Empty);
 
         // Test future time - 3 days
         var threeDays = DateTime.Now.AddDays(3).AddHours(1);
-        result = converter.Convert(threeDays, typeof(string), null, CultureInfo.InvariantCulture);
+        result = converter.Convert(threeDays, typeof(string), null!, CultureInfo.InvariantCulture);
         Assert.StartsWith("3d", result?.ToString() ?? string.Empty);
     }
 
@@ -107,7 +107,7 @@ public class ConverterTests
     {
         var converter = new PercentageToWidthConverter();
 
-        var result = converter.Convert(50.0, typeof(System.Windows.GridLength), null, CultureInfo.InvariantCulture);
+        var result = converter.Convert(50.0, typeof(System.Windows.GridLength), null!, CultureInfo.InvariantCulture);
         Assert.IsType<System.Windows.GridLength>(result);
 
         var gridLength = (System.Windows.GridLength)result;
@@ -124,7 +124,7 @@ public class ConverterTests
     public void PercentageToWidthConverter_ClampsValues(double input, double expectedValue)
     {
         var converter = new PercentageToWidthConverter();
-        var result = converter.Convert(input, typeof(System.Windows.GridLength), null, CultureInfo.InvariantCulture);
+        var result = converter.Convert(input, typeof(System.Windows.GridLength), null!, CultureInfo.InvariantCulture);
 
         Assert.IsType<System.Windows.GridLength>(result);
         var gridLength = (System.Windows.GridLength)result;
@@ -139,7 +139,7 @@ public class ConverterTests
     public void NullToVisibilityConverter_ReturnsCorrectVisibility(object? input, string expectedVisibility)
     {
         var converter = new NullToVisibilityConverter();
-        var result = converter.Convert(input, typeof(System.Windows.Visibility), null, CultureInfo.InvariantCulture);
+        var result = converter.Convert(input!, typeof(System.Windows.Visibility), null!, CultureInfo.InvariantCulture);
 
         Assert.Equal(expectedVisibility, result.ToString());
     }

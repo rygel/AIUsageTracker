@@ -78,6 +78,43 @@ public class OpenAIProvider : ProviderBase
     /// <inheritdoc/>
     public override string ProviderId => StaticDefinition.ProviderId;
 
+    /// <inheritdoc/>
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    {
+        if (!string.IsNullOrWhiteSpace(config.ApiKey) && IsApiKey(config.ApiKey))
+        {
+            return await this.GetApiKeyUsageAsync(config.ApiKey).ConfigureAwait(false);
+        }
+
+        var accessToken = config.ApiKey;
+        string? accountId = null;
+
+        if (string.IsNullOrWhiteSpace(accessToken) && this.DiscoveryService != null)
+        {
+            var auth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition.CreateAuthDiscoverySpec()).ConfigureAwait(false);
+            accessToken = auth?.AccessToken;
+            accountId = auth?.AccountId;
+        }
+
+        if (string.IsNullOrWhiteSpace(accessToken))
+        {
+            return new[]
+            {
+                this.CreateUnavailableUsage("OpenAI API key or OpenCode session not found."),
+            };
+        }
+
+        try
+        {
+            return new[] { await this.GetNativeUsageAsync(accessToken, accountId).ConfigureAwait(false) };
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "OpenAI session check failed");
+            return new[] { this.CreateUnavailableUsageFromException(ex) };
+        }
+    }
+
     private static bool IsApiKey(string token)
     {
         return token.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
@@ -198,43 +235,6 @@ public class OpenAIProvider : ProviderBase
         }
 
         return null;
-    }
-
-    /// <inheritdoc/>
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
-    {
-        if (!string.IsNullOrWhiteSpace(config.ApiKey) && IsApiKey(config.ApiKey))
-        {
-            return await this.GetApiKeyUsageAsync(config.ApiKey).ConfigureAwait(false);
-        }
-
-        var accessToken = config.ApiKey;
-        string? accountId = null;
-
-        if (string.IsNullOrWhiteSpace(accessToken) && this.DiscoveryService != null)
-        {
-            var auth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition.CreateAuthDiscoverySpec()).ConfigureAwait(false);
-            accessToken = auth?.AccessToken;
-            accountId = auth?.AccountId;
-        }
-
-        if (string.IsNullOrWhiteSpace(accessToken))
-        {
-            return new[]
-            {
-                this.CreateUnavailableUsage("OpenAI API key or OpenCode session not found."),
-            };
-        }
-
-        try
-        {
-            return new[] { await this.GetNativeUsageAsync(accessToken, accountId).ConfigureAwait(false) };
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogError(ex, "OpenAI session check failed");
-            return new[] { this.CreateUnavailableUsageFromException(ex) };
-        }
     }
 
     private async Task<IEnumerable<ProviderUsage>> GetApiKeyUsageAsync(string apiKey)

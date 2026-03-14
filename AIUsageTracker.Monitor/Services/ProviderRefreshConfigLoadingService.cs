@@ -31,7 +31,8 @@ internal sealed class ProviderRefreshConfigLoadingService
         IReadOnlyCollection<string>? includeProviderIds)
     {
         this._logger.LogInformation("Loading provider configurations...");
-        var configs = await this._configService.GetConfigsAsync().ConfigureAwait(false);
+        var configsReadOnly = await this._configService.GetConfigsAsync().ConfigureAwait(false);
+        var configs = configsReadOnly.ToList();
         this._logger.LogInformation("Found {Count} total configurations", configs.Count);
 
         foreach (var config in configs)

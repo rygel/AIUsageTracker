@@ -28,7 +28,7 @@ public sealed class AgentHealthSnapshot
     public string? ApiContractVersion { get; init; }
 
     [JsonExtensionData]
-    public Dictionary<string, JsonElement>? ExtraProperties { get; init; }
+    public IDictionary<string, JsonElement>? ExtraProperties { get; init; }
 
     public string? ResolveApiContractVersion()
     {

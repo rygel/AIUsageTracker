@@ -308,7 +308,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             ProviderName = providerName,
             RequestsUsed = requestsUsed,
             RequestsAvailable = requestsAvailable,
+#pragma warning disable CS0618 // RequestsPercentage: normalization pipeline sets raw field
             RequestsPercentage = requestsPercentage,
+#pragma warning restore CS0618
             PlanType = usage.PlanType,
             UsageUnit = usage.UsageUnit,
             IsQuotaBased = usage.IsQuotaBased,
@@ -335,9 +337,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             !this.StringEquals(providerName, usage.ProviderName) ||
             requestsUsed != usage.RequestsUsed ||
             requestsAvailable != usage.RequestsAvailable ||
-#pragma warning disable CS0618 // RequestsPercentage: normalization pipeline reads/writes raw field
-            requestsPercentage != usage.RequestsPercentage ||
-#pragma warning restore CS0618
+            requestsPercentage != usage.UsedPercent ||
             responseLatencyMs != usage.ResponseLatencyMs ||
             fetchedAt != usage.FetchedAt ||
             !this.StringEquals(description, usage.Description) ||
@@ -356,7 +356,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             ProviderName = providerName,
             RequestsUsed = requestsUsed,
             RequestsAvailable = requestsAvailable,
+#pragma warning disable CS0618 // RequestsPercentage: normalization pipeline sets raw field
             RequestsPercentage = requestsPercentage,
+#pragma warning restore CS0618
             PlanType = usage.PlanType,
             UsageUnit = usage.UsageUnit,
             IsQuotaBased = usage.IsQuotaBased,
@@ -521,7 +523,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             ProviderName = usage.ProviderName,
             RequestsUsed = 0,
             RequestsAvailable = 0,
+#pragma warning disable CS0618 // RequestsPercentage: normalization pipeline sets raw field
             RequestsPercentage = 0,
+#pragma warning restore CS0618
             PlanType = usage.PlanType,
             UsageUnit = usage.UsageUnit,
             IsQuotaBased = usage.IsQuotaBased,

@@ -495,7 +495,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     private void SetupOAuthResponse(HttpStatusCode statusCode, string content)
     {
         this.SetupHttpResponse(
-            r => r.RequestUri?.ToString() == ClaudeCodeProvider.OAuthUsageEndpoint,
+            r => string.Equals(r.RequestUri?.ToString(), ClaudeCodeProvider.OAuthUsageEndpoint, StringComparison.Ordinal),
             new HttpResponseMessage
             {
                 StatusCode = statusCode,

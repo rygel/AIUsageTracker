@@ -294,7 +294,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.True(secondaryDetails!.Count >= 1);
 
         // One of the secondary details should show 92% used
-        var weeklyDetail = secondaryDetails.FirstOrDefault(d => d.Name == "7d Limit");
+        var weeklyDetail = secondaryDetails.FirstOrDefault(d => string.Equals(d.Name, "7d Limit", StringComparison.Ordinal));
         Assert.NotNull(weeklyDetail);
         Assert.True(weeklyDetail!.TryGetPercentageValue(out var weeklyUsed, out _, out _));
         Assert.Equal(92, weeklyUsed);

@@ -35,7 +35,7 @@ internal static class ProviderUsageDisplayCatalog
     /// </summary>
     public static IEnumerable<ProviderUsage> ExpandSyntheticAggregateChildren(
         IEnumerable<ProviderUsage> usages,
-        IReadOnlyCollection<string> hiddenItemIds)
+        IEnumerable<string> hiddenItemIds)
     {
         foreach (var usage in usages)
         {
@@ -173,7 +173,9 @@ internal static class ProviderUsageDisplayCatalog
         {
             ProviderId = $"{canonicalProviderId}.{modelDisplayName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal)}",
             ProviderName = $"{modelDisplayName} {aggregateDetailDisplaySuffix}",
+#pragma warning disable CS0618 // RequestsPercentage: catalog sets raw field to drive computed UsedPercent/RemainingPercent
             RequestsPercentage = effectiveRemaining,
+#pragma warning restore CS0618
             RequestsUsed = 100.0 - effectiveRemaining,
             RequestsAvailable = 100,
             UsageUnit = "Quota %",

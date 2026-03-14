@@ -22,15 +22,15 @@ public interface IUsageDatabase
 
     Task StoreResetEventAsync(string providerId, string providerName, double? previousUsage, double? newUsage, string resetType);
 
-    Task<List<ProviderUsage>> GetLatestHistoryAsync();
+    Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync();
 
-    Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100);
+    Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100);
 
-    Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100);
+    Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100);
 
-    Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider);
+    Task<IReadOnlyList<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider);
 
-    Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50);
+    Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50);
 
     Task<bool> IsHistoryEmptyAsync();
 

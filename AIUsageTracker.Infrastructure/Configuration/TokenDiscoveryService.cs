@@ -56,8 +56,6 @@ public class TokenDiscoveryService
         return discoveredConfigs;
     }
 
-    private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
-
     private static IReadOnlyList<IProviderAuthFallbackResolver> BuildExplicitProviderFallbackResolvers()
     {
         return ProviderMetadataCatalog.GetProviderIdsWithDiscoveryEnvironmentVariables()
@@ -80,6 +78,8 @@ public class TokenDiscoveryService
                 pathProvider: pathProvider))
             .ToArray();
     }
+
+    private string GetUserProfilePath() => this._pathProvider.GetUserProfileRoot();
 
     private IReadOnlyDictionary<string, string> GetNormalizedEnvironmentVariables()
     {

@@ -601,8 +601,8 @@
 
         if (usage.Details == null || !usage.Details.Any()) return false;
 
-        var primaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Primary);
-        var secondaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Secondary);
+        var primaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Burst);
+        var secondaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Rolling);
 
         if (primaryDetail == null || secondaryDetail == null) return false;
 

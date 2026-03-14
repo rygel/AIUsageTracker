@@ -18,26 +18,6 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class GeminiProvider : ProviderBase
 {
-    // Public OAuth client ID embedded in the open-source gemini-cli tool.
-    // This is NOT a secret — it is intentionally public and shipped with the CLI.
-    private const string GeminiCliClientId =
-        "10710060605" + "91-tmhssin2h21lcre235vtoloj" + "h4g403ep.apps.googleusercontent.com";
-
-    private const string GeminiCliClientSecret = "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";
-
-    // Alternative client ID from the VS Code / JetBrains plugin which sometimes has better access.
-    private const string GeminiPluginClientId =
-        "681255809395" + "-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com";
-
-    private const string GeminiPluginClientSecret = "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";
-
-    private readonly HttpClient _httpClient;
-    private readonly ILogger<GeminiProvider> _logger;
-    private readonly string? _accountsPathOverride;
-    private readonly string? _oauthCredsPathOverride;
-    private readonly string? _geminiConfigDirectoryOverride;
-    private readonly string? _currentDirectoryOverride;
-
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "gemini-cli",
         displayName: "Google Gemini",
@@ -76,11 +56,25 @@ public class GeminiProvider : ProviderBase
         fallbackBadgeInitial: "G",
         derivedModelDisplaySuffix: "[Gemini CLI]");
 
-    /// <inheritdoc/>
-    public override ProviderDefinition Definition => StaticDefinition;
+    // Public OAuth client ID embedded in the open-source gemini-cli tool.
+    // This is NOT a secret — it is intentionally public and shipped with the CLI.
+    private const string GeminiCliClientId =
+        "10710060605" + "91-tmhssin2h21lcre235vtoloj" + "h4g403ep.apps.googleusercontent.com";
 
-    /// <inheritdoc/>
-    public override string ProviderId => StaticDefinition.ProviderId;
+    private const string GeminiCliClientSecret = "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";
+
+    // Alternative client ID from the VS Code / JetBrains plugin which sometimes has better access.
+    private const string GeminiPluginClientId =
+        "681255809395" + "-oo8ft2oprdrnp9e3aqf6av3hmdib135j.apps.googleusercontent.com";
+
+    private const string GeminiPluginClientSecret = "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";
+
+    private readonly HttpClient _httpClient;
+    private readonly ILogger<GeminiProvider> _logger;
+    private readonly string? _accountsPathOverride;
+    private readonly string? _oauthCredsPathOverride;
+    private readonly string? _geminiConfigDirectoryOverride;
+    private readonly string? _currentDirectoryOverride;
 
     public GeminiProvider(HttpClient httpClient, ILogger<GeminiProvider> logger)
         : this(httpClient, logger, null, null, null, null)
@@ -109,6 +103,12 @@ public class GeminiProvider : ProviderBase
         this._geminiConfigDirectoryOverride = geminiConfigDirectoryOverride;
         this._currentDirectoryOverride = currentDirectoryOverride;
     }
+
+    /// <inheritdoc/>
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    /// <inheritdoc/>
+    public override string ProviderId => StaticDefinition.ProviderId;
 
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)

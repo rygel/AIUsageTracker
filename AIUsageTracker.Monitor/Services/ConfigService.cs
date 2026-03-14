@@ -37,7 +37,7 @@ public class ConfigService : IConfigService
         this._tokenDiscovery = new TokenDiscoveryService(this._tokenDiscoveryLogger, this._pathProvider);
     }
 
-    public async Task<List<ProviderConfig>> GetConfigsAsync()
+    public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync()
     {
         try
         {
@@ -125,7 +125,7 @@ public class ConfigService : IConfigService
         }
     }
 
-    public async Task<List<ProviderConfig>> ScanForKeysAsync()
+    public async Task<IReadOnlyList<ProviderConfig>> ScanForKeysAsync()
     {
         try
         {
