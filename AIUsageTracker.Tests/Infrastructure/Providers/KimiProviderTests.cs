@@ -50,7 +50,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
         // Assert
         var usage = result.Single();
-        Assert.Equal("Kimi", usage.ProviderName);
+        Assert.Equal("Kimi for Coding", usage.ProviderName);
 
         // For quota-based, RequestsPercentage = remaining percentage
         // (100 - 10) / 100 * 100 = 90% remaining
@@ -167,7 +167,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
         // Assert
         var usage = result.Single();
-        Assert.Equal("kimi", usage.ProviderId); // provider-id-guardrail-allow: test assertion
+        Assert.Equal("kimi-for-coding", usage.ProviderId); // provider-id-guardrail-allow: test assertion
         Assert.True(usage.IsQuotaBased);
         Assert.Equal(PlanType.Coding, usage.PlanType);
 
@@ -604,8 +604,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     {
         var definition = KimiProvider.StaticDefinition;
 
-        Assert.Equal("kimi", definition.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.Equal("Kimi", definition.DisplayName);
+        Assert.Equal("kimi-for-coding", definition.ProviderId); // provider-id-guardrail-allow: test assertion
+        Assert.Equal("Kimi for Coding", definition.DisplayName);
         Assert.True(definition.IsQuotaBased);
         Assert.Equal("quota-based", definition.DefaultConfigType);
         Assert.Equal(PlanType.Coding, definition.PlanType);

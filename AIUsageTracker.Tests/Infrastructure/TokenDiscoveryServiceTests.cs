@@ -42,7 +42,7 @@ public class TokenDiscoveryServiceTests
 
         Assert.DoesNotContain(configs, c => c.ProviderId.Equals("minimax-io", StringComparison.OrdinalIgnoreCase));
         Assert.DoesNotContain(configs, c => c.ProviderId.Equals("minimax-global", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(configs, c => c.ProviderId.Equals("kimi-for-coding", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(configs, c => c.ProviderId.Equals("kimi", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

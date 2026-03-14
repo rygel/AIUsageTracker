@@ -456,6 +456,11 @@ public partial class MainWindow : Window
                         // Monitor may have started on a different port; refresh the client endpoint before using it.
                         await this._monitorService.RefreshPortAsync();
                     }
+                    else if (await this.TryRestartMonitorForVersionMismatchAsync())
+                    {
+                        // Monitor was restarted due to version mismatch; refresh the client endpoint.
+                        await this._monitorService.RefreshPortAsync();
+                    }
 
                     // Update monitor toggle button state
                     await this.UpdateMonitorToggleButtonStateAsync();
@@ -657,6 +662,59 @@ public partial class MainWindow : Window
         if (this.ShowUsedToggle != null)
         {
             this.ShowUsedToggle.IsChecked = this._displayPreferences.ShouldShowUsedPercentages(this._preferences);
+        }
+    }
+
+    private async Task<bool> TryRestartMonitorForVersionMismatchAsync()
+    {
+        try
+        {
+            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
+            if (healthSnapshot == null)
+            {
+                return false;
+            }
+
+            var monitorVersion = healthSnapshot.AgentVersion;
+            var uiVersion = typeof(App).Assembly.GetName().Version?.ToString();
+
+            if (string.IsNullOrEmpty(monitorVersion) || string.IsNullOrEmpty(uiVersion))
+            {
+                return false;
+            }
+
+            if (string.Equals(monitorVersion, uiVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            MonitorService.LogDiagnostic(
+                $"Monitor version mismatch (monitor: {monitorVersion}, ui: {uiVersion}). Restarting monitor...");
+            this._logger.LogWarning(
+                "Monitor version mismatch (monitor: {MonitorVersion}, ui: {UiVersion}). Restarting monitor...",
+                monitorVersion,
+                uiVersion);
+
+            await this.Dispatcher.InvokeAsync(() =>
+                this.ShowStatus("Restarting monitor (version mismatch)...", StatusType.Warning));
+
+            await this._monitorLifecycleService.StopAgentAsync();
+
+            var started = await this._monitorLifecycleService.EnsureAgentRunningAsync();
+            if (!started)
+            {
+                MonitorService.LogDiagnostic("Failed to restart monitor after version mismatch.");
+                this._logger.LogError("Failed to restart monitor after version mismatch");
+                return false;
+            }
+
+            MonitorService.LogDiagnostic("Monitor restarted successfully after version mismatch.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Error during monitor version mismatch restart");
+            return false;
         }
     }
 

@@ -27,13 +27,13 @@ public class KimiProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "kimi",
-        displayName: "Kimi",
+        providerId: "kimi-for-coding",
+        displayName: "Kimi for Coding",
         planType: PlanType.Coding,
         isQuotaBased: true,
         defaultConfigType: "quota-based",
         includeInWellKnownProviders: true,
-        handledProviderIds: new[] { "kimi-for-coding" },
+        handledProviderIds: new[] { "kimi" },
         discoveryEnvironmentVariables: new[] { "KIMI_API_KEY", "MOONSHOT_API_KEY" },
         iconAssetName: "kimi",
         fallbackBadgeColorHex: "#BA55D3",

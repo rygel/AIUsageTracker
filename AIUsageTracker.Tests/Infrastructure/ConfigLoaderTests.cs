@@ -14,7 +14,7 @@ public class ConfigLoaderTests : IntegrationTestBase
     [Fact]
     public async Task LoadConfigAsync_CanonicalizesHandledProviderAliasesAsync()
     {
-        var authPath = this.CreateFile("config/auth.json", "{\"kimi-for-coding\":{\"key\":\"kimi-test-key\",\"type\":\"quota-based\"}}");
+        var authPath = this.CreateFile("config/auth.json", "{\"kimi\":{\"key\":\"kimi-test-key\",\"type\":\"quota-based\"}}");
         var providersPath = this.CreateFile("config/providers.json", "{}");
 
         var mockPathProvider = new Mock<IAppPathProvider>();
@@ -33,9 +33,9 @@ public class ConfigLoaderTests : IntegrationTestBase
 
         var configs = await loader.LoadConfigAsync();
 
-        var kimi = Assert.Single(configs, config => string.Equals(config.ProviderId, "kimi", StringComparison.Ordinal));
+        var kimi = Assert.Single(configs, config => string.Equals(config.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
         Assert.Equal("kimi-test-key", kimi.ApiKey);
-        Assert.DoesNotContain(configs, config => string.Equals(config.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
+        Assert.DoesNotContain(configs, config => string.Equals(config.ProviderId, "kimi", StringComparison.Ordinal));
     }
 
     [Fact]

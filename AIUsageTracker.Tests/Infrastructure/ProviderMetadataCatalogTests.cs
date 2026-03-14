@@ -41,7 +41,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("gemini", "gemini-cli", "Google Gemini")]
     [InlineData("gemini-cli.hourly", "gemini-cli", "Gemini CLI (Hourly)")]
     [InlineData("gemini-cli.daily", "gemini-cli", "Gemini CLI (Daily)")]
-    [InlineData("kimi-for-coding", "kimi", "Kimi")]
+    [InlineData("kimi", "kimi-for-coding", "Kimi for Coding")]
     [InlineData("minimax-io", "minimax", "Minimax (International)")]
     [InlineData("minimax-global", "minimax", "Minimax (International)")]
     [InlineData("opencode-go", "opencode-zen", "Opencode Go")]
@@ -136,7 +136,7 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("codex.spark", "codex")]
     [InlineData("antigravity.claude-opus", "antigravity")]
-    [InlineData("kimi-for-coding", "kimi")]
+    [InlineData("kimi", "kimi-for-coding")]
     [InlineData("minimax-io", "minimax")]
     [InlineData("opencode-go", "opencode-zen")]
     [InlineData("unknown-provider", "unknown-provider")]
@@ -386,7 +386,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("CODEX_API_KEY", "codex")]
     [InlineData("GEMINI_API_KEY", "gemini-cli")]
     [InlineData("DEEPSEEK_API_KEY", "deepseek")]
-    [InlineData("MOONSHOT_API_KEY", "kimi")]
+    [InlineData("MOONSHOT_API_KEY", "kimi-for-coding")]
     [InlineData("ZAI_API_KEY", "zai-coding-plan")]
     [InlineData("SYNTHETIC_API_KEY", "synthetic")]
     [InlineData("CLAUDE_API_KEY", "claude-code")]
@@ -454,7 +454,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("github-copilot", PlanType.Coding, true)]
     [InlineData("antigravity", PlanType.Coding, true)]
     [InlineData("gemini-cli", PlanType.Coding, true)]
-    [InlineData("kimi", PlanType.Coding, true)]
+    [InlineData("kimi-for-coding", PlanType.Coding, true)]
     [InlineData("synthetic", PlanType.Coding, true)]
     [InlineData("zai-coding-plan", PlanType.Coding, true)]
     [InlineData("codex", PlanType.Coding, true)]
@@ -584,7 +584,7 @@ public class ProviderMetadataCatalogTests
         Assert.False(gemini.RenderDetailsAsSyntheticChildrenInMainWindow);
         Assert.False(gemini.UseChildProviderRowsForGroupedModels);
 
-        foreach (var providerId in new[] { "kimi", "synthetic", "zai-coding-plan" })
+        foreach (var providerId in new[] { "kimi-for-coding", "synthetic", "zai-coding-plan" })
         {
             var definition = Assert.IsType<ProviderDefinition>(ProviderMetadataCatalog.Find(providerId));
             Assert.Equal(ProviderSettingsMode.StandardApiKey, definition.SettingsMode);

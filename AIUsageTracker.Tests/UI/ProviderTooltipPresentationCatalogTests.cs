@@ -110,7 +110,7 @@ public sealed class ProviderTooltipPresentationCatalogTests
             Description = "Authentication failed (401)",
         };
 
-        var content = ProviderTooltipPresentationCatalog.BuildContent(usage, "Kimi");
+        var content = ProviderTooltipPresentationCatalog.BuildContent(usage, "Kimi for Coding");
         var normalized = content?.Replace("\r\n", "\n", StringComparison.Ordinal);
 
         Assert.Contains("Status: Inactive", normalized!, StringComparison.Ordinal);

@@ -60,5 +60,6 @@ public static class ConfigPathCatalog
         yield return Path.Combine(userProfileRoot, ".config", "opencode", "auth.json");
         yield return Path.Combine(userProfileRoot, "AppData", "Roaming", "opencode", "auth.json");
         yield return Path.Combine(userProfileRoot, "AppData", "Local", "opencode", "auth.json");
+        yield return Path.Combine(userProfileRoot, ".opencode", "auth.json");
     }
 }

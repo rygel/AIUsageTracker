@@ -104,7 +104,7 @@ public class TokenDiscoveryIntegrationTests : IntegrationTestBase
         {
             var configs = await this._service.DiscoverTokensAsync();
 
-            var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "kimi", StringComparison.Ordinal));
+            var config = configs.FirstOrDefault(c => string.Equals(c.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
             Assert.NotNull(config);
             Assert.Equal("env-kimi-key", config.ApiKey);
         }
