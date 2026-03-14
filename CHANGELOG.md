@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.34] - 2026-03-14
+
+### Fixed
+- **Provider DI Registration**: Fixed HttpClient singleton registration in Monitor DI container, resolving startup errors for ClaudeCodeProvider and KimiProvider that depend on plain `HttpClient` injection.
+- **Quota Percentage Calculation**: Fixed OpenAI and Codex providers to use the highest usage percentage across all quota windows (primary, secondary, spark) for the parent display, resolving incorrect 0% usage when primary window was empty but secondary/spark had actual usage.
+
+### Added
+- **Provider DI Integration Tests**: Added comprehensive integration tests (`ProviderDiRegistrationTests`) that verify all providers can be resolved from the DI container, preventing future registration issues.
+
 ## [2.2.28-beta.33] - 2026-03-14
 
 ### Added
