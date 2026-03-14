@@ -139,7 +139,7 @@ internal static class ProviderUsageDisplayCatalog
         string modelDisplayName,
         ProviderUsage parentUsage)
     {
-        var effectiveUsed = UsageMath.GetEffectiveUsedPercent(detail, parentIsQuota: true);
+        var effectiveUsed = UsageMath.GetEffectiveUsedPercent(detail, parentIsQuota: isQuotaBased);
         var hasRemainingPercent = effectiveUsed.HasValue;
         var effectiveRemaining = !effectiveUsed.HasValue
             ? 0

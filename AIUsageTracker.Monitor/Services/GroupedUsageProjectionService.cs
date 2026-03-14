@@ -125,10 +125,32 @@ public static class GroupedUsageProjectionService
                     continue;
                 }
 
-                var usedPercentage = UsageMath.GetEffectiveUsedPercent(detail, usage.IsQuotaBased);
-                var remainingPercentage = usedPercentage.HasValue
-                    ? (double?)UsageMath.ClampPercent(100.0 - usedPercentage.Value)
-                    : null;
+                double? usedPercentage;
+                double? remainingPercentage;
+                if (detail.TryGetPercentageValue(out var typedPercent, out var typedSemantic, out _))
+                {
+                    var isRemaining = typedSemantic == PercentageValueSemantic.Remaining
+                        || (typedSemantic == PercentageValueSemantic.None
+                            && (detail.DetailType == ProviderUsageDetailType.QuotaWindow || usage.IsQuotaBased));
+                    if (isRemaining)
+                    {
+                        remainingPercentage = typedPercent;
+                        usedPercentage = UsageMath.ClampPercent(100.0 - typedPercent);
+                    }
+                    else
+                    {
+                        usedPercentage = typedPercent;
+                        remainingPercentage = UsageMath.ClampPercent(100.0 - typedPercent);
+                    }
+                }
+                else
+                {
+                    usedPercentage = UsageMath.GetEffectiveUsedPercent(detail, usage.IsQuotaBased);
+                    remainingPercentage = usedPercentage.HasValue
+                        ? (double?)UsageMath.ClampPercent(100.0 - usedPercentage.Value)
+                        : null;
+                }
+
                 var modelScopedQuotaDetails = quotaDetails
                     .Where(quotaDetail => string.Equals(quotaDetail.ModelName, modelId, StringComparison.OrdinalIgnoreCase))
                     .ToList();
@@ -221,10 +243,31 @@ public static class GroupedUsageProjectionService
                      .OrderBy(detail => detail.NextResetTime ?? DateTime.MaxValue)
                      .ThenBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase))
         {
-            var usedPercent = UsageMath.GetEffectiveUsedPercent(detail, parentIsQuotaBased);
-            var remainingPercent = usedPercent.HasValue
-                ? (double?)UsageMath.ClampPercent(100.0 - usedPercent.Value)
-                : null;
+            double? usedPercent;
+            double? remainingPercent;
+            if (detail.TryGetPercentageValue(out var typedPercent, out var typedSemantic, out _))
+            {
+                var isRemaining = typedSemantic == PercentageValueSemantic.Remaining
+                    || (typedSemantic == PercentageValueSemantic.None
+                        && (detail.DetailType == ProviderUsageDetailType.QuotaWindow || parentIsQuotaBased));
+                if (isRemaining)
+                {
+                    remainingPercent = typedPercent;
+                    usedPercent = UsageMath.ClampPercent(100.0 - typedPercent);
+                }
+                else
+                {
+                    usedPercent = typedPercent;
+                    remainingPercent = UsageMath.ClampPercent(100.0 - typedPercent);
+                }
+            }
+            else
+            {
+                usedPercent = UsageMath.GetEffectiveUsedPercent(detail, parentIsQuotaBased);
+                remainingPercent = usedPercent.HasValue
+                    ? (double?)UsageMath.ClampPercent(100.0 - usedPercent.Value)
+                    : null;
+            }
 
             var baseBucketId = CreateModelIdFromName(detail.Name);
             var bucketId = baseBucketId;

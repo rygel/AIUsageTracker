@@ -161,17 +161,25 @@ internal static class GroupedUsageDisplayAdapter
             {
                 var usedPercent = AgentGroupedUsageValueResolver.ResolveBucketUsedPercentage(bucket, parentIsQuotaBased);
                 var remainingPercent = AgentGroupedUsageValueResolver.ResolveBucketRemainingPercentage(bucket, parentIsQuotaBased);
-                return new ProviderUsageDetail
+                var detail = new ProviderUsageDetail
                 {
                     Name = bucket.BucketName,
-                    Used = parentIsQuotaBased
-                        ? $"{remainingPercent:F1}% remaining ({usedPercent:F1}% used)"
-                        : $"{usedPercent:F1}% used",
                     Description = bucket.Description ?? string.Empty,
                     NextResetTime = bucket.NextResetTime,
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     QuotaBucketKind = WindowKind.None,
                 };
+
+                if (parentIsQuotaBased)
+                {
+                    detail.SetPercentageValue(remainingPercent, PercentageValueSemantic.Remaining, decimalPlaces: 1);
+                }
+                else
+                {
+                    detail.SetPercentageValue(usedPercent, PercentageValueSemantic.Used, decimalPlaces: 1);
+                }
+
+                return detail;
             })
             .ToList();
     }

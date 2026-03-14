@@ -108,6 +108,8 @@ else
                 const color = getColor(name, i);
                 const data = allTimestamps.map(ts => {
                     const point = providerData.find(d => d.Timestamp === ts);
+                    // RequestsPercentage from DB is always "remaining %" (all providers are quota-based).
+                    // Provider definitions are immutable per provider ID, so this is safe.
                     return point ? point.RequestsPercentage : null;
                 });
 

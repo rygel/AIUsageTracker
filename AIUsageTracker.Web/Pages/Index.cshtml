@@ -136,14 +136,12 @@
                         ? anomalySnapshot
                         : AIUsageTracker.Core.Models.UsageAnomalySnapshot.Unavailable("Insufficient history");
 
-                    var displayPercentage = usage.IsQuotaBased
-                        ? (Model.ShowUsedPercentage ? (100 - usage.RequestsPercentage) : usage.RequestsPercentage)
-                        : (Model.ShowUsedPercentage ? usage.RequestsPercentage : (100 - usage.RequestsPercentage));
+                    var displayPercentage = Model.ShowUsedPercentage
+                        ? usage.UsedPercent
+                        : usage.RemainingPercent;
 
                     // Calculate used percentage for color (always based on used, regardless of toggle)
-                    var usedPercentage = usage.IsQuotaBased
-                        ? Math.Max(0, 100 - usage.RequestsPercentage)
-                        : usage.RequestsPercentage;
+                    var usedPercentage = usage.UsedPercent;
 
                     if (!hasUsableMetrics)
                     {
@@ -173,18 +171,8 @@
                         }
                         else
                         {
-                            if (usage.IsQuotaBased)
-                            {
-                                var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
-                                usageText = $"{displayPercentage:F1}% {modeText}";
-                            }
-                            else
-                            {
-                                var usedPercent = Math.Clamp(usage.RequestsPercentage, 0, 100);
-                                usageText = Model.ShowUsedPercentage
-                                    ? $"{usedPercent:F1}% used"
-                                    : $"{(100 - usedPercent):F1}% remaining";
-                            }
+                            var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
+                            usageText = $"{displayPercentage:F1}% {modeText}";
                         }
                     }
                     

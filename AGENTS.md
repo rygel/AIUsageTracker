@@ -19,6 +19,13 @@ This document provides essential information for agentic coding assistants worki
 - **DO NOT** show only a subset of providers (e.g., only antigravity) on startup
 - The UI must show provider cards immediately, even if data is stale or unavailable
 
+### Provider Classes Are the Single Source of Truth
+
+- **Provider classes own the semantics of usage data.** Every `ProviderUsage` and `ProviderUsageDetail` emitted by a provider must contain fully resolved, unambiguous values. Downstream layers (UI, database, projection services) display and persist — they never interpret, flip, or re-derive meaning.
+- **No downstream interpretation.** The UI must not check `IsQuotaBased` to decide what a percentage means. If a provider says `UsedPercent = 55`, that's 55% consumed. Period.
+- **Provider definitions are immutable for a given provider ID.** If the semantics of a provider change (e.g. quota-based becomes pay-as-you-go), introduce a new provider class with a new ID. Do not change the definition retroactively — the database stores `RequestsPercentage` without `IsQuotaBased`, so flipping the definition would silently reinterpret all historical data.
+- **The database is lean.** Do not duplicate provider metadata (like `IsQuotaBased` or `PlanType`) into the database. The provider definition is the authority. The database stores raw values; the provider definition gives them meaning on read.
+
 ### Development Workflow
 
 - **Never push directly to `main`**: All changes, including release preparations, MUST be done on a feature branch (e.g., `feature/branch-name`) and integrated via a Pull Request.
