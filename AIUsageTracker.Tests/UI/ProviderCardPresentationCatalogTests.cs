@@ -45,6 +45,28 @@ public sealed class ProviderCardPresentationCatalogTests
     }
 
     [Fact]
+    public void Create_ShowsProgress_ForSyntheticAggregateChildCard()
+    {
+        // claude-code.current-session is a synthetic child whose canonical ID resolves to
+        // "claude-code" (an aggregate parent). It must NOT be treated as an aggregate parent
+        // itself — otherwise shouldHaveProgress would always be false and no bar would render.
+        var usage = new ProviderUsage
+        {
+            ProviderId = "claude-code.current-session",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            RequestsPercentage = 65, // 65% remaining → 35% used
+            Description = "65% Remaining",
+        };
+
+        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+
+        Assert.True(presentation.ShouldHaveProgress);
+        Assert.Equal(35, presentation.UsedPercent);
+        Assert.Equal(65, presentation.RemainingPercent);
+    }
+
+    [Fact]
     public void Create_FormatsQuotaFractionStatus_WhenDisplayAsFraction()
     {
         var usage = new ProviderUsage

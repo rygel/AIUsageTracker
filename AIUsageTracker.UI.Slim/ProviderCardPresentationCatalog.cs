@@ -21,7 +21,9 @@ internal static class ProviderCardPresentationCatalog
         var isError = description.Contains("[Error]", StringComparison.OrdinalIgnoreCase) ||
             (!usage.IsAvailable && !isMissing && !string.IsNullOrWhiteSpace(description));
         var isUnknown = description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
-        var isAggregateParent = ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId);
+        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
+        var isAggregateParent = ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId)
+            && string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase);
         var isStatusOnlyProvider = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
         var hasDualQuotaBucketPresentation = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out var dualQuotaBucketPresentation);
         var remainingPercent = usage.RemainingPercent;
