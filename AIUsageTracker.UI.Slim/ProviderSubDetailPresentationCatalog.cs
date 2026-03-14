@@ -16,7 +16,7 @@ internal static class ProviderSubDetailPresentationCatalog
             return Array.Empty<ProviderUsageDetail>();
         }
 
-        if (ProviderCapabilityCatalog.HasVisibleDerivedProviders(usage.ProviderId ?? string.Empty))
+        if (ProviderMetadataCatalog.HasDisplayableDerivedProviders(usage.ProviderId ?? string.Empty))
         {
             return Array.Empty<ProviderUsageDetail>();
         }

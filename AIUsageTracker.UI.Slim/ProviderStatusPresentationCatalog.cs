@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -66,8 +67,8 @@ internal static class ProviderStatusPresentationCatalog
     private static ProviderStatusPresentation CreateDerivedPresentation(ProviderConfig config, ProviderUsage? usage)
     {
         var secondaryLines = new List<ProviderStatusLine>();
-        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
-        var sourceLabel = ProviderCapabilityCatalog.GetDisplayName(canonicalProviderId);
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
+        var sourceLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
         string primaryText;
         string primaryResourceKey;
         if (usage?.IsAvailable == true)
@@ -166,8 +167,8 @@ internal static class ProviderStatusPresentationCatalog
     {
         var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived: false);
         var providerSessionLabel = settingsBehavior.SessionProviderLabel ??
-                                   ProviderCapabilityCatalog.GetDisplayName(
-                                       ProviderCapabilityCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty));
+                                   ProviderMetadataCatalog.GetConfiguredDisplayName(
+                                       ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty));
         var hasSessionToken = ProviderSettingsCatalog.IsSessionToken(config.ApiKey);
         var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
         var accountName = usage?.AccountName;

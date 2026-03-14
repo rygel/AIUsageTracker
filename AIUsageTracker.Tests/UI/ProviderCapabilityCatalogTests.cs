@@ -2,7 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.UI.Slim;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.UI;
 
@@ -11,7 +11,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void ShouldShowInSettings_UsesProviderMetadata()
     {
-        var result = ProviderCapabilityCatalog.ShouldShowInSettings("codex");
+        var result = ProviderMetadataCatalog.ShouldShowInSettings("codex");
 
         Assert.True(result);
     }
@@ -19,7 +19,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void GetCanonicalProviderId_UsesProviderMetadata()
     {
-        var canonical = ProviderCapabilityCatalog.GetCanonicalProviderId(
+        var canonical = ProviderMetadataCatalog.GetCanonicalProviderId(
             "antigravity.gpt-5");
 
         Assert.Equal("antigravity", canonical);
@@ -28,7 +28,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void GetDefaultSettingsProviderIds_UsesProviderMetadata()
     {
-        var providerIds = ProviderCapabilityCatalog.GetDefaultSettingsProviderIds();
+        var providerIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds();
 
         Assert.Contains("codex", providerIds);
         Assert.Contains("codex.spark", providerIds);
@@ -37,7 +37,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void HasVisibleDerivedProviders_TreatsAntigravityAsVisibleChildProviderFamily()
     {
-        var result = ProviderCapabilityCatalog.HasVisibleDerivedProviders("antigravity");
+        var result = ProviderMetadataCatalog.HasDisplayableDerivedProviders("antigravity");
 
         Assert.True(result);
     }
@@ -45,7 +45,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void ShouldShowInMainWindow_HidesLegacyOpenAiProvider()
     {
-        var result = ProviderCapabilityCatalog.ShouldShowInMainWindow("openai");
+        var result = ProviderMetadataCatalog.ShouldShowInMainWindow("openai");
 
         Assert.False(result);
     }
@@ -53,7 +53,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void ResolveDisplayLabel_PreservesDerivedProviderName_WhenProvided()
     {
-        var result = ProviderCapabilityCatalog.ResolveDisplayLabel(
+        var result = ProviderMetadataCatalog.ResolveDisplayLabel(
             "antigravity.gpt-oss",
             "GPT OSS (Anti-Gravity)");
 
@@ -63,7 +63,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void ResolveDisplayLabel_PreservesRuntimeName_ForGeminiDerivedProvider()
     {
-        var result = ProviderCapabilityCatalog.ResolveDisplayLabel(
+        var result = ProviderMetadataCatalog.ResolveDisplayLabel(
             "gemini-cli.minute",
             "Gemini 2.5 Flash Lite [Gemini CLI]");
 
@@ -73,7 +73,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void GetConfiguredDisplayName_UsesMetadataLabelForFamilyChildWithoutRuntimeLabel()
     {
-        var result = ProviderCapabilityCatalog.GetConfiguredDisplayName("antigravity.gpt-oss");
+        var result = ProviderMetadataCatalog.GetConfiguredDisplayName("antigravity.gpt-oss");
 
         Assert.Equal("Google Antigravity", result);
     }
@@ -81,7 +81,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void SupportsAccountIdentity_UsesProviderMetadata()
     {
-        var result = ProviderCapabilityCatalog.SupportsAccountIdentity("github-copilot");
+        var result = ProviderMetadataCatalog.SupportsAccountIdentity("github-copilot");
 
         Assert.True(result);
     }
@@ -89,7 +89,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void ShouldUseSharedSubDetailCollapsePreference_DelegatesToProviderMetadata()
     {
-        var result = ProviderCapabilityCatalog.ShouldUseSharedSubDetailCollapsePreference("codex.spark");
+        var result = ProviderMetadataCatalog.ShouldUseSharedSubDetailCollapsePreference("codex.spark");
 
         Assert.False(result);
     }
@@ -97,7 +97,7 @@ public sealed class ProviderCapabilityCatalogTests
     [Fact]
     public void ShouldRenderAsSettingsSubItem_DelegatesToProviderMetadata()
     {
-        var result = ProviderCapabilityCatalog.ShouldRenderAsSettingsSubItem("antigravity.some-model");
+        var result = ProviderMetadataCatalog.ShouldRenderAsSettingsSubItem("antigravity.some-model");
 
         Assert.False(result);
     }

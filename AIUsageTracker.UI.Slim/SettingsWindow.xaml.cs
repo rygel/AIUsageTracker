@@ -535,7 +535,7 @@ public partial class SettingsWindow : Window
             return false;
         }
 
-        return ProviderCapabilityCatalog.ShouldRenderAsSettingsSubItem(providerId);
+        return ProviderMetadataCatalog.ShouldRenderAsSettingsSubItem(providerId);
     }
 
     private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
@@ -603,8 +603,8 @@ public partial class SettingsWindow : Window
         var title = new TextBlock
         {
             Text = isDerived
-                ? $"-> {ProviderCapabilityCatalog.GetDisplayName(config.ProviderId)}"
-                : ProviderCapabilityCatalog.GetDisplayName(config.ProviderId),
+                ? $"-> {ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId)}"
+                : ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId),
             FontWeight = FontWeights.SemiBold,
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
@@ -896,7 +896,7 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            var filename = ProviderVisualCatalog.GetIconAssetName(providerId);
+            var filename = ProviderMetadataCatalog.GetIconAssetName(providerId);
 
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
 

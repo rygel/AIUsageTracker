@@ -14,13 +14,13 @@ internal static class ProviderSettingsDisplayCatalog
         IReadOnlyCollection<ProviderUsage> usages)
     {
         var displayItems = configs
-            .Where(config => ProviderCapabilityCatalog.ShouldShowInSettings(config.ProviderId))
+            .Where(config => ProviderMetadataCatalog.ShouldShowInSettings(config.ProviderId))
             .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false))
             .ToList();
         var configuredProviderIds = displayItems
             .Select(item => item.Config.ProviderId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var defaultProviderIds = ProviderCapabilityCatalog.GetDefaultSettingsProviderIds()
+        var defaultProviderIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds()
             .Where(providerId => !configuredProviderIds.Contains(providerId))
             .ToList();
 
@@ -35,7 +35,7 @@ internal static class ProviderSettingsDisplayCatalog
             .Select(usage => new { Usage = usage, ProviderId = usage.ProviderId ?? string.Empty })
             .Where(x =>
                 !string.IsNullOrWhiteSpace(x.ProviderId) &&
-                ProviderCapabilityCatalog.IsVisibleDerivedProviderId(x.ProviderId) &&
+                ProviderMetadataCatalog.IsVisibleDerivedProviderId(x.ProviderId) &&
                 !explicitDisplayProviderIds.Contains(x.ProviderId))
             .Select(x => x.Usage)
             .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
@@ -44,7 +44,7 @@ internal static class ProviderSettingsDisplayCatalog
         displayItems.AddRange(derivedItems);
 
         return displayItems
-            .OrderBy(item => ProviderCapabilityCatalog.GetDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => ProviderMetadataCatalog.GetDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
             .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }

@@ -12,7 +12,7 @@ internal static class ProviderUsageDisplayCatalog
     public static ProviderRenderPreparation PrepareForMainWindow(IReadOnlyCollection<ProviderUsage> usages)
     {
         var filteredUsages = usages
-            .Where(usage => ProviderCapabilityCatalog.ShouldShowInMainWindow(usage.ProviderId ?? string.Empty))
+            .Where(usage => ProviderMetadataCatalog.ShouldShowInMainWindow(usage.ProviderId ?? string.Empty))
             .ToList();
         var collapsedParentProviderIds = ResolveCollapsedParentProviderIds(filteredUsages);
 
@@ -39,7 +39,7 @@ internal static class ProviderUsageDisplayCatalog
     {
         foreach (var usage in usages)
         {
-            if (!ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(usage.ProviderId ?? string.Empty) ||
+            if (!ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(usage.ProviderId ?? string.Empty) ||
                 usage.Details?.Any() != true)
             {
                 yield return usage;
@@ -59,8 +59,8 @@ internal static class ProviderUsageDisplayCatalog
 
     private static IReadOnlyList<ProviderUsage> CreateAggregateDetailUsages(ProviderUsage parentUsage)
     {
-        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(parentUsage.ProviderId ?? string.Empty);
-        if (!ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(canonicalProviderId) ||
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(parentUsage.ProviderId ?? string.Empty);
+        if (!ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(canonicalProviderId) ||
             parentUsage.Details?.Any() != true)
         {
             return Array.Empty<ProviderUsage>();
@@ -101,9 +101,9 @@ internal static class ProviderUsageDisplayCatalog
             .Where(usage =>
             {
                 var providerId = usage.ProviderId ?? string.Empty;
-                var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
+                var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
                 return string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase) &&
-                       ProviderCapabilityCatalog.ShouldCollapseDerivedChildrenInMainWindow(providerId);
+                       ProviderMetadataCatalog.ShouldCollapseDerivedChildrenInMainWindow(providerId);
             })
             .Select(usage => usage.ProviderId ?? string.Empty)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -114,7 +114,7 @@ internal static class ProviderUsageDisplayCatalog
         return usage =>
         {
             var providerId = usage.ProviderId ?? string.Empty;
-            var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
+            var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
             var isDerivedChild = !string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase);
             return !isDerivedChild || !collapsedParentProviderIds.Contains(canonicalProviderId);
         };

@@ -14,7 +14,7 @@ internal static class ProviderSettingsCatalog
         ProviderUsage? usage,
         bool isDerived)
     {
-        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(config.ProviderId);
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId);
         var hasSessionToken = IsSessionToken(config.ApiKey);
         var inputMode = isDerived
             ? ProviderInputMode.DerivedReadOnly
@@ -34,7 +34,7 @@ internal static class ProviderSettingsCatalog
         return new ProviderSettingsBehavior(
             InputMode: inputMode,
             IsInactive: isInactive,
-            IsDerivedVisible: ProviderCapabilityCatalog.IsVisibleDerivedProviderId(config.ProviderId ?? string.Empty),
+            IsDerivedVisible: ProviderMetadataCatalog.IsVisibleDerivedProviderId(config.ProviderId ?? string.Empty),
             SessionProviderLabel: sessionProviderLabel);
     }
 

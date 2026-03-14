@@ -15,7 +15,8 @@ internal sealed record ProviderCardPresentation(
     string StatusText,
     ProviderCardStatusTone StatusTone,
     double? DualBucketPrimaryUsed = null,
-    double? DualBucketSecondaryUsed = null)
+    double? DualBucketSecondaryUsed = null,
+    bool IsStale = false)
 {
     public bool HasDualBuckets => this.DualBucketPrimaryUsed.HasValue;
 }

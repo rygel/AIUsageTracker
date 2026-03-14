@@ -12,19 +12,9 @@ internal static class ProviderVisualCatalog
 {
     private static readonly Dictionary<string, Brush> BadgeBrushCache = new(StringComparer.OrdinalIgnoreCase);
 
-    public static string GetCanonicalProviderId(string providerId)
-    {
-        return ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
-    }
-
-    public static string GetIconAssetName(string providerId)
-    {
-        return ProviderMetadataCatalog.GetIconAssetName(providerId);
-    }
-
     public static (Brush Color, string Initial) GetFallbackBadge(string providerId, Brush defaultBrush)
     {
-        var canonicalProviderId = GetCanonicalProviderId(providerId);
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
         return TryGetBadgeDefinition(canonicalProviderId, out var badgeColor, out var badgeInitial)
             ? (badgeColor, badgeInitial)
             : (defaultBrush, canonicalProviderId[..Math.Min(2, canonicalProviderId.Length)].ToUpperInvariant());

@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
 using CommunityToolkit.Mvvm.Input;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,7 +52,7 @@ public partial class App
             {
                 var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                 var statusText = ProviderCardPresentationCatalog.Create(usage, showUsed).StatusText;
-                var providerLabel = ProviderCapabilityCatalog.ResolveDisplayLabel(usage);
+                var providerLabel = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
                 desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, isQuota);
             }
 
@@ -80,7 +81,7 @@ public partial class App
                 }
 
                 var key = $"{config.ProviderId}:{subName}";
-                var providerLabel = ProviderCapabilityCatalog.ResolveDisplayLabel(usage);
+                var providerLabel = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
                 desiredIcons[key] = (
                     $"{providerLabel} - {subName}: {detailPresentation.DisplayText}",
                     showUsed ? detailPresentation.UsedPercent : detailPresentation.IndicatorWidth,

@@ -51,16 +51,6 @@ public class SlimGroupedUsageGuardrailTests
     }
 
     [Fact]
-    public void ProviderCapabilityCatalog_IsMetadataOnly_WithoutSnapshotOverrides()
-    {
-        var source = File.ReadAllText(GetRepoPath("AIUsageTracker.UI.Slim", "ProviderCapabilityCatalog.cs"));
-
-        Assert.DoesNotContain("AgentProviderCapabilitiesSnapshot", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("snapshot", source, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ProviderMetadataCatalog", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void SlimQuotaPresentation_DoesNotUseObsoleteWindowKindProperty()
     {
         var files = new[]

@@ -55,6 +55,12 @@ public static class ProviderMetadataCatalog
         return providerId ?? string.Empty;
     }
 
+    public static string ResolveDisplayLabel(ProviderUsage usage)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+        return ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
+    }
+
     public static string ResolveDisplayLabel(string providerId, string? runtimeLabel = null)
     {
         if (TryGet(providerId, out var definition))

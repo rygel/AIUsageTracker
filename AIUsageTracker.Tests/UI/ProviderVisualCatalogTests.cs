@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Windows.Media;
+using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim;
 
 namespace AIUsageTracker.Tests.UI;
@@ -19,8 +20,8 @@ public class ProviderVisualCatalogTests
         string expectedCanonicalProviderId,
         string expectedAssetName)
     {
-        Assert.Equal(expectedCanonicalProviderId, ProviderVisualCatalog.GetCanonicalProviderId(providerId));
-        Assert.Equal(expectedAssetName, ProviderVisualCatalog.GetIconAssetName(providerId));
+        Assert.Equal(expectedCanonicalProviderId, ProviderMetadataCatalog.GetCanonicalProviderId(providerId));
+        Assert.Equal(expectedAssetName, ProviderMetadataCatalog.GetIconAssetName(providerId));
     }
 
     [Theory]

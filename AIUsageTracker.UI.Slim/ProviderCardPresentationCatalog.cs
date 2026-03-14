@@ -15,14 +15,15 @@ internal static class ProviderCardPresentationCatalog
         bool showUsed)
     {
         var providerId = usage.ProviderId ?? string.Empty;
+        var isStale = usage.Details?.Any(d => d.IsStale) == true;
         var description = usage.Description ?? string.Empty;
         var isMissing = description.Contains("not found", StringComparison.OrdinalIgnoreCase);
         var isConsoleCheck = description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
         var isError = description.Contains("[Error]", StringComparison.OrdinalIgnoreCase) ||
             (!usage.IsAvailable && !isMissing && !string.IsNullOrWhiteSpace(description));
         var isUnknown = description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
-        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
-        var isAggregateParent = ProviderCapabilityCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId)
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+        var isAggregateParent = ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId)
             && string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase);
         var isStatusOnlyProvider = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
         var hasDualQuotaBucketPresentation = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out var dualQuotaBucketPresentation);
@@ -70,7 +71,8 @@ internal static class ProviderCardPresentationCatalog
             statusText,
             ProviderCardStatusTone.Secondary,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryUsedPercent : (double?)null,
-            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryUsedPercent : (double?)null);
+            hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryUsedPercent : (double?)null,
+            isStale);
     }
 
     private static bool TryCreateSpecialPresentation(
@@ -151,7 +153,7 @@ internal static class ProviderCardPresentationCatalog
     {
         if (isAggregateParent)
         {
-            return (string.IsNullOrWhiteSpace(description) ? "Per-model quotas" : description, false);
+            return (string.IsNullOrWhiteSpace(description) ? "Quota details unavailable" : description, false);
         }
 
         if (ProviderMetadataCatalog.IsTooltipOnlyProvider(usage.ProviderId ?? string.Empty))
@@ -218,7 +220,8 @@ internal static class ProviderCardPresentationCatalog
         string statusText,
         ProviderCardStatusTone statusTone,
         double? dualBucketPrimaryUsed = null,
-        double? dualBucketSecondaryUsed = null)
+        double? dualBucketSecondaryUsed = null,
+        bool isStale = false)
     {
         return new ProviderCardPresentation(
             IsMissing: isMissing,
@@ -231,7 +234,8 @@ internal static class ProviderCardPresentationCatalog
             StatusText: statusText,
             StatusTone: statusTone,
             DualBucketPrimaryUsed: dualBucketPrimaryUsed,
-            DualBucketSecondaryUsed: dualBucketSecondaryUsed);
+            DualBucketSecondaryUsed: dualBucketSecondaryUsed,
+            IsStale: isStale);
     }
 
     private static string BuildDualQuotaBucketStatusText(ProviderDualQuotaBucketPresentation presentation, bool showUsed)

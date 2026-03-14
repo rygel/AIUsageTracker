@@ -4,6 +4,7 @@
 
 using System.Collections.ObjectModel;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AIUsageTracker.UI.Slim.ViewModels;
@@ -47,7 +48,7 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     public string ProviderId => this.Usage.ProviderId ?? string.Empty;
 
-    public string DisplayName => ProviderCapabilityCatalog.ResolveDisplayLabel(this.Usage);
+    public string DisplayName => ProviderMetadataCatalog.ResolveDisplayLabel(this.Usage);
 
     public string AccountDisplay => this.IsPrivacyMode
         ? "****"
@@ -68,6 +69,8 @@ public partial class ProviderCardViewModel : BaseViewModel
     public ProviderCardStatusTone StatusTone => this._presentation?.StatusTone ?? ProviderCardStatusTone.Secondary;
 
     public bool IsMissing => this._presentation?.IsMissing ?? false;
+
+    public bool IsStale => this._presentation?.IsStale ?? false;
 
     public bool IsQuotaBased => this.Usage.IsQuotaBased;
 
@@ -113,6 +116,7 @@ public partial class ProviderCardViewModel : BaseViewModel
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(StatusTone));
         OnPropertyChanged(nameof(IsMissing));
+        OnPropertyChanged(nameof(IsStale));
         OnPropertyChanged(nameof(IsQuotaBased));
         OnPropertyChanged(nameof(HasDualQuotaBuckets));
         OnPropertyChanged(nameof(PrimaryUsedPercent));

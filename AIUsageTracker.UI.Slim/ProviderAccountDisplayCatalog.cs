@@ -2,6 +2,8 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Infrastructure.Providers;
+
 namespace AIUsageTracker.UI.Slim;
 
 internal static class ProviderAccountDisplayCatalog
@@ -11,7 +13,7 @@ internal static class ProviderAccountDisplayCatalog
         string? usageAccountName,
         bool isPrivacyMode)
     {
-        if (!ProviderCapabilityCatalog.SupportsAccountIdentity(providerId))
+        if (!ProviderMetadataCatalog.SupportsAccountIdentity(providerId))
         {
             return string.Empty;
         }

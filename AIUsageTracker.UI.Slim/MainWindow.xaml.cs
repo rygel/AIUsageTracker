@@ -1247,7 +1247,7 @@ public partial class MainWindow : Window
     private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = ProviderCapabilityCatalog.ResolveDisplayLabel(usage);
+        var friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
         var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed);
 
@@ -1362,6 +1362,11 @@ public partial class MainWindow : Window
             Dock.Left);
 
         grid.Children.Add(contentPanel);
+
+        if (presentation.IsStale)
+        {
+            grid.Opacity = 0.65;
+        }
 
         var toolTipContent = ProviderTooltipPresentationCatalog.BuildContent(usage, friendlyName);
         if (!string.IsNullOrEmpty(toolTipContent))
@@ -1602,10 +1607,10 @@ public partial class MainWindow : Window
         }
 
         // Create collapsible section for sub-providers
-        var useAntigravityCollapsePreference = ProviderCapabilityCatalog.ShouldUseSharedSubDetailCollapsePreference(
+        var useAntigravityCollapsePreference = ProviderMetadataCatalog.ShouldUseSharedSubDetailCollapsePreference(
             usage.ProviderId ?? string.Empty);
         var (subHeader, subContainer) = this.CreateCollapsibleHeader(
-            $"{ProviderCapabilityCatalog.ResolveDisplayLabel(usage)} Details",
+            $"{ProviderMetadataCatalog.ResolveDisplayLabel(usage)} Details",
             Brushes.DeepSkyBlue,
             isGroupHeader: false,
             groupKey: null,
@@ -1655,7 +1660,7 @@ public partial class MainWindow : Window
 
     private FrameworkElement CreateProviderIcon(string providerId)
     {
-        var normalizedProviderId = ProviderVisualCatalog.GetCanonicalProviderId(providerId);
+        var normalizedProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
 
         // Check cache first
         if (this._iconCache.TryGetValue(normalizedProviderId, out var cachedImage))
@@ -1670,7 +1675,7 @@ public partial class MainWindow : Window
         }
 
         // Map provider IDs to filename
-        var filename = ProviderVisualCatalog.GetIconAssetName(providerId);
+        var filename = ProviderMetadataCatalog.GetIconAssetName(providerId);
 
         var appDir = AppDomain.CurrentDomain.BaseDirectory;
         var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");

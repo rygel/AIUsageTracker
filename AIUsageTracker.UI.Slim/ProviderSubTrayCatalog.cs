@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -15,7 +16,7 @@ internal static class ProviderSubTrayCatalog
             return Array.Empty<ProviderUsageDetail>();
         }
 
-        if (ProviderCapabilityCatalog.HasVisibleDerivedProviders(usage.ProviderId ?? string.Empty))
+        if (ProviderMetadataCatalog.HasDisplayableDerivedProviders(usage.ProviderId ?? string.Empty))
         {
             return Array.Empty<ProviderUsageDetail>();
         }

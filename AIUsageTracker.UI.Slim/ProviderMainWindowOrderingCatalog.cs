@@ -3,6 +3,7 @@
 // </copyright>
 
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -16,7 +17,7 @@ internal static class ProviderMainWindowOrderingCatalog
                 usage => GetFamilyDisplayName(usage),
                 StringComparer.OrdinalIgnoreCase)
             .ThenBy(
-                usage => ProviderCapabilityCatalog.ResolveDisplayLabel(usage),
+                usage => ProviderMetadataCatalog.ResolveDisplayLabel(usage),
                 StringComparer.OrdinalIgnoreCase)
             .ThenBy(usage => usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase);
     }
@@ -24,7 +25,7 @@ internal static class ProviderMainWindowOrderingCatalog
     private static string GetFamilyDisplayName(ProviderUsage usage)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var canonicalProviderId = ProviderCapabilityCatalog.GetCanonicalProviderId(providerId);
-        return ProviderCapabilityCatalog.GetConfiguredDisplayName(canonicalProviderId);
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+        return ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
     }
 }
