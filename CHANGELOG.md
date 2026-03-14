@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.36] - 2026-03-14
+
+### Fixed
+- **Kimi Provider**: Renamed provider ID from `kimi` to `kimi-for-coding` to match OpenCode's auth.json key format. Added `~/.opencode/auth.json` to config path catalog for key discovery.
+- **Monitor Version Mismatch**: The Slim UI now detects when a running monitor has a different version (stale after upgrade) and automatically restarts it, fixing the Claude Code timeout issue after beta updates.
+
 ## [2.2.28-beta.35] - 2026-03-14
 
 ### Fixed
