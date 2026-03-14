@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.35] - 2026-03-14
+
+### Fixed
+- **Claude Code Timeout**: Fixed provider timeout caused by Polly retry-on-429 policy consuming ~14s of the 25s budget. Providers now use a PlainClient without retry policies since they manage their own fallback chains.
+- **OpenAI Dual Bars**: Fixed dual quota bars not rendering for OpenAI because legacy database records used PascalCase `"WindowKind"` key instead of `"window_kind"`, causing deserialization to silently drop the value.
+- **OpenRouterProvider Definition**: Aligned `StaticDefinition` (`isQuotaBased: true`) with runtime behavior, fixing inconsistency between definition and returned usage.
+- **ProviderUsageDisplayCatalog**: Fixed hardcoded `parentIsQuota: true` that would invert percentages for non-quota providers.
+- **Web Dashboard**: Replaced raw `RequestsPercentage` with `UsedPercent`/`RemainingPercent` in Index, Provider, and History pages, eliminating manual `IsQuotaBased` conditionals.
+
+### Changed
+- **Semantic Naming**: Added `UsedPercent`/`RemainingPercent` computed properties to `ProviderUsage`, marked `RequestsPercentage` obsolete. Added `IsStale` to `ProviderUsageDetail`, `RateLimit` to `ProviderUsageDetailType`, marked old `WindowKind` names (`Primary`/`Secondary`/`Spark`) obsolete.
+- **Upstream-First Design**: Providers are the single source of truth. `GroupedUsageDisplayAdapter` uses `SetPercentageValue` instead of string regex side-channel. `GroupedUsageProjectionService` prefers typed `TryGetPercentageValue` over `GetEffectiveUsedPercent`.
+- **Design Principle (AGENTS.md)**: Documented that provider classes own usage semantics, definitions are immutable per provider ID, and the database stays lean.
+
+### Added
+- **HttpClient Regression Tests**: 6 new tests verifying PlainClient registration without Polly policies (827 total tests).
+
 ## [2.2.28-beta.34] - 2026-03-14
 
 ### Fixed
