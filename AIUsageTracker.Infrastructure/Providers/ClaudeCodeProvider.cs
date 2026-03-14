@@ -86,10 +86,25 @@ public class ClaudeCodeProvider : ProviderBase
             };
         }
 
+        // Re-read the credentials file to get the freshest OAuth token.
+        // The Claude Code CLI refreshes the token periodically and writes it back
+        // to .credentials.json. Using the stale config.ApiKey would fail once the
+        // token expires (typically within 1 hour).
+        var effectiveApiKey = config.ApiKey;
+        var isOAuthToken = effectiveApiKey.StartsWith("sk-ant-oat", StringComparison.Ordinal);
+        if (isOAuthToken)
+        {
+            var freshToken = this.ReadFreshOAuthToken();
+            if (!string.IsNullOrEmpty(freshToken))
+            {
+                effectiveApiKey = freshToken;
+            }
+        }
+
         // Try OAuth usage endpoint first (for subscription users)
         try
         {
-            var oauthUsage = await this.GetUsageFromOAuthAsync(config.ApiKey).ConfigureAwait(false);
+            var oauthUsage = await this.GetUsageFromOAuthAsync(effectiveApiKey).ConfigureAwait(false);
             if (oauthUsage != null)
             {
                 return new[] { oauthUsage };
@@ -100,18 +115,22 @@ public class ClaudeCodeProvider : ProviderBase
             this._logger.LogDebug(ex, "OAuth usage endpoint not available, trying rate limit headers");
         }
 
-        // Try to get usage from Anthropic API rate limit headers
-        try
+        // Skip the API rate-limit probe when the token is an OAuth token — it will
+        // always return 401 because OAuth tokens are not API keys.
+        if (!isOAuthToken)
         {
-            var apiUsage = await this.GetUsageFromApiAsync(config.ApiKey).ConfigureAwait(false);
-            if (apiUsage != null)
+            try
             {
-                return new[] { apiUsage };
+                var apiUsage = await this.GetUsageFromApiAsync(effectiveApiKey).ConfigureAwait(false);
+                if (apiUsage != null)
+                {
+                    return new[] { apiUsage };
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogWarning(ex, "Failed to get Claude usage from API, falling back to CLI");
+            catch (Exception ex)
+            {
+                this._logger.LogWarning(ex, "Failed to get Claude usage from API, falling back to CLI");
+            }
         }
 
         // Fall back to CLI if API fails
@@ -127,16 +146,18 @@ public class ClaudeCodeProvider : ProviderBase
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, OAuthUsageEndpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Add("anthropic-beta", OAuthBetaHeader);
+            var (statusCode, responseBody) = await this.SendOAuthRequestAsync(accessToken).ConfigureAwait(false);
 
-            using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
-            var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
+            if (statusCode == System.Net.HttpStatusCode.TooManyRequests)
             {
-                this._logger.LogDebug("OAuth usage endpoint returned {StatusCode}: {Body}", response.StatusCode, responseBody);
+                this._logger.LogDebug("OAuth usage endpoint returned 429, retrying once after 2s");
+                await Task.Delay(2000).ConfigureAwait(false);
+                (statusCode, responseBody) = await this.SendOAuthRequestAsync(accessToken).ConfigureAwait(false);
+            }
+
+            if ((int)statusCode < 200 || (int)statusCode >= 300)
+            {
+                this._logger.LogDebug("OAuth usage endpoint returned {StatusCode}: {Body}", statusCode, responseBody);
                 return null;
             }
 
@@ -147,7 +168,7 @@ public class ClaudeCodeProvider : ProviderBase
                 return null;
             }
 
-            return this.ParseOAuthUsageResponse(usageResponse, responseBody, (int)response.StatusCode);
+            return this.ParseOAuthUsageResponse(usageResponse, responseBody, (int)statusCode);
         }
         catch (HttpRequestException ex)
         {
@@ -157,6 +178,64 @@ public class ClaudeCodeProvider : ProviderBase
         catch (JsonException ex)
         {
             this._logger.LogWarning(ex, "Failed to parse OAuth usage response");
+            return null;
+        }
+    }
+
+    private async Task<(System.Net.HttpStatusCode StatusCode, string Body)> SendOAuthRequestAsync(string accessToken)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, OAuthUsageEndpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Add("anthropic-beta", OAuthBetaHeader);
+
+        using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        return (response.StatusCode, body);
+    }
+
+    /// <summary>
+    /// Re-reads the OAuth access token from ~/.claude/.credentials.json.
+    /// The Claude Code CLI refreshes this file when the token expires.
+    /// </summary>
+    private string? ReadFreshOAuthToken()
+    {
+        try
+        {
+            var credentialsPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".claude",
+                ".credentials.json");
+
+            if (!File.Exists(credentialsPath))
+            {
+                return null;
+            }
+
+            var json = File.ReadAllText(credentialsPath);
+            using var doc = JsonDocument.Parse(json);
+
+            if (!doc.RootElement.TryGetProperty("claudeAiOauth", out var oauth))
+            {
+                return null;
+            }
+
+            if (!oauth.TryGetProperty("accessToken", out var tokenElement))
+            {
+                return null;
+            }
+
+            var token = tokenElement.GetString();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return null;
+            }
+
+            this._logger.LogDebug("Re-read fresh OAuth token from credentials file ({Length} chars)", token.Length);
+            return token;
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogDebug(ex, "Failed to re-read OAuth token from credentials file");
             return null;
         }
     }

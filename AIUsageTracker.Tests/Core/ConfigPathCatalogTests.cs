@@ -22,7 +22,7 @@ public class ConfigPathCatalogTests
         var entries = ConfigPathCatalog.GetConfigEntries(pathProvider.Object);
 
         Assert.Equal(8, entries.Count);
-        Assert.Equal("C:\\Users\\test\\.local\\share\\opencode\\auth.json", entries[0].Path);
+        Assert.Equal("C:\\Users\\test\\.opencode\\auth.json", entries[0].Path);
         Assert.Equal(ConfigPathKind.Auth, entries[0].Kind);
         Assert.Equal("C:\\Users\\test\\.config\\opencode\\auth.json", entries[1].Path);
         Assert.Equal(ConfigPathKind.Auth, entries[1].Kind);
@@ -30,7 +30,7 @@ public class ConfigPathCatalogTests
         Assert.Equal(ConfigPathKind.Auth, entries[2].Kind);
         Assert.Equal("C:\\Users\\test\\AppData\\Local\\opencode\\auth.json", entries[3].Path);
         Assert.Equal(ConfigPathKind.Auth, entries[3].Kind);
-        Assert.Equal("C:\\Users\\test\\.opencode\\auth.json", entries[4].Path);
+        Assert.Equal("C:\\Users\\test\\.local\\share\\opencode\\auth.json", entries[4].Path);
         Assert.Equal(ConfigPathKind.Auth, entries[4].Kind);
         Assert.Equal("C:\\test\\providers.json", entries[5].Path);
         Assert.Equal(ConfigPathKind.Provider, entries[5].Kind);
@@ -52,11 +52,11 @@ public class ConfigPathCatalogTests
         var entries = ConfigPathCatalog.GetConfigEntries(pathProvider.Object);
 
         Assert.Equal(7, entries.Count);
-        Assert.Equal("C:\\Users\\test\\.local\\share\\opencode\\auth.json", entries[0].Path);
+        Assert.Equal("C:\\Users\\test\\.opencode\\auth.json", entries[0].Path);
         Assert.Equal("C:\\Users\\test\\.config\\opencode\\auth.json", entries[1].Path);
         Assert.Equal("C:\\Users\\test\\AppData\\Roaming\\opencode\\auth.json", entries[2].Path);
         Assert.Equal("C:\\Users\\test\\AppData\\Local\\opencode\\auth.json", entries[3].Path);
-        Assert.Equal("C:\\Users\\test\\.opencode\\auth.json", entries[4].Path);
+        Assert.Equal("C:\\Users\\test\\.local\\share\\opencode\\auth.json", entries[4].Path);
         Assert.Equal("C:\\test\\providers.json", entries[5].Path);
         Assert.Equal("C:\\test\\appdata\\auth.json", entries[6].Path);
     }

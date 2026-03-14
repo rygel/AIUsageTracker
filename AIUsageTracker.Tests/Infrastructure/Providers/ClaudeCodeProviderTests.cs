@@ -378,16 +378,32 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     }
 
     [Fact]
-    public async Task GetUsageFromOAuthAsync_RateLimited_ReturnsNullAsync()
+    public async Task GetUsageFromOAuthAsync_RateLimited_RetriesOnceAndReturnsNullAsync()
     {
-        // Arrange
-        this.SetupOAuthResponse(HttpStatusCode.TooManyRequests, """{"error": "rate_limited"}""");
+        // Arrange — return a fresh 429 response each time (retry will dispose the first)
+        this.MessageHandler.Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri != null && r.RequestUri.ToString() == ClaudeCodeProvider.OAuthUsageEndpoint),
+                ItExpr.IsAny<CancellationToken>())
+            .Returns(() => Task.FromResult(new HttpResponseMessage(HttpStatusCode.TooManyRequests)
+            {
+                Content = new StringContent("""{"error": "rate_limited"}""", System.Text.Encoding.UTF8, "application/json"),
+            }));
 
         // Act
         var result = await this._provider.GetUsageFromOAuthAsync("test-token");
 
-        // Assert
+        // Assert — returns null after retry
         Assert.Null(result);
+
+        // Verify the endpoint was called twice (initial + retry)
+        this.MessageHandler.Protected()
+            .Verify<Task<HttpResponseMessage>>(
+                "SendAsync",
+                Moq.Times.Exactly(2),
+                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri != null && r.RequestUri.ToString() == ClaudeCodeProvider.OAuthUsageEndpoint),
+                ItExpr.IsAny<CancellationToken>());
     }
 
     #endregion
