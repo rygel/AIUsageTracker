@@ -131,8 +131,8 @@ public class ProviderDiRegistrationTests
         // HttpClient via factory (simulates AddHttpClient())
         services.AddHttpClient();
 
-        // Plain HttpClient for providers that need it directly
-        services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient());
+        // Plain HttpClient for providers that need it directly (no Polly retry-on-429)
+        services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("PlainClient"));
 
         // Resilient HTTP client
         services.AddResilientHttpClient();
