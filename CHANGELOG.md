@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.37] - 2026-03-14
+
+### Fixed
+- **Claude Code OAuth Token**: Fixed monitor using stale OAuth access token that expired after ~1 hour. The provider now re-reads `~/.claude/.credentials.json` on every request to pick up tokens refreshed by the Claude Code CLI.
+- **Claude Code Fallback Chain**: Skip the useless API rate-limit probe when the token is an OAuth token (always returns 401). Add single retry with 2s delay on OAuth 429 instead of immediately falling through to the CLI.
+- **Kimi Auth Key Priority**: Reordered legacy auth file discovery so `~/.local/share/opencode/auth.json` (active, fresh keys) is read last and wins over `~/.opencode/auth.json` (legacy, potentially stale keys). Added debug logging when auth keys get overwritten.
+
 ## [2.2.28-beta.36] - 2026-03-14
 
 ### Fixed
