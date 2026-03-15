@@ -999,20 +999,37 @@ public partial class SettingsWindow : Window
     {
         this.ProviderCardVisibilityPanel.Children.Clear();
         var hidden = this._preferences.HiddenProviderItemIds;
+
+        // Build a lookup of live dynamic children per canonical provider (for DynamicChildProviderRows).
+        var liveChildrenByParent = this._usages
+            .Where(u => !string.IsNullOrEmpty(u.ProviderId))
+            .GroupBy(u => ProviderMetadataCatalog.GetCanonicalProviderId(u.ProviderId!), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Where(u => !string.Equals(u.ProviderId, g.Key, StringComparison.OrdinalIgnoreCase))
+                       .Select(u => (Id: u.ProviderId!, Label: u.ProviderName ?? u.ProviderId!))
+                       .DistinctBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
+                       .ToList(),
+                StringComparer.OrdinalIgnoreCase);
+
         var providers = ProviderMetadataCatalog.Definitions
-            .Where(d => d.MainWindowVisibilityItems.Count > 0)
+            .Where(d => d.MainWindowVisibilityItems.Count > 0 || d.FamilyMode == ProviderFamilyMode.DynamicChildProviderRows)
             .ToList();
 
         foreach (var definition in providers)
         {
-            var items = definition.MainWindowVisibilityItems;
-            var isSelfEntry = items.Count == 1 &&
-                              string.Equals(items[0].ItemId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
+            var staticItems = definition.MainWindowVisibilityItems;
+            liveChildrenByParent.TryGetValue(definition.ProviderId, out var dynamicChildren);
+            dynamicChildren ??= [];
 
-            if (isSelfEntry)
+            var isSelfEntry = staticItems.Count == 1 &&
+                              string.Equals(staticItems[0].ItemId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
+            var hasChildren = staticItems.Count > 1 || (isSelfEntry && dynamicChildren.Count > 0);
+
+            if (isSelfEntry && !hasChildren)
             {
-                // Standalone provider: single flat checkbox — no separate heading needed.
-                var (itemId, label) = items[0];
+                // Standalone provider with no children: flat checkbox, no heading.
+                var (itemId, label) = staticItems[0];
                 var checkBox = new CheckBox
                 {
                     Content = label,
@@ -1027,25 +1044,44 @@ public partial class SettingsWindow : Window
             }
             else
             {
-                // Multi-item provider (e.g. SyntheticAggregateChildren): bold heading + indented checkboxes.
+                // Multi-child provider: bold heading + indented checkboxes.
                 this.ProviderCardVisibilityPanel.Children.Add(new TextBlock
                 {
                     Text = definition.DisplayName,
                     FontWeight = FontWeights.SemiBold,
-                    Margin = new Thickness(0, 0, 0, 4),
+                    Margin = new Thickness(0, 4, 0, 4),
                     Foreground = (Brush)this.FindResource("SecondaryText"),
                 });
 
-                for (var i = 0; i < items.Count; i++)
+                // Static items (VisibleDerivedProviders children or SyntheticAggregateChildren).
+                for (var i = 0; i < staticItems.Count; i++)
                 {
-                    var (itemId, label) = items[i];
-                    var isLast = i == items.Count - 1;
+                    var (itemId, label) = staticItems[i];
+                    var isLast = i == staticItems.Count - 1 && dynamicChildren.Count == 0;
                     var checkBox = new CheckBox
                     {
                         Content = label,
                         Tag = itemId,
                         IsChecked = !hidden.Contains(itemId, StringComparer.OrdinalIgnoreCase),
-                        Margin = new Thickness(15, 2, 0, isLast ? 20 : 2),
+                        Margin = new Thickness(15, 2, 0, isLast ? 16 : 2),
+                        Foreground = (Brush)this.FindResource("SecondaryText"),
+                    };
+                    checkBox.Checked += this.ProviderVisibility_Changed;
+                    checkBox.Unchecked += this.ProviderVisibility_Changed;
+                    this.ProviderCardVisibilityPanel.Children.Add(checkBox);
+                }
+
+                // Dynamic children (DynamicChildProviderRows: children known only at runtime).
+                for (var i = 0; i < dynamicChildren.Count; i++)
+                {
+                    var (itemId, label) = dynamicChildren[i];
+                    var isLast = i == dynamicChildren.Count - 1;
+                    var checkBox = new CheckBox
+                    {
+                        Content = label,
+                        Tag = itemId,
+                        IsChecked = !hidden.Contains(itemId, StringComparer.OrdinalIgnoreCase),
+                        Margin = new Thickness(15, 2, 0, isLast ? 16 : 2),
                         Foreground = (Brush)this.FindResource("SecondaryText"),
                     };
                     checkBox.Checked += this.ProviderVisibility_Changed;
