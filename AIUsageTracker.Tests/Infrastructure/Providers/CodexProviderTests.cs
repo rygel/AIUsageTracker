@@ -725,6 +725,97 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         }
     }
 
+    [Fact]
+    public async Task GetUsageAsync_SparkHasOwnLowerWeeklyThanMainWeekly_UsesSparkOwnWeekly()
+    {
+        // Production regression: when the main rate_limit.secondary_window has high usage (98%)
+        // but Spark's own additional_rate_limits[spark].secondary_window has lower usage (19%),
+        // the Spark child card must show Spark's own independent weekly (81% remaining),
+        // NOT the main codex weekly (2% remaining). Math.Max was picking the wrong value.
+        var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-own-weekly");
+        var authPath = Path.Combine(tempDir, "auth.json");
+        var token = CreateJwt("user@example.com", "plus");
+
+        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(new
+        {
+            tokens = new { access_token = token },
+        }));
+
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                plan_type = "plus",
+                rate_limit = new
+                {
+                    primary_window = new { used_percent = 0, reset_after_seconds = 18000 },
+                    secondary_window = new { used_percent = 98, reset_after_seconds = 604800 }, // main codex weekly heavily used
+                },
+                additional_rate_limits = new object[]
+                {
+                    new
+                    {
+                        limit_name = "GPT-5.3-Codex-Spark",
+                        rate_limit = new
+                        {
+                            primary_window = new { used_percent = 0, reset_after_seconds = 18000 },
+                            secondary_window = new { used_percent = 19, reset_after_seconds = 604800 }, // Spark's own weekly — independent
+                        },
+                    },
+                },
+            })),
+        });
+
+        var provider = new CodexProvider(this.HttpClient, this.Logger.Object, authPath);
+
+        try
+        {
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
+            Assert.NotNull(parent.Details);
+
+            // Parent card: driven by max across all windows → main secondary wins at 98%
+            Assert.Equal(98, parent.UsedPercent, precision: 0);
+
+            // Model detail must use Spark's own weekly (19% used = 81% remaining)
+            var modelDetail = Assert.Single(parent.Details!, d => d.DetailType == ProviderUsageDetailType.Model);
+            var modelUsed = UsageMath.GetEffectiveUsedPercent(modelDetail);
+            Assert.NotNull(modelUsed);
+            Assert.Equal(19, modelUsed!.Value, precision: 0); // Spark's own 19%, NOT main 98%
+
+            // Provider-level Spark ModelSpecific detail must also reflect Spark's own weekly (19%)
+            var sparkDetail = Assert.Single(
+                parent.Details!,
+                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                     d.QuotaBucketKind == WindowKind.ModelSpecific &&
+                     string.IsNullOrWhiteSpace(d.ModelName));
+            var sparkUsed = UsageMath.GetEffectiveUsedPercent(sparkDetail);
+            Assert.NotNull(sparkUsed);
+            Assert.Equal(19, sparkUsed!.Value, precision: 0); // Spark: 19% used
+
+            // Model-scoped Burst: 0% used = 100% remaining (burst just reset)
+            var burstDetail = Assert.Single(
+                parent.Details!,
+                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                     d.QuotaBucketKind == WindowKind.Burst &&
+                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
+            Assert.Equal(100, burstDetail.PercentageValue!.Value, precision: 0);
+
+            // Model-scoped Rolling: Spark's own weekly → 81% remaining (19% used)
+            var rollingDetail = Assert.Single(
+                parent.Details!,
+                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                     d.QuotaBucketKind == WindowKind.Rolling &&
+                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
+            Assert.Equal(81, rollingDetail.PercentageValue!.Value, precision: 0); // NOT 2% from main
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(tempDir);
+        }
+    }
+
     private static string CreateJwt(string email, string planType)
     {
         var headerJson = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });

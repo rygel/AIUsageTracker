@@ -514,10 +514,12 @@ public class CodexProvider : ProviderBase
 
         // Spark's effective constraint is the max of its own 5h window, the Spark-block secondary
         // window, and the shared weekly quota. All three sources must be considered.
+        // Spark's own secondary window (additional_rate_limits[spark]) is an independent counter
+        // from the main rate_limit.secondary_window. Prefer Spark's own when present; fall back
+        // to the main secondary only when Spark has no secondary window of its own.
+        var sparkEffectiveWeeklyForParent = sparkWindow.SecondaryUsedPercent ?? secondaryUsedPercent ?? 0.0;
         var effectiveSparkPercent = sparkWindow.HasWindowData
-            ? (double?)Math.Max(
-                Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkWindow.SecondaryUsedPercent ?? 0.0),
-                secondaryUsedPercent ?? 0.0)
+            ? (double?)Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkEffectiveWeeklyForParent)
             : null;
 
         var details = BuildDetails(
@@ -613,16 +615,13 @@ public class CodexProvider : ProviderBase
         var effectiveRemaining = Math.Clamp(100.0 - effectiveUsedPercent, 0.0, 100.0);
 
         // For the Model detail, use the Spark-specific effective remaining when Spark window data
-        // exists. The main primary_window is a shared Codex quota that does not constrain Spark
-        // separately — Spark's binding constraints are its own 5h window, the Spark secondary
-        // window (additional_rate_limits[spark].rate_limit.secondary_window), and the shared
-        // weekly quota (rate_limit.secondary_window). All three must be considered because the
-        // API may return the weekly constraint in the Spark block, the main rate_limit block, or
-        // both. Using sparkPrimary ?? sparkSecondary would silently drop the secondary when both
-        // are present, understating the effective constraint.
+        // exists. Spark's additional_rate_limits[spark].rate_limit.secondary_window is an
+        // independent counter from the main rate_limit.secondary_window — they track separate
+        // weekly quotas. Prefer Spark's own secondary when present; fall back to the main
+        // secondary only when the Spark block has no secondary window.
         // Setting ModelName lets GroupedUsageProjectionService scope the model-level QW details
         // (added below) to this model so the child card can render a dual bar.
-        var sparkEffectiveWeeklyUsed = Math.Max(sparkWindow.SecondaryUsedPercent ?? 0.0, secondaryUsedPercent ?? 0.0);
+        var sparkEffectiveWeeklyUsed = sparkWindow.SecondaryUsedPercent ?? secondaryUsedPercent ?? 0.0;
         var sparkEffectiveUsed = sparkWindow.HasWindowData
             ? (double?)Math.Max(sparkWindow.PrimaryUsedPercent ?? 0.0, sparkEffectiveWeeklyUsed)
             : null;
@@ -705,9 +704,8 @@ public class CodexProvider : ProviderBase
             // sparkModelSpecificResetSeconds — reset of whichever window is the overall binding
             //   constraint for the provider-level Spark detail.
             var sparkBurstResetSeconds = sparkWindow.PrimaryResetAfterSeconds ?? sparkWindow.SecondaryResetAfterSeconds;
-            var weeklyResetSeconds = (sparkWindow.SecondaryUsedPercent ?? 0.0) >= (secondaryUsedPercent ?? 0.0)
-                ? (sparkWindow.SecondaryResetAfterSeconds ?? secondaryResetSeconds)
-                : (secondaryResetSeconds ?? sparkWindow.SecondaryResetAfterSeconds);
+            // Use Spark's own secondary reset time when available; fall back to main secondary.
+            var weeklyResetSeconds = sparkWindow.SecondaryResetAfterSeconds ?? secondaryResetSeconds;
             var sparkModelSpecificResetSeconds = sparkEffectiveWeeklyUsed > sparkOwnUsed
                 ? weeklyResetSeconds
                 : sparkBurstResetSeconds;
