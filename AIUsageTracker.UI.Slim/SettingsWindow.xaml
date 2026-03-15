@@ -281,7 +281,16 @@
                 <!-- Providers Tab -->
                 <TabItem Header="Providers">
                     <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="ProvidersStack" Margin="20"/>
+                        <StackPanel Margin="20">
+                            <StackPanel x:Name="ProvidersStack"/>
+                            <!-- Provider Card Visibility (populated dynamically in code-behind) -->
+                            <TextBlock Text="Card Visibility" FontWeight="Bold" FontSize="14"
+                                       Margin="0,20,0,8" Foreground="{DynamicResource PrimaryText}"/>
+                            <TextBlock Text="Choose which provider cards appear in the main window."
+                                       FontSize="11" Margin="0,0,0,10"
+                                       Foreground="{DynamicResource SecondaryText}" TextWrapping="Wrap"/>
+                            <StackPanel x:Name="ProviderCardVisibilityPanel"/>
+                        </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
@@ -366,11 +375,6 @@
                                       Margin="0,15,0,20" Foreground="{DynamicResource SecondaryText}"
                                       ToolTip="Display used percentages instead of remaining percentages for quota-style providers"
                                       Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-
-                            <!-- Provider Card Visibility (populated dynamically in code-behind) -->
-                            <TextBlock Text="Provider Card Visibility" FontWeight="Bold" FontSize="14"
-                                       Margin="0,0,0,8" Foreground="{DynamicResource PrimaryText}"/>
-                            <StackPanel x:Name="ProviderCardVisibilityPanel"/>
 
                             <!-- Font Settings -->
                             <TextBlock Text="Font Settings" FontWeight="Bold" FontSize="14" 

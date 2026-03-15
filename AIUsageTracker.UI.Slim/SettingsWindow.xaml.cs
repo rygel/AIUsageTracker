@@ -479,6 +479,8 @@ public partial class SettingsWindow : Window
             usageByProviderId.TryGetValue(item.Config.ProviderId, out var usage);
             this.AddProviderCard(item.Config, usage, item.IsDerived);
         }
+
+        this.PopulateProviderVisibilitySettings();
     }
 
     private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
@@ -950,7 +952,6 @@ public partial class SettingsWindow : Window
         this.AggressiveTopmostCheck.IsChecked = this._preferences.AggressiveAlwaysOnTop;
         this.ForceWin32TopmostCheck.IsChecked = this._preferences.ForceWin32Topmost;
         this.ApplyDisplayModePreference();
-        this.PopulateProviderVisibilitySettings();
         this.ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
         this.ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
         this.ThemeCombo.ItemsSource = this.GetThemeOptions();
