@@ -130,31 +130,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
     private static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
     {
-        if (details == null || details.Count == 0)
-        {
-            return null;
-        }
-
-        var resetCandidatesUtc = details
-            .Where(detail => detail.NextResetTime.HasValue)
-            .Select(detail => detail.NextResetTime!.Value.ToUniversalTime())
-            .OrderBy(reset => reset)
-            .ToList();
-        if (resetCandidatesUtc.Count == 0)
-        {
-            return null;
-        }
-
-        var nowUtc = DateTime.UtcNow;
-        foreach (var resetCandidateUtc in resetCandidatesUtc)
-        {
-            if (resetCandidateUtc > nowUtc)
-            {
-                return resetCandidateUtc;
-            }
-        }
-
-        return resetCandidatesUtc[^1];
+        return UsageMath.InferResetTimeFromDetails(details);
     }
 
     private HashSet<string> BuildActiveProviderSet(IReadOnlyCollection<string> activeProviderIds)

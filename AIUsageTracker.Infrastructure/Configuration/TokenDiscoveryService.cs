@@ -72,7 +72,7 @@ public class TokenDiscoveryService
         return ProviderMetadataCatalog.GetProviderIdsWithDedicatedSessionAuthFiles()
             .Select(providerId => new ProviderSessionTokenResolver(
                 discoverySpec: ProviderMetadataCatalog.Find(providerId)!.CreateAuthDiscoverySpec(),
-                description: $"Discovered in {ProviderMetadataCatalog.GetDisplayName(providerId)} session auth",
+                description: $"Discovered in {ProviderMetadataCatalog.ResolveDisplayLabel(providerId)} session auth",
                 sourcePrefix: "Config",
                 logger: logger,
                 pathProvider: pathProvider))

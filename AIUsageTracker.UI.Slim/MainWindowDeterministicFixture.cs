@@ -68,7 +68,7 @@ internal static class MainWindowDeterministicFixture
         return new ProviderUsage
         {
             ProviderId = scenario.ProviderId,
-            ProviderName = ProviderMetadataCatalog.GetDisplayName(scenario.ProviderId),
+            ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(scenario.ProviderId),
             IsAvailable = isAvailable,
             IsQuotaBased = isQuotaBased,
             PlanType = planType,

@@ -501,4 +501,146 @@ public class ProviderUsageProcessingPipelineTests
             },
         ];
     }
+
+    // ── NormalizeDetails field preservation ────────────────────────────────────
+    // These guard against regressions like the beta.39 bug where NormalizeDetails
+    // dropped PercentageValue/PercentageSemantic, causing TryGetPresentation to
+    // return false for providers that used typed percentage fields (e.g. Codex).
+
+    [Fact]
+    public void Process_NormalizeDetails_PreservesTypedPercentageValue()
+    {
+        // Arrange: detail with typed percentage only (no legacy Used string),
+        // which is exactly how CodexProvider and ClaudeCodeProvider emit details.
+        var detail = new ProviderUsageDetail
+        {
+            Name = "Weekly quota",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+        };
+        detail.SetPercentageValue(35.0, PercentageValueSemantic.Remaining);
+
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            ProviderName = "Codex",
+            IsAvailable = true,
+#pragma warning disable CS0618 // RequestsPercentage: test setup
+            RequestsPercentage = 65,
+#pragma warning restore CS0618
+            IsQuotaBased = true,
+            Details = new[] { detail },
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "codex" },
+            isPrivacyMode: false);
+
+        var processed = Assert.Single(result.Usages);
+        var processedDetail = Assert.Single(processed.Details!);
+        Assert.True(processedDetail.TryGetPercentageValue(out var pct, out var semantic, out _));
+        Assert.Equal(35.0, pct, precision: 5);
+        Assert.Equal(PercentageValueSemantic.Remaining, semantic);
+    }
+
+    [Fact]
+    public void Process_NormalizeDetails_PreservesNextResetTimeOnDetails()
+    {
+        var localTime = new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Local);
+        var detail = new ProviderUsageDetail
+        {
+            Name = "5-hour quota",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+            NextResetTime = localTime,
+        };
+        detail.SetPercentageValue(80.0, PercentageValueSemantic.Remaining);
+
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            IsAvailable = true,
+            IsQuotaBased = true,
+#pragma warning disable CS0618 // RequestsPercentage: test setup
+            RequestsPercentage = 80,
+#pragma warning restore CS0618
+            Details = new[] { detail },
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "codex" },
+            isPrivacyMode: false);
+
+        var processedDetail = Assert.Single(Assert.Single(result.Usages).Details!);
+        Assert.NotNull(processedDetail.NextResetTime);
+        Assert.Equal(
+            localTime.ToUniversalTime(),
+            processedDetail.NextResetTime!.Value,
+            precision: TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public void Process_NormalizeDetails_PreservesQuotaBucketKind()
+    {
+        var detail = new ProviderUsageDetail
+        {
+            Name = "Weekly quota",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+        };
+        detail.SetPercentageValue(60.0, PercentageValueSemantic.Remaining);
+
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            IsAvailable = true,
+            IsQuotaBased = true,
+#pragma warning disable CS0618 // RequestsPercentage: test setup
+            RequestsPercentage = 60,
+#pragma warning restore CS0618
+            Details = new[] { detail },
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "codex" },
+            isPrivacyMode: false);
+
+        var processedDetail = Assert.Single(Assert.Single(result.Usages).Details!);
+        Assert.Equal(WindowKind.Rolling, processedDetail.QuotaBucketKind);
+    }
+
+    [Fact]
+    public void Process_NormalizeDetails_PreservesIsStale()
+    {
+        var detail = new ProviderUsageDetail
+        {
+            Name = "5-hour quota",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+            IsStale = true,
+        };
+        detail.SetPercentageValue(50.0, PercentageValueSemantic.Remaining);
+
+        var usage = new ProviderUsage
+        {
+            ProviderId = "codex",
+            IsAvailable = true,
+            IsQuotaBased = true,
+#pragma warning disable CS0618 // RequestsPercentage: test setup
+            RequestsPercentage = 50,
+#pragma warning restore CS0618
+            Details = new[] { detail },
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "codex" },
+            isPrivacyMode: false);
+
+        var processedDetail = Assert.Single(Assert.Single(result.Usages).Details!);
+        Assert.True(processedDetail.IsStale);
+    }
 }

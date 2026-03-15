@@ -216,6 +216,46 @@ public static class UsageMath
         return val.Value;
     }
 
+    /// <summary>
+    /// Infers the next reset time from a list of provider usage details.
+    /// Prefers the nearest future <see cref="ProviderUsageDetail.NextResetTime"/> value;
+    /// falls back to the most recent known reset time if no future reset is found.
+    /// </summary>
+    /// <param name="details">The list of provider usage details to inspect.</param>
+    /// <returns>The inferred reset time, or null if no reset time is available.</returns>
+    public static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
+    {
+        if (details == null || details.Count == 0)
+        {
+            return null;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        DateTime? bestFuture = null;
+        DateTime? lastKnown = null;
+
+        foreach (var detail in details)
+        {
+            if (!detail.NextResetTime.HasValue)
+            {
+                continue;
+            }
+
+            var resetUtc = detail.NextResetTime.Value.ToUniversalTime();
+            if (!lastKnown.HasValue || resetUtc > lastKnown.Value)
+            {
+                lastKnown = resetUtc;
+            }
+
+            if (resetUtc > nowUtc && (!bestFuture.HasValue || resetUtc < bestFuture.Value))
+            {
+                bestFuture = resetUtc;
+            }
+        }
+
+        return bestFuture ?? lastKnown;
+    }
+
     public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)
     {
         ArgumentNullException.ThrowIfNull(history);

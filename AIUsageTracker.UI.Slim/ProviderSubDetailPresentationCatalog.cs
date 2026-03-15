@@ -64,7 +64,7 @@ internal static class ProviderSubDetailPresentationCatalog
             ResetText: resetText);
     }
 
-    private static bool IsDisplayableDetail(ProviderUsageDetail detail)
+    internal static bool IsEligibleDetail(ProviderUsageDetail detail, bool includeRateLimit = true)
     {
         if (string.IsNullOrWhiteSpace(detail.Name))
         {
@@ -73,8 +73,10 @@ internal static class ProviderSubDetailPresentationCatalog
 
         return detail.DetailType == ProviderUsageDetailType.Model ||
                detail.DetailType == ProviderUsageDetailType.Other ||
-               detail.DetailType == ProviderUsageDetailType.RateLimit;
+               (includeRateLimit && detail.DetailType == ProviderUsageDetailType.RateLimit);
     }
+
+    private static bool IsDisplayableDetail(ProviderUsageDetail detail) => IsEligibleDetail(detail, includeRateLimit: true);
 
     private static int GetDetailSortOrder(ProviderUsageDetail detail)
     {

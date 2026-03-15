@@ -358,7 +358,7 @@ public class UsageDatabase : IUsageDatabase
                     usage.IsQuotaBased = isQuotaBased;
                 }
 
-                usage.ProviderName = ProviderMetadataCatalog.GetDisplayName(usage.ProviderId ?? string.Empty, usage.ProviderName);
+                usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
 
                 if (!usage.DisplayAsFraction && usage.IsQuotaBased && usage.RequestsAvailable > 100)
                 {
@@ -378,34 +378,7 @@ public class UsageDatabase : IUsageDatabase
 
     private static DateTime? InferNextResetFromDetails(IReadOnlyList<ProviderUsageDetail> details)
     {
-        if (details.Count == 0)
-        {
-            return null;
-        }
-
-        var nowUtc = DateTime.UtcNow;
-        DateTime? bestFuture = null;
-        DateTime? lastKnown = null;
-        foreach (var detail in details)
-        {
-            if (!detail.NextResetTime.HasValue)
-            {
-                continue;
-            }
-
-            var resetUtc = detail.NextResetTime.Value.ToUniversalTime();
-            if (!lastKnown.HasValue || resetUtc > lastKnown.Value)
-            {
-                lastKnown = resetUtc;
-            }
-
-            if (resetUtc > nowUtc && (!bestFuture.HasValue || resetUtc < bestFuture.Value))
-            {
-                bestFuture = resetUtc;
-            }
-        }
-
-        return bestFuture ?? lastKnown;
+        return UsageMath.InferResetTimeFromDetails(details);
     }
 
     private static string BuildDetailMergeKey(ProviderUsageDetail detail)

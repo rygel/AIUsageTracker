@@ -241,6 +241,107 @@ public sealed class ProviderUsageDisplayCatalogTests
         Assert.Contains(preparation.DisplayableUsages, usage => string.Equals(usage.ProviderId, "gemini-cli.hourly", StringComparison.Ordinal));
     }
 
+    // ── Synthetic aggregate children (claude-code) ─────────────────────────────
+    // Guards that each synthetic child card carries the correct per-window
+    // NextResetTime from its originating detail row.
+
+    [Fact]
+    public void ExpandSyntheticAggregateChildren_SetsPerWindowResetTime_OnEachChildCard()
+    {
+        var burstReset = new DateTime(2026, 4, 1, 12, 0, 0, DateTimeKind.Utc);
+        var weeklyReset = new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc);
+
+        var burstDetail = new ProviderUsageDetail
+        {
+            Name = "Current Session",
+            DetailType = ProviderUsageDetailType.Model,
+            QuotaBucketKind = WindowKind.Burst,
+            NextResetTime = burstReset,
+        };
+        burstDetail.SetPercentageValue(35.0, PercentageValueSemantic.Used);
+
+        var rollingDetail = new ProviderUsageDetail
+        {
+            Name = "All Models",
+            DetailType = ProviderUsageDetailType.Model,
+            QuotaBucketKind = WindowKind.Rolling,
+            NextResetTime = weeklyReset,
+        };
+        rollingDetail.SetPercentageValue(42.0, PercentageValueSemantic.Used);
+
+        var parent = new ProviderUsage
+        {
+            ProviderId = "claude-code",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
+        };
+
+        var children = ProviderUsageDisplayCatalog.ExpandSyntheticAggregateChildren(
+            new[] { parent },
+            Array.Empty<string>()).ToList();
+
+        Assert.Equal(2, children.Count);
+
+        var currentSession = children.Single(c =>
+            string.Equals(c.ProviderId, "claude-code.current-session", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(burstReset, currentSession.NextResetTime);
+
+        var allModels = children.Single(c =>
+            string.Equals(c.ProviderId, "claude-code.all-models", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(weeklyReset, allModels.NextResetTime);
+    }
+
+    [Fact]
+    public void ExpandSyntheticAggregateChildren_CreatesCorrectProviderIds_ForAllFourClaudeCodeWindows()
+    {
+        var weeklyReset = new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc);
+        var burstReset = new DateTime(2026, 4, 1, 8, 0, 0, DateTimeKind.Utc);
+
+        ProviderUsageDetail MakeDetail(string name, WindowKind kind, DateTime resetTime)
+        {
+            var d = new ProviderUsageDetail
+            {
+                Name = name,
+                DetailType = ProviderUsageDetailType.Model,
+                QuotaBucketKind = kind,
+                NextResetTime = resetTime,
+            };
+            d.SetPercentageValue(25.0, PercentageValueSemantic.Used);
+            return d;
+        }
+
+        var parent = new ProviderUsage
+        {
+            ProviderId = "claude-code",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            Details = new List<ProviderUsageDetail>
+            {
+                MakeDetail("Current Session", WindowKind.Burst, burstReset),
+                MakeDetail("Sonnet", WindowKind.ModelSpecific, weeklyReset),
+                MakeDetail("Opus", WindowKind.ModelSpecific, weeklyReset),
+                MakeDetail("All Models", WindowKind.Rolling, weeklyReset),
+            },
+        };
+
+        var children = ProviderUsageDisplayCatalog.ExpandSyntheticAggregateChildren(
+            new[] { parent },
+            Array.Empty<string>()).ToList();
+
+        Assert.Equal(4, children.Count);
+        Assert.Contains(children, c => string.Equals(c.ProviderId, "claude-code.current-session", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(children, c => string.Equals(c.ProviderId, "claude-code.sonnet", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(children, c => string.Equals(c.ProviderId, "claude-code.opus", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(children, c => string.Equals(c.ProviderId, "claude-code.all-models", StringComparison.OrdinalIgnoreCase));
+
+        // Each 7-day child must carry the weekly reset time, not the burst reset
+        foreach (var child in children.Where(c => !c.ProviderId!.EndsWith("current-session", StringComparison.OrdinalIgnoreCase)))
+        {
+            Assert.Equal(weeklyReset, child.NextResetTime);
+        }
+    }
+
     [Fact]
     public void PrepareForMainWindow_PrefersGeminiUsageWithDetails_WhenDuplicateProviderEntriesExist()
     {

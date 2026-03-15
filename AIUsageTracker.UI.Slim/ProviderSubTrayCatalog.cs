@@ -22,23 +22,10 @@ internal static class ProviderSubTrayCatalog
         }
 
         return usage.Details
-            .Where(detail =>
-                !string.IsNullOrWhiteSpace(detail.Name) &&
-                IsEligibleDetail(detail))
+            .Where(detail => ProviderSubDetailPresentationCatalog.IsEligibleDetail(detail, includeRateLimit: false))
             .GroupBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
-    }
-
-    private static bool IsEligibleDetail(ProviderUsageDetail detail)
-    {
-        if (string.IsNullOrWhiteSpace(detail.Name))
-        {
-            return false;
-        }
-
-        return detail.DetailType == ProviderUsageDetailType.Model ||
-               detail.DetailType == ProviderUsageDetailType.Other;
     }
 }

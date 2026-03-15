@@ -295,7 +295,7 @@ public class Program
             {
                 foreach (var detail in displayableHistoryDetails)
                 {
-                    var providerDisplayName = ProviderMetadataCatalog.GetDisplayName(item.ProviderId, item.ProviderName);
+                    var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
                     Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {detail.Name,-25} | {detail.Used,-15}");
                 }
             }
@@ -303,7 +303,7 @@ public class Program
             {
                 // Fallback for providers without details
                 var used = $"{item.RequestsUsed} {item.UsageUnit}";
-                var providerDisplayName = ProviderMetadataCatalog.GetDisplayName(item.ProviderId, item.ProviderName);
+                var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
                 Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
             }
         }
@@ -529,7 +529,7 @@ public class Program
                 // Handle missing PlanType or IsQuotaBased if relying on serialized data
                 var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
                 var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : string.Empty;
-                var providerDisplayName = ProviderMetadataCatalog.GetDisplayName(u.ProviderId, u.ProviderName);
+                var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(u.ProviderId, u.ProviderName);
 
                 var description = u.Description;
                 if (u.Details != null && u.Details.Any() && string.IsNullOrEmpty(description))
@@ -583,7 +583,7 @@ public class Program
         {
             foreach (var c in configs)
             {
-                Console.WriteLine($"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.GetDisplayName(c.ProviderId)}, Type: {c.Type}");
+                Console.WriteLine($"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.ResolveDisplayLabel(c.ProviderId)}, Type: {c.Type}");
             }
         }
     }

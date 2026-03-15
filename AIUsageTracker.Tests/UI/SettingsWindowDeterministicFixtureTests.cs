@@ -34,7 +34,7 @@ public class SettingsWindowDeterministicFixtureTests
             var definition = Assert.Single(
                 ProviderMetadataCatalog.Definitions,
                 d => d.HandlesProviderId(usage.ProviderId));
-            Assert.Equal(ProviderMetadataCatalog.GetDisplayName(usage.ProviderId), usage.ProviderName);
+            Assert.Equal(ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId), usage.ProviderName);
             Assert.Equal(definition.PlanType, usage.PlanType);
             Assert.Equal(definition.IsQuotaBased, usage.IsQuotaBased);
         }

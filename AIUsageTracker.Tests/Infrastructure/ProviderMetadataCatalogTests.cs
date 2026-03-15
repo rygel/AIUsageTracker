@@ -52,7 +52,7 @@ public class ProviderMetadataCatalogTests
 
         Assert.NotNull(definition);
         Assert.Equal(expectedDefinitionId, definition!.ProviderId);
-        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.GetDisplayName(providerId));
+        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.ResolveDisplayLabel(providerId));
     }
 
     [Theory]
@@ -63,7 +63,7 @@ public class ProviderMetadataCatalogTests
         string expectedDisplayName,
         string expectedSessionLabel)
     {
-        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.GetDisplayName(providerId));
+        Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.ResolveDisplayLabel(providerId));
         Assert.Equal(expectedSessionLabel, ProviderMetadataCatalog.GetSessionStatusLabel(providerId));
     }
 

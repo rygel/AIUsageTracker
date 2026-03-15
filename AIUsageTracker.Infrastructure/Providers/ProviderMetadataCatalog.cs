@@ -100,11 +100,6 @@ public static class ProviderMetadataCatalog
         return providerId ?? string.Empty;
     }
 
-    public static string GetDisplayName(string providerId, string? providerName = null)
-    {
-        return ResolveDisplayLabel(providerId, providerName);
-    }
-
     public static string GetDerivedModelDisplayName(string providerId, string modelName)
     {
         if (string.IsNullOrWhiteSpace(modelName))
