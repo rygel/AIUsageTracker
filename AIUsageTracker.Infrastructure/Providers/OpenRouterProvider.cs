@@ -56,7 +56,8 @@ public class OpenRouterProvider : ProviderBase
                 this.CreateUnavailableUsage(
                 "API Key missing - please configure OPENROUTER_API_KEY",
                 planType: PlanType.Usage,
-                isQuotaBased: false),
+                isQuotaBased: false,
+                state: ProviderUsageState.Missing),
             };
         }
 

@@ -85,6 +85,7 @@ public class ClaudeCodeProvider : ProviderBase
                 ProviderName = "Claude Code",
                 IsAvailable = false,
                 Description = "No API key configured",
+                State = ProviderUsageState.Missing,
                 UsageUnit = "Status",
                 IsQuotaBased = true,
                 PlanType = PlanType.Usage,

@@ -57,6 +57,10 @@ public class ProviderUsage
 
     public string Description { get; set; } = string.Empty;
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    [JsonConverter(typeof(JsonStringEnumConverter<ProviderUsageState>))]
+    public ProviderUsageState State { get; set; } = ProviderUsageState.Available;
+
     public string AuthSource { get; set; } = string.Empty;
 
     public IReadOnlyList<ProviderUsageDetail>? Details { get; set; }

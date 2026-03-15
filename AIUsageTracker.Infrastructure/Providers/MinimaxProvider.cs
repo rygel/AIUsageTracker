@@ -71,6 +71,7 @@ public class MinimaxProvider : ProviderBase
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 Description = "API Key not found.",
+                State = ProviderUsageState.Missing,
             },
             };
         }

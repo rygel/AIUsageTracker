@@ -199,6 +199,12 @@ public class ProviderRefreshCircuitBreakerService
             return false;
         }
 
+        // Typed state takes priority
+        if (usage.State == ProviderUsageState.Error)
+        {
+            return false;
+        }
+
         return string.IsNullOrWhiteSpace(usage.Description) ||
                !usage.Description.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase);
     }

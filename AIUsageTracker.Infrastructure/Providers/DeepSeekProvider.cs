@@ -51,7 +51,8 @@ public class DeepSeekProvider : ProviderBase
                 this.CreateUnavailableUsage(
                 "API Key missing",
                 planType: PlanType.Usage,
-                isQuotaBased: false),
+                isQuotaBased: false,
+                state: ProviderUsageState.Missing),
             };
         }
 

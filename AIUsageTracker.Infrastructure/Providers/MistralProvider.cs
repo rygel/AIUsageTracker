@@ -56,7 +56,7 @@ public class MistralProvider : ProviderBase
 
         if (string.IsNullOrEmpty(apiKey))
         {
-            return new[] { this.CreateUnavailableUsage("API Key missing") };
+            return new[] { this.CreateUnavailableUsage("API Key missing", state: ProviderUsageState.Missing) };
         }
 
         // Mistral does not have a public usage/billing API endpoint

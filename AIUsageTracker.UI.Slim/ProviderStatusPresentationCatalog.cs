@@ -3,8 +3,6 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
-using System.Text.RegularExpressions;
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 
@@ -194,7 +192,7 @@ internal static class ProviderStatusPresentationCatalog
         }
 
         var secondaryLines = new List<ProviderStatusLine>();
-        var resolvedReset = usage?.NextResetTime ?? InferResetTimeFromDetails(usage);
+        var resolvedReset = usage?.NextResetTime;
         if (resolvedReset is DateTime nextReset)
         {
             secondaryLines.Add(new ProviderStatusLine($"Next reset: {nextReset:g}"));
@@ -210,36 +208,6 @@ internal static class ProviderStatusPresentationCatalog
             PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
             PrimaryItalic: false,
             SecondaryLines: secondaryLines.AsReadOnly());
-    }
-
-    private static DateTime? InferResetTimeFromDetails(ProviderUsage? usage)
-    {
-        if (usage?.Details == null)
-        {
-            return null;
-        }
-
-        foreach (var detail in usage.Details)
-        {
-            if (string.IsNullOrWhiteSpace(detail.Description))
-            {
-                continue;
-            }
-
-            var match = Regex.Match(
-                detail.Description,
-                @"Resets in\s+(?<seconds>\d+)s",
-                RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture,
-                TimeSpan.FromSeconds(1));
-            if (match.Success &&
-                int.TryParse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out var seconds) &&
-                seconds > 0)
-            {
-                return DateTime.Now.AddSeconds(seconds);
-            }
-        }
-
-        return null;
     }
 
     private static string MaskString(string input)

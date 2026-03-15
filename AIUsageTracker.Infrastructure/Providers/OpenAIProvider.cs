@@ -100,7 +100,7 @@ public class OpenAIProvider : ProviderBase
         {
             return new[]
             {
-                this.CreateUnavailableUsage("OpenAI API key or OpenCode session not found."),
+                this.CreateUnavailableUsage("OpenAI API key or OpenCode session not found.", state: ProviderUsageState.Missing),
             };
         }
 

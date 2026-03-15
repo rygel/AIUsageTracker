@@ -47,7 +47,7 @@ public class KimiProvider : ProviderBase
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new[] { this.CreateUnavailableUsage("API Key missing", authSource: config.AuthSource) };
+            return new[] { this.CreateUnavailableUsage("API Key missing", authSource: config.AuthSource, state: ProviderUsageState.Missing) };
         }
 
         try

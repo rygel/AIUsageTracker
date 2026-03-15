@@ -452,11 +452,18 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             return false;
         }
 
+        // Typed state takes priority over description heuristics
+        if (usage.State == ProviderUsageState.Missing || usage.State == ProviderUsageState.Unavailable)
+        {
+            return true;
+        }
+
         if (string.IsNullOrWhiteSpace(usage.Description))
         {
             return true;
         }
 
+        // Legacy fallback: description-based detection for providers that don't yet set State
         return usage.Description.Contains("API Key", StringComparison.OrdinalIgnoreCase) ||
                usage.Description.Contains("configured", StringComparison.OrdinalIgnoreCase);
     }

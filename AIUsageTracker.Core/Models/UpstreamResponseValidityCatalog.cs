@@ -18,6 +18,18 @@ public static class UpstreamResponseValidityCatalog
         }
 
         var description = usage.Description ?? string.Empty;
+
+        // Typed state short-circuits before any description heuristics
+        if (usage.State == ProviderUsageState.Missing || usage.State == ProviderUsageState.Unavailable)
+        {
+            return (UpstreamResponseValidity.NotAttempted, "Upstream call was not attempted");
+        }
+
+        if (usage.State == ProviderUsageState.Error)
+        {
+            return (UpstreamResponseValidity.Invalid, "Provider reported an error");
+        }
+
         var hasHttpStatus = usage.HttpStatus is >= 100 and <= 599;
         if (hasHttpStatus)
         {

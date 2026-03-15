@@ -49,7 +49,8 @@ public abstract class ProviderBase : IProviderService
         string? authSource = null,
         PlanType planType = PlanType.Coding,
         bool isQuotaBased = true,
-        string? usageUnit = null)
+        string? usageUnit = null,
+        ProviderUsageState state = ProviderUsageState.Error)
     {
         return new ProviderUsage
         {
@@ -57,6 +58,7 @@ public abstract class ProviderBase : IProviderService
             ProviderName = this.Definition.DisplayName ?? this.ProviderId,
             IsAvailable = false,
             Description = description,
+            State = state,
             PlanType = planType,
             IsQuotaBased = isQuotaBased,
             UsageUnit = usageUnit ?? this.GetDefaultUsageUnit(),

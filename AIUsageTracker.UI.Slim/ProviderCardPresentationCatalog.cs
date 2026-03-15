@@ -17,11 +17,16 @@ internal static class ProviderCardPresentationCatalog
         var providerId = usage.ProviderId ?? string.Empty;
         var isStale = usage.Details?.Any(d => d.IsStale) == true;
         var description = usage.Description ?? string.Empty;
-        var isMissing = description.Contains("not found", StringComparison.OrdinalIgnoreCase);
-        var isConsoleCheck = description.Contains("Check Console", StringComparison.OrdinalIgnoreCase);
-        var isError = description.Contains("[Error]", StringComparison.OrdinalIgnoreCase) ||
-            (!usage.IsAvailable && !isMissing && !string.IsNullOrWhiteSpace(description));
-        var isUnknown = description.Contains("unknown", StringComparison.OrdinalIgnoreCase);
+        // Typed state — no more description.Contains() heuristics
+        var isMissing = usage.State == ProviderUsageState.Missing
+            || description.Contains("not found", StringComparison.OrdinalIgnoreCase); // legacy fallback
+        var isConsoleCheck = usage.State == ProviderUsageState.ConsoleCheck
+            || description.Contains("Check Console", StringComparison.OrdinalIgnoreCase); // legacy fallback
+        var isError = usage.State == ProviderUsageState.Error
+            || description.Contains("[Error]", StringComparison.OrdinalIgnoreCase) // legacy fallback
+            || (!usage.IsAvailable && !isMissing && !string.IsNullOrWhiteSpace(description) && usage.State == ProviderUsageState.Available);
+        var isUnknown = usage.State == ProviderUsageState.Unknown
+            || description.Contains("unknown", StringComparison.OrdinalIgnoreCase); // legacy fallback
         var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
         var isAggregateParent = ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId)
             && string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase);
@@ -103,7 +108,11 @@ internal static class ProviderCardPresentationCatalog
 
         if (isError)
         {
-            var errorText = description.Replace("[Error]", string.Empty).Trim();
+            // Strip the [Error] prefix only when present (legacy producers embed it in description).
+            // When State == Error and description has no [Error] prefix, use description directly.
+            var errorText = description.Contains("[Error]", StringComparison.OrdinalIgnoreCase)
+                ? description.Replace("[Error]", string.Empty).Trim()
+                : description;
             if (string.IsNullOrWhiteSpace(errorText))
             {
                 errorText = description;

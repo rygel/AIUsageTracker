@@ -105,7 +105,7 @@ public class CodexProvider : ProviderBase
 
             if (string.IsNullOrWhiteSpace(accessToken))
             {
-                return new[] { this.CreateUnavailableUsageWithIdentity("Codex auth token not found (~/.codex/auth.json or CODEX_API_KEY)", knownAccountIdentity) };
+                return new[] { this.CreateUnavailableUsageWithIdentity("Codex auth token not found (~/.codex/auth.json or CODEX_API_KEY)", knownAccountIdentity, ProviderUsageState.Missing) };
             }
 
             var resolvedAccessToken = accessToken!;
@@ -505,9 +505,12 @@ public class CodexProvider : ProviderBase
         return null;
     }
 
-    private ProviderUsage CreateUnavailableUsageWithIdentity(string message, string? accountIdentity)
+    private ProviderUsage CreateUnavailableUsageWithIdentity(
+        string message,
+        string? accountIdentity,
+        ProviderUsageState state = ProviderUsageState.Error)
     {
-        var usage = this.CreateUnavailableUsage(message);
+        var usage = this.CreateUnavailableUsage(message, state: state);
         usage.AccountName = accountIdentity ?? string.Empty;
         return usage;
     }

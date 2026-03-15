@@ -48,7 +48,7 @@ public sealed class SyntheticProvider : ProviderBase
     {
         if (string.IsNullOrWhiteSpace(config.ApiKey))
         {
-            return new[] { this.CreateUnavailableUsage("API Key missing", 401, config.AuthSource) };
+            return new[] { this.CreateUnavailableUsage("API Key missing", 401, config.AuthSource, state: ProviderUsageState.Missing) };
         }
 
         var endpoint = string.IsNullOrWhiteSpace(config.BaseUrl)

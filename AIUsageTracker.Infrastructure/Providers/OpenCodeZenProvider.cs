@@ -99,7 +99,8 @@ public class OpenCodeZenProvider : ProviderBase
                     "CLI not found at expected path",
                     config.AuthSource,
                     $"CLI not found at path: {this._cliPath}",
-                    404),
+                    404,
+                    ProviderUsageState.Missing),
             };
         }
 
@@ -128,7 +129,8 @@ public class OpenCodeZenProvider : ProviderBase
         string description,
         string? authSource,
         string rawJson,
-        int httpStatus)
+        int httpStatus,
+        ProviderUsageState state = ProviderUsageState.Error)
     {
         return new ProviderUsage
         {
@@ -136,6 +138,7 @@ public class OpenCodeZenProvider : ProviderBase
             ProviderName = ProviderDisplayName,
             IsAvailable = false,
             Description = description,
+            State = state,
             IsQuotaBased = false,
             PlanType = PlanType.Usage,
             AuthSource = authSource ?? string.Empty,

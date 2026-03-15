@@ -54,6 +54,7 @@ public class XiaomiProvider : ProviderBase
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 Description = "API Key missing",
+                State = ProviderUsageState.Missing,
             },
             };
         }
