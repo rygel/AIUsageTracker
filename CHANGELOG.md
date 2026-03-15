@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.2.28-beta.41] - 2026-03-15
+
+### Fixed
+- **Z.ai Reset Timer**: When the 5-hour rolling window is fresh (0% used), the API returns the billing period end date (~8 days away) as `nextResetTime` instead of the rolling window close. The UI was showing "7 days 17 hours" for a limit that resets every 5 hours. Fixed by parsing `unit`/`number` fields from the limit item (`unit=3=hours, number=5` → 5-hour window) and displaying a "5h window" label instead of the misleading far-future date. When the window is active (tokens consumed), the actual window close time is shown as before.
+- **Codex Spark Weekly Quota**: Spark's child card was showing the same weekly usage as the main Codex card (e.g. 2% remaining) instead of its own independent weekly quota (e.g. 81% remaining). Root cause: `Math.Max(sparkWindow.SecondaryUsedPercent, secondaryUsedPercent)` was combining Spark's independent weekly counter with the main Codex weekly counter. Fixed by using null-coalescing (`??`) to prefer Spark's own secondary window and fall back to the main weekly only when Spark has none.
+
 ## [2.2.28-beta.40] - 2026-03-15
 
 ### Fixed
