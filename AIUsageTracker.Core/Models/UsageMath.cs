@@ -235,7 +235,6 @@ public static class UsageMath
         ArgumentNullException.ThrowIfNull(history);
 
         var samples = FilterValidSamples(history).ToList();
-        System.Diagnostics.Debug.WriteLine($"CalculateBurnRateForecast: input={history.Count()}, valid={samples.Count()}, first={samples.FirstOrDefault()?.RequestsUsed}");
         if (!ValidateMinimumSamples(samples, 2, "Insufficient history", out var forecastResult))
         {
             return forecastResult;
@@ -244,15 +243,12 @@ public static class UsageMath
         // Check for no consumption trend - all samples have same usage (before any trimming or validation)
         var firstUsage = samples[0].RequestsUsed;
         var allSame = samples.All(x => x.RequestsUsed == firstUsage);
-        System.Diagnostics.Debug.WriteLine($"NoTrendCheck: firstUsage={firstUsage}, allSame={allSame}, sampleUsages={string.Join(",", samples.Select(x => x.RequestsUsed))}");
         if (allSame)
         {
-            System.Diagnostics.Debug.WriteLine($"NoTrendDetected early: all samples have usage={firstUsage}");
             return BurnRateForecast.Unavailable("No consumption trend");
         }
 
         var cycleSamples = TrimToLatestCycle(samples);
-        System.Diagnostics.Debug.WriteLine($"After TrimToLatestCycle: {cycleSamples.Count} samples, usages: {string.Join(",", cycleSamples.Select(x => x.RequestsUsed))}");
         if (!ValidateMinimumSamples(cycleSamples, 2, "Insufficient cycle history", out forecastResult))
         {
             return forecastResult;
@@ -264,7 +260,6 @@ public static class UsageMath
         }
 
         var burnRatePerDay = CalculateBurnRatePerDay(cycleSamples, out var elapsedDays);
-        System.Diagnostics.Debug.WriteLine($"burnRatePerDay: {burnRatePerDay}");
         if (!ValidateBurnRate(burnRatePerDay, out forecastResult))
         {
             return forecastResult;

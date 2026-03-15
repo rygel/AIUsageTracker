@@ -289,6 +289,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             IsQuotaBased = usage.IsQuotaBased,
             DisplayAsFraction = usage.DisplayAsFraction,
             IsAvailable = usage.IsAvailable,
+            State = usage.State,
+            IsStatusOnly = usage.IsStatusOnly,
+            IsCurrencyUsage = usage.IsCurrencyUsage,
             Description = description,
             AuthSource = usage.AuthSource,
             Details = details,
@@ -334,6 +337,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             IsQuotaBased = usage.IsQuotaBased,
             DisplayAsFraction = usage.DisplayAsFraction,
             IsAvailable = usage.IsAvailable,
+            State = usage.State,
+            IsStatusOnly = usage.IsStatusOnly,
+            IsCurrencyUsage = usage.IsCurrencyUsage,
             Description = description,
             AuthSource = usage.AuthSource,
             Details = details,
@@ -436,26 +442,17 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
     {
         if (usage.RequestsAvailable != 0 ||
             usage.RequestsUsed != 0 ||
-            usage.UsedPercent != 0 ||
             usage.IsAvailable)
         {
             return false;
         }
 
-        // Typed state takes priority over description heuristics
         if (usage.State == ProviderUsageState.Missing || usage.State == ProviderUsageState.Unavailable)
         {
             return true;
         }
 
-        if (string.IsNullOrWhiteSpace(usage.Description))
-        {
-            return true;
-        }
-
-        // Legacy fallback: description-based detection for providers that don't yet set State
-        return usage.Description.Contains("API Key", StringComparison.OrdinalIgnoreCase) ||
-               usage.Description.Contains("configured", StringComparison.OrdinalIgnoreCase);
+        return string.IsNullOrWhiteSpace(usage.Description);
     }
 
     private bool TryCreateDetailContractErrorUsage(

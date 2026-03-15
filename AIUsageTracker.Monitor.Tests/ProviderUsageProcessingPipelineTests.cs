@@ -109,6 +109,7 @@ public class ProviderUsageProcessingPipelineTests
             RequestsAvailable = 0,
             UsedPercent = 0,
             IsAvailable = false,
+            State = ProviderUsageState.Missing,
             Description = "API Key missing",
         };
 
@@ -462,6 +463,7 @@ public class ProviderUsageProcessingPipelineTests
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
                 IsAvailable = false,
+                State = ProviderUsageState.Missing,
                 Description = "API Key missing",
                 RequestsUsed = 0,
                 RequestsAvailable = 0,
