@@ -26,28 +26,30 @@ public class GitHubCopilotProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "github-copilot",
-        displayName: "GitHub Copilot",
-        planType: PlanType.Coding,
+        "github-copilot",
+        "GitHub Copilot",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        autoIncludeWhenUnconfigured: true,
-        includeInWellKnownProviders: true,
-        settingsMode: ProviderSettingsMode.ExternalAuthStatus,
-        supportsAccountIdentity: true,
-        iconAssetName: "github",
-        fallbackBadgeColorHex: "#9370DB",
-        fallbackBadgeInitial: "GH",
-        authIdentityCandidatePathTemplates: new[]
+        defaultConfigType: "quota-based")
+    {
+        AutoIncludeWhenUnconfigured = true,
+        IncludeInWellKnownProviders = true,
+        SettingsMode = ProviderSettingsMode.ExternalAuthStatus,
+        SupportsAccountIdentity = true,
+        IconAssetName = "github",
+        FallbackBadgeColorHex = "#9370DB",
+        FallbackBadgeInitial = "GH",
+        AuthIdentityCandidatePathTemplates = new[]
         {
             "%APPDATA%\\GitHub CLI\\hosts.yml",
             "%USERPROFILE%\\.config\\gh\\hosts.yml",
         },
-        quotaWindows: new QuotaWindowDefinition[]
+        QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Rolling, "Weekly"),
             new(WindowKind.Burst,   "5h"),
-        });
+        },
+    };
 
     public override ProviderDefinition Definition => StaticDefinition;
 

@@ -61,18 +61,20 @@ public class OpenCodeZenProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "opencode-zen",
-        displayName: ProviderDisplayName,
-        planType: PlanType.Usage,
+        "opencode-zen",
+        ProviderDisplayName,
+        PlanType.Usage,
         isQuotaBased: false,
-        defaultConfigType: "pay-as-you-go",
-        autoIncludeWhenUnconfigured: true,
-        handledProviderIds: new[] { "opencode-zen", "opencode-go" },
-        displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        defaultConfigType: "pay-as-you-go")
+    {
+        AutoIncludeWhenUnconfigured = true,
+        AdditionalHandledProviderIds = new[] { "opencode-go" },
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["opencode-go"] = "Opencode Go",
         },
-        isTooltipOnly: true);
+        IsTooltipOnly = true,
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

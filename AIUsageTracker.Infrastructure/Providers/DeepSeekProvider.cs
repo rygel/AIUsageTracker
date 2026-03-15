@@ -25,17 +25,19 @@ public class DeepSeekProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "deepseek",
-        displayName: "DeepSeek",
-        planType: PlanType.Usage,
+        "deepseek",
+        "DeepSeek",
+        PlanType.Usage,
         isQuotaBased: false,
-        defaultConfigType: "pay-as-you-go",
-        includeInWellKnownProviders: true,
-        discoveryEnvironmentVariables: new[] { "DEEPSEEK_API_KEY" },
-        rooConfigPropertyNames: new[] { "deepseekApiKey" },
-        iconAssetName: "deepseek",
-        fallbackBadgeColorHex: "#00BFFF",
-        fallbackBadgeInitial: "DS");
+        defaultConfigType: "pay-as-you-go")
+    {
+        IncludeInWellKnownProviders = true,
+        DiscoveryEnvironmentVariables = new[] { "DEEPSEEK_API_KEY" },
+        RooConfigPropertyNames = new[] { "deepseekApiKey" },
+        IconAssetName = "deepseek",
+        FallbackBadgeColorHex = "#00BFFF",
+        FallbackBadgeInitial = "DS",
+    };
 
     public override ProviderDefinition Definition => StaticDefinition;
 

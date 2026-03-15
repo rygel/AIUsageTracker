@@ -45,8 +45,10 @@ public class ProviderDiscoveryServiceTests : IDisposable
             "Test Provider",
             PlanType.Usage,
             false,
-            "api_key",
-            discoveryEnvironmentVariables: new[] { envVarName });
+            "api_key")
+        {
+            DiscoveryEnvironmentVariables = new[] { envVarName },
+        };
 
         try
         {
@@ -86,12 +88,14 @@ public class ProviderDiscoveryServiceTests : IDisposable
             "GitHub Copilot",
             PlanType.Coding,
             true,
-            "session",
-            authIdentityCandidatePathTemplates: new[] { authFilePath },
-            sessionAuthFileSchemas: new[]
+            "session")
+        {
+            AuthIdentityCandidatePathTemplates = new[] { authFilePath },
+            SessionAuthFileSchemas = new[]
             {
                 new ProviderAuthFileSchema("sessions.github", "oauth_token", "user"),
-            });
+            },
+        };
 
         // Act
         var result = await this._service.DiscoverAuthAsync(definition.CreateAuthDiscoverySpec());
@@ -112,9 +116,11 @@ public class ProviderDiscoveryServiceTests : IDisposable
             "Unknown",
             PlanType.Usage,
             false,
-            "api_key",
-            discoveryEnvironmentVariables: new[] { "NON_EXISTENT_VAR" },
-            authIdentityCandidatePathTemplates: new[] { Path.Combine(this._tempTestDir, "non-existent.json") });
+            "api_key")
+        {
+            DiscoveryEnvironmentVariables = new[] { "NON_EXISTENT_VAR" },
+            AuthIdentityCandidatePathTemplates = new[] { Path.Combine(this._tempTestDir, "non-existent.json") },
+        };
 
         // Act
         var result = await this._service.DiscoverAuthAsync(definition.CreateAuthDiscoverySpec());

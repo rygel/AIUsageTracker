@@ -154,12 +154,14 @@ public class ProviderRefreshConfigSelectorTests
         mock.SetupGet(provider => provider.Definition).Returns(
             new ProviderDefinition(
                 providerId,
-                displayName: providerId,
-                planType: PlanType.Coding,
+                providerId,
+                PlanType.Coding,
                 isQuotaBased: true,
-                defaultConfigType: "quota-based",
-                autoIncludeWhenUnconfigured: autoIncludeWhenUnconfigured,
-                familyMode: familyMode));
+                defaultConfigType: "quota-based")
+            {
+                AutoIncludeWhenUnconfigured = autoIncludeWhenUnconfigured,
+                FamilyMode = familyMode,
+            });
         mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
             .ReturnsAsync(Array.Empty<ProviderUsage>());
         return mock.Object;

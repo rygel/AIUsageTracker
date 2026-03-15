@@ -27,15 +27,17 @@ public class MistralProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "mistral",
-        displayName: "Mistral",
-        planType: PlanType.Usage,
+        "mistral",
+        "Mistral",
+        PlanType.Usage,
         isQuotaBased: false,
-        defaultConfigType: "pay-as-you-go",
-        rooConfigPropertyNames: new[] { "mistralApiKey" },
-        iconAssetName: "mistral",
-        fallbackBadgeColorHex: "#FF4500",
-        fallbackBadgeInitial: "Mi");
+        defaultConfigType: "pay-as-you-go")
+    {
+        RooConfigPropertyNames = new[] { "mistralApiKey" },
+        IconAssetName = "mistral",
+        FallbackBadgeColorHex = "#FF4500",
+        FallbackBadgeInitial = "Mi",
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

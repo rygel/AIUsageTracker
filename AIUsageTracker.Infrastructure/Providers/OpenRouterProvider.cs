@@ -24,17 +24,19 @@ public class OpenRouterProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "openrouter",
-        displayName: "OpenRouter",
-        planType: PlanType.Usage,
+        "openrouter",
+        "OpenRouter",
+        PlanType.Usage,
         isQuotaBased: true,
-        defaultConfigType: "pay-as-you-go",
-        includeInWellKnownProviders: true,
-        discoveryEnvironmentVariables: new[] { "OPENROUTER_API_KEY" },
-        rooConfigPropertyNames: new[] { "openrouterApiKey" },
-        iconAssetName: "openai",
-        fallbackBadgeColorHex: "#483D8B",
-        fallbackBadgeInitial: "OR");
+        defaultConfigType: "pay-as-you-go")
+    {
+        IncludeInWellKnownProviders = true,
+        DiscoveryEnvironmentVariables = new[] { "OPENROUTER_API_KEY" },
+        RooConfigPropertyNames = new[] { "openrouterApiKey" },
+        IconAssetName = "openai",
+        FallbackBadgeColorHex = "#483D8B",
+        FallbackBadgeInitial = "OR",
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

@@ -37,32 +37,34 @@ public class ClaudeCodeProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "claude-code",
-        displayName: "Claude Code",
-        planType: PlanType.Usage,
+        "claude-code",
+        "Claude Code",
+        PlanType.Usage,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        autoIncludeWhenUnconfigured: true,
-        familyMode: ProviderFamilyMode.SyntheticAggregateChildren,
-        discoveryEnvironmentVariables: new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
-        iconAssetName: "anthropic",
-        fallbackBadgeColorHex: "#FFA500",
-        fallbackBadgeInitial: "C",
-        authIdentityCandidatePathTemplates: new[]
+        defaultConfigType: "quota-based")
+    {
+        AutoIncludeWhenUnconfigured = true,
+        FamilyMode = ProviderFamilyMode.SyntheticAggregateChildren,
+        DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
+        IconAssetName = "anthropic",
+        FallbackBadgeColorHex = "#FFA500",
+        FallbackBadgeInitial = "C",
+        AuthIdentityCandidatePathTemplates = new[]
         {
             "%USERPROFILE%\\.claude\\.credentials.json",
         },
-        sessionAuthFileSchemas: new[]
+        SessionAuthFileSchemas = new[]
         {
             new ProviderAuthFileSchema("claudeAiOauth", "accessToken"),
         },
-        quotaWindows: new QuotaWindowDefinition[]
+        QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session"),
             new(WindowKind.ModelSpecific, "Sonnet",  ChildProviderId: "claude-code.sonnet",          SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet"),
             new(WindowKind.ModelSpecific, "Opus",    ChildProviderId: "claude-code.opus",            SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus"),
             new(WindowKind.Rolling,       "7-day",   ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models"),
-        });
+        },
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

@@ -34,46 +34,48 @@ public class OpenAIProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "openai",
-        displayName: "OpenAI (API)",
-        planType: PlanType.Coding,
+        "openai",
+        "OpenAI (API)",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        discoveryEnvironmentVariables: new[] { "OPENAI_API_KEY" },
-        rooConfigPropertyNames: new[] { "openAiApiKey" },
-        explicitApiKeyPrefixes: new[] { "sk-" },
-        sessionAuthCanonicalProviderId: "codex",
-        sessionAuthMigrationDescription: "Migrated from OpenAI session config",
-        settingsMode: ProviderSettingsMode.SessionAuthStatus,
-        useSessionAuthStatusWhenQuotaBasedOrSessionToken: true,
-        sessionStatusLabel: "OpenAI (API)",
-        showInMainWindow: false,
-        sessionIdentitySource: ProviderSessionIdentitySource.OpenAi,
-        supportsAccountIdentity: true,
-        showInSettings: false,
-        iconAssetName: "openai",
-        fallbackBadgeColorHex: "#008B8B",
-        fallbackBadgeInitial: "AI",
-        authIdentityCandidatePathTemplates: new[]
+        defaultConfigType: "quota-based")
+    {
+        DiscoveryEnvironmentVariables = new[] { "OPENAI_API_KEY" },
+        RooConfigPropertyNames = new[] { "openAiApiKey" },
+        ExplicitApiKeyPrefixes = new[] { "sk-" },
+        SessionAuthCanonicalProviderId = "codex",
+        SessionAuthMigrationDescription = "Migrated from OpenAI session config",
+        SettingsMode = ProviderSettingsMode.SessionAuthStatus,
+        UseSessionAuthStatusWhenQuotaBasedOrSessionToken = true,
+        SessionStatusLabel = "OpenAI (API)",
+        ShowInMainWindow = false,
+        SessionIdentitySource = ProviderSessionIdentitySource.OpenAi,
+        SupportsAccountIdentity = true,
+        ShowInSettings = false,
+        IconAssetName = "openai",
+        FallbackBadgeColorHex = "#008B8B",
+        FallbackBadgeInitial = "AI",
+        AuthIdentityCandidatePathTemplates = new[]
         {
             "%USERPROFILE%\\.local\\share\\opencode\\auth.json",
             "%APPDATA%\\opencode\\auth.json",
             "%LOCALAPPDATA%\\opencode\\auth.json",
             "%USERPROFILE%\\.opencode\\auth.json",
         },
-        sessionAuthFileSchemas: new[]
+        SessionAuthFileSchemas = new[]
         {
             new ProviderAuthFileSchema("openai", "access", "accountId", "id_token"),
         },
-        sessionIdentityProfileRootProperties: new[]
+        SessionIdentityProfileRootProperties = new[]
         {
             ProviderEndpoints.OpenAI.ProfileClaimKey,
         },
-        quotaWindows: new QuotaWindowDefinition[]
+        QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,   "5h"),
             new(WindowKind.Rolling, "Weekly"),
-        });
+        },
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

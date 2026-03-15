@@ -23,21 +23,23 @@ public class ZaiProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "zai-coding-plan",
-        displayName: "Z.ai Coding Plan",
-        planType: PlanType.Coding,
+        "zai-coding-plan",
+        "Z.ai Coding Plan",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        handledProviderIds: new[] { "zai-coding-plan", "zai" },
-        displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        defaultConfigType: "quota-based")
+    {
+        AdditionalHandledProviderIds = new[] { "zai" },
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["zai"] = "Z.AI",
         },
-        discoveryEnvironmentVariables: new[] { "ZAI_API_KEY", "Z_AI_API_KEY" },
-        rooConfigPropertyNames: new[] { "zaiApiKey" },
-        iconAssetName: "zai",
-        fallbackBadgeColorHex: "#20B2AA",
-        fallbackBadgeInitial: "Z");
+        DiscoveryEnvironmentVariables = new[] { "ZAI_API_KEY", "Z_AI_API_KEY" },
+        RooConfigPropertyNames = new[] { "zaiApiKey" },
+        IconAssetName = "zai",
+        FallbackBadgeColorHex = "#20B2AA",
+        FallbackBadgeInitial = "Z",
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

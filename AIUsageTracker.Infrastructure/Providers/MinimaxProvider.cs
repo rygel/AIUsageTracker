@@ -29,23 +29,25 @@ public class MinimaxProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: ChinaProviderId,
-        displayName: "Minimax (China)",
-        planType: PlanType.Coding,
+        ChinaProviderId,
+        "Minimax (China)",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        includeInWellKnownProviders: true,
-        handledProviderIds: new[] { ChinaProviderId, InternationalProviderId, InternationalLegacyProviderId },
-        displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        defaultConfigType: "quota-based")
+    {
+        IncludeInWellKnownProviders = true,
+        AdditionalHandledProviderIds = new[] { InternationalProviderId, InternationalLegacyProviderId },
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             [InternationalProviderId] = "Minimax (International)",
             [InternationalLegacyProviderId] = "Minimax (International)",
         },
-        settingsAdditionalProviderIds: new[] { InternationalProviderId },
-        discoveryEnvironmentVariables: new[] { "MINIMAX_API_KEY" },
-        iconAssetName: "minimax",
-        fallbackBadgeColorHex: "#00CED1",
-        fallbackBadgeInitial: "MM");
+        SettingsAdditionalProviderIds = new[] { InternationalProviderId },
+        DiscoveryEnvironmentVariables = new[] { "MINIMAX_API_KEY" },
+        IconAssetName = "minimax",
+        FallbackBadgeColorHex = "#00CED1",
+        FallbackBadgeInitial = "MM",
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

@@ -26,22 +26,24 @@ public class KimiProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "kimi-for-coding",
-        displayName: "Kimi for Coding",
-        planType: PlanType.Coding,
+        "kimi-for-coding",
+        "Kimi for Coding",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        includeInWellKnownProviders: true,
-        handledProviderIds: new[] { "kimi" },
-        discoveryEnvironmentVariables: new[] { "KIMI_API_KEY", "MOONSHOT_API_KEY" },
-        iconAssetName: "kimi",
-        fallbackBadgeColorHex: "#BA55D3",
-        fallbackBadgeInitial: "K",
-        quotaWindows: new QuotaWindowDefinition[]
+        defaultConfigType: "quota-based")
+    {
+        IncludeInWellKnownProviders = true,
+        AdditionalHandledProviderIds = new[] { "kimi" },
+        DiscoveryEnvironmentVariables = new[] { "KIMI_API_KEY", "MOONSHOT_API_KEY" },
+        IconAssetName = "kimi",
+        FallbackBadgeColorHex = "#BA55D3",
+        FallbackBadgeInitial = "K",
+        QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Rolling, "Weekly"),
             new(WindowKind.Burst,   "Daily"),
-        });
+        },
+    };
 
     public override ProviderDefinition Definition => StaticDefinition;
 

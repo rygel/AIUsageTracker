@@ -40,22 +40,24 @@ public class AntigravityProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "antigravity",
-        displayName: "Google Antigravity",
-        planType: PlanType.Coding,
+        "antigravity",
+        "Google Antigravity",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        autoIncludeWhenUnconfigured: true,
-        includeInWellKnownProviders: true,
-        familyMode: ProviderFamilyMode.DynamicChildProviderRows,
-        settingsMode: ProviderSettingsMode.AutoDetectedStatus,
-        refreshOnStartupWithCachedData: true,
-        aggregateDetailDisplaySuffix: "[Antigravity]",
-        supportsAccountIdentity: true,
-        iconAssetName: "google",
-        fallbackBadgeColorHex: "#1E90FF",
-        fallbackBadgeInitial: "G",
-        derivedModelDisplaySuffix: "[Antigravity]");
+        defaultConfigType: "quota-based")
+    {
+        AutoIncludeWhenUnconfigured = true,
+        IncludeInWellKnownProviders = true,
+        FamilyMode = ProviderFamilyMode.DynamicChildProviderRows,
+        SettingsMode = ProviderSettingsMode.AutoDetectedStatus,
+        RefreshOnStartupWithCachedData = true,
+        AggregateDetailDisplaySuffix = "[Antigravity]",
+        SupportsAccountIdentity = true,
+        IconAssetName = "google",
+        FallbackBadgeColorHex = "#1E90FF",
+        FallbackBadgeInitial = "G",
+        DerivedModelDisplaySuffix = "[Antigravity]",
+    };
 
     /// <inheritdoc/>
     public override ProviderDefinition Definition => StaticDefinition;

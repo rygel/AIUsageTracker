@@ -41,12 +41,14 @@ public class AllProvidersWorkingTests
         var mockMinimax = new Mock<IProviderService>();
         mockMinimax.Setup(p => p.ProviderId).Returns("minimax");
         mockMinimax.Setup(p => p.Definition).Returns(new ProviderDefinition(
-            providerId: "minimax",
-            displayName: "Minimax (China)",
-            planType: PlanType.Coding,
+            "minimax",
+            "Minimax (China)",
+            PlanType.Coding,
             isQuotaBased: true,
-            defaultConfigType: "quota-based",
-            handledProviderIds: new[] { "minimax", "minimax-io", "minimax-global" }));
+            defaultConfigType: "quota-based")
+        {
+            AdditionalHandledProviderIds = new[] { "minimax-io", "minimax-global" },
+        });
         mockMinimax.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
             .ReturnsAsync((ProviderConfig c, Action<ProviderUsage>? callback) => new[]
             {

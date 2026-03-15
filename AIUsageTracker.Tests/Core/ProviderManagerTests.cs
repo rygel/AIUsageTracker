@@ -139,12 +139,14 @@ public class ProviderManagerTests
         ProviderConfig? capturedConfig = null;
         var provider = new Mock<IProviderService>();
         provider.SetupGet(p => p.Definition).Returns(new ProviderDefinition(
-            providerId: "github-copilot",
-            displayName: "GitHub Copilot",
-            planType: PlanType.Coding,
+            "github-copilot",
+            "GitHub Copilot",
+            PlanType.Coding,
             isQuotaBased: true,
-            defaultConfigType: "quota-based",
-            autoIncludeWhenUnconfigured: true));
+            defaultConfigType: "quota-based")
+        {
+            AutoIncludeWhenUnconfigured = true,
+        });
         provider.SetupGet(p => p.ProviderId).Returns("github-copilot");
         provider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
             .Callback<ProviderConfig, Action<ProviderUsage>?>((config, _) => capturedConfig = config)

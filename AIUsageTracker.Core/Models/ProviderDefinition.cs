@@ -6,48 +6,14 @@ namespace AIUsageTracker.Core.Models;
 
 public sealed class ProviderDefinition
 {
-    private readonly HashSet<string> _handledProviderIds;
+    private HashSet<string>? _handledProviderIdsSet;
 
     public ProviderDefinition(
         string providerId,
         string displayName,
         PlanType planType,
         bool isQuotaBased,
-        string defaultConfigType,
-        bool autoIncludeWhenUnconfigured = false,
-        bool includeInWellKnownProviders = false,
-        IEnumerable<string>? handledProviderIds = null,
-        IReadOnlyDictionary<string, string>? displayNameOverrides = null,
-        ProviderFamilyMode familyMode = ProviderFamilyMode.Standalone,
-        IEnumerable<string>? discoveryEnvironmentVariables = null,
-        IEnumerable<string>? rooConfigPropertyNames = null,
-        IEnumerable<string>? nonPersistedProviderIds = null,
-        IEnumerable<string>? visibleDerivedProviderIds = null,
-        IEnumerable<ProviderDerivedModelSelector>? derivedModelSelectors = null,
-        IEnumerable<string>? explicitApiKeyPrefixes = null,
-        string? sessionAuthCanonicalProviderId = null,
-        string? sessionAuthMigrationDescription = null,
-        ProviderSettingsMode settingsMode = ProviderSettingsMode.StandardApiKey,
-        bool useSessionAuthStatusWhenQuotaBasedOrSessionToken = false,
-        string? sessionStatusLabel = null,
-        ProviderSessionIdentitySource sessionIdentitySource = ProviderSessionIdentitySource.None,
-        bool refreshOnStartupWithCachedData = false,
-        bool showInMainWindow = true,
-        bool showInSettings = true,
-        IEnumerable<string>? settingsAdditionalProviderIds = null,
-        string? iconAssetName = null,
-        string? fallbackBadgeColorHex = null,
-        string? fallbackBadgeInitial = null,
-        bool preferDisplayNameOverridesForDerivedProviderIds = false,
-        string? aggregateDetailDisplaySuffix = null,
-        bool supportsAccountIdentity = false,
-        IEnumerable<string>? authIdentityCandidatePathTemplates = null,
-        IEnumerable<ProviderAuthFileSchema>? sessionAuthFileSchemas = null,
-        IEnumerable<string>? sessionIdentityProfileRootProperties = null,
-        string? derivedModelDisplaySuffix = null,
-        bool isTooltipOnly = false,
-        IEnumerable<QuotaWindowDefinition>? quotaWindows = null,
-        IEnumerable<(string ItemId, string Label)>? mainWindowVisibilityItems = null)
+        string defaultConfigType)
     {
         if (string.IsNullOrWhiteSpace(providerId))
         {
@@ -59,74 +25,11 @@ public sealed class ProviderDefinition
             throw new ArgumentException("Display name cannot be empty.", nameof(displayName));
         }
 
-        this.ProviderId = providerId;
-        this.DisplayName = displayName;
+        this.ProviderId = providerId.Trim();
+        this.DisplayName = displayName.Trim();
         this.PlanType = planType;
         this.IsQuotaBased = isQuotaBased;
         this.DefaultConfigType = defaultConfigType;
-        this.AutoIncludeWhenUnconfigured = autoIncludeWhenUnconfigured;
-        this.IncludeInWellKnownProviders = includeInWellKnownProviders;
-        this.FamilyMode = familyMode;
-        this.DiscoveryEnvironmentVariables = NormalizeValues(discoveryEnvironmentVariables);
-        this.RooConfigPropertyNames = NormalizeValues(rooConfigPropertyNames);
-        this.NonPersistedProviderIds = NormalizeValues(nonPersistedProviderIds);
-        this.VisibleDerivedProviderIds = NormalizeValues(visibleDerivedProviderIds);
-        this.DerivedModelSelectors = NormalizeDerivedModelSelectors(derivedModelSelectors);
-        this.ExplicitApiKeyPrefixes = NormalizeValues(explicitApiKeyPrefixes);
-        this.SessionAuthCanonicalProviderId = sessionAuthCanonicalProviderId;
-        this.SessionAuthMigrationDescription = sessionAuthMigrationDescription;
-        this.SettingsMode = settingsMode;
-        this.UseSessionAuthStatusWhenQuotaBasedOrSessionToken = useSessionAuthStatusWhenQuotaBasedOrSessionToken;
-        this.SessionStatusLabel = sessionStatusLabel;
-        this.SessionIdentitySource = sessionIdentitySource;
-        this.RefreshOnStartupWithCachedData = refreshOnStartupWithCachedData;
-        this.ShowInMainWindow = showInMainWindow;
-        this.ShowInSettings = showInSettings;
-        this.SettingsAdditionalProviderIds = NormalizeValues(settingsAdditionalProviderIds);
-        this.IconAssetName = iconAssetName;
-        this.FallbackBadgeColorHex = fallbackBadgeColorHex;
-        this.FallbackBadgeInitial = fallbackBadgeInitial;
-        this.PreferDisplayNameOverridesForDerivedProviderIds = preferDisplayNameOverridesForDerivedProviderIds;
-        this.AggregateDetailDisplaySuffix = aggregateDetailDisplaySuffix;
-        this.SupportsAccountIdentity = supportsAccountIdentity;
-        this.AuthIdentityCandidatePathTemplates = NormalizeValues(authIdentityCandidatePathTemplates);
-        this.SessionAuthFileSchemas = sessionAuthFileSchemas?
-            .Where(schema => schema != null)
-            .Distinct()
-            .ToArray()
-            ?? Array.Empty<ProviderAuthFileSchema>();
-        this.SessionIdentityProfileRootProperties = NormalizeValues(sessionIdentityProfileRootProperties);
-        this.DerivedModelDisplaySuffix = derivedModelDisplaySuffix;
-        this.IsTooltipOnly = isTooltipOnly;
-        this.QuotaWindows = quotaWindows?.ToArray() ?? Array.Empty<QuotaWindowDefinition>();
-        this.MainWindowVisibilityItems = mainWindowVisibilityItems != null
-            ? mainWindowVisibilityItems.ToArray()
-            : familyMode == ProviderFamilyMode.SyntheticAggregateChildren
-                ? this.QuotaWindows
-                    .Where(w => w.ChildProviderId != null)
-                    .Select(w => (w.ChildProviderId!, w.SettingsLabel ?? w.DualBarLabel))
-                    .ToArray()
-                : Array.Empty<(string ItemId, string Label)>();
-
-        var normalizedHandledIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            providerId,
-        };
-
-        if (handledProviderIds != null)
-        {
-            foreach (var handledId in handledProviderIds)
-            {
-                if (!string.IsNullOrWhiteSpace(handledId))
-                {
-                    normalizedHandledIds.Add(handledId);
-                }
-            }
-        }
-
-        this._handledProviderIds = normalizedHandledIds;
-        this.HandledProviderIds = normalizedHandledIds.ToArray();
-        this.DisplayNameOverrides = displayNameOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public string ProviderId { get; }
@@ -139,84 +42,112 @@ public sealed class ProviderDefinition
 
     public string DefaultConfigType { get; }
 
-    public bool AutoIncludeWhenUnconfigured { get; }
+    public bool AutoIncludeWhenUnconfigured { get; init; }
 
-    public bool IncludeInWellKnownProviders { get; }
+    public bool IncludeInWellKnownProviders { get; init; }
 
-    public ProviderFamilyMode FamilyMode { get; }
+    public ProviderFamilyMode FamilyMode { get; init; } = ProviderFamilyMode.Standalone;
 
     public bool SupportsChildProviderIds => ProviderFamilyPolicy.SupportsChildProviderIds(this.FamilyMode);
 
-    public IReadOnlyCollection<string> HandledProviderIds { get; }
+    /// <summary>
+    /// Gets additional provider IDs (beyond ProviderId itself) that this provider handles.
+    /// Use this to declare aliases; ProviderId is always included automatically.
+    /// </summary>
+    public IReadOnlyCollection<string> AdditionalHandledProviderIds { get; init; } = Array.Empty<string>();
 
-    public IReadOnlyDictionary<string, string> DisplayNameOverrides { get; }
+    // Computed lazily: ProviderId + AdditionalHandledProviderIds
+    private HashSet<string> HandledProviderIdsSet => this._handledProviderIdsSet ??=
+        new HashSet<string>(this.AdditionalHandledProviderIds.Prepend(this.ProviderId), StringComparer.OrdinalIgnoreCase);
 
-    public IReadOnlyCollection<string> DiscoveryEnvironmentVariables { get; }
+    public IReadOnlyCollection<string> HandledProviderIds => this.HandledProviderIdsSet;
 
-    public IReadOnlyCollection<string> RooConfigPropertyNames { get; }
+    public IReadOnlyDictionary<string, string> DisplayNameOverrides { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-    public IReadOnlyCollection<string> NonPersistedProviderIds { get; }
+    public IReadOnlyCollection<string> DiscoveryEnvironmentVariables { get; init; } = Array.Empty<string>();
 
-    public IReadOnlyCollection<string> VisibleDerivedProviderIds { get; }
+    public IReadOnlyCollection<string> RooConfigPropertyNames { get; init; } = Array.Empty<string>();
 
-    public IReadOnlyCollection<ProviderDerivedModelSelector> DerivedModelSelectors { get; }
+    public IReadOnlyCollection<string> NonPersistedProviderIds { get; init; } = Array.Empty<string>();
 
-    public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; }
+    public IReadOnlyCollection<string> VisibleDerivedProviderIds { get; init; } = Array.Empty<string>();
 
-    public string? SessionAuthCanonicalProviderId { get; }
+    public IReadOnlyCollection<ProviderDerivedModelSelector> DerivedModelSelectors { get; init; } = Array.Empty<ProviderDerivedModelSelector>();
 
-    public string? SessionAuthMigrationDescription { get; }
+    public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; init; } = Array.Empty<string>();
 
-    public ProviderSettingsMode SettingsMode { get; }
+    public string? SessionAuthCanonicalProviderId { get; init; }
 
-    public bool UseSessionAuthStatusWhenQuotaBasedOrSessionToken { get; }
+    public string? SessionAuthMigrationDescription { get; init; }
 
-    public string? SessionStatusLabel { get; }
+    public ProviderSettingsMode SettingsMode { get; init; } = ProviderSettingsMode.StandardApiKey;
 
-    public ProviderSessionIdentitySource SessionIdentitySource { get; }
+    public bool UseSessionAuthStatusWhenQuotaBasedOrSessionToken { get; init; }
 
-    public bool RefreshOnStartupWithCachedData { get; }
+    public string? SessionStatusLabel { get; init; }
+
+    public ProviderSessionIdentitySource SessionIdentitySource { get; init; } = ProviderSessionIdentitySource.None;
+
+    public bool RefreshOnStartupWithCachedData { get; init; }
 
     public bool CollapseDerivedChildrenInMainWindow =>
         ProviderFamilyPolicy.ShouldCollapseDerivedChildrenInMainWindow(this.FamilyMode);
 
-    public bool ShowInMainWindow { get; }
+    public bool ShowInMainWindow { get; init; } = true;
 
-    public bool ShowInSettings { get; }
+    public bool ShowInSettings { get; init; } = true;
 
-    public IReadOnlyCollection<string> SettingsAdditionalProviderIds { get; }
+    public IReadOnlyCollection<string> SettingsAdditionalProviderIds { get; init; } = Array.Empty<string>();
 
-    public string? IconAssetName { get; }
+    public string? IconAssetName { get; init; }
 
-    public string? FallbackBadgeColorHex { get; }
+    public string? FallbackBadgeColorHex { get; init; }
 
-    public string? FallbackBadgeInitial { get; }
+    public string? FallbackBadgeInitial { get; init; }
 
-    public bool PreferDisplayNameOverridesForDerivedProviderIds { get; }
+    public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
 
     public bool RenderDetailsAsSyntheticChildrenInMainWindow =>
         ProviderFamilyPolicy.ShouldRenderSyntheticChildrenInMainWindow(this.FamilyMode);
 
-    public string? AggregateDetailDisplaySuffix { get; }
+    public string? AggregateDetailDisplaySuffix { get; init; }
 
-    public bool SupportsAccountIdentity { get; }
+    public bool SupportsAccountIdentity { get; init; }
 
-    public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; }
+    public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; init; } = Array.Empty<string>();
 
-    public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; }
+    public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; init; } = Array.Empty<ProviderAuthFileSchema>();
 
-    public IReadOnlyCollection<string> SessionIdentityProfileRootProperties { get; }
+    public IReadOnlyCollection<string> SessionIdentityProfileRootProperties { get; init; } = Array.Empty<string>();
 
     public bool UseChildProviderRowsForGroupedModels =>
         ProviderFamilyPolicy.UsesChildProviderRowsForGroupedModels(this.FamilyMode);
 
-    public string? DerivedModelDisplaySuffix { get; }
+    public string? DerivedModelDisplaySuffix { get; init; }
 
-    public bool IsTooltipOnly { get; }
+    public bool IsTooltipOnly { get; init; }
 
-    public IReadOnlyList<QuotaWindowDefinition> QuotaWindows { get; }
+    public IReadOnlyList<QuotaWindowDefinition> QuotaWindows { get; init; } = Array.Empty<QuotaWindowDefinition>();
 
-    public IReadOnlyList<(string ItemId, string Label)> MainWindowVisibilityItems { get; }
+    /// <summary>
+    /// Gets the main-window visibility items.
+    /// When not overridden, auto-derives from QuotaWindows for SyntheticAggregateChildren mode.
+    /// </summary>
+    public IReadOnlyList<(string ItemId, string Label)> MainWindowVisibilityItems =>
+        this.MainWindowVisibilityItemsOverride
+        ?? (this.FamilyMode == ProviderFamilyMode.SyntheticAggregateChildren
+            ? this.QuotaWindows
+                .Where(w => w.ChildProviderId != null)
+                .Select(w => (w.ChildProviderId!, w.SettingsLabel ?? w.DualBarLabel))
+                .ToArray()
+            : Array.Empty<(string, string)>());
+
+    /// <summary>
+    /// Gets or inits an explicit override for MainWindowVisibilityItems.
+    /// Leave null to use auto-derivation from QuotaWindows.
+    /// </summary>
+    public IReadOnlyList<(string ItemId, string Label)>? MainWindowVisibilityItemsOverride { get; init; }
 
     public bool HandlesProviderId(string providerId)
     {
@@ -235,7 +166,7 @@ public sealed class ProviderDefinition
             return mapped;
         }
 
-        if (this._handledProviderIds.Contains(providerId))
+        if (this.HandledProviderIdsSet.Contains(providerId))
         {
             return this.DisplayName;
         }
@@ -267,33 +198,5 @@ public sealed class ProviderDefinition
             AuthSource = authSource ?? AuthSource.Unknown,
             Description = description,
         };
-    }
-
-    private static IReadOnlyCollection<string> NormalizeValues(IEnumerable<string>? values)
-    {
-        if (values == null)
-        {
-            return Array.Empty<string>();
-        }
-
-        return values
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static IReadOnlyCollection<ProviderDerivedModelSelector> NormalizeDerivedModelSelectors(
-        IEnumerable<ProviderDerivedModelSelector>? selectors)
-    {
-        if (selectors == null)
-        {
-            return Array.Empty<ProviderDerivedModelSelector>();
-        }
-
-        return selectors
-            .Where(selector => selector != null)
-            .GroupBy(selector => selector.DerivedProviderId, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .ToArray();
     }
 }

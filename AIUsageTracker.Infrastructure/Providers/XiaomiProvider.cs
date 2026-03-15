@@ -24,16 +24,18 @@ public class XiaomiProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "xiaomi",
-        displayName: "Xiaomi",
-        planType: PlanType.Coding,
+        "xiaomi",
+        "Xiaomi",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        includeInWellKnownProviders: true,
-        discoveryEnvironmentVariables: new[] { "XIAOMI_API_KEY", "MIMO_API_KEY" },
-        iconAssetName: "xiaomi",
-        fallbackBadgeColorHex: "#FFA500",
-        fallbackBadgeInitial: "Xi");
+        defaultConfigType: "quota-based")
+    {
+        IncludeInWellKnownProviders = true,
+        DiscoveryEnvironmentVariables = new[] { "XIAOMI_API_KEY", "MIMO_API_KEY" },
+        IconAssetName = "xiaomi",
+        FallbackBadgeColorHex = "#FFA500",
+        FallbackBadgeInitial = "Xi",
+    };
 
     public override ProviderDefinition Definition => StaticDefinition;
 

@@ -46,13 +46,15 @@ public sealed class ProviderFamilyPolicyTests
     public void ProviderDefinition_HandlesProviderId_UsesSharedFamilyPolicy()
     {
         var definition = new ProviderDefinition(
-            providerId: "codex",
-            displayName: "OpenAI",
-            planType: PlanType.Coding,
+            "codex",
+            "OpenAI",
+            PlanType.Coding,
             isQuotaBased: true,
-            defaultConfigType: "quota-based",
-            familyMode: ProviderFamilyMode.VisibleDerivedProviders,
-            visibleDerivedProviderIds: new[] { "codex.spark" });
+            defaultConfigType: "quota-based")
+        {
+            FamilyMode = ProviderFamilyMode.VisibleDerivedProviders,
+            VisibleDerivedProviderIds = new[] { "codex.spark" },
+        };
 
         Assert.True(definition.HandlesProviderId("codex"));
         Assert.True(definition.HandlesProviderId("codex.spark"));

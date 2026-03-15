@@ -43,12 +43,14 @@ public class ProviderSessionTokenResolverTests
                 "GitHub Copilot",
                 PlanType.Coding,
                 true,
-                "session",
-                authIdentityCandidatePathTemplates: new[] { authFilePath },
-                sessionAuthFileSchemas: new[]
+                "session")
+            {
+                AuthIdentityCandidatePathTemplates = new[] { authFilePath },
+                SessionAuthFileSchemas = new[]
                 {
                     new ProviderAuthFileSchema("sessions.github", "oauth_token", "user"),
-                });
+                },
+            };
 
             var resolver = new ProviderSessionTokenResolver(
                 definition.CreateAuthDiscoverySpec(),

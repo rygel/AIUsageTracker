@@ -94,11 +94,13 @@ public class ProviderRefreshConfigLoadingServiceTests
         mock.SetupGet(provider => provider.Definition).Returns(
             new ProviderDefinition(
                 providerId,
-                displayName: providerId,
-                planType: PlanType.Coding,
+                providerId,
+                PlanType.Coding,
                 isQuotaBased: true,
-                defaultConfigType: "quota-based",
-                autoIncludeWhenUnconfigured: autoIncludeWhenUnconfigured));
+                defaultConfigType: "quota-based")
+            {
+                AutoIncludeWhenUnconfigured = autoIncludeWhenUnconfigured,
+            });
         mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
             .ReturnsAsync(Array.Empty<ProviderUsage>());
         return mock.Object;

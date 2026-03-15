@@ -26,16 +26,18 @@ public sealed class SyntheticProvider : ProviderBase
     }
 
     public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "synthetic",
-        displayName: "Synthetic.new",
-        planType: PlanType.Coding,
+        "synthetic",
+        "Synthetic.new",
+        PlanType.Coding,
         isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        discoveryEnvironmentVariables: new[] { "SYNTHETIC_API_KEY" },
-        rooConfigPropertyNames: new[] { "syntheticApiKey" },
-        iconAssetName: "synthetic",
-        fallbackBadgeColorHex: "#FFD700",
-        fallbackBadgeInitial: "Sy");
+        defaultConfigType: "quota-based")
+    {
+        DiscoveryEnvironmentVariables = new[] { "SYNTHETIC_API_KEY" },
+        RooConfigPropertyNames = new[] { "syntheticApiKey" },
+        IconAssetName = "synthetic",
+        FallbackBadgeColorHex = "#FFD700",
+        FallbackBadgeInitial = "Sy",
+    };
 
     public override ProviderDefinition Definition => StaticDefinition;
 

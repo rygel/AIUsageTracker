@@ -583,12 +583,14 @@ public class ProviderRefreshServiceTests
     private static Mock<IProviderService> CreateCodexProvider()
     {
         var providerDefinition = new ProviderDefinition(
-            providerId: "codex",
-            displayName: "OpenAI (Codex)",
-            planType: PlanType.Usage,
+            "codex",
+            "OpenAI (Codex)",
+            PlanType.Usage,
             isQuotaBased: false,
-            defaultConfigType: "pay-as-you-go",
-            autoIncludeWhenUnconfigured: true);
+            defaultConfigType: "pay-as-you-go")
+        {
+            AutoIncludeWhenUnconfigured = true,
+        };
         var provider = new Mock<IProviderService>();
         provider.SetupGet(p => p.ProviderId).Returns("codex");
         provider.SetupGet(p => p.Definition).Returns(providerDefinition);
