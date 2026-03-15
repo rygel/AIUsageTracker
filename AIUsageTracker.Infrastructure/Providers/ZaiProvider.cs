@@ -252,38 +252,46 @@ public class ZaiProvider : ProviderBase
             this._logger.LogDebug("[ZAI] MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
         }
 
+        // Compute the token window duration from unit/number.
+        // Z.ai encodes: unit=3 → hours, number=N → N-hour rolling window.
+        // Verified from Coding Plan: unit=3, number=5 → 5-hour rolling window.
+        var tokenWindowDuration = tokenLimit?.Unit == 3 && tokenLimit.Number.HasValue
+            ? TimeSpan.FromHours(tokenLimit.Number.Value)
+            : (TimeSpan?)null;
+        var tokenWindowLabel = tokenWindowDuration.HasValue
+            ? $"{(int)tokenWindowDuration.Value.TotalHours}h window"
+            : null;
+
         DateTime? nextResetTime = null;
         string resetStr = string.Empty;
-        var limitWithReset = limits
-            .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
-            .OrderBy(l => l.NextResetTime!.Value)
-            .FirstOrDefault();
-        if (limitWithReset != null)
+
+        if (tokenLimit != null && tokenLimit.Percentage > 0 && tokenLimit.NextResetTime.HasValue && tokenLimit.NextResetTime.Value > 0)
         {
-            var ts = limitWithReset.NextResetTime!.Value;
-            this._logger.LogDebug("[ZAI] Reset timestamp from API: {Ts}", ts);
-
-            // Detect if seconds or milliseconds
-            if (ts < 10000000000) // Likely seconds (e.g., 1773532800)
-            {
-                var utcTime = DateTimeOffset.FromUnixTimeSeconds(ts);
-                nextResetTime = utcTime.LocalDateTime;
-                this._logger.LogDebug(
-                    "[ZAI] Interpreted as SECONDS: {Utc} UTC -> {Local} Local",
-                    utcTime.UtcDateTime,
-                    nextResetTime);
-            }
-            else // Likely milliseconds (e.g., 1773532800000)
-            {
-                var utcTime = DateTimeOffset.FromUnixTimeMilliseconds(ts);
-                nextResetTime = utcTime.LocalDateTime;
-                this._logger.LogDebug(
-                    "[ZAI] Interpreted as MILLISECONDS: {Utc} UTC -> {Local} Local",
-                    utcTime.UtcDateTime,
-                    nextResetTime);
-            }
-
+            // Active window: the API returns the current window's close time — use it.
+            var ts = tokenLimit.NextResetTime.Value;
+            this._logger.LogDebug("[ZAI] Active token window reset timestamp: {Ts}", ts);
+            nextResetTime = ParseTimestamp(ts);
             resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
+        }
+        else if (tokenWindowLabel != null)
+        {
+            // Fresh (0% used): the API returns the billing period end, not the rolling window close.
+            // Show the window size label instead of a misleading 7-day countdown.
+            resetStr = $" ({tokenWindowLabel})";
+        }
+        else
+        {
+            // Fallback: use the nearest nextResetTime from any limit.
+            var limitWithReset = limits
+                .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
+                .OrderBy(l => l.NextResetTime!.Value)
+                .FirstOrDefault();
+            if (limitWithReset != null)
+            {
+                this._logger.LogDebug("[ZAI] Fallback reset timestamp: {Ts}", limitWithReset.NextResetTime!.Value);
+                nextResetTime = ParseTimestamp(limitWithReset.NextResetTime!.Value);
+                resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
+            }
         }
 
         if (!remainingPercent.HasValue)
@@ -352,6 +360,14 @@ public class ZaiProvider : ProviderBase
             : $"{description} | Plan: {planDescription}";
     }
 
+    private static DateTime ParseTimestamp(long ts)
+    {
+        // Heuristic: values > 10^10 are milliseconds (e.g. 1773454046559), otherwise seconds.
+        return ts < 10_000_000_000
+            ? DateTimeOffset.FromUnixTimeSeconds(ts).LocalDateTime
+            : DateTimeOffset.FromUnixTimeMilliseconds(ts).LocalDateTime;
+    }
+
     private class ZaiEnvelope<T>
     {
         [JsonPropertyName("data")]
@@ -383,5 +399,16 @@ public class ZaiProvider : ProviderBase
 
         [JsonPropertyName("nextResetTime")]
         public long? NextResetTime { get; set; }
+
+        /// <summary>
+        /// Z.ai window duration unit. Observed values: 3 = hours, 5 = months.
+        /// Coding Plan TOKENS_LIMIT: unit=3, number=5 → 5-hour rolling window.
+        /// </summary>
+        [JsonPropertyName("unit")]
+        public int? Unit { get; set; }
+
+        /// <summary>Number of units in the window duration (e.g. 5 for a 5-hour window).</summary>
+        [JsonPropertyName("number")]
+        public long? Number { get; set; }
     }
 }
