@@ -162,6 +162,43 @@ public sealed class ProviderCardPresentationCatalogTests
         Assert.True(presentation.SuppressSingleResetTime);
     }
 
+    [Fact]
+    public void Create_ExtractsDurationLabelFromDetailName_ForKimiStyleLimitNames()
+    {
+        // Kimi detail names follow "{duration} Limit" format (e.g. "5h Limit", "Weekly Limit").
+        // GetWindowLabel should extract the duration prefix rather than falling back to
+        // the static DualBarLabel ("Daily"), which is inaccurate for sub-day windows.
+        var burstDetail = new ProviderUsageDetail
+        {
+            Name = "5h Limit",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+        };
+        burstDetail.SetPercentageValue(0.0, PercentageValueSemantic.Used);
+
+        var rollingDetail = new ProviderUsageDetail
+        {
+            Name = "Weekly Limit",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+        };
+        rollingDetail.SetPercentageValue(25.0, PercentageValueSemantic.Used);
+
+        var usage = new ProviderUsage
+        {
+            ProviderId = "kimi-for-coding",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            UsedPercent = 25,
+            Details = new List<ProviderUsageDetail> { rollingDetail, burstDetail },
+        };
+
+        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: true);
+
+        // "5h Limit" → "5h" (not "Daily"), "Weekly Limit" → "Weekly"
+        Assert.Equal("Weekly 25% used | 5h 0% used", presentation.StatusText);
+    }
+
     [Theory]
     [InlineData("opencode-zen")]
     [InlineData("opencode-go")]
