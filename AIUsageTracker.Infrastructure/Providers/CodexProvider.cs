@@ -630,12 +630,25 @@ public class CodexProvider : ProviderBase
             ? Math.Clamp(100.0 - sparkEffectiveUsed.Value, 0.0, 100.0)
             : effectiveRemaining;
 
+        // When Spark window data is present, use the Spark model's identifier for the Model
+        // detail so that:
+        //   1. BuildModelsFromDetails can scope the model-scoped QW details (added below) to
+        //      this model by matching ModelName.
+        //   2. ProviderDerivedModelAssignmentResolver can match the codex.spark DerivedModelSelector
+        //      which looks for "spark" in ModelId/ModelName.
+        // sparkWindow.Label is the limit_name (e.g. "GPT-5.3-Codex-Spark"); .ModelName is the
+        // API model field (e.g. "gpt-5.3-codex-spark"). Either contains "spark" and satisfies
+        // the selector. Fall back to primaryModelName only when no Spark window exists.
+        var sparkModelDetailId = sparkWindow.HasWindowData
+            ? (sparkWindow.ModelName ?? sparkWindow.Label ?? primaryModelName)
+            : primaryModelName;
+
         var details = new List<ProviderUsageDetail>
         {
             new()
             {
-                Name = primaryModelName,
-                ModelName = primaryModelName,
+                Name = sparkModelDetailId,
+                ModelName = sparkModelDetailId,
                 Description = "Model quota",
                 DetailType = ProviderUsageDetailType.Model,
                 QuotaBucketKind = WindowKind.None,
@@ -720,7 +733,7 @@ public class CodexProvider : ProviderBase
             details.Add(new ProviderUsageDetail
             {
                 Name = "Spark 5h quota",
-                ModelName = primaryModelName,
+                ModelName = sparkModelDetailId,
                 Description = FormatResetDescription(sparkBurstResetSeconds),
                 NextResetTime = ResolveResetTimeFromSeconds(sparkBurstResetSeconds),
                 DetailType = ProviderUsageDetailType.QuotaWindow,
@@ -730,18 +743,18 @@ public class CodexProvider : ProviderBase
             });
 
             // Add the Rolling (weekly) detail for the Spark model whenever ANY weekly data is
-            // available — either from rate_limit.secondary_window or from
-            // additional_rate_limits[spark].rate_limit.secondary_window. Previously this was
-            // guarded by secondaryUsedPercent.HasValue, which silently omitted the Rolling bucket
-            // when the weekly quota was only present inside the Spark window block.
-            var hasAnyWeeklyData = sparkWindow.SecondaryUsedPercent.HasValue || secondaryUsedPercent.HasValue;
+            // available — usage percentages OR reset timers. Using only .HasValue on usage would
+            // silently drop the Rolling bar when the weekly window just reset and the API omits
+            // used_percent (same class of bug as HasWindowData).
+            var hasAnyWeeklyData = sparkWindow.SecondaryUsedPercent.HasValue || secondaryUsedPercent.HasValue
+                || sparkWindow.SecondaryResetAfterSeconds.HasValue || secondaryResetSeconds.HasValue;
             if (hasAnyWeeklyData)
             {
                 var weeklyRemainingForModel = Math.Clamp(100.0 - sparkEffectiveWeeklyUsed, 0.0, 100.0);
                 details.Add(new ProviderUsageDetail
                 {
                     Name = "Weekly quota",
-                    ModelName = primaryModelName,
+                    ModelName = sparkModelDetailId,
                     Description = FormatResetDescription(weeklyResetSeconds),
                     NextResetTime = ResolveResetTimeFromSeconds(weeklyResetSeconds),
                     DetailType = ProviderUsageDetailType.QuotaWindow,

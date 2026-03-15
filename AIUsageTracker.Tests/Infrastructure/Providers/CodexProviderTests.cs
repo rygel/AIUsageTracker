@@ -563,6 +563,80 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         }
     }
 
+    [Fact]
+    public async Task GetUsageAsync_SparkModelDetailName_ContainsSparkToken_ForChildCardAssignment()
+    {
+        // Regression: primaryModelName defaults to "OpenAI" when the API response has no
+        // root-level model_name. The DerivedModelSelector for codex.spark requires "spark" in
+        // ModelId/ModelName. If the Model detail uses primaryModelName ("OpenAI"), the selector
+        // never matches and no codex.spark child card is created in the UI.
+        // Fix: when sparkWindow.HasWindowData, derive the Model detail's Name/ModelName from
+        // sparkWindow.ModelName ?? sparkWindow.Label so it contains "spark".
+        var tempDir = TestTempPaths.CreateDirectory("codex-test-spark-model-name");
+        var authPath = Path.Combine(tempDir, "auth.json");
+        var token = CreateJwt("user@example.com", "plus");
+
+        await File.WriteAllTextAsync(authPath, JsonSerializer.Serialize(new
+        {
+            tokens = new { access_token = token },
+        }));
+
+        this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent(JsonSerializer.Serialize(new
+            {
+                plan_type = "plus",
+                // No root model_name → primaryModelName defaults to "OpenAI"
+                rate_limit = new
+                {
+                    primary_window = new { used_percent = 20, reset_after_seconds = 18000 },
+                    secondary_window = new { used_percent = 15, reset_after_seconds = 604800 },
+                },
+                additional_rate_limits = new object[]
+                {
+                    new
+                    {
+                        limit_name = "GPT-5.3-Codex-Spark",
+                        rate_limit = new
+                        {
+                            primary_window = new { used_percent = 30, reset_after_seconds = 18000 },
+                            secondary_window = new { used_percent = 15, reset_after_seconds = 604800 },
+                        },
+                    },
+                },
+            })),
+        });
+
+        var provider = new CodexProvider(this.HttpClient, this.Logger.Object, authPath);
+
+        try
+        {
+            var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
+            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
+            Assert.NotNull(parent.Details);
+
+            // The Model detail's ModelName must contain "spark" so the DerivedModelSelector
+            // for codex.spark can match it.
+            var modelDetail = Assert.Single(parent.Details!, d => d.DetailType == ProviderUsageDetailType.Model);
+            Assert.Contains("spark", modelDetail.ModelName, StringComparison.OrdinalIgnoreCase);
+
+            // All model-scoped QW details must share the same ModelName as the Model detail
+            // so BuildModelsFromDetails scopes them to the same model.
+            var modelScopedQwDetails = parent.Details!
+                .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
+                            !string.IsNullOrWhiteSpace(d.ModelName))
+                .ToList();
+            Assert.NotEmpty(modelScopedQwDetails);
+            Assert.All(modelScopedQwDetails, d =>
+                Assert.Equal(modelDetail.ModelName, d.ModelName, StringComparer.Ordinal));
+        }
+        finally
+        {
+            TestTempPaths.CleanupPath(tempDir);
+        }
+    }
+
     private static string CreateJwt(string email, string planType)
     {
         var headerJson = JsonSerializer.Serialize(new { alg = "HS256", typ = "JWT" });
