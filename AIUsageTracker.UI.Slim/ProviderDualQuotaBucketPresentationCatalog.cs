@@ -45,8 +45,8 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
             return false;
         }
 
-        var parsedFirst = UsageMath.GetEffectiveUsedPercent(firstDetail, usage.IsQuotaBased);
-        var parsedSecond = UsageMath.GetEffectiveUsedPercent(secondDetail, usage.IsQuotaBased);
+        var parsedFirst = UsageMath.GetEffectiveUsedPercent(firstDetail);
+        var parsedSecond = UsageMath.GetEffectiveUsedPercent(secondDetail);
 
         if (!parsedFirst.HasValue || !parsedSecond.HasValue)
         {

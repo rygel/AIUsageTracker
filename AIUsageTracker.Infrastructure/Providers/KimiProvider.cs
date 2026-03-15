@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Globalization;
 using System.Net.Http.Json;
@@ -195,10 +194,9 @@ public class KimiProvider : ProviderBase
             {
                 ProviderId = this.ProviderId,
                 ProviderName = this.Definition.DisplayName,
-                RequestsPercentage = remainingPercentage,
+                UsedPercent = limit > 0 ? UsageMath.CalculateUsedPercent(used, limit) : 0,
                 RequestsUsed = used,
                 RequestsAvailable = limit,
-                UsageUnit = "Points",
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 IsAvailable = true,

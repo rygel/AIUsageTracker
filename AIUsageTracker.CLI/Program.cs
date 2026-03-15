@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // UsageUnit: informational legacy field read in CLI output
-
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -298,13 +296,18 @@ public class Program
                 foreach (var detail in displayableHistoryDetails)
                 {
                     var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
-                    Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {detail.Name,-25} | {detail.Used,-15}");
+                    var detailDisplay = detail.PercentageValue.HasValue
+                        ? $"{detail.PercentageValue.Value:F1}% {detail.PercentageSemantic.ToString().ToLowerInvariant()}"
+                        : detail.Description;
+                    Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {detail.Name,-25} | {detailDisplay,-15}");
                 }
             }
             else
             {
                 // Fallback for providers without details
-                var used = $"{item.RequestsUsed} {item.UsageUnit}";
+                var used = item.IsCurrencyUsage
+                    ? $"${item.RequestsUsed:F2}"
+                    : item.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
                 Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
             }
@@ -567,7 +570,7 @@ public class Program
                     foreach (var d in displayableDetails)
                     {
                         var name = "  " + d.Name;
-                        Console.WriteLine($"{name,-36} | {string.Empty,-14} | {d.Used,-10} | {d.Description}");
+                        Console.WriteLine($"{name,-36} | {string.Empty,-14} | {string.Empty,-10} | {d.Description}");
                     }
                 }
             }

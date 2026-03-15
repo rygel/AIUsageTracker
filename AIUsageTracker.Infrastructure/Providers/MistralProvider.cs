@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -78,11 +77,10 @@ public class MistralProvider : ProviderBase
                     ProviderId = this.ProviderId,
                     ProviderName = this.Definition.DisplayName,
                     IsAvailable = true,
-                    RequestsPercentage = 0,
+                    UsedPercent = 0,
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     Description = "Connected (Check Dashboard)",
-                    UsageUnit = "Status",
                     IsStatusOnly = true,
                     RawJson = content,
                     HttpStatus = (int)response.StatusCode,

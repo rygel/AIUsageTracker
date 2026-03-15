@@ -56,7 +56,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         // Assert
         var usage = result.Single();
         Assert.Equal("Z.ai Coding Plan", usage.ProviderName);
-        Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 80% remaining
+        Assert.Contains("20", usage.UsedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 20% used (80% remaining)
         Assert.Contains("80", usage.Description, StringComparison.Ordinal);
         Assert.Contains("Coding Plan", usage.Description, StringComparison.Ordinal);
     }
@@ -138,7 +138,8 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 
         // Assert
         var usage = result.Single();
-        Assert.Contains("100", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        // Active limit has 100M remaining = 0% used; description should show 100% remaining
+        Assert.Equal(0, usage.UsedPercent, 1); // 0% used (100% remaining)
         Assert.Contains("Remaining", usage.Description, StringComparison.Ordinal);
     }
 }

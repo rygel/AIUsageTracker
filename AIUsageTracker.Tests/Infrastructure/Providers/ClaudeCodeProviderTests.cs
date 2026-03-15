@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: legacy field verified in provider tests
-
 using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -68,9 +66,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.True(result.IsQuotaBased);
         Assert.Equal(PlanType.Coding, result.PlanType);
 
-        // For quota-based providers, RequestsPercentage is REMAINING (100 - max utilization)
-        // Max utilization is 42% (7-day), so remaining is 58%
-        Assert.Equal(58, result.RequestsPercentage);
+        // UsedPercent is max utilization: max(35%, 42%) = 42% used
+        Assert.Equal(42, result.UsedPercent);
         Assert.Equal(42, result.RequestsUsed); // Used percentage stored separately
         Assert.Contains("5h: 35%", result.Description);
         Assert.Contains("7d: 42%", result.Description);
@@ -115,8 +112,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // Assert
         Assert.NotNull(result);
 
-        // For quota-based: RequestsPercentage = 100 - max(92%, 28%) = 8% remaining
-        Assert.Equal(8, result.RequestsPercentage);
+        // UsedPercent = max(92%, 28%) = 92% used
+        Assert.Equal(92, result.UsedPercent);
         Assert.Equal(92, result.RequestsUsed); // Stores the used percentage
         Assert.Contains("Extra usage enabled", result.Description);
 
@@ -165,8 +162,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // Assert
         Assert.NotNull(result);
 
-        // For quota-based: RequestsPercentage = 100 - max(12%, 87%) = 13% remaining
-        Assert.Equal(13, result.RequestsPercentage);
+        // UsedPercent = max(12%, 87%) = 87% used
+        Assert.Equal(87, result.UsedPercent);
         Assert.Equal(87, result.RequestsUsed);
 
         // Verify model breakdown details
@@ -218,8 +215,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // Assert
         Assert.NotNull(result);
 
-        // For quota-based: RequestsPercentage = 100 - max(0%, 2%) = 98% remaining
-        Assert.Equal(98, result.RequestsPercentage);
+        // UsedPercent = max(0%, 2%) = 2% used
+        Assert.Equal(2, result.UsedPercent);
         Assert.Equal(2, result.RequestsUsed);
         Assert.True(result.IsAvailable);
     }
@@ -261,8 +258,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // Assert
         Assert.NotNull(result);
 
-        // For quota-based: RequestsPercentage = 100 - 100 = 0% remaining
-        Assert.Equal(0, result.RequestsPercentage);
+        // UsedPercent = 100% used
+        Assert.Equal(100, result.UsedPercent);
         Assert.Equal(100, result.RequestsUsed);
         Assert.Contains("Extra usage enabled", result.Description);
     }
@@ -330,8 +327,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // Assert
         Assert.NotNull(result);
 
-        // For quota-based: RequestsPercentage = 100 - 25 = 75% remaining
-        Assert.Equal(75, result.RequestsPercentage);
+        // UsedPercent = 25% used
+        Assert.Equal(25, result.UsedPercent);
         Assert.Equal(25, result.RequestsUsed);
         Assert.Single(result.Details!);
     }
@@ -442,8 +439,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Equal("claude-code", usage.ProviderId); // provider-id-guardrail-allow: test assertion
         Assert.True(usage.IsQuotaBased);
 
-        // For quota-based: RequestsPercentage = 100 - max(45%, 60%) = 40% remaining
-        Assert.Equal(40, usage.RequestsPercentage);
+        // UsedPercent = max(45%, 60%) = 60% used
+        Assert.Equal(60, usage.UsedPercent);
         Assert.Equal(60, usage.RequestsUsed);
     }
 

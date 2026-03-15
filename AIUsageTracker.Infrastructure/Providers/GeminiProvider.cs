@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
-
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
@@ -195,10 +193,9 @@ public class GeminiProvider : ProviderBase
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = this.Definition.DisplayName,
-                    RequestsPercentage = remainingPercentage,
+                    UsedPercent = usedPercentage,
                     RequestsUsed = usedPercentage,
                     RequestsAvailable = 100,
-                    UsageUnit = "Quota %",
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     AccountName = account.Email, // Separate usage per account

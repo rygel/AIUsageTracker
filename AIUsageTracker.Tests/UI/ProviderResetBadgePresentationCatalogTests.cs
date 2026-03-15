@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
 
@@ -15,29 +13,31 @@ public class ProviderResetBadgePresentationCatalogTests
     public void ResolveResetTimes_ReturnsDualBucketResets_BeforeSingleFallback()
     {
         var now = DateTime.UtcNow;
+        var burstDetail = new ProviderUsageDetail
+        {
+            Name = "5-hour quota",
+            Description = "80% remaining (20% used)",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+            NextResetTime = now.AddHours(1),
+        };
+        burstDetail.SetPercentageValue(20.0, PercentageValueSemantic.Used);
+
+        var rollingDetail = new ProviderUsageDetail
+        {
+            Name = "Weekly quota",
+            Description = "65% remaining (35% used)",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+            NextResetTime = now.AddDays(2),
+        };
+        rollingDetail.SetPercentageValue(35.0, PercentageValueSemantic.Used);
+
         var usage = new ProviderUsage
         {
             IsQuotaBased = true,
             NextResetTime = now.AddHours(8),
-            Details = new List<ProviderUsageDetail>
-            {
-                new()
-                {
-                    Name = "5-hour quota",
-                    Used = "80% remaining (20% used)",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Burst,
-                    NextResetTime = now.AddHours(1),
-                },
-                new()
-                {
-                    Name = "Weekly quota",
-                    Used = "65% remaining (35% used)",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Rolling,
-                    NextResetTime = now.AddDays(2),
-                },
-            },
+            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
         };
 
         var resetTimes = ProviderResetBadgePresentationCatalog.ResolveResetTimes(usage, suppressSingleResetFallback: false);

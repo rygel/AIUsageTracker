@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
 
@@ -52,13 +50,12 @@ public sealed class ProviderSubDetailPresentationCatalogTests
     {
         var detail = new ProviderUsageDetail
         {
-            Used = "35% used",
             NextResetTime = new DateTime(2026, 3, 7, 9, 0, 0),
         };
+        detail.SetPercentageValue(35.0, PercentageValueSemantic.Used);
 
         var presentation = ProviderSubDetailPresentationCatalog.Create(
             detail,
-            isQuotaBased: false,
             showUsed: true,
             _ => "2h 0m");
 
@@ -74,12 +71,11 @@ public sealed class ProviderSubDetailPresentationCatalogTests
     {
         var detail = new ProviderUsageDetail
         {
-            Used = "Unlimited",
+            Description = "Unlimited",
         };
 
         var presentation = ProviderSubDetailPresentationCatalog.Create(
             detail,
-            isQuotaBased: false,
             showUsed: false,
             _ => "ignored");
 

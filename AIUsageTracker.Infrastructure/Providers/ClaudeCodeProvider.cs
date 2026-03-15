@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Diagnostics;
 using System.Globalization;
@@ -86,7 +85,6 @@ public class ClaudeCodeProvider : ProviderBase
                 IsAvailable = false,
                 Description = "No API key configured",
                 State = ProviderUsageState.Missing,
-                UsageUnit = "Status",
                 IsStatusOnly = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Usage,
@@ -337,18 +335,13 @@ public class ClaudeCodeProvider : ProviderBase
             description += " | Extra usage enabled";
         }
 
-        // For quota-based providers, RequestsPercentage represents REMAINING percentage
-        // The UI expects this semantic: higher RequestsPercentage = more quota remaining
-        var remainingPercent = 100 - mainPercent;
-
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = "Claude Code",
-            RequestsPercentage = remainingPercent,
+            UsedPercent = mainPercent,
             RequestsUsed = mainPercent,
             RequestsAvailable = 100,
-            UsageUnit = "%",
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             IsAvailable = true,
@@ -406,11 +399,11 @@ public class ClaudeCodeProvider : ProviderBase
 
                 // Build detailed tooltip info
                 var tooltipDetails = new List<ProviderUsageDetail>();
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Rate Limit Tier", Used = rateLimitHeaders.GetTierName(), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Limit", Used = rateLimitHeaders.RequestsLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Remaining", Used = rateLimitHeaders.RequestsRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Limit", Used = rateLimitHeaders.InputTokensLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Remaining", Used = rateLimitHeaders.InputTokensRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Rate Limit Tier", Description = rateLimitHeaders.GetTierName(), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Limit", Description = rateLimitHeaders.RequestsLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Remaining", Description = rateLimitHeaders.RequestsRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Limit", Description = rateLimitHeaders.InputTokensLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
+                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Remaining", Description = rateLimitHeaders.InputTokensRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
                 tooltipDetails.Add(new ProviderUsageDetail
                 {
                     Name = "Current RPM Usage",
@@ -425,10 +418,9 @@ public class ClaudeCodeProvider : ProviderBase
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = "Claude Code",
-                    RequestsPercentage = usagePercentage,
+                    UsedPercent = usagePercentage,
                     RequestsUsed = 0, // Anthropic doesn't provide cost via API
                     RequestsAvailable = 0,
-                    UsageUnit = "RPM",
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
                     IsAvailable = true,
@@ -517,7 +509,6 @@ public class ClaudeCodeProvider : ProviderBase
                         ProviderName = "Claude Code",
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
-                        UsageUnit = "Status",
                         IsStatusOnly = true,
                         IsQuotaBased = false,
                         PlanType = PlanType.Usage,
@@ -555,7 +546,6 @@ public class ClaudeCodeProvider : ProviderBase
                         ProviderName = "Claude Code",
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
-                        UsageUnit = "Status",
                         IsStatusOnly = true,
                         IsQuotaBased = false,
                         PlanType = PlanType.Usage,
@@ -580,7 +570,6 @@ public class ClaudeCodeProvider : ProviderBase
                     ProviderName = "Claude Code",
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
-                    UsageUnit = "Status",
                     IsStatusOnly = true,
                     IsQuotaBased = false,
                     PlanType = PlanType.Usage,
@@ -626,10 +615,10 @@ public class ClaudeCodeProvider : ProviderBase
         {
             ProviderId = this.ProviderId,
             ProviderName = "Claude Code",
-            RequestsPercentage = Math.Min(usagePercentage, 100),
+            UsedPercent = Math.Min(usagePercentage, 100),
             RequestsUsed = currentUsage,
             RequestsAvailable = budgetLimit,
-            UsageUnit = "USD",
+            IsCurrencyUsage = true,
             IsQuotaBased = false,
             PlanType = PlanType.Usage,
             IsAvailable = true,

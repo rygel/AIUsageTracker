@@ -65,11 +65,11 @@ public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
 
         var cnyDetail = usage.Details?.FirstOrDefault(d => string.Equals(d.Name, "Balance (CNY)", StringComparison.Ordinal));
         Assert.NotNull(cnyDetail);
-        Assert.Equal("¥150.50", cnyDetail.Used);
+        Assert.StartsWith("¥150.50", cnyDetail.Description, StringComparison.Ordinal);
 
         var usdDetail = usage.Details?.FirstOrDefault(d => string.Equals(d.Name, "Balance (USD)", StringComparison.Ordinal));
         Assert.NotNull(usdDetail);
-        Assert.Equal("$10.00", usdDetail.Used);
+        Assert.StartsWith("$10.00", usdDetail.Description, StringComparison.Ordinal);
     }
 
     [Fact]

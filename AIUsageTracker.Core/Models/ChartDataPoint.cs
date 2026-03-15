@@ -12,7 +12,7 @@ public class ChartDataPoint
 
     public DateTime Timestamp { get; set; }
 
-    public double RequestsPercentage { get; set; }
+    public double UsedPercent { get; set; }
 
     public double RequestsUsed { get; set; }
 }

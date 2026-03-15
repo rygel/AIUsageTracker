@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: legacy field verified in provider tests
-
 using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -29,10 +27,9 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
     /// <summary>
     /// Tests basic usage calculation with simple values.
-    /// For quota-based providers, RequestsPercentage should be REMAINING percentage.
     /// </summary>
     [Fact]
-    public async Task GetUsageAsync_ValidResponse_CalculatesRemainingPercentageCorrectlyAsync()
+    public async Task GetUsageAsync_ValidResponse_CalculatesUsedPercentageCorrectlyAsync()
     {
         // Arrange - 10 used, 100 limit, 90 remaining
         var responseContent = JsonSerializer.Serialize(new
@@ -54,9 +51,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         var usage = result.Single();
         Assert.Equal("Kimi for Coding", usage.ProviderName);
 
-        // For quota-based, RequestsPercentage = remaining percentage
-        // (100 - 10) / 100 * 100 = 90% remaining
-        Assert.Equal(90, usage.RequestsPercentage);
+        // 10 used out of 100 = 10% used
+        Assert.Equal(10, usage.UsedPercent);
         Assert.Equal(10, usage.RequestsUsed);
         Assert.Equal(100, usage.RequestsAvailable);
         Assert.True(usage.IsQuotaBased);
@@ -87,8 +83,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Assert
         var usage = result.Single();
 
-        // 50% remaining
-        Assert.Equal(50, usage.RequestsPercentage);
+        // 50% used
+        Assert.Equal(50, usage.UsedPercent);
         Assert.Equal(50, usage.RequestsUsed);
     }
 
@@ -117,8 +113,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Assert
         var usage = result.Single();
 
-        // 5% remaining
-        Assert.Equal(5, usage.RequestsPercentage);
+        // 95% used
+        Assert.Equal(95, usage.UsedPercent);
         Assert.Equal(95, usage.RequestsUsed);
     }
 
@@ -173,8 +169,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.True(usage.IsQuotaBased);
         Assert.Equal(PlanType.Coding, usage.PlanType);
 
-        // 74% remaining (7400 / 10000)
-        Assert.Equal(74, usage.RequestsPercentage);
+        // 26% used (2600 / 10000)
+        Assert.Equal(26, usage.UsedPercent);
         Assert.Equal(2600, usage.RequestsUsed);
         Assert.Equal(10000, usage.RequestsAvailable);
 
@@ -230,8 +226,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Assert
         var usage = result.Single();
 
-        // 85% remaining (8500 / 10000) - this is the weekly quota
-        Assert.Equal(85, usage.RequestsPercentage);
+        // 15% used (1500 / 10000) - this is the weekly quota
+        Assert.Equal(15, usage.UsedPercent);
 
         // Verify 5-hour limit shows 92% used
         var primaryDetail = usage.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
@@ -286,8 +282,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Assert
         var usage = result.Single();
 
-        // 8% remaining (800 / 10000) - hitting weekly limit
-        Assert.Equal(8, usage.RequestsPercentage);
+        // 92% used (9200 / 10000) - hitting weekly limit
+        Assert.Equal(92, usage.UsedPercent);
         Assert.Equal(9200, usage.RequestsUsed);
 
         // Verify weekly detail shows 92% used
@@ -335,8 +331,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Assert
         var usage = result.Single();
 
-        // 99.5% remaining - rounds to 100 for display
-        Assert.True(usage.RequestsPercentage >= 99);
+        // 0.5% used - rounds to 0 for display (50 / 10000 = 0.5%)
+        Assert.True(usage.UsedPercent <= 1);
         Assert.Equal(50, usage.RequestsUsed);
         Assert.True(usage.IsAvailable);
     }
@@ -378,8 +374,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
         var usage = result.Single();
 
-        // 74% remaining
-        Assert.Equal(74, usage.RequestsPercentage);
+        // 26% used (26 / 100)
+        Assert.Equal(26, usage.UsedPercent);
         Assert.Equal(26, usage.RequestsUsed);
         Assert.Equal(100, usage.RequestsAvailable);
         Assert.NotNull(usage.Details);
@@ -390,8 +386,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.NotNull(primary);   // 300-minute window → Primary
         Assert.NotNull(secondary); // usage block → Secondary
         Assert.Equal("5h Limit", primary!.Name);
-        Assert.Contains("% used", primary.Used, StringComparison.Ordinal);
-        Assert.Contains("% used", secondary.Used, StringComparison.Ordinal);
+        Assert.Contains("remaining", primary.Description, StringComparison.Ordinal);
+        Assert.Contains("remaining", secondary.Description, StringComparison.Ordinal);
     }
 
     #endregion
@@ -446,8 +442,8 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Equal(2, weeklyDetails.Count); // Both weekly limit from usage and from limits array
         Assert.Equal("Hourly Limit", hourlyDetail.Name);
 
-        // Verify "used" percentage format for UI parsing
-        Assert.Contains("% used", hourlyDetail.Used, StringComparison.Ordinal);
+        // Verify description contains remaining count format
+        Assert.Contains("remaining", hourlyDetail.Description, StringComparison.Ordinal);
     }
 
     /// <summary>

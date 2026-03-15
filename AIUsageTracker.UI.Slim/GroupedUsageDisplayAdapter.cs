@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // UsageUnit/RequestsPercentage: adapter reads/sets legacy serialized fields
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
@@ -35,13 +33,10 @@ internal static class GroupedUsageDisplayAdapter
                 IsQuotaBased = provider.IsQuotaBased,
                 RequestsUsed = provider.RequestsUsed,
                 RequestsAvailable = provider.RequestsAvailable,
-#pragma warning disable CS0618 // RequestsPercentage: pass-through of serialized field
-                RequestsPercentage = provider.RequestsPercentage,
-#pragma warning restore CS0618
+                UsedPercent = provider.UsedPercent,
                 Description = provider.Description,
                 FetchedAt = provider.FetchedAt,
                 NextResetTime = provider.NextResetTime,
-                UsageUnit = provider.IsQuotaBased ? "Quota %" : "Requests",
                 Details = details.Count > 0 ? details : null,
             };
 
@@ -132,15 +127,10 @@ internal static class GroupedUsageDisplayAdapter
                 IsQuotaBased = parentUsage.IsQuotaBased,
                 RequestsUsed = modelState.UsedPercentage,
                 RequestsAvailable = 100,
-#pragma warning disable CS0618 // RequestsPercentage: adapter sets raw field to drive computed UsedPercent/RemainingPercent
-                RequestsPercentage = parentUsage.IsQuotaBased
-                    ? modelState.RemainingPercentage
-                    : modelState.UsedPercentage,
-#pragma warning restore CS0618
+                UsedPercent = modelState.UsedPercentage,
                 Description = modelState.Description,
                 FetchedAt = parentUsage.FetchedAt,
                 NextResetTime = modelState.NextResetTime,
-                UsageUnit = parentUsage.UsageUnit,
                 Details = quotaBucketDetails.Count > 0 ? quotaBucketDetails : null,
             });
         }

@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -82,12 +81,8 @@ public class XiaomiProvider : ProviderBase
             double quota = data.Data.Quota;
 
             // If quota is 0, treat as pay-as-you-go balance only
-            double percentage = 0;
             var used = quota > 0 ? Math.Max(0, quota - balance) : 0;
-            if (quota > 0)
-            {
-                percentage = UsageMath.CalculateRemainingPercent(used, quota);
-            }
+            var usedPercent = quota > 0 ? UsageMath.CalculateUsedPercent(used, quota) : 0;
 
             return new[]
             {
@@ -95,10 +90,9 @@ public class XiaomiProvider : ProviderBase
             {
                 ProviderId = config.ProviderId,
                 ProviderName = "Xiaomi",
-                RequestsPercentage = percentage,
+                UsedPercent = usedPercent,
                 RequestsUsed = used,
                 RequestsAvailable = quota > 0 ? quota : balance,
-                UsageUnit = "Points",
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 IsAvailable = true,

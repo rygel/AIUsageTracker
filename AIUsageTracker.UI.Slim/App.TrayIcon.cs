@@ -72,7 +72,6 @@ public partial class App
                 var isQuotaSub = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
                 var detailPresentation = ProviderSubDetailPresentationCatalog.Create(
                     detail,
-                    isQuotaSub,
                     showUsed,
                     _ => string.Empty);
                 if (!detailPresentation.HasProgress)

@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
 
@@ -38,7 +36,7 @@ public sealed class ProviderCardPresentationCatalogTests
             ProviderId = "antigravity",
             IsAvailable = true,
             IsQuotaBased = true,
-            RequestsPercentage = 100,
+            UsedPercent = 0, // 0% used → 100% remaining
         };
 
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
@@ -58,7 +56,7 @@ public sealed class ProviderCardPresentationCatalogTests
             ProviderId = "claude-code.current-session",
             IsAvailable = true,
             IsQuotaBased = true,
-            RequestsPercentage = 65, // 65% remaining → 35% used
+            UsedPercent = 35, // 35% used → 65% remaining
             Description = "65% Remaining",
         };
 
@@ -80,7 +78,7 @@ public sealed class ProviderCardPresentationCatalogTests
             DisplayAsFraction = true,
             RequestsUsed = 40,
             RequestsAvailable = 100,
-            RequestsPercentage = 60,
+            UsedPercent = 40,
         };
 
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
@@ -100,9 +98,8 @@ public sealed class ProviderCardPresentationCatalogTests
             Description = "Connected",
             IsAvailable = true,
             IsQuotaBased = true,
-            UsageUnit = "Status",
             IsStatusOnly = true,
-            RequestsPercentage = 70,
+            UsedPercent = 70,
         };
 
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: true);
@@ -120,7 +117,7 @@ public sealed class ProviderCardPresentationCatalogTests
             IsAvailable = true,
             PlanType = PlanType.Usage,
             RequestsAvailable = 100,
-            RequestsPercentage = 25,
+            UsedPercent = 25,
         };
 
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
@@ -131,30 +128,32 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_FormatsDualQuotaBucketStatus_AndSuppressesSingleResetTime()
     {
+        var burstDetail = new ProviderUsageDetail
+        {
+            Name = "5-hour quota",
+            Description = "96% remaining (4% used)",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+        };
+        burstDetail.SetPercentageValue(4.0, PercentageValueSemantic.Used); // 4% used
+
+        var rollingDetail = new ProviderUsageDetail
+        {
+            Name = "Weekly quota",
+            Description = "49% remaining (51% used)",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+        };
+        rollingDetail.SetPercentageValue(51.0, PercentageValueSemantic.Used); // 51% used
+
         var usage = new ProviderUsage
         {
             ProviderId = "codex",
             IsAvailable = true,
             IsQuotaBased = true,
-            RequestsPercentage = 96,
+            UsedPercent = 4, // 4% used → 96% remaining
             NextResetTime = new DateTime(2026, 3, 7, 1, 0, 0),
-            Details = new List<ProviderUsageDetail>
-            {
-                new()
-                {
-                    Name = "5-hour quota",
-                    Used = "96% remaining (4% used)",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Burst,
-                },
-                new()
-                {
-                    Name = "Weekly quota",
-                    Used = "49% remaining (51% used)",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Rolling,
-                },
-            },
+            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
         };
 
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
@@ -173,7 +172,7 @@ public sealed class ProviderCardPresentationCatalogTests
             ProviderId = providerId,
             IsAvailable = true,
             PlanType = PlanType.Usage,
-            UsageUnit = "USD",
+            IsCurrencyUsage = true,
             RequestsUsed = 12.34,
             Description = "$12.34 (4 sessions, 198 msgs, 7 days)",
         };

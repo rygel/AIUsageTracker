@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Globalization;
 using System.Net.Http.Headers;
@@ -96,10 +95,9 @@ public sealed class SyntheticProvider : ProviderBase
                 {
                     ProviderId = this.ProviderId,
                     ProviderName = "Synthetic.new",
-                    RequestsPercentage = remainingPercent,
+                    UsedPercent = Math.Clamp(used / total * 100.0, 0, 100),
                     RequestsUsed = used,
                     RequestsAvailable = total,
-                    UsageUnit = "Credits",
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     IsAvailable = true,

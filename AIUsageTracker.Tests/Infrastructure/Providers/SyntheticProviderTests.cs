@@ -48,7 +48,7 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("Synthetic.new", usage.ProviderName);
-        Assert.Equal(75.0, usage.RequestsPercentage); // (1000-250)/1000 * 100
+        Assert.Equal(25.0, usage.UsedPercent); // 250/1000 * 100 = 25% used
         Assert.Equal(250.0, usage.RequestsUsed);
         Assert.Contains("250 / 1000 credits", usage.Description, StringComparison.Ordinal);
         Assert.NotNull(usage.NextResetTime);
@@ -76,7 +76,7 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(80.0, usage.RequestsPercentage);
+        Assert.Equal(20.0, usage.UsedPercent); // 100/500 * 100 = 20% used
         Assert.Equal(100.0, usage.RequestsUsed);
     }
 

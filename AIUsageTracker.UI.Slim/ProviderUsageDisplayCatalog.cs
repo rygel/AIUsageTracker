@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // UsageUnit/RequestsPercentage: catalog reads/sets legacy serialized fields
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 
@@ -169,7 +167,7 @@ internal static class ProviderUsageDisplayCatalog
         ProviderUsage parentUsage,
         IReadOnlyList<QuotaWindowDefinition> quotaWindows)
     {
-        var effectiveUsed = UsageMath.GetEffectiveUsedPercent(detail, parentIsQuota: isQuotaBased);
+        var effectiveUsed = UsageMath.GetEffectiveUsedPercent(detail);
         var hasRemainingPercent = effectiveUsed.HasValue;
         var effectiveRemaining = !effectiveUsed.HasValue
             ? 0
@@ -184,12 +182,9 @@ internal static class ProviderUsageDisplayCatalog
         {
             ProviderId = childProviderId,
             ProviderName = $"{modelDisplayName} {aggregateDetailDisplaySuffix}",
-#pragma warning disable CS0618 // RequestsPercentage: catalog sets raw field to drive computed UsedPercent/RemainingPercent
-            RequestsPercentage = effectiveRemaining,
-#pragma warning restore CS0618
+            UsedPercent = effectiveUsed ?? 0,
             RequestsUsed = 100.0 - effectiveRemaining,
             RequestsAvailable = 100,
-            UsageUnit = "Quota %",
             IsQuotaBased = isQuotaBased,
             PlanType = planType,
             Description = !parentUsage.IsAvailable && !string.IsNullOrWhiteSpace(parentUsage.Description)

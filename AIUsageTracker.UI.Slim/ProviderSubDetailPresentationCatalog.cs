@@ -35,11 +35,10 @@ internal static class ProviderSubDetailPresentationCatalog
 
     public static ProviderSubDetailPresentation Create(
         ProviderUsageDetail detail,
-        bool isQuotaBased,
         bool showUsed,
         Func<DateTime, string> relativeTimeFormatter)
     {
-        var parsedUsed = UsageMath.GetEffectiveUsedPercent(detail, isQuotaBased);
+        var parsedUsed = UsageMath.GetEffectiveUsedPercent(detail);
         var hasPercent = parsedUsed.HasValue;
         var usedPercent = parsedUsed ?? 0;
         var remainingPercent = 100.0 - usedPercent;
@@ -47,7 +46,6 @@ internal static class ProviderSubDetailPresentationCatalog
         var displayText = hasPercent
             ? ProviderUsageDetailValuePresentationCatalog.GetDisplayText(
                 detail,
-                isQuotaBased,
                 showUsed,
                 includeSemanticLabel: false)
             : ProviderUsageDetailValuePresentationCatalog.GetStoredDisplayText(detail);

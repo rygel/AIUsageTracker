@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used: legacy string fallback retained for DB snapshot compatibility
-
 using System.Text.RegularExpressions;
 
 namespace AIUsageTracker.Core.Models;
@@ -172,50 +170,24 @@ public static class UsageMath
     }
 
     /// <summary>
-    /// Gets the effective used percentage for a provider detail, accounting for parent quota status
-    /// and explicit 'used'/'remaining' strings.
+    /// Gets the effective used percentage for a provider detail.
+    /// Returns null if no percentage value is set on the detail.
     /// </summary>
     /// <returns></returns>
-    public static double? GetEffectiveUsedPercent(ProviderUsageDetail detail, bool parentIsQuota)
+    public static double? GetEffectiveUsedPercent(ProviderUsageDetail detail)
     {
-        if (detail.TryGetPercentageValue(out var typedPercent, out var typedSemantic, out _))
-        {
-            return typedSemantic switch
-            {
-                PercentageValueSemantic.Used => typedPercent,
-                PercentageValueSemantic.Remaining => ClampPercent(100.0 - typedPercent),
-                _ when detail.DetailType == ProviderUsageDetailType.QuotaWindow || parentIsQuota => ClampPercent(100.0 - typedPercent),
-                _ => typedPercent,
-            };
-        }
-
-        var val = ParsePercent(detail.Used, out var isUsed);
-        if (!val.HasValue)
+        if (!detail.TryGetPercentageValue(out var typedPercent, out var typedSemantic, out _))
         {
             return null;
         }
 
-        // 1. If explicitly marked as 'used', return as is.
-        if (isUsed == true)
+        return typedSemantic switch
         {
-            return val.Value;
-        }
-
-        // 2. If explicitly marked as 'remaining', return inverted.
-        if (isUsed == false)
-        {
-            return ClampPercent(100.0 - val.Value);
-        }
-
-        // 3. Strict contract: Quota windows (DetailType=1) are ALWAYS remaining unless explicitly marked 'used'.
-        // Antigravity sends "80%" which means 80% remaining.
-        if (detail.DetailType == ProviderUsageDetailType.QuotaWindow || parentIsQuota)
-        {
-            return ClampPercent(100.0 - val.Value);
-        }
-
-        // 4. PAYG/Other details are used % by default
-        return val.Value;
+            PercentageValueSemantic.Used => typedPercent,
+            PercentageValueSemantic.Remaining => ClampPercent(100.0 - typedPercent),
+            _ when detail.DetailType == ProviderUsageDetailType.QuotaWindow => ClampPercent(100.0 - typedPercent),
+            _ => typedPercent,
+        };
     }
 
     /// <summary>

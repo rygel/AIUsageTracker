@@ -75,7 +75,6 @@ public partial class SubProviderCardViewModel : BaseViewModel
     {
         this._presentation = ProviderSubDetailPresentationCatalog.Create(
             this.Detail,
-            this.IsQuotaBased,
             this.ShowUsedPercentages,
             GetRelativeTimeString);
     }

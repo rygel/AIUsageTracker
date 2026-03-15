@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Diagnostics;
 using System.Globalization;
@@ -161,10 +160,10 @@ public class OpenCodeZenProvider : ProviderBase
         {
             ProviderId = providerId,
             ProviderName = ProviderDisplayName,
-            RequestsPercentage = 0.0,
+            UsedPercent = 0.0,
             RequestsUsed = totalCost,
             RequestsAvailable = 0.0,
-            UsageUnit = "USD",
+            IsCurrencyUsage = true,
             IsQuotaBased = false,
             PlanType = PlanType.Usage,
             IsAvailable = true,

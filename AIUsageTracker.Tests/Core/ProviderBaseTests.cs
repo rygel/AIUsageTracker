@@ -54,7 +54,7 @@ public class ProviderBaseTests
         Assert.False(usage.IsAvailable);
         Assert.Equal("Error message", usage.Description);
         Assert.Equal(401, usage.HttpStatus);
-        Assert.Equal(0, usage.RequestsPercentage);
+        Assert.Equal(0, usage.UsedPercent);
     }
 
     [Theory]

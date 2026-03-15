@@ -2,7 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: legacy field set in test fixtures
+#pragma warning disable CS0618 // UsedPercent: legacy field set in test fixtures
 
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -433,7 +433,7 @@ public class ProviderRefreshServiceTests
 
         scenario.Database.Verify(
             d => d.StoreHistoryAsync(It.Is<IEnumerable<ProviderUsage>>(items =>
-                items.Any(u => u.ProviderId == "codex" && Math.Abs(u.RequestsPercentage - 50) < 0.001))),
+                items.Any(u => u.ProviderId == "codex" && Math.Abs(u.UsedPercent - 50) < 0.001))),
             Times.Once);
     }
 
@@ -556,7 +556,7 @@ public class ProviderRefreshServiceTests
             ProviderName = "OpenAI (Codex)",
             RequestsUsed = 5,
             RequestsAvailable = 10,
-            RequestsPercentage = 50,
+            UsedPercent = 50,
             IsAvailable = true,
         };
 
@@ -601,7 +601,7 @@ public class ProviderRefreshServiceTests
                     ProviderName = "OpenAI (Codex)",
                     RequestsUsed = 2,
                     RequestsAvailable = 10,
-                    RequestsPercentage = 20,
+                    UsedPercent = 20,
                     IsAvailable = true,
                 },
             });

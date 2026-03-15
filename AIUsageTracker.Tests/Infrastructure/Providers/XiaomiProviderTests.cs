@@ -47,7 +47,7 @@ public class XiaomiProviderTests : HttpProviderTestBase<XiaomiProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // Handle culture
+        Assert.Contains("20", usage.UsedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 200 used of 1000 = 20% used
         Assert.Equal(200.0, usage.RequestsUsed);
         Assert.Contains("800 remaining", usage.Description, StringComparison.Ordinal);
     }

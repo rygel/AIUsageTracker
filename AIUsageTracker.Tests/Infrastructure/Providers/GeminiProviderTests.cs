@@ -70,7 +70,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
         Assert.True(usage.IsAvailable);
         Assert.Equal("user@example.com", usage.AccountName);
-        Assert.Contains("80", usage.RequestsPercentage.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        Assert.Contains("20", usage.UsedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 20% used (80% remaining)
         Assert.Contains("20", usage.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
         Assert.Contains("80", usage.Description, StringComparison.Ordinal);
 
@@ -266,7 +266,7 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
         Assert.Equal(5, modelDetails.Count);
         Assert.Contains(modelDetails, detail => string.Equals(detail.ModelName, "gemini-2.5-pro", StringComparison.Ordinal));
         Assert.Contains(modelDetails, detail => string.Equals(detail.Name, "Gemini 3.1 Pro Preview", StringComparison.Ordinal));
-        Assert.All(modelDetails, detail => Assert.False(string.IsNullOrWhiteSpace(detail.Used)));
+        Assert.All(modelDetails, detail => Assert.False(string.IsNullOrWhiteSpace(detail.Description)));
 
         Assert.Single(result);
         Assert.DoesNotContain(

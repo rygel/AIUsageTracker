@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
-
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -172,7 +170,7 @@ public class OpenAIProvider : ProviderBase
             details.Add(new ProviderUsageDetail
             {
                 Name = "Credits",
-                Used = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
+                Description = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
                 DetailType = ProviderUsageDetailType.Credit,
                 QuotaBucketKind = WindowKind.None,
             });
@@ -276,11 +274,10 @@ public class OpenAIProvider : ProviderBase
                         ProviderId = this.ProviderId,
                         ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
-                        RequestsPercentage = 0,
+                        UsedPercent = 0,
                         IsQuotaBased = true,
                         PlanType = PlanType.Coding,
                         Description = "Connected (API Key)",
-                        UsageUnit = "Status",
                         IsStatusOnly = true,
                     },
                 };
@@ -365,10 +362,9 @@ public class OpenAIProvider : ProviderBase
             IsAvailable = true,
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
-            RequestsPercentage = remaining,
+            UsedPercent = used,
             RequestsUsed = used,
             RequestsAvailable = 100,
-            UsageUnit = "Quota %",
             Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}",
             AuthSource = AuthSource.OpenCodeSession,
             NextResetTime = nextResetTime,

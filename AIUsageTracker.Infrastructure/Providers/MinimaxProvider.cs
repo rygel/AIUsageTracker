@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -177,20 +176,16 @@ public class MinimaxProvider : ProviderBase
 
         var utilization = total > 0 ? (used / total) * 100.0 : 0;
 
-        // For quota-based providers, RequestsPercentage represents REMAINING percentage
-        var remainingPercent = Math.Clamp(100.0 - utilization, 0, 100);
-
         return new[]
         {
             new ProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = providerLabel,
-            RequestsPercentage = remainingPercent,
+            UsedPercent = Math.Clamp(utilization, 0, 100),
             RequestsUsed = used,
             RequestsAvailable = total,
             PlanType = PlanType.Coding,
-            UsageUnit = "Tokens",
             IsQuotaBased = true,
             Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : string.Empty),
             RawJson = responseString,

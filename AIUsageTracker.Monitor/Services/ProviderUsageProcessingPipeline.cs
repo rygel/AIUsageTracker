@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used: legacy field retained for DB snapshot compatibility
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
@@ -286,11 +284,8 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             ProviderName = providerName,
             RequestsUsed = requestsUsed,
             RequestsAvailable = requestsAvailable,
-#pragma warning disable CS0618 // RequestsPercentage: normalization pipeline sets raw field
-            RequestsPercentage = requestsPercentage,
-#pragma warning restore CS0618
+            UsedPercent = requestsPercentage,
             PlanType = usage.PlanType,
-            UsageUnit = usage.UsageUnit,
             IsQuotaBased = usage.IsQuotaBased,
             DisplayAsFraction = usage.DisplayAsFraction,
             IsAvailable = usage.IsAvailable,
@@ -334,11 +329,8 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             ProviderName = providerName,
             RequestsUsed = requestsUsed,
             RequestsAvailable = requestsAvailable,
-#pragma warning disable CS0618 // RequestsPercentage: normalization pipeline sets raw field
-            RequestsPercentage = requestsPercentage,
-#pragma warning restore CS0618
+            UsedPercent = requestsPercentage,
             PlanType = usage.PlanType,
-            UsageUnit = usage.UsageUnit,
             IsQuotaBased = usage.IsQuotaBased,
             DisplayAsFraction = usage.DisplayAsFraction,
             IsAvailable = usage.IsAvailable,
@@ -389,9 +381,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
     private double NormalizePercentage(ProviderUsage usage, double requestsUsed, double requestsAvailable)
     {
-#pragma warning disable CS0618 // RequestsPercentage: normalization validates raw field
-        var original = usage.RequestsPercentage;
-#pragma warning restore CS0618
+        var original = usage.UsedPercent;
         var isFinite = !double.IsNaN(original) && !double.IsInfinity(original);
         var isInRange = original is >= 0 and <= 100;
 
@@ -400,7 +390,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             return original;
         }
 
-        return UsageMath.CalculateUtilizationPercent(requestsUsed, requestsAvailable, usage.IsQuotaBased);
+        return UsageMath.CalculateUsedPercent(requestsUsed, requestsAvailable);
     }
 
     private IReadOnlyList<ProviderUsageDetail>? NormalizeDetails(IReadOnlyList<ProviderUsageDetail>? details)
@@ -418,13 +408,13 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 Name = (detail.Name ?? string.Empty).Trim(),
                 ModelName = (detail.ModelName ?? string.Empty).Trim(),
                 GroupName = (detail.GroupName ?? string.Empty).Trim(),
-                Used = (detail.Used ?? string.Empty).Trim(),
                 Description = (detail.Description ?? string.Empty).Trim(),
                 NextResetTime = detail.NextResetTime?.ToUniversalTime(),
                 DetailType = detail.DetailType,
                 QuotaBucketKind = detail.QuotaBucketKind,
                 PercentageValue = detail.PercentageValue,
                 PercentageSemantic = detail.PercentageSemantic,
+                PercentageDecimalPlaces = detail.PercentageDecimalPlaces,
                 IsStale = detail.IsStale,
             });
         }
@@ -446,9 +436,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
     {
         if (usage.RequestsAvailable != 0 ||
             usage.RequestsUsed != 0 ||
-#pragma warning disable CS0618 // RequestsPercentage: placeholder detection checks raw field
-            usage.RequestsPercentage != 0 ||
-#pragma warning restore CS0618
+            usage.UsedPercent != 0 ||
             usage.IsAvailable)
         {
             return false;
@@ -511,11 +499,8 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             ProviderName = usage.ProviderName,
             RequestsUsed = 0,
             RequestsAvailable = 0,
-#pragma warning disable CS0618 // RequestsPercentage: normalization pipeline sets raw field
-            RequestsPercentage = 0,
-#pragma warning restore CS0618
+            UsedPercent = 0,
             PlanType = usage.PlanType,
-            UsageUnit = usage.UsageUnit,
             IsQuotaBased = usage.IsQuotaBased,
             DisplayAsFraction = usage.DisplayAsFraction,
             IsAvailable = false,

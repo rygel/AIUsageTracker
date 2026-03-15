@@ -2,7 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
+#pragma warning disable CS0618 // Used/UsedPercent: legacy fields set in test fixtures
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
@@ -18,11 +18,11 @@ public sealed class ProviderSubTrayCatalogTests
         {
             Details = new List<ProviderUsageDetail>
             {
-                new() { Name = "Gemini 2.5 Pro", Used = "45% used", DetailType = ProviderUsageDetailType.Model },
-                new() { Name = "Gemini 2.5 Flash", Used = "12% used", DetailType = ProviderUsageDetailType.Model },
-                new() { Name = "Gemini 2.5 Pro", Used = "50% used", DetailType = ProviderUsageDetailType.Model },
-                new() { Name = "internal-metric", Used = "10% used", DetailType = ProviderUsageDetailType.Unknown },
-                new() { Name = "Credits", Used = "Unlimited", DetailType = ProviderUsageDetailType.Credit },
+                new() { Name = "Gemini 2.5 Pro", Description = "45% used", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "Gemini 2.5 Flash", Description = "12% used", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "Gemini 2.5 Pro", Description = "50% used", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "internal-metric", Description = "10% used", DetailType = ProviderUsageDetailType.Unknown },
+                new() { Name = "Credits", Description = "Unlimited", DetailType = ProviderUsageDetailType.Credit },
             },
         };
 
@@ -48,7 +48,7 @@ public sealed class ProviderSubTrayCatalogTests
         {
             Details = new List<ProviderUsageDetail>
             {
-                new() { Name = "GPT OSS", Used = "Unknown", DetailType = ProviderUsageDetailType.Model },
+                new() { Name = "GPT OSS", Description = "Unknown", DetailType = ProviderUsageDetailType.Model },
             },
         };
 

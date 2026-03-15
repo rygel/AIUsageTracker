@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Globalization;
 using System.Net.Http.Json;
@@ -80,7 +79,7 @@ public class DeepSeekProvider : ProviderBase
                     PlanType = PlanType.Usage,
                     IsQuotaBased = false,
                     HttpStatus = (int)response.StatusCode,
-                    RequestsPercentage = 0,
+                    UsedPercent = 0,
                     RequestsUsed = 0,
                     RequestsAvailable = 0,
                     RawJson = content,
@@ -113,8 +112,7 @@ public class DeepSeekProvider : ProviderBase
                     details.Add(new ProviderUsageDetail
                     {
                         Name = detailName,
-                        Used = $"{currencySymbol}{info.TotalBalance.ToString("F2", CultureInfo.InvariantCulture)}",
-                        Description = $"{currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)} (Topped-up: {currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)}, Granted: {currencySymbol}{info.GrantedBalance.ToString("F2", CultureInfo.InvariantCulture)})",
+                        Description = $"{currencySymbol}{info.TotalBalance.ToString("F2", CultureInfo.InvariantCulture)} (Topped-up: {currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)}, Granted: {currencySymbol}{info.GrantedBalance.ToString("F2", CultureInfo.InvariantCulture)})",
                         DetailType = ProviderUsageDetailType.Credit,
                         QuotaBucketKind = WindowKind.None,
                     });
@@ -134,10 +132,10 @@ public class DeepSeekProvider : ProviderBase
                 ProviderId = this.ProviderId,
                 ProviderName = "DeepSeek",
                 IsAvailable = true,
-                RequestsPercentage = 0, // Pay-as-you-go/Balance model
+                UsedPercent = 0,
                 RequestsUsed = 0,
                 RequestsAvailable = 0,
-                UsageUnit = "Currency",
+                IsCurrencyUsage = true,
                 IsQuotaBased = false,
                 PlanType = PlanType.Usage,
                 Description = mainDescription,

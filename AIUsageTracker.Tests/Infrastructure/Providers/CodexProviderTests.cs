@@ -111,7 +111,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
             Assert.True(usage.IsAvailable);
             Assert.Equal("OpenAI (Codex)", usage.ProviderName);
             Assert.Equal("user@example.com", usage.AccountName);
-            Assert.Equal(75.0, usage.RequestsPercentage);
+            Assert.Equal(25.0, usage.UsedPercent); // 25% used (75% remaining)
             Assert.NotNull(usage.Details);
             Assert.Contains(usage.Details, d => d.QuotaBucketKind == WindowKind.Burst);
             Assert.Contains(usage.Details, d => d.QuotaBucketKind == WindowKind.Rolling);

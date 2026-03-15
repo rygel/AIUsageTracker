@@ -24,7 +24,7 @@ public sealed class AgentGroupedProviderUsage
 
     public double RequestsAvailable { get; set; }
 
-    public double RequestsPercentage { get; set; }
+    public double UsedPercent { get; set; }
 
     public string Description { get; set; } = string.Empty;
 

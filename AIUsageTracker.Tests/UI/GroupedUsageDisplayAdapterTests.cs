@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: legacy field set in test fixtures
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim;
@@ -30,7 +28,7 @@ public class GroupedUsageDisplayAdapterTests
                     PlanType = PlanType.Coding,
                     RequestsUsed = 34.3,
                     RequestsAvailable = 100,
-                    RequestsPercentage = 65.7,
+                    UsedPercent = 65.7,
                     Description = "65.7% Remaining",
                     FetchedAt = now,
                     Models = new[]
@@ -78,7 +76,7 @@ public class GroupedUsageDisplayAdapterTests
         Assert.Equal("Gemini 2.5 Flash Lite [Gemini CLI]", minute.ProviderName);
         Assert.Equal("Gemini 2.5 Pro [Gemini CLI]", hourly.ProviderName);
         Assert.Equal("Gemini 3 Flash Preview [Gemini CLI]", daily.ProviderName);
-        Assert.Equal(97.1, minute.RequestsPercentage, 1);
+        Assert.Equal(2.9, minute.UsedPercent, 1); // UsedPercentage = 2.9
     }
 
     [Fact]
@@ -95,7 +93,7 @@ public class GroupedUsageDisplayAdapterTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
-                    RequestsPercentage = 72,
+                    UsedPercent = 72,
                     Models = new[]
                     {
                         new AgentGroupedModelUsage
@@ -116,7 +114,7 @@ public class GroupedUsageDisplayAdapterTests
         var spark = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
         Assert.Equal("OpenAI (Codex)", parent.ProviderName);
         Assert.Equal("OpenAI (GPT-5.3 Codex Spark)", spark.ProviderName);
-        Assert.Equal(72, spark.RequestsPercentage, 1);
+        Assert.Equal(28, spark.UsedPercent, 1); // RemainingPercentage = 72 → UsedPercent = 28
     }
 
     [Fact]
@@ -133,7 +131,7 @@ public class GroupedUsageDisplayAdapterTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
-                    RequestsPercentage = 64,
+                    UsedPercent = 64,
                     Models = new[]
                     {
                         new AgentGroupedModelUsage
@@ -167,7 +165,7 @@ public class GroupedUsageDisplayAdapterTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
-                    RequestsPercentage = 90,
+                    UsedPercent = 90,
                     Models = new[]
                     {
                         new AgentGroupedModelUsage
@@ -202,7 +200,7 @@ public class GroupedUsageDisplayAdapterTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
-                    RequestsPercentage = 80,
+                    UsedPercent = 80,
                     Models = new[]
                     {
                         new AgentGroupedModelUsage
@@ -237,7 +235,7 @@ public class GroupedUsageDisplayAdapterTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
 
         var derived = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "gemini-cli.gemini-3-flash-preview", StringComparison.Ordinal));
-        Assert.Equal(35, derived.RequestsPercentage, 1);
+        Assert.Equal(65, derived.UsedPercent, 1); // most constrained bucket: 65% used
         Assert.Equal(65, derived.RequestsUsed, 1);
         Assert.Equal("35% remaining", derived.Description);
         Assert.NotNull(derived.Details);
@@ -374,7 +372,7 @@ public class GroupedUsageDisplayAdapterTests
 
         var spark = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
         Assert.Equal("OpenAI (GPT-5.3 Codex Spark)", spark.ProviderName);
-        Assert.Equal(40, spark.RequestsPercentage, 1);
+        Assert.Equal(60, spark.UsedPercent, 1); // RemainingPercentage=40 → UsedPercent = 60
     }
 
     [Fact]
@@ -423,7 +421,7 @@ public class GroupedUsageDisplayAdapterTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
 
         var derived = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "gemini-cli.gemini-2.5-flash-lite", StringComparison.Ordinal));
-        Assert.Equal(77, derived.RequestsPercentage, 1);
+        Assert.Equal(23, derived.UsedPercent, 1); // EffectiveUsedPercentage = 23
         Assert.Equal(23, derived.RequestsUsed, 1);
         Assert.Equal("77.0% Remaining", derived.Description);
         Assert.Equal(now.AddHours(3), derived.NextResetTime);
@@ -463,7 +461,7 @@ public class GroupedUsageDisplayAdapterTests
         Assert.Equal(2, usages.Count);
         var derived = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "antigravity.gemini-3-flash", StringComparison.Ordinal));
         Assert.Equal("Gemini 3 Flash [Antigravity]", derived.ProviderName);
-        Assert.Equal(100, derived.RequestsPercentage, 1);
+        Assert.Equal(0, derived.UsedPercent, 1); // UsedPercentage = 0 (100% remaining)
         Assert.Equal("100% Remaining", derived.Description);
     }
 }

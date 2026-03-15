@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -82,7 +81,6 @@ public class GitHubCopilotProvider : ProviderBase
                     Description = "Not authenticated. Please login in Settings.",
                     PlanType = PlanType.Coding,
                     IsQuotaBased = true,
-                    UsageUnit = "Requests",
                 },
             };
         }
@@ -493,10 +491,9 @@ public class GitHubCopilotProvider : ProviderBase
             IsAvailable = state.IsAvailable,
             State = state.State,
             Description = BuildFinalDescription(state),
-            RequestsPercentage = state.Percentage,
+            UsedPercent = 100.0 - state.Percentage,
             RequestsAvailable = state.CostLimit,
             RequestsUsed = state.CostUsed,
-            UsageUnit = "Requests",
             PlanType = PlanType.Coding,
             IsQuotaBased = true,
             AuthSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName,

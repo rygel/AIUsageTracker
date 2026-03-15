@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
 
 using System.Globalization;
 using System.Net.Http.Json;
@@ -199,7 +198,6 @@ public class OpenRouterProvider : ProviderBase
                         {
                             Name = "Spending Limit",
                             Description = keyData.Data.Limit.ToString("F2", CultureInfo.InvariantCulture),
-                            Used = string.Empty,
                             NextResetTime = nextResetTime,
                             DetailType = ProviderUsageDetailType.Other,
                             QuotaBucketKind = WindowKind.None,
@@ -214,7 +212,6 @@ public class OpenRouterProvider : ProviderBase
                     {
                         Name = "Free Tier",
                         Description = keyData.Data.IsFreeTier ? "Yes" : "No",
-                        Used = string.Empty,
                         DetailType = ProviderUsageDetailType.Other,
                         QuotaBucketKind = WindowKind.None,
                     });
@@ -266,11 +263,10 @@ public class OpenRouterProvider : ProviderBase
         {
             ProviderId = config.ProviderId,
             ProviderName = label,
-            RequestsPercentage = remainingPercentage,
+            UsedPercent = 100.0 - remainingPercentage,
             RequestsUsed = used,
             RequestsAvailable = total,
             PlanType = PlanType.Usage,
-            UsageUnit = "Credits",
             IsQuotaBased = true,
             IsAvailable = true,
             Description = $"{remaining.ToString("F2", CultureInfo.InvariantCulture)} Credits Remaining{mainReset}",

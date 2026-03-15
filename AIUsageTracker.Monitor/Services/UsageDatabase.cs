@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: retained for DB snapshot compatibility
-
 using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
@@ -193,9 +191,7 @@ public class UsageDatabase : IUsageDatabase
                 ProviderId = u.ProviderId,
                 RequestsUsed = u.RequestsUsed,
                 RequestsAvailable = u.RequestsAvailable,
-#pragma warning disable CS0618 // RequestsPercentage: pass-through for database serialization
-                RequestsPercentage = u.RequestsPercentage,
-#pragma warning restore CS0618
+                RequestsPercentage = u.UsedPercent,
                 IsAvailable = u.IsAvailable ? 1 : 0,
                 StatusMessage = u.Description ?? string.Empty,
                 NextResetTime = u.NextResetTime?.ToString("O"),
@@ -320,7 +316,7 @@ public class UsageDatabase : IUsageDatabase
                 SELECT h.provider_id AS ProviderId,
                        COALESCE(NULLIF(p.provider_name, ''), h.provider_id) AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                       h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                       h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
                        h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
@@ -342,7 +338,7 @@ public class UsageDatabase : IUsageDatabase
             {
                 try
                 {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(NormalizeLegacyDetailsJson(usage.DetailsJson!));
+                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
                 }
                 catch (JsonException ex)
                 {
@@ -391,28 +387,15 @@ public class UsageDatabase : IUsageDatabase
             Name = source.Name,
             ModelName = source.ModelName,
             GroupName = source.GroupName,
-            Used = source.Used,
             Description = source.Description,
             NextResetTime = source.NextResetTime,
             DetailType = source.DetailType,
             QuotaBucketKind = source.QuotaBucketKind,
+            PercentageValue = source.PercentageValue,
+            PercentageSemantic = source.PercentageSemantic,
+            PercentageDecimalPlaces = source.PercentageDecimalPlaces,
             IsStale = source.IsStale,
         };
-    }
-
-    /// <summary>
-    /// Normalizes legacy "WindowKind" JSON key to "window_kind" before deserialization.
-    /// Old database records used PascalCase property names; the current model uses snake_case via JsonPropertyName.
-    /// </summary>
-    private static string NormalizeLegacyDetailsJson(string json)
-    {
-        // Fast path: if the JSON doesn't contain the old key, no work needed
-        if (!json.Contains("\"WindowKind\"", StringComparison.Ordinal))
-        {
-            return json;
-        }
-
-        return json.Replace("\"WindowKind\"", "\"window_kind\"");
     }
 
     private static string AppendStaleSuffix(string description, DateTime lastSeenUtc)
@@ -472,7 +455,7 @@ public class UsageDatabase : IUsageDatabase
             List<ProviderUsageDetail>? parsedDetails;
             try
             {
-                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(NormalizeLegacyDetailsJson(row.DetailsJson));
+                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(row.DetailsJson);
             }
             catch (JsonException ex)
             {
@@ -579,7 +562,7 @@ public class UsageDatabase : IUsageDatabase
             var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                       h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                       h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
@@ -598,7 +581,7 @@ public class UsageDatabase : IUsageDatabase
             {
                 try
                 {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(NormalizeLegacyDetailsJson(usage.DetailsJson!));
+                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
                 }
                 catch (JsonException ex)
                 {
@@ -631,7 +614,7 @@ public class UsageDatabase : IUsageDatabase
             var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                       h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                       h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
@@ -651,7 +634,7 @@ public class UsageDatabase : IUsageDatabase
             {
                 try
                 {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(NormalizeLegacyDetailsJson(usage.DetailsJson!));
+                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
                 }
                 catch (JsonException ex)
                 {
@@ -685,7 +668,7 @@ public class UsageDatabase : IUsageDatabase
                 WITH RankedHistory AS (
                     SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                            h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                           h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                           h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                            h.status_message AS Description, h.fetched_at AS FetchedAt,
                            h.next_reset_time AS NextResetTime,
                            h.details_json AS DetailsJson,
@@ -698,7 +681,7 @@ public class UsageDatabase : IUsageDatabase
                     JOIN providers p ON h.provider_id = p.provider_id
                 )
                 SELECT ProviderId, ProviderName, RequestsUsed, RequestsAvailable,
-                       RequestsPercentage, IsAvailable, Description, FetchedAt, NextResetTime,
+                       UsedPercent, IsAvailable, Description, FetchedAt, NextResetTime,
                        DetailsJson, ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote
                 FROM RankedHistory
                 WHERE pos <= @Count
@@ -710,7 +693,7 @@ public class UsageDatabase : IUsageDatabase
             {
                 try
                 {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(NormalizeLegacyDetailsJson(usage.DetailsJson!));
+                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
                 }
                 catch (JsonException ex)
                 {

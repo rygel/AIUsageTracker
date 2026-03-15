@@ -128,7 +128,7 @@
             <div class="provider-grid">
                 @foreach (var usage in visibleUsage)
                 {
-                    var isStatusOnly = string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
+                    var isStatusOnly = usage.IsStatusOnly;
                     var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
                     var hasForecast = Model.ForecastsByProvider.TryGetValue(usage.ProviderId, out var forecast);
                     var hasAnomaly = Model.AnomaliesByProvider.TryGetValue(usage.ProviderId, out var anomalySnapshot);
@@ -263,11 +263,11 @@
                                 <div id="sub-providers-@usage.ProviderId" class="sub-providers">
                                     @foreach (var detail in displayableDetails)
                                     {
-                                        var detailUsed = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(detail, usage.IsQuotaBased);
+                                        var detailUsed = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(detail);
                                         var showUsed = Model.ShowUsedPercentage;
-                                        var displayVal = detailUsed.HasValue 
+                                        var displayVal = detailUsed.HasValue
                                             ? (showUsed ? detailUsed.Value : (100.0 - detailUsed.Value)).ToString("F0") + "%"
-                                            : detail.Used;
+                                            : detail.Description;
 
                                         <div class="sub-provider-row">
                                             <span class="sub-provider-name">@detail.Name</span>
@@ -606,8 +606,8 @@
 
         if (primaryDetail == null || secondaryDetail == null) return false;
 
-        var p = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(primaryDetail, usage.IsQuotaBased);
-        var s = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(secondaryDetail, usage.IsQuotaBased);
+        var p = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(primaryDetail);
+        var s = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(secondaryDetail);
 
         if (p.HasValue && s.HasValue)
         {

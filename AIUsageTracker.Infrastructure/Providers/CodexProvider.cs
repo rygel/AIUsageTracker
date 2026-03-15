@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: provider sets raw serialized field
-
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -562,10 +560,9 @@ public class CodexProvider : ProviderBase
             {
                 ProviderId = this.ProviderId,
                 ProviderName = StaticDefinition.DisplayName,
-                RequestsPercentage = remainingPercent,
+                UsedPercent = 100.0 - remainingPercent,
                 RequestsUsed = 100.0 - remainingPercent,
                 RequestsAvailable = 100.0,
-                UsageUnit = "Quota %",
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 IsAvailable = true,
@@ -705,7 +702,7 @@ public class CodexProvider : ProviderBase
             details.Add(new ProviderUsageDetail
             {
                 Name = "Credits",
-                Used = creditValue,
+                Description = creditValue,
                 DetailType = ProviderUsageDetailType.Credit,
                 QuotaBucketKind = WindowKind.None,
             });

@@ -99,7 +99,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("user@example.com", usage.AccountName);
-        Assert.Equal(54.5, usage.RequestsPercentage); // 100 - 45.5
+        Assert.Equal(45.5, usage.UsedPercent); // max(45.5%, 10.0%) = 45.5% used
         Assert.Equal(45.5, usage.RequestsUsed);
         Assert.Contains("Plan: plus", usage.Description, StringComparison.Ordinal);
 
@@ -112,13 +112,13 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         Assert.Equal("5-hour quota", primary.Name);
         Assert.Equal(54.5, primary.PercentageValue);
         Assert.Equal(PercentageValueSemantic.Remaining, primary.PercentageSemantic);
-        Assert.Contains("remaining", primary.Used, StringComparison.Ordinal);
+        Assert.Contains("Resets in", primary.Description, StringComparison.Ordinal);
 
         Assert.NotNull(secondary);
         Assert.Equal("Weekly quota", secondary.Name);
         Assert.Equal(90.0, secondary.PercentageValue);
         Assert.Equal(PercentageValueSemantic.Remaining, secondary.PercentageSemantic);
-        Assert.Contains("remaining", secondary.Used, StringComparison.Ordinal);
+        Assert.Contains("Resets in", secondary.Description, StringComparison.Ordinal);
     }
 
     [Fact]

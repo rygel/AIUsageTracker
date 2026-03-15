@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
-
 using System.Text;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -65,7 +63,7 @@ public class ExportServiceTests
                 ProviderId = "test-p",
                 ProviderName = "Test Provider",
                 RequestsUsed = 10,
-                UsageUnit = "USD",
+                IsCurrencyUsage = true,
                 PlanType = PlanType.Usage,
                 FetchedAt = DateTime.UtcNow,
             },
@@ -83,10 +81,9 @@ public class ExportServiceTests
         var lines = csv.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
 
         Assert.True(lines.Length >= 2);
-        Assert.Contains("Time,Provider,Model,Used,Cost,Unit,PlanType", lines[0], StringComparison.Ordinal);
+        Assert.Contains("Time,Provider,Model,Used,Cost,PlanType", lines[0], StringComparison.Ordinal);
         Assert.Contains("Test Provider", lines[1], StringComparison.Ordinal);
         Assert.Contains("10.00", lines[1], StringComparison.Ordinal); // Invariant F2 format
-        Assert.Contains("USD", lines[1], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -102,7 +99,7 @@ public class ExportServiceTests
                 FetchedAt = DateTime.UtcNow,
                 Details = new List<ProviderUsageDetail>
                 {
-                    new ProviderUsageDetail { Name = "Model A", Used = "5.50" },
+                    new ProviderUsageDetail { Name = "Model A", Description = "5.50" },
                 },
             },
         };

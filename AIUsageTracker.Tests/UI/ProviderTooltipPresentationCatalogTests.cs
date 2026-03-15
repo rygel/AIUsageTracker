@@ -2,7 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
+#pragma warning disable CS0618 // Used/UsedPercent: legacy fields set in test fixtures
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
@@ -20,8 +20,8 @@ public sealed class ProviderTooltipPresentationCatalogTests
             Description = "Connected",
             Details = new List<ProviderUsageDetail>
             {
-                new() { Name = "Weekly", Used = "20% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Rolling },
-                new() { Name = "Hourly", Used = "10% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Burst },
+                new() { Name = "Weekly", Description = "20% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Rolling },
+                new() { Name = "Hourly", Description = "10% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Burst },
             },
         };
 
@@ -40,10 +40,10 @@ public sealed class ProviderTooltipPresentationCatalogTests
             IsAvailable = true,
             Details = new List<ProviderUsageDetail>
             {
-                new() { Name = "Credits", Used = "0.00", DetailType = ProviderUsageDetailType.Credit },
-                new() { Name = "Spark", Used = "0% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.ModelSpecific },
-                new() { Name = "Weekly", Used = "51% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Rolling },
-                new() { Name = "5-hour", Used = "4% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Burst },
+                new() { Name = "Credits", Description = "0.00", DetailType = ProviderUsageDetailType.Credit },
+                new() { Name = "Spark", Description = "0% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.ModelSpecific },
+                new() { Name = "Weekly", Description = "51% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Rolling },
+                new() { Name = "5-hour", Description = "4% used", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Burst },
             },
         };
 
@@ -62,9 +62,9 @@ public sealed class ProviderTooltipPresentationCatalogTests
             IsAvailable = true,
             Details = new List<ProviderUsageDetail>
             {
-                new() { Name = "Credits", Used = "0.00", DetailType = ProviderUsageDetailType.Credit },
-                new() { Name = "Requests / Day", Used = "35% remaining", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.None },
-                new() { Name = "Requests / Hour", Used = "80% remaining", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.None },
+                new() { Name = "Credits", Description = "0.00", DetailType = ProviderUsageDetailType.Credit },
+                new() { Name = "Requests / Day", Description = "35% remaining", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.None },
+                new() { Name = "Requests / Hour", Description = "80% remaining", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.None },
             },
         };
 
@@ -127,8 +127,8 @@ public sealed class ProviderTooltipPresentationCatalogTests
             IsAvailable = true,
             Details = new List<ProviderUsageDetail>
             {
-                new() { Name = "Sessions", Used = string.Empty, Description = "4 sessions", DetailType = ProviderUsageDetailType.Other },
-                new() { Name = "Messages", Used = string.Empty, Description = "198 messages", DetailType = ProviderUsageDetailType.Other },
+                new() { Name = "Sessions", Description = "4 sessions", DetailType = ProviderUsageDetailType.Other },
+                new() { Name = "Messages", Description = "198 messages", DetailType = ProviderUsageDetailType.Other },
             },
         };
 

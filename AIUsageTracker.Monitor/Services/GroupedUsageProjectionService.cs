@@ -61,9 +61,7 @@ public static class GroupedUsageProjectionService
             IsQuotaBased = primary.IsQuotaBased,
             RequestsUsed = primary.RequestsUsed,
             RequestsAvailable = primary.RequestsAvailable,
-#pragma warning disable CS0618 // RequestsPercentage: pass-through of serialized field
-            RequestsPercentage = primary.RequestsPercentage,
-#pragma warning restore CS0618
+            UsedPercent = primary.UsedPercent,
             Description = primary.Description,
             FetchedAt = group.Max(usage => usage.FetchedAt),
             NextResetTime = nextResetTime,
@@ -147,7 +145,7 @@ public static class GroupedUsageProjectionService
                 }
                 else
                 {
-                    usedPercentage = UsageMath.GetEffectiveUsedPercent(detail, usage.IsQuotaBased);
+                    usedPercentage = UsageMath.GetEffectiveUsedPercent(detail);
                     remainingPercentage = usedPercentage.HasValue
                         ? (double?)UsageMath.ClampPercent(100.0 - usedPercentage.Value)
                         : null;
@@ -265,7 +263,7 @@ public static class GroupedUsageProjectionService
             }
             else
             {
-                usedPercent = UsageMath.GetEffectiveUsedPercent(detail, parentIsQuotaBased);
+                usedPercent = UsageMath.GetEffectiveUsedPercent(detail);
                 remainingPercent = usedPercent.HasValue
                     ? (double?)UsageMath.ClampPercent(100.0 - usedPercent.Value)
                     : null;
@@ -287,9 +285,7 @@ public static class GroupedUsageProjectionService
                 UsedPercentage = usedPercent.HasValue ? UsageMath.ClampPercent(usedPercent.Value) : null,
                 RemainingPercentage = remainingPercent,
                 NextResetTime = detail.NextResetTime,
-                Description = string.IsNullOrWhiteSpace(detail.Description)
-                    ? detail.Used ?? string.Empty
-                    : detail.Description,
+                Description = detail.Description ?? string.Empty,
             });
         }
 

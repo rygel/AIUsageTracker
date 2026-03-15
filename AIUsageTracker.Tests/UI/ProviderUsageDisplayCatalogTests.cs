@@ -2,7 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
+#pragma warning disable CS0618 // Used/UsedPercent: legacy fields set in test fixtures
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
@@ -147,7 +147,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                     new()
                     {
                         Name = "Requests / Minute",
-                        Used = "67.9%",
+                        Description = "67.9%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
                         QuotaBucketKind = WindowKind.Burst,
                         NextResetTime = new DateTime(2026, 3, 12, 14, 38, 28),
@@ -155,7 +155,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                     new()
                     {
                         Name = "Requests / Day",
-                        Used = "97.5%",
+                        Description = "97.5%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
                         QuotaBucketKind = WindowKind.Rolling,
                         NextResetTime = new DateTime(2026, 3, 12, 14, 35, 2),
@@ -163,7 +163,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                     new()
                     {
                         Name = "Requests / Hour",
-                        Used = "88.0%",
+                        Description = "88.0%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
                         QuotaBucketKind = WindowKind.ModelSpecific,
                         NextResetTime = new DateTime(2026, 3, 12, 15, 10, 0),
@@ -196,14 +196,14 @@ public sealed class ProviderUsageDisplayCatalogTests
                     new()
                     {
                         Name = "Requests / Minute",
-                        Used = "67.9%",
+                        Description = "67.9%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
                         QuotaBucketKind = WindowKind.Burst,
                     },
                     new()
                     {
                         Name = "Requests / Hour",
-                        Used = "88.0%",
+                        Description = "88.0%",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
                         QuotaBucketKind = WindowKind.Rolling,
                     },
@@ -211,7 +211,7 @@ public sealed class ProviderUsageDisplayCatalogTests
                     {
                         Name = "Gemini 3.1 Pro Preview",
                         ModelName = "gemini-3.1-pro-preview",
-                        Used = "0.0%",
+                        Description = "0.0%",
                         DetailType = ProviderUsageDetailType.Model,
                         QuotaBucketKind = WindowKind.None,
                     },
@@ -371,21 +371,21 @@ public sealed class ProviderUsageDisplayCatalogTests
                 new()
                 {
                     Name = "Requests / Minute",
-                    Used = "67.9%",
+                    Description = "67.9%",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     QuotaBucketKind = WindowKind.Burst,
                 },
                 new()
                 {
                     Name = "Requests / Hour",
-                    Used = "88.0%",
+                    Description = "88.0%",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     QuotaBucketKind = WindowKind.Rolling,
                 },
                 new()
                 {
                     Name = "Requests / Day",
-                    Used = "97.5%",
+                    Description = "97.5%",
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     QuotaBucketKind = WindowKind.ModelSpecific,
                 },

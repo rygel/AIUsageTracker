@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: legacy fields set in test fixtures
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -36,7 +35,6 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 {
                     Name = "GPT OSS",
                     DetailType = ProviderUsageDetailType.Model,
-                    Used = "100%",
                     Description = "exhausted",
                 }),
         });
@@ -50,7 +48,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 {
                     Name = "Gemini 3 Flash",
                     DetailType = ProviderUsageDetailType.Model,
-                    Used = "20%",
+                    Description = "20% used",
                 }),
         });
 
@@ -81,7 +79,6 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 {
                     Name = "GPT OSS",
                     DetailType = ProviderUsageDetailType.Model,
-                    Used = "100%",
                     Description = "exhausted",
                 }),
         });
@@ -95,7 +92,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 {
                     Name = "Gemini 3 Flash",
                     DetailType = ProviderUsageDetailType.Model,
-                    Used = "20%",
+                    Description = "20% used",
                 }),
         });
 
@@ -122,7 +119,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 ProviderName = "Google Gemini",
                 RequestsUsed = 10,
                 RequestsAvailable = 100,
-                RequestsPercentage = 90,
+                UsedPercent = 90,
                 IsAvailable = true,
                 Description = "ok",
                 FetchedAt = DateTime.UtcNow.AddDays(-1),
@@ -133,7 +130,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                         Name = "Quota Bucket (Primary)",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
                         QuotaBucketKind = WindowKind.Burst,
-                        Used = "65.0%",
+                        Description = "65.0% used",
                     },
                 },
             },
@@ -147,7 +144,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 ProviderName = "Google Gemini",
                 RequestsUsed = 35,
                 RequestsAvailable = 100,
-                RequestsPercentage = 65,
+                UsedPercent = 65,
                 IsAvailable = true,
                 Description = "ok",
                 FetchedAt = DateTime.UtcNow,
@@ -159,7 +156,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                         ModelName = "gemini-3-flash-preview",
                         DetailType = ProviderUsageDetailType.Model,
                         QuotaBucketKind = WindowKind.None,
-                        Used = "65.0%",
+                        Description = "65.0% used",
                     },
                 },
             },
@@ -186,7 +183,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 ProviderName = "GitHub Copilot",
                 RequestsUsed = 0,
                 RequestsAvailable = 0,
-                RequestsPercentage = 0,
+                UsedPercent = 0,
                 IsAvailable = false,
                 Description = "Not authenticated. Please login in Settings.",
                 AccountName = "rygel",
@@ -218,7 +215,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 ProviderName = providerId,
                 RequestsUsed = 10,
                 RequestsAvailable = 100,
-                RequestsPercentage = 90,
+                UsedPercent = 90,
                 IsAvailable = true,
                 Description = "ok",
                 AccountName = accountName,
@@ -250,7 +247,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 ProviderName = "GitHub Copilot",
                 RequestsUsed = 0,
                 RequestsAvailable = 0,
-                RequestsPercentage = 0,
+                UsedPercent = 0,
                 IsAvailable = false,
                 Description = "API Key missing",
                 FetchedAt = DateTime.UtcNow,
@@ -276,7 +273,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 ProviderName = "Custom Provider Experimental",
                 RequestsUsed = 5,
                 RequestsAvailable = 100,
-                RequestsPercentage = 95,
+                UsedPercent = 95,
                 IsAvailable = true,
                 Description = "Connected",
                 FetchedAt = DateTime.UtcNow,
@@ -303,7 +300,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                 ProviderName = "OpenAI Codex",
                 RequestsUsed = 1,
                 RequestsAvailable = 10,
-                RequestsPercentage = 10,
+                UsedPercent = 10,
                 IsAvailable = true,
                 Description = "Connected",
                 HttpStatus = 200,
@@ -339,7 +336,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
                     new()
                     {
                         Name = "Weekly Quota",
-                        Used = "14% used",
+                        Description = "14% used",
                         DetailType = ProviderUsageDetailType.QuotaWindow,
                         QuotaBucketKind = WindowKind.Rolling,
                         NextResetTime = weeklyReset,
@@ -389,7 +386,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
             ProviderName = "Google Antigravity",
             RequestsUsed = 10,
             RequestsAvailable = 100,
-            RequestsPercentage = 90,
+            UsedPercent = 90,
             IsAvailable = true,
             Description = "ok",
             FetchedAt = fetchedAtUtc,

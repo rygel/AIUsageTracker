@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // UsageUnit: informational legacy field read in export
-
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -49,7 +47,7 @@ public class ExportService
         else
         {
             var csv = new StringBuilder();
-            csv.AppendLine("Time,Provider,Model,Used,Cost,Unit,PlanType");
+            csv.AppendLine("Time,Provider,Model,Used,Cost,PlanType");
 
             foreach (var item in history)
             {
@@ -61,17 +59,18 @@ public class ExportService
                     foreach (var detail in item.Details)
                     {
                         var model = EscapeCsv(detail.Name);
-                        var used = EscapeCsv(detail.Used);
-
-                        // Try to parse cost if possible, or just dump used
-                        // The detail.Used often contains the unit, so we might inevitably duplicate it or just leave it as string
-                        csv.AppendLine($"{time},{provider},{model},{used},,{item.UsageUnit},{item.PlanType}");
+                        var used = detail.PercentageValue.HasValue
+                            ? $"{detail.PercentageValue.Value:F1}%"
+                            : EscapeCsv(detail.Description);
+                        csv.AppendLine($"{time},{provider},{model},{used},,{item.PlanType}");
                     }
                 }
                 else
                 {
-                    var used = item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
-                    csv.AppendLine($"{time},{provider},(Total),{used},,{item.UsageUnit},{item.PlanType}");
+                    var used = item.IsCurrencyUsage
+                        ? $"${item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
+                        : item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
+                    csv.AppendLine($"{time},{provider},(Total),{used},,{item.PlanType}");
                 }
             }
 

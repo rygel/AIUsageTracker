@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // Used/RequestsPercentage: fixture sets legacy fields for UI testing
-
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 
@@ -24,15 +22,15 @@ internal static class SettingsWindowDeterministicFixture
             CreateUsage(
                 new DeterministicProviderScenario(AntigravityProvider.StaticDefinition.ProviderId, "local-session"),
                 deterministicNow,
-                new FixtureUsageScenario(60.0, 0, 0, "60.0% Remaining", 6),
+                new FixtureUsageScenario(40.0, 0, 0, "60.0% Remaining", 6),
                 details: new List<ProviderUsageDetail>
                 {
-                    CreateDetail(deterministicNow, "Claude Opus 4.6 (Thinking)", "60%", 10),
-                    CreateDetail(deterministicNow, "Claude Sonnet 4.6 (Thinking)", "60%", 10),
-                    CreateDetail(deterministicNow, "Gemini 3 Flash", "100%", 6),
-                    CreateDetail(deterministicNow, "Gemini 3.1 Pro (High)", "100%", 14),
-                    CreateDetail(deterministicNow, "Gemini 3.1 Pro (Low)", "100%", 14),
-                    CreateDetail(deterministicNow, "GPT-OSS 120B (Medium)", "60%", 8),
+                    CreateDetail(deterministicNow, "Claude Opus 4.6 (Thinking)", 40.0, 10),
+                    CreateDetail(deterministicNow, "Claude Sonnet 4.6 (Thinking)", 40.0, 10),
+                    CreateDetail(deterministicNow, "Gemini 3 Flash", 0.0, 6),
+                    CreateDetail(deterministicNow, "Gemini 3.1 Pro (High)", 0.0, 14),
+                    CreateDetail(deterministicNow, "Gemini 3.1 Pro (Low)", 0.0, 14),
+                    CreateDetail(deterministicNow, "GPT-OSS 120B (Medium)", 40.0, 8),
                 }),
         };
 
@@ -84,9 +82,7 @@ internal static class SettingsWindowDeterministicFixture
             IsAvailable = isAvailable,
             IsQuotaBased = isQuotaBased,
             PlanType = planType,
-#pragma warning disable CS0618 // RequestsPercentage: test fixture pass-through
-            RequestsPercentage = usageScenario.RequestsPercentage,
-#pragma warning restore CS0618
+            UsedPercent = usageScenario.UsedPercent,
             RequestsUsed = usageScenario.RequestsUsed,
             RequestsAvailable = usageScenario.RequestsAvailable,
             Description = usageScenario.Description,
@@ -97,17 +93,18 @@ internal static class SettingsWindowDeterministicFixture
         };
     }
 
-    private static ProviderUsageDetail CreateDetail(DateTime deterministicNow, string name, string used, int resetHours)
+    private static ProviderUsageDetail CreateDetail(DateTime deterministicNow, string name, double usedPercent, int resetHours)
     {
-        return new ProviderUsageDetail
+        var detail = new ProviderUsageDetail
         {
             Name = name,
             ModelName = name,
             GroupName = "Recommended Group 1",
-            Used = used,
-            Description = $"{used} remaining",
+            Description = $"{100.0 - usedPercent:F0}% remaining",
             NextResetTime = deterministicNow.AddHours(resetHours),
         };
+        detail.SetPercentageValue(usedPercent, PercentageValueSemantic.Used);
+        return detail;
     }
 
     private static SettingsWindowHistoryRow CreateHistoryRow(string providerId, FixtureHistoryScenario scenario)

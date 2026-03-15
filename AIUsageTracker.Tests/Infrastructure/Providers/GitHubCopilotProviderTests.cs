@@ -72,7 +72,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         Assert.Equal("user123", usage.AccountName);
-        Assert.Equal(70.0, usage.RequestsPercentage);
+        Assert.Equal(30.0, usage.UsedPercent); // 70 remaining out of 100 = 30% used
         Assert.Contains("Copilot Individual", usage.AuthSource, StringComparison.Ordinal);
     }
 
@@ -125,7 +125,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         // Assert
         var usage = Assert.Single(result);
         Assert.True(usage.IsAvailable);
-        Assert.Equal(20.0, usage.RequestsPercentage);
+        Assert.Equal(80.0, usage.UsedPercent); // 20 remaining out of 100 = 80% used
         Assert.Equal(80.0, usage.RequestsUsed);
         Assert.Equal(100.0, usage.RequestsAvailable);
         Assert.Contains("Weekly Quota", usage.Description, StringComparison.Ordinal);
@@ -177,7 +177,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
 
         // Assert
         var usage = Assert.Single(result);
-        Assert.Equal(75.0, usage.RequestsPercentage);
+        Assert.Equal(25.0, usage.UsedPercent); // 150 remaining out of 200 = 25% used
         Assert.Equal(50.0, usage.RequestsUsed);
         Assert.Equal(200.0, usage.RequestsAvailable);
         Assert.Contains("5-hour Window", usage.Description, StringComparison.Ordinal);
@@ -292,7 +292,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         var usage = Assert.Single(result);
         Assert.True(usage.IsAvailable);
         Assert.Equal("snapshot-user", usage.AccountName);
-        Assert.Equal(50.6, usage.RequestsPercentage, 1);
+        Assert.Equal(49.4, usage.UsedPercent, 1); // percent_remaining=50.6, so UsedPercent = 100 - 50.6 = 49.4
         Assert.Equal(300.0, usage.RequestsAvailable);
         Assert.Equal(148.0, usage.RequestsUsed, 1);
         Assert.Equal("Copilot Individual", usage.AuthSource);
@@ -301,7 +301,6 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         var weekly = Assert.Single(
             usage.Details!.Where(d => string.Equals(d.Name, "Weekly Quota", StringComparison.Ordinal)));
         Assert.Equal(WindowKind.Rolling, weekly.QuotaBucketKind);
-        Assert.Contains("49% used", weekly.Used, StringComparison.Ordinal);
         Assert.Contains("152 / 300 remaining", weekly.Description, StringComparison.Ordinal);
     }
 }

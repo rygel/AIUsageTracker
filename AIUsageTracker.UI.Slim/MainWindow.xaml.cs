@@ -1537,7 +1537,6 @@ public partial class MainWindow : Window
 
         var presentation = ProviderSubDetailPresentationCatalog.Create(
             detail,
-            usage.IsQuotaBased,
             this.ShowUsedToggle?.IsChecked ?? false,
             this.GetRelativeTimeString);
 

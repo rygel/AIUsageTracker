@@ -18,9 +18,7 @@ internal static class WebProviderUsageMapper
             Description = row.status_message ?? string.Empty,
             RequestsUsed = (double)(row.requests_used ?? row.RequestsUsed ?? 0.0),
             RequestsAvailable = (double)(row.requests_available ?? row.RequestsAvailable ?? 0.0),
-#pragma warning disable CS0618 // RequestsPercentage: deserialization from database row
-            RequestsPercentage = (double)(row.requests_percentage ?? row.RequestsPercentage ?? 0.0),
-#pragma warning restore CS0618
+            UsedPercent = (double)(row.requests_percentage ?? row.UsedPercent ?? 0.0),
             ResponseLatencyMs = (double)(row.response_latency_ms ?? row.ResponseLatencyMs ?? 0.0),
             FetchedAt = DateTime.Parse(row.fetched_at ?? row.FetchedAt),
         };

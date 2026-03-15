@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-#pragma warning disable CS0618 // RequestsPercentage: legacy field verified in provider tests
-
 using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -30,13 +28,12 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     #region Quota Percentage Semantic Tests
 
     /// <summary>
-    /// Tests that RequestsPercentage stores REMAINING percentage for quota-based providers.
-    /// This is critical for correct UI display where usedPercent = 100 - RequestsPercentage.
+    /// Tests that UsedPercent stores the used percentage for quota-based providers.
     /// </summary>
     [Fact]
-    public async Task GetUsageAsync_ModerateUsage_ReturnsRemainingPercentageAsync()
+    public async Task GetUsageAsync_ModerateUsage_ReturnsUsedPercentageAsync()
     {
-        // Arrange - 35% used means 65% remaining
+        // Arrange - 35% used
         var responseJson = """
             {
                 "usage": {
@@ -55,20 +52,19 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         var usage = result.Single();
         Assert.True(usage.IsQuotaBased);
 
-        // CRITICAL: For quota-based providers, RequestsPercentage is REMAINING (100 - used)
-        // 35% used = 65% remaining
-        Assert.Equal(65, usage.RequestsPercentage);
+        // UsedPercent stores the actual used ratio: 35% used
+        Assert.Equal(35, usage.UsedPercent);
         Assert.Equal(350000, usage.RequestsUsed);
         Assert.Equal(1000000, usage.RequestsAvailable);
     }
 
     /// <summary>
-    /// Tests parsing when user is at high utilization (85% used = 15% remaining).
+    /// Tests parsing when user is at high utilization (85% used).
     /// </summary>
     [Fact]
-    public async Task GetUsageAsync_HighUsage_ReturnsCorrectRemainingAsync()
+    public async Task GetUsageAsync_HighUsage_ReturnsCorrectUsedPercentAsync()
     {
-        // Arrange - 85% used means 15% remaining
+        // Arrange - 85% used
         var responseJson = """
             {
                 "usage": {
@@ -86,18 +82,18 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
 
-        // For quota-based: RequestsPercentage = 100 - 85 = 15% remaining
-        Assert.Equal(15, usage.RequestsPercentage);
+        // UsedPercent = 85% used
+        Assert.Equal(85, usage.UsedPercent);
         Assert.Equal(850000, usage.RequestsUsed);
     }
 
     /// <summary>
-    /// Tests parsing when at 100% capacity (0% remaining).
+    /// Tests parsing when at 100% capacity.
     /// </summary>
     [Fact]
-    public async Task GetUsageAsync_AtCapacity_ReturnsZeroRemainingAsync()
+    public async Task GetUsageAsync_AtCapacity_ReturnsFullUsedAsync()
     {
-        // Arrange - 100% used means 0% remaining
+        // Arrange - 100% used
         var responseJson = """
             {
                 "usage": {
@@ -115,18 +111,18 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
 
-        // For quota-based: RequestsPercentage = 100 - 100 = 0% remaining
-        Assert.Equal(0, usage.RequestsPercentage);
+        // UsedPercent = 100% used
+        Assert.Equal(100, usage.UsedPercent);
         Assert.Equal(1000000, usage.RequestsUsed);
     }
 
     /// <summary>
-    /// Tests parsing with minimal usage (2% used = 98% remaining).
+    /// Tests parsing with minimal usage (2% used).
     /// </summary>
     [Fact]
-    public async Task GetUsageAsync_MinimalUsage_ReturnsHighRemainingAsync()
+    public async Task GetUsageAsync_MinimalUsage_ReturnsLowUsedPercentAsync()
     {
-        // Arrange - 2% used means 98% remaining
+        // Arrange - 2% used
         var responseJson = """
             {
                 "usage": {
@@ -144,18 +140,18 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
 
-        // For quota-based: RequestsPercentage = 100 - 2 = 98% remaining
-        Assert.Equal(98, usage.RequestsPercentage);
+        // UsedPercent = 2% used
+        Assert.Equal(2, usage.UsedPercent);
         Assert.Equal(20000, usage.RequestsUsed);
     }
 
     /// <summary>
-    /// Tests parsing with zero usage (0% used = 100% remaining).
+    /// Tests parsing with zero usage (0% used).
     /// </summary>
     [Fact]
-    public async Task GetUsageAsync_ZeroUsage_ReturnsFullRemainingAsync()
+    public async Task GetUsageAsync_ZeroUsage_ReturnsZeroUsedPercentAsync()
     {
-        // Arrange - 0% used means 100% remaining
+        // Arrange - 0% used
         var responseJson = """
             {
                 "usage": {
@@ -173,18 +169,18 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
 
-        // For quota-based: RequestsPercentage = 100 - 0 = 100% remaining
-        Assert.Equal(100, usage.RequestsPercentage);
+        // UsedPercent = 0% used
+        Assert.Equal(0, usage.UsedPercent);
         Assert.Equal(0, usage.RequestsUsed);
     }
 
     /// <summary>
-    /// Tests that usage over 100% is clamped to 0% remaining.
+    /// Tests that usage over 100% is clamped to 100%.
     /// </summary>
     [Fact]
-    public async Task GetUsageAsync_OverLimit_ClampsToZeroRemainingAsync()
+    public async Task GetUsageAsync_OverLimit_ClampsToMaxUsedAsync()
     {
-        // Arrange - 120% used should clamp to 0% remaining
+        // Arrange - 120% used should clamp to 100%
         var responseJson = """
             {
                 "usage": {
@@ -202,8 +198,8 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
 
-        // For quota-based: RequestsPercentage should clamp to 0 (not go negative)
-        Assert.Equal(0, usage.RequestsPercentage);
+        // UsedPercent should clamp to 100 (not go over)
+        Assert.Equal(100, usage.UsedPercent);
         Assert.Equal(1200000, usage.RequestsUsed);
     }
 
@@ -321,7 +317,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(90, usage.RequestsPercentage); // 10% used = 90% remaining
+        Assert.Equal(10, usage.UsedPercent); // 10% used
     }
 
     #endregion
@@ -449,7 +445,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(100, usage.RequestsPercentage); // 0 utilization = 100% remaining
+        Assert.Equal(0, usage.UsedPercent); // 0 utilization = 0% used
         Assert.Equal(0, usage.RequestsUsed);
         Assert.Equal(0, usage.RequestsAvailable);
     }
@@ -475,7 +471,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(55, usage.RequestsPercentage); // 45% used = 55% remaining
+        Assert.Equal(45, usage.UsedPercent); // 45% used
         Assert.Equal(45000000000, usage.RequestsUsed);
     }
 
@@ -506,7 +502,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_UsageUnit_IsTokensAsync()
+    public async Task GetUsageAsync_IsNotCurrencyUsage_ForTokenBasedProviderAsync()
     {
         // Arrange
         var responseJson = """
@@ -525,7 +521,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 
         // Assert
         var usage = result.Single();
-        Assert.Equal("Tokens", usage.UsageUnit);
+        Assert.False(usage.IsCurrencyUsage);
     }
 
     [Fact]

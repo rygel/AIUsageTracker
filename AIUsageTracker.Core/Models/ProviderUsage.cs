@@ -16,39 +16,22 @@ public class ProviderUsage
 
     public double RequestsAvailable { get; set; }
 
-    [Obsolete("Use UsedPercent or RemainingPercent for unambiguous semantics.")]
-    public double RequestsPercentage { get; set; }
-
     /// <summary>
-    /// Gets the percentage of quota/budget consumed (0–100), regardless of whether the provider is quota-based.
+    /// Gets or sets the percentage of quota/budget consumed (0–100), regardless of whether the provider is quota-based.
     /// </summary>
-    [JsonIgnore]
-    public double UsedPercent
-    {
-#pragma warning disable CS0618 // Computed from RequestsPercentage by design
-        get => this.IsQuotaBased
-            ? Math.Max(0, 100 - this.RequestsPercentage)
-            : this.RequestsPercentage;
-#pragma warning restore CS0618
-    }
+    [JsonPropertyName("used_percent")]
+    public double UsedPercent { get; set; }
 
     /// <summary>
     /// Gets the percentage of quota/budget remaining (0–100), regardless of whether the provider is quota-based.
     /// </summary>
     [JsonIgnore]
-    public double RemainingPercent
-    {
-#pragma warning disable CS0618 // Computed from RequestsPercentage by design
-        get => this.IsQuotaBased
-            ? this.RequestsPercentage
-            : Math.Max(0, 100 - this.RequestsPercentage);
-#pragma warning restore CS0618
-    }
+    public double RemainingPercent => Math.Max(0, 100.0 - this.UsedPercent);
 
     public PlanType PlanType { get; set; } = PlanType.Usage;
 
-    [Obsolete("Informational only. Use IsStatusOnly and other typed fields instead.")]
-    public string UsageUnit { get; set; } = "USD";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsCurrencyUsage { get; set; }
 
     public bool IsQuotaBased { get; set; }
 

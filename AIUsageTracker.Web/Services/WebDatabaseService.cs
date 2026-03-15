@@ -67,7 +67,7 @@ public class WebDatabaseService : IWebDatabaseRepository
                 h.provider_id AS ProviderId,
                 MIN(p.provider_name) AS ProviderName,
                 datetime((strftime('%s', h.fetched_at) / @BucketSeconds) * @BucketSeconds, 'unixepoch') AS Timestamp,
-                AVG(h.requests_percentage) AS RequestsPercentage,
+                AVG(h.requests_percentage) AS UsedPercent,
                 MAX(h.requests_used) AS RequestsUsed
             FROM provider_history h
             JOIN providers p ON h.provider_id = p.provider_id
