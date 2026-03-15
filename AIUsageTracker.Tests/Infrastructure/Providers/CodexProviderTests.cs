@@ -291,11 +291,21 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
                 d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
                      d.Name.Contains("Spark", StringComparison.OrdinalIgnoreCase));
 
-            // Spark detail must show 98% used (the secondary/weekly constraint),
+            // Spark QuotaWindow detail must show 98% used (the secondary/weekly constraint),
             // not 0% (the Spark 5h window that just reset).
-            var usedPercent = UsageMath.GetEffectiveUsedPercent(sparkDetail);
-            Assert.NotNull(usedPercent);
-            Assert.Equal(98, usedPercent!.Value, precision: 0);
+            var sparkQwUsed = UsageMath.GetEffectiveUsedPercent(sparkDetail);
+            Assert.NotNull(sparkQwUsed);
+            Assert.Equal(98, sparkQwUsed!.Value, precision: 0);
+
+            // The Model detail drives the codex.spark child card.
+            // It must also reflect the effective constraint (98% weekly) so the child
+            // card does not show the misleading "0% used" from the just-reset 5h window.
+            var modelDetail = Assert.Single(
+                parent.Details!,
+                d => d.DetailType == ProviderUsageDetailType.Model);
+            var modelUsed = UsageMath.GetEffectiveUsedPercent(modelDetail);
+            Assert.NotNull(modelUsed);
+            Assert.Equal(98, modelUsed!.Value, precision: 0);
         }
         finally
         {

@@ -549,6 +549,7 @@ public class CodexProvider : ProviderBase
         var remainingPercent = Math.Clamp(100.0 - effectiveUsedPercent, 0.0, 100.0);
         var details = BuildDetails(
             primaryUsedPercent,
+            effectiveUsedPercent,
             primaryResetSeconds,
             secondaryUsedPercent,
             secondaryResetSeconds,
@@ -627,6 +628,7 @@ public class CodexProvider : ProviderBase
 
     private static List<ProviderUsageDetail> BuildDetails(
         double primaryUsedPercent,
+        double effectiveUsedPercent,
         double? primaryResetSeconds,
         double? secondaryUsedPercent,
         double? secondaryResetSeconds,
@@ -635,6 +637,9 @@ public class CodexProvider : ProviderBase
         JsonElement root)
     {
         var primaryRemaining = Math.Clamp(100.0 - primaryUsedPercent, 0.0, 100.0);
+        // The Model detail drives the derived child card (e.g. codex.spark). Use the
+        // effective (most-constrained) remaining so the child matches the parent card.
+        var effectiveRemaining = Math.Clamp(100.0 - effectiveUsedPercent, 0.0, 100.0);
         var details = new List<ProviderUsageDetail>
         {
             new()
@@ -643,7 +648,7 @@ public class CodexProvider : ProviderBase
                 Description = "Model quota",
                 DetailType = ProviderUsageDetailType.Model,
                 QuotaBucketKind = WindowKind.Burst,
-                PercentageValue = primaryRemaining,
+                PercentageValue = effectiveRemaining,
                 PercentageSemantic = PercentageValueSemantic.Remaining,
             },
             new()
