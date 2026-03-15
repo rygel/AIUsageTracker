@@ -261,9 +261,8 @@ internal static class ProviderCardPresentationCatalog
 
     private static string GetQuotaPercentStatusText(ProviderUsage usage, bool showUsed)
     {
-        var clampedRemainingPercent = UsageMath.ClampPercent(usage.RemainingPercent);
         return showUsed
-            ? $"{100.0 - clampedRemainingPercent:F0}% used"
-            : $"{clampedRemainingPercent:F0}% remaining";
+            ? $"{UsageMath.ClampPercent(usage.UsedPercent):F0}% used"
+            : $"{UsageMath.ClampPercent(usage.RemainingPercent):F0}% remaining";
     }
 }

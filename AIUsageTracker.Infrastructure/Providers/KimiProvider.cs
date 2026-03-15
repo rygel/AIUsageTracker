@@ -92,10 +92,6 @@ public class KimiProvider : ProviderBase
             double limit = data.Usage.Limit;
             double remaining = data.Usage.Remaining;
 
-            var remainingPercentage = limit > 0
-                ? UsageMath.CalculateRemainingPercent(used, limit)
-                : 100.0;
-
             var description = "Active";
 
             // Limits Detail
@@ -104,8 +100,14 @@ public class KimiProvider : ProviderBase
             var details = new List<ProviderUsageDetail>();
             TimeSpan minDiff = TimeSpan.MaxValue;
 
-            // Add weekly limit from usage as Secondary detail (always, as this is the primary quota)
-            if (limit > 0 && remaining >= 0)
+            // Add weekly limit from usage only when data.Limits has no 7-day (Rolling) entry.
+            // If data.Limits already has a 7-day window, it provides the authoritative weekly detail;
+            // adding a duplicate Rolling entry here would cause the dual bar to show two
+            // "Weekly" buckets with potentially inconsistent values (e.g. 25% vs 75%).
+            var hasRollingFromLimits = data.Limits?.Any(l =>
+                l.Window != null && DetermineWindowKind(l.Window.Duration, l.Window.TimeUnit) == WindowKind.Rolling) ?? false;
+
+            if (limit > 0 && remaining >= 0 && !hasRollingFromLimits)
             {
                 var weeklyUsedPct = UsageMath.CalculateUsedPercent(used, limit);
                 DateTime? weeklyResetDt = null;

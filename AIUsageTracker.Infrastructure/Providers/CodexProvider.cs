@@ -562,8 +562,8 @@ public class CodexProvider : ProviderBase
             {
                 ProviderId = this.ProviderId,
                 ProviderName = StaticDefinition.DisplayName,
-                UsedPercent = 100.0 - remainingPercent,
-                RequestsUsed = 100.0 - remainingPercent,
+                UsedPercent = effectiveUsedPercent,
+                RequestsUsed = effectiveUsedPercent,
                 RequestsAvailable = 100.0,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,

@@ -37,10 +37,9 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
             .ToList();
 
         var firstDetail = orderedBuckets[0];
-        var secondDetail = orderedBuckets.Skip(1).FirstOrDefault(d => d.QuotaBucketKind != firstDetail.QuotaBucketKind)
-                           ?? orderedBuckets[1];
+        var secondDetail = orderedBuckets.Skip(1).FirstOrDefault(d => d.QuotaBucketKind != firstDetail.QuotaBucketKind);
 
-        if (firstDetail == secondDetail)
+        if (secondDetail == null)
         {
             return false;
         }

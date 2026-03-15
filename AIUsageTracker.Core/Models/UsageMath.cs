@@ -185,7 +185,6 @@ public static class UsageMath
         {
             PercentageValueSemantic.Used => typedPercent,
             PercentageValueSemantic.Remaining => ClampPercent(100.0 - typedPercent),
-            _ when detail.DetailType == ProviderUsageDetailType.QuotaWindow => ClampPercent(100.0 - typedPercent),
             _ => typedPercent,
         };
     }

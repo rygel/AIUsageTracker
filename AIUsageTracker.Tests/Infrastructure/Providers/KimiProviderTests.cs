@@ -174,9 +174,9 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Equal(2600, usage.RequestsUsed);
         Assert.Equal(10000, usage.RequestsAvailable);
 
-        // Should have 3 details: Weekly (from usage), 5h limit, 7d limit
+        // Should have 2 details: 5h limit + 7d limit (Weekly-from-usage is skipped when a 7d entry exists in data.Limits)
         Assert.NotNull(usage.Details);
-        Assert.Equal(3, usage.Details!.Count);
+        Assert.Equal(2, usage.Details!.Count);
 
         // Verify 5-hour limit is Primary
         var primaryDetail = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
@@ -433,13 +433,13 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Assert
         var usage = result.Single();
         Assert.NotNull(usage.Details);
-        Assert.Equal(3, usage.Details.Count); // Weekly from usage + Hourly + Weekly from limits
+        Assert.Equal(2, usage.Details.Count); // Hourly (Burst) + Weekly from limits (Rolling); weekly-from-usage is skipped when a 7d entry exists in data.Limits
 
         var hourlyDetail = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
         var weeklyDetails = usage.Details.Where(d => d.QuotaBucketKind == WindowKind.Rolling).ToList();
 
         Assert.NotNull(hourlyDetail);
-        Assert.Equal(2, weeklyDetails.Count); // Both weekly limit from usage and from limits array
+        Assert.Equal(1, weeklyDetails.Count); // Only the 7d limit from limits array
         Assert.Equal("Hourly Limit", hourlyDetail.Name);
 
         // Verify description contains remaining count format
