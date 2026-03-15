@@ -1004,29 +1004,53 @@ public partial class SettingsWindow : Window
 
         foreach (var definition in providers)
         {
-            this.ProviderCardVisibilityPanel.Children.Add(new TextBlock
-            {
-                Text = definition.DisplayName,
-                FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 0, 0, 4),
-                Foreground = (Brush)this.FindResource("SecondaryText"),
-            });
+            var items = definition.MainWindowVisibilityItems;
+            var isSelfEntry = items.Count == 1 &&
+                              string.Equals(items[0].ItemId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
 
-            for (var i = 0; i < definition.MainWindowVisibilityItems.Count; i++)
+            if (isSelfEntry)
             {
-                var (itemId, label) = definition.MainWindowVisibilityItems[i];
-                var isLast = i == definition.MainWindowVisibilityItems.Count - 1;
+                // Standalone provider: single flat checkbox — no separate heading needed.
+                var (itemId, label) = items[0];
                 var checkBox = new CheckBox
                 {
                     Content = label,
                     Tag = itemId,
                     IsChecked = !hidden.Contains(itemId, StringComparer.OrdinalIgnoreCase),
-                    Margin = new Thickness(15, 2, 0, isLast ? 20 : 2),
+                    Margin = new Thickness(0, 2, 0, 6),
                     Foreground = (Brush)this.FindResource("SecondaryText"),
                 };
                 checkBox.Checked += this.ProviderVisibility_Changed;
                 checkBox.Unchecked += this.ProviderVisibility_Changed;
                 this.ProviderCardVisibilityPanel.Children.Add(checkBox);
+            }
+            else
+            {
+                // Multi-item provider (e.g. SyntheticAggregateChildren): bold heading + indented checkboxes.
+                this.ProviderCardVisibilityPanel.Children.Add(new TextBlock
+                {
+                    Text = definition.DisplayName,
+                    FontWeight = FontWeights.SemiBold,
+                    Margin = new Thickness(0, 0, 0, 4),
+                    Foreground = (Brush)this.FindResource("SecondaryText"),
+                });
+
+                for (var i = 0; i < items.Count; i++)
+                {
+                    var (itemId, label) = items[i];
+                    var isLast = i == items.Count - 1;
+                    var checkBox = new CheckBox
+                    {
+                        Content = label,
+                        Tag = itemId,
+                        IsChecked = !hidden.Contains(itemId, StringComparer.OrdinalIgnoreCase),
+                        Margin = new Thickness(15, 2, 0, isLast ? 20 : 2),
+                        Foreground = (Brush)this.FindResource("SecondaryText"),
+                    };
+                    checkBox.Checked += this.ProviderVisibility_Changed;
+                    checkBox.Unchecked += this.ProviderVisibility_Changed;
+                    this.ProviderCardVisibilityPanel.Children.Add(checkBox);
+                }
             }
         }
     }

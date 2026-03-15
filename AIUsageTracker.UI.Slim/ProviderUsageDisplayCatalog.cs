@@ -9,11 +9,22 @@ namespace AIUsageTracker.UI.Slim;
 
 internal static class ProviderUsageDisplayCatalog
 {
-    public static ProviderRenderPreparation PrepareForMainWindow(IReadOnlyCollection<ProviderUsage> usages)
+    public static ProviderRenderPreparation PrepareForMainWindow(
+        IReadOnlyCollection<ProviderUsage> usages,
+        IEnumerable<string>? hiddenItemIds = null)
     {
         var filteredUsages = usages
             .Where(usage => ProviderMetadataCatalog.ShouldShowInMainWindow(usage.ProviderId ?? string.Empty))
             .ToList();
+
+        if (hiddenItemIds != null)
+        {
+            var hiddenSet = new HashSet<string>(hiddenItemIds, StringComparer.OrdinalIgnoreCase);
+            filteredUsages = filteredUsages
+                .Where(u => !hiddenSet.Contains(u.ProviderId ?? string.Empty))
+                .ToList();
+        }
+
         var collapsedParentProviderIds = ResolveCollapsedParentProviderIds(filteredUsages);
 
         filteredUsages = filteredUsages

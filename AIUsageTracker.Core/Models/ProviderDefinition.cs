@@ -132,7 +132,9 @@ public sealed class ProviderDefinition
 
     /// <summary>
     /// Gets the main-window visibility items.
-    /// When not overridden, auto-derives from QuotaWindows for SyntheticAggregateChildren mode.
+    /// For SyntheticAggregateChildren providers, auto-derives one item per QuotaWindow child.
+    /// For standalone providers with ShowInMainWindow=true, returns a single self-referential entry
+    /// so the provider card itself can be hidden by the user.
     /// </summary>
     public IReadOnlyList<(string ItemId, string Label)> MainWindowVisibilityItems =>
         this.MainWindowVisibilityItemsOverride
@@ -141,7 +143,9 @@ public sealed class ProviderDefinition
                 .Where(w => w.ChildProviderId != null)
                 .Select(w => (w.ChildProviderId!, w.SettingsLabel ?? w.DualBarLabel))
                 .ToArray()
-            : Array.Empty<(string, string)>());
+            : this.ShowInMainWindow
+                ? new[] { (this.ProviderId, this.DisplayName) }
+                : Array.Empty<(string, string)>());
 
     /// <summary>
     /// Gets or inits an explicit override for MainWindowVisibilityItems.

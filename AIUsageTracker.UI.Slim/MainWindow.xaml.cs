@@ -1023,7 +1023,7 @@ public partial class MainWindow : Window
         {
             this.LogDiagnostic($"[DIAGNOSTIC] Rendering {usagesCopy.Count} providers...");
 
-            var renderPreparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usagesCopy);
+            var renderPreparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usagesCopy, this._preferences.HiddenProviderItemIds);
             var filteredUsages = renderPreparation.DisplayableUsages;
 
             this.LogDiagnostic(
