@@ -1,3 +1,7 @@
+// <copyright file="AIModelConfig.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Text.Json.Serialization;
 
 namespace AIUsageTracker.Core.Models;
@@ -11,9 +15,8 @@ public class AIModelConfig
     public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("matches")]
-    public List<string> Matches { get; set; } = new();
+    public IReadOnlyList<string> Matches { get; set; } = [];
 
     [JsonPropertyName("color")]
     public string? Color { get; set; }
 }
-

@@ -1,3 +1,7 @@
+// <copyright file="IProviderService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Core.Interfaces;
@@ -5,15 +9,13 @@ namespace AIUsageTracker.Core.Interfaces;
 public interface IProviderService
 {
     string ProviderId { get; }
+
     ProviderDefinition Definition { get; }
 
     bool CanHandleProviderId(string providerId)
     {
-        return Definition.HandlesProviderId(providerId);
+        return this.Definition.HandlesProviderId(providerId);
     }
 
     Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null);
 }
-
-
-

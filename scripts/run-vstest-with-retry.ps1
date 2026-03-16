@@ -7,6 +7,7 @@ param(
 
     [string]$ResultsDirectory = "TestResults",
     [string]$QuarantineFile = ".github\test-quarantine.txt",
+    [string]$AdditionalTestCaseFilter = "",
     [int]$MaxRetries = 1,
     [int]$AttemptTimeoutMinutes = 10,
     [int]$HangTimeoutSeconds = 90
@@ -44,7 +45,7 @@ $testCaseFilter = $null
 if (Test-Path -LiteralPath $QuarantineFile) {
     $quarantinedTests = Get-Content -LiteralPath $QuarantineFile |
         ForEach-Object { $_.Trim() } |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and -not $_.StartsWith("#", [System.StringComparison]::Ordinal) }
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and -not $_.StartsWith("#", [System.StringComparison]::Ordinal) } |
         ForEach-Object {
             $parts = $_ -split "\|"
             $parts[0].Trim()
@@ -55,6 +56,15 @@ if (Test-Path -LiteralPath $QuarantineFile) {
     if ($quarantinedTests.Count -gt 0) {
         $testCaseFilter = ($quarantinedTests | ForEach-Object { "FullyQualifiedName!=$_" }) -join "&"
         Write-Host "Applying quarantine filter with $($quarantinedTests.Count) test(s)." -ForegroundColor Yellow
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($AdditionalTestCaseFilter)) {
+    if ([string]::IsNullOrWhiteSpace($testCaseFilter)) {
+        $testCaseFilter = $AdditionalTestCaseFilter
+    }
+    else {
+        $testCaseFilter = "($testCaseFilter)&($AdditionalTestCaseFilter)"
     }
 }
 

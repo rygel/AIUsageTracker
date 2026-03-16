@@ -52,6 +52,18 @@ paths:
                 items:
                   $ref: "#/components/schemas/ProviderUsage"
 
+  /api/usage/grouped:
+    get:
+      summary: Latest usage grouped by provider with nested model rows
+      operationId: getGroupedUsage
+      responses:
+        "200":
+          description: Canonical grouped provider usage snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GroupedUsageSnapshot"
+
   /api/usage/{providerId}:
     get:
       summary: Latest usage for a specific provider
@@ -139,38 +151,6 @@ paths:
       responses:
         "200":
           description: Configuration removed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-
-  /api/preferences:
-    get:
-      summary: Get app preferences (legacy)
-      description: Deprecated. UI preferences are no longer owned by the Agent API and should be stored by each UI client locally.
-      operationId: getPreferences
-      deprecated: true
-      responses:
-        "200":
-          description: Current preferences
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AppPreferences"
-    post:
-      summary: Save app preferences (legacy)
-      description: Deprecated. UI preferences are no longer owned by the Agent API and should be stored by each UI client locally.
-      operationId: savePreferences
-      deprecated: true
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AppPreferences"
-      responses:
-        "200":
-          description: Preferences saved
           content:
             application/json:
               schema:
@@ -268,7 +248,7 @@ components:
   schemas:
     HealthResponse:
       type: object
-      required: [status, timestamp, port, process_id]
+      required: [status, timestamp, port, process_id, contract_version]
       properties:
         status:
           type: string
@@ -280,10 +260,24 @@ components:
           type: integer
         process_id:
           type: integer
+        contract_version:
+          type: string
+          description: Canonical Monitor API contract version.
+          example: "1"
+        api_contract_version:
+          type: string
+          description: Legacy alias for contract_version. Accepted for backward-compatible deserialization and may be omitted in responses.
+        min_client_contract_version:
+          type: string
+          description: Minimum client contract version accepted by this monitor.
+          example: "1"
+        min_client_api_contract_version:
+          type: string
+          description: Legacy alias for min_client_contract_version. Accepted for backward-compatible deserialization and may be omitted in responses.
 
     DiagnosticsResponse:
       type: object
-      required: [port, process_id, working_dir, base_dir, started_at, os, runtime, args, endpoints, refresh_telemetry]
+      required: [port, process_id, working_dir, base_dir, started_at, os, runtime, args, endpoints, refresh_telemetry, scheduler_telemetry, pipeline_telemetry, observability]
       properties:
         port:
           type: integer
@@ -310,6 +304,12 @@ components:
             $ref: "#/components/schemas/EndpointDescriptor"
         refresh_telemetry:
           $ref: "#/components/schemas/RefreshTelemetrySnapshot"
+        scheduler_telemetry:
+          $ref: "#/components/schemas/MonitorJobSchedulerSnapshot"
+        pipeline_telemetry:
+          $ref: "#/components/schemas/ProviderUsageProcessingTelemetrySnapshot"
+        observability:
+          $ref: "#/components/schemas/MonitorObservabilitySnapshot"
 
     EndpointDescriptor:
       type: object
@@ -318,6 +318,15 @@ components:
         route:
           type: string
         methods:
+          type: array
+          items:
+            type: string
+
+    MonitorObservabilitySnapshot:
+      type: object
+      required: [activity_source_names]
+      properties:
+        activity_source_names:
           type: array
           items:
             type: string
@@ -351,6 +360,82 @@ components:
         last_error:
           type: string
           nullable: true
+
+    MonitorJobSchedulerSnapshot:
+      type: object
+      required: [high_priority_queued_jobs, normal_priority_queued_jobs, low_priority_queued_jobs, total_queued_jobs, recurring_jobs, executed_jobs, failed_jobs, enqueued_jobs, dequeued_jobs, coalesced_skipped_jobs, dispatch_noop_signals, in_flight_jobs]
+      properties:
+        high_priority_queued_jobs:
+          type: integer
+        normal_priority_queued_jobs:
+          type: integer
+        low_priority_queued_jobs:
+          type: integer
+        total_queued_jobs:
+          type: integer
+        recurring_jobs:
+          type: integer
+        executed_jobs:
+          type: integer
+          format: int64
+        failed_jobs:
+          type: integer
+          format: int64
+        enqueued_jobs:
+          type: integer
+          format: int64
+        dequeued_jobs:
+          type: integer
+          format: int64
+        coalesced_skipped_jobs:
+          type: integer
+          format: int64
+        dispatch_noop_signals:
+          type: integer
+          format: int64
+        in_flight_jobs:
+          type: integer
+          format: int64
+
+    ProviderUsageProcessingTelemetrySnapshot:
+      type: object
+      required: [total_processed_entries, total_accepted_entries, total_rejected_entries, invalid_identity_count, inactive_provider_filtered_count, placeholder_filtered_count, detail_contract_adjusted_count, normalized_count, privacy_redacted_count, last_run_total_entries, last_run_accepted_entries]
+      properties:
+        total_processed_entries:
+          type: integer
+          format: int64
+        total_accepted_entries:
+          type: integer
+          format: int64
+        total_rejected_entries:
+          type: integer
+          format: int64
+        invalid_identity_count:
+          type: integer
+          format: int64
+        inactive_provider_filtered_count:
+          type: integer
+          format: int64
+        placeholder_filtered_count:
+          type: integer
+          format: int64
+        detail_contract_adjusted_count:
+          type: integer
+          format: int64
+        normalized_count:
+          type: integer
+          format: int64
+        privacy_redacted_count:
+          type: integer
+          format: int64
+        last_processed_at_utc:
+          type: string
+          format: date-time
+          nullable: true
+        last_run_total_entries:
+          type: integer
+        last_run_accepted_entries:
+          type: integer
 
     MessageResponse:
       type: object
@@ -447,6 +532,11 @@ components:
           nullable: true
         http_status:
           type: integer
+        upstream_response_validity:
+          type: string
+          enum: [unknown, not_attempted, valid, invalid]
+        upstream_response_note:
+          type: string
       required:
         - provider_id
         - provider_name
@@ -456,6 +546,149 @@ components:
         - plan_type
         - is_available
         - description
+
+    GroupedModelUsage:
+      type: object
+      properties:
+        model_id:
+          type: string
+        model_name:
+          type: string
+        used_percentage:
+          type: number
+          format: double
+          nullable: true
+        remaining_percentage:
+          type: number
+          format: double
+          nullable: true
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+        effective_used_percentage:
+          type: number
+          format: double
+          nullable: true
+        effective_remaining_percentage:
+          type: number
+          format: double
+          nullable: true
+        effective_next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        effective_description:
+          type: string
+          nullable: true
+        quota_buckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupedQuotaBucketUsage"
+      required:
+        - model_id
+        - model_name
+        - description
+        - quota_buckets
+
+    GroupedQuotaBucketUsage:
+      type: object
+      properties:
+        bucket_id:
+          type: string
+        bucket_name:
+          type: string
+        used_percentage:
+          type: number
+          format: double
+          nullable: true
+        remaining_percentage:
+          type: number
+          format: double
+          nullable: true
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+      required:
+        - bucket_id
+        - bucket_name
+        - description
+
+    GroupedProviderUsage:
+      type: object
+      properties:
+        provider_id:
+          type: string
+        provider_name:
+          type: string
+        account_name:
+          type: string
+        is_available:
+          type: boolean
+        plan_type:
+          $ref: "#/components/schemas/PlanType"
+        is_quota_based:
+          type: boolean
+        requests_used:
+          type: number
+          format: double
+        requests_available:
+          type: number
+          format: double
+        requests_percentage:
+          type: number
+          format: double
+        description:
+          type: string
+        fetched_at:
+          type: string
+          format: date-time
+        next_reset_time:
+          type: string
+          format: date-time
+          nullable: true
+        model_count:
+          type: integer
+        models:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupedModelUsage"
+      required:
+        - provider_id
+        - provider_name
+        - account_name
+        - is_available
+        - plan_type
+        - is_quota_based
+        - requests_used
+        - requests_available
+        - requests_percentage
+        - description
+        - fetched_at
+        - model_count
+        - models
+
+    GroupedUsageSnapshot:
+      type: object
+      properties:
+        contract_version:
+          type: string
+        generated_at_utc:
+          type: string
+          format: date-time
+        providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/GroupedProviderUsage"
+      required:
+        - contract_version
+        - generated_at_utc
+        - providers
 
     AIModelConfig:
       type: object

@@ -1,0 +1,46 @@
+{
+  "buckets": [
+    {
+      "resetTime": "2026-03-12T14:38:28Z",
+      "tokenType": "REQUESTS",
+      "modelId": "gemini-2.0-flash",
+      "remainingFraction": 0.6446667
+    },
+    {
+      "resetTime": "2026-03-12T14:38:28Z",
+      "tokenType": "REQUESTS",
+      "modelId": "gemini-2.5-flash",
+      "remainingFraction": 0.6446667
+    },
+    {
+      "resetTime": "2026-03-12T14:35:02Z",
+      "tokenType": "REQUESTS",
+      "modelId": "gemini-2.5-flash-lite",
+      "remainingFraction": 0.9673333
+    },
+    {
+      "resetTime": "2026-03-12T17:22:02Z",
+      "tokenType": "REQUESTS",
+      "modelId": "gemini-2.5-pro",
+      "remainingFraction": 0.0
+    },
+    {
+      "resetTime": "2026-03-12T14:38:28Z",
+      "tokenType": "REQUESTS",
+      "modelId": "gemini-3-flash-preview",
+      "remainingFraction": 0.6446667
+    },
+    {
+      "resetTime": "2026-03-12T17:22:02Z",
+      "tokenType": "REQUESTS",
+      "modelId": "gemini-3-pro-preview",
+      "remainingFraction": 0.0
+    },
+    {
+      "resetTime": "2026-03-12T17:22:02Z",
+      "tokenType": "REQUESTS",
+      "modelId": "gemini-3.1-pro-preview",
+      "remainingFraction": 0.0
+    }
+  ]
+}

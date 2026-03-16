@@ -1,7 +1,11 @@
-using Xunit;
+// <copyright file="UpdateMapperTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Mappers;
 using NetSparkleUpdater;
+using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 
@@ -18,7 +22,7 @@ public class UpdateMapperTests
             DownloadUrl = "https://example.com/download.exe",
             ReleaseUrl = "https://example.com/release",
             ReleaseNotes = "New features",
-            PublishedAt = now
+            PublishedAt = now,
         };
 
         // Act
@@ -39,7 +43,7 @@ public class UpdateMapperTests
         var info = new AIUsageTracker.Core.Interfaces.UpdateInfo
         {
             Version = "1.7.14",
-            DownloadUrl = "https://example.com/download.exe"
+            DownloadUrl = "https://example.com/download.exe",
         };
 
         // Act
@@ -49,4 +53,3 @@ public class UpdateMapperTests
         Assert.Equal("1.7.14", item.Version);
     }
 }
-

@@ -1,4 +1,10 @@
+// <copyright file="OpenCodeZenProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -8,238 +14,486 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class OpenCodeZenProvider : ProviderBase
 {
-    public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "opencode-zen",
-        displayName: "OpenCode Zen",
-        planType: PlanType.Usage,
-        isQuotaBased: false,
-        defaultConfigType: "pay-as-you-go",
-        autoIncludeWhenUnconfigured: true);
+    private const string ProviderDisplayName = "OpenCode Zen";
+    private const string DefaultCliCommand = "opencode";
+    private static readonly TimeSpan DefaultCliTimeout = TimeSpan.FromSeconds(20);
+    private static readonly Regex[] CleanupPatterns =
+    {
+        new("\u001b\\[[0-9;]*m", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)),
+        new("\u001b\\[K", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)),
+        new("[0-9]+A", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)),
+        new("\u001b\\[[0-9]*;[0-9]*m", RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)),
+    };
 
-    public override ProviderDefinition Definition => StaticDefinition;
-    public override string ProviderId => StaticDefinition.ProviderId;
+    private static readonly Regex SeparatorRegex = new(
+        @"─{44,}",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking,
+        TimeSpan.FromSeconds(1));
+
+    private static readonly Regex ModelUsageRegex = new(
+        @"(?<model>[^\n]+)\s+Messages\s+(?<messages>[0-9,]+)\s+Input Tokens\s+(?<input>[0-9.,KM]+)\s+Output Tokens\s+(?<output>[0-9.,KM]+)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking,
+        TimeSpan.FromSeconds(1));
+
+    private static readonly Regex ToolUsageRegex = new(
+        @"(?<tool>\w+)\s+[█]+(?<count>[0-9]+)\s+\((?<percentage>[\d.]+)%\)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking,
+        TimeSpan.FromSeconds(1));
+
     private readonly ILogger<OpenCodeZenProvider> _logger;
+    private readonly TimeSpan _cliTimeout;
     private string _cliPath;
 
     public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger)
     {
-        _logger = logger;
-        // Default path - should be configurable in real app
-        _cliPath = OperatingSystem.IsWindows()
+        this._logger = logger;
+        this._cliTimeout = DefaultCliTimeout;
+        this._cliPath = OperatingSystem.IsWindows()
             ? @"C:\Users\Alexander\AppData\Roaming\npm\opencode.cmd"
-            : "opencode";
+            : DefaultCliCommand;
     }
 
-    public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger, string cliPath) : this(logger)
+    public OpenCodeZenProvider(ILogger<OpenCodeZenProvider> logger, string cliPath, TimeSpan? cliTimeout = null)
+        : this(logger)
     {
-        _cliPath = cliPath;
+        this._cliPath = cliPath;
+        this._cliTimeout = cliTimeout ?? this._cliTimeout;
     }
 
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public static ProviderDefinition StaticDefinition { get; } = new(
+        "opencode-zen",
+        ProviderDisplayName,
+        PlanType.Usage,
+        isQuotaBased: false,
+        defaultConfigType: "pay-as-you-go")
     {
-        // Check if CLI exists first
-        var pathExists = _cliPath == "opencode"
-            ? await IsInPath("opencode")
-            : File.Exists(_cliPath);
+        AutoIncludeWhenUnconfigured = true,
+        AdditionalHandledProviderIds = new[] { "opencode-go" },
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["opencode-go"] = "Opencode Go",
+        },
+        IsTooltipOnly = true,
+    };
+
+    /// <inheritdoc/>
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    /// <inheritdoc/>
+    public override string ProviderId => StaticDefinition.ProviderId;
+
+    /// <inheritdoc/>
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(
+        ProviderConfig config,
+        Action<ProviderUsage>? progressCallback = null)
+    {
+        var pathExists = string.Equals(this._cliPath, DefaultCliCommand, StringComparison.OrdinalIgnoreCase)
+            ? await this.IsInPathAsync(DefaultCliCommand).ConfigureAwait(false)
+            : File.Exists(this._cliPath);
 
         if (!pathExists)
         {
             return new[]
             {
-                new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "OpenCode Zen",
-                    IsAvailable = false,
-                    Description = "CLI not found at expected path",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    AuthSource = config.AuthSource,
-                    RawJson = $"CLI not found at path: {_cliPath}",
-                    HttpStatus = 404
-                }
+                CreateUnavailableUsage(
+                    this.ProviderId,
+                    "CLI not found at expected path",
+                    config.AuthSource,
+                    $"CLI not found at path: {this._cliPath}",
+                    404,
+                    ProviderUsageState.Missing),
             };
         }
 
         try
         {
-            var output = await RunCliAsync();
-            return new[] { ParseOutput(output, config) };
+            var output = await this.RunCliAsync().ConfigureAwait(false);
+            return new[] { this.ParseOutput(output, config) };
         }
         catch (Exception ex)
         {
-            _logger.LogWarning("OpenCode CLI failed: {Message}", ex.Message);
+            this._logger.LogWarning("OpenCode CLI failed: {Message}", ex.Message);
             return new[]
             {
-                new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "OpenCode Zen",
-                    IsAvailable = false,
-                    Description = $"CLI Error: {ex.Message} (Check log or clear storage if JSON error)",
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
-                    AuthSource = config.AuthSource,
-                    RawJson = ex.ToString(),
-                    HttpStatus = 500
-                }
+                CreateUnavailableUsage(
+                    this.ProviderId,
+                    $"CLI Error: {ex.Message} (Check log or clear storage if JSON error)",
+                    config.AuthSource,
+                    ex.ToString(),
+                    500),
             };
         }
+    }
+
+    private static ProviderUsage CreateUnavailableUsage(
+        string providerId,
+        string description,
+        string? authSource,
+        string rawJson,
+        int httpStatus,
+        ProviderUsageState state = ProviderUsageState.Error)
+    {
+        return new ProviderUsage
+        {
+            ProviderId = providerId,
+            ProviderName = ProviderDisplayName,
+            IsAvailable = false,
+            Description = description,
+            State = state,
+            IsQuotaBased = false,
+            PlanType = PlanType.Usage,
+            AuthSource = authSource ?? string.Empty,
+            RawJson = rawJson,
+            HttpStatus = httpStatus,
+        };
+    }
+
+    private static ProviderUsage CreateUsage(
+        string providerId,
+        ProviderConfig config,
+        string rawOutput,
+        double totalCost,
+        int sessions,
+        int messages,
+        int days,
+        List<ProviderUsageDetail> details)
+    {
+        return new ProviderUsage
+        {
+            ProviderId = providerId,
+            ProviderName = ProviderDisplayName,
+            UsedPercent = 0.0,
+            RequestsUsed = totalCost,
+            RequestsAvailable = 0.0,
+            IsCurrencyUsage = true,
+            IsQuotaBased = false,
+            PlanType = PlanType.Usage,
+            IsAvailable = true,
+            Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs, {days} days)",
+            Details = details,
+            AuthSource = config.AuthSource,
+            RawJson = rawOutput,
+            HttpStatus = 200,
+        };
+    }
+
+    private static List<ProviderUsageDetail> BuildDetails(string cleaned)
+    {
+        var details = new List<ProviderUsageDetail>();
+        AddOverviewDetails(details, cleaned);
+        AddTokenDetails(details, cleaned);
+        AddModelDetails(details, cleaned);
+        AddToolDetails(details, cleaned);
+        return details;
+    }
+
+    private static void AddOverviewDetails(List<ProviderUsageDetail> details, string cleaned)
+    {
+        var sessions = ParseValue<int>(cleaned, @"Sessions\s+([0-9,]+)");
+        var messages = ParseValue<int>(cleaned, @"Messages\s+([0-9,]+)");
+        var avgCostPerDay = ParseValue<double>(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
+
+        details.Add(CreateOtherDetail("Sessions", $"{sessions:N0} sessions"));
+        details.Add(CreateOtherDetail("Messages", $"{messages:N0} messages"));
+        details.Add(CreateOtherDetail("Avg Cost/Day", $"${avgCostPerDay:F2}"));
+    }
+
+    private static void AddTokenDetails(List<ProviderUsageDetail> details, string cleaned)
+    {
+        var inputTokens = ParseValue<double>(cleaned, @"Input\s+([0-9.,KM]+)");
+        var outputTokens = ParseValue<double>(cleaned, @"Output\s+([0-9.,KM]+)");
+        var cacheRead = ParseValue<double>(cleaned, @"Cache Read\s+([0-9.,KM]+)");
+        var cacheWrite = ParseValue<double>(cleaned, @"Cache Write\s+([0-9.,KM]+)");
+
+        details.Add(CreateOtherDetail("Input Tokens", FormatTokens(inputTokens)));
+        details.Add(CreateOtherDetail("Output Tokens", FormatTokens(outputTokens)));
+        details.Add(CreateOtherDetail("Cache Read", FormatTokens(cacheRead)));
+        details.Add(CreateOtherDetail("Cache Write", FormatTokens(cacheWrite)));
+    }
+
+    private static void AddModelDetails(List<ProviderUsageDetail> details, string cleaned)
+    {
+        foreach (var model in ParseModelUsage(cleaned).Take(5))
+        {
+            details.Add(CreateOtherDetail(
+                model.Name,
+                $"{model.Messages:N0} msgs | {FormatTokens(model.Tokens)} | ${model.Cost:F2}"));
+        }
+    }
+
+    private static void AddToolDetails(List<ProviderUsageDetail> details, string cleaned)
+    {
+        foreach (var tool in ParseToolUsage(cleaned).Take(5))
+        {
+            details.Add(CreateOtherDetail(
+                $"Tool: {tool.Name}",
+                $"{tool.Count:N0} uses ({tool.Percentage:F1}%)"));
+        }
+    }
+
+    private static ProviderUsageDetail CreateOtherDetail(string name, string description)
+    {
+        return new ProviderUsageDetail
+        {
+            Name = name,
+            Description = description,
+            DetailType = ProviderUsageDetailType.Other,
+            QuotaBucketKind = WindowKind.None,
+        };
+    }
+
+    private static string CleanAnsiOutput(string output)
+    {
+        var cleaned = output;
+        foreach (var pattern in CleanupPatterns)
+        {
+            cleaned = pattern.Replace(cleaned, string.Empty);
+        }
+
+        return cleaned;
+    }
+
+    private static T ParseValue<T>(string input, string pattern)
+        where T : struct
+    {
+        var match = Regex.Match(
+            input,
+            pattern,
+            RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture | RegexOptions.NonBacktracking,
+            TimeSpan.FromSeconds(1));
+        if (match.Success && match.Groups.Count > 1)
+        {
+            var valueText = match.Groups[1].Value.Replace(",", string.Empty, StringComparison.Ordinal);
+            if (typeof(T) == typeof(double) &&
+                double.TryParse(valueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var doubleValue))
+            {
+                return (T)(object)doubleValue;
+            }
+
+            if (typeof(T) == typeof(int) &&
+                int.TryParse(valueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var intValue))
+            {
+                return (T)(object)intValue;
+            }
+        }
+
+        return default;
+    }
+
+    private static string FormatTokens(double tokens)
+    {
+        if (tokens >= 1_000_000_000)
+        {
+            return (tokens / 1_000_000_000).ToString("F1", CultureInfo.InvariantCulture) + "B";
+        }
+
+        if (tokens >= 1_000_000)
+        {
+            return (tokens / 1_000_000).ToString("F1", CultureInfo.InvariantCulture) + "M";
+        }
+
+        if (tokens >= 1_000)
+        {
+            return (tokens / 1_000).ToString("F1", CultureInfo.InvariantCulture) + "K";
+        }
+
+        return tokens.ToString("F0", CultureInfo.InvariantCulture);
+    }
+
+    private static List<ModelUsage> ParseModelUsage(string input)
+    {
+        var modelBlocks = SeparatorRegex.Split(input)
+            .SkipWhile(block => !block.Contains("MODEL USAGE", StringComparison.Ordinal))
+            .Skip(1)
+            .FirstOrDefault();
+        if (string.IsNullOrEmpty(modelBlocks))
+        {
+            return new List<ModelUsage>();
+        }
+
+        return ModelUsageRegex.Matches(modelBlocks)
+            .Cast<Match>()
+            .Select(match => new ModelUsage
+            {
+                Name = match.Groups["model"].Value.Trim(),
+                Messages = int.Parse(
+                    match.Groups["messages"].Value.Replace(",", string.Empty, StringComparison.Ordinal),
+                    NumberStyles.Any,
+                    CultureInfo.InvariantCulture),
+                Tokens = ParseTokenCount(match.Groups["input"].Value) + ParseTokenCount(match.Groups["output"].Value),
+                Cost = 0.0,
+            })
+            .OrderByDescending(model => model.Cost)
+            .ToList();
+    }
+
+    private static List<ToolUsage> ParseToolUsage(string input)
+    {
+        var toolBlocks = SeparatorRegex.Split(input)
+            .SkipWhile(block => !block.Contains("TOOL USAGE", StringComparison.Ordinal))
+            .Skip(1)
+            .FirstOrDefault();
+        if (string.IsNullOrEmpty(toolBlocks))
+        {
+            return new List<ToolUsage>();
+        }
+
+        return ToolUsageRegex.Matches(toolBlocks)
+            .Cast<Match>()
+            .Select(match => new ToolUsage
+            {
+                Name = match.Groups["tool"].Value,
+                Count = int.Parse(match.Groups["count"].Value, NumberStyles.Any, CultureInfo.InvariantCulture),
+                Percentage = double.Parse(match.Groups["percentage"].Value, NumberStyles.Any, CultureInfo.InvariantCulture),
+            })
+            .OrderByDescending(tool => tool.Count)
+            .ToList();
+    }
+
+    private static double ParseTokenCount(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return 0;
+        }
+
+        var cleaned = value.Replace(",", string.Empty, StringComparison.Ordinal);
+        if (cleaned.EndsWith("B", StringComparison.Ordinal))
+        {
+            return double.Parse(cleaned[..^1], NumberStyles.Any, CultureInfo.InvariantCulture) * 1_000_000_000;
+        }
+
+        if (cleaned.EndsWith("M", StringComparison.Ordinal))
+        {
+            return double.Parse(cleaned[..^1], NumberStyles.Any, CultureInfo.InvariantCulture) * 1_000_000;
+        }
+
+        if (cleaned.EndsWith("K", StringComparison.Ordinal))
+        {
+            return double.Parse(cleaned[..^1], NumberStyles.Any, CultureInfo.InvariantCulture) * 1_000;
+        }
+
+        return double.Parse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture);
     }
 
     private async Task<string> RunCliAsync()
     {
-        var psi = new ProcessStartInfo
+        var processStartInfo = new ProcessStartInfo
         {
-            FileName = _cliPath,
+            FileName = this._cliPath,
             Arguments = "stats --days 7 --models 10",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
         };
 
-        using var process = Process.Start(psi);
+        using var process = Process.Start(processStartInfo);
         if (process == null)
         {
-            throw new Exception("Failed to start OpenCode CLI");
+            throw new InvalidOperationException("Failed to start OpenCode CLI");
         }
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await process.WaitForExitAsync(cts.Token);
+        var standardOutputTask = process.StandardOutput.ReadToEndAsync();
+        var standardErrorTask = process.StandardError.ReadToEndAsync();
 
+        using var cancellationTokenSource = new CancellationTokenSource(this._cliTimeout);
+        try
+        {
+            await process.WaitForExitAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                this._logger.LogDebug(ex, "Failed to kill timed-out OpenCode CLI process");
+            }
+
+            throw new TimeoutException($"OpenCode CLI timed out after {this._cliTimeout.TotalSeconds:F0}s");
+        }
+
+        var standardError = await standardErrorTask.ConfigureAwait(false);
         if (process.ExitCode != 0)
         {
-            var stderr = await process.StandardError.ReadToEndAsync();
-            throw new Exception($"CLI Error: {process.ExitCode} - {stderr}");
+            throw new InvalidOperationException($"CLI Error: {process.ExitCode} - {standardError}");
         }
 
-        return await process.StandardOutput.ReadToEndAsync();
+        return await standardOutputTask.ConfigureAwait(false);
     }
 
     private ProviderUsage ParseOutput(string output, ProviderConfig config)
     {
-        var totalCost = 0.0;
-        var sessions = 0;
-        var messages = 0;
-        var avgCostPerDay = 0.0;
+        var cleaned = CleanAnsiOutput(output);
+        var totalCost = ParseValue<double>(cleaned, @"Total Cost\s+\$([0-9.]+)");
+        var sessions = ParseValue<int>(cleaned, @"Sessions\s+([0-9,]+)");
+        var messages = ParseValue<int>(cleaned, @"Messages\s+([0-9,]+)");
+        var days = ParseValue<int>(cleaned, @"Days\s+(\d+)");
+        var details = BuildDetails(cleaned);
 
-        // Clean ANSI codes (simplified - remove common escape sequences)
-        var cleaned = output
-            .Replace("\u001b[", "")
-            .Replace("0m", "")
-            .Replace("1m", "")
-            .Replace("32m", "")
-            .Replace("36m", "")
-            .Replace("90m", "");
-
-        // Parse Total Cost
-        var costMatch = Regex.Match(cleaned, @"Total Cost\s+\$([0-9.]+)");
-        if (costMatch.Success && costMatch.Groups.Count > 1)
-        {
-            double.TryParse(costMatch.Groups[1].Value, out totalCost);
-        }
-
-        // Parse Sessions
-        var sessionsMatch = Regex.Match(cleaned, @"Sessions\s+([0-9,]+)");
-        if (sessionsMatch.Success && sessionsMatch.Groups.Count > 1)
-        {
-            int.TryParse(sessionsMatch.Groups[1].Value.Replace(",", ""), out sessions);
-        }
-
-        // Parse Messages
-        var messagesMatch = Regex.Match(cleaned, @"Messages\s+([0-9,]+)");
-        if (messagesMatch.Success && messagesMatch.Groups.Count > 1)
-        {
-            int.TryParse(messagesMatch.Groups[1].Value.Replace(",", ""), out messages);
-        }
-
-        // Parse Avg Cost/Day
-        var avgCostMatch = Regex.Match(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
-        if (avgCostMatch.Success && avgCostMatch.Groups.Count > 1)
-        {
-            double.TryParse(avgCostMatch.Groups[1].Value, out avgCostPerDay);
-        }
-
-        var details = new List<ProviderUsageDetail>
-        {
-            new ProviderUsageDetail
-            {
-                Name = "Sessions",
-                Description = $"{sessions} sessions",
-                DetailType = ProviderUsageDetailType.Other,
-                WindowKind = WindowKind.None
-            },
-            new ProviderUsageDetail
-            {
-                Name = "Messages",
-                Description = $"{messages} messages",
-                DetailType = ProviderUsageDetailType.Other,
-                WindowKind = WindowKind.None
-            },
-            new ProviderUsageDetail
-            {
-                Name = "Avg Cost/Day",
-                Description = $"${avgCostPerDay:F2}",
-                DetailType = ProviderUsageDetailType.Other,
-                WindowKind = WindowKind.None
-            }
-        };
-
-        return new ProviderUsage
-        {
-            ProviderId = ProviderId,
-            ProviderName = "OpenCode Zen",
-            RequestsPercentage = 0.0, // Pay as you go, no limit
-            RequestsUsed = totalCost,
-            RequestsAvailable = 0.0,
-            UsageUnit = "USD",
-            IsQuotaBased = false,
-            PlanType = PlanType.Usage,
-            IsAvailable = true,
-            Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs)",
-            Details = details,
-            AuthSource = config.AuthSource,
-            RawJson = output,
-            HttpStatus = 200
-        };
+        return CreateUsage(this.ProviderId, config, output, totalCost, sessions, messages, days, details);
     }
 
-    private async Task<bool> IsInPath(string command)
+    private async Task<bool> IsInPathAsync(string command)
     {
         try
         {
-            var psi = new ProcessStartInfo
+            var processStartInfo = new ProcessStartInfo
             {
                 FileName = OperatingSystem.IsWindows() ? "where" : "which",
                 Arguments = command,
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
             };
 
-            using var process = Process.Start(psi);
-            if (process != null)
+            using var process = Process.Start(processStartInfo);
+            if (process == null)
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                try
-                {
-                    await process.WaitForExitAsync(cts.Token);
-                    return process.ExitCode == 0;
-                }
-                catch (OperationCanceledException)
-                {
-                    return false;
-                }
+                return false;
+            }
+
+            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            try
+            {
+                await process.WaitForExitAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+                return process.ExitCode == 0;
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
             }
         }
         catch (Exception ex)
         {
-            _logger?.LogDebug("IsInPath check failed: {Message}", ex.Message);
+            this._logger.LogDebug("IsInPath check failed: {Message}", ex.Message);
+            return false;
         }
+    }
 
-        return false;
+    private sealed class ModelUsage
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public int Messages { get; set; }
+
+        public double Tokens { get; set; }
+
+        public double Cost { get; set; }
+    }
+
+    private sealed class ToolUsage
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public int Count { get; set; }
+
+        public double Percentage { get; set; }
     }
 }
-
-

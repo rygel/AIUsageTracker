@@ -1,3 +1,7 @@
+// <copyright file="ProviderException.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System;
 
 namespace AIUsageTracker.Core.Exceptions;
@@ -7,10 +11,6 @@ namespace AIUsageTracker.Core.Exceptions;
 /// </summary>
 public class ProviderException : Exception
 {
-    public string ProviderId { get; }
-    public ProviderErrorType ErrorType { get; }
-    public int? HttpStatusCode { get; }
-
     public ProviderException(
         string providerId,
         string message,
@@ -19,25 +19,14 @@ public class ProviderException : Exception
         Exception? innerException = null)
         : base(message, innerException)
     {
-        ProviderId = providerId ?? throw new ArgumentNullException(nameof(providerId));
-        ErrorType = errorType;
-        HttpStatusCode = httpStatusCode;
+        this.ProviderId = providerId ?? throw new ArgumentNullException(nameof(providerId));
+        this.ErrorType = errorType;
+        this.HttpStatusCode = httpStatusCode;
     }
-}
 
-/// <summary>
-/// Specific error types that can occur during provider operations.
-/// </summary>
-public enum ProviderErrorType
-{
-    Unknown,
-    ConfigurationError,
-    AuthenticationError,
-    AuthorizationError,
-    NetworkError,
-    TimeoutError,
-    RateLimitError,
-    ServerError,
-    DeserializationError,
-    InvalidResponseError
+    public string ProviderId { get; }
+
+    public ProviderErrorType ErrorType { get; }
+
+    public int? HttpStatusCode { get; }
 }

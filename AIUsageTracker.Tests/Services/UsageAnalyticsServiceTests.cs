@@ -1,3 +1,7 @@
+// <copyright file="UsageAnalyticsServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Caching.Memory;
@@ -12,27 +16,22 @@ public class UsageAnalyticsServiceTests
     private readonly Mock<IWebDatabaseRepository> _mockRepo = new();
     private readonly IMemoryCache _cache = new MemoryCache(new MemoryCacheOptions());
 
-    [Fact]
-    public async Task GetBurnRateForecastsAsync_WithEmptyProviderIds_ReturnsEmpty()
+    [Theory]
+    [InlineData("BurnRate")]
+    [InlineData("Reliability")]
+    [InlineData("Anomalies")]
+    public async Task AnalyticsMethod_WithEmptyProviderIds_ReturnsEmptyAsync(string method)
     {
-        var service = new UsageAnalyticsService(_mockRepo.Object, _cache, NullLogger<UsageAnalyticsService>.Instance);
-        var result = await service.GetBurnRateForecastsAsync(Enumerable.Empty<string>());
-        Assert.Empty(result);
-    }
+        var service = new UsageAnalyticsService(this._mockRepo.Object, this._cache, NullLogger<UsageAnalyticsService>.Instance);
+        var empty = Enumerable.Empty<string>();
 
-    [Fact]
-    public async Task GetProviderReliabilityAsync_WithEmptyProviderIds_ReturnsEmpty()
-    {
-        var service = new UsageAnalyticsService(_mockRepo.Object, _cache, NullLogger<UsageAnalyticsService>.Instance);
-        var result = await service.GetProviderReliabilityAsync(Enumerable.Empty<string>());
-        Assert.Empty(result);
-    }
+        var count = method switch
+        {
+            "BurnRate" => (await service.GetBurnRateForecastsAsync(empty)).Count(),
+            "Reliability" => (await service.GetProviderReliabilityAsync(empty)).Count(),
+            _ => (await service.GetUsageAnomaliesAsync(empty)).Count(),
+        };
 
-    [Fact]
-    public async Task GetUsageAnomaliesAsync_WithEmptyProviderIds_ReturnsEmpty()
-    {
-        var service = new UsageAnalyticsService(_mockRepo.Object, _cache, NullLogger<UsageAnalyticsService>.Instance);
-        var result = await service.GetUsageAnomaliesAsync(Enumerable.Empty<string>());
-        Assert.Empty(result);
+        Assert.Equal(0, count);
     }
 }

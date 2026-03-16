@@ -1,5 +1,6 @@
 @page
 @model IndexModel
+@using AIUsageTracker.Infrastructure.Providers
 @{
     ViewData["Title"] = "Dashboard";
 }
@@ -35,7 +36,7 @@
 
         @{
             var visibleUsage = (Model.LatestUsage ?? new List<AIUsageTracker.Core.Models.ProviderUsage>())
-                .Where(u => u.ProviderId != "antigravity" && (Model.ShowInactiveProviders || u.IsAvailable))
+                .Where(u => !ProviderMetadataCatalog.IsAggregateParentProviderId(u.ProviderId) && (Model.ShowInactiveProviders || u.IsAvailable))
                 .ToList();
         }
 
@@ -127,12 +128,7 @@
             <div class="provider-grid">
                 @foreach (var usage in visibleUsage)
                 {
-                    var isStatusOnlyProvider =
-                        usage.ProviderId.Equals("mistral", StringComparison.OrdinalIgnoreCase) ||
-                        usage.ProviderId.Equals("cloud-code", StringComparison.OrdinalIgnoreCase);
-                    var isStatusOnly =
-                        isStatusOnlyProvider ||
-                        string.Equals(usage.UsageUnit, "Status", StringComparison.OrdinalIgnoreCase);
+                    var isStatusOnly = usage.IsStatusOnly;
                     var hasUsableMetrics = usage.IsAvailable && !isStatusOnly;
                     var hasForecast = Model.ForecastsByProvider.TryGetValue(usage.ProviderId, out var forecast);
                     var hasAnomaly = Model.AnomaliesByProvider.TryGetValue(usage.ProviderId, out var anomalySnapshot);
@@ -140,14 +136,12 @@
                         ? anomalySnapshot
                         : AIUsageTracker.Core.Models.UsageAnomalySnapshot.Unavailable("Insufficient history");
 
-                    var displayPercentage = usage.IsQuotaBased
-                        ? (Model.ShowUsedPercentage ? (100 - usage.RequestsPercentage) : usage.RequestsPercentage)
-                        : (Model.ShowUsedPercentage ? usage.RequestsPercentage : (100 - usage.RequestsPercentage));
+                    var displayPercentage = Model.ShowUsedPercentage
+                        ? usage.UsedPercent
+                        : usage.RemainingPercent;
 
                     // Calculate used percentage for color (always based on used, regardless of toggle)
-                    var usedPercentage = usage.IsQuotaBased
-                        ? Math.Max(0, 100 - usage.RequestsPercentage)
-                        : usage.RequestsPercentage;
+                    var usedPercentage = usage.UsedPercent;
 
                     if (!hasUsableMetrics)
                     {
@@ -177,18 +171,8 @@
                         }
                         else
                         {
-                            if (usage.IsQuotaBased)
-                            {
-                                var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
-                                usageText = $"{displayPercentage:F1}% {modeText}";
-                            }
-                            else
-                            {
-                                var usedPercent = Math.Clamp(usage.RequestsPercentage, 0, 100);
-                                usageText = Model.ShowUsedPercentage
-                                    ? $"{usedPercent:F1}% used"
-                                    : $"{(100 - usedPercent):F1}% remaining";
-                            }
+                            var modeText = Model.ShowUsedPercentage ? "used" : "remaining";
+                            usageText = $"{displayPercentage:F1}% {modeText}";
                         }
                     }
                     
@@ -279,9 +263,15 @@
                                 <div id="sub-providers-@usage.ProviderId" class="sub-providers">
                                     @foreach (var detail in displayableDetails)
                                     {
+                                        var detailUsed = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(detail);
+                                        var showUsed = Model.ShowUsedPercentage;
+                                        var displayVal = detailUsed.HasValue
+                                            ? (showUsed ? detailUsed.Value : (100.0 - detailUsed.Value)).ToString("F0") + "%"
+                                            : detail.Description;
+
                                         <div class="sub-provider-row">
                                             <span class="sub-provider-name">@detail.Name</span>
-                                            <span class="sub-provider-value">@detail.Used</span>
+                                            <span class="sub-provider-value">@displayVal</span>
                                             @if (detail.NextResetTime.HasValue)
                                             {
                                                 <span class="sub-provider-reset">(@GetRelativeTimeString(detail.NextResetTime.Value))</span>
@@ -611,13 +601,13 @@
 
         if (usage.Details == null || !usage.Details.Any()) return false;
 
-        var primaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.WindowKind == AIUsageTracker.Core.Models.WindowKind.Primary);
-        var secondaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.WindowKind == AIUsageTracker.Core.Models.WindowKind.Secondary);
+        var primaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Burst);
+        var secondaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Rolling);
 
         if (primaryDetail == null || secondaryDetail == null) return false;
 
-        var p = ParseUsedPercentFromDetail(primaryDetail.Used);
-        var s = ParseUsedPercentFromDetail(secondaryDetail.Used);
+        var p = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(primaryDetail);
+        var s = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(secondaryDetail);
 
         if (p.HasValue && s.HasValue)
         {
@@ -629,27 +619,5 @@
         }
 
         return false;
-    }
-
-    double? ParseUsedPercentFromDetail(string? used)
-    {
-        if (string.IsNullOrWhiteSpace(used)) return null;
-
-        // "XX% used"
-        var usedMatch = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%\s*used", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (usedMatch.Success && double.TryParse(usedMatch.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p1))
-            return p1;
-
-        // "XX% remaining"
-        var remainingMatch = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%\s*remaining", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (remainingMatch.Success && double.TryParse(remainingMatch.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p2))
-            return Math.Clamp(100.0 - p2, 0, 100);
-
-        // Fallback "XX%"
-        var fallbackMatch = System.Text.RegularExpressions.Regex.Match(used, @"(?<percent>\d+(?:\.\d+)?)\s*%", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (fallbackMatch.Success && double.TryParse(fallbackMatch.Groups["percent"].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var p3))
-            return p3;
-
-        return null;
     }
 }

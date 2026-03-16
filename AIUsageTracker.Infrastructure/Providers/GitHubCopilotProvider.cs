@@ -1,99 +1,145 @@
-using Microsoft.Extensions.Logging;
+// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
-using System.Text.Json;
+using AIUsageTracker.Infrastructure.Http;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
 public class GitHubCopilotProvider : ProviderBase
 {
-    public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "github-copilot",
-        displayName: "GitHub Copilot",
-        planType: PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        includeInWellKnownProviders: true);
-
-    public override ProviderDefinition Definition => StaticDefinition;
-    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly IGitHubAuthService _authService;
-    private readonly HttpClient _httpClient;
+    private readonly IResilientHttpClient _resilientHttpClient;
     private readonly ILogger<GitHubCopilotProvider> _logger;
 
-    public GitHubCopilotProvider(HttpClient httpClient, ILogger<GitHubCopilotProvider> logger, IGitHubAuthService authService)
+    public GitHubCopilotProvider(IResilientHttpClient resilientHttpClient, ILogger<GitHubCopilotProvider> logger, IGitHubAuthService authService, IProviderDiscoveryService? discoveryService = null)
+        : base(discoveryService)
     {
-        _httpClient = httpClient;
-        _logger = logger;
-        _authService = authService;
+        this._resilientHttpClient = resilientHttpClient;
+        this._logger = logger;
+        this._authService = authService;
     }
+
+    public static ProviderDefinition StaticDefinition { get; } = new(
+        "github-copilot",
+        "GitHub Copilot",
+        PlanType.Coding,
+        isQuotaBased: true,
+        defaultConfigType: "quota-based")
+    {
+        AutoIncludeWhenUnconfigured = true,
+        IncludeInWellKnownProviders = true,
+        SettingsMode = ProviderSettingsMode.ExternalAuthStatus,
+        SupportsAccountIdentity = true,
+        IconAssetName = "github",
+        FallbackBadgeColorHex = "#9370DB",
+        FallbackBadgeInitial = "GH",
+        AuthIdentityCandidatePathTemplates = new[]
+        {
+            "%APPDATA%\\GitHub CLI\\hosts.yml",
+            "%USERPROFILE%\\.config\\gh\\hosts.yml",
+        },
+        QuotaWindows = new QuotaWindowDefinition[]
+        {
+            new(WindowKind.Rolling, "Weekly"),
+            new(WindowKind.Burst,   "5h"),
+        },
+    };
+
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    public override string ProviderId => StaticDefinition.ProviderId;
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
-        var token = ResolveToken(config);
+        var token = this.ResolveToken(config);
+        if (string.IsNullOrEmpty(token) && this.DiscoveryService != null)
+        {
+            var discoveredAuth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition.CreateAuthDiscoverySpec()).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(discoveredAuth?.AccessToken))
+            {
+                token = discoveredAuth.AccessToken;
+                config.ApiKey = token;
+            }
+        }
+
         if (string.IsNullOrEmpty(token))
         {
-            return new[] { CreateUnavailableUsage("Not authenticated. Please login in Settings.") };
+            var username = NormalizeUsername(await this._authService.GetUsernameAsync().ConfigureAwait(false));
+            return new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = this.ProviderId,
+                    ProviderName = "GitHub Copilot",
+                    AccountName = username,
+                    IsAvailable = false,
+                    State = ProviderUsageState.Missing,
+                    Description = "Not authenticated. Please login in Settings.",
+                    PlanType = PlanType.Coding,
+                    IsQuotaBased = true,
+                },
+            };
         }
+
+        // Keep auth-service state in sync with the token source so username resolution
+        // works even when token comes from persisted config (not device-flow memory state).
+        this._authService.InitializeToken(token);
 
         var state = new CopilotUsageState
         {
             IsAvailable = true,
             Description = "Authenticated",
             Username = string.Empty,
-            PlanName = string.Empty
+            PlanName = string.Empty,
         };
 
         try
         {
             using var request = CreateBearerRequest("https://api.github.com/user", token);
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
             state.HttpStatus = (int)response.StatusCode;
 
             if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                return new[] { CreateUnavailableUsage("Authentication failed (401). Please re-login.") };
+                return new[] { this.CreateUnavailableUsage("Authentication failed (401). Please re-login.") };
             }
 
             if (response.IsSuccessStatusCode)
             {
-                await PopulateProfileAndCopilotDataAsync(token, response, state);
+                await this.PopulateProfileAndCopilotDataAsync(token, response, state).ConfigureAwait(false);
             }
 
-            await PopulateUsernameFallbackAsync(state);
+            await this.PopulateUsernameFallbackAsync(state).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
                 state.Description = $"Error: {response.StatusCode}";
                 state.IsAvailable = false;
+                state.State = ProviderUsageState.Error;
             }
         }
         catch (HttpRequestException ex)
         {
-            _logger.LogError(ex, "Network error fetching GitHub profile");
+            this._logger.LogError(ex, "Network error fetching GitHub profile");
             state.Description = "Network Error: Unable to reach GitHub";
             state.IsAvailable = false;
+            state.State = ProviderUsageState.Error;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to fetch GitHub profile");
+            this._logger.LogError(ex, "Failed to fetch GitHub profile");
             state.Description = $"Error: {ex.Message}";
             state.IsAvailable = false;
+            state.State = ProviderUsageState.Error;
         }
 
-        return new[] { BuildUsageResult(state) };
-    }
-
-    private string? ResolveToken(ProviderConfig config)
-    {
-        var token = _authService.GetCurrentToken();
-        if (string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(config.ApiKey))
-        {
-            token = config.ApiKey;
-        }
-
-        return token;
+        return new[] { this.BuildUsageResult(state) };
     }
 
     private static HttpRequestMessage CreateBearerRequest(string url, string token)
@@ -115,199 +161,87 @@ public class GitHubCopilotProvider : ProviderBase
         return request;
     }
 
-    private async Task PopulateProfileAndCopilotDataAsync(string token, HttpResponseMessage response, CopilotUsageState state)
+    private static bool TryParseFiniteQuotaSnapshot(
+        System.Text.Json.JsonElement snapshot,
+        out double entitlement,
+        out double remaining,
+        out double remainingPercent)
     {
-        var json = await response.Content.ReadAsStringAsync();
-        state.RawJson = json;
-        using var doc = System.Text.Json.JsonDocument.Parse(json);
-        if (doc.RootElement.TryGetProperty("login", out var loginElement))
+        entitlement = 0;
+        remaining = 0;
+        remainingPercent = 0;
+
+        if (snapshot.TryGetProperty("unlimited", out var unlimitedProp) &&
+            unlimitedProp.ValueKind == System.Text.Json.JsonValueKind.True)
         {
-            state.Username = NormalizeUsername(loginElement.GetString());
+            return false;
         }
 
-        await PopulatePlanNameAsync(token, state);
-        await PopulateQuotaSnapshotAsync(token, state);
+        if (!snapshot.TryGetProperty("entitlement", out var entitlementProp) ||
+            !entitlementProp.TryGetDouble(out entitlement) ||
+            entitlement <= 0)
+        {
+            return false;
+        }
+
+        if (snapshot.TryGetProperty("quota_remaining", out var quotaRemainingProp) &&
+            quotaRemainingProp.TryGetDouble(out var quotaRemaining))
+        {
+            remaining = quotaRemaining;
+        }
+        else if (snapshot.TryGetProperty("remaining", out var remainingProp) &&
+                 remainingProp.TryGetDouble(out var remainingValue))
+        {
+            remaining = remainingValue;
+        }
+        else
+        {
+            remaining = entitlement;
+        }
+
+        remaining = Math.Clamp(remaining, 0, entitlement);
+
+        if (snapshot.TryGetProperty("percent_remaining", out var remainingPercentProp) &&
+            remainingPercentProp.TryGetDouble(out var parsedRemainingPercent))
+        {
+            remainingPercent = Math.Clamp(parsedRemainingPercent, 0, 100);
+        }
+        else
+        {
+            var used = Math.Max(0, entitlement - remaining);
+            remainingPercent = UsageMath.CalculateRemainingPercent(used, entitlement);
+        }
+
+        return true;
     }
 
-    private async Task PopulatePlanNameAsync(string token, CopilotUsageState state)
+    private static void ApplyQuotaWindowSnapshot(
+        CopilotUsageState state,
+        string windowName,
+        double entitlement,
+        double remaining,
+        double remainingPercent)
     {
-        try
-        {
-            using var internalRequest = CreateBearerRequest("https://api.github.com/copilot_internal/v2/token", token);
-            using var internalResponse = await _httpClient.SendAsync(internalRequest);
-            if (internalResponse.IsSuccessStatusCode)
-            {
-                var internalJson = await internalResponse.Content.ReadAsStringAsync();
-                using var internalDoc = System.Text.Json.JsonDocument.Parse(internalJson);
-                var sku = string.Empty;
-                if (internalDoc.RootElement.TryGetProperty("sku", out var skuProp))
-                {
-                    sku = skuProp.GetString() ?? string.Empty;
-                }
-
-                state.PlanName = NormalizeCopilotPlanName(sku);
-                state.Description = BuildAuthenticatedDescription(state.Username, state.PlanName);
-            }
-            else
-            {
-                state.Description = BuildAuthenticatedDescription(state.Username, null);
-            }
-        }
-        catch
-        {
-            state.Description = BuildAuthenticatedDescription(state.Username, null);
-        }
-    }
-
-    private async Task PopulateUsernameFallbackAsync(CopilotUsageState state)
-    {
-        if (HasMeaningfulUsername(state.Username))
+        if (entitlement <= 0)
         {
             return;
         }
 
-        var fallbackUsername = NormalizeUsername(await _authService.GetUsernameAsync());
-        if (!string.IsNullOrEmpty(fallbackUsername))
-        {
-            state.Username = fallbackUsername;
-        }
-    }
-
-    private async Task PopulateQuotaSnapshotAsync(string token, CopilotUsageState state)
-    {
-        try
-        {
-            using var quotaRequest = CreateQuotaRequest(token);
-            using var quotaResponse = await _httpClient.SendAsync(quotaRequest);
-            if (!quotaResponse.IsSuccessStatusCode)
-            {
-                return;
-            }
-
-            var quotaJson = await quotaResponse.Content.ReadAsStringAsync();
-            using var quotaDoc = System.Text.Json.JsonDocument.Parse(quotaJson);
-            var root = quotaDoc.RootElement;
-
-            if (root.TryGetProperty("copilot_plan", out var planProp))
-            {
-                var quotaPlan = NormalizeCopilotPlanName(planProp.GetString() ?? string.Empty);
-                if (!string.IsNullOrWhiteSpace(quotaPlan))
-                {
-                    state.PlanName = quotaPlan;
-                }
-            }
-
-            if (root.TryGetProperty("quota_reset_date", out var resetProp))
-            {
-                var resetText = resetProp.GetString();
-                if (!string.IsNullOrWhiteSpace(resetText) &&
-                    DateTime.TryParse(
-                        resetText,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
-                        out var parsedResetUtc))
-                {
-                    state.ResetTime = parsedResetUtc.ToLocalTime();
-                }
-            }
-
-            if (root.TryGetProperty("quota_snapshots", out var snapshots))
-            {
-                var details = new List<ProviderUsageDetail>();
-
-                // 1. Check for Primary/Spark window
-                foreach (var prop in snapshots.EnumerateObject())
-                {
-                    if (prop.Name.Equals("premium_interactions", StringComparison.OrdinalIgnoreCase)) continue;
-
-                    if (prop.Value.TryGetProperty("entitlement", out var entProp) &&
-                        prop.Value.TryGetProperty("remaining", out var remProp) &&
-                        entProp.TryGetDouble(out var ent) &&
-                        remProp.TryGetDouble(out var rem) &&
-                        ent > 0)
-                    {
-                        var normRem = Math.Clamp(rem, 0, ent);
-                        var used = ent - normRem;
-                        var usedPct = (used / ent) * 100.0;
-                        
-                        details.Add(new ProviderUsageDetail
-                        {
-                            Name = $"{NormalizeSnapshotName(prop.Name)} quota",
-                            Used = $"{usedPct:F1}% used",
-                            Description = $"{normRem:F0}/{ent:F0} remaining",
-                            DetailType = ProviderUsageDetailType.QuotaWindow,
-                            WindowKind = prop.Name.Contains("spark", StringComparison.OrdinalIgnoreCase) ? WindowKind.Spark : WindowKind.Primary
-                        });
-                    }
-                }
-
-                // 2. Premium Interactions (usually the main/secondary long-term window)
-                if (snapshots.TryGetProperty("premium_interactions", out var premium) &&
-                    premium.TryGetProperty("entitlement", out var entitlementProp) &&
-                    premium.TryGetProperty("remaining", out var remainingProp) &&
-                    entitlementProp.TryGetDouble(out var entitlement) &&
-                    remainingProp.TryGetDouble(out var remaining) &&
-                    entitlement > 0)
-                {
-                    var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
-                    var used = Math.Max(0, entitlement - normalizedRemaining);
-                    state.CostLimit = entitlement;
-                    state.CostUsed = used;
-                    state.Percentage = UsageMath.CalculateRemainingPercent(used, entitlement);
-                    state.HasCopilotQuotaData = true;
-
-                    details.Add(new ProviderUsageDetail
-                    {
-                        Name = "Premium Interactions",
-                        Used = $"{(100.0 - state.Percentage):F1}% used",
-                        Description = $"{normalizedRemaining:F0}/{entitlement:F0} remaining",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        WindowKind = WindowKind.Secondary
-                    });
-                }
-
-                state.Details = details;
-            }
-        }
-        catch
-        {
-            // Continue with fallback sources.
-        }
-    }
-
-    private static string NormalizeSnapshotName(string name)
-    {
-        return name.Replace("_", " ").Trim();
-    }
-
-    private ProviderUsage BuildUsageResult(CopilotUsageState state)
-    {
-        return new ProviderUsage
-        {
-            ProviderId = ProviderId,
-            ProviderName = "GitHub Copilot",
-            AccountName = HasMeaningfulUsername(state.Username) ? state.Username : string.Empty,
-            IsAvailable = state.IsAvailable,
-            Description = BuildFinalDescription(state),
-            RequestsPercentage = state.Percentage,
-            RequestsAvailable = state.CostLimit,
-            RequestsUsed = state.CostUsed,
-            UsageUnit = "Requests",
-            PlanType = PlanType.Coding,
-            IsQuotaBased = true,
-            AuthSource = string.IsNullOrEmpty(state.PlanName) ? "Unknown" : state.PlanName,
-            NextResetTime = state.ResetTime,
-            Details = state.Details,
-            RawJson = state.RawJson,
-            HttpStatus = state.HttpStatus
-        };
+        var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
+        var used = Math.Max(0, entitlement - normalizedRemaining);
+        var normalizedRemainingPercent = Math.Clamp(remainingPercent, 0, 100);
+        state.HasCopilotQuotaData = true;
+        state.CostLimit = entitlement;
+        state.CostUsed = used;
+        state.Percentage = normalizedRemainingPercent;
+        state.PrimaryQuotaWindowName = windowName;
     }
 
     private static string BuildFinalDescription(CopilotUsageState state)
     {
         if (state.HasCopilotQuotaData)
         {
-            var description = $"Premium Requests: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
+            var description = $"{state.PrimaryQuotaWindowName}: {state.CostLimit - state.CostUsed:F0}/{state.CostLimit:F0} Remaining";
             if (!string.IsNullOrEmpty(state.PlanName))
             {
                 description += $" ({state.PlanName})";
@@ -316,7 +250,7 @@ public class GitHubCopilotProvider : ProviderBase
             return description;
         }
 
-        return state.Description;
+        return $"{state.Description} (quota unknown)";
     }
 
     private static bool HasMeaningfulUsername(string? username)
@@ -355,27 +289,251 @@ public class GitHubCopilotProvider : ProviderBase
     {
         return plan switch
         {
+            "individual" => "Copilot Individual",
+            "business" => "Copilot Business",
+            "enterprise" => "Copilot Enterprise",
+            "free" => "Copilot Free",
             "copilot_individual" => "Copilot Individual",
             "copilot_business" => "Copilot Business",
             "copilot_enterprise" => "Copilot Enterprise",
             "copilot_free" => "Copilot Free",
-            _ => plan
+            _ => plan,
+        };
+    }
+
+    private string? ResolveToken(ProviderConfig config)
+    {
+        var token = this._authService.GetCurrentToken();
+        if (string.IsNullOrEmpty(token) && !string.IsNullOrEmpty(config.ApiKey))
+        {
+            token = config.ApiKey;
+        }
+
+        return token;
+    }
+
+    private async Task PopulateProfileAndCopilotDataAsync(string token, HttpResponseMessage response, CopilotUsageState state)
+    {
+        var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        state.RawJson = json;
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        if (doc.RootElement.TryGetProperty("login", out var loginElement))
+        {
+            state.Username = NormalizeUsername(loginElement.GetString());
+        }
+
+        await this.PopulatePlanNameAsync(token, state).ConfigureAwait(false);
+        await this.PopulateQuotaSnapshotAsync(token, state).ConfigureAwait(false);
+    }
+
+    private async Task PopulatePlanNameAsync(string token, CopilotUsageState state)
+    {
+        try
+        {
+            using var internalRequest = CreateBearerRequest("https://api.github.com/copilot_internal/v2/token", token);
+            using var internalResponse = await this._resilientHttpClient.SendAsync(internalRequest, this.ProviderId).ConfigureAwait(false);
+            if (internalResponse.IsSuccessStatusCode)
+            {
+                var internalJson = await internalResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+                using var internalDoc = System.Text.Json.JsonDocument.Parse(internalJson);
+                var sku = string.Empty;
+                if (internalDoc.RootElement.TryGetProperty("sku", out var skuProp))
+                {
+                    sku = skuProp.GetString() ?? string.Empty;
+                }
+
+                state.PlanName = NormalizeCopilotPlanName(sku);
+                state.Description = BuildAuthenticatedDescription(state.Username, state.PlanName);
+            }
+            else
+            {
+                state.Description = BuildAuthenticatedDescription(state.Username, null);
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogDebug(ex, "Failed to resolve GitHub Copilot plan name");
+            state.Description = BuildAuthenticatedDescription(state.Username, null);
+        }
+    }
+
+    private async Task PopulateUsernameFallbackAsync(CopilotUsageState state)
+    {
+        if (HasMeaningfulUsername(state.Username))
+        {
+            return;
+        }
+
+        var fallbackUsername = NormalizeUsername(await this._authService.GetUsernameAsync().ConfigureAwait(false));
+        if (!string.IsNullOrEmpty(fallbackUsername))
+        {
+            state.Username = fallbackUsername;
+        }
+    }
+
+    private async Task PopulateQuotaSnapshotAsync(string token, CopilotUsageState state)
+    {
+        try
+        {
+            using var quotaRequest = CreateQuotaRequest(token);
+            using var quotaResponse = await this._resilientHttpClient.SendAsync(quotaRequest, this.ProviderId).ConfigureAwait(false);
+            if (!quotaResponse.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            var quotaJson = await quotaResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
+            using var quotaDoc = System.Text.Json.JsonDocument.Parse(quotaJson);
+            var root = quotaDoc.RootElement;
+
+            if (root.TryGetProperty("copilot_plan", out var planProp))
+            {
+                var quotaPlan = NormalizeCopilotPlanName(planProp.GetString() ?? string.Empty);
+                if (!string.IsNullOrWhiteSpace(quotaPlan))
+                {
+                    state.PlanName = quotaPlan;
+                }
+            }
+
+            if (root.TryGetProperty("quota_reset_date", out var resetProp))
+            {
+                var resetText = resetProp.GetString();
+                if (!string.IsNullOrWhiteSpace(resetText) &&
+                    DateTime.TryParse(
+                        resetText,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                        out var parsedResetUtc))
+                {
+                    state.ResetTime = parsedResetUtc.ToLocalTime();
+                }
+            }
+
+            state.Details = new List<ProviderUsageDetail>();
+
+            if (root.TryGetProperty("quota_snapshots", out var snapshots))
+            {
+                var selectedWindowName = string.Empty;
+                var selectedWindowEntitlement = 0.0;
+                var selectedWindowRemaining = 0.0;
+                var selectedWindowRemainingPercent = 0.0;
+
+                // 1. Premium/interaction window is the primary top-level signal for Copilot quota.
+                if (snapshots.TryGetProperty("premium_interactions", out var premium) &&
+                    TryParseFiniteQuotaSnapshot(premium, out var entitlement, out var remaining, out var remainingPercent))
+                {
+                    var normalizedRemaining = Math.Clamp(remaining, 0, entitlement);
+                    var usedPercent = Math.Clamp(100.0 - remainingPercent, 0.0, 100.0);
+                    selectedWindowName = "Weekly Quota";
+                    selectedWindowEntitlement = entitlement;
+                    selectedWindowRemaining = normalizedRemaining;
+                    selectedWindowRemainingPercent = remainingPercent;
+
+                    state.Details.Add(new ProviderUsageDetail
+                    {
+                        Name = "Weekly Quota",
+                        Description = $"{normalizedRemaining:F0} / {entitlement:F0} remaining",
+                        DetailType = ProviderUsageDetailType.QuotaWindow,
+                        QuotaBucketKind = WindowKind.Rolling,
+                        NextResetTime = state.ResetTime,
+                        PercentageValue = usedPercent,
+                        PercentageSemantic = PercentageValueSemantic.Used,
+                    });
+                }
+
+                // 2. Usage/session window is supplementary when present.
+                if (snapshots.TryGetProperty("usage", out var usageSnapshot) &&
+                    TryParseFiniteQuotaSnapshot(usageSnapshot, out var uEnt, out var uRem, out var uRemainingPercent))
+                {
+                    var normalizedRemaining = Math.Clamp(uRem, 0, uEnt);
+                    var uUsedPercent = Math.Clamp(100.0 - uRemainingPercent, 0.0, 100.0);
+                    if (string.IsNullOrEmpty(selectedWindowName))
+                    {
+                        selectedWindowName = "5-hour Window";
+                        selectedWindowEntitlement = uEnt;
+                        selectedWindowRemaining = normalizedRemaining;
+                        selectedWindowRemainingPercent = uRemainingPercent;
+                    }
+
+                    state.Details.Add(new ProviderUsageDetail
+                    {
+                        Name = "5-hour Window",
+                        Description = $"{normalizedRemaining:F0} / {uEnt:F0} remaining",
+                        DetailType = ProviderUsageDetailType.QuotaWindow,
+                        QuotaBucketKind = WindowKind.Burst,
+                        PercentageValue = uUsedPercent,
+                        PercentageSemantic = PercentageValueSemantic.Used,
+                    });
+                }
+
+                if (!string.IsNullOrEmpty(selectedWindowName))
+                {
+                    ApplyQuotaWindowSnapshot(
+                        state,
+                        selectedWindowName,
+                        selectedWindowEntitlement,
+                        selectedWindowRemaining,
+                        selectedWindowRemainingPercent);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogDebug(ex, "Failed to parse GitHub Copilot quota snapshot");
+        }
+    }
+
+    private ProviderUsage BuildUsageResult(CopilotUsageState state)
+    {
+        return new ProviderUsage
+        {
+            ProviderId = this.ProviderId,
+            ProviderName = "GitHub Copilot",
+            AccountName = HasMeaningfulUsername(state.Username) ? state.Username : string.Empty,
+            IsAvailable = state.IsAvailable,
+            State = state.State,
+            Description = BuildFinalDescription(state),
+            UsedPercent = 100.0 - state.Percentage,
+            RequestsAvailable = state.CostLimit,
+            RequestsUsed = state.CostUsed,
+            PlanType = PlanType.Coding,
+            IsQuotaBased = true,
+            AuthSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName,
+            NextResetTime = state.ResetTime,
+            Details = state.Details,
+            RawJson = state.RawJson,
+            HttpStatus = state.HttpStatus,
         };
     }
 
     private sealed class CopilotUsageState
     {
         public bool IsAvailable { get; set; }
+
+        public ProviderUsageState State { get; set; } = ProviderUsageState.Available;
+
         public string Description { get; set; } = string.Empty;
+
         public string Username { get; set; } = string.Empty;
+
         public string PlanName { get; set; } = string.Empty;
+
         public DateTime? ResetTime { get; set; }
+
         public double Percentage { get; set; }
+
         public double CostUsed { get; set; }
+
         public double CostLimit { get; set; }
+
         public bool HasCopilotQuotaData { get; set; }
+
+        public string PrimaryQuotaWindowName { get; set; } = "Quota";
+
         public List<ProviderUsageDetail>? Details { get; set; }
+
         public string? RawJson { get; set; }
+
         public int HttpStatus { get; set; } = 200;
     }
 }

@@ -1,72 +1,122 @@
-using System.Reflection;
+// <copyright file="DualProgressBarLogicTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim;
 using Xunit;
 
 namespace AIUsageTracker.Tests.UI;
 
 public class DualProgressBarLogicTests
 {
-    // We use reflection to test the private/static methods in MainWindow without a UI thread
-    private static readonly MethodInfo? ParseMethod = typeof(AIUsageTracker.UI.Slim.MainWindow)
-        .GetMethod("ParseUsedPercentFromDetail", BindingFlags.Static | BindingFlags.NonPublic);
-
     [Theory]
-    [InlineData("10% used", 10.0)]
-    [InlineData("45.5 % used", 45.5)]
-    [InlineData("100% used", 100.0)]
-    [InlineData("0% used", 0.0)]
-    [InlineData("80% remaining", 20.0)]
-    [InlineData("25.5 % remaining", 74.5)]
-    [InlineData("0% remaining", 100.0)]
-    [InlineData("100% remaining", 0.0)]
-    [InlineData("50%", 50.0)] // Fallback
+    [InlineData("10%", 10.0)]
+    [InlineData("45.5 %", 45.5)]
+    [InlineData("100%", 100.0)]
+    [InlineData("0%", 0.0)]
+    [InlineData("50", 50.0)]
+    [InlineData("96% remaining (4% used)", 4.0)]
+    [InlineData("49% remaining (51% used)", 51.0)]
     [InlineData("Invalid", null)]
     [InlineData("", null)]
     [InlineData(null, null)]
-    public void ParseUsedPercentFromDetail_HandlesFormatsCorrectly(string? input, double? expected)
+    public void ParsePercent_HandlesFormatsCorrectly(string? input, double? expected)
     {
-        Assert.NotNull(ParseMethod);
-        var result = (double?)ParseMethod!.Invoke(null, new object?[] { input });
-        
+        var result = UsageMath.ParsePercent(input);
+
         if (expected == null)
+        {
             Assert.Null(result);
+        }
         else
+        {
             Assert.Equal(expected.Value, result!.Value, 1);
+        }
     }
 
     [Fact]
-    public void TryGetDualWindowUsedPercentages_IdentifiesPrimaryAndSecondary()
+    public void GetEffectiveUsedPercent_CalculatesCorrectly()
     {
-        var method = typeof(AIUsageTracker.UI.Slim.MainWindow)
-            .GetMethod("TryGetDualWindowUsedPercentages", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var quotaUsage = new ProviderUsage { UsedPercent = 80, IsQuotaBased = true };
+        var paygUsage = new ProviderUsage { UsedPercent = 20, IsQuotaBased = false };
+
+        Assert.Equal(80.0, UsageMath.GetEffectiveUsedPercent(quotaUsage)); // UsedPercent is the used ratio
+        Assert.Equal(20.0, UsageMath.GetEffectiveUsedPercent(paygUsage));
+    }
+
+    [Fact]
+    public void TryGetPresentation_ReturnsLabelsAndResets_ForDualQuotaBuckets()
+    {
+        var weeklyReset = new DateTime(2026, 3, 12, 23, 0, 0);
+        var hourlyReset = new DateTime(2026, 3, 7, 1, 0, 0);
+        var burstDetail = new ProviderUsageDetail
+        {
+            Name = "5-hour quota",
+            Description = "96% remaining (4% used)",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+            NextResetTime = hourlyReset,
+        };
+        burstDetail.SetPercentageValue(4.0, PercentageValueSemantic.Used);
+
+        var rollingDetail = new ProviderUsageDetail
+        {
+            Name = "Weekly quota",
+            Description = "49% remaining (51% used)",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+            NextResetTime = weeklyReset,
+        };
+        rollingDetail.SetPercentageValue(51.0, PercentageValueSemantic.Used);
 
         var usage = new ProviderUsage
         {
-            Details = new List<ProviderUsageDetail>
-            {
-                new ProviderUsageDetail 
-                { 
-                    Name = "Hourly", 
-                    Used = "10% used", 
-                    DetailType = ProviderUsageDetailType.QuotaWindow, 
-                    WindowKind = WindowKind.Primary 
-                },
-                new ProviderUsageDetail 
-                { 
-                    Name = "Weekly", 
-                    Used = "80% remaining", 
-                    DetailType = ProviderUsageDetailType.QuotaWindow, 
-                    WindowKind = WindowKind.Secondary 
-                }
-            }
+            ProviderId = "codex",
+            IsQuotaBased = true,
+            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
         };
 
-        var args = new object?[] { usage, 0.0, 0.0 };
-        var result = (bool)method!.Invoke(null, args)!;
+        var result = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out var presentation);
 
         Assert.True(result);
-        Assert.Equal(10.0, (double)args[1]!);
-        Assert.Equal(20.0, (double)args[2]!); // 100 - 80
+        Assert.Equal("5h", presentation.PrimaryLabel);
+        Assert.Equal(4.0, presentation.PrimaryUsedPercent);
+        Assert.Equal(hourlyReset, presentation.PrimaryResetTime);
+        Assert.Equal("Weekly", presentation.SecondaryLabel);
+        Assert.Equal(51.0, presentation.SecondaryUsedPercent);
+        Assert.Equal(weeklyReset, presentation.SecondaryResetTime);
+    }
+
+    [Fact]
+    public void TryGetPresentation_ReturnsFalse_WhenQuotaBucketKindIsMissing()
+    {
+        var usage = new ProviderUsage
+        {
+            IsQuotaBased = true,
+            Details = new List<ProviderUsageDetail>
+            {
+                new()
+                {
+                    Name = "Requests / Hour",
+                    Description = "80% remaining (20% used)",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    QuotaBucketKind = WindowKind.None,
+                    NextResetTime = new DateTime(2026, 3, 12, 10, 0, 0),
+                },
+                new()
+                {
+                    Name = "Requests / Day",
+                    Description = "35% remaining (65% used)",
+                    DetailType = ProviderUsageDetailType.QuotaWindow,
+                    QuotaBucketKind = WindowKind.None,
+                    NextResetTime = new DateTime(2026, 3, 12, 20, 0, 0),
+                },
+            },
+        };
+
+        var result = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out _);
+
+        Assert.False(result);
     }
 }

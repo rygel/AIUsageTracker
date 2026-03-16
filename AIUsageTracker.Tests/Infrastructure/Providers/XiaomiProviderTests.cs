@@ -1,3 +1,7 @@
+// <copyright file="XiaomiProviderTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -13,12 +17,12 @@ public class XiaomiProviderTests : HttpProviderTestBase<XiaomiProvider>
 
     public XiaomiProviderTests()
     {
-        _provider = new XiaomiProvider(HttpClient, Logger.Object);
-        Config.ApiKey = "test-key";
+        this._provider = new XiaomiProvider(this.HttpClient, this.Logger.Object);
+        this.Config.ApiKey = "test-key";
     }
 
     [Fact]
-    public async Task GetUsageAsync_ValidResponse_ParsesQuotaCorrectly()
+    public async Task GetUsageAsync_ValidResponse_ParsesQuotaCorrectlyAsync()
     {
         // Arrange
         var responseData = new
@@ -27,24 +31,24 @@ public class XiaomiProviderTests : HttpProviderTestBase<XiaomiProvider>
             data = new
             {
                 balance = 800.0,
-                quota = 1000.0
-            }
+                quota = 1000.0,
+            },
         };
 
-        SetupHttpResponse("https://api.xiaomimimo.com/v1/user/balance", new HttpResponseMessage
+        this.SetupHttpResponse("https://api.xiaomimimo.com/v1/user/balance", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(JsonSerializer.Serialize(responseData))
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
         });
 
         // Act
-        var result = await _provider.GetUsageAsync(Config);
+        var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Contains("80", usage.RequestsPercentage.ToString()); // Handle culture
+        Assert.Contains("20", usage.UsedPercent.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal); // 200 used of 1000 = 20% used
         Assert.Equal(200.0, usage.RequestsUsed);
-        Assert.Contains("800 remaining", usage.Description);
+        Assert.Contains("800 remaining", usage.Description, StringComparison.Ordinal);
     }
 }

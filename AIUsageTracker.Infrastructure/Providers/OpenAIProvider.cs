@@ -1,205 +1,123 @@
+// <copyright file="OpenAIProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Globalization;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text;
-using Microsoft.Extensions.Logging;
+using AIUsageTracker.Core.Helpers;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Core.Providers;
-using System.Net;
-using System.Net.Http.Headers;
+using AIUsageTracker.Infrastructure.Constants;
+using AIUsageTracker.Infrastructure.Http;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
 public class OpenAIProvider : ProviderBase
 {
     private const string WhamUsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
-    public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "openai",
-        displayName: "OpenAI",
-        planType: PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based");
 
-    public override ProviderDefinition Definition => StaticDefinition;
-    public override string ProviderId => StaticDefinition.ProviderId;
-    private readonly HttpClient _httpClient;
+    private readonly IResilientHttpClient _resilientHttpClient;
     private readonly ILogger<OpenAIProvider> _logger;
 
-    public OpenAIProvider(HttpClient httpClient, ILogger<OpenAIProvider> logger)
+    public OpenAIProvider(IResilientHttpClient resilientHttpClient, IProviderDiscoveryService discoveryService, ILogger<OpenAIProvider> logger)
+        : base(discoveryService)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._resilientHttpClient = resilientHttpClient;
+        this._logger = logger;
     }
 
+    public static ProviderDefinition StaticDefinition { get; } = new(
+        "openai",
+        "OpenAI (API)",
+        PlanType.Coding,
+        isQuotaBased: true,
+        defaultConfigType: "quota-based")
+    {
+        DiscoveryEnvironmentVariables = new[] { "OPENAI_API_KEY" },
+        RooConfigPropertyNames = new[] { "openAiApiKey" },
+        ExplicitApiKeyPrefixes = new[] { "sk-" },
+        SessionAuthCanonicalProviderId = "codex",
+        SessionAuthMigrationDescription = "Migrated from OpenAI session config",
+        SettingsMode = ProviderSettingsMode.SessionAuthStatus,
+        UseSessionAuthStatusWhenQuotaBasedOrSessionToken = true,
+        SessionStatusLabel = "OpenAI (API)",
+        ShowInMainWindow = false,
+        SessionIdentitySource = ProviderSessionIdentitySource.OpenAi,
+        SupportsAccountIdentity = true,
+        ShowInSettings = false,
+        IconAssetName = "openai",
+        FallbackBadgeColorHex = "#008B8B",
+        FallbackBadgeInitial = "AI",
+        AuthIdentityCandidatePathTemplates = new[]
+        {
+            "%USERPROFILE%\\.local\\share\\opencode\\auth.json",
+            "%APPDATA%\\opencode\\auth.json",
+            "%LOCALAPPDATA%\\opencode\\auth.json",
+            "%USERPROFILE%\\.opencode\\auth.json",
+        },
+        SessionAuthFileSchemas = new[]
+        {
+            new ProviderAuthFileSchema("openai", "access", "accountId", "id_token"),
+        },
+        SessionIdentityProfileRootProperties = new[]
+        {
+            ProviderEndpoints.OpenAI.ProfileClaimKey,
+        },
+        QuotaWindows = new QuotaWindowDefinition[]
+        {
+            new(WindowKind.Burst,   "5h"),
+            new(WindowKind.Rolling, "Weekly"),
+        },
+    };
+
+    /// <inheritdoc/>
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    /// <inheritdoc/>
+    public override string ProviderId => StaticDefinition.ProviderId;
+
+    /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (!string.IsNullOrWhiteSpace(config.ApiKey) && IsApiKey(config.ApiKey))
         {
-            return await GetApiKeyUsageAsync(config.ApiKey);
+            return await this.GetApiKeyUsageAsync(config.ApiKey).ConfigureAwait(false);
         }
 
         var accessToken = config.ApiKey;
         string? accountId = null;
 
-        if (string.IsNullOrWhiteSpace(accessToken))
+        if (string.IsNullOrWhiteSpace(accessToken) && this.DiscoveryService != null)
         {
-            var nativeAuth = await LoadOpenCodeAuthAsync();
-            accessToken = nativeAuth?.Access;
-            accountId = nativeAuth?.AccountId;
+            var auth = await this.DiscoveryService.DiscoverAuthAsync(this.Definition.CreateAuthDiscoverySpec()).ConfigureAwait(false);
+            accessToken = auth?.AccessToken;
+            accountId = auth?.AccountId;
         }
 
         if (string.IsNullOrWhiteSpace(accessToken))
         {
             return new[]
             {
-                new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "OpenAI",
-                    IsAvailable = false,
-                    Description = "OpenAI API key or OpenCode session not found.",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding
-                }
+                this.CreateUnavailableUsage("OpenAI API key or OpenCode session not found.", state: ProviderUsageState.Missing),
             };
         }
 
         try
         {
-            return new[] { await GetNativeUsageAsync(accessToken, accountId) };
+            return new[] { await this.GetNativeUsageAsync(accessToken, accountId).ConfigureAwait(false) };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "OpenAI session check failed");
-            return new[] { CreateUnavailableUsage("Session lookup failed") };
+            this._logger.LogError(ex, "OpenAI session check failed");
+            return new[] { this.CreateUnavailableUsageFromException(ex) };
         }
-    }
-
-    private async Task<IEnumerable<ProviderUsage>> GetApiKeyUsageAsync(string apiKey)
-    {
-        if (apiKey.StartsWith("sk-proj", StringComparison.OrdinalIgnoreCase))
-        {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "OpenAI",
-                    IsAvailable = false,
-                    Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding
-                }
-            };
-        }
-
-        try
-        {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            var response = await _httpClient.SendAsync(request);
-
-            if (response.IsSuccessStatusCode)
-            {
-                return new[]
-                {
-                    new ProviderUsage
-                    {
-                        ProviderId = ProviderId,
-                        ProviderName = "OpenAI",
-                        IsAvailable = true,
-                        RequestsPercentage = 0,
-                        IsQuotaBased = true,
-                        PlanType = PlanType.Coding,
-                        Description = "Connected (API Key)",
-                        UsageUnit = "Status"
-                    }
-                };
-            }
-
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "OpenAI",
-                    IsAvailable = false,
-                    Description = $"Invalid Key ({response.StatusCode})",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding
-                }
-            };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "OpenAI API key validation failed");
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = ProviderId,
-                    ProviderName = "OpenAI",
-                    IsAvailable = false,
-                    Description = "Connection Failed",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding
-                }
-            };
-        }
-    }
-
-    private async Task<ProviderUsage> GetNativeUsageAsync(string accessToken, string? accountId)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, WhamUsageEndpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        if (!string.IsNullOrWhiteSpace(accountId))
-        {
-            request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", accountId);
-        }
-
-        using var response = await _httpClient.SendAsync(request);
-        var content = await response.Content.ReadAsStringAsync();
-
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-        {
-            return CreateUnavailableUsage($"Session invalid ({(int)response.StatusCode})", (int)response.StatusCode);
-        }
-
-        if (!response.IsSuccessStatusCode)
-        {
-            return CreateUnavailableUsage($"Session usage request failed ({(int)response.StatusCode})", (int)response.StatusCode);
-        }
-
-        using var doc = JsonDocument.Parse(content);
-        if (doc.RootElement.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
-        {
-            return CreateUnavailableUsage(detail.GetString() ?? "Session usage request failed", (int)response.StatusCode);
-        }
-
-        var planType = ReadString(doc.RootElement, "plan_type") ?? "chatgpt";
-        var used = ReadDouble(doc.RootElement, "rate_limit", "primary_window", "used_percent") ?? 0.0;
-        var nextResetTime = ResolveResetTime(doc.RootElement);
-        var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
-
-        return new ProviderUsage
-        {
-            ProviderId = ProviderId,
-            ProviderName = "OpenAI",
-            AccountName = GetAccountIdentity(doc.RootElement, accessToken, accountId) ?? string.Empty,
-            IsAvailable = true,
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
-            RequestsPercentage = remaining,
-            RequestsUsed = used,
-            RequestsAvailable = 100,
-            UsageUnit = "Quota %",
-            Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}",
-            AuthSource = "OpenCode Session",
-            NextResetTime = nextResetTime,
-            Details = BuildOpenAiSessionDetails(doc.RootElement),
-            RawJson = content,
-            HttpStatus = (int)response.StatusCode
-        };
     }
 
     private static bool IsApiKey(string token)
@@ -207,100 +125,59 @@ public class OpenAIProvider : ProviderBase
         return token.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<OpenCodeOpenAiAuth?> LoadOpenCodeAuthAsync()
-    {
-        var paths = new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
-        };
-
-        foreach (var path in paths)
-        {
-            if (!File.Exists(path))
-            {
-                continue;
-            }
-
-            try
-            {
-                var json = await File.ReadAllTextAsync(path);
-                using var doc = JsonDocument.Parse(json);
-                if (!doc.RootElement.TryGetProperty("openai", out var openai) || openai.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                var access = ReadString(openai, "access");
-                if (string.IsNullOrWhiteSpace(access))
-                {
-                    continue;
-                }
-
-                return new OpenCodeOpenAiAuth
-                {
-                    Access = access,
-                    AccountId = ReadString(openai, "accountId")
-                };
-            }
-            catch (Exception)
-            {
-                // Intentionally suppressed: scanning multiple candidate auth file paths.
-                // Malformed or inaccessible files are skipped to try next candidate.
-            }
-        }
-
-        return null;
-    }
-
     private static List<ProviderUsageDetail> BuildOpenAiSessionDetails(JsonElement root)
     {
         var details = new List<ProviderUsageDetail>();
-        var used = ReadDouble(root, "rate_limit", "primary_window", "used_percent");
-        var reset = ReadDouble(root, "rate_limit", "primary_window", "reset_after_seconds");
+        var used = root.ReadDouble("rate_limit", "primary_window", "used_percent");
+        var reset = root.ReadDouble("rate_limit", "primary_window", "reset_after_seconds");
         var primaryResetTime = ResolveWindowResetTime(root, "primary_window");
 
-        if (used.HasValue)
+        // Emit the Burst detail when usage OR reset timer is present. When the window just reset
+        // the API may omit used_percent (returning only reset_after_seconds), so a used-only guard
+        // would silently drop the bar, preventing dual-bar rendering on the parent card.
+        if (used.HasValue || primaryResetTime.HasValue)
         {
+            var primaryRemaining = Math.Clamp(100.0 - (used ?? 0.0), 0.0, 100.0);
             details.Add(new ProviderUsageDetail
             {
                 Name = "5-hour quota",
-                Used = $"{used.Value:F0}% used",
-                Description = reset.HasValue && reset.Value > 0 ? $"Resets in {(int)reset.Value}s" : string.Empty,
+                Description = FormatResetDescription(reset),
                 NextResetTime = primaryResetTime,
                 DetailType = ProviderUsageDetailType.QuotaWindow,
-                WindowKind = WindowKind.Primary
+                QuotaBucketKind = WindowKind.Burst,
+                PercentageValue = primaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
             });
         }
 
-        var weeklyUsed = ReadDouble(root, "rate_limit", "secondary_window", "used_percent");
-        var weeklyReset = ReadDouble(root, "rate_limit", "secondary_window", "reset_after_seconds");
+        var weeklyUsed = root.ReadDouble("rate_limit", "secondary_window", "used_percent");
+        var weeklyReset = root.ReadDouble("rate_limit", "secondary_window", "reset_after_seconds");
         var weeklyResetTime = ResolveWindowResetTime(root, "secondary_window");
-        if (weeklyUsed.HasValue)
+        if (weeklyUsed.HasValue || weeklyResetTime.HasValue)
         {
+            var secondaryRemaining = Math.Clamp(100.0 - (weeklyUsed ?? 0.0), 0.0, 100.0);
             details.Add(new ProviderUsageDetail
             {
                 Name = "Weekly quota",
-                Used = $"{weeklyUsed.Value:F0}% used",
-                Description = weeklyReset.HasValue && weeklyReset.Value > 0 ? $"Resets in {(int)weeklyReset.Value}s" : string.Empty,
+                Description = FormatResetDescription(weeklyReset),
                 NextResetTime = weeklyResetTime,
                 DetailType = ProviderUsageDetailType.QuotaWindow,
-                WindowKind = WindowKind.Secondary
+                QuotaBucketKind = WindowKind.Rolling,
+                PercentageValue = secondaryRemaining,
+                PercentageSemantic = PercentageValueSemantic.Remaining,
             });
         }
 
-        var credits = ReadDouble(root, "credits", "balance");
-        var unlimited = ReadBool(root, "credits", "unlimited");
+        var credits = root.ReadDouble("credits", "balance");
+        var unlimited = root.ReadBool("credits", "unlimited");
         if (credits.HasValue || unlimited.HasValue)
         {
             details.Add(new ProviderUsageDetail
             {
                 Name = "Credits",
-                Used = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
+                Description = unlimited == true ? "Unlimited" : credits?.ToString("F2", System.Globalization.CultureInfo.InvariantCulture) ?? "Unknown",
                 DetailType = ProviderUsageDetailType.Credit,
-                WindowKind = WindowKind.None
+                QuotaBucketKind = WindowKind.None,
             });
         }
 
@@ -320,24 +197,25 @@ public class OpenAIProvider : ProviderBase
 
     private static DateTime? ResolveWindowResetTime(JsonElement root, string windowName)
     {
-        var resetSeconds = ReadDouble(root, "rate_limit", windowName, "reset_after_seconds")
-                          ?? ReadDouble(root, "rate_limit", windowName, "reset_after");
+        var resetSeconds = root.ReadDouble("rate_limit", windowName, "reset_after_seconds")
+                          ?? root.ReadDouble("rate_limit", windowName, "reset_after");
 
-        if (resetSeconds.HasValue && resetSeconds.Value > 0)
+        var resetFromSeconds = ResolveResetTimeFromSeconds(resetSeconds);
+        if (resetFromSeconds.HasValue)
         {
-            return DateTime.UtcNow.AddSeconds(resetSeconds.Value).ToLocalTime();
+            return resetFromSeconds;
         }
 
-        var resetAtIso = ReadString(root, "rate_limit", windowName, "resets_at")
-                         ?? ReadString(root, "rate_limit", windowName, "reset_at");
+        var resetAtIso = root.ReadString("rate_limit", windowName, "resets_at")
+                         ?? root.ReadString("rate_limit", windowName, "reset_at");
 
         if (!string.IsNullOrWhiteSpace(resetAtIso) &&
-            DateTime.TryParse(resetAtIso, out var parsedResetAt))
+            DateTime.TryParse(resetAtIso, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedResetAt))
         {
             return parsedResetAt.ToLocalTime();
         }
 
-        var resetAtEpoch = ReadDouble(root, "rate_limit", windowName, "reset_at_unix");
+        var resetAtEpoch = root.ReadDouble("rate_limit", windowName, "reset_at_unix");
         if (resetAtEpoch.HasValue && resetAtEpoch.Value > 0)
         {
             return DateTimeOffset.FromUnixTimeSeconds((long)resetAtEpoch.Value).LocalDateTime;
@@ -348,40 +226,16 @@ public class OpenAIProvider : ProviderBase
 
     private static string? GetAccountIdentity(JsonElement root, string accessToken, string? accountId)
     {
-        foreach (var key in new[] { "email", "upn" })
+        var directIdentity = SessionIdentityHelper.TryGetPreferredIdentity(root, StaticDefinition.SessionIdentityProfileRootProperties);
+        if (!string.IsNullOrWhiteSpace(directIdentity))
         {
-            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-            {
-                var value = claimElement.GetString();
-                if (IsEmailLike(value))
-                {
-                    return value;
-                }
-            }
+            return directIdentity;
         }
 
-        var profileEmail = ReadString(root, "https://api.openai.com/profile", "email");
-        if (IsEmailLike(profileEmail))
+        var fromToken = SessionIdentityHelper.TryGetIdentityFromJwt(accessToken, StaticDefinition.SessionIdentityProfileRootProperties);
+        if (!string.IsNullOrWhiteSpace(fromToken))
         {
-            return profileEmail;
-        }
-
-        var claims = DecodeJwtClaims(accessToken);
-        if (!string.IsNullOrWhiteSpace(claims.Email))
-        {
-            return claims.Email;
-        }
-
-        foreach (var key in new[] { "preferred_username", "username", "login", "name" })
-        {
-            if (root.TryGetProperty(key, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-            {
-                var value = claimElement.GetString();
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    return value;
-                }
-            }
+            return fromToken;
         }
 
         if (!string.IsNullOrWhiteSpace(accountId))
@@ -392,156 +246,137 @@ public class OpenAIProvider : ProviderBase
         return null;
     }
 
-    private static (string? Email, string? PlanType) DecodeJwtClaims(string token)
+    private async Task<IEnumerable<ProviderUsage>> GetApiKeyUsageAsync(string apiKey)
     {
+        if (apiKey.StartsWith("sk-proj", StringComparison.OrdinalIgnoreCase))
+        {
+            return new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = this.ProviderId,
+                    ProviderName = this.Definition.DisplayName,
+                    IsAvailable = false,
+                    State = ProviderUsageState.Missing,
+                    Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                },
+            };
+        }
+
         try
         {
-            var parts = token.Split('.');
-            if (parts.Length < 2)
-            {
-                return (null, null);
-            }
+            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
 
-            var payload = parts[1].Replace('-', '+').Replace('_', '/');
-            switch (payload.Length % 4)
+            if (response.IsSuccessStatusCode)
             {
-                case 2: payload += "=="; break;
-                case 3: payload += "="; break;
-            }
-
-            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
-            using var doc = JsonDocument.Parse(json);
-
-            string? email = null;
-            foreach (var claim in new[] { "email", "upn" })
-            {
-                if (doc.RootElement.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
+                return new[]
                 {
-                    var value = claimElement.GetString();
-                    if (IsEmailLike(value))
+                    new ProviderUsage
                     {
-                        email = value;
-                        break;
-                    }
-                }
+                        ProviderId = this.ProviderId,
+                        ProviderName = this.Definition.DisplayName,
+                        IsAvailable = true,
+                        UsedPercent = 0,
+                        IsQuotaBased = true,
+                        PlanType = PlanType.Coding,
+                        Description = "Connected (API Key)",
+                        IsStatusOnly = true,
+                    },
+                };
             }
 
-            if (string.IsNullOrWhiteSpace(email) &&
-                doc.RootElement.TryGetProperty("https://api.openai.com/profile", out var profile) &&
-                profile.ValueKind == JsonValueKind.Object)
+            return new[]
             {
-                foreach (var claim in new[] { "email", "username", "name" })
+                new ProviderUsage
                 {
-                    var profileValue = ReadString(profile, claim);
-                    if (IsEmailLike(profileValue))
-                    {
-                        email = profileValue;
-                        break;
-                    }
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(email))
-            {
-                foreach (var claim in new[] { "preferred_username", "username", "login", "name", "sub" })
-                {
-                    if (doc.RootElement.TryGetProperty(claim, out var claimElement) && claimElement.ValueKind == JsonValueKind.String)
-                    {
-                        var value = claimElement.GetString();
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            email = value;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            var planType = ReadString(doc.RootElement, "https://api.openai.com/auth", "plan_type")
-                           ?? ReadString(doc.RootElement, "plan_type");
-
-            return (email, planType);
+                    ProviderId = this.ProviderId,
+                    ProviderName = this.Definition.DisplayName,
+                    IsAvailable = false,
+                    State = ProviderUsageState.Error,
+                    Description = $"Invalid Key ({response.StatusCode})",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                },
+            };
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Intentionally suppressed: JWT parsing failures are non-critical.
-            // Returns (null, null) to indicate claims could not be extracted.
-            return (null, null);
+            this._logger.LogError(ex, "OpenAI API key validation failed");
+            return new[]
+            {
+                new ProviderUsage
+                {
+                    ProviderId = this.ProviderId,
+                    ProviderName = this.Definition.DisplayName,
+                    IsAvailable = false,
+                    State = ProviderUsageState.Error,
+                    Description = "Connection Failed",
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Coding,
+                },
+            };
         }
     }
 
-    private static string? ReadString(JsonElement root, params string[] path)
+    private async Task<ProviderUsage> GetNativeUsageAsync(string accessToken, string? accountId)
     {
-        var current = root;
-        foreach (var segment in path)
+        using var request = new HttpRequestMessage(HttpMethod.Get, WhamUsageEndpoint);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        if (!string.IsNullOrWhiteSpace(accountId))
         {
-            if (!current.TryGetProperty(segment, out current))
-            {
-                return null;
-            }
+            request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", accountId);
         }
 
-        return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
-    }
+        using var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
+        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
-    private static double? ReadDouble(JsonElement root, params string[] path)
-    {
-        var current = root;
-        foreach (var segment in path)
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
-            if (!current.TryGetProperty(segment, out current))
-            {
-                return null;
-            }
+            return this.CreateUnavailableUsage($"Session invalid ({(int)response.StatusCode})", (int)response.StatusCode);
         }
 
-        if (current.ValueKind == JsonValueKind.Number && current.TryGetDouble(out var number))
+        if (!response.IsSuccessStatusCode)
         {
-            return number;
+            return this.CreateUnavailableUsage($"Session usage request failed ({(int)response.StatusCode})", (int)response.StatusCode);
         }
 
-        if (current.ValueKind == JsonValueKind.String)
+        using var doc = JsonDocument.Parse(content);
+        if (doc.RootElement.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
         {
-            var raw = current.GetString();
-            if (!string.IsNullOrWhiteSpace(raw) &&
-                double.TryParse(raw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
-            {
-                return parsed;
-            }
+            return this.CreateUnavailableUsage(detail.GetString() ?? "Session usage request failed", (int)response.StatusCode);
         }
 
-        return null;
-    }
+        var planType = doc.RootElement.ReadString("plan_type") ?? "chatgpt";
+        var primaryUsed = doc.RootElement.ReadDouble("rate_limit", "primary_window", "used_percent") ?? 0.0;
+        var secondaryUsed = doc.RootElement.ReadDouble("rate_limit", "secondary_window", "used_percent") ?? 0.0;
+        var nextResetTime = ResolveResetTime(doc.RootElement);
 
-    private static bool? ReadBool(JsonElement root, params string[] path)
-    {
-        var current = root;
-        foreach (var segment in path)
-        {
-            if (!current.TryGetProperty(segment, out current))
-            {
-                return null;
-            }
-        }
+        // Use the higher of primary or secondary window usage for the main display.
+        // The API may return 0 for primary_window but have actual usage in secondary_window.
+        var used = Math.Max(primaryUsed, secondaryUsed);
+        var remaining = Math.Clamp(100.0 - used, 0.0, 100.0);
 
-        return current.ValueKind switch
+        return new ProviderUsage
         {
-            JsonValueKind.True => true,
-            JsonValueKind.False => false,
-            _ => null
+            ProviderId = this.ProviderId,
+            ProviderName = this.Definition.DisplayName,
+            AccountName = GetAccountIdentity(doc.RootElement, accessToken, accountId) ?? string.Empty,
+            IsAvailable = true,
+            IsQuotaBased = true,
+            PlanType = PlanType.Coding,
+            UsedPercent = used,
+            RequestsUsed = used,
+            RequestsAvailable = 100,
+            Description = $"{remaining:F0}% remaining ({used:F0}% used) | Plan: {planType}",
+            AuthSource = AuthSource.OpenCodeSession,
+            NextResetTime = nextResetTime,
+            Details = BuildOpenAiSessionDetails(doc.RootElement),
+            RawJson = content,
+            HttpStatus = (int)response.StatusCode,
         };
     }
-
-    private static bool IsEmailLike(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
-    }
-
-    private sealed class OpenCodeOpenAiAuth
-    {
-        public string? Access { get; set; }
-        public string? AccountId { get; set; }
-    }
 }
-
-

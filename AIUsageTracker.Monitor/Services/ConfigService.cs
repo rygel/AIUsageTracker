@@ -1,6 +1,11 @@
-using AIUsageTracker.Core.Models;
+// <copyright file="ConfigService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Configuration;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,28 +17,37 @@ public class ConfigService : IConfigService
     private readonly JsonConfigLoader _configLoader;
     private readonly TokenDiscoveryService _tokenDiscovery;
     private readonly IAppPathProvider _pathProvider;
+    private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
+    private int _startupAuthDiagnosticsLogged;
 
     public ConfigService(ILogger<ConfigService> logger, IAppPathProvider pathProvider)
+        : this(logger, NullLoggerFactory.Instance, pathProvider)
     {
-        _logger = logger;
-        _pathProvider = pathProvider;
-        _configLoader = new JsonConfigLoader(
-            logger: NullLogger<JsonConfigLoader>.Instance,
-            tokenDiscoveryLogger: NullLogger<TokenDiscoveryService>.Instance,
-            pathProvider: _pathProvider);
-        _tokenDiscovery = new TokenDiscoveryService(NullLogger<TokenDiscoveryService>.Instance, _pathProvider);
     }
 
-    public async Task<List<ProviderConfig>> GetConfigsAsync()
+    public ConfigService(ILogger<ConfigService> logger, ILoggerFactory loggerFactory, IAppPathProvider pathProvider)
+    {
+        this._logger = logger;
+        this._pathProvider = pathProvider;
+        this._tokenDiscoveryLogger = loggerFactory.CreateLogger<TokenDiscoveryService>();
+        this._configLoader = new JsonConfigLoader(
+            logger: loggerFactory.CreateLogger<JsonConfigLoader>(),
+            tokenDiscoveryLogger: this._tokenDiscoveryLogger,
+            pathProvider: this._pathProvider);
+        this._tokenDiscovery = new TokenDiscoveryService(this._tokenDiscoveryLogger, this._pathProvider);
+    }
+
+    public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync()
     {
         try
         {
-            var configs = await _configLoader.LoadConfigAsync();
-            return configs;
+            var configs = await this._configLoader.LoadConfigAsync().ConfigureAwait(false);
+            this.LogAuthDiagnosticsSnapshotOnceOnStartup(configs);
+            return configs.ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load configs: {Message}", ex.Message);
+            this._logger.LogError(ex, "Failed to load configs: {Message}", ex.Message);
             return new List<ProviderConfig>();
         }
     }
@@ -42,12 +56,12 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var configs = await _configLoader.LoadConfigAsync();
-            
+            var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
+
             // Update or add
-            var existing = configs.FirstOrDefault(c => 
+            var existing = configs.FirstOrDefault(c =>
                 c.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
-            
+
             if (existing != null)
             {
                 var index = configs.IndexOf(existing);
@@ -57,13 +71,13 @@ public class ConfigService : IConfigService
             {
                 configs.Add(config);
             }
-            
-            await _configLoader.SaveConfigAsync(configs);
-            _logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
+
+            await this._configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
+            this._logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save config for {ProviderId}: {Message}", config.ProviderId, ex.Message);
+            this._logger.LogError(ex, "Failed to save config for {ProviderId}: {Message}", config.ProviderId, ex.Message);
             throw;
         }
     }
@@ -72,14 +86,14 @@ public class ConfigService : IConfigService
     {
         try
         {
-            var configs = await _configLoader.LoadConfigAsync();
+            var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
             configs.RemoveAll(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
-            await _configLoader.SaveConfigAsync(configs);
-            _logger.LogInformation("Removed: {ProviderId}", providerId);
+            await this._configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
+            this._logger.LogInformation("Removed: {ProviderId}", providerId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to remove config for {ProviderId}: {Message}", providerId, ex.Message);
+            this._logger.LogError(ex, "Failed to remove config for {ProviderId}: {Message}", providerId, ex.Message);
             throw;
         }
     }
@@ -88,11 +102,11 @@ public class ConfigService : IConfigService
     {
         try
         {
-            return await _configLoader.LoadPreferencesAsync();
+            return await this._configLoader.LoadPreferencesAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load preferences: {Message}", ex.Message);
+            this._logger.LogError(ex, "Failed to load preferences: {Message}", ex.Message);
             return new AppPreferences();
         }
     }
@@ -101,91 +115,124 @@ public class ConfigService : IConfigService
     {
         try
         {
-            await _configLoader.SavePreferencesAsync(preferences);
-            _logger.LogInformation("Prefs saved");
+            await this._configLoader.SavePreferencesAsync(preferences).ConfigureAwait(false);
+            this._logger.LogInformation("Prefs saved");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save preferences: {Message}", ex.Message);
+            this._logger.LogError(ex, "Failed to save preferences: {Message}", ex.Message);
             throw;
         }
     }
 
-    public async Task<List<ProviderConfig>> ScanForKeysAsync()
+    public async Task<IReadOnlyList<ProviderConfig>> ScanForKeysAsync()
     {
         try
         {
-            var discovered = await _tokenDiscovery.DiscoverTokensAsync();
-            var existing = await _configLoader.LoadConfigAsync();
-            
+            var discovered = await this._tokenDiscovery.DiscoverTokensAsync().ConfigureAwait(false);
+            var existing = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
+            var discoveredWithKeys = discovered
+                .Where(config => !string.IsNullOrWhiteSpace(config.ApiKey))
+                .ToList();
+            var addedWithKeys = new List<string>();
+            var updatedWithKeys = new List<string>();
+            var alreadyConfiguredWithKeys = new List<string>();
+
+            this._logger.LogInformation(
+                "Auth scan started: discovered {TotalDiscovered} providers ({ProvidersWithKeys} with keys).",
+                discovered.Count,
+                discoveredWithKeys.Count);
+
             // Merge discovered with existing
             foreach (var newConfig in discovered)
             {
-                var existingConfig = existing.FirstOrDefault(c => 
+                var existingConfig = existing.FirstOrDefault(c =>
                     c.ProviderId.Equals(newConfig.ProviderId, StringComparison.OrdinalIgnoreCase));
-                
+
                 if (existingConfig == null)
                 {
                     existing.Add(newConfig);
-                    _logger.LogInformation("Found: {ProviderId}", newConfig.ProviderId);
+                    this._logger.LogInformation("Found: {ProviderId}", newConfig.ProviderId);
+                    if (!string.IsNullOrWhiteSpace(newConfig.ApiKey))
+                    {
+                        addedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
+                    }
                 }
                 else if (string.IsNullOrEmpty(existingConfig.ApiKey) && !string.IsNullOrEmpty(newConfig.ApiKey))
                 {
                     // Update with discovered key
                     existingConfig.ApiKey = newConfig.ApiKey;
-                    existingConfig.AuthSource = newConfig.AuthSource;
-                    _logger.LogInformation("Key updated: {ProviderId}", newConfig.ProviderId);
+                    existingConfig.AuthSource = newConfig.AuthSource ?? string.Empty;
+                    this._logger.LogInformation("Key updated: {ProviderId}", newConfig.ProviderId);
+                    updatedWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
+                }
+                else if (!string.IsNullOrWhiteSpace(newConfig.ApiKey))
+                {
+                    alreadyConfiguredWithKeys.Add($"{newConfig.ProviderId} ({newConfig.AuthSource ?? "unknown"})");
                 }
             }
 
-            NormalizeOpenAiCodexSessionOverlap(existing);
-            
-            await _configLoader.SaveConfigAsync(existing);
-            return discovered;
+            ProviderMetadataCatalog.NormalizeCanonicalConfigurations(existing);
+
+            this.LogAuthDiagnosticsSnapshot(existing, "post-scan");
+
+            this._logger.LogInformation(
+                "Auth scan summary: added={Added}, updated={Updated}, alreadyConfigured={AlreadyConfigured}, discoveredWithKeys={DiscoveredWithKeys}.",
+                addedWithKeys.Count,
+                updatedWithKeys.Count,
+                alreadyConfiguredWithKeys.Count,
+                discoveredWithKeys.Count);
+
+            if (addedWithKeys.Count > 0)
+            {
+                this._logger.LogInformation("Auth scan added providers: {Providers}", string.Join(", ", addedWithKeys));
+            }
+
+            if (updatedWithKeys.Count > 0)
+            {
+                this._logger.LogInformation("Auth scan updated providers: {Providers}", string.Join(", ", updatedWithKeys));
+            }
+
+            if (alreadyConfiguredWithKeys.Count > 0)
+            {
+                this._logger.LogInformation("Auth scan already-configured providers: {Providers}", string.Join(", ", alreadyConfiguredWithKeys));
+            }
+
+            await this._configLoader.SaveConfigAsync(existing).ConfigureAwait(false);
+            return discovered.ToList();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to scan for keys: {Message}", ex.Message);
+            this._logger.LogError(ex, "Failed to scan for keys: {Message}", ex.Message);
             return new List<ProviderConfig>();
         }
     }
 
-    private static void NormalizeOpenAiCodexSessionOverlap(List<ProviderConfig> configs)
+    private void LogAuthDiagnosticsSnapshotOnceOnStartup(IReadOnlyList<ProviderConfig> configs)
     {
-        var openAiConfig = configs.FirstOrDefault(c => c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
-        if (openAiConfig == null)
+        if (Interlocked.Exchange(ref this._startupAuthDiagnosticsLogged, 1) == 1)
         {
             return;
         }
 
-        var hasOpenAiApiKey = !string.IsNullOrWhiteSpace(openAiConfig.ApiKey) &&
-                              openAiConfig.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-        if (hasOpenAiApiKey)
-        {
-            return;
-        }
+        this.LogAuthDiagnosticsSnapshot(configs, "startup-config-load");
+    }
 
-        var codexConfig = configs.FirstOrDefault(c => c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase));
-        if (codexConfig == null)
+    private void LogAuthDiagnosticsSnapshot(IReadOnlyList<ProviderConfig> configs, string phase)
+    {
+        var nowUtc = DateTimeOffset.UtcNow;
+        foreach (var config in configs.OrderBy(item => item.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            codexConfig = new ProviderConfig
-            {
-                ProviderId = "codex",
-                Type = "quota-based",
-                PlanType = PlanType.Coding
-            };
-            configs.Add(codexConfig);
+            var snapshot = AuthDiagnosticsSnapshotBuilder.Build(config, nowUtc, this._logger);
+            this._logger.LogInformation(
+                "Auth diagnostics [{Phase}] provider={ProviderId} configured={Configured} authSource={AuthSource} fallbackPathUsed={FallbackPathUsed} tokenAgeBucket={TokenAgeBucket} hasUserIdentity={HasUserIdentity}",
+                phase,
+                snapshot.ProviderId,
+                snapshot.Configured,
+                snapshot.AuthSource,
+                snapshot.FallbackPathUsed,
+                snapshot.TokenAgeBucket,
+                snapshot.HasUserIdentity);
         }
-
-        if (string.IsNullOrWhiteSpace(codexConfig.ApiKey) && !string.IsNullOrWhiteSpace(openAiConfig.ApiKey))
-        {
-            codexConfig.ApiKey = openAiConfig.ApiKey;
-            codexConfig.AuthSource = openAiConfig.AuthSource;
-            codexConfig.Description = "Migrated from OpenAI session config";
-        }
-
-        configs.RemoveAll(c => c.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase));
     }
 }
-
-

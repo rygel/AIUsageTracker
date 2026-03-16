@@ -15,6 +15,11 @@ on:
           - stable
           - beta
         default: stable
+      skip_file_updates:
+        description: 'Skip version-file updates because the release PR is already merged'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -55,6 +60,7 @@ jobs:
           echo "✓ Version $version matches channel $channel"
 
       - name: Update Version Files
+        if: ${{ !inputs.skip_file_updates }}
         run: |
           version="${{ inputs.version }}"
           clean_version="${version%%-*}"
@@ -88,6 +94,7 @@ jobs:
           fi
 
       - name: Commit and Push Changes
+        if: ${{ !inputs.skip_file_updates }}
         run: |
           version="${{ inputs.version }}"
           channel="${{ inputs.channel }}"
@@ -112,28 +119,20 @@ jobs:
             fi
           fi
 
-      - name: Create and Push Tag
-        run: |
-          version="${{ inputs.version }}"
-          tag="v$version"
-          
-          # Delete tag if it exists (for re-runs)
-          git push origin :refs/tags/$tag 2>/dev/null || true
-          
-          git tag -a "$tag" -m "Release $version (${{ inputs.channel }})"
-          git push origin "$tag"
-          echo "✓ Created and pushed tag $tag"
-
       - name: Success Summary
         run: |
           echo "=========================================="
           echo "Release ${{ inputs.version }} (${{ inputs.channel }}) prepared successfully!"
           echo "=========================================="
           echo ""
-          echo "Tag pushed: v${{ inputs.version }}"
+          echo "Repository rules block GitHub Actions from creating release tags."
+          echo "Create the tag manually with maintainer credentials:"
+          echo "  git tag -a v${{ inputs.version }} -m \"Release ${{ inputs.version }} (${{ inputs.channel }})\""
+          echo "  git push origin v${{ inputs.version }}"
           echo ""
           echo "Next steps:"
-          echo "1. The Publish workflow will automatically trigger"
-          echo "2. Check the Actions tab for build progress"
-          echo "3. Release will be created automatically once builds complete"
+          echo "1. If skip_file_updates=false, wait for the version bump commit on the target branch"
+          echo "2. Create and push tag v${{ inputs.version }} with maintainer credentials"
+          echo "3. The Publish & Distribute workflow will trigger from the tag push"
+          echo "4. Check the Actions tab for build and release progress"
           echo ""

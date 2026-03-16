@@ -36,7 +36,7 @@ else
                     <tr>
                         <td>@usage.FetchedAt.ToString("g")</td>
                         <td>@usage.ProviderName</td>
-                        <td>@usage.RequestsPercentage.ToString("F1")%</td>
+                        <td>@usage.RemainingPercent.ToString("F1")%</td>
                         <td>
                             <span class="provider-status @(usage.IsAvailable ? "active" : "inactive")">
                                 @(usage.IsAvailable ? "Active" : "Inactive")

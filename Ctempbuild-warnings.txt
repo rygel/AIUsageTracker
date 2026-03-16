@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AIUsageTracker.Core -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.Core\bin\Debug\net8.0\AIUsageTracker.Core.dll
+  AIUsageTracker.Infrastructure -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.Infrastructure\bin\Debug\net8.0\AIUsageTracker.Infrastructure.dll
+  AIUsageTracker.CLI -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.CLI\bin\Debug\net8.0\AIUsageTracker.CLI.dll
+  AIUsageTracker.Monitor -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.Monitor\bin\Debug\net8.0\AIUsageTracker.Monitor.dll
+  AIUsageTracker.Monitor.Tests -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.Monitor.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.Tests.dll
+  AIUsageTracker.UI.Slim -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.UI.Slim\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.dll
+  AIUsageTracker.Web -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.Web\bin\Debug\net8.0\AIUsageTracker.Web.dll
+  AIUsageTracker.Tests -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Tests.dll
+  AIUsageTracker.Web.Tests -> C:\Develop\Claude\opencode-tracker\AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll
+  Seeder -> C:\Develop\Claude\opencode-tracker\scripts\Seeder\bin\Debug\net8.0\Seeder.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.51

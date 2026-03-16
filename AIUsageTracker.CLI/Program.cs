@@ -1,29 +1,36 @@
+// <copyright file="Program.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Text.Json;
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Extensions;
+using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
-using System.Diagnostics;
 
 namespace AIUsageTracker.CLI;
 
-class Program
+public class Program
 {
-    static async Task Main(string[] args)
+    public static async Task Main(string[] args)
     {
-        try 
+        var serviceProvider = CreateServiceProvider();
+
+        try
         {
             // Ensure Agent is running
-            if (!await MonitorLauncher.IsAgentRunningAsync())
+            var lifecycleService = serviceProvider.GetRequiredService<IMonitorLifecycleService>();
+            if (!await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false))
             {
                 Console.WriteLine("Agent is not running. Attempting to start...");
-                if (await MonitorLauncher.StartAgentAsync())
+                if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
                 {
                     Console.Write("Waiting for Agent to initialize...");
-                    if (await MonitorLauncher.WaitForAgentAsync())
+                    if (await lifecycleService.WaitForAgentAsync().ConfigureAwait(false))
                     {
                         Console.WriteLine(" Done.");
                     }
@@ -41,15 +48,37 @@ class Program
                 }
             }
 
-            await Run(args);
+            await RunAsync(args, serviceProvider).ConfigureAwait(false);
         }
         finally
         {
             // We don't kill the process anymore since we might have started the shared Agent
+            if (serviceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
         }
     }
 
-    static async Task Run(string[] args)
+    private static ServiceProvider CreateServiceProvider()
+    {
+        var services = new ServiceCollection();
+
+        services.AddLogging(configure =>
+        {
+            configure.AddConsole();
+            configure.SetMinimumLevel(LogLevel.Warning); // Reduce log noise
+        });
+
+        services.AddHttpClient();
+        services.AddResilientHttpClient();
+        services.AddSingleton<IMonitorService, MonitorService>();
+        services.AddSingleton<IMonitorLifecycleService, MonitorLifecycleService>();
+
+        return services.BuildServiceProvider();
+    }
+
+    private static async Task RunAsync(string[] args, ServiceProvider serviceProvider)
     {
         if (args.Length == 0)
         {
@@ -69,38 +98,29 @@ class Program
             return;
         }
 
-        var command = args[0].ToLower();
-        var showAll = args.Contains("--all");
-        var json = args.Contains("--json");
+        var command = args[0].ToLower(System.Globalization.CultureInfo.InvariantCulture);
+        var showAll = args.Contains("--all", StringComparer.Ordinal);
+        var json = args.Contains("--json", StringComparer.Ordinal);
 
-        // Setup DI
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        
-        services.AddLogging(configure => 
-        {
-            configure.AddConsole();
-            configure.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Warning); // Reduce log noise
-        });
-
-        services.AddHttpClient();
-        services.AddResilientHttpClient();
-        services.AddSingleton<MonitorService>();
-
-        var serviceProvider = services.BuildServiceProvider();
-        var agentService = serviceProvider.GetRequiredService<MonitorService>();
+        var agentService = serviceProvider.GetRequiredService<IMonitorService>();
+        var lifecycleService = serviceProvider.GetRequiredService<IMonitorLifecycleService>();
 
         switch (command)
         {
             case "status":
-                await ShowStatus(agentService, json, showAll);
+                await ShowStatusAsync(agentService, json, showAll).ConfigureAwait(false);
                 break;
             case "history":
                 int days = 7;
-                if (args.Length > 1 && int.TryParse(args[1], out int d)) days = d;
-                await ShowHistory(agentService, days, json);
+                if (args.Length > 1 && int.TryParse(args[1], System.Globalization.CultureInfo.InvariantCulture, out int d))
+                {
+                    days = d;
+                }
+
+                await ShowHistoryAsync(agentService, days, json).ConfigureAwait(false);
                 break;
             case "list":
-                await ShowList(agentService, json);
+                await ShowListAsync(agentService, json).ConfigureAwait(false);
                 break;
             case "set-key":
                 if (args.Length < 3)
@@ -108,7 +128,8 @@ class Program
                     Console.WriteLine("Usage: act set-key <provider-id> <api-key>");
                     return;
                 }
-                await SetKey(agentService, args[1], args[2]);
+
+                await SetKeyAsync(agentService, args[1], args[2]).ConfigureAwait(false);
                 break;
             case "remove-key":
                 if (args.Length < 2)
@@ -116,18 +137,26 @@ class Program
                     Console.WriteLine("Usage: act remove-key <provider-id>");
                     return;
                 }
-                await RemoveKey(agentService, args[1]);
+
+                await RemoveKeyAsync(agentService, args[1]).ConfigureAwait(false);
                 break;
             case "scan":
-                await ScanKeys(agentService);
+                await ScanKeysAsync(agentService).ConfigureAwait(false);
                 break;
             case "config":
                 if (args.Length == 1)
-                    await ShowConfig(agentService);
+                {
+                    await ShowConfigAsync().ConfigureAwait(false);
+                }
                 else if (args.Length >= 3)
-                    await SetConfig(agentService, args[1], args[2]);
+                {
+                    await SetConfigAsync(args[1], args[2]).ConfigureAwait(false);
+                }
                 else
+                {
                     Console.WriteLine("Usage: act config [key] [value]");
+                }
+
                 break;
             case "agent":
                 if (args.Length < 2)
@@ -135,14 +164,15 @@ class Program
                     Console.WriteLine("Usage: act agent <start|stop|restart|info|log>");
                     return;
                 }
-                await ManageAgent(agentService, args[1]);
+
+                await ManageAgentAsync(lifecycleService, args[1]).ConfigureAwait(false);
                 break;
             case "check":
                 string? providerId = args.Length > 1 ? args[1] : null;
-                await CheckProvider(agentService, providerId);
+                await CheckProviderAsync(agentService, providerId).ConfigureAwait(false);
                 break;
             case "export":
-                await ExportData(agentService, args);
+                await ExportDataAsync(agentService, args).ConfigureAwait(false);
                 break;
             default:
                 Console.WriteLine($"Unknown command: {command}");
@@ -150,41 +180,42 @@ class Program
         }
     }
 
-    static async Task CheckProvider(MonitorService service, string? providerId)
+    private static async Task CheckProviderAsync(IMonitorService service, string? providerId)
     {
         if (string.IsNullOrEmpty(providerId))
         {
             Console.WriteLine("Checking all configured providers...");
-            var configs = await service.GetConfigsAsync();
+            var configs = await service.GetConfigsAsync().ConfigureAwait(false);
             foreach (var config in configs)
             {
-                await CheckSingleProvider(service, config.ProviderId);
+                await CheckSingleProviderAsync(service, config.ProviderId).ConfigureAwait(false);
             }
         }
         else
         {
-            await CheckSingleProvider(service, providerId);
+            await CheckSingleProviderAsync(service, providerId).ConfigureAwait(false);
         }
     }
 
-    static async Task CheckSingleProvider(MonitorService service, string providerId)
+    private static async Task CheckSingleProviderAsync(IMonitorService service, string providerId)
     {
         Console.Write($"Checking {providerId}... ");
-        var (success, message) = await service.CheckProviderAsync(providerId);
-        if (success)
+        var result = await service.CheckProviderAsync(providerId).ConfigureAwait(false);
+        if (result.Success)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine($"OK ({message})");
+            Console.WriteLine($"OK ({result.Message})");
         }
         else
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"FAILED ({message})");
+            Console.WriteLine($"FAILED ({result.Message})");
         }
+
         Console.ResetColor();
     }
 
-    static async Task ExportData(MonitorService service, string[] args)
+    private static async Task ExportDataAsync(IMonitorService service, string[] args)
     {
         string format = "csv";
         int days = 30;
@@ -192,21 +223,34 @@ class Program
 
         for (int i = 1; i < args.Length; i++)
         {
-            if (args[i] == "--format" && i + 1 < args.Length) format = args[++i];
-            else if (args[i] == "--days" && i + 1 < args.Length && int.TryParse(args[i+1], out int d)) { days = d; i++; }
-            else if (args[i] == "--output" && i + 1 < args.Length) output = args[++i];
+            if (string.Equals(args[i], "--format", StringComparison.Ordinal) && i + 1 < args.Length)
+            {
+                format = args[++i];
+            }
+            else if (string.Equals(args[i], "--days", StringComparison.Ordinal) && i + 1 < args.Length && int.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, out int d))
+            {
+                days = d;
+                i++;
+            }
+            else if (string.Equals(args[i], "--output", StringComparison.Ordinal) && i + 1 < args.Length)
+            {
+                output = args[++i];
+            }
         }
 
         // Adjust default extension if format changed but output didn't
-        if (format == "json" && output.EndsWith(".csv")) output = Path.ChangeExtension(output, ".json");
-        
+        if (string.Equals(format, "json", StringComparison.Ordinal) && output.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            output = Path.ChangeExtension(output, ".json");
+        }
+
         Console.WriteLine($"Exporting {days} days of history to {output} ({format})...");
 
-        var stream = await service.ExportDataAsync(format, days);
+        var stream = await service.ExportDataAsync(format, days).ConfigureAwait(false);
         if (stream != null)
         {
             using var fileStream = File.Create(output);
-            await stream.CopyToAsync(fileStream);
+            await stream.CopyToAsync(fileStream).ConfigureAwait(false);
             Console.WriteLine("Export complete.");
         }
         else
@@ -215,14 +259,14 @@ class Program
         }
     }
 
-    static async Task ShowHistory(MonitorService service, int days, bool json)
+    private static async Task ShowHistoryAsync(IMonitorService service, int days, bool json)
     {
         // For CLI simplicity, we'll just show the last N entries or a summary if possible.
         // The Agent API currently supports ?limit=N.
         // Ideally, we'd have a 'days' parameter on the API, but limit works for now.
         // Assuming ~50 requests/day for a heavy user, 7 days = 350.
-        var limit = days * 50; 
-        var history = await service.GetHistoryAsync(limit);
+        var limit = days * 50;
+        var history = await service.GetHistoryAsync(limit).ConfigureAwait(false);
 
         if (json)
         {
@@ -242,43 +286,48 @@ class Program
 
         foreach (var item in history)
         {
-             // Flatten details for simplified view
-                  var displayableHistoryDetails = item.Details?
-                      .Where(d => d.DetailType == ProviderUsageDetailType.Model || d.DetailType == ProviderUsageDetailType.Other)
-                      .ToList();
+            // Flatten details for simplified view
+            var displayableHistoryDetails = item.Details?
+                .Where(d => d.DetailType == ProviderUsageDetailType.Model || d.DetailType == ProviderUsageDetailType.Other)
+                .ToList();
 
-                 if (displayableHistoryDetails is { Count: > 0 })
-             {
-                 foreach(var detail in displayableHistoryDetails)
-                 {
-                      var providerDisplayName = ProviderMetadataCatalog.GetDisplayName(item.ProviderId, item.ProviderName);
-                      Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {detail.Name,-25} | {detail.Used,-15}");
-                 }
-             }
-             else
-             {
-                 // Fallback for providers without details
-                 var used = $"{item.RequestsUsed} {item.UsageUnit}";
-                 var providerDisplayName = ProviderMetadataCatalog.GetDisplayName(item.ProviderId, item.ProviderName);
-                 Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
-             }
+            if (displayableHistoryDetails is { Count: > 0 })
+            {
+                foreach (var detail in displayableHistoryDetails)
+                {
+                    var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
+                    var detailDisplay = detail.PercentageValue.HasValue
+                        ? $"{detail.PercentageValue.Value:F1}% {detail.PercentageSemantic.ToString().ToLowerInvariant()}"
+                        : detail.Description;
+                    Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {detail.Name,-25} | {detailDisplay,-15}");
+                }
+            }
+            else
+            {
+                // Fallback for providers without details
+                var used = item.IsCurrencyUsage
+                    ? $"${item.RequestsUsed:F2}"
+                    : item.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
+                Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
+            }
         }
     }
 
-    static async Task SetKey(MonitorService service, string providerId, string apiKey)
+    private static async Task SetKeyAsync(IMonitorService service, string providerId, string apiKey)
     {
         Console.WriteLine($"Setting key for '{providerId}'...");
-        
-        var configs = await service.GetConfigsAsync();
+
+        var configs = await service.GetConfigsAsync().ConfigureAwait(false);
         var existingConfig = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
 
         if (existingConfig != null)
         {
             existingConfig.ApiKey = apiKey;
-            if (await service.SaveConfigAsync(existingConfig))
+            if (await service.SaveConfigAsync(existingConfig).ConfigureAwait(false))
             {
                 Console.WriteLine("Key updated successfully.");
-                await service.TriggerRefreshAsync();
+                await service.TriggerRefreshAsync().ConfigureAwait(false);
             }
             else
             {
@@ -290,13 +339,13 @@ class Program
             var newConfig = new ProviderConfig
             {
                 ProviderId = providerId,
-                ApiKey = apiKey
+                ApiKey = apiKey,
             };
-            
-            if (await service.SaveConfigAsync(newConfig))
+
+            if (await service.SaveConfigAsync(newConfig).ConfigureAwait(false))
             {
                 Console.WriteLine("Key saved successfully.");
-                await service.TriggerRefreshAsync();
+                await service.TriggerRefreshAsync().ConfigureAwait(false);
             }
             else
             {
@@ -305,34 +354,35 @@ class Program
         }
     }
 
-    static async Task RemoveKey(MonitorService service, string providerId)
+    private static async Task RemoveKeyAsync(IMonitorService service, string providerId)
     {
         Console.WriteLine($"Removing key for '{providerId}'...");
-        if (await service.RemoveConfigAsync(providerId))
+        if (await service.RemoveConfigAsync(providerId).ConfigureAwait(false))
         {
-             Console.WriteLine("Key removed successfully.");
-             await service.TriggerRefreshAsync();
+            Console.WriteLine("Key removed successfully.");
+            await service.TriggerRefreshAsync().ConfigureAwait(false);
         }
         else
         {
-             Console.WriteLine("Failed to remove key.");
+            Console.WriteLine("Failed to remove key.");
         }
     }
 
-    static async Task ScanKeys(MonitorService service)
+    private static async Task ScanKeysAsync(IMonitorService service)
     {
         Console.WriteLine("Scanning for API keys from known applications...");
-        var (count, configs) = await service.ScanForKeysAsync();
-        
-        if (count > 0)
+        var result = await service.ScanForKeysAsync().ConfigureAwait(false);
+
+        if (result.Count > 0)
         {
-            Console.WriteLine($"Found {count} new API keys:");
-            foreach (var config in configs)
+            Console.WriteLine($"Found {result.Count} new API keys:");
+            foreach (var config in result.Configs)
             {
                 Console.WriteLine($" - {config.ProviderId}");
             }
+
             Console.WriteLine("Keys have been saved to configuration.");
-            await service.TriggerRefreshAsync();
+            await service.TriggerRefreshAsync().ConfigureAwait(false);
         }
         else
         {
@@ -340,20 +390,22 @@ class Program
         }
     }
 
-    static async Task ShowConfig(MonitorService service)
+    private static async Task ShowConfigAsync()
     {
-        var prefs = await service.GetPreferencesAsync();
+        var loader = new JsonConfigLoader();
+        var prefs = await loader.LoadPreferencesAsync().ConfigureAwait(false);
         Console.WriteLine("Current Configuration:");
         Console.WriteLine(JsonSerializer.Serialize(prefs, new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    static async Task SetConfig(MonitorService service, string key, string value)
+    private static async Task SetConfigAsync(string key, string value)
     {
-        var prefs = await service.GetPreferencesAsync();
-        
+        var loader = new JsonConfigLoader();
+        var prefs = await loader.LoadPreferencesAsync().ConfigureAwait(false);
+
         // Reflection to set property
         var prop = prefs.GetType().GetProperty(key, System.Reflection.BindingFlags.IgnoreCase | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-        
+
         if (prop == null)
         {
             Console.WriteLine($"Configuration key '{key}' not found.");
@@ -364,23 +416,27 @@ class Program
         {
             object? typedValue = null;
             if (prop.PropertyType == typeof(bool))
+            {
                 typedValue = bool.Parse(value);
+            }
             else if (prop.PropertyType == typeof(int))
-                typedValue = int.Parse(value);
+            {
+                typedValue = int.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+            }
             else if (prop.PropertyType == typeof(double))
-                typedValue = double.Parse(value);
-            else if (prop.PropertyType == typeof(string))
-                typedValue = value;
+            {
+                typedValue = double.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+            }
             else if (prop.PropertyType.IsEnum)
+            {
                 typedValue = Enum.Parse(prop.PropertyType, value, true);
-            
+            }
+
             if (typedValue != null)
             {
                 prop.SetValue(prefs, typedValue);
-                if (await service.SavePreferencesAsync(prefs))
-                    Console.WriteLine($"Configuration '{key}' updated to '{value}'.");
-                else
-                    Console.WriteLine("Failed to save configuration.");
+                await loader.SavePreferencesAsync(prefs).ConfigureAwait(false);
+                Console.WriteLine($"Configuration '{key}' updated to '{value}'.");
             }
         }
         catch (Exception ex)
@@ -389,38 +445,53 @@ class Program
         }
     }
 
-    static async Task ManageAgent(MonitorService service, string action)
+    private static async Task ManageAgentAsync(IMonitorLifecycleService lifecycleService, string action)
     {
-        switch (action.ToLower())
+        switch (action.ToLower(System.Globalization.CultureInfo.InvariantCulture))
         {
             case "info":
-                var port = await MonitorLauncher.GetAgentPortAsync();
-                var running = await MonitorLauncher.IsAgentRunningAsync();
+                var port = await lifecycleService.GetAgentPortAsync().ConfigureAwait(false);
+                var running = await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false);
                 Console.WriteLine($"Agent Status: {(running ? "Running" : "Stopped")}");
                 Console.WriteLine($"Port: {port}");
                 break;
             case "stop":
                 Console.WriteLine("Stopping Agent...");
-                if (await MonitorLauncher.StopAgentAsync())
+                if (await lifecycleService.StopAgentAsync().ConfigureAwait(false))
+                {
                     Console.WriteLine("Agent stopped.");
+                }
                 else
+                {
                     Console.WriteLine("Failed to stop Agent.");
+                }
+
                 break;
             case "start":
                 Console.WriteLine("Starting Agent...");
-                if (await MonitorLauncher.StartAgentAsync())
+                if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
+                {
                     Console.WriteLine("Agent started.");
+                }
                 else
+                {
                     Console.WriteLine("Failed to start Agent.");
+                }
+
                 break;
             case "restart":
                 Console.WriteLine("Restarting Agent...");
-                await MonitorLauncher.StopAgentAsync();
-                await Task.Delay(1000); // Wait a bit
-                if (await MonitorLauncher.StartAgentAsync())
+                await lifecycleService.StopAgentAsync().ConfigureAwait(false);
+                await Task.Delay(1000).ConfigureAwait(false); // Wait a bit
+                if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
+                {
                     Console.WriteLine("Agent restarted.");
+                }
                 else
+                {
                     Console.WriteLine("Failed to restart Agent.");
+                }
+
                 break;
             default:
                 Console.WriteLine($"Unknown agent command: {action}");
@@ -428,10 +499,10 @@ class Program
         }
     }
 
-    static async Task ShowStatus(MonitorService service, bool json, bool showAll)
+    private static async Task ShowStatusAsync(IMonitorService service, bool json, bool showAll)
     {
-        var usage = await service.GetUsageAsync();
-        
+        var usage = await service.GetUsageAsync().ConfigureAwait(false);
+
         if (!showAll)
         {
             usage = usage.Where(u => u.IsAvailable).ToList();
@@ -445,27 +516,32 @@ class Program
         {
             Console.WriteLine($"{"Provider",-36} | {"Type",-14} | {"Used",-10} | {"Description"}");
             Console.WriteLine(new string('-', 98));
-            
+
             if (!usage.Any())
             {
-               Console.WriteLine("No active providers found.");
-               if (!showAll) Console.WriteLine("Use --all to see all configured providers.");
+                Console.WriteLine("No active providers found.");
+                if (!showAll)
+                {
+                    Console.WriteLine("Use --all to see all configured providers.");
+                }
             }
 
             foreach (var u in usage)
             {
-                var pct = u.IsAvailable ? $"{u.RequestsPercentage:F0}%" : "-";
+                var usedPct = u.UsedPercent;
+                var pct = u.IsAvailable ? $"{usedPct:F0}%" : "-";
+
                 // Handle missing PlanType or IsQuotaBased if relying on serialized data
                 var type = u.IsQuotaBased ? "Quota" : "Pay-As-You-Go";
-                var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : "";
-                var providerDisplayName = ProviderMetadataCatalog.GetDisplayName(u.ProviderId, u.ProviderName);
-                
+                var accountInfo = !string.IsNullOrWhiteSpace(u.AccountName) ? $" [{u.AccountName}]" : string.Empty;
+                var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(u.ProviderId, u.ProviderName);
+
                 var description = u.Description;
                 if (u.Details != null && u.Details.Any() && string.IsNullOrEmpty(description))
                 {
-                    description = ""; // Keep generic description empty if details exist
+                    description = string.Empty; // Keep generic description empty if details exist
                 }
-                
+
                 // Append account to description (first line)
                 if (string.IsNullOrEmpty(description))
                 {
@@ -473,19 +549,19 @@ class Program
                 }
                 else
                 {
-                     // If existing desc, append
-                     description += accountInfo;
+                    // If existing desc, append
+                    description += accountInfo;
                 }
 
                 var lines = description.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-                
+
                 Console.WriteLine($"{providerDisplayName,-36} | {type,-14} | {pct,-10} | {lines[0]}");
-                
+
                 for (int i = 1; i < lines.Length; i++)
                 {
-                    Console.WriteLine($"{"",-36} | {"",-14} | {"",-10} | {lines[i]}");
+                    Console.WriteLine($"{string.Empty,-36} | {string.Empty,-14} | {string.Empty,-10} | {lines[i]}");
                 }
-                
+
                 var displayableDetails = u.Details?
                     .Where(d => d.DetailType == ProviderUsageDetailType.Model || d.DetailType == ProviderUsageDetailType.Other)
                     .ToList();
@@ -494,16 +570,16 @@ class Program
                     foreach (var d in displayableDetails)
                     {
                         var name = "  " + d.Name;
-                        Console.WriteLine($"{name,-36} | {"",-14} | {d.Used,-10} | {d.Description}");
+                        Console.WriteLine($"{name,-36} | {string.Empty,-14} | {string.Empty,-10} | {d.Description}");
                     }
                 }
             }
         }
     }
 
-    static async Task ShowList(MonitorService service, bool json)
+    private static async Task ShowListAsync(IMonitorService service, bool json)
     {
-        var configs = await service.GetConfigsAsync();
+        var configs = await service.GetConfigsAsync().ConfigureAwait(false);
         if (json)
         {
             Console.WriteLine(JsonSerializer.Serialize(configs, AppJsonContext.Default.ListProviderConfig));
@@ -512,10 +588,8 @@ class Program
         {
             foreach (var c in configs)
             {
-                Console.WriteLine($"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.GetDisplayName(c.ProviderId)}, Type: {c.Type}");
+                Console.WriteLine($"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.ResolveDisplayLabel(c.ProviderId)}, Type: {c.Type}");
             }
         }
     }
 }
-
-

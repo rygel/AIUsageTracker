@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 
 $manifestPath = Join-Path $projectRoot "design/theme-catalog.json"
-$appPreferencesPath = Join-Path $projectRoot "AIUsageTracker.Core/Models/AppPreferences.cs"
+$appThemePath = Join-Path $projectRoot "AIUsageTracker.Core/Models/AppTheme.cs"
 $slimSettingsPath = Join-Path $projectRoot "AIUsageTracker.UI.Slim/SettingsWindow.xaml.cs"
 $slimAppPath = Join-Path $projectRoot "AIUsageTracker.UI.Slim/App.xaml.cs"
 $webThemesJsPath = Join-Path $projectRoot "AIUsageTracker.Web/wwwroot/js/theme.js"
@@ -123,7 +123,7 @@ function Assert-MapsEqual([string]$name, [hashtable]$expectedMap, [hashtable]$ac
 $script:hadFailure = $false
 
 $manifest = Read-Json $manifestPath
-$appPreferences = Read-File $appPreferencesPath
+$appTheme = Read-File $appThemePath
 $slimSettings = Read-File $slimSettingsPath
 $slimApp = Read-File $slimAppPath
 $webThemesJs = Read-File $webThemesJsPath
@@ -144,7 +144,7 @@ foreach ($theme in $manifestThemes)
     $manifestDisplayNames[$theme.enumName] = $theme.displayName
 }
 
-$enumThemes = Get-EnumThemes $appPreferences
+$enumThemes = Get-EnumThemes $appTheme
 $enumThemeSet = To-UniqueSet $enumThemes
 $manifestEnumSet = To-UniqueSet $manifestEnumNames
 

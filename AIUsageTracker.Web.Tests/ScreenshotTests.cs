@@ -1,112 +1,37 @@
-using Microsoft.Playwright;
-using Microsoft.Playwright.MSTest;
+// <copyright file="ScreenshotTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.ComponentModel;
-using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AIUsageTracker.Tests.Infrastructure;
+using Microsoft.Playwright;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace AIUsageTracker.Web.Tests;
 
 [TestClass]
 public class ScreenshotTests : WebTestBase
 {
-    private sealed class ThemeCatalog
-    {
-        [JsonPropertyName("themes")]
-        public List<ThemeCatalogEntry> Themes { get; set; } = [];
-    }
-
-    private sealed class ThemeCatalogEntry
-    {
-        [JsonPropertyName("webKey")]
-        public string WebKey { get; set; } = string.Empty;
-
-        [JsonPropertyName("representative")]
-        public bool Representative { get; set; }
-
-        [JsonPropertyName("tokens")]
-        public ThemeTokenEntry? Tokens { get; set; }
-    }
-
-    private sealed class ThemeTokenEntry
-    {
-        [JsonPropertyName("bgPrimary")]
-        public string BgPrimary { get; set; } = string.Empty;
-
-        [JsonPropertyName("accentPrimary")]
-        public string AccentPrimary { get; set; } = string.Empty;
-    }
+    private const int ThemeSwitchDelayMs = 300;
+    private const int MinThemeScreenshotBytes = 25_000;
 
     private readonly string _projectRoot;
     private readonly string[] _expectedThemes;
     private readonly Dictionary<string, (string BgPrimary, string AccentPrimary)> _representativeThemeTokens;
     private readonly string _outputDir;
-    private readonly string _themeOutputDir;
-
-    [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
-    public static void EnsurePlaywrightBrowserCanLaunch(TestContext context)
-    {
-        // Call base initialize
-        InitializeFactory(context);
-
-        var chromiumPath = FindPlaywrightChromiumPath();
-        if (string.IsNullOrWhiteSpace(chromiumPath))
-        {
-            return;
-        }
-
-        try
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = chromiumPath,
-                Arguments = "--version",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start(startInfo);
-            if (process == null)
-            {
-                return;
-            }
-
-            if (!process.WaitForExit(5000))
-            {
-                try
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-                catch
-                {
-                    // Ignore cleanup errors.
-                }
-                return;
-            }
-        }
-        catch (Win32Exception ex) when (IsPermissionError(ex))
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
 
     public ScreenshotTests()
     {
-        // bin/Debug/net8.0/../../../docs
         var binPath = AppContext.BaseDirectory;
-        // bin/Debug/net8.0 is 3 levels deep from Project. Project is 1 level deep from Solution.
-        // So we need to go up 4 levels to get to Solution Root.
-        _projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../"));
-        _outputDir = Path.Combine(_projectRoot, "docs");
-        _themeOutputDir = Path.Combine(Path.GetTempPath(), "AIUsageTracker", "web-theme-smoke");
+        this._projectRoot = Path.GetFullPath(Path.Combine(binPath, "../../../../"));
+        this._outputDir = Path.Combine(this._projectRoot, "docs");
 
-        var catalog = LoadThemeCatalog(_projectRoot);
-        _expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
-        _representativeThemeTokens = catalog.Themes
+        var catalog = ScreenshotTests.LoadThemeCatalog(this._projectRoot);
+        this._expectedThemes = catalog.Themes.Select(t => t.WebKey).ToArray();
+        this._representativeThemeTokens = catalog.Themes
             .Where(t => t.Representative)
             .Where(t => t.Tokens is not null)
             .ToDictionary(
@@ -115,18 +40,19 @@ public class ScreenshotTests : WebTestBase
                     t.Tokens!.BgPrimary.Trim().ToLowerInvariant(),
                     t.Tokens!.AccentPrimary.Trim().ToLowerInvariant()),
                 StringComparer.Ordinal);
-        
-        Console.WriteLine($"[TEST] Output directory: {_outputDir}");
-        
-        if (!Directory.Exists(_outputDir))
-        {
-            Directory.CreateDirectory(_outputDir);
-        }
 
-        if (!Directory.Exists(_themeOutputDir))
+        Console.WriteLine($"[TEST] Output directory: {this._outputDir}");
+
+        if (!Directory.Exists(this._outputDir))
         {
-            Directory.CreateDirectory(_themeOutputDir);
+            Directory.CreateDirectory(this._outputDir);
         }
+    }
+
+    [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
+    public static void EnsureFactoryInitialized(TestContext context)
+    {
+        WebTestBase.InitializeFactory(context);
     }
 
     private static ThemeCatalog LoadThemeCatalog(string projectRoot)
@@ -145,21 +71,6 @@ public class ScreenshotTests : WebTestBase
         }
 
         return catalog;
-    }
-
-    private static string? FindPlaywrightChromiumPath()
-    {
-        var browsersRoot = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ms-playwright");
-        if (!Directory.Exists(browsersRoot))
-        {
-            return null;
-        }
-
-        return Directory
-            .EnumerateFiles(browsersRoot, "chrome.exe", SearchOption.AllDirectories)
-            .FirstOrDefault();
     }
 
     private static bool IsPermissionError(Win32Exception ex)
@@ -200,7 +111,7 @@ public class ScreenshotTests : WebTestBase
             var r = ToLinear(rgb.R);
             var g = ToLinear(rgb.G);
             var b = ToLinear(rgb.B);
-            return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            return (0.2126 * r) + (0.7152 * g) + (0.0722 * b);
         }
 
         var l1 = Luminance(ParseHex(hex1));
@@ -210,20 +121,73 @@ public class ScreenshotTests : WebTestBase
         return (lighter + 0.05) / (darker + 0.05);
     }
 
-    [TestMethod]
-    public async Task Dashboard_StylesheetAssetsLoadAndStylesApply()
+    private static async Task<PlaywrightSession?> TryCreateBrowserSessionAsync(string testName)
     {
-        await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(ServerUrl);
-        await Page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        try
+        {
+            var playwright = await Playwright.CreateAsync().ConfigureAwait(false);
+            var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true }).ConfigureAwait(false);
+            var context = await browser.NewContextAsync().ConfigureAwait(false);
+            var page = await context.NewPageAsync().ConfigureAwait(false);
 
-        var siteCssStatus = await Page.EvaluateAsync<int>("""
+            return new PlaywrightSession(playwright, browser, context, page);
+        }
+        catch (PlaywrightException ex)
+        {
+            Console.WriteLine($"[SKIP] Playwright unavailable for {testName}: {ex.Message}");
+            return null;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Console.WriteLine($"[SKIP] Playwright unavailable for {testName}: {ex.Message}");
+            return null;
+        }
+        catch (Win32Exception ex) when (ScreenshotTests.IsPermissionError(ex))
+        {
+            Console.WriteLine($"[SKIP] Playwright unavailable for {testName}: {ex.Message}");
+            return null;
+        }
+    }
+
+    private static void SkipBrowserTest(string testName)
+    {
+        Assert.Inconclusive($"Playwright is not available in this environment. Skipping '{testName}'.");
+    }
+
+    private static string CreateTemporaryThemeOutputDirectory(string testName)
+    {
+        return TestTempPaths.CreateDirectory($"web-theme-smoke-{testName}");
+    }
+
+    private static void TryDeleteDirectory(string directoryPath)
+    {
+        TestTempPaths.CleanupPath(directoryPath);
+    }
+
+    [TestMethod]
+    public async Task Dashboard_StylesheetAssetsLoadAndStylesApplyAsync()
+    {
+        const string testName = "Dashboard_StylesheetAssetsLoadAndStylesApply";
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
+            testName);
+        if (browserSession is null)
+        {
+            ScreenshotTests.SkipBrowserTest(testName);
+            return;
+        }
+
+        var page = browserSession.Page;
+        await page.SetViewportSizeAsync(1280, 800);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
+        await page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var siteCssStatus = await page.EvaluateAsync<int>("""
             async () => {
                 const res = await fetch('/css/site.css', { cache: 'no-store' });
                 return res.status;
             }
             """);
-        var themesCssStatus = await Page.EvaluateAsync<int>("""
+        var themesCssStatus = await page.EvaluateAsync<int>("""
             async () => {
                 const res = await fetch('/css/themes.css', { cache: 'no-store' });
                 return res.status;
@@ -233,52 +197,70 @@ public class ScreenshotTests : WebTestBase
         Assert.AreEqual(200, siteCssStatus, "Expected /css/site.css to be served.");
         Assert.AreEqual(200, themesCssStatus, "Expected /css/themes.css to be served.");
 
-        var sidebarPosition = await Page.EvaluateAsync<string>("""
+        var sidebarPosition = await page.EvaluateAsync<string>("""
             () => getComputedStyle(document.querySelector('.sidebar')).position
             """);
-        var sidebarWidth = await Page.EvaluateAsync<string>("""
+        var sidebarWidth = await page.EvaluateAsync<string>("""
             () => getComputedStyle(document.querySelector('.sidebar')).width
             """);
-        var appContainerDisplay = await Page.EvaluateAsync<string>("""
+        var appContainerDisplay = await page.EvaluateAsync<string>("""
             () => getComputedStyle(document.querySelector('.app-container')).display
             """);
-        var footerText = await Page.TextContentAsync(".sidebar-footer-text");
+        var footerText = await page.TextContentAsync(".sidebar-footer-text");
 
         Assert.AreEqual("fixed", sidebarPosition, "Sidebar CSS is not applied (expected fixed sidebar). ");
         Assert.AreEqual("flex", appContainerDisplay, "Layout CSS is not applied (expected flex app container).");
         Assert.AreEqual("200px", sidebarWidth, "Sidebar width does not match expected styled layout.");
         Assert.IsNotNull(footerText, "Footer text should be present.");
-        StringAssert.Contains(footerText, "v", "Footer should include Web UI version string.");
+        Assert.IsTrue(
+            footerText.Contains("v", StringComparison.Ordinal),
+            "Footer should include Web UI version string.");
     }
 
     [TestMethod]
-    public async Task Dashboard_ReliabilityPanelStylesAndMarkupArePresent()
+    public async Task Dashboard_ReliabilityPanelStylesAndMarkupArePresentAsync()
     {
-        await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(ServerUrl);
-        await Page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        const string testName = "Dashboard_ReliabilityPanelStylesAndMarkupArePresent";
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
+            testName);
+        if (browserSession is null)
+        {
+            ScreenshotTests.SkipBrowserTest(testName);
+            return;
+        }
 
-        var cssText = await Page.EvaluateAsync<string>("""
+        var page = browserSession.Page;
+        await page.SetViewportSizeAsync(1280, 800);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
+        await page.WaitForSelectorAsync(".sidebar", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var cssText = await page.EvaluateAsync<string>("""
             async () => {
                 const res = await fetch('/css/site.css', { cache: 'no-store' });
                 return await res.text();
             }
             """);
 
-        StringAssert.Contains(cssText, ".reliability-grid", "Reliability grid CSS hook missing.");
-        StringAssert.Contains(cssText, ".reliability-card", "Reliability card CSS hook missing.");
-        StringAssert.Contains(cssText, ".reliability-badge", "Reliability badge CSS hook missing.");
+        Assert.IsTrue(
+            cssText.Contains(".reliability-grid", StringComparison.Ordinal),
+            "Reliability grid CSS hook missing.");
+        Assert.IsTrue(
+            cssText.Contains(".reliability-card", StringComparison.Ordinal),
+            "Reliability card CSS hook missing.");
+        Assert.IsTrue(
+            cssText.Contains(".reliability-badge", StringComparison.Ordinal),
+            "Reliability badge CSS hook missing.");
 
-        var providerCardCount = await Page.EvaluateAsync<int>("""
+        var providerCardCount = await page.EvaluateAsync<int>("""
             () => document.querySelectorAll('.provider-card').length
             """);
 
         if (providerCardCount > 0)
         {
-            var reliabilityCardCount = await Page.EvaluateAsync<int>("""
+            var reliabilityCardCount = await page.EvaluateAsync<int>("""
                 () => document.querySelectorAll('.reliability-card').length
                 """);
-            var reliabilityHeading = await Page.EvaluateAsync<string?>("""
+            var reliabilityHeading = await page.EvaluateAsync<string?>("""
                 () => {
                     const heading = Array.from(document.querySelectorAll('h2'))
                         .find(h => h.textContent?.trim() === 'Provider Reliability');
@@ -292,56 +274,71 @@ public class ScreenshotTests : WebTestBase
     }
 
     [TestMethod]
-    public async Task CaptureWebScreenshots()
+    public async Task CaptureWebScreenshotsAsync()
     {
-        // Capture console logs for debugging CI
-        Page.Console += (_, e) => Console.WriteLine($"[BROWSER] {e.Type}: {e.Text}");
-        Page.PageError += (_, e) => Console.WriteLine($"[BROWSER ERROR] {e}");
+        const string testName = "CaptureWebScreenshots";
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(testName);
+        if (browserSession is null)
+        {
+            ScreenshotTests.SkipBrowserTest(testName);
+            return;
+        }
+
+        var page = browserSession.Page;
+        page.Console += (_, e) => Console.WriteLine($"[BROWSER] {e.Type}: {e.Text}");
+        page.PageError += (_, e) => Console.WriteLine($"[BROWSER ERROR] {e}");
 
         // 1. Set viewport to a reasonable desktop size
-        await Page.SetViewportSizeAsync(1280, 800);
+        await page.SetViewportSizeAsync(1280, 800);
 
         // 2. Dashboard
         Console.WriteLine("[TEST] Navigating to Dashboard...");
-        await Page.GotoAsync(ServerUrl);
-        await Page.WaitForSelectorAsync(".stat-card, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
-        await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_dashboard.png"), FullPage = true });
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
+        await page.WaitForSelectorAsync(".stat-card, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_dashboard.png"), FullPage = true });
 
         // 3. Providers List
         Console.WriteLine("[TEST] Navigating to Providers...");
-        await Page.GotoAsync($"{ServerUrl}/providers");
-        await Page.WaitForSelectorAsync("table, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
-        await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_providers.png"), FullPage = true });
+        await page.GotoAsync($"{ScreenshotTests.ServerUrl}/providers");
+        await page.WaitForSelectorAsync("table, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_providers.png"), FullPage = true });
 
         // 4. Charts
         Console.WriteLine("[TEST] Navigating to Charts...");
-        await Page.GotoAsync($"{ServerUrl}/charts");
-        
-        // Wait for either the canvas (if data exists) or the info alert (if no data)
-        await Page.WaitForSelectorAsync(".chart-container, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
-        
-        // Give chart animation a moment to settle
+        await page.GotoAsync($"{ScreenshotTests.ServerUrl}/charts");
+
+        await page.WaitForSelectorAsync(".chart-container, .alert", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
         await Task.Delay(2000);
-        await Page.ScreenshotAsync(new() { Path = Path.Combine(_outputDir, "screenshot_web_charts.png"), FullPage = true });
+        await page.ScreenshotAsync(new() { Path = Path.Combine(this._outputDir, "screenshot_web_charts.png"), FullPage = true });
         Console.WriteLine("[TEST] Completed all screenshots.");
     }
 
     [TestMethod]
-    public async Task ThemeSelector_AppliesAllThemes()
+    public async Task ThemeSelector_AppliesAllThemesAsync()
     {
-        await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(ServerUrl);
-        await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        const string testName = "ThemeSelector_AppliesAllThemes";
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(testName);
+        if (browserSession is null)
+        {
+            ScreenshotTests.SkipBrowserTest(testName);
+            return;
+        }
 
-        var availableThemes = await Page.EvaluateAsync<string[]>("""
+        var page = browserSession.Page;
+        await page.SetViewportSizeAsync(1280, 800);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
+        await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var availableThemes = await page.EvaluateAsync<string[]>("""
             () => Array.from(document.querySelectorAll('#theme-select option')).map(o => o.value)
             """);
 
-        CollectionAssert.AreEquivalent(_expectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
+        CollectionAssert.AreEquivalent(this._expectedThemes, availableThemes, "Theme selector options mismatch expected catalog.");
 
-        foreach (var theme in _expectedThemes)
+        foreach (var theme in this._expectedThemes)
         {
-            await Page.EvaluateAsync("""
+            await page.EvaluateAsync(
+                """
                 (theme) => {
                     const select = document.getElementById('theme-select');
                     if (!select) {
@@ -351,12 +348,13 @@ public class ScreenshotTests : WebTestBase
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                """, theme);
+                """,
+                theme);
 
-            var appliedTheme = await Page.EvaluateAsync<string>("""
+            var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
                 """);
-            var bgPrimary = await Page.EvaluateAsync<string>("""
+            var bgPrimary = await page.EvaluateAsync<string>("""
                 () => getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim()
                 """);
 
@@ -366,67 +364,99 @@ public class ScreenshotTests : WebTestBase
     }
 
     [TestMethod]
-    public async Task RepresentativeThemes_RenderDistinctVisualSnapshots()
+    public async Task RepresentativeThemes_RenderDistinctVisualSnapshotsAsync()
     {
-        await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(ServerUrl);
-        await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+        const string testName = "RepresentativeThemes_RenderDistinctVisualSnapshots";
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
+            testName);
+        if (browserSession is null)
+        {
+            ScreenshotTests.SkipBrowserTest(testName);
+            return;
+        }
 
-        var representativeThemes = _representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
+        var page = browserSession.Page;
+        await page.SetViewportSizeAsync(1280, 800);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
+        await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        var themeOutputDirectory = ScreenshotTests.CreateTemporaryThemeOutputDirectory(testName);
+        var representativeThemes = this._representativeThemeTokens.Keys.OrderBy(x => x, StringComparer.Ordinal).ToArray();
         var screenshotPaths = new List<string>();
-
-        foreach (var theme in representativeThemes)
+        try
         {
-            await Page.EvaluateAsync("""
-                (theme) => {
-                    const select = document.getElementById('theme-select');
-                    if (!select) {
-                        throw new Error('theme-select not found');
+            foreach (var theme in representativeThemes)
+            {
+                await page.EvaluateAsync(
+                    """
+                    (theme) => {
+                        const select = document.getElementById('theme-select');
+                        if (!select) {
+                            throw new Error('theme-select not found');
+                        }
+
+                        select.value = theme;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
                     }
+                    """,
+                    theme);
 
-                    select.value = theme;
-                    select.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-                """, theme);
+                await Task.Delay(ScreenshotTests.ThemeSwitchDelayMs);
 
-            await Task.Delay(300);
+                var appliedTheme = await page.EvaluateAsync<string>("""
+                    () => document.documentElement.getAttribute('data-theme') || ''
+                    """);
+                Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
 
-            var appliedTheme = await Page.EvaluateAsync<string>("""
-                () => document.documentElement.getAttribute('data-theme') || ''
-                """);
-            Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before screenshot capture.");
+                var filePath = Path.Combine(themeOutputDirectory, $"screenshot_web_theme_{theme}.png");
+                await page.ScreenshotAsync(new() { Path = filePath, FullPage = true });
+                screenshotPaths.Add(filePath);
 
-            var filePath = Path.Combine(_themeOutputDir, $"screenshot_web_theme_{theme}.png");
-            await Page.ScreenshotAsync(new() { Path = filePath, FullPage = true });
-            screenshotPaths.Add(filePath);
+                var fileInfo = new FileInfo(filePath);
+                Assert.IsTrue(fileInfo.Exists, $"Screenshot not created for theme '{theme}'.");
+                Assert.IsTrue(
+                    fileInfo.Length > ScreenshotTests.MinThemeScreenshotBytes,
+                    $"Screenshot too small for theme '{theme}', likely render failure.");
+            }
 
-            var fileInfo = new FileInfo(filePath);
-            Assert.IsTrue(fileInfo.Exists, $"Screenshot not created for theme '{theme}'.");
-            Assert.IsTrue(fileInfo.Length > 25_000, $"Screenshot too small for theme '{theme}', likely render failure.");
+            var distinctHashes = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var path in screenshotPaths)
+            {
+                using var sha = SHA256.Create();
+                var bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false);
+                var hash = Convert.ToHexString(sha.ComputeHash(bytes));
+                distinctHashes.Add(hash);
+            }
+
+            Assert.AreEqual(screenshotPaths.Count, distinctHashes.Count, "Representative theme screenshots should be visually distinct.");
         }
-
-        var distinctHashes = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var path in screenshotPaths)
+        finally
         {
-            using var sha = System.Security.Cryptography.SHA256.Create();
-            var bytes = await File.ReadAllBytesAsync(path);
-            var hash = Convert.ToHexString(sha.ComputeHash(bytes));
-            distinctHashes.Add(hash);
+            ScreenshotTests.TryDeleteDirectory(themeOutputDirectory);
         }
-
-        Assert.AreEqual(screenshotPaths.Count, distinctHashes.Count, "Representative theme screenshots should be visually distinct.");
     }
 
     [TestMethod]
-    public async Task RepresentativeThemes_ExposeExpectedCssTokens()
+    public async Task RepresentativeThemes_ExposeExpectedCssTokensAsync()
     {
-        await Page.SetViewportSizeAsync(1280, 800);
-        await Page.GotoAsync(ServerUrl);
-        await Page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
-
-        foreach (var (theme, expectedTokens) in _representativeThemeTokens)
+        const string testName = "RepresentativeThemes_ExposeExpectedCssTokens";
+        await using var browserSession = await ScreenshotTests.TryCreateBrowserSessionAsync(
+            testName);
+        if (browserSession is null)
         {
-            await Page.EvaluateAsync("""
+            ScreenshotTests.SkipBrowserTest(testName);
+            return;
+        }
+
+        var page = browserSession.Page;
+        await page.SetViewportSizeAsync(1280, 800);
+        await page.GotoAsync(ScreenshotTests.ServerUrl);
+        await page.WaitForSelectorAsync("#theme-select", new() { State = WaitForSelectorState.Visible, Timeout = 15000 });
+
+        foreach (var (theme, expectedTokens) in this._representativeThemeTokens)
+        {
+            await page.EvaluateAsync(
+                """
                 (theme) => {
                     const select = document.getElementById('theme-select');
                     if (!select) {
@@ -436,14 +466,15 @@ public class ScreenshotTests : WebTestBase
                     select.value = theme;
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                 }
-                """, theme);
+                """,
+                theme);
 
-            var appliedTheme = await Page.EvaluateAsync<string>("""
+            var appliedTheme = await page.EvaluateAsync<string>("""
                 () => document.documentElement.getAttribute('data-theme') || ''
                 """);
             Assert.AreEqual(theme, appliedTheme, $"Theme '{theme}' was not applied before CSS token assertions.");
 
-            var tokens = await Page.EvaluateAsync<string[]?>("""
+            var tokens = await page.EvaluateAsync<string[]>("""
                 () => {
                     const rootStyle = getComputedStyle(document.documentElement);
                     const bg = rootStyle.getPropertyValue('--bg-primary').trim().toLowerCase();
@@ -458,8 +489,60 @@ public class ScreenshotTests : WebTestBase
             Assert.AreEqual(expectedTokens.BgPrimary, tokens[0], $"Theme '{theme}' unexpected --bg-primary.");
             Assert.AreEqual(expectedTokens.AccentPrimary, tokens[1], $"Theme '{theme}' unexpected --accent-primary.");
 
-            var contrast = ContrastRatio(tokens[2], tokens[0]);
+            var contrast = ScreenshotTests.ContrastRatio(tokens[2], tokens[0]);
             Assert.IsTrue(contrast >= 4.5, $"Theme '{theme}' has insufficient text/background contrast ({contrast:F2}).");
+        }
+    }
+
+    private sealed class ThemeCatalog
+    {
+        [JsonPropertyName("themes")]
+        public List<ThemeCatalogEntry> Themes { get; set; } = [];
+    }
+
+    private sealed class ThemeCatalogEntry
+    {
+        [JsonPropertyName("webKey")]
+        public string WebKey { get; set; } = string.Empty;
+
+        [JsonPropertyName("representative")]
+        public bool Representative { get; set; }
+
+        [JsonPropertyName("tokens")]
+        public ThemeTokenEntry? Tokens { get; set; }
+    }
+
+    private sealed class ThemeTokenEntry
+    {
+        [JsonPropertyName("bgPrimary")]
+        public string BgPrimary { get; set; } = string.Empty;
+
+        [JsonPropertyName("accentPrimary")]
+        public string AccentPrimary { get; set; } = string.Empty;
+    }
+
+    private sealed class PlaywrightSession : IAsyncDisposable
+    {
+        private readonly IPlaywright _playwright;
+        private readonly IBrowser _browser;
+        private readonly IBrowserContext _context;
+
+        public IPage Page { get; }
+
+        public PlaywrightSession(IPlaywright playwright, IBrowser browser, IBrowserContext context, IPage page)
+        {
+            this._playwright = playwright;
+            this._browser = browser;
+            this._context = context;
+            this.Page = page;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await this.Page.CloseAsync().ConfigureAwait(false);
+            await this._context.CloseAsync().ConfigureAwait(false);
+            await this._browser.CloseAsync().ConfigureAwait(false);
+            this._playwright.Dispose();
         }
     }
 }

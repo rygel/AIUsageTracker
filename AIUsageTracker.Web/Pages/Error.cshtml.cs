@@ -1,3 +1,7 @@
+// <copyright file="Error.cshtml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -10,11 +14,10 @@ public class ErrorModel : PageModel
 {
     public string? RequestId { get; set; }
 
-    public bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+    public bool ShowRequestId => !string.IsNullOrEmpty(this.RequestId);
 
     public void OnGet()
     {
-        RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+        this.RequestId = Activity.Current?.Id ?? this.HttpContext.TraceIdentifier;
     }
 }
-

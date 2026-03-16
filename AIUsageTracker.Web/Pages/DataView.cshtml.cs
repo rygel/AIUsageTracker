@@ -1,5 +1,9 @@
-using AIUsageTracker.Web.Services;
+// <copyright file="DataView.cshtml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -7,37 +11,48 @@ namespace AIUsageTracker.Web.Pages;
 
 public class DataViewModel : PageModel
 {
+    private const int PageSize = 100;
+
     private readonly WebDatabaseService _dbService;
     private readonly IDataExportService _exportService;
-    private const int PageSize = 100;
 
     public DataViewModel(WebDatabaseService dbService, IDataExportService exportService)
     {
-        _dbService = dbService;
-        _exportService = exportService;
+        this._dbService = dbService;
+        this._exportService = exportService;
     }
 
     public string? TableName { get; set; }
-    public List<Dictionary<string, object?>>? Rows { get; set; }
-    public List<string> Columns { get; set; } = new();
+
+    public IReadOnlyList<IReadOnlyDictionary<string, object?>>? Rows { get; set; }
+
+    public IReadOnlyList<string> Columns { get; set; } = [];
+
     public int TotalCount { get; set; }
+
     public int PageNumber { get; set; } = 1;
+
     public int TotalPages { get; set; }
-    public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
+
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
     public async Task<IActionResult> OnGetAsync(string? tableName, int page = 1)
     {
-        if (page < 1) page = 1;
-        PageNumber = page;
+        if (page < 1)
+        {
+            page = 1;
+        }
+
+        this.PageNumber = page;
 
         // Map URL-friendly names to actual table names
-        var actualTable = tableName?.ToLower() switch
+        var actualTable = tableName?.ToLower(System.Globalization.CultureInfo.InvariantCulture) switch
         {
             "providers" => "providers",
             "history" => "provider_history",
             "snapshots" => "raw_snapshots",
             "resets" => "reset_events",
-            _ => null
+            _ => null,
         };
 
         if (actualTable == null)
@@ -46,35 +61,37 @@ public class DataViewModel : PageModel
             actualTable = "providers";
         }
 
-        TableName = tableName;
+        this.TableName = tableName;
 
-        if (!IsDatabaseAvailable)
-            return Page();
+        if (!this.IsDatabaseAvailable)
+        {
+            return this.Page();
+        }
 
         var (rows, totalCount) = actualTable switch
         {
-            "providers" => await _dbService.GetProvidersRawAsync(page, PageSize),
-            "provider_history" => await _dbService.GetProviderHistoryRawAsync(page, PageSize),
-            "raw_snapshots" => await _dbService.GetRawSnapshotsRawAsync(page, PageSize),
-            "reset_events" => await _dbService.GetResetEventsRawAsync(page, PageSize),
-            _ => (new List<Dictionary<string, object?>>(), 0)
+            "providers" => await this._dbService.GetProvidersRawAsync(page, PageSize).ConfigureAwait(false),
+            "provider_history" => await this._dbService.GetProviderHistoryRawAsync(page, PageSize).ConfigureAwait(false),
+            "raw_snapshots" => await this._dbService.GetRawSnapshotsRawAsync(page, PageSize).ConfigureAwait(false),
+            "reset_events" => await this._dbService.GetResetEventsRawAsync(page, PageSize).ConfigureAwait(false),
+            _ => ([], 0),
         };
 
-        Rows = rows;
-        TotalCount = totalCount;
-        TotalPages = (int)Math.Ceiling(totalCount / (double)PageSize);
+        this.Rows = rows;
+        this.TotalCount = totalCount;
+        this.TotalPages = (int)Math.Ceiling(totalCount / (double)PageSize);
 
-        if (Rows.Any())
+        if (this.Rows.Any())
         {
-            Columns = Rows.First().Keys.ToList();
+            this.Columns = this.Rows.First().Keys.ToList();
         }
 
-        return Page();
+        return this.Page();
     }
 
     public async Task<IActionResult> OnGetExportCsvAsync()
     {
-        var csv = await _exportService.ExportHistoryToCsvAsync();
-        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "history.csv");
+        var csv = await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(false);
+        return this.File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "history.csv");
     }
 }

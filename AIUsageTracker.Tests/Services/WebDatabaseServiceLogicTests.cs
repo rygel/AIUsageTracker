@@ -1,112 +1,61 @@
+// <copyright file="WebDatabaseServiceLogicTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Tests.Infrastructure;
-using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Infrastructure.Services;
-using Microsoft.Extensions.Logging.Abstractions;
-using Xunit;
 
 namespace AIUsageTracker.Tests.Services;
-
-public class UsageAnalyticsLogicTests : DatabaseTestBase
-{
-    private readonly UsageAnalyticsService _analyticsService;
-
-    public UsageAnalyticsLogicTests()
-    {
-        _analyticsService = new UsageAnalyticsService(DatabaseService, Cache, NullLogger<UsageAnalyticsService>.Instance);
-    }
-
-    [Fact]
-    public async Task GetProviderReliabilityAsync_CalculatesUptimeAndLatencyCorrectly()
-    {
-        // Arrange
-        var now = DateTime.UtcNow;
-        SeedProvider("p1", "P1");
-
-        // Seed 10 rows: 8 available, 2 unavailable. 
-        for (int i = 0; i < 8; i++)
-        {
-            SeedHistory("p1", 10, 100, now.AddMinutes(-i), isAvailable: true, latencyMs: 100.0);
-        }
-        for (int i = 8; i < 10; i++)
-        {
-            SeedHistory("p1", 0, 0, now.AddMinutes(-i), isAvailable: false, latencyMs: 0.0);
-        }
-
-        // Act
-        var results = await _analyticsService.GetProviderReliabilityAsync(new[] { "p1" }, 24, 100);
-
-        // Assert
-        Assert.True(results.TryGetValue("p1", out var stats));
-        Assert.Equal(20.0, stats.FailureRatePercent); // 2/10
-        Assert.Equal(100.0, stats.AverageLatencyMs);
-        Assert.Equal(10, stats.SampleCount);
-    }
-}
 
 public class WebDatabaseServiceLogicTests : DatabaseTestBase
 {
     [Fact]
-    public async Task GetLatestUsageAsync_ReturnsMostRecentRowsPerProvider()
+    public async Task GetLatestUsageAsync_ReturnsMostRecentRowsPerProviderAsync()
     {
-        // Arrange
         var now = DateTime.UtcNow;
-        SeedProvider("openai", "OpenAI");
-        SeedProvider("anthropic", "Anthropic");
+        this.SeedProvider("openai", "OpenAI");
+        this.SeedProvider("anthropic", "Anthropic");
 
-        // Older rows
-        SeedHistory("openai", 10, 100, now.AddHours(-2));
-        SeedHistory("anthropic", 5, 50, now.AddHours(-2));
+        this.SeedHistory("openai", 10, 100, now.AddHours(-2));
+        this.SeedHistory("anthropic", 5, 50, now.AddHours(-2));
 
-        // Most recent rows
-        SeedHistory("openai", 20, 100, now.AddHours(-1));
-        SeedHistory("anthropic", 15, 50, now.AddHours(-1));
+        this.SeedHistory("openai", 20, 100, now.AddHours(-1));
+        this.SeedHistory("anthropic", 15, 50, now.AddHours(-1));
 
-        // Act
-        var results = await DatabaseService.GetLatestUsageAsync();
+        var results = await this.DatabaseService.GetLatestUsageAsync();
 
-        // Assert
         Assert.Equal(2, results.Count);
-        
-        var openai = results.First(r => r.ProviderId == "openai");
-        Assert.Equal(20, openai.RequestsUsed);
-        
-        var anthropic = results.First(r => r.ProviderId == "anthropic");
+
+        var openAi = results.First(result => string.Equals(result.ProviderId, "openai", StringComparison.Ordinal));
+        Assert.Equal(20, openAi.RequestsUsed);
+
+        var anthropic = results.First(result => string.Equals(result.ProviderId, "anthropic", StringComparison.Ordinal));
         Assert.Equal(15, anthropic.RequestsUsed);
     }
 
     [Fact]
-    public async Task GetProvidersAsync_ReturnsActiveProvidersOnly()
+    public async Task GetProvidersAsync_ReturnsActiveProvidersOnlyAsync()
     {
-        // Arrange
-        SeedProvider("p1", "Provider 1", "account1", isActive: true);
-        SeedProvider("p2", "Provider 2", "account2", isActive: false);
+        this.SeedProvider("p1", "Provider 1", "account1", isActive: true);
+        this.SeedProvider("p2", "Provider 2", "account2", isActive: false);
 
-        // Act
-        var providers = await DatabaseService.GetProvidersAsync();
+        var providers = await this.DatabaseService.GetProvidersAsync();
 
-        // Assert
         Assert.Single(providers);
         Assert.Equal("p1", providers[0].ProviderId);
     }
 
     [Fact]
-    public async Task GetUsageSummaryAsync_AggregatesTotalsCorrectly()
+    public async Task GetUsageSummaryAsync_AggregatesTotalsCorrectlyAsync()
     {
-        // Arrange
         var now = DateTime.UtcNow;
-        SeedProvider("p1", "P1");
-        SeedProvider("p2", "P2");
+        this.SeedProvider("p1", "P1");
+        this.SeedProvider("p2", "P2");
 
-        // p1: 10% used -> 90% remaining (requests_percentage = 90)
-        SeedHistory("p1", 10, 100, now);
-        // p2: 50% used -> 50% remaining (requests_percentage = 50)
-        SeedHistory("p2", 50, 100, now);
+        this.SeedHistory("p1", 10, 100, now);
+        this.SeedHistory("p2", 50, 100, now);
 
-        // Act
-        var summary = await DatabaseService.GetUsageSummaryAsync();
+        var summary = await this.DatabaseService.GetUsageSummaryAsync();
 
-        // Assert
         Assert.Equal(2, summary.ProviderCount);
         Assert.Equal(70.0, summary.AverageUsage);
     }

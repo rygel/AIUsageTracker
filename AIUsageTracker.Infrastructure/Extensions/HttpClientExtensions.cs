@@ -1,5 +1,12 @@
+// <copyright file="HttpClientExtensions.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Http;
+using AIUsageTracker.Infrastructure.Resilience;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -8,10 +15,14 @@ namespace AIUsageTracker.Infrastructure.Extensions;
 public static class HttpClientExtensions
 {
     /// <summary>
-    /// Adds HttpClient with Polly retry and circuit breaker policies
+    /// Adds HttpClient with Polly retry and circuit breaker policies.
     /// </summary>
+    /// <returns></returns>
     public static IServiceCollection AddResilientHttpClient(this IServiceCollection services)
     {
+        // Register ResilienceProvider as singleton
+        services.AddSingleton<IResilienceProvider, ResilienceProvider>();
+
         // Configure retry policy
         var retryPolicy = HttpPolicyExtensions
             .HandleTransientHttpError()
@@ -36,19 +47,25 @@ public static class HttpClientExtensions
             .AddPolicyHandler(retryPolicy)
             .AddPolicyHandler(circuitBreakerPolicy);
 
-        // Add default HttpClient with policies  
+        // Add default HttpClient with policies
         // Note: AddHttpClient() without name returns IServiceCollection, so we need to configure it differently
         services.AddHttpClient(string.Empty) // Empty string = default client
             .AddPolicyHandler(retryPolicy)
             .AddPolicyHandler(circuitBreakerPolicy);
+
+        // Add a plain HttpClient without retry/circuit-breaker policies.
+        // Used by providers (e.g. ClaudeCodeProvider) that handle retries themselves
+        // or where retrying 429s is counterproductive (burns rate-limit budget).
+        services.AddHttpClient("PlainClient");
 
         // Register ResilientHttpClient as transient
         services.AddTransient<IResilientHttpClient>(sp =>
         {
             var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
             var httpClient = httpClientFactory.CreateClient("ResilientClient");
-            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ResilientHttpClient>>();
-            return new ResilientHttpClient(httpClient, logger);
+            var resilienceProvider = sp.GetRequiredService<IResilienceProvider>();
+            var logger = sp.GetRequiredService<ILogger<ResilientHttpClient>>();
+            return new ResilientHttpClient(httpClient, resilienceProvider, logger);
         });
 
         return services;

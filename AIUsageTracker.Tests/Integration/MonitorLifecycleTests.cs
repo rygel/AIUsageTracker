@@ -1,13 +1,10 @@
+// <copyright file="MonitorLifecycleTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.MonitorClient;
-using System.Reflection;
 
 namespace AIUsageTracker.Tests.Core;
-
-// These tests manipulate a shared Monitor process and must not run in parallel.
-[CollectionDefinition("MonitorLifecycle", DisableParallelization = true)]
-public sealed class MonitorLifecycleCollectionDefinition
-{
-}
 
 [Collection("MonitorLifecycle")]
 public class MonitorLifecycleTests
@@ -19,7 +16,7 @@ public class MonitorLifecycleTests
     {
         try
         {
-            return await task.WaitAsync(timeout);
+            return await task.WaitAsync(timeout).ConfigureAwait(false);
         }
         catch (TimeoutException ex)
         {
@@ -31,7 +28,7 @@ public class MonitorLifecycleTests
     {
         try
         {
-            await task.WaitAsync(timeout);
+            await task.WaitAsync(timeout).ConfigureAwait(false);
         }
         catch (TimeoutException ex)
         {
@@ -41,7 +38,7 @@ public class MonitorLifecycleTests
 
     [Fact]
     [Trait("Category", "Integration")]
-    public async Task MonitorLifecycle_StartStopRestart_Works()
+    public async Task MonitorLifecycle_StartStopRestart_WorksAsync()
     {
         if (!IsIntegrationEnabled())
         {
@@ -68,7 +65,7 @@ public class MonitorLifecycleTests
             var canStart = await WithTimeoutAsync(
                 MonitorLauncher.StartAgentAsync(),
                 StartStopTimeout,
-                "StartAgentAsync");
+                "StartAgentAsync").ConfigureAwait(false);
             if (!canStart)
             {
                 return;
@@ -78,7 +75,7 @@ public class MonitorLifecycleTests
             var started = await WithTimeoutAsync(
                 MonitorLauncher.WaitForAgentAsync(initialWaitTokenSource.Token),
                 WaitReadyTimeout,
-                "WaitForAgentAsync (initial)");
+                "WaitForAgentAsync (initial)").ConfigureAwait(false);
             if (!started)
             {
                 return;
@@ -87,12 +84,12 @@ public class MonitorLifecycleTests
             await WithTimeoutAsync(
                 MonitorLauncher.StopAgentAsync(),
                 StartStopTimeout,
-                "StopAgentAsync");
+                "StopAgentAsync").ConfigureAwait(false);
 
             var restarted = await WithTimeoutAsync(
                 MonitorLauncher.StartAgentAsync(),
                 StartStopTimeout,
-                "StartAgentAsync (restart)");
+                "StartAgentAsync (restart)").ConfigureAwait(false);
             if (!restarted)
             {
                 return;
@@ -102,7 +99,7 @@ public class MonitorLifecycleTests
             var restartReady = await WithTimeoutAsync(
                 MonitorLauncher.WaitForAgentAsync(restartWaitTokenSource.Token),
                 WaitReadyTimeout,
-                "WaitForAgentAsync (restart)");
+                "WaitForAgentAsync (restart)").ConfigureAwait(false);
             Assert.True(restartReady, "Monitor should be reachable after restart.");
         }
         finally
@@ -111,7 +108,7 @@ public class MonitorLifecycleTests
             await WithTimeoutAsync(
                 MonitorLauncher.StopAgentAsync(),
                 StartStopTimeout,
-                "StopAgentAsync (cleanup)");
+                "StopAgentAsync (cleanup)").ConfigureAwait(false);
         }
     }
 }

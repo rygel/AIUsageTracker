@@ -1,48 +1,42 @@
+// <copyright file="ProviderRefreshService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Diagnostics;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Monitor.Hubs;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
 
 namespace AIUsageTracker.Monitor.Services;
 
 public class ProviderRefreshService : BackgroundService
 {
     private readonly ILogger<ProviderRefreshService> _logger;
-    private readonly ILoggerFactory _loggerFactory;
     private readonly IUsageDatabase _database;
     private readonly INotificationService _notificationService;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfigService _configService;
     private readonly IAppPathProvider _pathProvider;
-    private readonly IEnumerable<IProviderService> _providers;
+    private readonly ProviderRefreshCircuitBreakerService _providerCircuitBreakerService;
+    private readonly ProviderRefreshConfigLoadingService _configLoadingService;
+    private readonly ProviderRefreshTelemetryManager _refreshTelemetryManager = new();
+    private readonly ProviderUsagePersistenceService _usagePersistenceService;
+    private readonly ProviderConnectivityCheckService _connectivityCheckService;
+    private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
+    private readonly ProviderManagerLifecycleService _providerManagerLifecycle;
+    private readonly ProviderRefreshNotificationService _refreshNotificationService;
+    private static bool _debugMode = false;
+    private static readonly ActivitySource ActivitySource = MonitorActivitySources.Refresh;
+    private readonly StartupSequenceService _startupSequenceService;
+    private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
     private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
     private readonly TimeSpan _refreshInterval = TimeSpan.FromMinutes(5);
-    private static bool _debugMode = false;
-    private ProviderManager? _providerManager;
-    private long _refreshCount;
-    private long _refreshFailureCount;
-    private long _refreshTotalLatencyMs;
-    private long _lastRefreshLatencyMs;
-    private readonly object _telemetryLock = new();
-    private readonly object _providerFailureLock = new();
-    private readonly Dictionary<string, ProviderFailureState> _providerFailureStates = new(StringComparer.OrdinalIgnoreCase);
-    private DateTime? _lastRefreshCompletedUtc;
-    private string? _lastRefreshError;
-    private const int CircuitBreakerFailureThreshold = 3;
-    private static readonly TimeSpan CircuitBreakerBaseBackoff = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
-
-    private sealed class ProviderFailureState
-    {
-        public int ConsecutiveFailures { get; set; }
-        public DateTime? CircuitOpenUntilUtc { get; set; }
-        public string? LastError { get; set; }
-    }
 
     public static void SetDebugMode(bool debug)
     {
@@ -57,113 +51,123 @@ public class ProviderRefreshService : BackgroundService
         IHttpClientFactory httpClientFactory,
         IConfigService configService,
         IAppPathProvider pathProvider,
-        IEnumerable<IProviderService> providers)
+        IEnumerable<IProviderService> providers,
+        UsageAlertsService usageAlertsService,
+        ProviderRefreshCircuitBreakerService providerCircuitBreakerService,
+        IMonitorJobScheduler jobScheduler,
+        IProviderUsageProcessingPipeline? usageProcessingPipeline = null,
+        IHubContext<UsageHub>? hubContext = null)
     {
-        _logger = logger;
-        _loggerFactory = loggerFactory;
-        _database = database;
-        _notificationService = notificationService;
-        _httpClientFactory = httpClientFactory;
-        _configService = configService;
-        _pathProvider = pathProvider;
-        _providers = providers;
+        this._logger = logger;
+        this._database = database;
+        this._notificationService = notificationService;
+        this._configService = configService;
+        this._pathProvider = pathProvider;
+        this._providerCircuitBreakerService = providerCircuitBreakerService;
+        var dependencies = ProviderRefreshServiceFactory.CreateDependencies(
+            loggerFactory,
+            database,
+            configService,
+            pathProvider,
+            providers,
+            usageAlertsService,
+            jobScheduler,
+            usageProcessingPipeline,
+            hubContext);
+        this._configLoadingService = dependencies.ConfigLoadingService;
+        this._usagePersistenceService = dependencies.UsagePersistenceService;
+        this._connectivityCheckService = dependencies.ConnectivityCheckService;
+        this._refreshJobScheduler = dependencies.RefreshJobScheduler;
+        this._providerManagerLifecycle = dependencies.ProviderManagerLifecycle;
+        this._refreshNotificationService = dependencies.RefreshNotificationService;
+        this._startupSequenceService = dependencies.StartupSequenceService;
+        this._usageProcessingPipeline = dependencies.UsageProcessingPipeline;
+    }
+
+    public bool QueueManualRefresh(
+        bool forceAll = false,
+        IReadOnlyCollection<string>? includeProviderIds = null,
+        bool bypassCircuitBreaker = false)
+    {
+        var coalesceKey = BuildManualRefreshCoalesceKey(forceAll, includeProviderIds, bypassCircuitBreaker);
+        return this._refreshJobScheduler.QueueManualRefresh(
+            _ => this.TriggerRefreshAsync(forceAll, includeProviderIds, bypassCircuitBreaker),
+            coalesceKey);
+    }
+
+    public bool QueueForceRefresh(
+        bool forceAll = false,
+        IReadOnlyCollection<string>? includeProviderIds = null)
+    {
+        return this.QueueManualRefresh(
+            forceAll: forceAll,
+            includeProviderIds: includeProviderIds,
+            bypassCircuitBreaker: true);
+    }
+
+    internal static string? BuildManualRefreshCoalesceKey(
+        bool forceAll,
+        IReadOnlyCollection<string>? includeProviderIds,
+        bool bypassCircuitBreaker)
+    {
+        var normalizedIds = (includeProviderIds ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToArray();
+
+        if (!forceAll && !bypassCircuitBreaker && normalizedIds.Length == 0)
+        {
+            return null;
+        }
+
+        var includeSegment = normalizedIds.Length == 0
+            ? "all"
+            : string.Join(",", normalizedIds);
+        return $"manual-provider-refresh|forceAll={forceAll}|bypass={bypassCircuitBreaker}|include={includeSegment}";
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Starting...");
+        this._logger.LogInformation("Starting...");
 
-        _notificationService.Initialize();
-        InitializeProviders();
+        this._notificationService.Initialize();
+        var initialConcurrency = await this.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
+        this.InitializeProviders(initialConcurrency);
 
-        var isEmpty = await _database.IsHistoryEmptyAsync();
+        this._refreshJobScheduler.RegisterRecurringRefresh(
+            this._refreshInterval,
+            _ => this.TriggerRefreshAsync());
+
+        var isEmpty = await this._database.IsHistoryEmptyAsync().ConfigureAwait(false);
         if (isEmpty)
         {
-            // First-time startup: scan for keys and populate the database.
-            // Fire as a background task so the HTTP server starts serving immediately.
-            // The Slim UI's rapid-poll will pick up the data once the refresh completes.
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    _logger.LogInformation("First-time startup: scanning for keys and seeding database.");
-                    await _configService.ScanForKeysAsync();
-                    await TriggerRefreshAsync(forceAll: true);
-                    _logger.LogInformation("First-time data seeding complete.");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error during first-time data seeding.");
-                }
-            }, stoppingToken);
+            this._startupSequenceService.QueueInitialDataSeeding(
+                () => this.TriggerRefreshAsync(forceAll: true));
         }
         else
         {
             // Database has existing data — serve it immediately WITHOUT refreshing all providers.
             // Do NOT hammer 3rd party APIs on startup. The scheduled interval will refresh on time.
-            _logger.LogInformation("Startup: serving cached data from database (next refresh in {Minutes}m).", _refreshInterval.TotalMinutes);
-            
+            this._logger.LogInformation("Startup: serving cached data from database (next refresh in {Minutes}m).", this._refreshInterval.TotalMinutes);
+
             // Only do targeted refresh for system providers that need immediate correctness
             // All other providers will be refreshed on the normal scheduled interval
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    _logger.LogDebug("Startup: running targeted refresh for system providers...");
-                    await TriggerRefreshAsync(
-                        forceAll: true,
-                        includeProviderIds: new[] { "antigravity" });
-                    _logger.LogDebug("Startup: targeted refresh complete.");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Startup targeted refresh failed");
-                }
-            }, stoppingToken);
+            this._startupSequenceService.QueueStartupTargetedRefresh(
+                providerIds => this.TriggerRefreshAsync(forceAll: true, includeProviderIds: providerIds));
         }
 
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            try
-            {
-                _logger.LogDebug("Next refresh in {Minutes} minutes...", _refreshInterval.TotalMinutes);
-                await Task.Delay(_refreshInterval, stoppingToken);
-                await TriggerRefreshAsync();
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during scheduled refresh: {Message}", ex.Message);
-            }
+            await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Normal shutdown path.
         }
 
-        _logger.LogInformation("Stopping...");
-    }
-
-    private void InitializeProviders()
-    {
-        _logger.LogDebug("Initializing providers...");
-
-        var configLoader = new JsonConfigLoader(
-            _loggerFactory.CreateLogger<JsonConfigLoader>(),
-            _loggerFactory.CreateLogger<TokenDiscoveryService>(),
-            _pathProvider);
-
-        var providerList = _providers.ToList();
-
-        _providerManager = new ProviderManager(
-            providerList,
-            configLoader,
-            _loggerFactory.CreateLogger<ProviderManager>());
-
-        _logger.LogDebug("Initialized {Count} providers: {Providers}",
-            providerList.Count, string.Join(", ", providerList.Select(p => p.ProviderId)));
-
-        _logger.LogInformation("Loaded {Count} providers", providerList.Count);
+        this._logger.LogInformation("Stopping...");
     }
 
     public virtual async Task TriggerRefreshAsync(
@@ -171,698 +175,219 @@ public class ProviderRefreshService : BackgroundService
         IReadOnlyCollection<string>? includeProviderIds = null,
         bool bypassCircuitBreaker = false)
     {
+        using var refreshActivity = ActivitySource.StartActivity("monitor.provider_refresh", ActivityKind.Internal);
+        refreshActivity?.SetTag("refresh.force_all", forceAll);
+        refreshActivity?.SetTag("refresh.bypass_circuit_breaker", bypassCircuitBreaker);
+        refreshActivity?.SetTag("refresh.include_provider_ids.count", includeProviderIds?.Count ?? 0);
+
         var refreshStopwatch = Stopwatch.StartNew();
         var refreshSucceeded = false;
         string? refreshError = null;
+        this._refreshTelemetryManager.RecordRefreshAttemptStarted(DateTime.UtcNow);
 
-        if (_providerManager == null)
+        if (this.ProviderManager == null)
         {
-            _logger.LogWarning("ProviderManager not ready");
-            RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
+            this._logger.LogWarning("ProviderManager not ready");
+            this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
+            refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
             return;
         }
 
-        await _refreshSemaphore.WaitAsync();
+        await this._refreshSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            _logger.LogDebug("Starting data refresh - {Time}", DateTime.Now.ToString("HH:mm:ss"));
-
-            _logger.LogInformation("Refreshing...");
-
-            _logger.LogInformation("Loading provider configurations...");
-            var configs = await _configService.GetConfigsAsync();
-            _logger.LogInformation("Found {Count} total configurations", configs.Count);
-
-            foreach (var c in configs)
+            await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
+            if (this.ProviderManager == null)
             {
-                var hasKey = !string.IsNullOrEmpty(c.ApiKey);
-                _logger.LogInformation("Provider {ProviderId}: {Status}",
-                    c.ProviderId, hasKey ? $"Has API key ({c.ApiKey?.Length ?? 0} chars)" : "NO API KEY");
+                this._logger.LogWarning("ProviderManager not ready");
+                this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, false, "ProviderManager not ready");
+                refreshActivity?.SetStatus(ActivityStatusCode.Error, "ProviderManager not ready");
+                return;
             }
 
-            // Always include system providers that don't require API keys (mirrors ProviderManager.FetchAllUsageInternal)
-            if (!configs.Any(c => c.ProviderId.Equals("antigravity", StringComparison.OrdinalIgnoreCase)))
-                configs.Add(new ProviderConfig
-                {
-                    ProviderId = "antigravity",
-                    ApiKey = "",
-                    Type = "quota-based",
-                    PlanType = PlanType.Coding
-                });
-            // System providers (antigravity) work without API keys
-            // All other providers need an API key to be queried
-            var systemProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
-            { 
-                "antigravity"
-            };
+            this._logger.LogDebug("Starting data refresh - {Time}", DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
 
-            var activeConfigs = configs.Where(c =>
-                forceAll ||
-                systemProviders.Contains(c.ProviderId) ||
-                c.ProviderId.StartsWith("antigravity.", StringComparison.OrdinalIgnoreCase) ||
-                !string.IsNullOrEmpty(c.ApiKey)).ToList();
+            await this._refreshNotificationService.NotifyRefreshStartedAsync().ConfigureAwait(false);
 
-            if (ShouldSuppressOpenAiSession(activeConfigs))
-            {
-                var beforeCount = activeConfigs.Count;
-                activeConfigs = activeConfigs
-                    .Where(c => !IsOpenAiSessionConfig(c))
-                    .ToList();
-                _logger.LogInformation(
-                    "Suppressed duplicate OpenAI session provider while Codex is active (removed {Count}).",
-                    beforeCount - activeConfigs.Count);
-            }
-
-            if (includeProviderIds != null && includeProviderIds.Count > 0)
-            {
-                var includeSet = includeProviderIds
-                    .Where(id => !string.IsNullOrWhiteSpace(id))
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-                activeConfigs = activeConfigs
-                    .Where(c => includeSet.Contains(c.ProviderId))
-                    .ToList();
-            }
-
-            _logger.LogInformation("Refreshing {Count} configured providers", activeConfigs.Count);
-            
-            // Debug: log which providers we're about to refresh
-            foreach (var config in activeConfigs.OrderBy(c => c.ProviderId))
-            {
-                _logger.LogDebug("Active config: {ProviderId} (Key present: {HasKey})", 
-                    config.ProviderId, !string.IsNullOrEmpty(config.ApiKey));
-            }
-
-            foreach (var config in configs)
-            {
-                await _database.StoreProviderAsync(config);
-            }
+            this._logger.LogInformation("Refreshing...");
+            var (configs, activeConfigs) = await this._configLoadingService
+                .LoadConfigsForRefreshAsync(forceAll, includeProviderIds)
+                .ConfigureAwait(false);
+            refreshActivity?.SetTag("refresh.configs.total", configs.Count);
+            refreshActivity?.SetTag("refresh.configs.active", activeConfigs.Count);
+            await this._configLoadingService.PersistConfiguredProvidersAsync(configs).ConfigureAwait(false);
 
             var refreshableConfigs = bypassCircuitBreaker
                 ? activeConfigs
-                : GetRefreshableConfigs(activeConfigs, forceAll);
+                : this._providerCircuitBreakerService.GetRefreshableConfigs(activeConfigs, forceAll);
             var circuitSkippedCount = activeConfigs.Count - refreshableConfigs.Count;
+            refreshActivity?.SetTag("refresh.configs.refreshable", refreshableConfigs.Count);
+            refreshActivity?.SetTag("refresh.configs.skipped_by_circuit", circuitSkippedCount);
             if (circuitSkippedCount > 0)
             {
-                _logger.LogInformation("Circuit breaker skipping {Count} provider(s) this cycle", circuitSkippedCount);
+                this._logger.LogInformation("Circuit breaker skipping {Count} provider(s) this cycle", circuitSkippedCount);
             }
 
             if (refreshableConfigs.Count > 0)
             {
-                _logger.LogDebug("Querying {Count} providers with API keys...", refreshableConfigs.Count);
-                _logger.LogInformation("Querying {Count} providers", refreshableConfigs.Count);
-
-                var providerIdsToQuery = refreshableConfigs
-                    .Select(c => c.ProviderId)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-                var usages = await _providerManager.GetAllUsageAsync(
-                    forceRefresh: true,
-                    progressCallback: _ => { },
-                    includeProviderIds: providerIdsToQuery);
-
-                _logger.LogDebug("Received {Count} total usage results", usages.Count());
-
-                // Validate detail contract - mark providers with invalid details as unavailable
-                var validatedUsages = ValidateDetailContract(usages).ToList();
-                _logger.LogDebug("Validated {Count} usage results after detail contract check", validatedUsages.Count);
-
-                var activeProviderIds = refreshableConfigs.Select(c => c.ProviderId).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                
-                // Allow dynamic children (e.g. antigravity.* / codex.*) through the filter
-                // when their parent provider is active.
-                // Filter out entries where the API Key was missing to prevent logging empty data over and over.
-                var filteredUsages = validatedUsages.Where(u => 
-                    IsUsageForAnyActiveProvider(activeProviderIds, u.ProviderId) &&
-                    // Drop unconfigured providers that returned no usage
-                    // Check regardless of description - if no usage data and not available, it's a placeholder
-                    !(u.RequestsAvailable == 0 && u.RequestsUsed == 0 && u.RequestsPercentage == 0 && !u.IsAvailable)
-                ).ToList();
-
-                _logger.LogDebug("Provider query results:");
-                foreach (var usage in filteredUsages)
-                {
-                    var status = usage.IsAvailable ? "OK" : "FAILED";
-                    var msg = usage.IsAvailable
-                        ? $"{usage.RequestsPercentage:F1}% used"
-                        : usage.Description;
-                    _logger.LogDebug("  {ProviderId}: [{Status}] {Message}", usage.ProviderId, status, msg);
-                }
-
-                UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
-
-                // Auto-register any dynamic sub-providers (e.g. antigravity models) that aren't in config yet
-                // This ensures we have a provider record for foreign keys
-                foreach (var usage in filteredUsages)
-                {
-                    // Auto-register OR update dynamic sub-providers (e.g. antigravity.* / codex.*)
-                    // We update even if existing to ensure Friendly Name changes (like adding prefix) are persisted
-                    if (IsDynamicChildOfAnyActiveProvider(activeProviderIds, usage.ProviderId) ||
-                        !activeProviderIds.Contains(usage.ProviderId))
-                    {
-                        if (!activeProviderIds.Contains(usage.ProviderId))
-                        {
-                            _logger.LogInformation("Auto-registering dynamic provider: {ProviderId}", usage.ProviderId);
-                        }
-                        
-                        var dynamicConfig = new ProviderConfig
-                        {
-                            ProviderId = usage.ProviderId,
-                            Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
-                            AuthSource = usage.AuthSource,
-                            ApiKey = "dynamic" // Placeholder to mark as active
-                        };
-                        
-                        await _database.StoreProviderAsync(dynamicConfig, usage.ProviderName);
-                        
-                        if (!activeProviderIds.Contains(usage.ProviderId))
-                        {
-                            activeProviderIds.Add(usage.ProviderId);
-                        }
-                    }
-                }
-
-                await _database.StoreHistoryAsync(filteredUsages);
-                _logger.LogDebug("Stored {Count} provider histories", filteredUsages.Count);
-
-                foreach (var usage in filteredUsages.Where(u => !string.IsNullOrEmpty(u.RawJson)))
-                {
-                    await _database.StoreRawSnapshotAsync(usage.ProviderId, usage.RawJson!, usage.HttpStatus);
-                }
-
-                await DetectResetEventsAsync(filteredUsages);
-                var prefs = await _configService.GetPreferencesAsync();
-                CheckUsageAlerts(filteredUsages, prefs, configs);
-
-                _logger.LogInformation("Done: {Count} records", filteredUsages.Count);
-                _logger.LogDebug("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
+                await this.RefreshAndStoreProviderDataAsync(configs, refreshableConfigs).ConfigureAwait(false);
             }
             else
             {
-                _logger.LogDebug("No refreshable providers currently available.");
-                _logger.LogInformation("No providers configured or all providers are in backoff.");
+                this._logger.LogDebug("No refreshable providers currently available.");
+                this._logger.LogInformation("No providers configured or all providers are in backoff.");
             }
 
-            await _database.CleanupOldSnapshotsAsync();
-            await _database.OptimizeAsync();
-            _logger.LogInformation("Cleanup complete");
+            await this._database.CleanupOldSnapshotsAsync().ConfigureAwait(false);
+            await this._database.OptimizeAsync().ConfigureAwait(false);
+            this._logger.LogInformation("Cleanup complete");
             refreshSucceeded = true;
+            refreshActivity?.SetStatus(ActivityStatusCode.Ok);
+
+            await this._refreshNotificationService.NotifyUsageUpdatedAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
-            Program.ReportError($"Refresh failed: {ex.Message}", _pathProvider, _logger);
+            this._logger.LogError(ex, "Refresh failed: {Message}", ex.Message);
+            MonitorInfoPersistence.ReportError($"Refresh failed: {ex.Message}", this._pathProvider, this._logger);
             refreshError = ex.Message;
+            refreshActivity?.SetTag("error.type", ex.GetType().Name);
+            refreshActivity?.SetStatus(ActivityStatusCode.Error, ex.Message);
         }
         finally
         {
             refreshStopwatch.Stop();
-            RecordRefreshTelemetry(refreshStopwatch.Elapsed, refreshSucceeded, refreshError);
-            _refreshSemaphore.Release();
+            this._refreshTelemetryManager.RecordRefreshTelemetry(refreshStopwatch.Elapsed, refreshSucceeded, refreshError);
+            refreshActivity?.SetTag("refresh.duration_ms", refreshStopwatch.Elapsed.TotalMilliseconds);
+            this._refreshSemaphore.Release();
         }
+    }
+
+    private async Task RefreshAndStoreProviderDataAsync(IList<ProviderConfig> allConfigs, IList<ProviderConfig> refreshableConfigs)
+    {
+        if (this.ProviderManager == null)
+        {
+            throw new InvalidOperationException("ProviderManager not initialized");
+        }
+
+        this._logger.LogDebug("Querying {Count} providers with API keys...", refreshableConfigs.Count);
+        this._logger.LogInformation("Querying {Count} providers", refreshableConfigs.Count);
+
+        var providerIdsToQuery = refreshableConfigs
+            .Select(c => c.ProviderId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var usages = await this.ProviderManager.GetAllUsageAsync(
+            forceRefresh: true,
+            progressCallback: _ => { },
+            includeProviderIds: providerIdsToQuery).ConfigureAwait(false);
+
+        this._logger.LogDebug("Received {Count} total usage results", usages.Count());
+
+        var activeProviderIds = refreshableConfigs
+            .Select(c => c.ProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var prefs = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
+
+        var processingResult = this._usageProcessingPipeline.Process(
+            usages,
+            activeProviderIds,
+            prefs.IsPrivacyMode);
+        var filteredUsages = processingResult.Usages.ToList();
+
+        this._logger.LogDebug(
+            "Usage pipeline accepted {Accepted}/{Total} items (invalidIdentity={InvalidIdentity}, inactiveFiltered={InactiveFiltered}, placeholderFiltered={PlaceholderFiltered}, detailAdjusted={DetailAdjusted}, normalized={Normalized}, redacted={Redacted})",
+            filteredUsages.Count,
+            usages.Count(),
+            processingResult.InvalidIdentityCount,
+            processingResult.InactiveProviderFilteredCount,
+            processingResult.PlaceholderFilteredCount,
+            processingResult.DetailContractAdjustedCount,
+            processingResult.NormalizedCount,
+            processingResult.PrivacyRedactedCount);
+
+        this._logger.LogDebug("Provider query results:");
+        foreach (var usage in filteredUsages)
+        {
+            var status = usage.IsAvailable ? "OK" : "FAILED";
+            var message = usage.IsAvailable
+                ? $"{usage.UsedPercent:F1}% used"
+                : usage.Description;
+            this._logger.LogDebug("  {ProviderId}: [{Status}] {Message}", usage.ProviderId, status, message);
+        }
+
+        this._providerCircuitBreakerService.UpdateProviderFailureStates(refreshableConfigs, filteredUsages);
+        await this._usagePersistenceService
+            .PersistUsageAndDynamicProvidersAsync(filteredUsages, activeProviderIds)
+            .ConfigureAwait(false);
+
+        await this._refreshNotificationService
+            .ProcessUsageAlertsAsync(filteredUsages, prefs, allConfigs)
+            .ConfigureAwait(false);
+
+        this._logger.LogInformation("Done: {Count} records", filteredUsages.Count);
+        this._logger.LogDebug("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
     }
 
     public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
     {
-        var refreshCount = Interlocked.Read(ref _refreshCount);
-        var refreshFailureCount = Interlocked.Read(ref _refreshFailureCount);
-        var refreshTotalLatencyMs = Interlocked.Read(ref _refreshTotalLatencyMs);
-        var lastRefreshLatencyMs = Interlocked.Read(ref _lastRefreshLatencyMs);
-
-        DateTime? lastRefreshCompletedUtc;
-        string? lastRefreshError;
-        lock (_telemetryLock)
-        {
-            lastRefreshCompletedUtc = _lastRefreshCompletedUtc;
-            lastRefreshError = _lastRefreshError;
-        }
-
-        var refreshSuccessCount = Math.Max(0, refreshCount - refreshFailureCount);
-        var averageLatencyMs = refreshCount == 0 ? 0 : refreshTotalLatencyMs / (double)refreshCount;
-        var errorRatePercent = refreshCount == 0 ? 0 : (refreshFailureCount / (double)refreshCount) * 100.0;
-
-        return new RefreshTelemetrySnapshot
-        {
-            RefreshCount = refreshCount,
-            RefreshSuccessCount = refreshSuccessCount,
-            RefreshFailureCount = refreshFailureCount,
-            ErrorRatePercent = errorRatePercent,
-            AverageLatencyMs = averageLatencyMs,
-            LastLatencyMs = lastRefreshLatencyMs,
-            LastRefreshCompletedUtc = lastRefreshCompletedUtc,
-            LastError = lastRefreshError
-        };
+        return this._refreshTelemetryManager.GetSnapshot(this._providerCircuitBreakerService.GetProviderDiagnostics());
     }
 
-    private void RecordRefreshTelemetry(TimeSpan duration, bool success, string? errorMessage)
+    public async Task<(bool Success, string Message, int Status)> CheckProviderAsync(string providerId)
     {
-        var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref _refreshCount);
-        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref _lastRefreshLatencyMs, latencyMs);
-
-        if (!success)
-        {
-            Interlocked.Increment(ref _refreshFailureCount);
-        }
-
-        lock (_telemetryLock)
-        {
-            _lastRefreshCompletedUtc = DateTime.UtcNow;
-            _lastRefreshError = success ? null : errorMessage;
-        }
-    }
-
-    private List<ProviderConfig> GetRefreshableConfigs(List<ProviderConfig> activeConfigs, bool forceAll)
-    {
-        if (forceAll || activeConfigs.Count == 0)
-        {
-            return activeConfigs;
-        }
-
-        var now = DateTime.UtcNow;
-        var refreshable = new List<ProviderConfig>(activeConfigs.Count);
-
-        lock (_providerFailureLock)
-        {
-            foreach (var config in activeConfigs)
-            {
-                if (!_providerFailureStates.TryGetValue(config.ProviderId, out var state))
-                {
-                    refreshable.Add(config);
-                    continue;
-                }
-
-                if (state.CircuitOpenUntilUtc.HasValue && state.CircuitOpenUntilUtc.Value > now)
-                {
-                    _logger.LogDebug(
-                        "Circuit open for {ProviderId}; skipping until {RetryUtc:HH:mm:ss} UTC",
-                        config.ProviderId,
-                        state.CircuitOpenUntilUtc.Value);
-                    continue;
-                }
-
-                state.CircuitOpenUntilUtc = null;
-                refreshable.Add(config);
-            }
-        }
-
-        return refreshable;
-    }
-
-    private void UpdateProviderFailureStates(IReadOnlyCollection<ProviderConfig> queriedConfigs, IReadOnlyCollection<ProviderUsage> usages)
-    {
-        if (queriedConfigs.Count == 0)
-        {
-            return;
-        }
-
-        lock (_providerFailureLock)
-        {
-            var now = DateTime.UtcNow;
-            foreach (var config in queriedConfigs)
-            {
-                var providerUsages = usages
-                    .Where(u => IsUsageForProvider(config.ProviderId, u.ProviderId))
-                    .ToList();
-                var isSuccess = providerUsages.Any(IsSuccessfulUsage);
-
-                if (isSuccess)
-                {
-                    if (_providerFailureStates.Remove(config.ProviderId))
-                    {
-                        _logger.LogDebug("Circuit reset for {ProviderId}", config.ProviderId);
-                    }
-                    continue;
-                }
-
-                if (!_providerFailureStates.TryGetValue(config.ProviderId, out var state))
-                {
-                    state = new ProviderFailureState();
-                    _providerFailureStates[config.ProviderId] = state;
-                }
-
-                state.ConsecutiveFailures++;
-                state.LastError = GetFailureMessage(providerUsages);
-
-                if (state.ConsecutiveFailures >= CircuitBreakerFailureThreshold)
-                {
-                    var backoffDelay = GetCircuitBreakerDelay(state.ConsecutiveFailures);
-                    state.CircuitOpenUntilUtc = now.Add(backoffDelay);
-
-                    _logger.LogWarning(
-                        "Circuit opened for {ProviderId} after {Failures} failures; retry at {RetryUtc:HH:mm:ss} UTC ({DelayMinutes:F1} min). Last error: {Error}",
-                        config.ProviderId,
-                        state.ConsecutiveFailures,
-                        state.CircuitOpenUntilUtc.Value,
-                        backoffDelay.TotalMinutes,
-                        state.LastError);
-                }
-                else
-                {
-                    _logger.LogDebug(
-                        "Provider {ProviderId} failure {Failures}/{Threshold}: {Error}",
-                        config.ProviderId,
-                        state.ConsecutiveFailures,
-                        CircuitBreakerFailureThreshold,
-                        state.LastError);
-                }
-            }
-        }
-    }
-
-    private static bool IsUsageForProvider(string providerId, string usageProviderId)
-    {
-        if (usageProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool ShouldSuppressOpenAiSession(IReadOnlyCollection<ProviderConfig> activeConfigs)
-    {
-        var hasCodex = activeConfigs.Any(c =>
-            c.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase) &&
-            !string.IsNullOrWhiteSpace(c.ApiKey));
-        return hasCodex && activeConfigs.Any(IsOpenAiSessionConfig);
-    }
-
-    private static bool IsOpenAiSessionConfig(ProviderConfig config)
-    {
-        return config.ProviderId.Equals("openai", StringComparison.OrdinalIgnoreCase) &&
-               !string.IsNullOrWhiteSpace(config.ApiKey) &&
-               !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsUsageForAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
-    {
-        return activeProviderIds.Any(providerId => IsUsageForProvider(providerId, usageProviderId));
-    }
-
-    private static bool IsDynamicChildOfAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
-    {
-        return activeProviderIds.Any(providerId =>
-            usageProviderId.StartsWith($"{providerId}.", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool IsSuccessfulUsage(ProviderUsage usage)
-    {
-        if (!usage.IsAvailable)
-        {
-            return false;
-        }
-
-        if (usage.HttpStatus >= 400)
-        {
-            return false;
-        }
-
-        return string.IsNullOrWhiteSpace(usage.Description) ||
-               !usage.Description.StartsWith("[Error]", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string GetFailureMessage(IReadOnlyCollection<ProviderUsage> providerUsages)
-    {
-        if (providerUsages.Count == 0)
-        {
-            return "No usage data returned";
-        }
-
-        var failedUsage = providerUsages.FirstOrDefault(u => !IsSuccessfulUsage(u));
-        if (failedUsage != null && !string.IsNullOrWhiteSpace(failedUsage.Description))
-        {
-            return failedUsage.Description;
-        }
-
-        return "Provider returned no successful usage entries";
-    }
-
-    private static TimeSpan GetCircuitBreakerDelay(int consecutiveFailures)
-    {
-        var backoffLevel = Math.Max(0, consecutiveFailures - CircuitBreakerFailureThreshold);
-        var exponent = Math.Min(backoffLevel, 6);
-        var seconds = CircuitBreakerBaseBackoff.TotalSeconds * Math.Pow(2, exponent);
-        return TimeSpan.FromSeconds(Math.Min(seconds, CircuitBreakerMaxBackoff.TotalSeconds));
-    }
-
-    private static bool IsInQuietHours(AppPreferences prefs)
-    {
-        if (!prefs.EnableQuietHours)
-        {
-            return false;
-        }
-
-        if (!TimeSpan.TryParse(prefs.QuietHoursStart, out var start) ||
-            !TimeSpan.TryParse(prefs.QuietHoursEnd, out var end))
-        {
-            return false;
-        }
-
-        var now = DateTime.Now.TimeOfDay;
-        if (start == end)
-        {
-            return true;
-        }
-
-        if (start < end)
-        {
-            return now >= start && now < end;
-        }
-
-        return now >= start || now < end;
-    }
-
-    public void CheckUsageAlerts(List<ProviderUsage> usages, AppPreferences prefs, List<ProviderConfig> configs)
-    {
-        if (!prefs.EnableNotifications || !prefs.NotifyOnUsageThreshold || IsInQuietHours(prefs))
-        {
-            return;
-        }
-
-        foreach (var usage in usages)
-        {
-            var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
-            var usedPercentage = UsageMath.GetEffectiveUsedPercent(usage);
-            if (config != null && config.EnableNotifications && usedPercentage >= prefs.NotificationThreshold)
-            {
-                _notificationService.ShowUsageAlert(usage.ProviderName, usedPercentage);
-            }
-        }
-    }
-
-    private async Task DetectResetEventsAsync(List<ProviderUsage> currentUsages)
-    {
-        _logger.LogDebug("Checking for reset events...");
-
-        // Batch load history for all relevant providers (latest 2 records for each)
-        var allHistory = await _database.GetRecentHistoryAsync(2);
-        var historyMap = allHistory.GroupBy(h => h.ProviderId).ToDictionary(g => g.Key, g => g.ToList());
-
-        foreach (var usage in currentUsages)
-        {
-            try
-            {
-                if (!historyMap.TryGetValue(usage.ProviderId, out var history) || history.Count < 2)
-                {
-                    // For sub-providers (models) or providers with explicit reset times, 
-                    // lack of history is expected and shouldn't be noisy.
-                    if (usage.ProviderId.Contains('.') || usage.NextResetTime != null)
-                    {
-                        _logger.LogTrace("{ProviderId}: Initial record stored, waiting for history", usage.ProviderId);
-                    }
-                    else
-                    {
-                        _logger.LogDebug("{ProviderId}: Not enough history for reset detection", usage.ProviderId);
-                    }
-                    continue;
-                }
-
-                var current = history[0];
-                var previous = history[1];
-
-                bool isReset = false;
-                string resetReason = "";
-
-                // 1. Explicit Reset Detection (via NextResetTime moving forward)
-                if (current.NextResetTime.HasValue && previous.NextResetTime.HasValue)
-                {
-                    if (current.NextResetTime.Value > previous.NextResetTime.Value.AddMinutes(1)) // Use small buffer
-                    {
-                        isReset = true;
-                        resetReason = $"Reset detected via schedule: {previous.NextResetTime:HH:mm} -> {current.NextResetTime:HH:mm}";
-                    }
-                }
-
-                // 2. Heuristic Reset Detection (if not already detected)
-                if (!isReset)
-                {
-                    if (usage.IsQuotaBased)
-                    {
-                        var previousUsedPercent = UsageMath.GetEffectiveUsedPercent(previous);
-                        var currentUsedPercent = UsageMath.GetEffectiveUsedPercent(current);
-
-                        if (previousUsedPercent > 50 && currentUsedPercent < previousUsedPercent * 0.3)
-                        {
-                            isReset = true;
-                            resetReason = $"Quota reset: {previousUsedPercent:F1}% -> {currentUsedPercent:F1}% used";
-                        }
-                    }
-                    else
-                    {
-                        if (previous.RequestsUsed > current.RequestsUsed)
-                        {
-                            var dropPercent = (previous.RequestsUsed - current.RequestsUsed) / previous.RequestsUsed * 100;
-                            if (dropPercent > 20)
-                            {
-                                isReset = true;
-                                resetReason = $"Usage reset: ${previous.RequestsUsed:F2} -> ${current.RequestsUsed:F2} ({dropPercent:F0}% drop)";
-                            }
-                        }
-                    }
-                }
-
-                if (isReset)
-                {
-                    await _database.StoreResetEventAsync(
-                        usage.ProviderId,
-                        usage.ProviderName,
-                        previous.RequestsUsed,
-                        current.RequestsUsed,
-                        usage.IsQuotaBased ? "quota" : "usage"
-                    );
-
-                    var prefs = await _configService.GetPreferencesAsync();
-                    var configs = await _configService.GetConfigsAsync();
-                    var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
-
-                    if (prefs.EnableNotifications &&
-                        prefs.NotifyOnQuotaExceeded &&
-                        !IsInQuietHours(prefs) &&
-                        config != null &&
-                        config.EnableNotifications)
-                    {
-                        var details = usage.IsQuotaBased ? "Quota reset detected." : "Usage reset detected.";
-                        _notificationService.ShowQuotaExceeded(usage.ProviderName, details);
-                    }
-
-                    _logger.LogInformation("{ProviderId} reset: {Reason}", usage.ProviderId, resetReason);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Reset check failed for {ProviderId}: {Message}", usage.ProviderId, ex.Message);
-            }
-        }
-    }
-
-    public async Task<(bool success, string message, int status)> CheckProviderAsync(string providerId)
-    {
-        if (_providerManager == null)
+        if (this.ProviderManager == null)
         {
             return (false, "ProviderManager not initialized", 503);
         }
 
         try
         {
-            await _refreshSemaphore.WaitAsync();
+            await this._refreshSemaphore.WaitAsync().ConfigureAwait(false);
             try
             {
-                var usages = await _providerManager.GetUsageAsync(providerId);
-                var usage = usages.FirstOrDefault();
-                
-                if (usage == null)
-                    return (false, "No usage data returned", 404);
-
-                if (usage.HttpStatus >= 400 && usage.HttpStatus != 429) // 429 is rate limit, which means auth works
+                await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
+                if (this.ProviderManager == null)
                 {
-                    return (false, usage.Description, usage.HttpStatus);
+                    return (false, "ProviderManager not initialized", 503);
                 }
 
-                if (!usage.IsAvailable)
-                {
-                    return (false, usage.Description, 503);
-                }
-
-                return (true, "Connected", 200);
+                var usages = await this.ProviderManager.GetUsageAsync(providerId).ConfigureAwait(false);
+                return await this._connectivityCheckService.EvaluateAsync(providerId, usages).ConfigureAwait(false);
             }
             finally
             {
-                _refreshSemaphore.Release();
+                this._refreshSemaphore.Release();
             }
         }
         catch (Exception ex)
         {
+            this._logger.LogError(ex, "Provider connectivity check failed for {ProviderId}", providerId);
             return (false, ex.Message, 500);
         }
     }
 
-    private IEnumerable<ProviderUsage> ValidateDetailContract(IEnumerable<ProviderUsage> usages)
+    public override void Dispose()
     {
-        foreach (var usage in usages)
-        {
-            var validationErrors = new List<string>();
+        this._providerManagerLifecycle.Dispose();
+        base.Dispose();
+    }
 
-            if (usage.Details != null)
-            {
-                foreach (var detail in usage.Details)
-                {
-                    if (string.IsNullOrWhiteSpace(detail.Name))
-                    {
-                        validationErrors.Add("Detail Name is empty");
-                    }
+    private ProviderManager? ProviderManager => this._providerManagerLifecycle.CurrentManager;
 
-                    if (detail.DetailType == ProviderUsageDetailType.Unknown)
-                    {
-                        validationErrors.Add($"DetailType is Unknown (must be QuotaWindow, Credit, Model, or Other)");
-                    }
+    private async Task<int> GetConfiguredMaxConcurrentProviderRequestsAsync()
+    {
+        return await this._providerManagerLifecycle.GetConfiguredMaxConcurrentProviderRequestsAsync().ConfigureAwait(false);
+    }
 
-                    if (detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-                    {
-                        if (detail.WindowKind == WindowKind.None)
-                        {
-                            validationErrors.Add("QuotaWindow details must have WindowKind set (Primary, Secondary, or Spark)");
-                        }
-                    }
-                }
-            }
+    private async Task EnsureProviderManagerConcurrencyAsync()
+    {
+        await this._providerManagerLifecycle.EnsureConcurrencyAsync().ConfigureAwait(false);
+    }
 
-            if (validationErrors.Count > 0)
-            {
-                _logger.LogWarning(
-                    "Provider {ProviderId} emitted invalid details: {Errors}. Marking as unavailable.",
-                    usage.ProviderId,
-                    string.Join("; ", validationErrors));
-
-                yield return new ProviderUsage
-                {
-                    ProviderId = usage.ProviderId,
-                    ProviderName = usage.ProviderName,
-                    IsAvailable = false,
-                    Description = $"Invalid detail contract: {string.Join("; ", validationErrors)}",
-                    PlanType = usage.PlanType,
-                    IsQuotaBased = usage.IsQuotaBased
-                };
-            }
-            else
-            {
-                yield return usage;
-            }
-        }
+    private void InitializeProviders(int maxConcurrentProviderRequests)
+    {
+        this._providerManagerLifecycle.Initialize(maxConcurrentProviderRequests);
     }
 }
-
-public sealed class RefreshTelemetrySnapshot
-{
-    public long RefreshCount { get; init; }
-    public long RefreshSuccessCount { get; init; }
-    public long RefreshFailureCount { get; init; }
-    public double ErrorRatePercent { get; init; }
-    public double AverageLatencyMs { get; init; }
-    public long LastLatencyMs { get; init; }
-    public DateTime? LastRefreshCompletedUtc { get; init; }
-    public string? LastError { get; init; }
-}
-
-

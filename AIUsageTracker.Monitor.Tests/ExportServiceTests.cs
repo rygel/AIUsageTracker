@@ -1,8 +1,12 @@
-using AIUsageTracker.Monitor.Services;
-using AIUsageTracker.Core.Models;
-using Moq;
+// <copyright file="ExportServiceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Text;
 using System.Text.Json;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Monitor.Services;
+using Moq;
 
 namespace AIUsageTracker.Monitor.Tests;
 
@@ -13,103 +17,100 @@ public class ExportServiceTests
 
     public ExportServiceTests()
     {
-        _mockDatabase = new Mock<IUsageDatabase>();
-        _service = new ExportService(_mockDatabase.Object);
+        this._mockDatabase = new Mock<IUsageDatabase>();
+        this._service = new ExportService(this._mockDatabase.Object);
     }
 
     [Fact]
-    public async Task ExportAsync_Json_ReturnsValidJsonContent()
+    public async Task ExportAsync_Json_ReturnsValidJsonContentAsync()
     {
         // Arrange
         var history = new List<ProviderUsage>
         {
-            new ProviderUsage 
-            { 
-                ProviderId = "test-p", 
-                ProviderName = "Test Provider", 
-                RequestsUsed = 10, 
-                FetchedAt = DateTime.UtcNow 
-            }
+            new ProviderUsage
+            {
+                ProviderId = "test-p",
+                ProviderName = "Test Provider",
+                RequestsUsed = 10,
+                FetchedAt = DateTime.UtcNow,
+            },
         };
-        _mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
+        this._mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
 
         // Act
-        var (content, contentType, fileName) = await _service.ExportAsync("json", 7);
+        var (content, contentType, fileName) = await this._service.ExportAsync("json", 7);
 
         // Assert
         Assert.Equal("application/json", contentType);
-        Assert.EndsWith(".json", fileName);
-        
+        Assert.EndsWith(".json", fileName, StringComparison.Ordinal);
+
         var json = Encoding.UTF8.GetString(content);
         var deserialized = JsonSerializer.Deserialize<List<ProviderUsage>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        
+
         Assert.NotNull(deserialized);
         Assert.Single(deserialized);
         Assert.Equal("test-p", deserialized[0].ProviderId);
     }
 
     [Fact]
-    public async Task ExportAsync_Csv_ReturnsValidCsvContent()
+    public async Task ExportAsync_Csv_ReturnsValidCsvContentAsync()
     {
         // Arrange
         var history = new List<ProviderUsage>
         {
-            new ProviderUsage 
-            { 
-                ProviderId = "test-p", 
-                ProviderName = "Test Provider", 
-                RequestsUsed = 10, 
-                UsageUnit = "USD",
+            new ProviderUsage
+            {
+                ProviderId = "test-p",
+                ProviderName = "Test Provider",
+                RequestsUsed = 10,
+                IsCurrencyUsage = true,
                 PlanType = PlanType.Usage,
-                FetchedAt = DateTime.UtcNow 
-            }
+                FetchedAt = DateTime.UtcNow,
+            },
         };
-        _mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
+        this._mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
 
         // Act
-        var (content, contentType, fileName) = await _service.ExportAsync("csv", 7);
+        var (content, contentType, fileName) = await this._service.ExportAsync("csv", 7);
 
         // Assert
         Assert.Equal("text/csv", contentType);
-        Assert.EndsWith(".csv", fileName);
-        
+        Assert.EndsWith(".csv", fileName, StringComparison.Ordinal);
+
         var csv = Encoding.UTF8.GetString(content);
         var lines = csv.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
-        
+
         Assert.True(lines.Length >= 2);
-        Assert.Contains("Time,Provider,Model,Used,Cost,Unit,PlanType", lines[0]);
-        Assert.Contains("Test Provider", lines[1]);
-        Assert.Contains("10.00", lines[1]); // Invariant F2 format
-        Assert.Contains("USD", lines[1]);
+        Assert.Contains("Time,Provider,Model,Used,Cost,PlanType", lines[0], StringComparison.Ordinal);
+        Assert.Contains("Test Provider", lines[1], StringComparison.Ordinal);
+        Assert.Contains("10.00", lines[1], StringComparison.Ordinal); // Invariant F2 format
     }
 
     [Fact]
-    public async Task ExportAsync_CsvWithDetails_IncludesDetails()
+    public async Task ExportAsync_CsvWithDetails_IncludesDetailsAsync()
     {
         // Arrange
         var history = new List<ProviderUsage>
         {
-            new ProviderUsage 
-            { 
-                ProviderId = "test-p", 
-                ProviderName = "Test Provider", 
+            new ProviderUsage
+            {
+                ProviderId = "test-p",
+                ProviderName = "Test Provider",
                 FetchedAt = DateTime.UtcNow,
                 Details = new List<ProviderUsageDetail>
                 {
-                    new ProviderUsageDetail { Name = "Model A", Used = "5.50" }
-                }
-            }
+                    new ProviderUsageDetail { Name = "Model A", Description = "5.50" },
+                },
+            },
         };
-        _mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
+        this._mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
 
         // Act
-        var (content, _, _) = await _service.ExportAsync("csv", 1);
+        var (content, _, _) = await this._service.ExportAsync("csv", 1);
 
         // Assert
         var csv = Encoding.UTF8.GetString(content);
-        Assert.Contains("Model A", csv);
-        Assert.Contains("5.50", csv);
+        Assert.Contains("Model A", csv, StringComparison.Ordinal);
+        Assert.Contains("5.50", csv, StringComparison.Ordinal);
     }
 }
-
-

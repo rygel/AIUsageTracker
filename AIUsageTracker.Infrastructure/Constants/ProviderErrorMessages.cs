@@ -1,3 +1,7 @@
+// <copyright file="ProviderErrorMessages.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Constants;
 
 /// <summary>
@@ -7,7 +11,7 @@ namespace AIUsageTracker.Infrastructure.Constants;
 public static class ProviderErrorMessages
 {
     /// <summary>
-    /// Authentication and authorization errors
+    /// Authentication and authorization errors.
     /// </summary>
     public static class Auth
     {
@@ -19,7 +23,7 @@ public static class ProviderErrorMessages
     }
 
     /// <summary>
-    /// Network and connection errors
+    /// Network and connection errors.
     /// </summary>
     public static class Network
     {
@@ -30,7 +34,7 @@ public static class ProviderErrorMessages
     }
 
     /// <summary>
-    /// Rate limiting errors
+    /// Rate limiting errors.
     /// </summary>
     public static class RateLimit
     {
@@ -40,7 +44,7 @@ public static class ProviderErrorMessages
     }
 
     /// <summary>
-    /// Server-side errors
+    /// Server-side errors.
     /// </summary>
     public static class Server
     {
@@ -51,7 +55,7 @@ public static class ProviderErrorMessages
     }
 
     /// <summary>
-    /// Data and parsing errors
+    /// Data and parsing errors.
     /// </summary>
     public static class Data
     {
@@ -62,7 +66,7 @@ public static class ProviderErrorMessages
     }
 
     /// <summary>
-    /// Configuration errors
+    /// Configuration errors.
     /// </summary>
     public static class Configuration
     {
@@ -72,7 +76,7 @@ public static class ProviderErrorMessages
     }
 
     /// <summary>
-    /// Generic fallback messages
+    /// Generic fallback messages.
     /// </summary>
     public static class General
     {

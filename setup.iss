@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "AIUsageTracker"
-#define MyAppVersion "1.7.3"
+#define MyAppVersion "2.2.28-beta.37"
 #define MyAppPublisher "Alexander Brandt"
 #define MyAppURL "https://github.com/Starttoaster/opencode-tracker"
 #define MyAppExeName "AIUsageTracker.UI.exe"

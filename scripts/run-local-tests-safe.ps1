@@ -67,6 +67,10 @@ foreach ($suiteKey in $Suites) {
 $env:MSBUILDDISABLENODEREUSE = "1"
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 $env:DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER = "1"
+# Local SDK/workload resolver state on some Windows machines can make project-reference
+# evaluation fail before tests start. Disabling the workload resolver keeps safe local
+# test runs deterministic without affecting CI.
+$env:MSBuildEnableWorkloadResolver = "false"
 
 function Resolve-AssemblyPath {
     param(
@@ -158,6 +162,67 @@ function Write-LogTail {
     if (Test-Path -LiteralPath $Path) {
         Write-Host "--- tail $Path ---" -ForegroundColor DarkYellow
         Get-Content -LiteralPath $Path -Tail $Lines
+    }
+}
+
+function ConvertTo-NullableInt {
+    param(
+        [string]$Value
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $null
+    }
+
+    $parsed = 0
+    if ([int]::TryParse($Value, [ref]$parsed)) {
+        return $parsed
+    }
+
+    return $null
+}
+
+function Get-LatestTrxSummary {
+    param(
+        [string]$ResultsDir,
+        [string]$SuiteName
+    )
+
+    $trxFile = Get-ChildItem -LiteralPath $ResultsDir -Filter "$SuiteName*.trx" -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+
+    if (-not $trxFile) {
+        return $null
+    }
+
+    try {
+        [xml]$trx = Get-Content -LiteralPath $trxFile.FullName -Raw
+        $counters = $trx.TestRun.ResultSummary.Counters
+        if (-not $counters) {
+            return $null
+        }
+
+        $failed = ConvertTo-NullableInt -Value ([string]$counters.failed)
+        $errors = ConvertTo-NullableInt -Value ([string]$counters.error)
+        $timeouts = ConvertTo-NullableInt -Value ([string]$counters.timeout)
+        $total = ConvertTo-NullableInt -Value ([string]$counters.total)
+        $passed = ConvertTo-NullableInt -Value ([string]$counters.passed)
+
+        $isSuccess = ($failed -eq 0) -and ($errors -eq 0) -and ($timeouts -eq 0)
+        return [PSCustomObject]@{
+            TrxPath = $trxFile.FullName
+            IsSuccess = $isSuccess
+            Failed = $failed
+            Errors = $errors
+            Timeouts = $timeouts
+            Total = $total
+            Passed = $passed
+        }
+    }
+    catch {
+        Write-Host "Failed to parse TRX file '$($trxFile.FullName)': $($_.Exception.Message)" -ForegroundColor Yellow
+        return $null
     }
 }
 
@@ -264,12 +329,40 @@ try {
         foreach ($entry in $running) {
             $elapsedSeconds = ((Get-Date) - $entry.StartTime).TotalSeconds
             if ($entry.Process.HasExited) {
+                $entry.Process.WaitForExit()
+                $entry.Process.Refresh()
+
+                $exitCode = $null
+                if ($null -ne $entry.Process.ExitCode) {
+                    try {
+                        $exitCode = [int]$entry.Process.ExitCode
+                    }
+                    catch {
+                        $exitCode = $null
+                    }
+                }
+
+                $trxSummary = $null
+                $exitCodeSource = "process"
+                if ($null -eq $exitCode) {
+                    $trxSummary = Get-LatestTrxSummary -ResultsDir $entry.Suite.ResultsDir -SuiteName $entry.Suite.SuiteName
+                    if ($null -ne $trxSummary) {
+                        $exitCodeSource = "trx"
+                        $exitCode = if ($trxSummary.IsSuccess) { 0 } else { 1 }
+                    }
+                    else {
+                        $exitCodeSource = "unknown"
+                    }
+                }
+
                 $completed += [PSCustomObject]@{
                     Suite = $entry.Suite
-                    ExitCode = $entry.Process.ExitCode
+                    ExitCode = $exitCode
+                    ExitCodeSource = $exitCodeSource
                     TimedOut = $entry.TimedOut
                     StdoutPath = $entry.StdoutPath
                     StderrPath = $entry.StderrPath
+                    TrxSummary = $trxSummary
                 }
                 continue
             }
@@ -281,9 +374,11 @@ try {
                 $completed += [PSCustomObject]@{
                     Suite = $entry.Suite
                     ExitCode = 124
+                    ExitCodeSource = "timeout"
                     TimedOut = $true
                     StdoutPath = $entry.StdoutPath
                     StderrPath = $entry.StderrPath
+                    TrxSummary = $null
                 }
                 Write-LogTail -Path $entry.StdoutPath
                 Write-LogTail -Path $entry.StderrPath
@@ -300,10 +395,20 @@ try {
     $failed = @()
     foreach ($result in $completed | Sort-Object { $_.Suite.Key }) {
         if ($result.ExitCode -eq 0 -and -not $result.TimedOut) {
-            Write-Host ("PASS {0}" -f $result.Suite.Key) -ForegroundColor Green
+            if ($result.ExitCodeSource -eq "trx" -and $null -ne $result.TrxSummary) {
+                Write-Host ("PASS {0} (derived from TRX: passed={1}, total={2})" -f $result.Suite.Key, $result.TrxSummary.Passed, $result.TrxSummary.Total) -ForegroundColor Green
+            }
+            else {
+                Write-Host ("PASS {0}" -f $result.Suite.Key) -ForegroundColor Green
+            }
         }
         else {
-            Write-Host ("FAIL {0} (ExitCode={1}, TimedOut={2})" -f $result.Suite.Key, $result.ExitCode, $result.TimedOut) -ForegroundColor Red
+            if ($result.ExitCodeSource -eq "trx" -and $null -ne $result.TrxSummary) {
+                Write-Host ("FAIL {0} (ExitCode={1}, TimedOut={2}, source=TRX, failed={3}, errors={4}, timeouts={5})" -f $result.Suite.Key, $result.ExitCode, $result.TimedOut, $result.TrxSummary.Failed, $result.TrxSummary.Errors, $result.TrxSummary.Timeouts) -ForegroundColor Red
+            }
+            else {
+                Write-Host ("FAIL {0} (ExitCode={1}, TimedOut={2}, source={3})" -f $result.Suite.Key, $result.ExitCode, $result.TimedOut, $result.ExitCodeSource) -ForegroundColor Red
+            }
             Write-LogTail -Path $result.StdoutPath
             Write-LogTail -Path $result.StderrPath
             $failed += $result

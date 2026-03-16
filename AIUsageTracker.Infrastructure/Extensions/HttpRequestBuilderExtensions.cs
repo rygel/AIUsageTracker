@@ -1,7 +1,12 @@
+// <copyright file="HttpRequestBuilderExtensions.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,19 +23,26 @@ public static class HttpRequestBuilderExtensions
     /// <summary>
     /// Creates a GET request with Bearer token authorization.
     /// </summary>
+    /// <returns></returns>
     public static HttpRequestMessage CreateBearerRequest(
-        this HttpClient _,
+        this HttpClient httpClient,
         string url,
         string token,
         string? providerId = null)
     {
+        _ = httpClient;
+
         if (string.IsNullOrWhiteSpace(url))
+        {
             throw new ArgumentException("URL cannot be null or empty", nameof(url));
+        }
 
         if (string.IsNullOrWhiteSpace(token))
+        {
             throw new ProviderConfigurationException(
                 providerId ?? "unknown",
                 "Bearer token is null or empty");
+        }
 
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
@@ -42,27 +54,34 @@ public static class HttpRequestBuilderExtensions
     /// <summary>
     /// Creates a POST request with Bearer token authorization and JSON body.
     /// </summary>
+    /// <returns></returns>
     public static HttpRequestMessage CreateBearerPostRequest<T>(
-        this HttpClient _,
+        this HttpClient httpClient,
         string url,
         string token,
         T body,
         string? providerId = null)
     {
+        _ = httpClient;
+
         if (string.IsNullOrWhiteSpace(url))
+        {
             throw new ArgumentException("URL cannot be null or empty", nameof(url));
+        }
 
         if (string.IsNullOrWhiteSpace(token))
+        {
             throw new ProviderConfigurationException(
                 providerId ?? "unknown",
                 "Bearer token is null or empty");
+        }
 
         var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         var json = JsonSerializer.Serialize(body);
-        request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 
         return request;
     }
@@ -71,6 +90,7 @@ public static class HttpRequestBuilderExtensions
     /// Sends a GET request with Bearer token and handles common error patterns.
     /// Maps HTTP status codes and exceptions to specific ProviderException types.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public static async Task<HttpResponseMessage> SendGetBearerAsync(
         this HttpClient httpClient,
         string url,
@@ -81,13 +101,17 @@ public static class HttpRequestBuilderExtensions
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(url))
+        {
             throw new ArgumentException("URL cannot be null or empty", nameof(url));
+        }
 
         if (string.IsNullOrWhiteSpace(token))
+        {
             throw new ProviderConfigurationException(providerId, "API key is missing");
+        }
 
         using var request = httpClient.CreateBearerRequest(url, token, providerId);
-        
+
         var originalTimeout = httpClient.Timeout;
         if (timeout.HasValue)
         {
@@ -97,12 +121,11 @@ public static class HttpRequestBuilderExtensions
         try
         {
             logger?.LogDebug("Sending GET request to {Url} for provider {ProviderId}", url, providerId);
-            
-            var response = await httpClient.SendAsync(request, cancellationToken);
-            
+
+            var response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
             logger?.LogDebug("Received response {StatusCode} from {Url}", response.StatusCode, url);
 
-            // Map HTTP status codes to specific exceptions
             if (!response.IsSuccessStatusCode)
             {
                 throw MapHttpStatusToException(providerId, response);
@@ -138,6 +161,7 @@ public static class HttpRequestBuilderExtensions
     /// <summary>
     /// Sends a GET request and deserializes the JSON response.
     /// </summary>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     public static async Task<T?> SendGetBearerAsync<T>(
         this HttpClient httpClient,
         string url,
@@ -148,9 +172,15 @@ public static class HttpRequestBuilderExtensions
         CancellationToken cancellationToken = default)
     {
         var response = await httpClient.SendGetBearerAsync(
-            url, token, providerId, timeout, logger, cancellationToken);
+                url,
+                token,
+                providerId,
+                timeout,
+                logger,
+                cancellationToken)
+            .ConfigureAwait(false);
 
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -200,7 +230,7 @@ public static class HttpRequestBuilderExtensions
                 providerId,
                 $"Request failed ({statusCode})",
                 ProviderErrorType.InvalidResponseError,
-                statusCode)
+                statusCode),
         };
     }
 

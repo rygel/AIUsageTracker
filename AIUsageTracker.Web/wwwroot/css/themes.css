@@ -327,6 +327,19 @@
     color: var(--accent-success);
 }
 
+.agent-status.degraded,
+.agent-status.starting {
+    color: var(--accent-warning);
+}
+
+.agent-status.error {
+    color: var(--accent-danger);
+}
+
+.agent-status.stopped {
+    color: var(--text-muted);
+}
+
 .agent-status-detail {
     font-size: 0.7rem;
     color: var(--text-muted);
@@ -337,6 +350,10 @@
 
 .agent-status-detail.error {
     color: var(--accent-danger);
+}
+
+.agent-status-detail.warning {
+    color: var(--accent-warning);
 }
 
 .theme-select {

@@ -1,13 +1,11 @@
+// <copyright file="ProviderConfig.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace AIUsageTracker.Core.Models;
-
-public enum PlanType
-{
-    Usage,
-    Coding
-}
 
 public class ProviderConfig
 {
@@ -41,20 +39,18 @@ public class ProviderConfig
     public bool ShowInTray { get; set; }
 
     [JsonPropertyName("enable_notifications")]
-    public bool EnableNotifications { get; set; } = false; // Default to disabled
+    public bool EnableNotifications { get; set; } // Default to disabled
 
     [JsonPropertyName("enabled_sub_trays")]
-    public List<string> EnabledSubTrays { get; set; } = new();
+    public IReadOnlyList<string> EnabledSubTrays { get; set; } = [];
 
     [JsonIgnore]
     [StringLength(100)]
-    public string AuthSource { get; set; } = "Unknown";
+    public string AuthSource { get; set; } = string.Empty;
 
     [JsonIgnore]
     public string? Description { get; set; }
 
     [JsonPropertyName("models")]
-    public List<AIModelConfig> Models { get; set; } = new();
+    public IReadOnlyList<AIModelConfig> Models { get; set; } = [];
 }
-
-

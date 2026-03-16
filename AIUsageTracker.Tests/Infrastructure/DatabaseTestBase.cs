@@ -1,42 +1,53 @@
+// <copyright file="DatabaseTestBase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Data;
+using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
-using AIUsageTracker.Web.Services;
-using AIUsageTracker.Core.Interfaces;
 using Moq;
-using System.Data;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 
 public abstract class DatabaseTestBase : IDisposable
 {
     private readonly SqliteConnection _sharedConnection;
+
     protected string DbPath { get; }
+
     protected string ConnectionString { get; }
+
     protected IMemoryCache Cache { get; }
+
     protected WebDatabaseService DatabaseService { get; }
 
     protected DatabaseTestBase()
     {
         // Use a real file for WebDatabaseService because it creates its own connections
-        DbPath = Path.Combine(Path.GetTempPath(), $"ai-tracker-test-{Guid.NewGuid():N}.db");
-        ConnectionString = $"Data Source={DbPath}";
-        
+        this.DbPath = TestTempPaths.CreateFilePath("ai-tracker-test", "database.db");
+        this.ConnectionString = $"Data Source={this.DbPath}";
+
         // Ensure directory exists
-        var dir = Path.GetDirectoryName(DbPath);
+        var dir = Path.GetDirectoryName(this.DbPath);
         if (dir != null && !Directory.Exists(dir))
         {
             Directory.CreateDirectory(dir);
         }
 
         // Keep one connection open to ensure the file exists and is available
-        _sharedConnection = new SqliteConnection(ConnectionString);
-        _sharedConnection.Open();
+        this._sharedConnection = new SqliteConnection(this.ConnectionString);
+        this._sharedConnection.Open();
 
-        Cache = new MemoryCache(new MemoryCacheOptions());
-        InitializeSchema();
+        this.Cache = new MemoryCache(new MemoryCacheOptions());
+        this.InitializeSchema();
 
-        DatabaseService = new WebDatabaseService(Cache, NullLogger<WebDatabaseService>.Instance, DbPath);
+        var mockPathProvider = new Mock<IAppPathProvider>();
+        mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(this.DbPath);
+
+        this.DatabaseService = new WebDatabaseService(this.Cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
     }
 
     private void InitializeSchema()
@@ -63,14 +74,18 @@ public abstract class DatabaseTestBase : IDisposable
                 requests_available REAL NOT NULL DEFAULT 0,
                 requests_percentage REAL NOT NULL DEFAULT 0,
                 response_latency_ms REAL NOT NULL DEFAULT 0,
+                http_status INTEGER NOT NULL DEFAULT 0,
+                upstream_response_validity INTEGER NOT NULL DEFAULT 0,
+                upstream_response_note TEXT NOT NULL DEFAULT '',
                 fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 details_json TEXT,
+                parent_provider_id TEXT REFERENCES providers(provider_id) ON DELETE SET NULL,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );
 
             CREATE TABLE raw_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                provider_id TEXT NOT NULL,
+                provider_id TEXT NOT NULL REFERENCES providers(provider_id) ON DELETE CASCADE,
                 raw_json TEXT NOT NULL,
                 http_status INTEGER NOT NULL DEFAULT 200,
                 fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -87,14 +102,14 @@ public abstract class DatabaseTestBase : IDisposable
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
             );";
 
-        using var command = _sharedConnection.CreateCommand();
+        using var command = this._sharedConnection.CreateCommand();
         command.CommandText = schema;
         command.ExecuteNonQuery();
     }
 
     protected void SeedProvider(string id, string name, string? account = null, bool isActive = true)
     {
-        using var command = _sharedConnection.CreateCommand();
+        using var command = this._sharedConnection.CreateCommand();
         command.CommandText = "INSERT INTO providers (provider_id, provider_name, account_name, is_active) VALUES ($id, $name, $account, $active)";
         command.Parameters.AddWithValue("$id", id);
         command.Parameters.AddWithValue("$name", name);
@@ -105,41 +120,47 @@ public abstract class DatabaseTestBase : IDisposable
 
     protected void SeedHistory(string providerId, double used, double available, DateTime fetchedAt, bool isAvailable = true, double latencyMs = 0)
     {
-        using var command = _sharedConnection.CreateCommand();
+        using var command = this._sharedConnection.CreateCommand();
         command.CommandText = @"
             INSERT INTO provider_history (
                 provider_id, requests_used, requests_available, requests_percentage, fetched_at, is_available, response_latency_ms
             ) VALUES (
                 $id, $used, $available, $pct, $at, $avail, $latency
             )";
-        
+
         var pct = available > 0 ? (1.0 - (used / available)) * 100.0 : 0;
-        
+
         command.Parameters.AddWithValue("$id", providerId);
         command.Parameters.AddWithValue("$used", used);
         command.Parameters.AddWithValue("$available", available);
         command.Parameters.AddWithValue("$pct", pct);
-        command.Parameters.AddWithValue("$at", fetchedAt.ToString("yyyy-MM-dd HH:mm:ss")); // Consistent format
+        command.Parameters.AddWithValue("$at", fetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)); // Consistent format
         command.Parameters.AddWithValue("$avail", isAvailable ? 1 : 0);
         command.Parameters.AddWithValue("$latency", latencyMs);
         command.ExecuteNonQuery();
     }
 
+    /// <inheritdoc/>
     public virtual void Dispose()
     {
-        _sharedConnection.Close();
-        _sharedConnection.Dispose();
-        Cache.Dispose();
-        try
+        this._sharedConnection.Close();
+        this._sharedConnection.Dispose();
+        this.Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Releases unmanaged and - optionally - managed resources.
+    /// </summary>
+    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
         {
-            if (File.Exists(DbPath))
-            {
-                File.Delete(DbPath);
-            }
-        }
-        catch
-        {
-            // Ignore cleanup errors
+            this._sharedConnection?.Close();
+            this._sharedConnection?.Dispose();
+            this.Cache?.Dispose();
+            TestTempPaths.CleanupPath(this.DbPath);
         }
     }
 }

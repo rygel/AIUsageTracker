@@ -4,25 +4,131 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - "AIUsageTracker.*/**"
-      - "scripts/**"
+      - "Directory.Build.props"
+      - ".editorconfig"
+      - "AIUsageTracker.Core/**"
+      - "AIUsageTracker.Infrastructure/**"
+      - "AIUsageTracker.CLI/**"
+      - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Monitor/**"
+      - "AIUsageTracker.Web/**"
+      - "AIUsageTracker.Tests/**"
+      - "AIUsageTracker.Monitor.Tests/**"
+      - "AIUsageTracker.Web.Tests/**"
+      - "scripts/Seeder/**"
+      - "scripts/run-vstest-with-retry.ps1"
+      - "scripts/resolve-test-assembly.ps1"
+      - "scripts/validate-test-quarantine.ps1"
+      - "scripts/verify-theme-contract.ps1"
       - ".github/workflows/tests.yml"
   pull_request:
     branches: [ main, develop ]
     paths:
-      - "AIUsageTracker.*/**"
-      - "scripts/**"
+      - "Directory.Build.props"
+      - ".editorconfig"
+      - "AIUsageTracker.Core/**"
+      - "AIUsageTracker.Infrastructure/**"
+      - "AIUsageTracker.CLI/**"
+      - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Monitor/**"
+      - "AIUsageTracker.Web/**"
+      - "AIUsageTracker.Tests/**"
+      - "AIUsageTracker.Monitor.Tests/**"
+      - "AIUsageTracker.Web.Tests/**"
+      - "scripts/Seeder/**"
+      - "scripts/run-vstest-with-retry.ps1"
+      - "scripts/resolve-test-assembly.ps1"
+      - "scripts/validate-test-quarantine.ps1"
+      - "scripts/verify-theme-contract.ps1"
       - ".github/workflows/tests.yml"
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
+env:
+  MSBuildEnableWorkloadResolver: false
+  MSBUILDDISABLENODEREUSE: 1
+  DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  NUGET_XMLDOC_MODE: skip
+
 jobs:
+  detect-changes:
+    name: Detect Changed Areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      run_all: ${{ steps.flags.outputs.run_all }}
+      run_core: ${{ steps.filter.outputs.core }}
+      run_monitor: ${{ steps.filter.outputs.monitor }}
+      run_web: ${{ steps.filter.outputs.web }}
+      run_cross: ${{ steps.filter.outputs.cross }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            core:
+              - 'Directory.Build.props'
+              - '.editorconfig'
+              - 'AIUsageTracker.Core/**'
+              - 'AIUsageTracker.Infrastructure/**'
+              - 'AIUsageTracker.CLI/**'
+              - 'AIUsageTracker.Tests/**'
+              - 'scripts/run-vstest-with-retry.ps1'
+              - '.github/test-quarantine.txt'
+              - '.github/workflows/tests.yml'
+            monitor:
+              - 'Directory.Build.props'
+              - '.editorconfig'
+              - 'AIUsageTracker.Monitor/**'
+              - 'AIUsageTracker.Monitor.Tests/**'
+              - 'AIUsageTracker.Core/**'
+              - 'AIUsageTracker.Infrastructure/**'
+              - 'AIUsageTracker.Tests/**'
+              - 'scripts/run-vstest-with-retry.ps1'
+              - '.github/test-quarantine.txt'
+              - '.github/workflows/tests.yml'
+            web:
+              - 'Directory.Build.props'
+              - '.editorconfig'
+              - 'AIUsageTracker.Web/**'
+              - 'AIUsageTracker.Web.Tests/**'
+              - 'AIUsageTracker.Monitor/**'
+              - 'AIUsageTracker.Core/**'
+              - 'AIUsageTracker.Infrastructure/**'
+              - 'scripts/Seeder/**'
+              - 'scripts/run-vstest-with-retry.ps1'
+              - '.github/test-quarantine.txt'
+              - '.github/workflows/tests.yml'
+            cross:
+              - 'Directory.Build.props'
+              - '.editorconfig'
+              - 'AIUsageTracker.Core/**'
+              - 'AIUsageTracker.Infrastructure/**'
+              - '.github/workflows/tests.yml'
+
+      - id: flags
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "run_all=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_all=true" >> "$GITHUB_OUTPUT"
+          fi
+
   # Job 1: Build and prepare (Windows only - required for Windows-specific projects)
   prepare:
     name: Build and Prepare
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' || needs.detect-changes.outputs.run_monitor == 'true' || needs.detect-changes.outputs.run_web == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 5
 
@@ -38,20 +144,41 @@ jobs:
           cache-key-prefix: "test"
 
       - name: Restore dependencies
+        shell: pwsh
         run: |
-          dotnet restore AIUsageTracker.Tests/AIUsageTracker.Tests.csproj
-          dotnet restore AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj
-          dotnet restore AIUsageTracker.Web/AIUsageTracker.Web.csproj
-          dotnet restore AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj
-          dotnet restore scripts/Seeder/Seeder.csproj
+          $runAll = "${{ needs.detect-changes.outputs.run_all }}" -eq "true"
+          $runCore = "${{ needs.detect-changes.outputs.run_core }}" -eq "true"
+          $runMonitor = "${{ needs.detect-changes.outputs.run_monitor }}" -eq "true"
+          $runWeb = "${{ needs.detect-changes.outputs.run_web }}" -eq "true"
+
+          if ($runAll -or $runCore -or $runMonitor) {
+            dotnet restore AIUsageTracker.Tests/AIUsageTracker.Tests.csproj
+            dotnet restore AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj
+          }
+
+          if ($runAll -or $runWeb) {
+            dotnet restore AIUsageTracker.Web/AIUsageTracker.Web.csproj
+            dotnet restore AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj
+            dotnet restore scripts/Seeder/Seeder.csproj
+          }
 
       - name: Build projects
+        shell: pwsh
         run: |
-          dotnet build AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug --no-restore
-          dotnet build AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-restore
-          dotnet build AIUsageTracker.Web/AIUsageTracker.Web.csproj --configuration Debug --no-restore
-          dotnet build AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj --configuration Debug --no-restore
-          dotnet build scripts/Seeder/Seeder.csproj --configuration Debug --no-restore
+          $runAll = "${{ needs.detect-changes.outputs.run_all }}" -eq "true"
+          $runCore = "${{ needs.detect-changes.outputs.run_core }}" -eq "true"
+          $runMonitor = "${{ needs.detect-changes.outputs.run_monitor }}" -eq "true"
+          $runWeb = "${{ needs.detect-changes.outputs.run_web }}" -eq "true"
+
+          if ($runAll -or $runCore -or $runMonitor) {
+            dotnet build AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug --no-restore
+            dotnet build AIUsageTracker.Monitor.Tests/AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-restore
+          }
+
+          if ($runAll -or $runWeb) {
+            dotnet build AIUsageTracker.Web.Tests/AIUsageTracker.Web.Tests.csproj --configuration Debug --no-restore
+            dotnet build scripts/Seeder/Seeder.csproj --configuration Debug --no-restore
+          }
 
       - name: Validate test quarantine entries
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\validate-test-quarantine.ps1
@@ -68,9 +195,10 @@ jobs:
           path: |
             AIUsageTracker.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
             AIUsageTracker.Monitor.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
-            AIUsageTracker.Web.Tests/bin/Debug/net8.0/**
+            AIUsageTracker.Web.Tests/bin/Debug/net8.0-windows10.0.17763.0/**
             scripts/Seeder/bin/Debug/net8.0/**
             scripts/run-vstest-with-retry.ps1
+            scripts/resolve-test-assembly.ps1
             .github/test-quarantine.txt
             test-fixtures/
           retention-days: 3
@@ -78,7 +206,8 @@ jobs:
   # Job 2: Core tests on Windows
   core-tests-windows:
     name: Core Tests (Windows)
-    needs: prepare
+    needs: [detect-changes, prepare]
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' || needs.detect-changes.outputs.run_monitor == 'true' || needs.detect-changes.outputs.run_web == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 5
 
@@ -92,14 +221,13 @@ jobs:
       - name: Run Core tests
         timeout-minutes: 5
         shell: pwsh
-        run: >
-          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
-          -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Tests.dll
-          -SuiteName core-tests
-          -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
-          -MaxRetries 0
-          -AttemptTimeoutMinutes 5
-          -HangTimeoutSeconds 300
+        run: |
+          $resolverPath = Join-Path $PWD "_ci_test_binaries\scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath (Join-Path $PWD "_ci_test_binaries") -ProjectName "AIUsageTracker.Tests" -AssemblyName "AIUsageTracker.Tests.dll"
+          if (-not (Test-Path $assemblyPath)) {
+            throw "Test assembly not found: $assemblyPath"
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass -File ".\_ci_test_binaries\scripts\run-vstest-with-retry.ps1" -AssemblyPath $assemblyPath -SuiteName core-tests -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt -MaxRetries 0 -AttemptTimeoutMinutes 5 -HangTimeoutSeconds 300
 
       - name: Upload results
         if: failure()
@@ -107,12 +235,49 @@ jobs:
         with:
           name: core-test-results
           path: TestResults/core-tests*.trx
+          if-no-files-found: ignore
           retention-days: 3
 
   # Job 3: Monitor tests on Windows
+  monitor-startup-config-windows:
+    name: Monitor Startup Config (Windows)
+    needs: [detect-changes, prepare]
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_monitor == 'true' }}
+    runs-on: windows-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Download test binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: test-binaries-debug
+          path: .\_ci_test_binaries
+
+      - name: Run Monitor startup/config tests
+        timeout-minutes: 3
+        shell: pwsh
+        run: |
+          $resolverPath = Join-Path $PWD "_ci_test_binaries\scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath (Join-Path $PWD "_ci_test_binaries") -ProjectName "AIUsageTracker.Tests" -AssemblyName "AIUsageTracker.Tests.dll"
+          if (-not (Test-Path $assemblyPath)) {
+            throw "Test assembly not found: $assemblyPath"
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1 -AssemblyPath $assemblyPath -SuiteName monitor-startup-config -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt -AdditionalTestCaseFilter "FullyQualifiedName~MonitorStartupPathTests|FullyQualifiedName~MonitorProgramTests|FullyQualifiedName~MonitorClientTests|FullyQualifiedName~MonitorServiceTests|FullyQualifiedName~StartupAntiHammerTests" -MaxRetries 0 -AttemptTimeoutMinutes 3 -HangTimeoutSeconds 180
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitor-startup-config-results
+          path: TestResults/monitor-startup-config*.trx
+          if-no-files-found: ignore
+          retention-days: 3
+
+  # Job 4: Monitor tests on Windows
   monitor-tests-windows:
     name: Monitor Tests (Windows)
-    needs: prepare
+    needs: [detect-changes, prepare]
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_monitor == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 3
 
@@ -126,14 +291,13 @@ jobs:
       - name: Run Monitor tests
         timeout-minutes: 3
         shell: pwsh
-        run: >
-          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1
-          -AssemblyPath .\_ci_test_binaries\AIUsageTracker.Monitor.Tests\bin\Debug\net8.0-windows10.0.17763.0\AIUsageTracker.Monitor.Tests.dll
-          -SuiteName monitor-tests
-          -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt
-          -MaxRetries 0
-          -AttemptTimeoutMinutes 3
-          -HangTimeoutSeconds 180
+        run: |
+          $resolverPath = Join-Path $PWD "_ci_test_binaries\scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath (Join-Path $PWD "_ci_test_binaries") -ProjectName "AIUsageTracker.Monitor.Tests" -AssemblyName "AIUsageTracker.Monitor.Tests.dll"
+          if (-not (Test-Path $assemblyPath)) {
+            throw "Test assembly not found: $assemblyPath"
+          }
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\_ci_test_binaries\scripts\run-vstest-with-retry.ps1 -AssemblyPath $assemblyPath -SuiteName monitor-tests -QuarantineFile .\_ci_test_binaries\.github\test-quarantine.txt -MaxRetries 0 -AttemptTimeoutMinutes 3 -HangTimeoutSeconds 180
 
       - name: Upload results
         if: failure()
@@ -141,12 +305,14 @@ jobs:
         with:
           name: monitor-test-results
           path: TestResults/monitor-tests*.trx
+          if-no-files-found: ignore
           retention-days: 3
 
-  # Job 4: Web tests on Windows
+  # Job 5: Web tests on Windows (requires Web app running)
   web-tests-windows:
     name: Web Tests (Windows)
-    needs: prepare
+    needs: [detect-changes, prepare]
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_web == 'true' }}
     runs-on: windows-latest
     timeout-minutes: 10
 
@@ -165,7 +331,16 @@ jobs:
         run: |
           dotnet build .\AIUsageTracker.Web.Tests\AIUsageTracker.Web.Tests.csproj -c Debug
           dotnet tool install --global Microsoft.Playwright.CLI || true
-          playwright install chromium
+          $playwrightExe = Join-Path $env:USERPROFILE ".dotnet\tools\playwright.exe"
+          if (Test-Path $playwrightExe) {
+            & $playwrightExe install chromium
+          } else {
+            dotnet tool run playwright install chromium
+          }
+
+      - name: Build Web project
+        shell: pwsh
+        run: dotnet build .\AIUsageTracker.Web\AIUsageTracker.Web.csproj -c Debug
 
       - name: Seed test database from fixture
         shell: pwsh
@@ -182,15 +357,69 @@ jobs:
             exit 1
           }
 
+      - name: Start Web Application
+        shell: pwsh
+        run: |
+          $webProject = ".\AIUsageTracker.Web\AIUsageTracker.Web.csproj"
+          $proc = Start-Process -FilePath "dotnet" -ArgumentList "run --project $webProject --configuration Debug --urls=http://localhost:5100" -PassThru -NoNewWindow
+          $env:WEB_APP_PID = $proc.Id
+          Write-Host "Web app started with PID: $($proc.Id)"
+
+          # Wait for web app to be ready
+          $retries = 0
+          $maxRetries = 30
+          $ready = $false
+          while ($retries -lt $maxRetries) {
+            try {
+              $response = Invoke-WebRequest -Uri "http://localhost:5100" -UseBasicParsing -ErrorAction Stop
+              if ($response.StatusCode -eq 200) {
+                $ready = $true
+                break
+              }
+            } catch {
+              Start-Sleep -Seconds 1
+            }
+            $retries++
+            Write-Host "." -NoNewline
+          }
+          Write-Host ""
+          if (-not $ready) {
+            Write-Host "Failed to start Web App!" -ForegroundColor Red
+            exit 1
+          }
+          Write-Host "Web App is running!" -ForegroundColor Green
+
       - name: Run Web tests
         timeout-minutes: 8
         shell: pwsh
         run: |
           $ciBinaries = Join-Path $PWD "_ci_test_binaries"
           $scriptPath = Join-Path $ciBinaries "scripts\run-vstest-with-retry.ps1"
-          $assemblyPath = ".\AIUsageTracker.Web.Tests\bin\Debug\net8.0\AIUsageTracker.Web.Tests.dll"
+          $resolverPath = Join-Path $ciBinaries "scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath $ciBinaries -ProjectName "AIUsageTracker.Web.Tests" -AssemblyName "AIUsageTracker.Web.Tests.dll"
           $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
-          powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-tests -QuarantineFile $quarantinePath -MaxRetries 0 -AttemptTimeoutMinutes 8 -HangTimeoutSeconds 480
+          powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-tests -QuarantineFile $quarantinePath -MaxRetries 1 -AttemptTimeoutMinutes 8 -HangTimeoutSeconds 480
+
+      - name: Capture Web UI screenshots
+        timeout-minutes: 4
+        shell: pwsh
+        run: |
+          $ciBinaries = Join-Path $PWD "_ci_test_binaries"
+          $scriptPath = Join-Path $ciBinaries "scripts\run-vstest-with-retry.ps1"
+          $resolverPath = Join-Path $ciBinaries "scripts\resolve-test-assembly.ps1"
+          $assemblyPath = & $resolverPath -RootPath $ciBinaries -ProjectName "AIUsageTracker.Web.Tests" -AssemblyName "AIUsageTracker.Web.Tests.dll"
+          $quarantinePath = Join-Path $ciBinaries ".github\test-quarantine.txt"
+          powershell -NoProfile -ExecutionPolicy Bypass -File $scriptPath -AssemblyPath $assemblyPath -SuiteName web-screenshots -QuarantineFile $quarantinePath -AdditionalTestCaseFilter "FullyQualifiedName~CaptureWebScreenshots" -MaxRetries 1 -AttemptTimeoutMinutes 4 -HangTimeoutSeconds 240
+
+      - name: Stop Web Application
+        if: always()
+        shell: pwsh
+        run: |
+          $webAppPid = $env:WEB_APP_PID
+          if ($webAppPid) {
+            Write-Host "Stopping Web App PID: $webAppPid"
+            Stop-Process -Id $webAppPid -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Upload results
         if: failure()
@@ -198,12 +427,29 @@ jobs:
         with:
           name: web-test-results
           path: TestResults/web-tests*.trx
+          if-no-files-found: ignore
           retention-days: 3
 
-  # Job 5: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
+      - name: Upload Web UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-ui-screenshots
+          path: |
+            docs/screenshot_web_dashboard.png
+            docs/screenshot_web_providers.png
+            docs/screenshot_web_charts.png
+            _ci_test_binaries/docs/screenshot_web_dashboard.png
+            _ci_test_binaries/docs/screenshot_web_providers.png
+            _ci_test_binaries/docs/screenshot_web_charts.png
+          if-no-files-found: ignore
+          retention-days: 3
+
+  # Job 6: Cross-platform tests (Linux + Windows for Core/Infrastructure only)
   core-tests-cross-platform:
     name: Core Tests (${{ matrix.os }})
-    needs: prepare
+    needs: [detect-changes, prepare]
+    if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' || needs.detect-changes.outputs.run_monitor == 'true' || needs.detect-changes.outputs.run_web == 'true' || needs.detect-changes.outputs.run_cross == 'true' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
@@ -237,10 +483,10 @@ jobs:
           echo "Core and Infrastructure build successfully on Linux"
           echo "Note: Full test suite requires Windows (Windows-specific dependencies)"
 
-  # Job 6: Verify all tests passed
+  # Job 7: Verify all tests passed
   test-summary:
     name: Test Summary
-    needs: [prepare, core-tests-windows, monitor-tests-windows, web-tests-windows, core-tests-cross-platform]
+    needs: [detect-changes, prepare, core-tests-windows, monitor-startup-config-windows, monitor-tests-windows, web-tests-windows, core-tests-cross-platform]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -248,8 +494,15 @@ jobs:
     steps:
       - name: Check test results
         run: |
+          RUN_ALL="${{ needs.detect-changes.outputs.run_all }}"
+          RUN_CORE="${{ needs.detect-changes.outputs.run_core }}"
+          RUN_MONITOR="${{ needs.detect-changes.outputs.run_monitor }}"
+          RUN_WEB="${{ needs.detect-changes.outputs.run_web }}"
+          RUN_CROSS="${{ needs.detect-changes.outputs.run_cross }}"
+
           PREPARE="${{ needs.prepare.result }}"
           CORE="${{ needs.core-tests-windows.result }}"
+          MONITOR_STARTUP="${{ needs.monitor-startup-config-windows.result }}"
           MONITOR="${{ needs.monitor-tests-windows.result }}"
           WEB="${{ needs.web-tests-windows.result }}"
           CROSS="${{ needs.core-tests-cross-platform.result }}"
@@ -257,14 +510,60 @@ jobs:
           echo "Test Results:"
           echo "  Prepare: $PREPARE"
           echo "  Core Tests (Windows): $CORE"
+          echo "  Monitor Startup Config (Windows): $MONITOR_STARTUP"
           echo "  Monitor Tests (Windows): $MONITOR"
           echo "  Web Tests (Windows): $WEB"
           echo "  Core Tests (Linux): $CROSS"
           
-          if [ "$PREPARE" != "success" ] || [ "$CORE" != "success" ] || [ "$MONITOR" != "success" ] || [ "$WEB" != "success" ] || [ "$CROSS" != "success" ]; then
-            echo "❌ Some tests failed"
-            exit 1
-          else
-            echo "✅ All tests passed"
+          should_run_prepare="false"
+          if [ "$RUN_ALL" = "true" ] || [ "$RUN_CORE" = "true" ] || [ "$RUN_MONITOR" = "true" ] || [ "$RUN_WEB" = "true" ]; then
+            should_run_prepare="true"
           fi
+
+          should_run_core="false"
+          if [ "$RUN_ALL" = "true" ] || [ "$RUN_CORE" = "true" ] || [ "$RUN_MONITOR" = "true" ] || [ "$RUN_WEB" = "true" ]; then
+            should_run_core="true"
+          fi
+
+          should_run_monitor="false"
+          if [ "$RUN_ALL" = "true" ] || [ "$RUN_MONITOR" = "true" ]; then
+            should_run_monitor="true"
+          fi
+
+          should_run_web="false"
+          if [ "$RUN_ALL" = "true" ] || [ "$RUN_WEB" = "true" ]; then
+            should_run_web="true"
+          fi
+
+          should_run_cross="false"
+          if [ "$RUN_ALL" = "true" ] || [ "$RUN_CORE" = "true" ] || [ "$RUN_MONITOR" = "true" ] || [ "$RUN_WEB" = "true" ] || [ "$RUN_CROSS" = "true" ]; then
+            should_run_cross="true"
+          fi
+
+          if [ "$should_run_prepare" = "true" ] && [ "$PREPARE" != "success" ]; then
+            echo "❌ Prepare failed (required)"
+            exit 1
+          fi
+
+          if [ "$should_run_core" = "true" ] && [ "$CORE" != "success" ]; then
+            echo "❌ Core tests failed (required)"
+            exit 1
+          fi
+
+          if [ "$should_run_monitor" = "true" ] && { [ "$MONITOR_STARTUP" != "success" ] || [ "$MONITOR" != "success" ]; }; then
+            echo "❌ Monitor tests failed (required)"
+            exit 1
+          fi
+
+          if [ "$should_run_web" = "true" ] && [ "$WEB" != "success" ]; then
+            echo "❌ Web tests failed (required)"
+            exit 1
+          fi
+
+          if [ "$should_run_cross" = "true" ] && [ "$CROSS" != "success" ]; then
+            echo "❌ Cross-platform core tests failed (required)"
+            exit 1
+          fi
+
+          echo "✅ Required tests passed (irrelevant suites were skipped)"
         shell: bash

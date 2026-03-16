@@ -1,0 +1,25 @@
+// <copyright file="ProviderResponseException.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System;
+
+namespace AIUsageTracker.Core.Exceptions;
+
+/// <summary>
+/// Exception thrown when the provider returns invalid or malformed response data.
+/// </summary>
+public class ProviderResponseException : ProviderException
+{
+    public ProviderResponseException(
+        string providerId,
+        string message = "Invalid response from provider",
+        string? responseBody = null,
+        Exception? innerException = null)
+        : base(providerId, message, ProviderErrorType.InvalidResponseError, innerException: innerException)
+    {
+        this.ResponseBody = responseBody;
+    }
+
+    public string? ResponseBody { get; }
+}

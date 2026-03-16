@@ -1,84 +1,23 @@
+// <copyright file="Program.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Data.Sqlite;
 using Dapper;
+using Microsoft.Data.Sqlite;
 
 namespace Seeder;
 
-class Program
+public class Program
 {
-    private sealed class ProviderFixture
+    public static int Main(string[] args)
     {
-        [JsonPropertyName("provider_id")]
-        public string ProviderId { get; set; } = string.Empty;
-
-        [JsonPropertyName("provider_name")]
-        public string ProviderName { get; set; } = string.Empty;
-
-        [JsonPropertyName("account_name")]
-        public string? AccountName { get; set; }
-
-        [JsonPropertyName("is_active")]
-        public int IsActive { get; set; }
-
-        [JsonPropertyName("config_json")]
-        public string? ConfigJson { get; set; }
-    }
-
-    private sealed class HistoryFixture
-    {
-        [JsonPropertyName("provider_id")]
-        public string ProviderId { get; set; } = string.Empty;
-
-        [JsonPropertyName("requests_used")]
-        public double RequestsUsed { get; set; }
-
-        [JsonPropertyName("requests_available")]
-        public double RequestsAvailable { get; set; }
-
-        [JsonPropertyName("requests_percentage")]
-        public double RequestsPercentage { get; set; }
-
-        [JsonPropertyName("is_available")]
-        public int IsAvailable { get; set; }
-
-        [JsonPropertyName("status_message")]
-        public string StatusMessage { get; set; } = string.Empty;
-
-        [JsonPropertyName("next_reset_time")]
-        public string? NextResetTime { get; set; }
-
-        [JsonPropertyName("fetched_at")]
-        public string FetchedAt { get; set; } = string.Empty;
-
-        [JsonPropertyName("details_json")]
-        public string? DetailsJson { get; set; }
-
-        [JsonPropertyName("response_latency_ms")]
-        public double ResponseLatencyMs { get; set; }
-    }
-
-    private sealed class TestDataFixture
-    {
-        [JsonPropertyName("exported_at")]
-        public string ExportedAt { get; set; } = string.Empty;
-
-        [JsonPropertyName("providers")]
-        public List<ProviderFixture> Providers { get; set; } = [];
-
-        [JsonPropertyName("latest_history")]
-        public List<HistoryFixture> LatestHistory { get; set; } = [];
-
-        [JsonPropertyName("history_7days")]
-        public List<HistoryFixture> History7Days { get; set; } = [];
-    }
-
-    static int Main(string[] args)
-    {
-        if (args.Length > 0 && args[0] == "export")
+        if (args.Length > 0 && string.Equals(args[0], "export", StringComparison.Ordinal))
         {
             return ExportData(args.Length > 1 ? args[1] : "test-fixtures/provider-data.json");
         }
@@ -86,7 +25,7 @@ class Program
         return SeedDatabase(args.Length > 0 ? args[0] : "test-fixtures/provider-data.json");
     }
 
-    static int ExportData(string outputPath)
+    private static int ExportData(string outputPath)
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var dbPath = Path.Combine(appData, "AIUsageTracker", "usage.db");
@@ -103,6 +42,36 @@ class Program
         using var connection = new SqliteConnection(connectionString);
         connection.Open();
 
+        var providers = LoadProvidersFromDatabase(connection);
+        var latestHistory = LoadLatestHistoryFromDatabase(connection);
+        var history7Days = LoadHistory7DaysFromDatabase(connection);
+
+        var fixture = new TestDataFixture
+        {
+            ExportedAt = DateTime.UtcNow.ToString("o"),
+            Providers = providers,
+            LatestHistory = latestHistory,
+            History7Days = history7Days,
+        };
+
+        var outputDir = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
+        {
+            Directory.CreateDirectory(outputDir);
+        }
+
+        WriteTestFixtureToFile(fixture, outputPath);
+
+        Console.WriteLine($"Exported to: {outputPath}");
+        Console.WriteLine($"  Providers: {providers.Count}");
+        Console.WriteLine($"  Latest history: {latestHistory.Count}");
+        Console.WriteLine($"  7-day history: {history7Days.Count}");
+
+        return 0;
+    }
+
+    private static List<ProviderFixture> LoadProvidersFromDatabase(SqliteConnection connection)
+    {
         var providers = new List<ProviderFixture>();
         using (var cmd = connection.CreateCommand())
         {
@@ -112,15 +81,20 @@ class Program
             {
                 providers.Add(new ProviderFixture
                 {
-                    ProviderId = reader.IsDBNull(0) ? "" : reader.GetString(0),
-                    ProviderName = reader.IsDBNull(1) ? "" : reader.GetString(1),
+                    ProviderId = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
+                    ProviderName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
                     AccountName = reader.IsDBNull(2) ? null : reader.GetString(2),
                     IsActive = reader.IsDBNull(3) ? 0 : reader.GetInt32(3),
-                    ConfigJson = reader.IsDBNull(4) ? null : reader.GetString(4)
+                    ConfigJson = reader.IsDBNull(4) ? null : reader.GetString(4),
                 });
             }
         }
 
+        return providers;
+    }
+
+    private static List<HistoryFixture> LoadLatestHistoryFromDatabase(SqliteConnection connection)
+    {
         var latestHistory = new List<HistoryFixture>();
         using (var cmd = connection.CreateCommand())
         {
@@ -140,20 +114,25 @@ class Program
             {
                 latestHistory.Add(new HistoryFixture
                 {
-                    ProviderId = reader.IsDBNull(0) ? "" : reader.GetString(0),
+                    ProviderId = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
                     RequestsUsed = reader.IsDBNull(1) ? 0 : reader.GetDouble(1),
                     RequestsAvailable = reader.IsDBNull(2) ? 0 : reader.GetDouble(2),
                     RequestsPercentage = reader.IsDBNull(3) ? 0 : reader.GetDouble(3),
                     IsAvailable = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
-                    StatusMessage = reader.IsDBNull(5) ? "" : reader.GetString(5),
+                    StatusMessage = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
                     NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
-                    FetchedAt = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                    FetchedAt = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
                     DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
-                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9)
+                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9),
                 });
             }
         }
 
+        return latestHistory;
+    }
+
+    private static List<HistoryFixture> LoadHistory7DaysFromDatabase(SqliteConnection connection)
+    {
         var history7Days = new List<HistoryFixture>();
         using (var cmd = connection.CreateCommand())
         {
@@ -169,28 +148,25 @@ class Program
             {
                 history7Days.Add(new HistoryFixture
                 {
-                    ProviderId = reader.IsDBNull(0) ? "" : reader.GetString(0),
+                    ProviderId = reader.IsDBNull(0) ? string.Empty : reader.GetString(0),
                     RequestsUsed = reader.IsDBNull(1) ? 0 : reader.GetDouble(1),
                     RequestsAvailable = reader.IsDBNull(2) ? 0 : reader.GetDouble(2),
                     RequestsPercentage = reader.IsDBNull(3) ? 0 : reader.GetDouble(3),
                     IsAvailable = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
-                    StatusMessage = reader.IsDBNull(5) ? "" : reader.GetString(5),
+                    StatusMessage = reader.IsDBNull(5) ? string.Empty : reader.GetString(5),
                     NextResetTime = reader.IsDBNull(6) ? null : reader.GetString(6),
-                    FetchedAt = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                    FetchedAt = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
                     DetailsJson = reader.IsDBNull(8) ? null : reader.GetString(8),
-                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9)
+                    ResponseLatencyMs = reader.IsDBNull(9) ? 0 : reader.GetDouble(9),
                 });
             }
         }
 
-        var fixture = new TestDataFixture
-        {
-            ExportedAt = DateTime.UtcNow.ToString("o"),
-            Providers = providers,
-            LatestHistory = latestHistory,
-            History7Days = history7Days
-        };
+        return history7Days;
+    }
 
+    private static void WriteTestFixtureToFile(TestDataFixture fixture, string outputPath)
+    {
         var outputDir = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
         {
@@ -201,14 +177,12 @@ class Program
         File.WriteAllText(outputPath, json);
 
         Console.WriteLine($"Exported to: {outputPath}");
-        Console.WriteLine($"  Providers: {providers.Count}");
-        Console.WriteLine($"  Latest history: {latestHistory.Count}");
-        Console.WriteLine($"  7-day history: {history7Days.Count}");
-
-        return 0;
+        Console.WriteLine($"  Providers: {fixture.Providers.Count}");
+        Console.WriteLine($"  Latest history: {fixture.LatestHistory.Count}");
+        Console.WriteLine($"  7-day history: {fixture.History7Days.Count}");
     }
 
-    static int SeedDatabase(string fixturePath)
+    private static int SeedDatabase(string fixturePath)
     {
         var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         var dbDir = Path.Combine(appData, "AIUsageTracker");
@@ -291,7 +265,8 @@ class Program
 
         foreach (var provider in fixture.Providers)
         {
-            connection.Execute(@"
+            connection.Execute(
+                @"
                 INSERT INTO providers (provider_id, provider_name, account_name, is_active, updated_at, config_json)
                 VALUES (@Id, @Name, @Account, @IsActive, CURRENT_TIMESTAMP, @Config)",
                 new
@@ -300,14 +275,15 @@ class Program
                     Name = provider.ProviderName,
                     Account = provider.AccountName,
                     IsActive = provider.IsActive,
-                    Config = provider.ConfigJson
+                    Config = provider.ConfigJson,
                 });
         }
 
         var historyToInsert = fixture.LatestHistory.Count > 0 ? fixture.LatestHistory : fixture.History7Days;
         foreach (var history in historyToInsert)
         {
-            connection.Execute(@"
+            connection.Execute(
+                @"
                 INSERT INTO provider_history (provider_id, requests_used, requests_available, requests_percentage, is_available, status_message, next_reset_time, fetched_at, details_json, response_latency_ms)
                 VALUES (@Id, @Used, @Avail, @Perc, @IsAvail, @Msg, @Next, @Fetched, @Details, @Latency)",
                 new
@@ -315,17 +291,85 @@ class Program
                     Id = history.ProviderId,
                     Used = history.RequestsUsed,
                     Avail = history.RequestsAvailable,
+#pragma warning disable CS0618 // RequestsPercentage: database seeder pass-through
                     Perc = history.RequestsPercentage,
+#pragma warning restore CS0618
                     IsAvail = history.IsAvailable,
                     Msg = history.StatusMessage,
                     Next = history.NextResetTime,
                     Fetched = history.FetchedAt,
                     Details = history.DetailsJson,
-                    Latency = history.ResponseLatencyMs
+                    Latency = history.ResponseLatencyMs,
                 });
         }
 
         Console.WriteLine($"Seeded {fixture.Providers.Count} providers with {historyToInsert.Count} history records.");
         return 0;
+    }
+
+    private sealed class ProviderFixture
+    {
+        [JsonPropertyName("provider_id")]
+        public string ProviderId { get; set; } = string.Empty;
+
+        [JsonPropertyName("provider_name")]
+        public string ProviderName { get; set; } = string.Empty;
+
+        [JsonPropertyName("account_name")]
+        public string? AccountName { get; set; }
+
+        [JsonPropertyName("is_active")]
+        public int IsActive { get; set; }
+
+        [JsonPropertyName("config_json")]
+        public string? ConfigJson { get; set; }
+    }
+
+    private sealed class HistoryFixture
+    {
+        [JsonPropertyName("provider_id")]
+        public string ProviderId { get; set; } = string.Empty;
+
+        [JsonPropertyName("requests_used")]
+        public double RequestsUsed { get; set; }
+
+        [JsonPropertyName("requests_available")]
+        public double RequestsAvailable { get; set; }
+
+        [JsonPropertyName("requests_percentage")]
+        public double RequestsPercentage { get; set; }
+
+        [JsonPropertyName("is_available")]
+        public int IsAvailable { get; set; }
+
+        [JsonPropertyName("status_message")]
+        public string StatusMessage { get; set; } = string.Empty;
+
+        [JsonPropertyName("next_reset_time")]
+        public string? NextResetTime { get; set; }
+
+        [JsonPropertyName("fetched_at")]
+        public string FetchedAt { get; set; } = string.Empty;
+
+        [JsonPropertyName("details_json")]
+        public string? DetailsJson { get; set; }
+
+        [JsonPropertyName("response_latency_ms")]
+        public double ResponseLatencyMs { get; set; }
+    }
+
+    private sealed class TestDataFixture
+    {
+        [JsonPropertyName("exported_at")]
+        public string ExportedAt { get; set; } = string.Empty;
+
+        [JsonPropertyName("providers")]
+        public List<ProviderFixture> Providers { get; set; } = [];
+
+        [JsonPropertyName("latest_history")]
+        public List<HistoryFixture> LatestHistory { get; set; } = [];
+
+        [JsonPropertyName("history_7days")]
+        public List<HistoryFixture> History7Days { get; set; } = [];
     }
 }

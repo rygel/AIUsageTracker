@@ -77,7 +77,7 @@ on:
      version="2.0">
     <channel>
         <title>AI Usage Tracker (Beta Channel)</title>
-        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>
+        <link>https://github.com/rygel/AIUsageTracker/releases</link>
         <description>Beta releases with latest features.</description>
         <language>en</language>
         <!-- Beta releases will be added here -->
@@ -272,8 +272,8 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         
         return _channel switch
         {
-            UpdateChannel.Stable => $"https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_{arch}.xml",
-            UpdateChannel.Beta => $"https://github.com/rygel/AIConsumptionTracker/releases/latest/download/appcast_beta_{arch}.xml"
+            UpdateChannel.Stable => $"https://github.com/rygel/AIUsageTracker/releases/latest/download/appcast_{arch}.xml",
+            UpdateChannel.Beta => $"https://github.com/rygel/AIUsageTracker/releases/latest/download/appcast_beta_{arch}.xml"
         };
     }
 }

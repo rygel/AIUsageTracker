@@ -1,5 +1,9 @@
-using AIUsageTracker.Web.Services;
+// <copyright file="Providers.cshtml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace AIUsageTracker.Web.Pages;
@@ -10,18 +14,18 @@ public class ProvidersModel : PageModel
 
     public ProvidersModel(WebDatabaseService dbService)
     {
-        _dbService = dbService;
+        this._dbService = dbService;
     }
 
-    public List<ProviderInfo>? Providers { get; set; }
-    public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
+    public IReadOnlyList<ProviderInfo>? Providers { get; set; }
+
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
     public async Task OnGetAsync()
     {
-        if (IsDatabaseAvailable)
+        if (this.IsDatabaseAvailable)
         {
-            Providers = await _dbService.GetProvidersAsync();
+            this.Providers = await this._dbService.GetProvidersAsync().ConfigureAwait(false);
         }
     }
 }
-

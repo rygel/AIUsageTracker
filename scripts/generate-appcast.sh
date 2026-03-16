@@ -7,6 +7,7 @@ set -e
 
 VERSION="$1"
 CHANNEL="${2:-stable}"
+REPOSITORY_BASE_URL="https://github.com/rygel/AIUsageTracker"
 
 if [ -z "$VERSION" ]; then
     echo "Error: Version is required"
@@ -34,6 +35,12 @@ fi
 
 # Create appcast directory if it doesn't exist
 mkdir -p appcast
+
+# Remove previously generated files for this channel so no stale feed survives uploads.
+rm -f "appcast/${APPCAST_PREFIX}.xml" \
+      "appcast/${APPCAST_PREFIX}_x64.xml" \
+      "appcast/${APPCAST_PREFIX}_x86.xml" \
+      "appcast/${APPCAST_PREFIX}_arm64.xml"
 
 # Get current date in RFC 2822 format
 PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
@@ -70,7 +77,7 @@ generate_appcast() {
     local clean_version="${VERSION%%-*}"
     
     # Build download URL
-    local download_url="https://github.com/rygel/AIConsumptionTracker/releases/download/v${VERSION}/AIUsageTracker_Setup_v${VERSION}_win-${arch}.exe"
+    local download_url="${REPOSITORY_BASE_URL}/releases/download/v${VERSION}/AIUsageTracker_Setup_v${VERSION}_win-${arch}.exe"
     
     # Generate appcast XML
     cat > "$appcast_file" << EOF
@@ -78,12 +85,12 @@ generate_appcast() {
 <rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>${arch_title}</title>
-        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>
+        <link>${REPOSITORY_BASE_URL}/releases</link>
         <description>${arch_desc}</description>
         <language>en</language>
         <item>
             <title>Version ${VERSION}</title>
-            <sparkle:releaseNotesLink>https://github.com/rygel/AIConsumptionTracker/releases/tag/v${VERSION}</sparkle:releaseNotesLink>
+            <sparkle:releaseNotesLink>${REPOSITORY_BASE_URL}/releases/tag/v${VERSION}</sparkle:releaseNotesLink>
             <pubDate>${PUB_DATE}</pubDate>
             <enclosure url="${download_url}"
                        sparkle:version="${clean_version}"
@@ -97,6 +104,12 @@ generate_appcast() {
 EOF
     
     echo "✓ Generated ${appcast_file}"
+
+    if [ "$arch" == "x64" ]; then
+        local x64_appcast_file="appcast/${APPCAST_PREFIX}_x64.xml"
+        cp "$appcast_file" "$x64_appcast_file"
+        echo "✓ Generated ${x64_appcast_file}"
+    fi
 }
 
 # Generate for each architecture

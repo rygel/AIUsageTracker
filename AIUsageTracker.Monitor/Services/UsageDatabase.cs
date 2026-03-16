@@ -1,6 +1,11 @@
+// <copyright file="UsageDatabase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Globalization;
 using System.Text.Json;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -10,6 +15,7 @@ namespace AIUsageTracker.Monitor.Services;
 
 public class UsageDatabase : IUsageDatabase
 {
+    private static readonly TimeSpan DetailFadeWindow = TimeSpan.FromDays(7);
     private readonly string _dbPath;
     private readonly string _connectionString;
     private readonly ILogger<UsageDatabase> _logger;
@@ -18,55 +24,67 @@ public class UsageDatabase : IUsageDatabase
 
     public UsageDatabase(ILogger<UsageDatabase> logger, IAppPathProvider pathProvider)
     {
-        _logger = logger;
-        _pathProvider = pathProvider;
-        _dbPath = _pathProvider.GetDatabasePath();
-        
-        var dbDir = Path.GetDirectoryName(_dbPath);
+        this._logger = logger;
+        this._pathProvider = pathProvider;
+        this._dbPath = this._pathProvider.GetDatabasePath();
+
+        var dbDir = Path.GetDirectoryName(this._dbPath);
         if (!string.IsNullOrEmpty(dbDir))
         {
             Directory.CreateDirectory(dbDir);
         }
 
-        _logger.LogInformation("Database path: {DbPath}", _dbPath);
-        
-        _connectionString = new SqliteConnectionStringBuilder
+        this._logger.LogInformation("Database path: {DbPath}", this._dbPath);
+
+        this._connectionString = new SqliteConnectionStringBuilder
         {
-            DataSource = _dbPath,
+            DataSource = this._dbPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Shared,
             Pooling = true,
-            DefaultTimeout = 15
+            DefaultTimeout = 15,
         }.ToString();
     }
 
     public async Task InitializeAsync()
     {
-        await Task.Run(() => RunMigrations());
+        await Task.Run(() => this.RunMigrations()).ConfigureAwait(false);
     }
 
     private void RunMigrations()
     {
-        var migrationService = new DatabaseMigrationService(_dbPath, 
-            LoggerFactory.Create(builder => builder.AddProvider(new LoggerProvider(_logger))).CreateLogger<DatabaseMigrationService>());
+        var migrationService = new DatabaseMigrationService(
+            this._dbPath,
+            LoggerFactory.Create(builder => builder.AddProvider(new LoggerProvider(this._logger))).CreateLogger<DatabaseMigrationService>());
         migrationService.RunMigrations();
     }
 
     private class LoggerProvider : ILoggerProvider
     {
         private readonly ILogger _logger;
-        public LoggerProvider(ILogger logger) => _logger = logger;
-        public ILogger CreateLogger(string categoryName) => _logger;
-        public void Dispose() { }
+
+        public LoggerProvider(ILogger logger) => this._logger = logger;
+
+        public ILogger CreateLogger(string categoryName) => this._logger;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private static async Task EnableForeignKeysAsync(SqliteConnection connection)
+    {
+        await connection.ExecuteAsync("PRAGMA foreign_keys = ON").ConfigureAwait(false);
     }
 
     public async Task StoreProviderAsync(ProviderConfig config, string? friendlyName = null)
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
+            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO providers (
@@ -77,7 +95,10 @@ public class UsageDatabase : IUsageDatabase
                 ON CONFLICT(provider_id) DO UPDATE SET
                     provider_name = excluded.provider_name,
                     auth_source = excluded.auth_source,
-                    account_name = excluded.account_name,
+                    account_name = CASE
+                        WHEN excluded.account_name IS NOT NULL AND excluded.account_name != '' THEN excluded.account_name
+                        ELSE providers.account_name
+                    END,
                     updated_at = CURRENT_TIMESTAMP,
                     config_json = excluded.config_json,
                     is_active = 1";
@@ -86,7 +107,7 @@ public class UsageDatabase : IUsageDatabase
             {
                 config.ProviderId,
                 config.Type,
-                config.AuthSource
+                config.AuthSource,
             };
 
             await connection.ExecuteAsync(sql, new
@@ -95,34 +116,32 @@ public class UsageDatabase : IUsageDatabase
                 ProviderName = friendlyName ?? config.ProviderId,
                 AuthSource = config.AuthSource ?? "manual",
                 AccountName = (string?)null,
-                ConfigJson = JsonSerializer.Serialize(safeConfig)
-            });
+                ConfigJson = JsonSerializer.Serialize(safeConfig),
+            }).ConfigureAwait(false);
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
     public async Task StoreHistoryAsync(IEnumerable<ProviderUsage> usages)
     {
-        var validUsages = usages.Where(u =>
-            !(u.RequestsAvailable == 0 &&
-              u.RequestsUsed == 0 &&
-              u.RequestsPercentage == 0 &&
-              !u.IsAvailable)
-        ).ToList();
+        var validUsages = usages
+            .Where(u => !string.IsNullOrWhiteSpace(u.ProviderId))
+            .ToList();
 
         if (!validUsages.Any())
         {
             return;
         }
 
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
+            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
 
             const string providerUpsertSql = @"
                 INSERT INTO providers (
@@ -153,12 +172,16 @@ public class UsageDatabase : IUsageDatabase
                     provider_id,
                     requests_used, requests_available, requests_percentage,
                     is_available, status_message, next_reset_time, fetched_at,
-                    details_json, response_latency_ms
+                    details_json, response_latency_ms, http_status,
+                    upstream_response_validity, upstream_response_note,
+                    parent_provider_id
                 ) VALUES (
                     @ProviderId,
                     @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
                     @IsAvailable, @StatusMessage, @NextResetTime, @FetchedAt,
-                    @DetailsJson, @ResponseLatencyMs
+                    @DetailsJson, @ResponseLatencyMs, @HttpStatus,
+                    @UpstreamResponseValidity, @UpstreamResponseNote,
+                    @ParentProviderId
                 )";
 
             var providerUpsertParameters = validUsages.Select(u => new
@@ -167,95 +190,109 @@ public class UsageDatabase : IUsageDatabase
                 ProviderName = u.ProviderName,
                 AuthSource = u.AuthSource,
                 AccountName = u.AccountName,
-                IsActive = u.IsAvailable ? 1 : 0
+                IsActive = u.IsAvailable ? 1 : 0,
             });
 
-            await connection.ExecuteAsync(providerUpsertSql, providerUpsertParameters);
+            await connection.ExecuteAsync(providerUpsertSql, providerUpsertParameters).ConfigureAwait(false);
 
             var parameters = validUsages.Select(u => new
             {
                 ProviderId = u.ProviderId,
                 RequestsUsed = u.RequestsUsed,
                 RequestsAvailable = u.RequestsAvailable,
-                RequestsPercentage = u.RequestsPercentage,
+                RequestsPercentage = u.UsedPercent,
                 IsAvailable = u.IsAvailable ? 1 : 0,
-                StatusMessage = u.Description ?? "",
+                StatusMessage = u.Description ?? string.Empty,
                 NextResetTime = u.NextResetTime?.ToString("O"),
                 FetchedAt = (u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt).ToString("O"),
                 DetailsJson = u.Details != null && u.Details.Any()
                     ? JsonSerializer.Serialize(u.Details)
                     : null,
-                ResponseLatencyMs = u.ResponseLatencyMs
+                ResponseLatencyMs = u.ResponseLatencyMs,
+                HttpStatus = u.HttpStatus,
+                UpstreamResponseValidity = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
+                    ? UpstreamResponseValidityCatalog.Evaluate(u).Validity
+                    : u.UpstreamResponseValidity),
+                UpstreamResponseNote = string.IsNullOrWhiteSpace(u.UpstreamResponseNote)
+                    ? UpstreamResponseValidityCatalog.Evaluate(u).Note
+                    : u.UpstreamResponseNote,
+                ParentProviderId = u.ParentProviderId,
             });
 
-            await connection.ExecuteAsync(sql, parameters);
+            await connection.ExecuteAsync(sql, parameters).ConfigureAwait(false);
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
     public async Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus)
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
+            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO raw_snapshots (provider_id, raw_json, http_status, fetched_at)
                 VALUES (@ProviderId, @RawJson, @HttpStatus, CURRENT_TIMESTAMP)";
 
-            await connection.ExecuteAsync(sql, new { ProviderId = providerId, RawJson = rawJson, HttpStatus = httpStatus });
+            await connection.ExecuteAsync(sql, new { ProviderId = providerId, RawJson = rawJson, HttpStatus = httpStatus }).ConfigureAwait(false);
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
     public async Task CleanupOldSnapshotsAsync()
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
 
             const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < datetime('now', '-7 days')";
-            await connection.ExecuteAsync(sql);
+            await connection.ExecuteAsync(sql).ConfigureAwait(false);
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
     public async Task OptimizeAsync()
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
-            await connection.ExecuteAsync("PRAGMA optimize");
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
+            await connection.ExecuteAsync("PRAGMA optimize").ConfigureAwait(false);
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
-    public async Task StoreResetEventAsync(string providerId, string providerName,
-        double? previousUsage, double? newUsage, string resetType)
+    public async Task StoreResetEventAsync(
+        string providerId,
+        string providerName,
+        double? previousUsage,
+        double? newUsage,
+        string resetType)
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
+            await EnableForeignKeysAsync(connection).ConfigureAwait(false);
 
             const string sql = @"
                 INSERT INTO reset_events (
@@ -270,33 +307,37 @@ public class UsageDatabase : IUsageDatabase
                 ProviderName = providerName,
                 PreviousUsage = previousUsage,
                 NewUsage = newUsage,
-                ResetType = resetType
-            });
+                ResetType = resetType,
+            }).ConfigureAwait(false);
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
-    public async Task<List<ProviderUsage>> GetLatestHistoryAsync()
+    public async Task<IReadOnlyList<ProviderUsage>> GetLatestHistoryAsync()
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
 
             const string sql = @"
                 SELECT h.provider_id AS ProviderId,
                        COALESCE(NULLIF(p.provider_name, ''), h.provider_id) AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                       h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                       h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
                        h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
+                       h.http_status AS HttpStatus,
+                       COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
+                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
                        COALESCE(p.account_name, '') AS AccountName,
-                       COALESCE(p.auth_source, '') AS AuthSource
+                       COALESCE(p.auth_source, '') AS AuthSource,
+                       h.parent_provider_id AS ParentProviderId
                 FROM provider_history h
                 LEFT JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -304,7 +345,7 @@ public class UsageDatabase : IUsageDatabase
                 )
                 ORDER BY h.provider_id";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql)).ToList();
+            var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -314,60 +355,240 @@ public class UsageDatabase : IUsageDatabase
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogWarning(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    usage.Details = new List<ProviderUsageDetail>();
                 }
             }
 
+            await this.MergeRecentlySeenDetailsAsync(connection, results, DateTime.UtcNow - DetailFadeWindow).ConfigureAwait(false);
+
             foreach (var usage in results)
             {
-                if (ProviderMetadataCatalog.TryGet(usage.ProviderId, out var definition))
+                if (ProviderMetadataCatalog.TryGetUsageSemantics(usage.ProviderId ?? string.Empty, out var planType, out var isQuotaBased))
                 {
-                    usage.PlanType = definition.PlanType;
-                    usage.IsQuotaBased = definition.IsQuotaBased;
-
-                    var mappedName = definition.ResolveDisplayName(usage.ProviderId);
-                    if (!string.IsNullOrWhiteSpace(mappedName))
-                    {
-                        usage.ProviderName = mappedName;
-                    }
+                    usage.PlanType = planType;
+                    usage.IsQuotaBased = isQuotaBased;
                 }
 
-                if (!usage.DisplayAsFraction && usage.IsQuotaBased && usage.RequestsAvailable > 100)
-                {
-                    usage.DisplayAsFraction = true;
-                }
+                usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
+
+                ApplyUpstreamResponseValidity(usage);
             }
 
             return results;
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
-    public async Task<List<ProviderUsage>> GetHistoryAsync(int limit = 100)
+    private static DateTime? InferNextResetFromDetails(IReadOnlyList<ProviderUsageDetail> details)
     {
-        await _semaphore.WaitAsync();
+        return UsageMath.InferResetTimeFromDetails(details);
+    }
+
+    private static string BuildDetailMergeKey(ProviderUsageDetail detail)
+    {
+        return $"{detail.DetailType}|{detail.QuotaBucketKind}|{detail.Name.Trim()}|{detail.ModelName.Trim()}|{detail.GroupName.Trim()}";
+    }
+
+    private static ProviderUsageDetail CloneDetail(ProviderUsageDetail source)
+    {
+        return new ProviderUsageDetail
+        {
+            Name = source.Name,
+            ModelName = source.ModelName,
+            GroupName = source.GroupName,
+            Description = source.Description,
+            NextResetTime = source.NextResetTime,
+            DetailType = source.DetailType,
+            QuotaBucketKind = source.QuotaBucketKind,
+            PercentageValue = source.PercentageValue,
+            PercentageSemantic = source.PercentageSemantic,
+            PercentageDecimalPlaces = source.PercentageDecimalPlaces,
+            IsStale = source.IsStale,
+        };
+    }
+
+    private static string AppendStaleSuffix(string description, DateTime lastSeenUtc)
+    {
+        var baseDescription = description ?? string.Empty;
+        var staleSuffix = $"(stale; last seen {lastSeenUtc:yyyy-MM-dd})";
+        return string.IsNullOrWhiteSpace(baseDescription)
+            ? staleSuffix
+            : $"{baseDescription} {staleSuffix}";
+    }
+
+    private static void ApplyUpstreamResponseValidity(ProviderUsage usage)
+    {
+        var evaluation = UpstreamResponseValidityCatalog.Evaluate(usage);
+        usage.UpstreamResponseValidity = evaluation.Validity;
+        usage.UpstreamResponseNote = evaluation.Note;
+    }
+
+    private async Task MergeRecentlySeenDetailsAsync(
+        SqliteConnection connection,
+        IReadOnlyCollection<ProviderUsage> latestUsages,
+        DateTime cutoffUtc)
+    {
+        if (latestUsages.Count == 0)
+        {
+            return;
+        }
+
+        const string sql = @"
+                SELECT provider_id AS ProviderId,
+                       details_json AS DetailsJson,
+                       fetched_at AS FetchedAt
+                FROM provider_history
+                WHERE fetched_at >= @CutoffUtc
+                  AND details_json IS NOT NULL
+                  AND details_json != ''
+                ORDER BY provider_id, fetched_at DESC";
+
+        var rows = await connection.QueryAsync<RecentProviderDetailsRow>(sql, new
+        {
+            CutoffUtc = cutoffUtc.ToString("O"),
+        }).ConfigureAwait(false);
+
+        var latestByProvider = latestUsages.ToDictionary(
+            usage => usage.ProviderId,
+            StringComparer.OrdinalIgnoreCase);
+
+        var recentByProvider = new Dictionary<string, Dictionary<string, RecentDetailSnapshot>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.ProviderId) || string.IsNullOrWhiteSpace(row.DetailsJson))
+            {
+                continue;
+            }
+
+            List<ProviderUsageDetail>? parsedDetails;
+            try
+            {
+                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(row.DetailsJson);
+            }
+            catch (JsonException ex)
+            {
+                this._logger.LogError(ex, "Failed to parse historical details_json for provider {ProviderId}", row.ProviderId);
+                continue;
+            }
+
+            if (parsedDetails == null || parsedDetails.Count == 0)
+            {
+                continue;
+            }
+
+            if (!DateTime.TryParse(row.FetchedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedFetchedAt))
+            {
+                continue;
+            }
+
+            var fetchedAtUtc = parsedFetchedAt.ToUniversalTime();
+            if (fetchedAtUtc < cutoffUtc)
+            {
+                continue;
+            }
+
+            if (!recentByProvider.TryGetValue(row.ProviderId, out var detailMap))
+            {
+                detailMap = new Dictionary<string, RecentDetailSnapshot>(StringComparer.OrdinalIgnoreCase);
+                recentByProvider[row.ProviderId] = detailMap;
+            }
+
+            foreach (var detail in parsedDetails)
+            {
+                if (detail == null || string.IsNullOrWhiteSpace(detail.Name))
+                {
+                    continue;
+                }
+
+                var key = BuildDetailMergeKey(detail);
+                if (!detailMap.ContainsKey(key))
+                {
+                    detailMap[key] = new RecentDetailSnapshot(detail, fetchedAtUtc);
+                }
+            }
+        }
+
+        foreach (var usage in latestByProvider.Values)
+        {
+            if (!recentByProvider.TryGetValue(usage.ProviderId, out var recentDetails) || recentDetails.Count == 0)
+            {
+                continue;
+            }
+
+            var currentDetails = usage.Details?.ToList() ?? new List<ProviderUsageDetail>();
+            var currentKeys = currentDetails
+                .Where(detail => detail != null)
+                .Select(BuildDetailMergeKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var allowedDetailTypes = currentDetails
+                .Where(detail => detail != null)
+                .Select(detail => detail.DetailType)
+                .Distinct()
+                .ToHashSet();
+
+            foreach (var snapshot in recentDetails.Values.OrderByDescending(x => x.FetchedAtUtc))
+            {
+                if (allowedDetailTypes.Count > 0 &&
+                    !allowedDetailTypes.Contains(snapshot.Detail.DetailType))
+                {
+                    continue;
+                }
+
+                var key = BuildDetailMergeKey(snapshot.Detail);
+                if (currentKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                var staleDetail = CloneDetail(snapshot.Detail);
+                staleDetail.IsStale = true;
+                staleDetail.Description = AppendStaleSuffix(staleDetail.Description, snapshot.FetchedAtUtc);
+                currentDetails.Add(staleDetail);
+                currentKeys.Add(key);
+            }
+
+            usage.Details = currentDetails;
+            if (!usage.NextResetTime.HasValue)
+            {
+                usage.NextResetTime = InferNextResetFromDetails(currentDetails);
+            }
+        }
+    }
+
+    private sealed record RecentProviderDetailsRow(string ProviderId, string DetailsJson, string FetchedAt);
+
+    private sealed record RecentDetailSnapshot(ProviderUsageDetail Detail, DateTime FetchedAtUtc);
+
+    public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
+    {
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
 
             var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                       h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                       h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
-                       h.response_latency_ms AS ResponseLatencyMs
+                       h.response_latency_ms AS ResponseLatencyMs,
+                       h.http_status AS HttpStatus,
+                       COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
+                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql)).ToList();
+            var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -377,41 +598,50 @@ public class UsageDatabase : IUsageDatabase
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogWarning(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    usage.Details = new List<ProviderUsageDetail>();
                 }
+            }
+
+            foreach (var usage in results)
+            {
+                ApplyUpstreamResponseValidity(usage);
             }
 
             return results;
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
-    public async Task<List<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
+    public async Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
 
             var sql = $@"
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                       h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                       h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, h.fetched_at AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
-                       h.response_latency_ms AS ResponseLatencyMs
+                       h.response_latency_ms AS ResponseLatencyMs,
+                       h.http_status AS HttpStatus,
+                       COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
+                       COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote
                 FROM provider_history h
                 JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.provider_id = @ProviderId
                 ORDER BY h.fetched_at DESC
                 LIMIT {limit}";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId })).ToList();
+            var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -421,47 +651,56 @@ public class UsageDatabase : IUsageDatabase
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogWarning(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    usage.Details = new List<ProviderUsageDetail>();
                 }
+            }
+
+            foreach (var usage in results)
+            {
+                ApplyUpstreamResponseValidity(usage);
             }
 
             return results;
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
-    public async Task<List<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
+    public async Task<IReadOnlyList<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
 
             var sql = $@"
                 WITH RankedHistory AS (
                     SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                            h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
-                           h.requests_percentage AS RequestsPercentage, h.is_available AS IsAvailable,
+                           h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                            h.status_message AS Description, h.fetched_at AS FetchedAt,
                            h.next_reset_time AS NextResetTime,
                            h.details_json AS DetailsJson,
                            h.response_latency_ms AS ResponseLatencyMs,
+                           h.http_status AS HttpStatus,
+                           COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
+                           COALESCE(h.upstream_response_note, '') AS UpstreamResponseNote,
                            ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY h.fetched_at DESC) as pos
                     FROM provider_history h
                     JOIN providers p ON h.provider_id = p.provider_id
                 )
                 SELECT ProviderId, ProviderName, RequestsUsed, RequestsAvailable,
-                       RequestsPercentage, IsAvailable, Description, FetchedAt, NextResetTime,
-                       DetailsJson, ResponseLatencyMs
+                       UsedPercent, IsAvailable, Description, FetchedAt, NextResetTime,
+                       DetailsJson, ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote
                 FROM RankedHistory
                 WHERE pos <= @Count
                 ORDER BY ProviderId, FetchedAt DESC";
 
-            var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider })).ToList();
+            var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
 
             foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
             {
@@ -471,25 +710,31 @@ public class UsageDatabase : IUsageDatabase
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogWarning(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                    usage.Details = new List<ProviderUsageDetail>();
                 }
+            }
+
+            foreach (var usage in results)
+            {
+                ApplyUpstreamResponseValidity(usage);
             }
 
             return results;
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
-    public async Task<List<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
+    public async Task<IReadOnlyList<ResetEvent>> GetResetEventsAsync(string providerId, int limit = 50)
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
 
             var sql = $@"
                 SELECT id AS Id, provider_id AS ProviderId, provider_name AS ProviderName,
@@ -500,45 +745,46 @@ public class UsageDatabase : IUsageDatabase
                 ORDER BY timestamp DESC
                 LIMIT {limit}";
 
-            var results = await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId });
+            var results = await connection.QueryAsync<ResetEvent>(sql, new { ProviderId = providerId }).ConfigureAwait(false);
             return results.ToList();
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
     public async Task<bool> IsHistoryEmptyAsync()
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
-            var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM provider_history");
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
+            var count = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM provider_history").ConfigureAwait(false);
             return count == 0;
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 
     public async Task SetProviderActiveAsync(string providerId, bool isActive)
     {
-        await _semaphore.WaitAsync();
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            using var connection = new SqliteConnection(_connectionString);
-            await connection.OpenAsync();
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
 
-            await connection.ExecuteAsync("UPDATE providers SET is_active = @IsActive, updated_at = CURRENT_TIMESTAMP WHERE provider_id = @ProviderId", 
-                new { ProviderId = providerId, IsActive = isActive ? 1 : 0 });
+            await connection.ExecuteAsync(
+                "UPDATE providers SET is_active = @IsActive, updated_at = CURRENT_TIMESTAMP WHERE provider_id = @ProviderId",
+                new { ProviderId = providerId, IsActive = isActive ? 1 : 0 }).ConfigureAwait(false);
         }
         finally
         {
-            _semaphore.Release();
+            this._semaphore.Release();
         }
     }
 }

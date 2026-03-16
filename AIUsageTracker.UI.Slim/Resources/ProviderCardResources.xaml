@@ -1,0 +1,169 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                    xmlns:vm="clr-namespace:AIUsageTracker.UI.Slim.ViewModels"
+                    xmlns:designVm="clr-namespace:AIUsageTracker.UI.Slim.ViewModels.DesignTime"
+                    xmlns:converters="clr-namespace:AIUsageTracker.UI.Slim.Converters"
+                    mc:Ignorable="d">
+
+    <!-- Sub-Provider Card Template -->
+    <DataTemplate x:Key="SubProviderCardTemplate" DataType="{x:Type vm:SubProviderCardViewModel}">
+        <Grid Height="20" Margin="20,0,0,2" Background="Transparent">
+            <!-- Progress Layer -->
+            <Grid Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="{Binding IndicatorWidth, Converter={StaticResource PercentageToWidthConverter}}"/>
+                    <ColumnDefinition Width="{Binding IndicatorWidth, Converter={StaticResource RemainingPercentageConverter}}"/>
+                </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Opacity="0.3" Background="{DynamicResource ProgressBarGreen}"/>
+            </Grid>
+
+            <!-- Content -->
+            <DockPanel Margin="6,0" LastChildFill="False">
+                <!-- Bullet marker -->
+                <Border DockPanel.Dock="Left" Width="4" Height="4" CornerRadius="2"
+                        Background="{DynamicResource SecondaryText}" Margin="2,0,10,0"
+                        VerticalAlignment="Center"/>
+
+                <!-- Reset time on the right -->
+                <TextBlock DockPanel.Dock="Right" Text="{Binding ResetText}"
+                           Visibility="{Binding ResetText, Converter={StaticResource NullToVisibilityConverter}}"
+                           FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource StatusTextWarning}"
+                           Margin="6,0,0,0" VerticalAlignment="Center"/>
+
+                <!-- Value on the right -->
+                <TextBlock DockPanel.Dock="Right" Text="{Binding DisplayValue}"
+                           FontSize="10" Foreground="{DynamicResource TertiaryText}"
+                           Margin="10,0,0,0" VerticalAlignment="Center"/>
+
+                <!-- Name on the left -->
+                <TextBlock DockPanel.Dock="Left" Text="{Binding DisplayName}"
+                           FontSize="10" Foreground="{DynamicResource SecondaryText}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            </DockPanel>
+        </Grid>
+    </DataTemplate>
+
+    <!-- Provider Card Template -->
+    <DataTemplate x:Key="ProviderCardTemplate" DataType="{x:Type vm:ProviderCardViewModel}">
+        <StackPanel>
+            <Grid Height="24" Margin="0,1" Background="Transparent" Tag="{Binding ProviderId}">
+                <!-- Background card for non-progress items -->
+                <Border Background="{DynamicResource CardBackground}"
+                        Visibility="{Binding ShouldShowProgress, Converter={StaticResource InvertedBoolToVisibilityConverter}}"/>
+
+                <!-- Progress Background Layer -->
+                <Grid Visibility="{Binding ShouldShowProgress, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <!-- Single progress bar for non-dual-quota providers -->
+                    <Grid Visibility="{Binding HasDualQuotaBuckets, Converter={StaticResource InvertedBoolToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="{Binding ProgressPercentage, Converter={StaticResource PercentageToWidthConverter}}"/>
+                            <ColumnDefinition Width="{Binding ProgressPercentage, Converter={StaticResource RemainingPercentageConverter}}"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Opacity="0.45">
+                            <Border.Background>
+                                <MultiBinding Converter="{StaticResource PercentageToColorConverter}">
+                                    <Binding Path="UsedPercent"/>
+                                    <Binding Path="YellowThreshold"/>
+                                    <Binding Path="RedThreshold"/>
+                                    <Binding Path="IsQuotaBased"/>
+                                </MultiBinding>
+                            </Border.Background>
+                        </Border>
+                    </Grid>
+
+                    <!-- Dual progress bars for dual-quota providers -->
+                    <Grid Visibility="{Binding HasDualQuotaBuckets, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <!-- Primary quota row -->
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{Binding PrimaryUsedPercent, Converter={StaticResource PercentageToWidthConverter}}"/>
+                                <ColumnDefinition Width="{Binding PrimaryUsedPercent, Converter={StaticResource RemainingPercentageConverter}}"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Opacity="0.55">
+                                <Border.Background>
+                                    <MultiBinding Converter="{StaticResource PercentageToColorConverter}">
+                                        <Binding Path="PrimaryUsedPercent"/>
+                                        <Binding Path="YellowThreshold"/>
+                                        <Binding Path="RedThreshold"/>
+                                        <Binding Path="IsQuotaBased"/>
+                                    </MultiBinding>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                        <!-- Secondary quota row -->
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="{Binding SecondaryUsedPercent, Converter={StaticResource PercentageToWidthConverter}}"/>
+                                <ColumnDefinition Width="{Binding SecondaryUsedPercent, Converter={StaticResource RemainingPercentageConverter}}"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Opacity="0.35">
+                                <Border.Background>
+                                    <MultiBinding Converter="{StaticResource PercentageToColorConverter}">
+                                        <Binding Path="SecondaryUsedPercent"/>
+                                        <Binding Path="YellowThreshold"/>
+                                        <Binding Path="RedThreshold"/>
+                                        <Binding Path="IsQuotaBased"/>
+                                    </MultiBinding>
+                                </Border.Background>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <!-- Content Overlay -->
+                <DockPanel Margin="6,0" LastChildFill="False">
+                    <!-- Reset Badge (Right) -->
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding ResetBadgeText}"
+                               Visibility="{Binding ResetBadgeText, Converter={StaticResource NullToVisibilityConverter}}"
+                               FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource StatusTextWarning}"
+                               Margin="10,0,0,0" VerticalAlignment="Center"/>
+
+                    <!-- Status Text (Right) -->
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}"
+                               FontSize="10" Margin="10,0,0,0" VerticalAlignment="Center"
+                               Foreground="{Binding StatusTone, Converter={StaticResource StatusToneToColorConverter}}"/>
+
+                    <!-- Provider Name (Left) -->
+                    <TextBlock DockPanel.Dock="Left" FontSize="11" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMissing}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource TertiaryText}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                        <Run Text="{Binding DisplayName, Mode=OneWay}" Foreground="{DynamicResource PrimaryText}"/>
+                        <Run Text="{Binding AccountDisplay, Mode=OneWay, StringFormat=' [{0}]'}"
+                             Foreground="{DynamicResource SecondaryText}" FontStyle="Italic" FontWeight="Normal">
+                            <Run.Style>
+                                <Style TargetType="Run">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasAccountName}" Value="False">
+                                            <Setter Property="Text" Value=""/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Run.Style>
+                        </Run>
+                    </TextBlock>
+                </DockPanel>
+            </Grid>
+
+            <!-- Sub-provider details (collapsible) -->
+            <ItemsControl ItemsSource="{Binding Details}"
+                          ItemTemplate="{StaticResource SubProviderCardTemplate}"
+                          Visibility="{Binding HasDetails, Converter={StaticResource BoolToVisibilityConverter}}"/>
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

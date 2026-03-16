@@ -1,3 +1,7 @@
+// <copyright file="ProviderDetailContractTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
 using Xunit;
 
@@ -14,7 +18,7 @@ public class ProviderDetailContractTests
             ProviderUsageDetailType.QuotaWindow,
             ProviderUsageDetailType.Credit,
             ProviderUsageDetailType.Model,
-            ProviderUsageDetailType.Other
+            ProviderUsageDetailType.Other,
         };
 
         foreach (var type in validTypes)
@@ -29,9 +33,9 @@ public class ProviderDetailContractTests
         var validKinds = new[]
         {
             WindowKind.None,
-            WindowKind.Primary,
-            WindowKind.Secondary,
-            WindowKind.Spark
+            WindowKind.Burst,
+            WindowKind.Rolling,
+            WindowKind.ModelSpecific,
         };
 
         foreach (var kind in validKinds)
@@ -47,10 +51,10 @@ public class ProviderDetailContractTests
         {
             Name = "5-hour quota",
             DetailType = ProviderUsageDetailType.QuotaWindow,
-            WindowKind = WindowKind.Primary
+            QuotaBucketKind = WindowKind.Burst,
         };
 
-        Assert.True(detail.WindowKind != WindowKind.None, "QuotaWindow details must have WindowKind set");
+        Assert.True(detail.QuotaBucketKind != WindowKind.None, "QuotaWindow details must have WindowKind set");
     }
 
     [Fact]
@@ -60,11 +64,11 @@ public class ProviderDetailContractTests
         {
             Name = "Credits",
             DetailType = ProviderUsageDetailType.Credit,
-            WindowKind = WindowKind.None
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.Equal(ProviderUsageDetailType.Credit, detail.DetailType);
-        Assert.Equal(WindowKind.None, detail.WindowKind);
+        Assert.Equal(WindowKind.None, detail.QuotaBucketKind);
     }
 
     [Fact]
@@ -74,18 +78,18 @@ public class ProviderDetailContractTests
         {
             Name = "GPT-5",
             DetailType = ProviderUsageDetailType.Model,
-            WindowKind = WindowKind.None
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.Equal(ProviderUsageDetailType.Model, detail.DetailType);
-        Assert.Equal(WindowKind.None, detail.WindowKind);
+        Assert.Equal(WindowKind.None, detail.QuotaBucketKind);
     }
 
     [Theory]
     [InlineData(ProviderUsageDetailType.QuotaWindow, WindowKind.None, false)]
-    [InlineData(ProviderUsageDetailType.QuotaWindow, WindowKind.Primary, true)]
-    [InlineData(ProviderUsageDetailType.QuotaWindow, WindowKind.Secondary, true)]
-    [InlineData(ProviderUsageDetailType.QuotaWindow, WindowKind.Spark, true)]
+    [InlineData(ProviderUsageDetailType.QuotaWindow, WindowKind.Burst, true)]
+    [InlineData(ProviderUsageDetailType.QuotaWindow, WindowKind.Rolling, true)]
+    [InlineData(ProviderUsageDetailType.QuotaWindow, WindowKind.ModelSpecific, true)]
     [InlineData(ProviderUsageDetailType.Credit, WindowKind.None, true)]
     [InlineData(ProviderUsageDetailType.Model, WindowKind.None, true)]
     [InlineData(ProviderUsageDetailType.Other, WindowKind.None, true)]
@@ -96,7 +100,7 @@ public class ProviderDetailContractTests
         {
             Name = "Test Detail",
             DetailType = type,
-            WindowKind = kind
+            QuotaBucketKind = kind,
         };
 
         var isValid = ValidateDetailCombination(detail);
@@ -106,10 +110,14 @@ public class ProviderDetailContractTests
     private static bool ValidateDetailCombination(ProviderUsageDetail detail)
     {
         if (detail.DetailType == ProviderUsageDetailType.Unknown)
+        {
             return false;
+        }
 
-        if (detail.DetailType == ProviderUsageDetailType.QuotaWindow && detail.WindowKind == WindowKind.None)
+        if (detail.DetailType == ProviderUsageDetailType.QuotaWindow && detail.QuotaBucketKind == WindowKind.None)
+        {
             return false;
+        }
 
         return true;
     }
@@ -119,9 +127,9 @@ public class ProviderDetailContractTests
     {
         var detail = new ProviderUsageDetail
         {
-            Name = "",
+            Name = string.Empty,
             DetailType = ProviderUsageDetailType.Other,
-            WindowKind = WindowKind.None
+            QuotaBucketKind = WindowKind.None,
         };
 
         Assert.True(string.IsNullOrEmpty(detail.Name), "Empty name should be flagged");

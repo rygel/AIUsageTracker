@@ -1,0 +1,9 @@
+Vendored third-party installer helper: InnoDependencyInstaller
+Source file: scripts\inno\CodeDependencies.iss
+Upstream project: https://github.com/DomGries/InnoDependencyInstaller
+Upstream source: https://github.com/DomGries/InnoDependencyInstaller/blob/master/CodeDependencies.iss
+License: The Code Project Open License (CPOL) 1.02
+License text: https://github.com/DomGries/InnoDependencyInstaller/blob/master/LICENSE.md
+
+This repository vendors the upstream helper to detect, download, and install required Microsoft .NET runtimes during Inno Setup installation.
+The vendored helper is intended to remain source-compatible with the upstream file unless explicitly noted otherwise.

@@ -1,3 +1,7 @@
+// <copyright file="UsageMathTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Tests.Models;
@@ -13,7 +17,7 @@ public class UsageMathTests
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 20, available: 100),
-            CreateSample(start.AddHours(24), used: 34, available: 100)
+            CreateSample(start.AddHours(24), used: 34, available: 100),
         };
 
         // Act
@@ -37,7 +41,7 @@ public class UsageMathTests
             CreateSample(start, used: 70, available: 100),
             CreateSample(start.AddHours(10), used: 80, available: 100),
             CreateSample(start.AddHours(20), used: 5, available: 100),  // reset
-            CreateSample(start.AddHours(30), used: 15, available: 100)
+            CreateSample(start.AddHours(30), used: 15, available: 100),
         };
 
         // Act
@@ -56,7 +60,7 @@ public class UsageMathTests
         // Arrange
         var history = new List<ProviderUsage>
         {
-            CreateSample(DateTime.UtcNow, used: 10, available: 100)
+            CreateSample(DateTime.UtcNow, used: 10, available: 100),
         };
 
         // Act
@@ -76,7 +80,7 @@ public class UsageMathTests
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 10, available: 100),
-            CreateSample(start.AddHours(24), used: 10, available: 100)
+            CreateSample(start.AddHours(24), used: 10, available: 100),
         };
 
         // Act
@@ -96,7 +100,7 @@ public class UsageMathTests
         {
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddMinutes(30), used: 16, available: 100),
-            CreateSample(start.AddMinutes(45), used: 20, available: 100)
+            CreateSample(start.AddMinutes(45), used: 20, available: 100),
         };
 
         // Act
@@ -119,7 +123,7 @@ public class UsageMathTests
             CreateSample(start.AddHours(24), used: 8, available: 100),   // reset
             CreateSample(start.AddHours(36), used: 24, available: 100),
             CreateSample(start.AddHours(48), used: 2, available: 100),   // reset
-            CreateSample(start.AddHours(60), used: 12, available: 100)
+            CreateSample(start.AddHours(60), used: 12, available: 100),
         };
 
         // Act
@@ -141,7 +145,7 @@ public class UsageMathTests
         var history = new List<ProviderUsage>
         {
             CreateSample(start, used: 95, available: 100),
-            CreateSample(start.AddHours(24), used: 110, available: 100)
+            CreateSample(start.AddHours(24), used: 110, available: 100),
         };
 
         // Act
@@ -163,7 +167,7 @@ public class UsageMathTests
             CreateSample(start, used: 10, available: 100, latencyMs: 400),
             CreateUnavailableSample(start.AddMinutes(5), latencyMs: 800),
             CreateSample(start.AddMinutes(10), used: 20, available: 100, latencyMs: 600),
-            CreateUnavailableSample(start.AddMinutes(15), latencyMs: 1000)
+            CreateUnavailableSample(start.AddMinutes(15), latencyMs: 1000),
         };
 
         // Act
@@ -202,7 +206,7 @@ public class UsageMathTests
         var start = new DateTime(2026, 2, 20, 0, 0, 0, DateTimeKind.Utc);
         var history = new List<ProviderUsage>
         {
-            CreateSample(start, used: 10, available: 100)
+            CreateSample(start, used: 10, available: 100),
         };
 
         // Act
@@ -222,7 +226,7 @@ public class UsageMathTests
         var history = new List<ProviderUsage>
         {
             CreateSample(start, used: 10, available: 100, latencyMs: 0),
-            CreateUnavailableSample(start.AddMinutes(5), latencyMs: 0)
+            CreateUnavailableSample(start.AddMinutes(5), latencyMs: 0),
         };
 
         // Act
@@ -244,7 +248,7 @@ public class UsageMathTests
             CreateSample(start, used: 10, available: 200),
             CreateSample(start.AddHours(12), used: 20, available: 200),
             CreateSample(start.AddHours(24), used: 30, available: 200),
-            CreateSample(start.AddHours(36), used: 120, available: 200)
+            CreateSample(start.AddHours(36), used: 120, available: 200),
         };
 
         // Act
@@ -268,7 +272,7 @@ public class UsageMathTests
             CreateSample(start, used: 40, available: 100),
             CreateSample(start.AddHours(12), used: 52, available: 100),
             CreateSample(start.AddHours(24), used: 64, available: 100),
-            CreateSample(start.AddHours(36), used: 56, available: 100)
+            CreateSample(start.AddHours(36), used: 56, available: 100),
         };
 
         // Act
@@ -291,7 +295,7 @@ public class UsageMathTests
             CreateSample(start, used: 10, available: 100),
             CreateSample(start.AddHours(12), used: 20, available: 100),
             CreateSample(start.AddHours(24), used: 31, available: 100),
-            CreateSample(start.AddHours(36), used: 41, available: 100)
+            CreateSample(start.AddHours(36), used: 41, available: 100),
         };
 
         // Act
@@ -313,7 +317,7 @@ public class UsageMathTests
             RequestsAvailable = available,
             FetchedAt = fetchedAt,
             IsAvailable = true,
-            ResponseLatencyMs = latencyMs
+            ResponseLatencyMs = latencyMs,
         };
     }
 
@@ -327,7 +331,7 @@ public class UsageMathTests
             FetchedAt = fetchedAt,
             IsAvailable = false,
             Description = "Connection failed",
-            ResponseLatencyMs = latencyMs
+            ResponseLatencyMs = latencyMs,
         };
     }
 }

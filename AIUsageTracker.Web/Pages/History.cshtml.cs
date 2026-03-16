@@ -1,3 +1,7 @@
+// <copyright file="History.cshtml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Web.Services;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -10,18 +14,18 @@ public class HistoryModel : PageModel
 
     public HistoryModel(WebDatabaseService dbService)
     {
-        _dbService = dbService;
+        this._dbService = dbService;
     }
 
-    public List<ProviderUsage>? History { get; set; }
-    public bool IsDatabaseAvailable => _dbService.IsDatabaseAvailable();
+    public IReadOnlyList<ProviderUsage>? History { get; set; }
+
+    public bool IsDatabaseAvailable => this._dbService.IsDatabaseAvailable();
 
     public async Task OnGetAsync()
     {
-        if (IsDatabaseAvailable)
+        if (this.IsDatabaseAvailable)
         {
-            History = await _dbService.GetHistoryAsync(100);
+            this.History = await this._dbService.GetHistoryAsync(100).ConfigureAwait(false);
         }
     }
 }
-

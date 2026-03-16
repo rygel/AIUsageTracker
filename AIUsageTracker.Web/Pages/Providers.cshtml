@@ -1,5 +1,6 @@
 @page "/providers"
 @model ProvidersModel
+@using AIUsageTracker.Infrastructure.Providers
 @{
     ViewData["Title"] = "Providers";
 }
@@ -33,7 +34,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var provider in Model.Providers.Where(p => p.ProviderId != "antigravity"))
+                @foreach (var provider in Model.Providers.Where(p => !ProviderMetadataCatalog.IsAggregateParentProviderId(p.ProviderId)))
                 {
                     <tr>
                         <td>@provider.ProviderName</td>

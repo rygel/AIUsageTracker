@@ -1,5 +1,12 @@
+// <copyright file="GitHubAuthService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Diagnostics;
+using System.IO;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using AIUsageTracker.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -9,163 +16,414 @@ public class GitHubAuthService : IGitHubAuthService
 {
     // Using common Client ID for Copilot integrations (VS Code's ID) as this is required to get the 'copilot' scope permissions correctly.
     // In a real production app for general GitHub access, we would register our own.
-    private const string CLIENT_ID = "Iv1.b507a08c87ecfe98"; 
-    private const string AUTH_URL = "https://github.com/login/device/code";
-    private const string TOKEN_URL = "https://github.com/login/oauth/access_token";
+    private const string CLIENTID = "Iv1.b507a08c87ecfe98";
+    private const string AUTHURL = "https://github.com/login/device/code";
+    private const string TOKENURL = "https://github.com/login/oauth/access_token";
     private const string SCOPE = "read:user copilot"; // Requesting copilot scope
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<GitHubAuthService> _logger;
     private string? _currentToken;
-
-    public bool IsAuthenticated => !string.IsNullOrEmpty(_currentToken);
+    private bool _cliTokenLookupAttempted;
+    private string? _cachedUsername;
 
     public GitHubAuthService(HttpClient httpClient, ILogger<GitHubAuthService> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
-    public async Task<(string deviceCode, string userCode, string verificationUri, int expiresIn, int interval)> InitiateDeviceFlowAsync()
+    /// <inheritdoc/>
+    public bool IsAuthenticated => !string.IsNullOrEmpty(this._currentToken);
+
+    /// <inheritdoc/>
+    public async Task<(string DeviceCode, string UserCode, string VerificationUri, int ExpiresIn, int Interval)> InitiateDeviceFlowAsync()
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, AUTH_URL);
+            var request = new HttpRequestMessage(HttpMethod.Post, AUTHURL);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
-            
+
             var content = new FormUrlEncodedContent(new[]
             {
-                new KeyValuePair<string, string>("client_id", CLIENT_ID),
-                new KeyValuePair<string, string>("scope", SCOPE)
+                new KeyValuePair<string, string>("client_id", CLIENTID),
+                new KeyValuePair<string, string>("scope", SCOPE),
             });
             request.Content = content;
 
-            var response = await _httpClient.SendAsync(request);
+            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
-            var result = await response.Content.ReadFromJsonAsync<DeviceFlowResponse>();
-            if (result == null) throw new Exception("Failed to parse device flow response.");
+            var result = await response.Content.ReadFromJsonAsync<DeviceFlowResponse>().ConfigureAwait(false);
+            if (result == null)
+            {
+                throw new Exception("Failed to parse device flow response.");
+            }
 
-            return (result.device_code, result.user_code, result.verification_uri, result.expires_in, result.interval);
+            return (result.Device_code, result.User_code, result.Verification_uri, result.Expires_in, result.Interval);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error initiating device flow");
+            this._logger.LogError(ex, "Error initiating device flow");
             throw;
         }
     }
 
+    /// <inheritdoc/>
     public async Task<string?> PollForTokenAsync(string deviceCode, int interval)
     {
-        // Polling logic would typically be handled by the caller or a loop here. 
+        // Polling logic would typically be handled by the caller or a loop here.
         // For this method, we make a SINGLE check. The caller (UI) should loop.
-        
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, TOKEN_URL);
+            var request = new HttpRequestMessage(HttpMethod.Post, TOKENURL);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             var content = new FormUrlEncodedContent(new[]
             {
-                new KeyValuePair<string, string>("client_id", CLIENT_ID),
+                new KeyValuePair<string, string>("client_id", CLIENTID),
                 new KeyValuePair<string, string>("device_code", deviceCode),
-                new KeyValuePair<string, string>("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
+                new KeyValuePair<string, string>("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
             });
             request.Content = content;
 
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return null;
+            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
 
-            var json = await response.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
             if (root.TryGetProperty("error", out var error))
             {
                 var code = error.GetString();
-                if (code == "authorization_pending") return null; // Keep polling
-                if (code == "slow_down") return "SLOW_DOWN"; // Signal to slow down
-                if (code == "expired_token") throw new Exception("Token expired");
-                if (code == "access_denied") throw new Exception("Access denied");
+                if (string.Equals(code, "authorization_pending", StringComparison.Ordinal))
+                {
+                    return null; // Keep polling
+                }
+
+                if (string.Equals(code, "slow_down", StringComparison.Ordinal))
+                {
+                    return "SLOW_DOWN"; // Signal to slow down
+                }
+
+                if (string.Equals(code, "expired_token", StringComparison.Ordinal))
+                {
+                    throw new Exception("Token expired");
+                }
+
+                if (string.Equals(code, "access_denied", StringComparison.Ordinal))
+                {
+                    throw new Exception("Access denied");
+                }
             }
 
             if (root.TryGetProperty("access_token", out var tokenProp))
             {
-                _currentToken = tokenProp.GetString();
-                return _currentToken;
+                this._currentToken = tokenProp.GetString();
+                return this._currentToken;
             }
 
             return null;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error polling for token");
+            this._logger.LogError(ex, "Error polling for token");
             return null;
         }
     }
 
+    /// <inheritdoc/>
     public Task<string?> RefreshTokenAsync(string refreshToken)
     {
-        // Device flow tokens for apps like VS Code usually last a long time or don't use refresh tokens in the same way 
-        // as web apps (they use the access token until invalid). 
+        // Device flow tokens for apps like VS Code usually last a long time or don't use refresh tokens in the same way
+        // as web apps (they use the access token until invalid).
         // Implementing placeholder.
         return Task.FromResult<string?>(null);
     }
 
-    public string? GetCurrentToken() => _currentToken;
-
-    public void Logout()
+    /// <inheritdoc/>
+    public string? GetCurrentToken()
     {
-        _currentToken = null;
+        if (!string.IsNullOrWhiteSpace(this._currentToken))
+        {
+            return this._currentToken;
+        }
+
+        this._currentToken = TryLoadTokenFromHostsFile();
+        if (!string.IsNullOrWhiteSpace(this._currentToken))
+        {
+            return this._currentToken;
+        }
+
+        if (!this._cliTokenLookupAttempted)
+        {
+            this._cliTokenLookupAttempted = true;
+            this._currentToken = TryLoadTokenFromGhCli(this._logger);
+        }
+
+        return this._currentToken;
     }
 
-    private string? _cachedUsername;
+    /// <inheritdoc/>
+    public void Logout()
+    {
+        this._currentToken = null;
+    }
 
+    /// <inheritdoc/>
     public async Task<string?> GetUsernameAsync()
     {
-        if (_cachedUsername != null) return _cachedUsername;
-        if (!IsAuthenticated) return null;
+        if (this._cachedUsername != null)
+        {
+            return this._cachedUsername;
+        }
+
+        if (!this.IsAuthenticated)
+        {
+            this._cachedUsername = TryLoadUsernameFromHostsFile();
+            return this._cachedUsername;
+        }
 
         try
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _currentToken);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", this._currentToken);
             request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIUsageTracker", "1.0"));
 
-            var response = await _httpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode) return null;
+            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
 
-            using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync());
+            using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync().ConfigureAwait(false)).ConfigureAwait(false);
             if (doc.RootElement.TryGetProperty("login", out var loginProp))
             {
-                _cachedUsername = loginProp.GetString();
-                return _cachedUsername;
+                this._cachedUsername = loginProp.GetString();
+                return this._cachedUsername;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error fetching GitHub username");
+            this._logger.LogError(ex, "Error fetching GitHub username");
         }
+
         return null;
     }
 
+    /// <inheritdoc/>
     public void InitializeToken(string token)
     {
-        if (_currentToken != token)
+        if (!string.Equals(this._currentToken, token, StringComparison.Ordinal))
         {
-            _currentToken = token;
-            _cachedUsername = null; // Reset cache if token changes
+            this._currentToken = token;
+            this._cachedUsername = null; // Reset cache if token changes
         }
+
+        this._cliTokenLookupAttempted = false;
+    }
+
+    private static string? TryLoadTokenFromHostsFile()
+    {
+        foreach (var path in GetCandidateHostsPaths())
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var content = File.ReadAllText(path);
+                var token = TryExtractTokenFromHostsContent(content);
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    return token;
+                }
+            }
+            catch
+            {
+                // Keep auth loading resilient; provider handles auth failures.
+            }
+        }
+
+        return null;
+    }
+
+    private static string? TryLoadTokenFromGhCli(ILogger<GitHubAuthService> logger)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "gh",
+                    Arguments = "auth token",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
+                },
+            };
+
+            if (!process.Start())
+            {
+                logger.LogDebug("GitHub CLI token discovery failed: process did not start");
+                return null;
+            }
+
+            const int timeoutMs = 4000;
+            if (!process.WaitForExit(timeoutMs))
+            {
+                try
+                {
+                    process.Kill(entireProcessTree: true);
+                }
+                catch
+                {
+                    // Ignore kill failures; token discovery is best-effort.
+                }
+
+                logger.LogDebug("GitHub CLI token discovery timed out after {TimeoutMs}ms", timeoutMs);
+                return null;
+            }
+
+            if (process.ExitCode != 0)
+            {
+                var stderr = process.StandardError.ReadToEnd();
+                logger.LogDebug(
+                    "GitHub CLI token discovery failed with exit code {ExitCode}: {Message}",
+                    process.ExitCode,
+                    string.IsNullOrWhiteSpace(stderr) ? "no stderr" : stderr.Trim());
+                return null;
+            }
+
+            var token = process.StandardOutput.ReadToEnd().Trim();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                logger.LogDebug("GitHub CLI token discovery returned an empty token");
+                return null;
+            }
+
+            return token;
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "GitHub CLI token discovery failed");
+            return null;
+        }
+    }
+
+    private static string? TryLoadUsernameFromHostsFile()
+    {
+        foreach (var path in GetCandidateHostsPaths())
+        {
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            try
+            {
+                var content = File.ReadAllText(path);
+                var username = TryExtractUsernameFromHostsContent(content);
+                if (!string.IsNullOrWhiteSpace(username))
+                {
+                    return username;
+                }
+            }
+            catch
+            {
+                // Keep auth loading resilient; provider handles auth failures.
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetCandidateHostsPaths()
+    {
+        var appData = Environment.GetEnvironmentVariable("APPDATA");
+        if (!string.IsNullOrWhiteSpace(appData))
+        {
+            yield return Path.Combine(appData, "GitHub CLI", "hosts.yml");
+        }
+
+        var userProfile = Environment.GetEnvironmentVariable("USERPROFILE");
+        if (!string.IsNullOrWhiteSpace(userProfile))
+        {
+            yield return Path.Combine(userProfile, ".config", "gh", "hosts.yml");
+        }
+    }
+
+    private static string? TryExtractTokenFromHostsContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        var githubSection = Regex.Match(
+            content,
+            @"(?ms)^\s*github\.com:\s*(?<section>.*?)(?=^\S|\z)",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        var source = githubSection.Success
+            ? githubSection.Groups["section"].Value
+            : content;
+
+        var tokenMatch = Regex.Match(
+            source,
+            @"(?m)^\s*oauth_token:\s*(?<token>\S+)\s*$",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        return tokenMatch.Success ? tokenMatch.Groups["token"].Value.Trim() : null;
+    }
+
+    private static string? TryExtractUsernameFromHostsContent(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        var githubSection = Regex.Match(
+            content,
+            @"(?ms)^\s*github\.com:\s*(?<section>.*?)(?=^\S|\z)",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        var source = githubSection.Success
+            ? githubSection.Groups["section"].Value
+            : content;
+
+        var userMatch = Regex.Match(
+            source,
+            @"(?m)^\s*user:\s*(?<user>\S+)\s*$",
+            RegexOptions.ExplicitCapture,
+            TimeSpan.FromSeconds(1));
+
+        return userMatch.Success ? userMatch.Groups["user"].Value.Trim() : null;
     }
 
     // Helper class for JSON deserialization
     private class DeviceFlowResponse
     {
-        public string device_code { get; set; } = "";
-        public string user_code { get; set; } = "";
-        public string verification_uri { get; set; } = "";
-        public int expires_in { get; set; }
-        public int interval { get; set; }
+        public string Device_code { get; set; } = string.Empty;
+
+        public string User_code { get; set; } = string.Empty;
+
+        public string Verification_uri { get; set; } = string.Empty;
+
+        public int Expires_in { get; set; }
+
+        public int Interval { get; set; }
     }
 }
-

@@ -1,29 +1,48 @@
+// <copyright file="ProviderTestBase.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Reflection;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Moq.Protected;
 using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure;
 
-public abstract class ProviderTestBase<TProvider> where TProvider : class
+public abstract class ProviderTestBase<TProvider>
+    where TProvider : class
 {
-    protected Mock<ILogger<TProvider>> Logger { get; }
-    protected ProviderConfig Config { get; }
-
     protected ProviderTestBase()
     {
-        Logger = new Mock<ILogger<TProvider>>();
-        Config = new ProviderConfig { ProviderId = GetProviderId() };
+        this.Logger = new Mock<ILogger<TProvider>>();
+        var definition = GetProviderDefinition();
+        this.Config = new ProviderConfig
+        {
+            ProviderId = definition?.ProviderId ?? GetProviderId(),
+            PlanType = definition?.PlanType ?? PlanType.Usage,
+            Type = definition?.DefaultConfigType ?? "pay-as-you-go",
+        };
     }
+
+    protected Mock<ILogger<TProvider>> Logger { get; }
+
+    protected ProviderConfig Config { get; }
 
     protected static string GetProviderId()
     {
+        var definition = GetProviderDefinition();
+        if (definition != null)
+        {
+            return definition.ProviderId;
+        }
+
         var providerTypeName = typeof(TProvider).Name;
-        if (providerTypeName.EndsWith("Provider"))
+        if (providerTypeName.EndsWith("Provider", StringComparison.Ordinal))
         {
             providerTypeName = providerTypeName[..^8];
         }
+
         return providerTypeName.ToLowerInvariant().Replace(" ", "-");
     }
 
@@ -33,37 +52,15 @@ public abstract class ProviderTestBase<TProvider> where TProvider : class
         Assert.True(File.Exists(fixturePath), $"Fixture file not found: {fixturePath}");
         return File.ReadAllText(fixturePath);
     }
-}
 
-public abstract class HttpProviderTestBase<TProvider> : ProviderTestBase<TProvider>
-    where TProvider : class
-{
-    protected Mock<HttpMessageHandler> MessageHandler { get; }
-    protected HttpClient HttpClient { get; }
-
-    protected HttpProviderTestBase()
+    private static ProviderDefinition? GetProviderDefinition()
     {
-        MessageHandler = new Mock<HttpMessageHandler>();
-        HttpClient = new HttpClient(MessageHandler.Object);
-    }
+        var property = typeof(TProvider).GetProperty(
+            "StaticDefinition",
+            BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
 
-    protected void SetupHttpResponse(string url, HttpResponseMessage response)
-    {
-        MessageHandler.Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.Is<HttpRequestMessage>(r => r.RequestUri != null && r.RequestUri.ToString() == url),
-                ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(response);
-    }
-
-    protected void SetupHttpResponse(Func<HttpRequestMessage, bool> requestMatcher, HttpResponseMessage response)
-    {
-        MessageHandler.Protected()
-            .Setup<Task<HttpResponseMessage>>(
-                "SendAsync",
-                ItExpr.Is<HttpRequestMessage>(r => requestMatcher(r)),
-                ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(response);
+        return property?.PropertyType == typeof(ProviderDefinition)
+            ? property.GetValue(null) as ProviderDefinition
+            : null;
     }
 }

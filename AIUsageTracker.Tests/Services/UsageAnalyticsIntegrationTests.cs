@@ -1,5 +1,10 @@
+// <copyright file="UsageAnalyticsIntegrationTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.Tests.Infrastructure;
 using AIUsageTracker.Web.Services;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
@@ -12,14 +17,14 @@ namespace AIUsageTracker.Tests.Services;
 public class UsageAnalyticsIntegrationTests
 {
     [Fact]
-    public async Task GetBurnRateForecastsAsync_ComputesForecastFromDatabase()
+    public async Task GetBurnRateForecastsAsync_ComputesForecastFromDatabaseAsync()
     {
         var now = DateTime.UtcNow;
         var rows = new[]
         {
-            CreateRow("openai", 10, 100, true, now.AddHours(-3).ToString("yyyy-MM-dd HH:mm:ss")),
+            CreateRow("openai", 10, 100, true, now.AddHours(-3).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
             CreateRow("openai", 20, 100, true, now.AddHours(-2).ToString("O")),
-            CreateRow("openai", 30, 100, true, now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss"))
+            CreateRow("openai", 30, 100, true, now.AddHours(-1).ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)),
         };
 
         var dbPath = CreateTempDbPath();
@@ -27,8 +32,11 @@ public class UsageAnalyticsIntegrationTests
         {
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
-            
-            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, dbPath);
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
+
+            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
             var forecasts = await service.GetBurnRateForecastsAsync(new[] { "openai" }, lookbackHours: 12, maxSamplesPerProvider: 100);
@@ -46,7 +54,7 @@ public class UsageAnalyticsIntegrationTests
     }
 
     [Fact]
-    public async Task GetUsageAnomaliesAsync_DetectsSpikeInDatabase()
+    public async Task GetUsageAnomaliesAsync_DetectsSpikeInDatabaseAsync()
     {
         var now = DateTime.UtcNow;
         var rows = new[]
@@ -54,7 +62,7 @@ public class UsageAnalyticsIntegrationTests
             CreateRow("openai", 10, 200, true, now.AddHours(-4).ToString("O")),
             CreateRow("openai", 20, 200, true, now.AddHours(-3).ToString("O")),
             CreateRow("openai", 30, 200, true, now.AddHours(-2).ToString("O")),
-            CreateRow("openai", 120, 200, true, now.AddHours(-1).ToString("O"))
+            CreateRow("openai", 120, 200, true, now.AddHours(-1).ToString("O")),
         };
 
         var dbPath = CreateTempDbPath();
@@ -62,8 +70,11 @@ public class UsageAnalyticsIntegrationTests
         {
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
-            
-            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, dbPath);
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
+
+            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
             var anomalies = await service.GetUsageAnomaliesAsync(new[] { "openai" }, lookbackHours: 24, maxSamplesPerProvider: 100);
@@ -81,15 +92,16 @@ public class UsageAnalyticsIntegrationTests
     }
 
     [Fact]
-    public async Task GetBurnRateForecastsAsync_CalculatesSteadyExhaustion()
+    public async Task GetBurnRateForecastsAsync_CalculatesSteadyExhaustionAsync()
     {
         var now = DateTime.UtcNow;
+
         // Usage: 10 units per hour
         // Available: 1000 total
         var rows = new List<HistoryRow>();
         for (int i = 5; i >= 0; i--)
         {
-            rows.Add(CreateRow("steady-p", 500 + (5 - i) * 10, 1000, true, now.AddHours(-i).ToString("O")));
+            rows.Add(CreateRow("steady-p", 500 + ((5 - i) * 10), 1000, true, now.AddHours(-i).ToString("O")));
         }
 
         var dbPath = CreateTempDbPath();
@@ -97,18 +109,21 @@ public class UsageAnalyticsIntegrationTests
         {
             await SeedHistoryAsync(dbPath, rows);
             using var cache = new MemoryCache(new MemoryCacheOptions());
-            
-            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, dbPath);
+
+            var mockPathProvider = new Mock<IAppPathProvider>();
+            mockPathProvider.Setup(p => p.GetDatabasePath()).Returns(dbPath);
+
+            var repo = new WebDatabaseService(cache, NullLogger<WebDatabaseService>.Instance, mockPathProvider.Object);
             var service = new UsageAnalyticsService(repo, cache, NullLogger<UsageAnalyticsService>.Instance);
 
             var forecasts = await service.GetBurnRateForecastsAsync(new[] { "steady-p" });
 
             Assert.True(forecasts.TryGetValue("steady-p", out var forecast));
             Assert.True(forecast.IsAvailable);
-            
+
             // Burn rate: 10/hour = 240/day
             Assert.Equal(240.0, forecast.BurnRatePerDay, 1);
-            
+
             // Remaining: 1000 - 550 = 450
             // Days until exhausted: 450 / 240 = 1.875 days
             Assert.Equal(1.875, forecast.DaysUntilExhausted, 1);
@@ -121,7 +136,7 @@ public class UsageAnalyticsIntegrationTests
 
     private static string CreateTempDbPath()
     {
-        return Path.Combine(Path.GetTempPath(), $"ai-usage-tracker-tests-{Guid.NewGuid():N}.db");
+        return TestTempPaths.CreateFilePath("ai-usage-tracker-tests", "usage-analytics.db");
     }
 
     private static async Task SeedHistoryAsync(string dbPath, IEnumerable<HistoryRow> rows)
@@ -129,13 +144,15 @@ public class UsageAnalyticsIntegrationTests
         var connectionString = new SqliteConnectionStringBuilder
         {
             DataSource = dbPath,
-            Mode = SqliteOpenMode.ReadWriteCreate
+            Mode = SqliteOpenMode.ReadWriteCreate,
         }.ToString();
 
-        await using var connection = new SqliteConnection(connectionString);
-        await connection.OpenAsync();
+        var connection = new SqliteConnection(connectionString);
+        await using (connection.ConfigureAwait(false))
+        {
+            await connection.OpenAsync().ConfigureAwait(false);
 
-        const string createSql = @"
+            const string createSql = @"
             CREATE TABLE providers (
                 provider_id TEXT PRIMARY KEY,
                 provider_name TEXT,
@@ -153,30 +170,35 @@ public class UsageAnalyticsIntegrationTests
                 next_reset_time TEXT,
                 response_latency_ms REAL NOT NULL DEFAULT 0
             );";
-        await using (var createCommand = connection.CreateCommand())
-        {
-            createCommand.CommandText = createSql;
-            await createCommand.ExecuteNonQueryAsync();
-        }
+            var createCommand = connection.CreateCommand();
+            await using (createCommand.ConfigureAwait(false))
+            {
+                createCommand.CommandText = createSql;
+                await createCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
 
-        const string insertSql = @"
+            const string insertSql = @"
             INSERT INTO provider_history (
                 provider_id, requests_used, requests_available, is_available, fetched_at, response_latency_ms
             ) VALUES (
                 $providerId, $requestsUsed, $requestsAvailable, $isAvailable, $fetchedAt, $responseLatencyMs
             );";
 
-        foreach (var row in rows)
-        {
-            await using var insertCommand = connection.CreateCommand();
-            insertCommand.CommandText = insertSql;
-            insertCommand.Parameters.AddWithValue("$providerId", row.ProviderId);
-            insertCommand.Parameters.AddWithValue("$requestsUsed", row.RequestsUsed);
-            insertCommand.Parameters.AddWithValue("$requestsAvailable", row.RequestsAvailable);
-            insertCommand.Parameters.AddWithValue("$isAvailable", row.IsAvailable ? 1 : 0);
-            insertCommand.Parameters.AddWithValue("$fetchedAt", row.FetchedAt);
-            insertCommand.Parameters.AddWithValue("$responseLatencyMs", row.ResponseLatencyMs);
-            await insertCommand.ExecuteNonQueryAsync();
+            foreach (var row in rows)
+            {
+                var insertCommand = connection.CreateCommand();
+                await using (insertCommand.ConfigureAwait(false))
+                {
+                    insertCommand.CommandText = insertSql;
+                    insertCommand.Parameters.AddWithValue("$providerId", row.ProviderId);
+                    insertCommand.Parameters.AddWithValue("$requestsUsed", row.RequestsUsed);
+                    insertCommand.Parameters.AddWithValue("$requestsAvailable", row.RequestsAvailable);
+                    insertCommand.Parameters.AddWithValue("$isAvailable", row.IsAvailable ? 1 : 0);
+                    insertCommand.Parameters.AddWithValue("$fetchedAt", row.FetchedAt);
+                    insertCommand.Parameters.AddWithValue("$responseLatencyMs", row.ResponseLatencyMs);
+                    await insertCommand.ExecuteNonQueryAsync().ConfigureAwait(false);
+                }
+            }
         }
     }
 
@@ -193,7 +215,16 @@ public class UsageAnalyticsIntegrationTests
 
     private static void SafeDelete(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); } catch { }
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+        }
     }
 
     private sealed record HistoryRow(

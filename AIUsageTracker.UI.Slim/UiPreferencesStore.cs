@@ -1,7 +1,13 @@
+// <copyright file="UiPreferencesStore.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.IO;
 using System.Text.Json;
-using AIUsageTracker.Core.Models;
+
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
+
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
@@ -12,56 +18,41 @@ public class UiPreferencesStore
     private readonly IAppPathProvider _pathProvider;
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
-        WriteIndented = true
+        WriteIndented = true,
     };
+
     private string? _preferencesPathOverride;
 
     public UiPreferencesStore(ILogger<UiPreferencesStore> logger, IAppPathProvider pathProvider)
     {
-        _logger = logger;
-        _pathProvider = pathProvider;
-    }
-
-    internal void SetPreferencesPathOverrideForTesting(string? path)
-    {
-        _preferencesPathOverride = string.IsNullOrWhiteSpace(path) ? null : path;
-    }
-
-    private string GetPreferencesPath()
-    {
-        if (!string.IsNullOrWhiteSpace(_preferencesPathOverride))
-        {
-            return _preferencesPathOverride;
-        }
-
-        return _pathProvider.GetPreferencesFilePath();
+        this._logger = logger;
+        this._pathProvider = pathProvider;
     }
 
     public async Task<AppPreferences> LoadAsync()
     {
-        var path = GetPreferencesPath();
+        var path = this.GetPreferencesPath();
         if (!File.Exists(path))
         {
-            var legacyPreferences = await TryLoadLegacyPreferencesAsync();
-            return legacyPreferences ?? new AppPreferences();
+            return new AppPreferences();
         }
 
         try
         {
-            var json = await File.ReadAllTextAsync(path);
-            return JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();
+            var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+            return AppPreferences.Deserialize(json);
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Failed to parse Slim preferences");
+            this._logger.LogWarning(ex, "Failed to parse Slim preferences");
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "Failed to read Slim preferences");
+            this._logger.LogWarning(ex, "Failed to read Slim preferences");
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Access denied reading Slim preferences");
+            this._logger.LogWarning(ex, "Access denied reading Slim preferences");
         }
 
         return new AppPreferences();
@@ -69,65 +60,45 @@ public class UiPreferencesStore
 
     public async Task<bool> SaveAsync(AppPreferences preferences)
     {
-        var path = GetPreferencesPath();
+        var path = this.GetPreferencesPath();
         var directory = Path.GetDirectoryName(path);
         if (string.IsNullOrWhiteSpace(directory))
         {
-            _logger.LogWarning("Failed to resolve Slim preferences directory");
+            this._logger.LogWarning("Failed to resolve Slim preferences directory");
             return false;
         }
 
         try
         {
             Directory.CreateDirectory(directory);
-            var json = JsonSerializer.Serialize(preferences, _jsonOptions);
-            await File.WriteAllTextAsync(path, json);
+            var json = JsonSerializer.Serialize(preferences, this._jsonOptions);
+            await File.WriteAllTextAsync(path, json).ConfigureAwait(false);
             return true;
         }
         catch (IOException ex)
         {
-            _logger.LogWarning(ex, "Failed to write Slim preferences");
+            this._logger.LogWarning(ex, "Failed to write Slim preferences");
         }
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogWarning(ex, "Access denied writing Slim preferences");
+            this._logger.LogWarning(ex, "Access denied writing Slim preferences");
         }
 
         return false;
     }
 
-    private async Task<AppPreferences?> TryLoadLegacyPreferencesAsync()
+    internal void SetPreferencesPathOverrideForTesting(string? path)
     {
-        var legacyPath = _pathProvider.GetAuthFilePath();
-        if (!File.Exists(legacyPath))
+        this._preferencesPathOverride = string.IsNullOrWhiteSpace(path) ? null : path;
+    }
+
+    private string GetPreferencesPath()
+    {
+        if (!string.IsNullOrWhiteSpace(this._preferencesPathOverride))
         {
-            return null;
+            return this._preferencesPathOverride;
         }
 
-        try
-        {
-            var legacyJson = await File.ReadAllTextAsync(legacyPath);
-            var root = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(legacyJson);
-            if (root != null &&
-                root.TryGetValue("app_settings", out var appSettings) &&
-                appSettings.ValueKind == JsonValueKind.Object)
-            {
-                return JsonSerializer.Deserialize<AppPreferences>(appSettings.GetRawText());
-            }
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning(ex, "Failed to parse legacy Slim preferences");
-        }
-        catch (IOException ex)
-        {
-            _logger.LogWarning(ex, "Failed to read legacy Slim preferences");
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            _logger.LogWarning(ex, "Access denied reading legacy Slim preferences");
-        }
-
-        return null;
+        return this._pathProvider.GetPreferencesFilePath();
     }
 }

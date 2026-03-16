@@ -1,3 +1,7 @@
+// <copyright file="MonitorResilienceTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
 using Xunit;
 
@@ -8,13 +12,14 @@ public class MonitorResilienceTests
     [Fact]
     public void MonitorInfo_SupportsErrorTracking()
     {
+        var errors = new List<string>();
         var info = new MonitorInfo
         {
-            Errors = new List<string>()
+            Errors = errors,
         };
 
-        info.Errors.Add("Startup status: starting");
-        info.Errors.Add("Startup status: running");
+        errors.Add("Startup status: starting");
+        errors.Add("Startup status: running");
 
         Assert.Equal(2, info.Errors.Count);
         Assert.Contains(info.Errors, e => e.Contains("running"));
@@ -29,6 +34,7 @@ public class MonitorResilienceTests
         try
         {
             using var listener1 = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
+
             listener1.Start();
 
             var thread = new System.Threading.Thread(() =>
@@ -36,6 +42,7 @@ public class MonitorResilienceTests
                 try
                 {
                     using var listener2 = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
+
                     listener2.Start();
                     boundPort = preferredPort;
                 }
@@ -50,10 +57,15 @@ public class MonitorResilienceTests
         finally
         {
             // Manual cleanup
-            try {
+            try
+            {
                 using var cleanup = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, preferredPort);
+
                 // Just testing we can bind again after failure
-            } catch { }
+            }
+            catch
+            {
+            }
         }
 
         Assert.Null(boundPort);
@@ -66,8 +78,8 @@ public class MonitorResilienceTests
         var mutexName = @"Global\AIUsageTracker_Monitor_" + userName;
 
         Assert.NotNull(mutexName);
-        Assert.Contains("AIUsageTracker_Monitor_", mutexName);
-        Assert.Contains(userName, mutexName);
-        Assert.DoesNotContain(" ", mutexName);
+        Assert.Contains("AIUsageTracker_Monitor_", mutexName, StringComparison.Ordinal);
+        Assert.Contains(userName, mutexName, StringComparison.Ordinal);
+        Assert.DoesNotContain(" ", mutexName, StringComparison.Ordinal);
     }
 }

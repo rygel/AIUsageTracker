@@ -1,3 +1,7 @@
+// <copyright file="PrivacyHelperTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Infrastructure.Helpers;
 using Xunit;
 
@@ -16,8 +20,8 @@ public class PrivacyHelperTests
     [InlineData(null, null, null)]
     public void MaskContent_ShouldMaskCorrectly(string? input, string? accountName, string? expected)
     {
-        var result = PrivacyHelper.MaskContent(input ?? "", accountName);
-        Assert.Equal(expected ?? "", result);
+        var result = PrivacyHelper.MaskContent(input ?? string.Empty, accountName);
+        Assert.Equal(expected ?? string.Empty, result);
     }
 
     [Fact]
@@ -48,9 +52,9 @@ public class PrivacyHelperTests
         var maskedPath = PrivacyHelper.MaskPath(path);
 
         // Assert
-        Assert.Contains(".ai-consumption-tracker", maskedPath);
-        Assert.Contains("auth.json", maskedPath);
-        Assert.DoesNotContain(userName, maskedPath); // Should NOT contain the real username
+        Assert.Contains(".ai-consumption-tracker", maskedPath, StringComparison.Ordinal);
+        Assert.Contains("auth.json", maskedPath, StringComparison.Ordinal);
+        Assert.DoesNotContain(userName, maskedPath, StringComparison.Ordinal); // Should NOT contain the real username
     }
 
     [Fact]
@@ -63,7 +67,7 @@ public class PrivacyHelperTests
         var maskedPath = PrivacyHelper.MaskPath(path);
 
         // Assert
-        Assert.Contains("config.json", maskedPath);
-        Assert.DoesNotContain("Secret", maskedPath);
+        Assert.Contains("config.json", maskedPath, StringComparison.Ordinal);
+        Assert.DoesNotContain("Secret", maskedPath, StringComparison.Ordinal);
     }
 }

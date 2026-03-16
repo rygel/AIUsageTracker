@@ -259,5 +259,5 @@ public async Task<T> LibraryMethodAsync()
 
 ## Related Documents
 
-- [AGENTS.md](../AGENTS.md) - Development guidelines
+- [AGENTS.md](AGENTS.md) - Development guidelines
 - [Architecture](architecture.md) - Project structure

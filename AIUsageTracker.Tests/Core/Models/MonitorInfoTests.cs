@@ -1,3 +1,7 @@
+// <copyright file="MonitorInfoTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using Xunit;
@@ -30,7 +34,7 @@ public class MonitorInfoTests
             DebugMode = true,
             MachineName = "TESTMACHINE",
             UserName = "testuser",
-            Errors = new List<string> { "Test error" }
+            Errors = new List<string> { "Test error" },
         };
 
         Assert.Equal(5000, info.Port);
@@ -53,17 +57,17 @@ public class MonitorInfoTests
             DebugMode = true,
             MachineName = "TEST-PC",
             UserName = "developer",
-            Errors = new List<string> { "Error 1", "Error 2" }
+            Errors = new List<string> { "Error 1", "Error 2" },
         };
 
         var json = JsonSerializer.Serialize(original, new JsonSerializerOptions
         {
-            PropertyNameCaseInsensitive = true
+            PropertyNameCaseInsensitive = true,
         });
 
         var deserialized = JsonSerializer.Deserialize<MonitorInfo>(json, new JsonSerializerOptions
         {
-            PropertyNameCaseInsensitive = true
+            PropertyNameCaseInsensitive = true,
         });
 
         Assert.NotNull(deserialized);

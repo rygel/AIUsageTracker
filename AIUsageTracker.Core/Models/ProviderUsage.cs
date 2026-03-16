@@ -1,86 +1,88 @@
+// <copyright file="ProviderUsage.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Text.Json.Serialization;
+
 namespace AIUsageTracker.Core.Models;
-
-public enum ProviderUsageDetailType
-{
-    Unknown = 0,
-    QuotaWindow = 1,
-    Credit = 2,
-    Model = 3,
-    Other = 4
-}
-
-public enum WindowKind
-{
-    None = 0,
-    Primary = 1,
-    Secondary = 2,
-    Spark = 3
-}
 
 public class ProviderUsage
 {
     public string ProviderId { get; set; } = string.Empty;
+
     public string ProviderName { get; set; } = string.Empty;
+
     public double RequestsUsed { get; set; }
+
     public double RequestsAvailable { get; set; }
-    public double RequestsPercentage { get; set; }
+
+    /// <summary>
+    /// Gets or sets the percentage of quota/budget consumed (0–100), regardless of whether the provider is quota-based.
+    /// </summary>
+    [JsonPropertyName("used_percent")]
+    public double UsedPercent { get; set; }
+
+    /// <summary>
+    /// Gets the percentage of quota/budget remaining (0–100), regardless of whether the provider is quota-based.
+    /// </summary>
+    [JsonIgnore]
+    public double RemainingPercent => Math.Max(0, 100.0 - this.UsedPercent);
+
     public PlanType PlanType { get; set; } = PlanType.Usage;
 
-    public string UsageUnit { get; set; } = "USD";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsCurrencyUsage { get; set; }
+
     public bool IsQuotaBased { get; set; }
+
     public bool DisplayAsFraction { get; set; } // Explicitly request "X / Y" display format
+
     public bool IsAvailable { get; set; } = true;
+
     public string Description { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    [JsonConverter(typeof(JsonStringEnumConverter<ProviderUsageState>))]
+    public ProviderUsageState State { get; set; } = ProviderUsageState.Available;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsStatusOnly { get; set; }
+
     public string AuthSource { get; set; } = string.Empty;
-    public List<ProviderUsageDetail>? Details { get; set; }
-    
+
+    /// <summary>
+    /// For child/derived provider rows, the provider_id of the parent.
+    /// Null for top-level (non-derived) providers.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ParentProviderId { get; set; }
+
+    public IReadOnlyList<ProviderUsageDetail>? Details { get; set; }
+
     // Temporary property for database serialization - not serialized to JSON
-    [System.Text.Json.Serialization.JsonIgnore]
+    [JsonIgnore]
     public string? DetailsJson { get; set; }
-    
+
     public string AccountName { get; set; } = string.Empty;
+
     public string ConfigKey { get; set; } = string.Empty;
+
     public DateTime? NextResetTime { get; set; }
+
     public DateTime FetchedAt { get; set; } = DateTime.UtcNow;
+
     public double ResponseLatencyMs { get; set; }
+
+    /// <summary>
+    /// Raw JSON response from the provider API. Intentional audit trail — stored in the database
+    /// and privacy-redacted in the processing pipeline when privacy mode is enabled.
+    /// Not surfaced in the UI; used for diagnostics and post-hoc debugging.
+    /// </summary>
     public string? RawJson { get; set; }
+
     public int HttpStatus { get; set; } = 200;
+
+    public UpstreamResponseValidity UpstreamResponseValidity { get; set; } = UpstreamResponseValidity.Unknown;
+
+    public string UpstreamResponseNote { get; set; } = string.Empty;
 }
-
-public class ProviderUsageDetail
-{
-    public string Name { get; set; } = string.Empty;
-    public string ModelName { get; set; } = string.Empty;
-    public string GroupName { get; set; } = string.Empty;
-    public string Used { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public DateTime? NextResetTime { get; set; }
-    public ProviderUsageDetailType DetailType { get; set; } = ProviderUsageDetailType.Unknown;
-    public WindowKind WindowKind { get; set; } = WindowKind.None;
-
-    public bool IsPrimaryQuotaDetail()
-    {
-        return DetailType == ProviderUsageDetailType.QuotaWindow && WindowKind == WindowKind.Primary;
-    }
-
-    public bool IsSecondaryQuotaDetail()
-    {
-        return DetailType == ProviderUsageDetailType.QuotaWindow && WindowKind == WindowKind.Secondary;
-    }
-
-    public bool IsWindowQuotaDetail()
-    {
-        return DetailType == ProviderUsageDetailType.QuotaWindow;
-    }
-
-    public bool IsCreditDetail()
-    {
-        return DetailType == ProviderUsageDetailType.Credit;
-    }
-
-    public bool IsDisplayableSubProviderDetail()
-    {
-        return DetailType == ProviderUsageDetailType.Model || DetailType == ProviderUsageDetailType.Other;
-    }
-}
-

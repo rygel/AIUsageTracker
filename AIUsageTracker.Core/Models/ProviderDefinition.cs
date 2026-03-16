@@ -1,31 +1,19 @@
+// <copyright file="ProviderDefinition.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Core.Models;
 
 public sealed class ProviderDefinition
 {
-    public string ProviderId { get; }
-    public string DisplayName { get; }
-    public PlanType PlanType { get; }
-    public bool IsQuotaBased { get; }
-    public string DefaultConfigType { get; }
-    public bool AutoIncludeWhenUnconfigured { get; }
-    public bool IncludeInWellKnownProviders { get; }
-    public bool SupportsChildProviderIds { get; }
-    public IReadOnlyCollection<string> HandledProviderIds { get; }
-    public IReadOnlyDictionary<string, string> DisplayNameOverrides { get; }
-
-    private readonly HashSet<string> _handledProviderIds;
+    private HashSet<string>? _handledProviderIdsSet;
 
     public ProviderDefinition(
         string providerId,
         string displayName,
         PlanType planType,
         bool isQuotaBased,
-        string defaultConfigType,
-        bool autoIncludeWhenUnconfigured = false,
-        bool includeInWellKnownProviders = false,
-        IEnumerable<string>? handledProviderIds = null,
-        IReadOnlyDictionary<string, string>? displayNameOverrides = null,
-        bool supportsChildProviderIds = false)
+        string defaultConfigType)
     {
         if (string.IsNullOrWhiteSpace(providerId))
         {
@@ -37,55 +25,142 @@ public sealed class ProviderDefinition
             throw new ArgumentException("Display name cannot be empty.", nameof(displayName));
         }
 
-        ProviderId = providerId;
-        DisplayName = displayName;
-        PlanType = planType;
-        IsQuotaBased = isQuotaBased;
-        DefaultConfigType = defaultConfigType;
-        AutoIncludeWhenUnconfigured = autoIncludeWhenUnconfigured;
-        IncludeInWellKnownProviders = includeInWellKnownProviders;
-        SupportsChildProviderIds = supportsChildProviderIds;
-
-        var normalizedHandledIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            providerId
-        };
-
-        if (handledProviderIds != null)
-        {
-            foreach (var handledId in handledProviderIds)
-            {
-                if (!string.IsNullOrWhiteSpace(handledId))
-                {
-                    normalizedHandledIds.Add(handledId);
-                }
-            }
-        }
-
-        _handledProviderIds = normalizedHandledIds;
-        HandledProviderIds = normalizedHandledIds.ToArray();
-        DisplayNameOverrides = displayNameOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        this.ProviderId = providerId.Trim();
+        this.DisplayName = displayName.Trim();
+        this.PlanType = planType;
+        this.IsQuotaBased = isQuotaBased;
+        this.DefaultConfigType = defaultConfigType;
     }
+
+    public string ProviderId { get; }
+
+    public string DisplayName { get; }
+
+    public PlanType PlanType { get; }
+
+    public bool IsQuotaBased { get; }
+
+    public string DefaultConfigType { get; }
+
+    public bool AutoIncludeWhenUnconfigured { get; init; }
+
+    public bool IncludeInWellKnownProviders { get; init; }
+
+    public ProviderFamilyMode FamilyMode { get; init; } = ProviderFamilyMode.Standalone;
+
+    public bool SupportsChildProviderIds => ProviderFamilyPolicy.SupportsChildProviderIds(this.FamilyMode);
+
+    /// <summary>
+    /// Gets additional provider IDs (beyond ProviderId itself) that this provider handles.
+    /// Use this to declare aliases; ProviderId is always included automatically.
+    /// </summary>
+    public IReadOnlyCollection<string> AdditionalHandledProviderIds { get; init; } = Array.Empty<string>();
+
+    // Computed lazily: ProviderId + AdditionalHandledProviderIds
+    private HashSet<string> HandledProviderIdsSet => this._handledProviderIdsSet ??=
+        new HashSet<string>(this.AdditionalHandledProviderIds.Prepend(this.ProviderId), StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyCollection<string> HandledProviderIds => this.HandledProviderIdsSet;
+
+    public IReadOnlyDictionary<string, string> DisplayNameOverrides { get; init; } =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyCollection<string> DiscoveryEnvironmentVariables { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyCollection<string> RooConfigPropertyNames { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyCollection<string> NonPersistedProviderIds { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyCollection<string> VisibleDerivedProviderIds { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyCollection<ProviderDerivedModelSelector> DerivedModelSelectors { get; init; } = Array.Empty<ProviderDerivedModelSelector>();
+
+    public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; init; } = Array.Empty<string>();
+
+    public string? SessionAuthCanonicalProviderId { get; init; }
+
+    public string? SessionAuthMigrationDescription { get; init; }
+
+    public ProviderSettingsMode SettingsMode { get; init; } = ProviderSettingsMode.StandardApiKey;
+
+    public bool UseSessionAuthStatusWhenQuotaBasedOrSessionToken { get; init; }
+
+    public string? SessionStatusLabel { get; init; }
+
+    public ProviderSessionIdentitySource SessionIdentitySource { get; init; } = ProviderSessionIdentitySource.None;
+
+    public bool RefreshOnStartupWithCachedData { get; init; }
+
+    public bool CollapseDerivedChildrenInMainWindow =>
+        ProviderFamilyPolicy.ShouldCollapseDerivedChildrenInMainWindow(this.FamilyMode);
+
+    public bool ShowInMainWindow { get; init; } = true;
+
+    public bool ShowInSettings { get; init; } = true;
+
+    public IReadOnlyCollection<string> SettingsAdditionalProviderIds { get; init; } = Array.Empty<string>();
+
+    public string? IconAssetName { get; init; }
+
+    public string? FallbackBadgeColorHex { get; init; }
+
+    public string? FallbackBadgeInitial { get; init; }
+
+    public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
+
+    public bool RenderDetailsAsSyntheticChildrenInMainWindow =>
+        ProviderFamilyPolicy.ShouldRenderSyntheticChildrenInMainWindow(this.FamilyMode);
+
+    public string? AggregateDetailDisplaySuffix { get; init; }
+
+    public bool SupportsAccountIdentity { get; init; }
+
+    public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; init; } = Array.Empty<string>();
+
+    public IReadOnlyCollection<ProviderAuthFileSchema> SessionAuthFileSchemas { get; init; } = Array.Empty<ProviderAuthFileSchema>();
+
+    public IReadOnlyCollection<string> SessionIdentityProfileRootProperties { get; init; } = Array.Empty<string>();
+
+    public bool UseChildProviderRowsForGroupedModels =>
+        ProviderFamilyPolicy.UsesChildProviderRowsForGroupedModels(this.FamilyMode);
+
+    public string? DerivedModelDisplaySuffix { get; init; }
+
+    public bool IsTooltipOnly { get; init; }
+
+    public IReadOnlyList<QuotaWindowDefinition> QuotaWindows { get; init; } = Array.Empty<QuotaWindowDefinition>();
+
+    /// <summary>
+    /// Gets the main-window visibility items.
+    /// For SyntheticAggregateChildren: one item per QuotaWindow child.
+    /// For VisibleDerivedProviders: one item per declared derived child ID (labels from DisplayNameOverrides).
+    /// For standalone providers with ShowInMainWindow=true: single self-referential entry.
+    /// DynamicChildProviderRows children are runtime-only and must be appended from live usage data.
+    /// </summary>
+    public IReadOnlyList<(string ItemId, string Label)> MainWindowVisibilityItems =>
+        this.MainWindowVisibilityItemsOverride
+        ?? (this.FamilyMode == ProviderFamilyMode.SyntheticAggregateChildren
+            ? this.QuotaWindows
+                .Where(w => w.ChildProviderId != null)
+                .Select(w => (w.ChildProviderId!, w.SettingsLabel ?? w.DualBarLabel))
+                .ToArray()
+            : this.FamilyMode == ProviderFamilyMode.VisibleDerivedProviders && this.VisibleDerivedProviderIds.Count > 0
+                ? this.VisibleDerivedProviderIds
+                    .Select(id => (id, this.ResolveDisplayName(id) ?? id))
+                    .ToArray()
+                : this.ShowInMainWindow
+                    ? new[] { (this.ProviderId, this.DisplayName) }
+                    : Array.Empty<(string, string)>());
+
+    /// <summary>
+    /// Gets or inits an explicit override for MainWindowVisibilityItems.
+    /// Leave null to use auto-derivation from QuotaWindows.
+    /// </summary>
+    public IReadOnlyList<(string ItemId, string Label)>? MainWindowVisibilityItemsOverride { get; init; }
 
     public bool HandlesProviderId(string providerId)
     {
-        if (string.IsNullOrWhiteSpace(providerId))
-        {
-            return false;
-        }
-
-        if (_handledProviderIds.Contains(providerId))
-        {
-            return true;
-        }
-
-        if (!SupportsChildProviderIds)
-        {
-            return false;
-        }
-
-        return _handledProviderIds.Any(handled =>
-            providerId.StartsWith($"{handled}.", StringComparison.OrdinalIgnoreCase));
+        return ProviderFamilyPolicy.BelongsToProviderFamily(this.HandledProviderIds, providerId, this.FamilyMode);
     }
 
     public string? ResolveDisplayName(string providerId)
@@ -95,16 +170,42 @@ public sealed class ProviderDefinition
             return null;
         }
 
-        if (DisplayNameOverrides.TryGetValue(providerId, out var mapped))
+        if (this.DisplayNameOverrides.TryGetValue(providerId, out var mapped))
         {
             return mapped;
         }
 
-        if (_handledProviderIds.Contains(providerId))
+        if (this.HandledProviderIdsSet.Contains(providerId))
         {
-            return DisplayName;
+            return this.DisplayName;
         }
 
         return null;
+    }
+
+    public ProviderAuthDiscoverySpec CreateAuthDiscoverySpec()
+    {
+        return new ProviderAuthDiscoverySpec(
+            this.ProviderId,
+            this.DiscoveryEnvironmentVariables,
+            this.AuthIdentityCandidatePathTemplates,
+            this.SessionAuthFileSchemas);
+    }
+
+    public ProviderConfig CreateDefaultConfig(
+        string? providerId = null,
+        string? apiKey = null,
+        string? authSource = null,
+        string? description = null)
+    {
+        return new ProviderConfig
+        {
+            ProviderId = string.IsNullOrWhiteSpace(providerId) ? this.ProviderId : providerId,
+            ApiKey = apiKey ?? string.Empty,
+            Type = this.DefaultConfigType,
+            PlanType = this.PlanType,
+            AuthSource = authSource ?? AuthSource.Unknown,
+            Description = description,
+        };
     }
 }

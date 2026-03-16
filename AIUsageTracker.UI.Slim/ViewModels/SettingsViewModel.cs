@@ -1,95 +1,93 @@
-using AIUsageTracker.Core.Models;
+// <copyright file="SettingsViewModel.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim.ViewModels;
 
-public class SettingsViewModel : BaseViewModel
+/// <summary>
+/// ViewModel for the settings window, managing provider configurations and preferences.
+/// </summary>
+public partial class SettingsViewModel : BaseViewModel
 {
     private readonly IMonitorService _monitorService;
     private readonly IUsageAnalyticsService _analyticsService;
     private readonly IDataExportService _exportService;
     private readonly ILogger<SettingsViewModel> _logger;
+
+    [ObservableProperty]
     private bool _isPrivacyMode;
+
+    [ObservableProperty]
     private string _statusMessage = "Ready";
+
+    [ObservableProperty]
     private bool _isLoading;
-    private List<ProviderConfig> _configs = new();
+
+    [ObservableProperty]
+    private IReadOnlyList<ProviderConfig> _configs = Array.Empty<ProviderConfig>();
+
+    [ObservableProperty]
     private List<ProviderUsage> _usages = new();
 
-    public bool IsPrivacyMode
-    {
-        get => _isPrivacyMode;
-        set => SetProperty(ref _isPrivacyMode, value);
-    }
-
-    public string StatusMessage
-    {
-        get => _statusMessage;
-        set => SetProperty(ref _statusMessage, value);
-    }
-
-    public bool IsLoading
-    {
-        get => _isLoading;
-        set => SetProperty(ref _isLoading, value);
-    }
-
-    public List<ProviderConfig> Configs
-    {
-        get => _configs;
-        private set => SetProperty(ref _configs, value);
-    }
-
     public SettingsViewModel(
-        IMonitorService monitorService, 
+        IMonitorService monitorService,
         IUsageAnalyticsService analyticsService,
         IDataExportService exportService,
         ILogger<SettingsViewModel> logger)
     {
-        _monitorService = monitorService;
-        _analyticsService = analyticsService;
-        _exportService = exportService;
-        _logger = logger;
+        this._monitorService = monitorService;
+        this._analyticsService = analyticsService;
+        this._exportService = exportService;
+        this._logger = logger;
     }
 
-    public async Task LoadDataAsync()
+    [RelayCommand]
+    internal async Task LoadDataAsync()
     {
-        IsLoading = true;
-        StatusMessage = "Loading settings...";
+        this.IsLoading = true;
+        this.StatusMessage = "Loading settings...";
         try
         {
-            Configs = await _monitorService.GetConfigsAsync();
-            _usages = await _monitorService.GetUsageAsync();
-            
-            if (Configs.Count == 0)
+            this.Configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
+            this.Usages = (await this._monitorService.GetUsageAsync().ConfigureAwait(true)).ToList();
+
+            if (this.Configs.Count == 0)
             {
-                StatusMessage = "No providers found.";
+                this.StatusMessage = "No providers found.";
             }
             else
             {
-                StatusMessage = $"Loaded {Configs.Count} providers.";
+                this.StatusMessage = $"Loaded {this.Configs.Count} providers.";
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load settings in ViewModel");
-            StatusMessage = "Error loading settings.";
+            this._logger.LogError(ex, "Failed to load settings in ViewModel");
+            this.StatusMessage = "Error loading settings.";
         }
         finally
         {
-            IsLoading = false;
+            this.IsLoading = false;
         }
     }
 
-    public void TogglePrivacyMode()
+    [RelayCommand]
+    internal void TogglePrivacyMode()
     {
-        IsPrivacyMode = !IsPrivacyMode;
-        StatusMessage = IsPrivacyMode ? "Privacy Mode Enabled" : "Privacy Mode Disabled";
+        this.IsPrivacyMode = !this.IsPrivacyMode;
+        this.StatusMessage = this.IsPrivacyMode ? "Privacy Mode Enabled" : "Privacy Mode Disabled";
     }
 
-    public async Task<string> ExportDataAsync()
+    [RelayCommand]
+    private async Task<string> ExportDataAsync()
     {
-        return await _exportService.ExportHistoryToCsvAsync();
+        return await this._exportService.ExportHistoryToCsvAsync().ConfigureAwait(true);
     }
 }

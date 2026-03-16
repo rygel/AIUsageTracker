@@ -1,43 +1,61 @@
+// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
 public class ZaiProvider : ProviderBase
 {
-    public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "zai-coding-plan",
-        displayName: "Z.ai Coding Plan",
-        planType: PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        handledProviderIds: new[] { "zai-coding-plan", "zai" },
-        displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["zai"] = "Z.AI"
-        });
-
-    public override ProviderDefinition Definition => StaticDefinition;
-    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<ZaiProvider> _logger;
 
     public ZaiProvider(HttpClient httpClient, ILogger<ZaiProvider> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
+    public static ProviderDefinition StaticDefinition { get; } = new(
+        "zai-coding-plan",
+        "Z.ai Coding Plan",
+        PlanType.Coding,
+        isQuotaBased: true,
+        defaultConfigType: "quota-based")
+    {
+        AdditionalHandledProviderIds = new[] { "zai" },
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["zai"] = "Z.AI",
+        },
+        DiscoveryEnvironmentVariables = new[] { "ZAI_API_KEY", "Z_AI_API_KEY" },
+        RooConfigPropertyNames = new[] { "zaiApiKey" },
+        IconAssetName = "zai",
+        FallbackBadgeColorHex = "#20B2AA",
+        FallbackBadgeInitial = "Z",
+    };
+
+    /// <inheritdoc/>
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    /// <inheritdoc/>
+    public override string ProviderId => StaticDefinition.ProviderId;
+
+    /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            throw new ArgumentException("API Key not found for Z.AI provider.");
+            throw new ArgumentException("API Key not found for Z.AI provider.", nameof(config));
         }
+
+        var providerLabel = this.Definition.DisplayName;
 
         var request = new HttpRequestMessage(HttpMethod.Get, "https://api.z.ai/api/monitor/usage/quota/limit");
 
@@ -45,86 +63,106 @@ public class ZaiProvider : ProviderBase
         request.Headers.TryAddWithoutValidation("Authorization", config.ApiKey);
         request.Headers.TryAddWithoutValidation("Accept-Language", "en-US,en");
 
-        _logger.LogDebug("[ZAI] Sending API request to https://api.z.ai/api/monitor/usage/quota/limit");
-        var response = await _httpClient.SendAsync(request);
+        this._logger.LogDebug("[ZAI] Sending API request to https://api.z.ai/api/monitor/usage/quota/limit");
+        var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
         var httpStatus = (int)response.StatusCode;
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("[ZAI] API returned {StatusCode}", response.StatusCode);
+            this._logger.LogError("[ZAI] API returned {StatusCode}", response.StatusCode);
             throw new Exception($"Z.AI API returned {response.StatusCode}");
         }
 
-        var responseString = await response.Content.ReadAsStringAsync();
-        _logger.LogDebug("[ZAI RAW RESPONSE] {Response}", responseString);
+        var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        this._logger.LogDebug("[ZAI RAW RESPONSE] {Response}", responseString);
 
         // Parse envelope
         var envelope = JsonSerializer.Deserialize<ZaiEnvelope<ZaiQuotaLimitResponse>>(responseString);
-        _logger.LogDebug("[ZAI] Parsed envelope - Data is null: {IsNull}", envelope?.Data == null);
-        
+        this._logger.LogDebug("[ZAI] Parsed envelope - Data is null: {IsNull}", envelope?.Data == null);
+
         string planDescription = "API";
 
         var limits = envelope?.Data?.Limits;
-        _logger.LogDebug("[ZAI] Limits count: {Count}", limits?.Count ?? 0);
+        this._logger.LogDebug("[ZAI] Limits count: {Count}", limits?.Count ?? 0);
 
         if (limits == null || !limits.Any())
         {
-             _logger.LogDebug("[ZAI] No limits found in response");
-             return new[] { new ProviderUsage
+            this._logger.LogDebug("[ZAI] No limits found in response");
+            return new[]
+            {
+                new ProviderUsage
              {
-                 ProviderId = ProviderId,
-                 ProviderName = "Z.AI",
+                 ProviderId = this.ProviderId,
+                 ProviderName = providerLabel,
                  IsAvailable = false,
                  Description = "No usage data available",
                  IsQuotaBased = true,
                  PlanType = PlanType.Coding,
                  RawJson = responseString,
-                 HttpStatus = httpStatus
-             }};
+                 HttpStatus = httpStatus,
+             },
+            };
         }
 
         // Log all limits for debugging
         foreach (var limit in limits)
         {
-            _logger.LogDebug("[ZAI LIMIT] Type={Type} Total={Total} CurrentValue={Current} Remaining={Remaining} Percentage={Pct} ResetTime={Ts}",
-                limit.Type, limit.Total, limit.CurrentValue, limit.Remaining, limit.Percentage, limit.NextResetTime);
+            this._logger.LogDebug(
+                "[ZAI LIMIT] Type={Type} Total={Total} CurrentValue={Current} Remaining={Remaining} Percentage={Pct} ResetTime={Ts}",
+                limit.Type,
+                limit.Total,
+                limit.CurrentValue,
+                limit.Remaining,
+                limit.Percentage,
+                limit.NextResetTime);
         }
 
         // Helper to check if a limit is in the future (or has no expiry)
         var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         var nowSec = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        
-        bool IsFuture(long? resetTime) 
+
+        bool IsFuture(long? resetTime)
         {
-            if (!resetTime.HasValue || resetTime.Value == 0) return true; // No reset time = always active
+            if (!resetTime.HasValue || resetTime.Value == 0)
+            {
+                return true; // No reset time = always active
+            }
+
             var ts = resetTime.Value;
+
             // Heuristic to detect milliseconds vs seconds (similar to logic below)
-            if (ts > 10000000000) return ts > nowMs; 
+            if (ts > 10000000000)
+            {
+                return ts > nowMs;
+            }
+
             return ts > nowSec;
         }
 
         var tokenLimits = limits.Where(l =>
             l.Type != null && (l.Type.Equals("TOKENS_LIMIT", StringComparison.OrdinalIgnoreCase) ||
                                l.Type.Equals("Tokens", StringComparison.OrdinalIgnoreCase))).ToList();
-                               
+
         // Prefer active limits (future reset time or no reset time)
         // If multiple active limits exist, pick the specific one that is most restrictive (lowest remaining)
         // If no active limits, fall back to any limit (historical)
         var tokenLimit = tokenLimits.Where(l => IsFuture(l.NextResetTime))
                                     .OrderBy(l => l.Remaining ?? long.MaxValue)
-                                    .FirstOrDefault() 
+                                    .FirstOrDefault()
                          ?? tokenLimits.FirstOrDefault();
 
         var mcpLimit = limits.FirstOrDefault(l =>
             l.Type != null && (l.Type.Equals("TIME_LIMIT", StringComparison.OrdinalIgnoreCase) ||
                                l.Type.Equals("Time", StringComparison.OrdinalIgnoreCase)));
 
-        _logger.LogDebug("[ZAI] Found token limit: {Found}, mcp limit: {McpFound}",
-            tokenLimit != null, mcpLimit != null);
+        this._logger.LogDebug(
+            "[ZAI] Found token limit: {Found}, mcp limit: {McpFound}",
+            tokenLimit != null,
+            mcpLimit != null);
 
         double? remainingPercent = null;
-        string detailInfo = "";
-        
+        string detailInfo = string.Empty;
+
         // Define variables to hold real values if available, otherwise default to percentage logic
         double finalRequestsAvailable = 100;
         double finalRequestsUsedReal = 0;
@@ -133,8 +171,12 @@ public class ZaiProvider : ProviderBase
         if (tokenLimit != null)
         {
             planDescription = "Coding Plan";
-            _logger.LogDebug("[ZAI] Processing TOKENS_LIMIT - Percentage={Pct} Total={Total} Current={Current} Remaining={Remaining}",
-                tokenLimit.Percentage, tokenLimit.Total, tokenLimit.CurrentValue, tokenLimit.Remaining);
+            this._logger.LogDebug(
+                "[ZAI] Processing TOKENS_LIMIT - Percentage={Pct} Total={Total} Current={Current} Remaining={Remaining}",
+                tokenLimit.Percentage,
+                tokenLimit.Total,
+                tokenLimit.CurrentValue,
+                tokenLimit.Remaining);
 
             if (tokenLimit.Percentage.HasValue && tokenLimit.Total == null && tokenLimit.CurrentValue == null && tokenLimit.Remaining == null)
             {
@@ -144,8 +186,8 @@ public class ZaiProvider : ProviderBase
                     ? Math.Min(remainingPercent.Value, remainingPercentVal)
                     : remainingPercentVal;
                 detailInfo = $"{remainingPercentVal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining";
-                _logger.LogDebug("[ZAI] Percentage-only mode: {Used}% used, {Remaining}% remaining", usedPercent, remainingPercentVal);
-                
+                this._logger.LogDebug("[ZAI] Percentage-only mode: {Used}% used, {Remaining}% remaining", usedPercent, remainingPercentVal);
+
                 finalRequestsUsedReal = 100 - remainingPercentVal;
             }
             else
@@ -154,18 +196,24 @@ public class ZaiProvider : ProviderBase
                 double usedVal = tokenLimit.CurrentValue ?? 0;
                 double remainingVal = tokenLimit.Remaining ?? (totalVal - usedVal);
 
-                if (tokenLimit.Total > 50000000) {
-                     planDescription = "Coding Plan (Ultra/Enterprise)";
-                } else if (tokenLimit.Total > 10000000) {
-                     planDescription = "Coding Plan (Pro)";
+                if (tokenLimit.Total > 50000000)
+                {
+                    planDescription = "Coding Plan (Ultra/Enterprise)";
+                }
+                else if (tokenLimit.Total > 10000000)
+                {
+                    planDescription = "Coding Plan (Pro)";
                 }
 
                 if (totalVal > 0)
                 {
                     double remainingPercentVal = (remainingVal / totalVal) * 100.0;
 
-                    _logger.LogDebug("[ZAI] Calculation: Remaining={RemainingVal} / Total={TotalVal} = {Percent}%",
-                        remainingVal, totalVal, remainingPercentVal);
+                    this._logger.LogDebug(
+                        "[ZAI] Calculation: Remaining={RemainingVal} / Total={TotalVal} = {Percent}%",
+                        remainingVal,
+                        totalVal,
+                        remainingPercentVal);
 
                     remainingPercent = remainingPercent.HasValue
                         ? Math.Min(remainingPercent.Value, remainingPercentVal)
@@ -189,96 +237,135 @@ public class ZaiProvider : ProviderBase
                 }
                 else
                 {
-                    _logger.LogDebug("[ZAI] Token limit missing usable quota metrics; usage unknown");
+                    this._logger.LogDebug("[ZAI] Token limit missing usable quota metrics; usage unknown");
                 }
             }
         }
 
         if (mcpLimit != null && mcpLimit.Percentage > 0)
         {
-            _logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpLimit.Percentage);
+            this._logger.LogDebug("[ZAI] Processing TIME_LIMIT - Percentage: {Percentage}", mcpLimit.Percentage);
             double mcpRemainingPercent = Math.Max(0, 100 - mcpLimit.Percentage.Value);
             remainingPercent = remainingPercent.HasValue
                 ? Math.Min(remainingPercent.Value, mcpRemainingPercent)
                 : mcpRemainingPercent;
-            _logger.LogDebug("[ZAI] MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
+            this._logger.LogDebug("[ZAI] MCP remaining percent: {McpRemainingPercent}", mcpRemainingPercent);
         }
 
+        // Compute the token window duration from unit/number.
+        // Z.ai encodes: unit=3 → hours, number=N → N-hour rolling window.
+        // Verified from Coding Plan: unit=3, number=5 → 5-hour rolling window.
+        var tokenWindowDuration = tokenLimit?.Unit == 3 && tokenLimit.Number.HasValue
+            ? TimeSpan.FromHours(tokenLimit.Number.Value)
+            : (TimeSpan?)null;
+        var tokenWindowLabel = tokenWindowDuration.HasValue
+            ? $"{(int)tokenWindowDuration.Value.TotalHours}h window"
+            : null;
+
         DateTime? nextResetTime = null;
-        string resetStr = "";
-        var limitWithReset = limits
-            .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
-            .OrderBy(l => l.NextResetTime!.Value)
-            .FirstOrDefault();
-        if (limitWithReset != null)
+        string resetStr = string.Empty;
+
+        if (tokenLimit != null && tokenLimit.Percentage > 0 && tokenLimit.NextResetTime.HasValue && tokenLimit.NextResetTime.Value > 0)
         {
-            var ts = limitWithReset.NextResetTime!.Value;
-            _logger.LogDebug("[ZAI] Reset timestamp from API: {Ts}", ts);
-
-            // Detect if seconds or milliseconds
-            if (ts < 10000000000) // Likely seconds (e.g., 1773532800)
-            {
-                var utcTime = DateTimeOffset.FromUnixTimeSeconds(ts);
-                nextResetTime = utcTime.LocalDateTime;
-                _logger.LogDebug("[ZAI] Interpreted as SECONDS: {Utc} UTC -> {Local} Local",
-                    utcTime.UtcDateTime, nextResetTime);
-            }
-            else // Likely milliseconds (e.g., 1773532800000)
-            {
-                var utcTime = DateTimeOffset.FromUnixTimeMilliseconds(ts);
-                nextResetTime = utcTime.LocalDateTime;
-                _logger.LogDebug("[ZAI] Interpreted as MILLISECONDS: {Utc} UTC -> {Local} Local",
-                    utcTime.UtcDateTime, nextResetTime);
-            }
-
+            // Active window: the API returns the current window's close time — use it.
+            var ts = tokenLimit.NextResetTime.Value;
+            this._logger.LogDebug("[ZAI] Active token window reset timestamp: {Ts}", ts);
+            nextResetTime = ParseTimestamp(ts);
             resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
+        }
+        else if (tokenWindowLabel != null)
+        {
+            // Fresh (0% used): the API returns the billing period end, not the rolling window close.
+            // Show the window size label instead of a misleading 7-day countdown.
+            resetStr = $" ({tokenWindowLabel})";
+        }
+        else
+        {
+            // Fallback: use the nearest nextResetTime from any limit.
+            var limitWithReset = limits
+                .Where(l => l.NextResetTime.HasValue && l.NextResetTime.Value > 0)
+                .OrderBy(l => l.NextResetTime!.Value)
+                .FirstOrDefault();
+            if (limitWithReset != null)
+            {
+                this._logger.LogDebug("[ZAI] Fallback reset timestamp: {Ts}", limitWithReset.NextResetTime!.Value);
+                nextResetTime = ParseTimestamp(limitWithReset.NextResetTime!.Value);
+                resetStr = $" (Resets: {nextResetTime:MMM dd, yyyy HH:mm} Local)";
+            }
         }
 
         if (!remainingPercent.HasValue)
         {
-            return new[] { new ProviderUsage
+            return new[]
             {
-                ProviderId = ProviderId,
-                ProviderName = $"Z.AI {planDescription}",
+                new ProviderUsage
+            {
+                ProviderId = this.ProviderId,
+                ProviderName = providerLabel,
                 IsAvailable = false,
-                Description = "Usage unknown (missing quota metrics)",
+                Description = FormatDescription("Usage unknown (missing quota metrics)", planDescription),
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 RawJson = responseString,
-                HttpStatus = httpStatus
-            }};
+                HttpStatus = httpStatus,
+            },
+            };
         }
 
-        var finalRequestsPercentage = Math.Min(remainingPercent.Value, 100);
+        var finalRemainingPercent = Math.Min(remainingPercent.Value, 100);
+        var finalUsedPercent = Math.Max(0, 100.0 - finalRemainingPercent);
 
         if (!hasRawLimitData)
         {
             finalRequestsAvailable = 100;
-            finalRequestsUsedReal = Math.Max(0, 100 - finalRequestsPercentage);
+            finalRequestsUsedReal = Math.Max(0, 100 - finalRemainingPercent);
         }
 
-        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{finalRequestsPercentage.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : detailInfo) + resetStr;
+        var finalDescription = (string.IsNullOrEmpty(detailInfo) ? $"{finalRemainingPercent.ToString("F1", CultureInfo.InvariantCulture)}% remaining" : detailInfo) + resetStr;
 
-        _logger.LogInformation("Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, RequestsPercentage: {RequestsPercentage}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
-            ProviderId, $"Z.AI {planDescription}", finalRequestsPercentage, finalRequestsUsedReal, finalDescription, true);
-        
-        return new[] { new ProviderUsage
+        this._logger.LogInformation(
+            "Z.AI Provider Usage - ProviderId: {ProviderId}, ProviderName: {ProviderName}, UsedPercent: {UsedPercent}%, RequestsUsed: {RequestsUsed}%, Description: {Description}, IsAvailable: {IsAvailable}",
+            this.ProviderId,
+            providerLabel,
+            finalUsedPercent,
+            finalRequestsUsedReal,
+            finalDescription,
+            true);
+
+        return new[]
         {
-            ProviderId = ProviderId,
-            ProviderName = $"Z.AI {planDescription}",
-            RequestsPercentage = finalRequestsPercentage,
+            new ProviderUsage
+        {
+            ProviderId = this.ProviderId,
+            ProviderName = providerLabel,
+            UsedPercent = finalUsedPercent,
             RequestsUsed = finalRequestsUsedReal,  // Store actual used count/percentage
             RequestsAvailable = finalRequestsAvailable, // Store actual total limit
-            UsageUnit = finalRequestsAvailable > 100 ? "Tokens" : "Quota %",
-            IsQuotaBased = true, 
+            IsQuotaBased = true,
             PlanType = PlanType.Coding,
             DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
-            Description = finalDescription,
+            Description = FormatDescription(finalDescription, planDescription),
             NextResetTime = nextResetTime,
             IsAvailable = true,
             RawJson = responseString,
-            HttpStatus = httpStatus
-        }};
+            HttpStatus = httpStatus,
+        },
+        };
+    }
+
+    private static string FormatDescription(string description, string planDescription)
+    {
+        return string.Equals(planDescription, "API", StringComparison.OrdinalIgnoreCase)
+            ? description
+            : $"{description} | Plan: {planDescription}";
+    }
+
+    private static DateTime ParseTimestamp(long ts)
+    {
+        // Heuristic: values > 10^10 are milliseconds (e.g. 1773454046559), otherwise seconds.
+        return ts < 10_000_000_000
+            ? DateTimeOffset.FromUnixTimeSeconds(ts).LocalDateTime
+            : DateTimeOffset.FromUnixTimeMilliseconds(ts).LocalDateTime;
     }
 
     private class ZaiEnvelope<T>
@@ -306,13 +393,22 @@ public class ZaiProvider : ProviderBase
 
         [JsonPropertyName("usage")] // This is actually the total limit in Z.AI response
         public long? Total { get; set; }
-        
+
         [JsonPropertyName("remaining")]
         public long? Remaining { get; set; }
-        
+
         [JsonPropertyName("nextResetTime")]
         public long? NextResetTime { get; set; }
+
+        /// <summary>
+        /// Z.ai window duration unit. Observed values: 3 = hours, 5 = months.
+        /// Coding Plan TOKENS_LIMIT: unit=3, number=5 → 5-hour rolling window.
+        /// </summary>
+        [JsonPropertyName("unit")]
+        public int? Unit { get; set; }
+
+        /// <summary>Number of units in the window duration (e.g. 5 for a 5-hour window).</summary>
+        [JsonPropertyName("number")]
+        public long? Number { get; set; }
     }
 }
-
-

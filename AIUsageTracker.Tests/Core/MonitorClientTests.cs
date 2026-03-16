@@ -1,10 +1,14 @@
-using AIUsageTracker.Core.MonitorClient;
+// <copyright file="MonitorClientTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Net;
+using System.Reflection;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Moq.Protected;
-using System.Net;
-using System.Reflection;
 using Xunit;
 
 namespace AIUsageTracker.Tests.Core;
@@ -12,7 +16,7 @@ namespace AIUsageTracker.Tests.Core;
 public class MonitorClientTests
 {
     [Fact]
-    public async Task MonitorService_GetConfigsAsync_ReturnsEmptyList_WhenMonitorNotAvailable()
+    public async Task MonitorService_GetConfigsAsync_ReturnsEmptyList_WhenMonitorNotAvailableAsync()
     {
         // Arrange
         var mockHandler = new Mock<HttpMessageHandler>();
@@ -25,7 +29,7 @@ public class MonitorClientTests
 
         var httpClient = new HttpClient(mockHandler.Object)
         {
-            BaseAddress = new Uri("http://localhost:9999")
+            BaseAddress = new Uri("http://localhost:9999"),
         };
 
         var service = new MonitorService(httpClient, NullLogger<MonitorService>.Instance);
@@ -40,7 +44,7 @@ public class MonitorClientTests
     }
 
     [Fact]
-    public async Task MonitorService_GetUsageAsync_ReturnsEmptyList_WhenMonitorNotAvailable()
+    public async Task MonitorService_GetUsageAsync_ReturnsEmptyList_WhenMonitorNotAvailableAsync()
     {
         // Arrange
         var mockHandler = new Mock<HttpMessageHandler>();
@@ -53,7 +57,7 @@ public class MonitorClientTests
 
         var httpClient = new HttpClient(mockHandler.Object)
         {
-            BaseAddress = new Uri("http://localhost:9999")
+            BaseAddress = new Uri("http://localhost:9999"),
         };
 
         var service = new MonitorService(httpClient, NullLogger<MonitorService>.Instance);
@@ -79,17 +83,20 @@ public class MonitorClientTests
     }
 
     [Fact]
-    public async Task MonitorLauncher_GetAndValidateMonitorInfo_ReturnsNull_WhenHealthFails()
+    public async Task MonitorLauncher_GetAndValidateMonitorInfo_ReturnsNull_WhenHealthFailsAsync()
     {
-        // Act
+        using var overrides = MonitorLauncher.PushTestOverrides(
+            monitorInfoCandidatePaths: Array.Empty<string>(),
+            healthCheckAsync: ignoredPort => Task.FromResult(false),
+            processRunningAsync: ignoredProcessId => Task.FromResult(false));
+
         var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
 
-        // Assert
         Assert.Null(result);
     }
 
     [Fact]
-    public async Task MonitorLauncher_InvalidateMonitorInfo_DoesNotThrow_WhenFileMissing()
+    public async Task MonitorLauncher_InvalidateMonitorInfo_DoesNotThrow_WhenFileMissingAsync()
     {
         // Act & Assert
         await MonitorLauncher.InvalidateMonitorInfoAsync();

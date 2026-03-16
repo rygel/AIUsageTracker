@@ -1,3 +1,7 @@
+// <copyright file="ProviderEndpoints.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 namespace AIUsageTracker.Infrastructure.Constants;
 
 /// <summary>
@@ -7,21 +11,21 @@ namespace AIUsageTracker.Infrastructure.Constants;
 public static class ProviderEndpoints
 {
     /// <summary>
-    /// OpenAI API endpoints
+    /// OpenAI API endpoints.
     /// </summary>
     public static class OpenAI
     {
         public const string BaseUrl = "https://api.openai.com";
         public const string Models = "https://api.openai.com/v1/models";
         public const string WhamUsage = "https://chatgpt.com/backend-api/wham/usage";
-        
+
         // JWT claim keys
         public const string ProfileClaimKey = "https://api.openai.com/profile";
         public const string AuthClaimKey = "https://api.openai.com/auth";
     }
 
     /// <summary>
-    /// Anthropic API endpoints
+    /// Anthropic API endpoints.
     /// </summary>
     public static class Anthropic
     {
@@ -30,7 +34,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// Google/Gemini API endpoints
+    /// Google/Gemini API endpoints.
     /// </summary>
     public static class Gemini
     {
@@ -39,7 +43,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// GitHub API endpoints
+    /// GitHub API endpoints.
     /// </summary>
     public static class GitHub
     {
@@ -50,7 +54,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// Z.AI API endpoints
+    /// Z.AI API endpoints.
     /// </summary>
     public static class ZAI
     {
@@ -59,7 +63,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// OpenRouter API endpoints
+    /// OpenRouter API endpoints.
     /// </summary>
     public static class OpenRouter
     {
@@ -69,7 +73,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// Mistral AI API endpoints
+    /// Mistral AI API endpoints.
     /// </summary>
     public static class Mistral
     {
@@ -78,7 +82,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// DeepSeek API endpoints
+    /// DeepSeek API endpoints.
     /// </summary>
     public static class DeepSeek
     {
@@ -87,7 +91,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// Kimi API endpoints
+    /// Kimi API endpoints.
     /// </summary>
     public static class Kimi
     {
@@ -96,7 +100,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// Minimax API endpoints
+    /// Minimax API endpoints.
     /// </summary>
     public static class Minimax
     {
@@ -106,7 +110,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// Xiaomi AI API endpoints
+    /// Xiaomi AI API endpoints.
     /// </summary>
     public static class Xiaomi
     {
@@ -115,7 +119,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// OpenCode API endpoints
+    /// OpenCode API endpoints.
     /// </summary>
     public static class OpenCode
     {
@@ -124,7 +128,7 @@ public static class ProviderEndpoints
     }
 
     /// <summary>
-    /// Synthetic API endpoints
+    /// Synthetic API endpoints.
     /// </summary>
     public static class Synthetic
     {

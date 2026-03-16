@@ -1,93 +1,233 @@
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+// <copyright file="KestrelWebApplicationFactory.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Diagnostics;
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using AIUsageTracker.Tests.Infrastructure;
 
 namespace AIUsageTracker.Web.Tests;
 
-public class KestrelWebApplicationFactory<TEntryPoint> : IDisposable where TEntryPoint : class
+public sealed class KestrelWebApplicationFactory<TEntryPoint> : IDisposable
+    where TEntryPoint : class
 {
-    private IHost? _host;
+    private readonly object _syncRoot = new();
+    private readonly StringBuilder _startupOutput = new();
+    private readonly string _projectPath;
+    private readonly IReadOnlyDictionary<string, string>? _environmentOverrides;
+    private readonly string? _localAppDataRoot;
+    private readonly bool _ownsLocalAppDataRoot;
+    private Process? _process;
     private string? _serverAddress;
+    private bool _disposed;
+    private bool _initialized;
+
+    public KestrelWebApplicationFactory()
+        : this(localAppDataRoot: null, ownsLocalAppDataRoot: false, environmentOverrides: null)
+    {
+    }
+
+    public KestrelWebApplicationFactory(string localAppDataRoot)
+        : this(localAppDataRoot, ownsLocalAppDataRoot: true, environmentOverrides: null)
+    {
+    }
+
+    public KestrelWebApplicationFactory(IReadOnlyDictionary<string, string> environmentOverrides)
+        : this(localAppDataRoot: null, ownsLocalAppDataRoot: false, environmentOverrides)
+    {
+    }
+
+    private KestrelWebApplicationFactory(
+        string? localAppDataRoot,
+        bool ownsLocalAppDataRoot,
+        IReadOnlyDictionary<string, string>? environmentOverrides)
+    {
+        this._projectPath = Path.GetFullPath(
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web"));
+        this._environmentOverrides = environmentOverrides;
+        this._localAppDataRoot = localAppDataRoot;
+        this._ownsLocalAppDataRoot = ownsLocalAppDataRoot;
+    }
+
+    public string? LocalAppDataRoot => this._localAppDataRoot;
 
     public string ServerAddress
     {
         get
         {
-            if (_host == null)
-            {
-                InitializeHost();
-            }
-            return _serverAddress ?? throw new InvalidOperationException("Server address not initialized.");
+            this.EnsureStarted();
+            return this._serverAddress ?? throw new InvalidOperationException("Server failed to start.");
         }
-    }
-
-    private void InitializeHost()
-    {
-        var projectDir = ResolveProjectDirectory();
-        
-        _host = Host.CreateDefaultBuilder()
-            .ConfigureWebHostDefaults(webBuilder =>
-            {
-                webBuilder.UseContentRoot(projectDir);
-                webBuilder.UseKestrel(options =>
-                {
-                    options.Listen(IPAddress.Loopback, 0); // Random port
-                });
-                webBuilder.UseStartup<TEntryPoint>();
-            })
-            .Build();
-
-        _host.Start();
-
-        var server = _host.Services.GetRequiredService<IServer>();
-        var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses;
-        _serverAddress = addresses?.FirstOrDefault();
-        
-        if (_serverAddress == null)
-        {
-            throw new InvalidOperationException("Could not determine server address.");
-        }
-    }
-
-    private static string ResolveProjectDirectory()
-    {
-        // Try local development path (relative to bin/Debug/net8.0)
-        var localPath = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web");
-        if (Directory.Exists(localPath))
-        {
-            return Path.GetFullPath(localPath);
-        }
-
-        // Try CI path (relative to repo root if current directory is root)
-        var ciPath = Path.Combine(Directory.GetCurrentDirectory(), "AIUsageTracker.Web");
-        if (Directory.Exists(ciPath))
-        {
-            return Path.GetFullPath(ciPath);
-        }
-
-        // Fallback: search up for solution root
-        var current = new DirectoryInfo(AppContext.BaseDirectory);
-        while (current != null)
-        {
-            var candidate = Path.Combine(current.FullName, "AIUsageTracker.Web");
-            if (Directory.Exists(candidate))
-            {
-                return candidate;
-            }
-            current = current.Parent;
-        }
-
-        throw new DirectoryNotFoundException("Could not find AIUsageTracker.Web project directory.");
     }
 
     public void Dispose()
     {
-        _host?.StopAsync().GetAwaiter().GetResult();
-        _host?.Dispose();
-        _host = null;
+        if (this._disposed)
+        {
+            return;
+        }
+
+        this._disposed = true;
+        try
+        {
+            if (this._process != null && !this._process.HasExited)
+            {
+                this._process.CloseMainWindow();
+                if (!this._process.WaitForExit(5000))
+                {
+                    this._process.Kill(entireProcessTree: true);
+                    this._process.WaitForExit(5000);
+                }
+            }
+        }
+        catch
+        {
+            // Ignore cleanup failures.
+        }
+        finally
+        {
+            this._process?.Dispose();
+            this._process = null;
+
+            if (this._ownsLocalAppDataRoot &&
+                !string.IsNullOrWhiteSpace(this._localAppDataRoot) &&
+                Directory.Exists(this._localAppDataRoot))
+            {
+                TestTempPaths.CleanupPath(this._localAppDataRoot);
+            }
+        }
+    }
+
+    private static int GetAvailablePort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        return port;
+    }
+
+    private void EnsureStarted()
+    {
+        if (this._initialized)
+        {
+            return;
+        }
+
+        lock (this._syncRoot)
+        {
+            if (this._initialized)
+            {
+                return;
+            }
+
+            this.StartServerProcess();
+            this._initialized = true;
+        }
+    }
+
+    private void StartServerProcess()
+    {
+        if (!Directory.Exists(this._projectPath))
+        {
+            throw new DirectoryNotFoundException($"Could not locate web project at '{this._projectPath}'.");
+        }
+
+        var port = GetAvailablePort();
+        var address = $"http://127.0.0.1:{port}";
+        var args = $"run --project \"{this._projectPath}\" --no-build --no-restore -- --urls \"{address}\"";
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "dotnet",
+            Arguments = args,
+            WorkingDirectory = this._projectPath,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        startInfo.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+        startInfo.Environment["MSBuildEnableWorkloadResolver"] = "false";
+        startInfo.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        startInfo.Environment["DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER"] = "1";
+        startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
+        if (!string.IsNullOrWhiteSpace(this._localAppDataRoot))
+        {
+            Directory.CreateDirectory(this._localAppDataRoot);
+            startInfo.Environment["LOCALAPPDATA"] = this._localAppDataRoot;
+        }
+
+        if (this._environmentOverrides != null)
+        {
+            foreach (var pair in this._environmentOverrides)
+            {
+                startInfo.Environment[pair.Key] = pair.Value;
+            }
+        }
+
+        this._process = new Process
+        {
+            StartInfo = startInfo,
+            EnableRaisingEvents = true,
+        };
+        this._process.OutputDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                this._startupOutput.AppendLine(args.Data);
+            }
+        };
+        this._process.ErrorDataReceived += (_, args) =>
+        {
+            if (!string.IsNullOrWhiteSpace(args.Data))
+            {
+                this._startupOutput.AppendLine(args.Data);
+            }
+        };
+
+        if (!this._process.Start())
+        {
+            throw new InvalidOperationException("Failed to start dotnet process for AIUsageTracker.Web.");
+        }
+
+        this._process.BeginOutputReadLine();
+        this._process.BeginErrorReadLine();
+
+        this.WaitForServerReady(address);
+        this._serverAddress = address;
+    }
+
+    private void WaitForServerReady(string address)
+    {
+        var port = new Uri(address).Port;
+        var started = DateTime.UtcNow;
+        while (DateTime.UtcNow - started < TimeSpan.FromSeconds(30))
+        {
+            if (this._process == null || this._process.HasExited)
+            {
+                throw new InvalidOperationException(
+                    "AIUsageTracker.Web process exited before becoming available. "
+                    + $"Output: {this._startupOutput}");
+            }
+
+            try
+            {
+                using var ping = new TcpClient();
+                ping.Connect(IPAddress.Loopback, port);
+                return;
+            }
+            catch
+            {
+                // Intentionally ignore startup race; keep polling.
+            }
+
+            Thread.Sleep(250);
+        }
+
+        throw new TimeoutException(
+            $"AIUsageTracker.Web did not start on {address} within 30s. "
+            + $"Output: {this._startupOutput}");
     }
 }

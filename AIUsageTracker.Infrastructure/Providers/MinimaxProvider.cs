@@ -1,3 +1,8 @@
+// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -10,91 +15,120 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class MinimaxProvider : ProviderBase
 {
-    public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "minimax",
-        displayName: "Minimax (China)",
-        planType: PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based",
-        includeInWellKnownProviders: true,
-        handledProviderIds: new[] { "minimax", "minimax-io", "minimax-global" },
-        displayNameOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["minimax-io"] = "Minimax (International)",
-            ["minimax-global"] = "Minimax (International)"
-        });
+    public const string ChinaProviderId = "minimax";
+    public const string InternationalProviderId = "minimax-io";
+    public const string InternationalLegacyProviderId = "minimax-global";
 
-    public override ProviderDefinition Definition => StaticDefinition;
-    public override string ProviderId => StaticDefinition.ProviderId;
     private readonly HttpClient _httpClient;
     private readonly ILogger<MinimaxProvider> _logger;
 
     public MinimaxProvider(HttpClient httpClient, ILogger<MinimaxProvider> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
 
+    public static ProviderDefinition StaticDefinition { get; } = new(
+        ChinaProviderId,
+        "Minimax (China)",
+        PlanType.Coding,
+        isQuotaBased: true,
+        defaultConfigType: "quota-based")
+    {
+        IncludeInWellKnownProviders = true,
+        AdditionalHandledProviderIds = new[] { InternationalProviderId, InternationalLegacyProviderId },
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [InternationalProviderId] = "Minimax (International)",
+            [InternationalLegacyProviderId] = "Minimax (International)",
+        },
+        SettingsAdditionalProviderIds = new[] { InternationalProviderId },
+        DiscoveryEnvironmentVariables = new[] { "MINIMAX_API_KEY" },
+        IconAssetName = "minimax",
+        FallbackBadgeColorHex = "#00CED1",
+        FallbackBadgeInitial = "MM",
+    };
+
+    /// <inheritdoc/>
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    /// <inheritdoc/>
+    public override string ProviderId => StaticDefinition.ProviderId;
+
+    /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
+        var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
+
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new[] { new ProviderUsage
+            return new[]
+            {
+                new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Minimax",
+                ProviderName = providerLabel,
                 IsAvailable = false,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                Description = "API Key not found."
-            }};
+                Description = "API Key not found.",
+                State = ProviderUsageState.Missing,
+            },
+            };
         }
 
         string url;
+
         // Prioritize BaseUrl if set
         if (!string.IsNullOrEmpty(config.BaseUrl))
         {
             url = config.BaseUrl;
-            if (!url.StartsWith("http")) url = "https://" + url;
+            if (!url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                url = "https://" + url;
+            }
         }
         else
         {
             // Determine endpoint based on ID suffix
-            if (config.ProviderId.EndsWith("-io", StringComparison.OrdinalIgnoreCase) || 
-                config.ProviderId.EndsWith("-global", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(config.ProviderId, InternationalProviderId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(config.ProviderId, InternationalLegacyProviderId, StringComparison.OrdinalIgnoreCase))
             {
-               url = "https://api.minimax.io/v1/user/usage";
+                url = "https://api.minimax.io/v1/user/usage";
             }
             else
             {
-               url = "https://api.minimax.chat/v1/user/usage";
+                url = "https://api.minimax.chat/v1/user/usage";
             }
         }
 
         var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
 
-        var response = await _httpClient.SendAsync(request);
+        var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
         var httpStatus = (int)response.StatusCode;
-        
+
         if (!response.IsSuccessStatusCode)
         {
-            var errorContent = await response.Content.ReadAsStringAsync();
-            return new[] { new ProviderUsage
+            var errorContent = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            return new[]
+            {
+                new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Minimax",
+                ProviderName = providerLabel,
                 IsAvailable = false,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 Description = $"API returned {response.StatusCode} for {url}",
                 RawJson = errorContent,
-                HttpStatus = httpStatus
-            }};
+                HttpStatus = httpStatus,
+            },
+            };
         }
 
-        var responseString = await response.Content.ReadAsStringAsync();
-        
+        var responseString = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
         double used = 0;
         double total = 0;
 
@@ -104,70 +138,76 @@ public class MinimaxProvider : ProviderBase
             if (minimax?.Usage != null)
             {
                 used = minimax.Usage.TokensUsed;
-                total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0; 
+                total = minimax.Usage.TokensLimit > 0 ? minimax.Usage.TokensLimit : 0;
             }
             else
             {
-             return new[] { new ProviderUsage
-             {
-                 ProviderId = config.ProviderId,
-                 ProviderName = "Minimax",
-                 IsAvailable = false,
-                 IsQuotaBased = true,
-                 PlanType = PlanType.Coding,
-                 Description = "Invalid Minimax response format",
-                 RawJson = responseString,
-                 HttpStatus = httpStatus
-             }};
+                return new[]
+                {
+                     new ProviderUsage
+              {
+                  ProviderId = config.ProviderId,
+                  ProviderName = providerLabel,
+                  IsAvailable = false,
+                  IsQuotaBased = true,
+                  PlanType = PlanType.Coding,
+                  Description = "Invalid Minimax response format",
+                  RawJson = responseString,
+                  HttpStatus = httpStatus,
+              },
+                };
             }
         }
         catch (JsonException ex)
         {
-            return new[] { new ProviderUsage
+            return new[]
+            {
+                new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Minimax",
+                ProviderName = providerLabel,
                 IsAvailable = false,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
                 Description = $"Failed to parse Minimax response: {ex.Message}",
                 RawJson = responseString,
-                HttpStatus = httpStatus
-            }};
+                HttpStatus = httpStatus,
+            },
+            };
         }
 
         var utilization = total > 0 ? (used / total) * 100.0 : 0;
 
-        return new[] { new ProviderUsage
+        return new[]
+        {
+            new ProviderUsage
         {
             ProviderId = config.ProviderId,
-            ProviderName = "Minimax",
-            RequestsPercentage = Math.Min(utilization, 100),
+            ProviderName = providerLabel,
+            UsedPercent = Math.Clamp(utilization, 0, 100),
             RequestsUsed = used,
             RequestsAvailable = total,
             PlanType = PlanType.Coding,
-            UsageUnit = "Tokens", 
             IsQuotaBased = true,
-            Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : ""),
+            Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : string.Empty),
             RawJson = responseString,
-            HttpStatus = httpStatus
-        }};
+            HttpStatus = httpStatus,
+        },
+        };
     }
-    
+
     private class MinimaxResponse
     {
         [JsonPropertyName("usage")]
         public MinimaxUsage? Usage { get; set; }
     }
-    
+
     private class MinimaxUsage
     {
         [JsonPropertyName("tokens_used")]
         public double TokensUsed { get; set; }
-        
+
         [JsonPropertyName("tokens_limit")]
         public double TokensLimit { get; set; }
     }
 }
-
-

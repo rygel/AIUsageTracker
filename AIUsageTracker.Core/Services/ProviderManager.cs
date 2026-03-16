@@ -1,305 +1,169 @@
+// <copyright file="ProviderManager.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Diagnostics;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
 
 namespace AIUsageTracker.Core.Services;
 
 public class ProviderManager : IDisposable
 {
+    public const int DefaultMaxConcurrentProviderRequests = 6;
+    public const int MinMaxConcurrentProviderRequests = 1;
+    public const int MaxMaxConcurrentProviderRequests = 32;
+
+    private static readonly TimeSpan ProviderRequestTimeout = TimeSpan.FromSeconds(25);
+
     private readonly IReadOnlyList<IProviderService> _providers;
     private readonly IConfigLoader _configLoader;
-    private readonly Microsoft.Extensions.Logging.ILogger<ProviderManager> _logger;
+    private readonly ILogger<ProviderManager> _logger;
+    private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _configSemaphore = new(1, 1);
+    private readonly SemaphoreSlim _httpSemaphore;
+    private readonly TimeSpan _configCacheValidity = TimeSpan.FromSeconds(5);
     private List<ProviderUsage> _lastUsages = new();
     private List<ProviderConfig>? _lastConfigs;
     private DateTime _lastConfigLoadTime = DateTime.MinValue;
-    private readonly TimeSpan _configCacheValidity = TimeSpan.FromSeconds(5);
+    private Task<IReadOnlyList<ProviderUsage>>? _refreshTask;
 
-    public List<ProviderUsage> LastUsages => _lastUsages;
-    public List<ProviderConfig>? LastConfigs => _lastConfigs;
-
-    public ProviderManager(IEnumerable<IProviderService> providers, IConfigLoader configLoader, Microsoft.Extensions.Logging.ILogger<ProviderManager> logger)
+    public ProviderManager(
+        IEnumerable<IProviderService> providers,
+        IConfigLoader configLoader,
+        ILogger<ProviderManager> logger,
+        int maxConcurrentProviderRequests = DefaultMaxConcurrentProviderRequests)
     {
-        _providers = providers.ToList();
-        _configLoader = configLoader;
-        _logger = logger;
+        this._providers = providers.ToList();
+        this._configLoader = configLoader;
+        this._logger = logger;
+
+        this.MaxConcurrentProviderRequests = ClampMaxConcurrentProviderRequests(maxConcurrentProviderRequests);
+        this._httpSemaphore = new SemaphoreSlim(this.MaxConcurrentProviderRequests);
     }
 
-    private Task<List<ProviderUsage>>? _refreshTask;
-    private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
-    private readonly SemaphoreSlim _configSemaphore = new(1, 1);
-    private readonly SemaphoreSlim _httpSemaphore = new(6); // Limit parallel HTTP requests to avoid congestion
-    private static readonly TimeSpan ProviderRequestTimeout = TimeSpan.FromSeconds(25);
+    public IReadOnlyList<ProviderUsage> LastUsages => this._lastUsages;
 
-    public async Task<List<ProviderConfig>> GetConfigsAsync(bool forceRefresh = false)
+    public IReadOnlyList<ProviderConfig>? LastConfigs => this._lastConfigs;
+
+    public int MaxConcurrentProviderRequests { get; }
+
+    public static int ClampMaxConcurrentProviderRequests(int value)
     {
-        if (!forceRefresh && _lastConfigs != null && DateTime.UtcNow - _lastConfigLoadTime < _configCacheValidity)
+        return Math.Clamp(value, MinMaxConcurrentProviderRequests, MaxMaxConcurrentProviderRequests);
+    }
+
+    public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync(bool forceRefresh = false)
+    {
+        if (!forceRefresh && this.HasFreshConfigs())
         {
-            _logger.LogDebug("Using cached configs");
-            return _lastConfigs;
+            this._logger.LogDebug("Using cached configs");
+            return this._lastConfigs!;
         }
 
-        await _configSemaphore.WaitAsync();
+        await this._configSemaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (!forceRefresh && _lastConfigs != null && DateTime.UtcNow - _lastConfigLoadTime < _configCacheValidity)
+            if (!forceRefresh && this.HasFreshConfigs())
             {
-                return _lastConfigs;
+                return this._lastConfigs!;
             }
 
-            _logger.LogDebug("Loading configs from file");
-            var configs = (await _configLoader.LoadConfigAsync()).ToList();
-            _lastConfigs = configs;
-            _lastConfigLoadTime = DateTime.UtcNow;
+            this._logger.LogDebug("Loading configs from file");
+            var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
+            this._lastConfigs = configs;
+            this._lastConfigLoadTime = DateTime.UtcNow;
             return configs;
         }
         finally
         {
-            _configSemaphore.Release();
+            this._configSemaphore.Release();
         }
     }
 
-    public async Task<List<ProviderUsage>> GetAllUsageAsync(
+    public async Task<IReadOnlyList<ProviderUsage>> GetAllUsageAsync(
         bool forceRefresh = true,
         Action<ProviderUsage>? progressCallback = null,
         IReadOnlyCollection<string>? includeProviderIds = null,
         IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
     {
-        await _refreshSemaphore.WaitAsync();
+        await this._refreshSemaphore.WaitAsync().ConfigureAwait(false);
         var semaphoreReleased = false;
         try
         {
-            if (_refreshTask != null && !_refreshTask.IsCompleted)
+            if (this._refreshTask != null && !this._refreshTask.IsCompleted)
             {
-                _logger.LogDebug("Joining existing refresh task...");
-                var existingTask = _refreshTask;
-                _refreshSemaphore.Release();
+                this._logger.LogDebug("Joining existing refresh task...");
+                var existingTask = this._refreshTask;
+                this._refreshSemaphore.Release();
                 semaphoreReleased = true;
-                return await existingTask;
+                return await existingTask.ConfigureAwait(false);
             }
 
-            if (!forceRefresh && _lastUsages.Count > 0)
+            if (!forceRefresh && this._lastUsages.Count > 0)
             {
-                _refreshSemaphore.Release();
+                this._refreshSemaphore.Release();
                 semaphoreReleased = true;
-                return _lastUsages;
+                return this._lastUsages;
             }
 
-            _refreshTask = FetchAllUsageInternal(progressCallback, includeProviderIds, overrideConfigs);
-            var currentTask = _refreshTask;
-            _refreshSemaphore.Release();
+            this._refreshTask = this.FetchAllUsageInternalAsync(progressCallback, includeProviderIds, overrideConfigs);
+            var currentTask = this._refreshTask;
+            this._refreshSemaphore.Release();
             semaphoreReleased = true;
-            return await currentTask;
+            return await currentTask.ConfigureAwait(false);
         }
         finally
         {
-            // Release semaphore if it hasn't been released yet (handles exception cases)
             if (!semaphoreReleased)
             {
-                _refreshSemaphore.Release();
+                this._refreshSemaphore.Release();
             }
         }
     }
 
-    private async Task<List<ProviderUsage>> FetchAllUsageInternal(
-        Action<ProviderUsage>? progressCallback = null,
-        IReadOnlyCollection<string>? includeProviderIds = null,
-        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
+    public async Task<IReadOnlyList<ProviderUsage>> GetUsageAsync(string providerId)
     {
-        _logger.LogDebug("Starting FetchAllUsageInternal...");
-        var configs = overrideConfigs != null
-            ? overrideConfigs.Select(CloneConfig).ToList()
-            : (await GetConfigsAsync(forceRefresh: true)).ToList();
-
-        if (overrideConfigs == null)
-        {
-            // Auto-add providers that explicitly declare they should always be present.
-            foreach (var definition in _providers
-                         .Select(p => p.Definition)
-                         .Where(d => d.AutoIncludeWhenUnconfigured))
-            {
-                if (configs.Any(c => c.ProviderId.Equals(definition.ProviderId, StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
-
-                configs.Add(new ProviderConfig
-                {
-                    ProviderId = definition.ProviderId,
-                    ApiKey = string.Empty,
-                    Type = definition.DefaultConfigType,
-                    PlanType = definition.PlanType
-                });
-            }
-        }
-        if (includeProviderIds != null && includeProviderIds.Count > 0)
-        {
-            var included = includeProviderIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            configs = configs
-                .Where(c => included.Contains(c.ProviderId))
-                .ToList();
-        }
-
-        var results = new List<ProviderUsage>();
-
-        var tasks = configs.Select(async config =>
-        {
-            return await FetchSingleProviderUsageAsync(config, progressCallback);
-        });
-
-        var nestedResults = await Task.WhenAll(tasks);
-        results.AddRange(nestedResults.SelectMany(x => x));
-        _lastUsages = results;
-        return results;
-    }
-
-    public async Task<List<ProviderUsage>> GetUsageAsync(string providerId)
-    {
-        var configs = await GetConfigsAsync(forceRefresh: false);
+        var configs = await this.GetConfigsAsync(forceRefresh: false).ConfigureAwait(false);
         var config = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
-        
+
         if (config == null)
         {
-            var definition = _providers
+            var definition = this._providers
                 .Select(p => p.Definition)
-                .FirstOrDefault(d => d.HandlesProviderId(providerId) &&
-                                     d.AutoIncludeWhenUnconfigured);
+                .FirstOrDefault(d => d.HandlesProviderId(providerId) && d.AutoIncludeWhenUnconfigured);
             if (definition == null)
             {
-                throw new ArgumentException($"Provider '{providerId}' not found in configuration.");
+                throw new ArgumentException($"Provider '{providerId}' not found in configuration.", nameof(providerId));
             }
 
-            config = new ProviderConfig
-            {
-                ProviderId = providerId,
-                ApiKey = string.Empty,
-                Type = definition.DefaultConfigType,
-                PlanType = definition.PlanType
-            };
+            config = definition.CreateDefaultConfig(providerId);
         }
 
-        return await FetchSingleProviderUsageAsync(config, null);
+        return await this.FetchSingleProviderUsageAsync(config, null).ConfigureAwait(false);
     }
 
-    private async Task<List<ProviderUsage>> FetchSingleProviderUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback)
+    public void Dispose()
     {
-        var provider = _providers.FirstOrDefault(p => p.Definition.HandlesProviderId(config.ProviderId));
-        var defaults = ResolveDefaults(config.ProviderId, provider);
-
-        if (provider != null)
-        {
-            await _httpSemaphore.WaitAsync();
-            var stopwatch = Stopwatch.StartNew();
-            try
-            {
-                _logger.LogDebug($"Fetching usage for provider: {config.ProviderId}");
-                var usageTask = provider.GetUsageAsync(config, progressCallback);
-                var timeoutTask = Task.Delay(ProviderRequestTimeout);
-                var completedTask = await Task.WhenAny(usageTask, timeoutTask);
-
-                if (completedTask != usageTask)
-                {
-                    stopwatch.Stop();
-                    _logger.LogWarning(
-                        "Provider {ProviderId} timed out after {TimeoutSeconds}s",
-                        config.ProviderId,
-                        ProviderRequestTimeout.TotalSeconds);
-
-                    _ = usageTask.ContinueWith(
-                        static task => { _ = task.Exception; },
-                        TaskContinuationOptions.OnlyOnFaulted);
-
-                    var timeoutUsage = new ProviderUsage
-                    {
-                        ProviderId = config.ProviderId,
-                        ProviderName = defaults.DisplayName,
-                        Description = $"[Error] Timeout after {ProviderRequestTimeout.TotalSeconds:F0}s",
-                        RequestsPercentage = 0,
-                        IsAvailable = false,
-                        IsQuotaBased = defaults.IsQuotaBased,
-                        PlanType = defaults.PlanType,
-                        HttpStatus = 504,
-                        ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds
-                    };
-
-                    progressCallback?.Invoke(timeoutUsage);
-                    return new List<ProviderUsage> { timeoutUsage };
-                }
-
-                var usages = (await usageTask).ToList();
-                stopwatch.Stop();
-                foreach(var u in usages) 
-                {
-                    u.ProviderName = ResolveDisplayName(provider.Definition, u.ProviderId, u.ProviderName);
-                    u.AuthSource = config.AuthSource;
-                    u.ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds;
-                    progressCallback?.Invoke(u);
-                }
-
-                _logger.LogDebug($"Success for {config.ProviderId}: {usages.Count()} items");
-                return usages;
-            }
-            catch (ArgumentException ex)
-            {
-                _logger.LogWarning($"Skipping {config.ProviderId}: {ex.Message}");
-                var errorUsage = new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = defaults.DisplayName,
-                    Description = ex.Message,
-                    RequestsPercentage = 0,
-                    IsAvailable = false,
-                    IsQuotaBased = defaults.IsQuotaBased,
-                    PlanType = defaults.PlanType,
-                    ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds
-                };
-                progressCallback?.Invoke(errorUsage);
-                return new List<ProviderUsage> { errorUsage };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Failed to fetch usage for {config.ProviderId}");
-                var errorUsage = new ProviderUsage
-                {
-                    ProviderId = config.ProviderId,
-                    ProviderName = defaults.DisplayName,
-                    Description = $"[Error] {ex.Message}",
-                    RequestsPercentage = 0,
-                    IsAvailable = true, // Still available, just failed to fetch
-                    IsQuotaBased = defaults.IsQuotaBased,
-                    PlanType = defaults.PlanType,
-                    HttpStatus = 500, // Mark as error
-                    ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds
-                };
-                progressCallback?.Invoke(errorUsage);
-                // Throw exception here to let the caller know it failed (for Check command)
-                if (progressCallback == null) throw; 
-                return new List<ProviderUsage> { errorUsage };
-            }
-            finally
-            {
-                _httpSemaphore.Release();
-            }
-        }
-
-        var unknownProviderUsage = new ProviderUsage 
-        { 
-            ProviderId = config.ProviderId, 
-            ProviderName = defaults.DisplayName,
-            Description = "Usage unknown (provider integration missing)",
-            RequestsPercentage = 0,
-            IsAvailable = false,
-            UsageUnit = "Status",
-            IsQuotaBased = defaults.IsQuotaBased,
-            PlanType = defaults.PlanType,
-            ResponseLatencyMs = 0
-        };
-        progressCallback?.Invoke(unknownProviderUsage);
-        return new List<ProviderUsage> { unknownProviderUsage };
+        this.Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            this._refreshSemaphore.Dispose();
+            this._configSemaphore.Dispose();
+            this._httpSemaphore.Dispose();
+        }
+    }
 
-    private static string ResolveDisplayName(ProviderDefinition definition, string providerId, string? providerName)
+    private static string ResolveDisplayName(
+        ProviderDefinition definition,
+        string providerId,
+        string? providerName)
     {
         var mapped = definition.ResolveDisplayName(providerId);
         if (!string.IsNullOrWhiteSpace(mapped))
@@ -313,33 +177,6 @@ public class ProviderManager : IDisposable
         }
 
         return providerId;
-    }
-
-    private (bool IsQuotaBased, PlanType PlanType, string DisplayName) ResolveDefaults(
-        string providerId,
-        IProviderService? provider = null)
-    {
-        var definition = provider?.Definition ??
-            _providers
-                .Select(p => p.Definition)
-                .FirstOrDefault(d => d.HandlesProviderId(providerId));
-
-        if (definition != null)
-        {
-            return (
-                definition.IsQuotaBased,
-                definition.PlanType,
-                definition.ResolveDisplayName(providerId) ?? definition.DisplayName);
-        }
-        
-        _logger.LogWarning(
-            "Provider metadata missing for {ProviderId}. Identification defaults are disabled.",
-            providerId);
-        
-        return (
-            false,
-            PlanType.Usage,
-            string.IsNullOrWhiteSpace(providerId) ? string.Empty : providerId);
     }
 
     private static ProviderConfig CloneConfig(ProviderConfig source)
@@ -356,24 +193,261 @@ public class ProviderManager : IDisposable
             Models = source.Models,
             Description = source.Description,
             AuthSource = source.AuthSource,
-            PlanType = source.PlanType
+            PlanType = source.PlanType,
         };
     }
 
-    public void Dispose()
+    private static ProviderUsage CreateTimeoutUsage(
+        ProviderConfig config,
+        (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults,
+        Stopwatch stopwatch)
     {
-        Dispose(true);
-        GC.SuppressFinalize(this);
+        return new ProviderUsage
+        {
+            ProviderId = config.ProviderId,
+            ProviderName = defaults.DisplayName,
+            Description = $"[Error] Timeout after {ProviderRequestTimeout.TotalSeconds:F0}s",
+            State = ProviderUsageState.Error,
+            UsedPercent = 0,
+            IsAvailable = false,
+            IsQuotaBased = defaults.IsQuotaBased,
+            PlanType = defaults.PlanType,
+            HttpStatus = 504,
+            ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds,
+        };
     }
 
-    protected virtual void Dispose(bool disposing)
+    private static ProviderUsage CreateArgumentErrorUsage(
+        ProviderConfig config,
+        (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults,
+        string message,
+        Stopwatch stopwatch)
     {
-        if (disposing)
+        return new ProviderUsage
         {
-            _refreshSemaphore.Dispose();
-            _configSemaphore.Dispose();
-            _httpSemaphore.Dispose();
+            ProviderId = config.ProviderId,
+            ProviderName = defaults.DisplayName,
+            Description = message,
+            UsedPercent = 0,
+            IsAvailable = false,
+            IsQuotaBased = defaults.IsQuotaBased,
+            PlanType = defaults.PlanType,
+            ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds,
+        };
+    }
+
+    private static ProviderUsage CreateUnexpectedErrorUsage(
+        ProviderConfig config,
+        (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults,
+        string message,
+        Stopwatch stopwatch)
+    {
+        return new ProviderUsage
+        {
+            ProviderId = config.ProviderId,
+            ProviderName = defaults.DisplayName,
+            Description = $"[Error] {message}",
+            State = ProviderUsageState.Error,
+            UsedPercent = 0,
+            IsAvailable = true,
+            IsQuotaBased = defaults.IsQuotaBased,
+            PlanType = defaults.PlanType,
+            HttpStatus = 500,
+            ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds,
+        };
+    }
+
+    private static ProviderUsage CreateUnknownProviderUsage(
+        ProviderConfig config,
+        (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults)
+    {
+        return new ProviderUsage
+        {
+            ProviderId = config.ProviderId,
+            ProviderName = defaults.DisplayName,
+            Description = "Usage unknown (provider integration missing)",
+            State = ProviderUsageState.Unknown,
+            UsedPercent = 0,
+            IsAvailable = false,
+            IsStatusOnly = true,
+            IsQuotaBased = defaults.IsQuotaBased,
+            PlanType = defaults.PlanType,
+            ResponseLatencyMs = 0,
+        };
+    }
+
+    private static List<ProviderUsage> CreateSingleUsageList(
+        ProviderUsage usage,
+        Action<ProviderUsage>? progressCallback)
+    {
+        progressCallback?.Invoke(usage);
+        return new List<ProviderUsage> { usage };
+    }
+
+    private bool HasFreshConfigs()
+    {
+        return this._lastConfigs != null &&
+            DateTime.UtcNow - this._lastConfigLoadTime < this._configCacheValidity;
+    }
+
+    private async Task<IReadOnlyList<ProviderUsage>> FetchAllUsageInternalAsync(
+        Action<ProviderUsage>? progressCallback = null,
+        IReadOnlyCollection<string>? includeProviderIds = null,
+        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
+    {
+        this._logger.LogDebug("Starting FetchAllUsageInternal...");
+        var configs = overrideConfigs != null
+            ? overrideConfigs.Select(CloneConfig).ToList()
+            : (await this.GetConfigsAsync(forceRefresh: true).ConfigureAwait(false)).ToList();
+
+        if (overrideConfigs == null)
+        {
+            foreach (var definition in this._providers
+                         .Select(p => p.Definition)
+                         .Where(d => d.AutoIncludeWhenUnconfigured))
+            {
+                if (configs.Any(c => c.ProviderId.Equals(definition.ProviderId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                configs.Add(definition.CreateDefaultConfig());
+            }
+        }
+
+        if (includeProviderIds != null && includeProviderIds.Count > 0)
+        {
+            var included = includeProviderIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            configs = configs
+                .Where(c => included.Contains(c.ProviderId))
+                .ToList();
+        }
+
+        var tasks = configs.Select(config => this.FetchSingleProviderUsageAsync(config, progressCallback));
+        var nestedResults = await Task.WhenAll(tasks).ConfigureAwait(false);
+        var results = nestedResults.SelectMany(x => x).ToList();
+        this._lastUsages = results;
+        return results;
+    }
+
+    private async Task<IReadOnlyList<ProviderUsage>> FetchSingleProviderUsageAsync(
+        ProviderConfig config,
+        Action<ProviderUsage>? progressCallback)
+    {
+        var provider = this._providers.FirstOrDefault(p => p.Definition.HandlesProviderId(config.ProviderId));
+        var defaults = this.ResolveDefaults(config.ProviderId, provider);
+
+        if (provider == null)
+        {
+            var unknownProviderUsage = CreateUnknownProviderUsage(config, defaults);
+            return CreateSingleUsageList(unknownProviderUsage, progressCallback);
+        }
+
+        await this._httpSemaphore.WaitAsync().ConfigureAwait(false);
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            return await this.FetchProviderUsagesAsync(
+                    config,
+                    provider,
+                    defaults,
+                    stopwatch,
+                    progressCallback)
+                .ConfigureAwait(false);
+        }
+        catch (ArgumentException ex)
+        {
+            this._logger.LogWarning("Skipping {ProviderId}: {Message}", config.ProviderId, ex.Message);
+            var errorUsage = CreateArgumentErrorUsage(config, defaults, ex.Message, stopwatch);
+            return CreateSingleUsageList(errorUsage, progressCallback);
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Failed to fetch usage for {ProviderId}", config.ProviderId);
+            var errorUsage = CreateUnexpectedErrorUsage(config, defaults, ex.Message, stopwatch);
+            var errorResults = CreateSingleUsageList(errorUsage, progressCallback);
+
+            if (progressCallback == null)
+            {
+                throw;
+            }
+
+            return errorResults;
+        }
+        finally
+        {
+            this._httpSemaphore.Release();
         }
     }
-}
 
+    private async Task<IReadOnlyList<ProviderUsage>> FetchProviderUsagesAsync(
+        ProviderConfig config,
+        IProviderService provider,
+        (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults,
+        Stopwatch stopwatch,
+        Action<ProviderUsage>? progressCallback)
+    {
+        this._logger.LogDebug("Fetching usage for provider: {ProviderId}", config.ProviderId);
+        var usageTask = provider.GetUsageAsync(config, progressCallback);
+        var timeoutTask = Task.Delay(ProviderRequestTimeout);
+        var completedTask = await Task.WhenAny(usageTask, timeoutTask).ConfigureAwait(false);
+
+        if (completedTask != usageTask)
+        {
+            stopwatch.Stop();
+            this._logger.LogWarning(
+                "Provider {ProviderId} timed out after {TimeoutSeconds}s",
+                config.ProviderId,
+                ProviderRequestTimeout.TotalSeconds);
+
+            _ = usageTask.ContinueWith(
+                static task => _ = task.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
+
+            var timeoutUsage = CreateTimeoutUsage(config, defaults, stopwatch);
+            return CreateSingleUsageList(timeoutUsage, progressCallback);
+        }
+
+        var usages = (await usageTask.ConfigureAwait(false)).ToList();
+        stopwatch.Stop();
+        foreach (var usage in usages)
+        {
+            usage.ProviderName = ResolveDisplayName(provider.Definition, usage.ProviderId, usage.ProviderName);
+            usage.AuthSource = config.AuthSource;
+            usage.ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds;
+            progressCallback?.Invoke(usage);
+        }
+
+        this._logger.LogDebug("Success for {ProviderId}: {Count} items", config.ProviderId, usages.Count);
+        return usages;
+    }
+
+    private (bool IsQuotaBased, PlanType PlanType, string DisplayName) ResolveDefaults(
+        string providerId,
+        IProviderService? provider = null)
+    {
+        var definition = provider?.Definition ??
+            this._providers
+                .Select(p => p.Definition)
+                .FirstOrDefault(d => d.HandlesProviderId(providerId));
+
+        if (definition != null)
+        {
+            return (
+                definition.IsQuotaBased,
+                definition.PlanType,
+                definition.ResolveDisplayName(providerId) ?? definition.DisplayName);
+        }
+
+        this._logger.LogWarning(
+            "Provider metadata missing for {ProviderId}. Identification defaults are disabled.",
+            providerId);
+
+        return (
+            false,
+            PlanType.Usage,
+            string.IsNullOrWhiteSpace(providerId) ? string.Empty : providerId);
+    }
+}

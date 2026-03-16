@@ -1,5 +1,9 @@
-using Microsoft.Extensions.Logging;
+// <copyright file="WindowsNotificationService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
@@ -10,27 +14,39 @@ public class WindowsNotificationService : INotificationService
 
     public WindowsNotificationService(ILogger<WindowsNotificationService> logger)
     {
-        _logger = logger;
+        this._logger = logger;
+    }
+
+    public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked
+    {
+        add { }
+        remove { }
     }
 
     public void Initialize()
     {
-        if (_isInitialized) return;
+        if (this._isInitialized)
+        {
+            return;
+        }
 
-        _logger.LogInformation("Initializing notification service");
-        _isInitialized = true;
+        this._logger.LogInformation("Initializing notification service");
+        this._isInitialized = true;
     }
 
     public void Unregister()
     {
-        if (!_isInitialized) return;
+        if (!this._isInitialized)
+        {
+            return;
+        }
 
-        _isInitialized = false;
+        this._isInitialized = false;
     }
 
     public void ShowNotification(string title, string message, string? action = null, string? argument = null)
     {
-        _logger.LogInformation("Notification: {Title} - {Message}", title, message);
+        this._logger.LogInformation("Notification: {Title} - {Message}", title, message);
     }
 
     public void ShowUsageAlert(string providerName, double usagePercentage)
@@ -39,21 +55,17 @@ public class WindowsNotificationService : INotificationService
         {
             >= 90 => "Critical",
             >= 75 => "Warning",
-            _ => "Info"
+            _ => "Info",
         };
         var message = usagePercentage >= 100
             ? $"Quota exceeded at {usagePercentage:F1}%."
             : $"Usage is {usagePercentage:F1}%";
 
-        ShowNotification($"{providerName} - {level}", message, "showProvider", providerName);
+        this.ShowNotification($"{providerName} - {level}", message, "showProvider", providerName);
     }
 
     public void ShowQuotaExceeded(string providerName, string details)
     {
-        ShowNotification($"{providerName} Quota Exceeded", details, "showProvider", providerName);
+        this.ShowNotification($"{providerName} Quota Exceeded", details, "showProvider", providerName);
     }
-
-    public event EventHandler<NotificationClickedEventArgs>? OnNotificationClicked;
 }
-
-

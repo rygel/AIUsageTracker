@@ -1,54 +1,88 @@
 # Data Flow Documentation
 
-This document describes how the AI Consumption Tracker reads and writes data, including the specific files and the order in which they are processed.
+This document describes the current data flow for configuration, authentication, preferences, and monitor usage data.
 
-## Configuration & Authentication (Read)
+## Configuration and Authentication (Read)
 
-The application attempts to load provider configurations (API keys, base URLs, etc.) from multiple locations in the following order. The first occurrence of a provider configuration is used.
+Provider configuration is loaded by `JsonConfigLoader` from `ConfigPathCatalog` in this order:
 
-1.  **`%USERPROFILE%\.ai-consumption-tracker\auth.json`**: The primary configuration file for this application.
-2.  **`%USERPROFILE%\.local\share\opencode\auth.json`**: Compatibility path for OpenCode.
-3.  **`%APPDATA%\opencode\auth.json`**: Standard application data path.
-4.  **`%LOCALAPPDATA%\opencode\auth.json`**: Local application data path.
-5.  **`%USERPROFILE%\.opencode\auth.json`**: Legacy root path.
+1. `%USERPROFILE%\.opencode\auth.json` (`IAppPathProvider.GetAuthFilePath()`)
+2. `%LOCALAPPDATA%\AIUsageTracker\providers.json` (`IAppPathProvider.GetProviderConfigFilePath()`)
 
-### Token Discovery (Read)
+During merge:
 
-If a provider's API key is not found in configuration files above, application performs an automatic discovery in this order:
+- `auth.json` is treated as the key source.
+- `providers.json` contributes provider metadata (`type`, `base_url`, tray flags, model config).
+- Non-empty keys from auth source are preserved.
 
-1.  **Environment Variables**:
-    - `OPENAI_API_KEY` - OpenAI API key
-    - `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` - Anthropic/Claude API key
-    - `GEMINI_API_KEY` or `GOOGLE_API_KEY` - Google Gemini API key
-    - `DEEPSEEK_API_KEY` - DeepSeek API key
-    - `OPENROUTER_API_KEY` - OpenRouter API key
-    - `KIMI_API_KEY` or `MOONSHOT_API_KEY` - Kimi API key
-    - `XIAOMI_API_KEY` or `MIMO_API_KEY` - Xiaomi API key
-    - `MINIMAX_API_KEY` - Minimax API key
-    - `ZAI_API_KEY` or `Z_AI_API_KEY` - Z.AI API key
-    - `ANTIGRAVITY_API_KEY` or `GOOGLE_ANTIGRAVITY_API_KEY` - Google Antigravity API key
-    - `OPENCODE_API_KEY` - OpenCode API key
-    - `OPENCODE_ZEN_API_KEY` - OpenCode Zen API key
-    - `CLOUDCODE_API_KEY` - CloudCode API key
-    - `CODEX_API_KEY` - Codex API key
-2.  **Kilo Code Secrets**: `%USERPROFILE%\.kilocode\secrets.json`
-    - Automatically discovers OpenAI keys configured in Roo Cline
-3.  **Providers Definition**: `%USERPROFILE%\.local\share\opencode\providers.json`
+## Token Discovery (Fallback Read)
 
-## Application Preferences (Read)
+After file merge, `TokenDiscoveryService` fills missing keys from discovery sources:
 
-User preferences (font settings, layout, tray options) are loaded in this order:
+1. Environment variables for supported providers.
+2. Kilo Code / Roo Code token stores.
+3. Claude Code and Codex native auth files.
 
-1.  **`auth.json` (app_settings key)**: Preferences are now unified into the primary `auth.json` file.
-2.  **`%USERPROFILE%\.ai-consumption-tracker\preferences.json`**: Legacy fallback path.
+Discovery augments missing keys; it does not overwrite already populated keys.
 
-## Data Persistence (Write)
+Provider-specific fallback coverage (metadata-enforced):
 
-All user changes made through the Settings UI are written to a single location:
+- `openai`: `OPENAI_API_KEY`, Roo `openAiApiKey`, OpenCode auth session files.
+- `codex`: `CODEX_API_KEY`, Codex auth session files.
+- `claude-code`: `ANTHROPIC_API_KEY`/`CLAUDE_API_KEY`, Claude credentials file.
+- `gemini-cli`: `GEMINI_API_KEY`/`GOOGLE_API_KEY`, Roo `geminiApiKey`, plus Gemini CLI local files (section below).
+- `deepseek`: `DEEPSEEK_API_KEY`, Roo `deepseekApiKey`.
+- `openrouter`: `OPENROUTER_API_KEY`, Roo `openrouterApiKey`.
+- `kimi`: `KIMI_API_KEY`/`MOONSHOT_API_KEY`.
+- `xiaomi`: `XIAOMI_API_KEY`/`MIMO_API_KEY`.
+- `minimax`: `MINIMAX_API_KEY`.
+- `mistral`: Roo `mistralApiKey` and runtime env fallback in provider.
+- `zai-coding-plan` (`zai`): `ZAI_API_KEY`/`Z_AI_API_KEY`, Roo `zaiApiKey`.
+- `synthetic`: `SYNTHETIC_API_KEY`, Roo `syntheticApiKey`.
+- `github-copilot`: external auth state via GitHub auth files/service.
+- `antigravity`, `opencode-zen`: local runtime providers (process/CLI based, no API-key fallback chain).
 
-1.  **`%USERPROFILE%\.ai-consumption-tracker\auth.json`**
-    - **Provider Configs**: Individual provider keys and tray options are updated.
-    - **App Settings**: The `app_settings` root key is updated with current `AppPreferences`.
+## Gemini CLI Auth Flow
 
-> [!NOTE]
-> The application preserves existing `app_settings` when saving provider configurations to ensure no data loss.
+`gemini-cli` supports two local auth sources, in this strict order:
+
+1. `%USERPROFILE%\.config\opencode\antigravity-accounts.json` (preferred when present; supports multiple accounts).
+2. `%USERPROFILE%\.gemini\oauth_creds.json` + `%USERPROFILE%\.gemini\projects.json` (fallback for native Gemini CLI installs).
+
+Gemini fallback details:
+
+- `oauth_creds.json` provides `refresh_token` and `id_token`.
+- Account identity is read from `id_token.email`; if missing, fallback to `%USERPROFILE%\.gemini\google_accounts.json` `active`.
+- Project ID is resolved from `%USERPROFILE%\.gemini\projects.json`:
+  - first choice: longest path match for the current working directory.
+  - fallback: first available mapped project value.
+
+If neither source yields a valid refresh token + project mapping, Gemini is shown as unavailable with `No Gemini accounts found`.
+
+## Preferences (Read and Write)
+
+Preferences are stored separately from auth:
+
+- `%LOCALAPPDATA%\AIUsageTracker\preferences.json`
+
+`SavePreferencesAsync` writes only the canonical preferences file and does not mutate auth/provider config files.
+
+## Provider Config Persistence (Write)
+
+When provider settings are saved:
+
+1. Keys are written to `%USERPROFILE%\.opencode\auth.json`.
+2. Non-secret provider settings are written to `%LOCALAPPDATA%\AIUsageTracker\providers.json`.
+
+The export builder preserves existing per-provider payload structure where possible while updating the relevant fields.
+
+## Monitor Data Flow
+
+At runtime, the Monitor service:
+
+1. Loads merged provider config via `IConfigLoader`.
+2. Refreshes provider usage on schedule and on manual refresh.
+3. Persists usage snapshots to `%LOCALAPPDATA%\AIUsageTracker\usage.db`.
+4. Serves UI/Web clients via `/api/usage`, `/api/history`, `/api/config`, and related endpoints.
+
+The Slim UI and Web UI read from monitor endpoints, not directly from provider APIs.

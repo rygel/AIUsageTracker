@@ -1,17 +1,19 @@
+// <copyright file="SettingsWindow.xaml.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
-using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.UI.Slim.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,89 +24,103 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class SettingsWindow : Window
 {
-    private sealed class ThemeOption
+    private static readonly JsonSerializerOptions BundleJsonOptions = new()
     {
-        public AppTheme Value { get; init; }
-        public string Label { get; init; } = string.Empty;
-    }
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        WriteIndented = true,
+    };
 
     private readonly IMonitorService _monitorService;
+    private readonly IMonitorLifecycleService _monitorLifecycleService;
     private readonly ILogger<SettingsWindow> _logger;
+    private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
+    private readonly DisplayPreferencesService _displayPreferences;
+    private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
+    private readonly DispatcherTimer _autoSaveTimer;
+
     private List<ProviderConfig> _configs = new();
     private List<ProviderUsage> _usages = new();
-    private string? _gitHubAuthUsername;
-    private string? _openAiAuthUsername;
-    private string? _codexAuthUsername;
     private AppPreferences _preferences = new();
-    private AppPreferences _agentPreferences = new();
     private bool _isPrivacyMode = App.IsPrivacyMode;
     private bool _isDeterministicScreenshotMode;
     private bool _isLoadingSettings;
     private bool _hasPendingAutoSave;
-    private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
-    private readonly DispatcherTimer _autoSaveTimer;
 
-    public bool SettingsChanged { get; private set; }
-
-    public SettingsWindow(IMonitorService monitorService, ILogger<SettingsWindow> logger, UiPreferencesStore preferencesStore)
+    public SettingsWindow(
+        IMonitorService monitorService,
+        IMonitorLifecycleService monitorLifecycleService,
+        ILogger<SettingsWindow> logger,
+        UiPreferencesStore preferencesStore,
+        IAppPathProvider pathProvider,
+        DisplayPreferencesService displayPreferences)
     {
-        _autoSaveTimer = new DispatcherTimer
+        this._autoSaveTimer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(600)
+            Interval = TimeSpan.FromMilliseconds(600),
         };
-        _autoSaveTimer.Tick += AutoSaveTimer_Tick;
+        this._autoSaveTimer.Tick += this.AutoSaveTimer_Tick;
 
-        InitializeComponent();
-        _monitorService = monitorService;
-        _logger = logger;
-        _preferencesStore = preferencesStore;
-        App.PrivacyChanged += OnPrivacyChanged;
-        Closed += SettingsWindow_Closed;
-        Loaded += SettingsWindow_Loaded;
-        UpdatePrivacyButtonState();
+        this.InitializeComponent();
+        this._monitorService = monitorService;
+        this._monitorLifecycleService = monitorLifecycleService;
+        this._logger = logger;
+        this._pathProvider = pathProvider;
+        this._preferencesStore = preferencesStore;
+        this._displayPreferences = displayPreferences;
+        App.PrivacyChanged += this.OnPrivacyChanged;
+        this.Closed += this.SettingsWindow_Closed;
+        this.Loaded += this.SettingsWindow_Loaded;
+        this.UpdatePrivacyButtonState();
     }
 
-    public SettingsWindow() : this(
+    public SettingsWindow()
+        : this(
         App.Host.Services.GetRequiredService<IMonitorService>(),
+        App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
         App.Host.Services.GetRequiredService<ILogger<SettingsWindow>>(),
-        App.Host.Services.GetRequiredService<UiPreferencesStore>())
+        App.Host.Services.GetRequiredService<UiPreferencesStore>(),
+        App.Host.Services.GetRequiredService<IAppPathProvider>(),
+        App.Host.Services.GetRequiredService<DisplayPreferencesService>())
     {
     }
 
+    internal bool SettingsChanged { get; private set; }
+
+#pragma warning disable VSTHRD100 // WPF event handlers require async void signatures.
     private async void SettingsWindow_Loaded(object sender, RoutedEventArgs e)
     {
         try
         {
-            await _monitorService.RefreshPortAsync();
-            await _monitorService.RefreshAgentInfoAsync();
-            await LoadDataAsync();
+            await this._monitorService.RefreshPortAsync();
+            await this._monitorService.RefreshAgentInfoAsync();
+            await this.LoadDataAsync();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Settings load failed");
+            this._logger.LogError(ex, "Settings load failed");
             MessageBox.Show(
                 $"Failed to load Settings: {ex.Message}",
                 "Settings Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
-            Close();
+            this.Close();
         }
     }
 
     private async Task LoadDataAsync()
     {
-        _isLoadingSettings = true;
+        this._isLoadingSettings = true;
         string? loadError = null;
-        
+
         try
         {
-            _isDeterministicScreenshotMode = false;
-            
-            _configs = await _monitorService.GetConfigsAsync();
-            _usages = await _monitorService.GetUsageAsync();
-            
-            if (_configs.Count == 0)
+            this._isDeterministicScreenshotMode = false;
+
+            this._configs = (await this._monitorService.GetConfigsAsync().ConfigureAwait(true)).ToList();
+            this._usages = (await this.GetUsageForDisplayAsync().ConfigureAwait(true)).ToList();
+
+            if (this._configs.Count == 0)
             {
                 loadError = "No providers found. This may indicate:\n" +
                            "- Monitor is not running\n" +
@@ -112,23 +128,19 @@ public partial class SettingsWindow : Window
                            "- No providers configured in Monitor\n\n" +
                            "Try clicking 'Refresh Data' or restarting the Monitor.";
             }
-            
-            _gitHubAuthUsername = await TryGetGitHubUsernameFromAuthAsync();
-            _openAiAuthUsername = await TryGetOpenAiUsernameFromAuthAsync();
-            _codexAuthUsername = await TryGetCodexUsernameFromAuthAsync();
-            _preferences = await _preferencesStore.LoadAsync();
-            _agentPreferences = await _monitorService.GetPreferencesAsync();
-            App.Preferences = _preferences;
-            _isPrivacyMode = _preferences.IsPrivacyMode;
-            App.SetPrivacyMode(_isPrivacyMode);
-            UpdatePrivacyButtonState();
 
-            PopulateProviders();
-            RefreshTrayIcons();
-            PopulateLayoutSettings();
-            await LoadHistoryAsync();
-            await UpdateMonitorStatusAsync();
-            RefreshDiagnosticsLog();
+            this._preferences = await this._preferencesStore.LoadAsync().ConfigureAwait(true);
+            App.Preferences = this._preferences;
+            this._isPrivacyMode = this._preferences.IsPrivacyMode;
+            App.SetPrivacyMode(this._isPrivacyMode);
+            this.UpdatePrivacyButtonState();
+
+            this.PopulateProviders();
+            this.RefreshTrayIcons();
+            this.PopulateLayoutSettings();
+            await this.LoadHistoryAsync().ConfigureAwait(true);
+            await this.UpdateMonitorStatusAsync().ConfigureAwait(true);
+            this.RefreshDiagnosticsLog();
         }
         catch (HttpRequestException ex)
         {
@@ -141,342 +153,41 @@ public partial class SettingsWindow : Window
         }
         finally
         {
-            _isLoadingSettings = false;
-            
+            this._isLoadingSettings = false;
+
             if (loadError != null)
             {
-                MessageBox.Show(loadError, "Connection Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    loadError,
+                    "Connection Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
         }
     }
 
-    private static async Task<string?> TryGetGitHubUsernameFromAuthAsync()
-    {
-        // UI intentionally avoids spawning GitHub CLI (`gh`) for username lookup.
-        return await TryGetGitHubUsernameFromHostsFileAsync();
-    }
-
-    private static async Task<string?> TryGetGitHubUsernameFromHostsFileAsync()
-    {
-        try
-        {
-            var candidates = new[]
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "GitHub CLI", "hosts.yml"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "gh", "hosts.yml")
-            };
-
-            foreach (var path in candidates)
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var lines = await File.ReadAllLinesAsync(path);
-                foreach (var rawLine in lines)
-                {
-                    var line = rawLine.Trim();
-                    if (line.StartsWith("user:", StringComparison.OrdinalIgnoreCase) ||
-                        line.StartsWith("login:", StringComparison.OrdinalIgnoreCase))
-                    {
-                        var value = line[(line.IndexOf(':') + 1)..].Trim().Trim('\'', '"');
-                        if (!string.IsNullOrWhiteSpace(value))
-                        {
-                            return value;
-                        }
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // ignore file parse issues
-        }
-
-        return null;
-    }
-
-    private static async Task<string?> TryGetOpenAiUsernameFromAuthAsync()
-    {
-        try
-        {
-            var candidates = new[]
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
-            };
-
-            foreach (var path in candidates)
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var json = await File.ReadAllTextAsync(path);
-                using var doc = JsonDocument.Parse(json);
-                if (!doc.RootElement.TryGetProperty("openai", out var openai) || openai.ValueKind != JsonValueKind.Object)
-                {
-                    continue;
-                }
-
-                foreach (var claim in new[] { "email", "upn" })
-                {
-                    if (openai.TryGetProperty(claim, out var emailElement) && emailElement.ValueKind == JsonValueKind.String)
-                    {
-                        var emailValue = emailElement.GetString();
-                        if (IsEmailLike(emailValue))
-                        {
-                            return emailValue;
-                        }
-                    }
-                }
-
-                var explicitIdentity = FindIdentityInJson(openai);
-                if (!string.IsNullOrWhiteSpace(explicitIdentity))
-                {
-                    return explicitIdentity;
-                }
-
-                // Fallback: decode common claims from session access token.
-                if (openai.TryGetProperty("access", out var accessElement) && accessElement.ValueKind == JsonValueKind.String)
-                {
-                    var token = accessElement.GetString();
-                    var fromToken = TryGetUsernameFromJwt(token);
-                    if (!string.IsNullOrWhiteSpace(fromToken))
-                    {
-                        return fromToken;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // OpenAI/OpenCode auth may be unavailable.
-        }
-
-        return null;
-    }
-
-    private static async Task<string?> TryGetCodexUsernameFromAuthAsync()
-    {
-        try
-        {
-            var candidates = new[]
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".codex", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "codex", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "opencode", "auth.json"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".opencode", "auth.json")
-            };
-
-            foreach (var path in candidates)
-            {
-                if (!File.Exists(path))
-                {
-                    continue;
-                }
-
-                var json = await File.ReadAllTextAsync(path);
-                using var doc = JsonDocument.Parse(json);
-
-                var directIdentity = FindIdentityInJson(doc.RootElement);
-                if (!string.IsNullOrWhiteSpace(directIdentity))
-                {
-                    return directIdentity;
-                }
-
-                if (doc.RootElement.TryGetProperty("tokens", out var tokens) &&
-                    tokens.ValueKind == JsonValueKind.Object)
-                {
-                    if (tokens.TryGetProperty("id_token", out var idToken) &&
-                        idToken.ValueKind == JsonValueKind.String)
-                    {
-                        var fromIdToken = TryGetUsernameFromJwt(idToken.GetString());
-                        if (!string.IsNullOrWhiteSpace(fromIdToken))
-                        {
-                            return fromIdToken;
-                        }
-                    }
-
-                    if (tokens.TryGetProperty("access_token", out var accessToken) &&
-                        accessToken.ValueKind == JsonValueKind.String)
-                    {
-                        var fromToken = TryGetUsernameFromJwt(accessToken.GetString());
-                        if (!string.IsNullOrWhiteSpace(fromToken))
-                        {
-                            return fromToken;
-                        }
-                    }
-                }
-
-                if (doc.RootElement.TryGetProperty("openai", out var openai) &&
-                    openai.ValueKind == JsonValueKind.Object &&
-                    openai.TryGetProperty("access", out var openAiAccessToken) &&
-                    openAiAccessToken.ValueKind == JsonValueKind.String)
-                {
-                    var fromOpenAiToken = TryGetUsernameFromJwt(openAiAccessToken.GetString());
-                    if (!string.IsNullOrWhiteSpace(fromOpenAiToken))
-                    {
-                        return fromOpenAiToken;
-                    }
-                }
-            }
-        }
-        catch
-        {
-            // Codex auth may be unavailable.
-        }
-
-        return null;
-    }
-
-    private static string? TryGetUsernameFromJwt(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return null;
-        }
-
-        var parts = token.Split('.');
-        if (parts.Length < 2)
-        {
-            return null;
-        }
-
-        try
-        {
-            var payload = parts[1]
-                .Replace('-', '+')
-                .Replace('_', '/');
-
-            switch (payload.Length % 4)
-            {
-                case 2: payload += "=="; break;
-                case 3: payload += "="; break;
-            }
-
-            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
-            using var doc = JsonDocument.Parse(json);
-
-            // Prefer explicit email-like identity claims from OpenAI/OpenCode sessions.
-            foreach (var claim in new[] { "email", "upn", "preferred_username" })
-            {
-                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
-                {
-                    var value = valueElement.GetString();
-                    if (IsEmailLike(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-
-            // Fallback to non-email identifiers only when email is unavailable.
-            foreach (var claim in new[] { "username", "login", "name" })
-            {
-                if (doc.RootElement.TryGetProperty(claim, out var valueElement) && valueElement.ValueKind == JsonValueKind.String)
-                {
-                    var value = valueElement.GetString();
-                    if (!string.IsNullOrWhiteSpace(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-
-            // Last fallback: recursively scan JWT payload for first identity-like value.
-            var recursiveIdentity = FindIdentityInJson(doc.RootElement);
-            if (!string.IsNullOrWhiteSpace(recursiveIdentity))
-            {
-                return recursiveIdentity;
-            }
-        }
-        catch
-        {
-            // ignore malformed token payload
-        }
-
-        return null;
-    }
-
-    private static string? FindIdentityInJson(JsonElement element)
-    {
-        switch (element.ValueKind)
-        {
-            case JsonValueKind.Object:
-                foreach (var prop in element.EnumerateObject())
-                {
-                    if (prop.Value.ValueKind == JsonValueKind.String)
-                    {
-                        var value = prop.Value.GetString();
-                        if (string.IsNullOrWhiteSpace(value))
-                        {
-                            continue;
-                        }
-
-                        var key = prop.Name.ToLowerInvariant();
-                        if (key.Contains("email") || key.Contains("username") || key.Contains("login") || key.Contains("user"))
-                        {
-                            return value;
-                        }
-                    }
-
-                    var nested = FindIdentityInJson(prop.Value);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                    {
-                        return nested;
-                    }
-                }
-                break;
-
-            case JsonValueKind.Array:
-                foreach (var item in element.EnumerateArray())
-                {
-                    var nested = FindIdentityInJson(item);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                    {
-                        return nested;
-                    }
-                }
-                break;
-        }
-
-        return null;
-    }
-
-    private static bool IsEmailLike(string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && value.Contains('@');
-    }
-
+#pragma warning disable VSTHRD001 // Headless screenshot capture intentionally waits for dispatcher idle before rendering.
     internal async Task PrepareForHeadlessScreenshotAsync(bool deterministic = false)
     {
         if (deterministic)
         {
-            PrepareDeterministicScreenshotData();
+            this.PrepareDeterministicScreenshotData();
         }
         else
         {
-            await LoadDataAsync();
+            await this.LoadDataAsync();
         }
 
-        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-        UpdateLayout();
+        await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        this.UpdateLayout();
     }
 
     internal async Task<IReadOnlyList<string>> CaptureHeadlessTabScreenshotsAsync(string outputDirectory)
     {
-        await PrepareForHeadlessScreenshotAsync(deterministic: true);
+        await this.PrepareForHeadlessScreenshotAsync(deterministic: true);
 
         var capturedFiles = new List<string>();
-        if (MainTabControl.Items.Count == 0)
+        if (this.MainTabControl.Items.Count == 0)
         {
             const string fallbackName = "screenshot_settings_privacy.png";
             App.RenderWindowContent(this, Path.Combine(outputDirectory, fallbackName));
@@ -484,39 +195,48 @@ public partial class SettingsWindow : Window
             return capturedFiles;
         }
 
-        for (var index = 0; index < MainTabControl.Items.Count; index++)
+        for (var index = 0; index < this.MainTabControl.Items.Count; index++)
         {
-            MainTabControl.SelectedIndex = index;
-            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            this.MainTabControl.SelectedIndex = index;
+            await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
 
-            var header = (MainTabControl.Items[index] as TabItem)?.Header?.ToString();
-            ApplyHeadlessCaptureWindowSize(header);
-            await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            UpdateLayout();
+            var header = (this.MainTabControl.Items[index] as TabItem)?.Header?.ToString();
+            this.ApplyHeadlessCaptureWindowSize(header);
+            await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            this.UpdateLayout();
 
-            var tabSlug = BuildTabSlug(header, index);
+            var tabSlug = this.BuildTabSlug(header, index);
             var fileName = $"screenshot_settings_{tabSlug}_privacy.png";
             App.RenderWindowContent(this, Path.Combine(outputDirectory, fileName));
             capturedFiles.Add(fileName);
         }
 
-        MainTabControl.SelectedIndex = 0;
-        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-        UpdateLayout();
-
-        const string legacyName = "screenshot_settings_privacy.png";
-        App.RenderWindowContent(this, Path.Combine(outputDirectory, legacyName));
-        capturedFiles.Add(legacyName);
+        this.MainTabControl.SelectedIndex = 0;
+        await this.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+        this.UpdateLayout();
 
         return capturedFiles;
+    }
+#pragma warning restore VSTHRD001
+
+    private async Task<IReadOnlyList<ProviderUsage>> GetUsageForDisplayAsync()
+    {
+        var groupedSnapshot = await this._monitorService.GetGroupedUsageAsync().ConfigureAwait(true);
+        if (groupedSnapshot == null)
+        {
+            this._logger.LogWarning("Grouped usage snapshot is unavailable.");
+            return Array.Empty<ProviderUsage>();
+        }
+
+        return GroupedUsageDisplayAdapter.Expand(groupedSnapshot);
     }
 
     private void ApplyHeadlessCaptureWindowSize(string? tabHeader)
     {
-        Width = 600;
-        Height = 600;
+        this.Width = 600;
+        this.Height = 600;
 
-        if (!_isDeterministicScreenshotMode)
+        if (!this._isDeterministicScreenshotMode)
         {
             return;
         }
@@ -526,364 +246,59 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        Width = 760;
-        ProvidersStack.Measure(new Size(Width - 80, double.PositiveInfinity));
-        var desiredContentHeight = ProvidersStack.DesiredSize.Height;
-        Height = Math.Max(900, Math.Min(3200, desiredContentHeight + 260));
+        this.Width = 760;
+        this.ProvidersStack.Measure(new Size(this.Width - 80, double.PositiveInfinity));
+        var desiredContentHeight = this.ProvidersStack.DesiredSize.Height;
+        this.Height = Math.Max(900, Math.Min(3200, desiredContentHeight + 260));
     }
 
     private void PrepareDeterministicScreenshotData()
     {
-        _isDeterministicScreenshotMode = true;
-        _preferences = new AppPreferences
+        this._isDeterministicScreenshotMode = true;
+        this._preferences = new AppPreferences
         {
             AlwaysOnTop = true,
-            InvertProgressBar = true,
-            InvertCalculations = false,
+            ShowUsedPercentages = false,
             ColorThresholdYellow = 60,
             ColorThresholdRed = 80,
             FontFamily = "Segoe UI",
             FontSize = 12,
             FontBold = false,
             FontItalic = false,
-            IsPrivacyMode = true
+            IsPrivacyMode = true,
         };
 
-        App.Preferences = _preferences;
-        _isPrivacyMode = true;
+        App.Preferences = this._preferences;
+        this._isPrivacyMode = true;
         App.SetPrivacyMode(true);
-        UpdatePrivacyButtonState();
+        this.UpdatePrivacyButtonState();
 
-        ProviderConfig CreateConfig(
-            string providerId,
-            string apiKey,
-            PlanType planType,
-            string type,
-            bool showInTray = false,
-            bool enableNotifications = false)
+        var fixture = SettingsWindowDeterministicFixture.Create();
+        this._configs = fixture.Configs;
+        this._usages = fixture.Usages;
+
+        this.PopulateProviders();
+        this.PopulateLayoutSettings();
+
+        this.HistoryDataGrid.ItemsSource = fixture.HistoryRows;
+
+        if (this.MonitorStatusText != null)
         {
-            return new ProviderConfig
-            {
-                ProviderId = providerId,
-                ApiKey = apiKey,
-                ShowInTray = showInTray,
-                EnableNotifications = enableNotifications,
-                PlanType = planType,
-                Type = type
-            };
+            this.MonitorStatusText.Text = fixture.MonitorStatusText;
         }
 
-        _configs = new List<ProviderConfig>
+        if (this.MonitorPortText != null)
         {
-            CreateConfig("antigravity", "local-session", PlanType.Coding, "quota-based"),
-            CreateConfig("anthropic", "sk-ant-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
-            CreateConfig("claude-code", "cc-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("deepseek", "sk-ds-demo", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("gemini-cli", "gemini-local-auth", PlanType.Coding, "quota-based"),
-            CreateConfig("github-copilot", "ghp_demo_key", PlanType.Coding, "quota-based", showInTray: true, enableNotifications: true),
-            CreateConfig("kimi", "kimi-demo-key", PlanType.Coding, "quota-based"),
-            CreateConfig("minimax", "mm-cn-demo", PlanType.Coding, "quota-based"),
-            CreateConfig("minimax-io", "mm-intl-demo", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("mistral", "mistral-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("openai", "sk-openai-demo", PlanType.Usage, "pay-as-you-go", showInTray: true),
-            CreateConfig("opencode", "oc-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("opencode-zen", "ocz-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("openrouter", "or-demo-key", PlanType.Usage, "pay-as-you-go"),
-            CreateConfig("synthetic", "syn-demo-key", PlanType.Coding, "quota-based"),
-            CreateConfig("zai-coding-plan", "zai-demo-key", PlanType.Coding, "quota-based", showInTray: true)
-        };
-
-        var deterministicNow = new DateTime(2026, 02, 01, 12, 00, 00, DateTimeKind.Local);
-        _usages = new List<ProviderUsage>
-        {
-            new()
-            {
-                ProviderId = "antigravity",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("antigravity"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 60.0,
-                Description = "60.0% Remaining",
-                Details = new List<ProviderUsageDetail>
-                {
-                    new()
-                    {
-                        Name = "Claude Opus 4.6 (Thinking)",
-                        ModelName = "Claude Opus 4.6 (Thinking)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(10)
-                    },
-                    new()
-                    {
-                        Name = "Claude Sonnet 4.6 (Thinking)",
-                        ModelName = "Claude Sonnet 4.6 (Thinking)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(10)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3 Flash",
-                        ModelName = "Gemini 3 Flash",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(6)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3.1 Pro (High)",
-                        ModelName = "Gemini 3.1 Pro (High)",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(14)
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3.1 Pro (Low)",
-                        ModelName = "Gemini 3.1 Pro (Low)",
-                        GroupName = "Recommended Group 1",
-                        Used = "100%",
-                        Description = "100% remaining",
-                        NextResetTime = deterministicNow.AddHours(14)
-                    },
-                    new()
-                    {
-                        Name = "GPT-OSS 120B (Medium)",
-                        ModelName = "GPT-OSS 120B (Medium)",
-                        GroupName = "Recommended Group 1",
-                        Used = "60%",
-                        Description = "60% remaining",
-                        NextResetTime = deterministicNow.AddHours(8)
-                    }
-                },
-                NextResetTime = deterministicNow.AddHours(6)
-            },
-            new()
-            {
-                ProviderId = "anthropic",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("anthropic"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "claude-code",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("claude-code"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "deepseek",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("deepseek"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "gemini-cli",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("gemini-cli"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 84.0,
-                Description = "84.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(12)
-            },
-            new()
-            {
-                ProviderId = "github-copilot",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("github-copilot"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 72.5,
-                Description = "72.5% Remaining",
-                NextResetTime = deterministicNow.AddHours(20)
-            },
-            new()
-            {
-                ProviderId = "kimi",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("kimi"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 66.0,
-                Description = "66.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(9)
-            },
-            new()
-            {
-                ProviderId = "minimax",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("minimax"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 61.0,
-                Description = "61.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(11)
-            },
-            new()
-            {
-                ProviderId = "minimax-io",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("minimax-io"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "mistral",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("mistral"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "openai",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("openai"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 63.0,
-                Description = "63.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(18)
-            },
-            new()
-            {
-                ProviderId = "opencode",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("opencode"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "opencode-zen",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("opencode-zen"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "openrouter",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("openrouter"),
-                IsAvailable = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
-                RequestsPercentage = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                Description = "Connected"
-            },
-            new()
-            {
-                ProviderId = "synthetic",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("synthetic"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 79.0,
-                Description = "79.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(4)
-            },
-            new()
-            {
-                ProviderId = "zai-coding-plan",
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("zai-coding-plan"),
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                RequestsPercentage = 88.0,
-                Description = "88.0% Remaining",
-                NextResetTime = deterministicNow.AddHours(15)
-            }
-        };
-
-        PopulateProviders();
-        PopulateLayoutSettings();
-
-        HistoryDataGrid.ItemsSource = new[]
-        {
-            new
-            {
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("github-copilot"),
-                UsagePercentage = 27.5,
-                Used = 27.5,
-                Limit = 100.0,
-                PlanType = "Coding",
-                Description = "72.5% Remaining",
-                FetchedAt = new DateTime(2026, 2, 1, 12, 0, 0)
-            },
-            new
-            {
-                ProviderName = ProviderMetadataCatalog.GetDisplayName("openai"),
-                UsagePercentage = 31.1,
-                Used = 12.45,
-                Limit = 40.0,
-                PlanType = "Usage",
-                Description = "$12.45 / $40.00",
-                FetchedAt = new DateTime(2026, 2, 1, 12, 5, 0)
-            }
-        };
-
-        if (MonitorStatusText != null)
-        {
-            MonitorStatusText.Text = "Running";
+            this.MonitorPortText.Text = fixture.MonitorPortText;
         }
 
-        if (MonitorPortText != null)
+        if (this.MonitorLogsText != null)
         {
-            MonitorPortText.Text = "5000";
-        }
-
-        if (MonitorLogsText != null)
-        {
-            MonitorLogsText.Text = "Monitor health check: OK" + Environment.NewLine +
-                                 "Diagnostics available in Settings > Monitor.";
+            this.MonitorLogsText.Text = fixture.MonitorLogsText;
         }
     }
 
-    private static string BuildTabSlug(string? header, int index)
+    private string BuildTabSlug(string? header, int index)
     {
         if (string.IsNullOrWhiteSpace(header))
         {
@@ -911,60 +326,60 @@ public partial class SettingsWindow : Window
 
     private void SettingsWindow_Closed(object? sender, EventArgs e)
     {
-        _autoSaveTimer.Stop();
-        App.PrivacyChanged -= OnPrivacyChanged;
+        this._autoSaveTimer.Stop();
+        App.PrivacyChanged -= this.OnPrivacyChanged;
     }
 
     private async void AutoSaveTimer_Tick(object? sender, EventArgs e)
     {
         try
         {
-            _autoSaveTimer.Stop();
-            await PersistAllSettingsAsync(showErrorDialog: false);
+            this._autoSaveTimer.Stop();
+            await this.PersistAllSettingsAsync(showErrorDialog: false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "AutoSaveTimer_Tick failed");
+            this._logger.LogError(ex, "AutoSaveTimer_Tick failed");
         }
     }
 
     private void ScheduleAutoSave()
     {
-        if (_isLoadingSettings)
+        if (this._isLoadingSettings)
         {
             return;
         }
 
-        _hasPendingAutoSave = true;
-        _autoSaveTimer.Stop();
-        _autoSaveTimer.Start();
+        this._hasPendingAutoSave = true;
+        this._autoSaveTimer.Stop();
+        this._autoSaveTimer.Start();
     }
 
-    private void OnPrivacyChanged(object? sender, bool isPrivacyMode)
+    private void OnPrivacyChanged(object? sender, PrivacyChangedEventArgs e)
     {
-        if (!Dispatcher.CheckAccess())
+        if (!this.Dispatcher.CheckAccess())
         {
-            Dispatcher.Invoke(() => OnPrivacyChanged(sender, isPrivacyMode));
+            _ = this.Dispatcher.BeginInvoke(new Action(() => this.OnPrivacyChanged(sender, e)));
             return;
         }
 
-        _isPrivacyMode = isPrivacyMode;
-        _preferences.IsPrivacyMode = isPrivacyMode;
-        UpdatePrivacyButtonState();
-        PopulateProviders();
+        this._isPrivacyMode = e.IsPrivacyMode;
+        this._preferences.IsPrivacyMode = e.IsPrivacyMode;
+        this.UpdatePrivacyButtonState();
+        this.PopulateProviders();
     }
 
     private void UpdatePrivacyButtonState()
     {
-        if (PrivacyBtn == null)
+        if (this.PrivacyBtn == null)
         {
             return;
         }
 
-        PrivacyBtn.Content = _isPrivacyMode ? "\uE72E" : "\uE785";
-        PrivacyBtn.Foreground = _isPrivacyMode
+        this.PrivacyBtn.Content = this._isPrivacyMode ? "\uE72E" : "\uE785";
+        this.PrivacyBtn.Foreground = this._isPrivacyMode
             ? Brushes.Gold
-            : (TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
+            : (this.TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
     }
 
     private async Task UpdateMonitorStatusAsync()
@@ -972,48 +387,48 @@ public partial class SettingsWindow : Window
         try
         {
             // Check if agent is running
-            var isRunning = await MonitorLauncher.IsAgentRunningAsync();
-            
+            var isRunning = await this._monitorLifecycleService.IsAgentRunningAsync().ConfigureAwait(true);
+
             // Get the actual port from the agent
-            int port = await MonitorLauncher.GetAgentPortAsync();
-            
-            if (MonitorStatusText != null)
+            int port = await this._monitorLifecycleService.GetAgentPortAsync().ConfigureAwait(true);
+
+            if (this.MonitorStatusText != null)
             {
-                MonitorStatusText.Text = isRunning ? "Running" : "Not Running";
+                this.MonitorStatusText.Text = isRunning ? "Running" : "Not Running";
             }
-            
+
             // Update port display
-            if (FindName("MonitorPortText") is TextBlock portText)
+            if (this.FindName("MonitorPortText") is TextBlock portText)
             {
-                portText.Text = port.ToString();
+                portText.Text = port.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to update monitor status");
-            if (MonitorStatusText != null)
+            this._logger.LogWarning(ex, "Failed to update monitor status");
+            if (this.MonitorStatusText != null)
             {
-                MonitorStatusText.Text = "Error";
+                this.MonitorStatusText.Text = "Error";
             }
         }
         finally
         {
-            RefreshDiagnosticsLog();
+            this.RefreshDiagnosticsLog();
         }
     }
 
     private void RefreshDiagnosticsLog()
     {
-        if (MonitorLogsText == null)
+        if (this.MonitorLogsText == null)
         {
             return;
         }
 
-        if (_isDeterministicScreenshotMode)
+        if (this._isDeterministicScreenshotMode)
         {
-            MonitorLogsText.Text = "Monitor health check: OK" + Environment.NewLine +
+            this.MonitorLogsText.Text = "Monitor health check: OK" + Environment.NewLine +
                                  "Diagnostics available in Settings > Monitor.";
-            MonitorLogsText.ScrollToEnd();
+            this.MonitorLogsText.ScrollToEnd();
             return;
         }
 
@@ -1035,82 +450,49 @@ public partial class SettingsWindow : Window
         lines.Add(
             $"Refresh: count={telemetry.RefreshRequestCount}, avg={telemetry.RefreshAverageLatencyMs:F1}ms, last={telemetry.RefreshLastLatencyMs}ms, errors={telemetry.RefreshErrorCount} ({telemetry.RefreshErrorRatePercent:F1}%)");
 
-        MonitorLogsText.Text = string.Join(Environment.NewLine, lines);
-        MonitorLogsText.ScrollToEnd();
+        this.MonitorLogsText.Text = string.Join(Environment.NewLine, lines);
+        this.MonitorLogsText.ScrollToEnd();
     }
 
     private async Task LoadHistoryAsync()
     {
         try
         {
-            var history = await _monitorService.GetHistoryAsync(100);
-            HistoryDataGrid.ItemsSource = history;
+            var history = await this._monitorService.GetHistoryAsync(100);
+            this.HistoryDataGrid.ItemsSource = history;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load history");
+            this._logger.LogWarning(ex, "Failed to load history");
         }
     }
 
     private void PopulateProviders()
     {
-        ProvidersStack.Children.Clear();
+        this.ProvidersStack.Children.Clear();
 
-        if (_configs.Count == 0)
+        var displayItems = ProviderSettingsDisplayCatalog.CreateDisplayItems(this._configs, this._usages);
+        var usageByProviderId = this._usages.ToDictionary(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in displayItems)
         {
-            ProvidersStack.Children.Add(new TextBlock
-            {
-                Text = "No providers configured. Click 'Scan for Keys' to discover API keys.",
-                Foreground = FindResource("TertiaryText") as SolidColorBrush,
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 11
-            });
-            return;
+            usageByProviderId.TryGetValue(item.Config.ProviderId, out var usage);
+            this.AddProviderCard(item.Config, usage, item.IsDerived);
         }
 
-        var displayConfigs = _configs
-            .Select(config => (Config: config, IsDerived: false))
-            .ToList();
-
-        var configuredProviderIds = _configs
-            .Select(c => c.ProviderId)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        var derivedConfigs = _usages
-            .Where(u =>
-                IsDerivedProviderVisibleInSettings(u.ProviderId) &&
-                !configuredProviderIds.Contains(u.ProviderId))
-            .Select(u => new ProviderConfig
-            {
-                ProviderId = u.ProviderId,
-                Type = u.IsQuotaBased ? "quota-based" : "pay-as-you-go",
-                PlanType = u.PlanType
-            })
-            .Select(config => (Config: config, IsDerived: true));
-
-        displayConfigs.AddRange(derivedConfigs);
-
-        var orderedDisplayConfigs = displayConfigs
-            .OrderBy(item => GetProviderDisplayName(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
-            .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        foreach (var (config, isDerived) in orderedDisplayConfigs)
-        {
-            var usage = _usages.FirstOrDefault(u => u.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
-            AddProviderCard(config, usage, isDerived);
-        }
+        this.PopulateProviderVisibilitySettings();
     }
 
     private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
     {
-        // Compact card with minimal padding
+        var isSubItem = ShouldRenderAsSettingsSubItem(config.ProviderId, isDerived);
+
         var card = new Border
         {
             CornerRadius = new CornerRadius(4),
             BorderThickness = new Thickness(1),
-            Margin = new Thickness(0, 0, 0, 8),
-            Padding = new Thickness(10, 8, 10, 8)
+            Margin = new Thickness(isSubItem ? 18 : 0, 0, 0, 8),
+            Padding = new Thickness(10, 8, 10, 8),
         };
         card.SetResourceReference(Border.BackgroundProperty, "CardBackground");
         card.SetResourceReference(Border.BorderBrushProperty, "CardBorder");
@@ -1119,118 +501,8 @@ public partial class SettingsWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
 
-        // Header: Icon + Name
-        var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
-        
-        // Small icon (16x16)
-        var icon = CreateProviderIcon(config.ProviderId);
-        icon.Width = 16;
-        icon.Height = 16;
-        icon.Margin = new Thickness(0, 0, 8, 0);
-        icon.VerticalAlignment = VerticalAlignment.Center;
-        headerPanel.Children.Add(icon);
-
-        // Display name
-        var displayName = GetProviderDisplayName(config.ProviderId);
-
-        var title = new TextBlock
-        {
-            Text = displayName,
-            FontWeight = FontWeights.SemiBold,
-            FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 120
-        };
-        title.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
-        headerPanel.Children.Add(title);
-
-        // Tray checkbox
-        var trayCheckBox = new CheckBox
-        {
-            Content = "Tray",
-            IsChecked = config.ShowInTray,
-            FontSize = 10,
-            VerticalAlignment = VerticalAlignment.Center,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            Margin = new Thickness(12, 0, 0, 0),
-            IsEnabled = !isDerived
-        };
-        trayCheckBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
-        trayCheckBox.Checked += (s, e) =>
-        {
-            config.ShowInTray = true;
-            SettingsChanged = true;
-            RefreshTrayIcons();
-            ScheduleAutoSave();
-        };
-        trayCheckBox.Unchecked += (s, e) =>
-        {
-            config.ShowInTray = false;
-            SettingsChanged = true;
-            RefreshTrayIcons();
-            ScheduleAutoSave();
-        };
-        headerPanel.Children.Add(trayCheckBox);
-
-        // Notification checkbox
-        var notifyCheckBox = new CheckBox
-        {
-            Content = "Notify",
-            IsChecked = config.EnableNotifications,
-            FontSize = 10,
-            VerticalAlignment = VerticalAlignment.Center,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            Margin = new Thickness(8, 0, 0, 0),
-            IsEnabled = !isDerived
-        };
-        notifyCheckBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
-        notifyCheckBox.Checked += (s, e) =>
-        {
-            config.EnableNotifications = true;
-            SettingsChanged = true;
-            ScheduleAutoSave();
-        };
-        notifyCheckBox.Unchecked += (s, e) =>
-        {
-            config.EnableNotifications = false;
-            SettingsChanged = true;
-            ScheduleAutoSave();
-        };
-        headerPanel.Children.Add(notifyCheckBox);
-
-        // Status badge if not configured
-        bool isInactive = !isDerived && string.IsNullOrEmpty(config.ApiKey);
-        if (config.ProviderId == "antigravity")
-        {
-            isInactive = usage == null || !usage.IsAvailable;
-        }
-        else if (config.ProviderId == "openai")
-        {
-            var hasApiKey = !string.IsNullOrWhiteSpace(config.ApiKey);
-            var hasSessionUsage = usage != null && usage.IsAvailable && usage.IsQuotaBased;
-            isInactive = !hasApiKey && !hasSessionUsage;
-        }
-
-        if (isInactive)
-        {
-            var status = new Border
-            {
-                Background = new SolidColorBrush(Color.FromRgb(205, 92, 92)), // IndianRed - pastel red
-                CornerRadius = new CornerRadius(3),
-                Margin = new Thickness(10, 0, 0, 0),
-                Padding = new Thickness(8, 3, 8, 3)
-            };
-
-            var badgeText = new TextBlock 
-            { 
-                Text = "Inactive", 
-                FontSize = 10,
-                Foreground = new SolidColorBrush(Color.FromRgb(240, 240, 240)), // Muted white
-                FontWeight = FontWeights.SemiBold
-            };
-            status.Child = badgeText;
-            headerPanel.Children.Add(status);
-        }
+        var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived);
+        var headerPanel = this.BuildProviderHeader(config, settingsBehavior, isSubItem);
 
         grid.Children.Add(headerPanel);
 
@@ -1238,338 +510,369 @@ public partial class SettingsWindow : Window
         var keyPanel = new Grid { Margin = new Thickness(0, 0, 0, 0) };
         keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        if (isDerived)
-        {
-            var derivedPanel = new StackPanel { Orientation = Orientation.Vertical };
-            var statusText = new TextBlock
-            {
-                Text = usage?.IsAvailable == true ? "Derived from Codex usage (read-only)" : "Derived provider (waiting for usage data)",
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(
-                TextBlock.ForegroundProperty,
-                usage?.IsAvailable == true ? "ProgressBarGreen" : "TertiaryText");
-            derivedPanel.Children.Add(statusText);
-
-            if (usage?.NextResetTime is DateTime derivedReset)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = $"Next reset: {derivedReset:g}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                derivedPanel.Children.Add(resetText);
-            }
-
-            Grid.SetColumn(derivedPanel, 0);
-            keyPanel.Children.Add(derivedPanel);
-        }
-        else if (config.ProviderId == "antigravity")
-        {
-            // Antigravity: Auto-Detection
-            var statusPanel = new StackPanel { Orientation = Orientation.Vertical };
-            bool isConnected = usage != null && usage.IsAvailable;
-            string accountInfo = usage?.AccountName ?? "Unknown";
-            var displayAccount = _isPrivacyMode
-                ? MaskAccountIdentifier(accountInfo)
-                : accountInfo;
-
-            var statusText = new TextBlock
-            {
-                Text = isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11,
-                FontStyle = isConnected ? FontStyles.Normal : FontStyles.Italic
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty, 
-                isConnected ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-
-            var antigravitySubmodels = usage?.Details?
-                .Select(d => d.Name)
-                .Where(name =>
-                    !string.IsNullOrWhiteSpace(name) &&
-                    !name.StartsWith("[", StringComparison.Ordinal))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (antigravitySubmodels is { Count: > 0 })
-            {
-                var modelsText = new TextBlock
-                {
-                    Text = $"Models: {string.Join(", ", antigravitySubmodels)}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 4, 0, 0),
-                    TextWrapping = TextWrapping.Wrap
-                };
-                modelsText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(modelsText);
-            }
-
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else if (config.ProviderId == "github-copilot")
-        {
-            // GitHub Copilot: Show username (if available) - privacy mode only shows masked username
-            var statusPanel = new StackPanel { Orientation = Orientation.Horizontal };
-            string? username = usage?.AccountName;
-            if (string.IsNullOrWhiteSpace(username) || username == "Unknown")
-            {
-                username = _gitHubAuthUsername;
-            }
-            bool hasUsername = !string.IsNullOrEmpty(username) && username != "Unknown" && username != "User";
-
-            bool isAuthenticated = !string.IsNullOrEmpty(config.ApiKey) || !string.IsNullOrWhiteSpace(_gitHubAuthUsername);
-
-            string displayText;
-            if (!isAuthenticated)
-            {
-                displayText = "Not Authenticated";
-            }
-            else if (!hasUsername)
-            {
-                displayText = "Authenticated";
-            }
-            else if (_isPrivacyMode && username != null)
-            {
-                displayText = $"Authenticated ({MaskAccountIdentifier(username)})";
-            }
-            else
-            {
-                // Normal mode: show full text with username
-                displayText = $"Authenticated ({username})";
-            }
-
-            var statusText = new TextBlock
-            {
-                Text = displayText,
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty, 
-                isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else if ((config.ProviderId == "openai" &&
-                  (usage?.IsQuotaBased == true ||
-                   (!string.IsNullOrWhiteSpace(config.ApiKey) && !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase))))
-                 || config.ProviderId == "codex")
-        {
-            var statusPanel = new StackPanel { Orientation = Orientation.Vertical };
-            var isCodex = config.ProviderId.Equals("codex", StringComparison.OrdinalIgnoreCase);
-            var providerSessionLabel = isCodex ? "OpenAI Codex" : "OpenAI";
-            var hasSessionToken = !string.IsNullOrWhiteSpace(config.ApiKey) &&
-                                  !config.ApiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
-            var isAuthenticated = hasSessionToken || (usage != null && usage.IsAvailable);
-            var accountName = usage?.AccountName;
-            if (string.IsNullOrWhiteSpace(accountName) || accountName == "Unknown" || accountName == "User")
-            {
-                accountName = isCodex
-                    ? (_codexAuthUsername ?? _openAiAuthUsername)
-                    : _openAiAuthUsername;
-            }
-
-            string displayText;
-            if (!isAuthenticated)
-            {
-                displayText = "Not Authenticated";
-            }
-            else if (!string.IsNullOrWhiteSpace(accountName))
-            {
-                displayText = _isPrivacyMode
-                    ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
-                    : $"Authenticated ({accountName})";
-            }
-            else if (hasSessionToken && (usage == null || !usage.IsAvailable))
-            {
-                displayText = $"Authenticated via {providerSessionLabel} - refresh to load quota";
-            }
-            else
-            {
-                displayText = $"Authenticated via {providerSessionLabel}";
-            }
-
-            var statusText = new TextBlock
-            {
-                Text = displayText,
-                VerticalAlignment = VerticalAlignment.Center,
-                FontSize = 11
-            };
-            statusText.SetResourceReference(TextBlock.ForegroundProperty,
-                isAuthenticated ? "ProgressBarGreen" : "TertiaryText");
-
-            statusPanel.Children.Add(statusText);
-
-            var resolvedReset = usage?.NextResetTime ?? InferResetTimeFromDetails(usage);
-            if (resolvedReset is DateTime nextReset)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = $"Next reset: {nextReset:g}",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(resetText);
-            }
-            else if (isAuthenticated)
-            {
-                var resetText = new TextBlock
-                {
-                    Text = "Next reset: loading...",
-                    VerticalAlignment = VerticalAlignment.Center,
-                    FontSize = 10,
-                    Margin = new Thickness(0, 3, 0, 0)
-                };
-                resetText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-                statusPanel.Children.Add(resetText);
-            }
-
-            Grid.SetColumn(statusPanel, 0);
-            keyPanel.Children.Add(statusPanel);
-        }
-        else
-        {
-            // Standard API Key Input
-            var displayKey = config.ApiKey;
-            if (_isPrivacyMode && !string.IsNullOrEmpty(displayKey))
-            {
-                if (displayKey.Length > 8)
-                    displayKey = displayKey.Substring(0, 4) + "****" + displayKey.Substring(displayKey.Length - 4);
-                else
-                    displayKey = "****";
-            }
-
-            var keyBox = new TextBox
-            {
-                Text = displayKey,
-                Tag = config,
-                VerticalContentAlignment = VerticalAlignment.Center,
-                FontSize = 11,
-                IsReadOnly = _isPrivacyMode
-            };
-            
-            if (!_isPrivacyMode)
-            {
-                keyBox.TextChanged += (s, e) => {
-                    config.ApiKey = keyBox.Text;
-                    SettingsChanged = true;
-                    ScheduleAutoSave();
-                };
-            }
-
-            Grid.SetColumn(keyBox, 0);
-            keyPanel.Children.Add(keyBox);
-        }
+        var keyContent = this.BuildProviderInputContent(config, usage, settingsBehavior);
+        Grid.SetColumn(keyContent, 0);
+        keyPanel.Children.Add(keyContent);
 
         Grid.SetRow(keyPanel, 1);
         grid.Children.Add(keyPanel);
 
-        var subTrayDetails = usage?.Details?
-            .Where(d =>
-                !string.IsNullOrWhiteSpace(d.Name) &&
-                !d.Name.StartsWith("[", StringComparison.Ordinal) &&
-                IsSubTrayEligibleDetail(d))
-            .GroupBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.First())
-            .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(usage);
 
-        if (!isDerived && subTrayDetails is { Count: > 0 })
+        if (!isSubItem && subTrayDetails is { Count: > 0 })
         {
-            config.EnabledSubTrays ??= new List<string>();
-
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            var separator = new Border
-            {
-                Height = 1,
-                Margin = new Thickness(0, 8, 0, 8)
-            };
-            separator.SetResourceReference(Border.BackgroundProperty, "Separator");
-            Grid.SetRow(separator, 2);
-            grid.Children.Add(separator);
-
-            var subTrayPanel = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
-
-            var subTrayTitle = new TextBlock
-            {
-                Text = "Sub-tray icons",
-                FontSize = 10,
-                FontWeight = FontWeights.SemiBold,
-                Margin = new Thickness(0, 0, 0, 4)
-            };
-            subTrayTitle.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-            subTrayPanel.Children.Add(subTrayTitle);
-
-            foreach (var detail in subTrayDetails)
-            {
-                var subTrayCheckbox = new CheckBox
-                {
-                    Content = detail.Name,
-                    IsChecked = config.EnabledSubTrays.Contains(detail.Name, StringComparer.OrdinalIgnoreCase),
-                    FontSize = 10,
-                    Margin = new Thickness(0, 1, 0, 1),
-                    Cursor = Cursors.Hand
-                };
-                subTrayCheckbox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
-                subTrayCheckbox.Checked += (s, e) =>
-                {
-                    if (!config.EnabledSubTrays.Contains(detail.Name, StringComparer.OrdinalIgnoreCase))
-                    {
-                        config.EnabledSubTrays.Add(detail.Name);
-                    }
-
-                    SettingsChanged = true;
-                    RefreshTrayIcons();
-                    ScheduleAutoSave();
-                };
-                subTrayCheckbox.Unchecked += (s, e) =>
-                {
-                    config.EnabledSubTrays.RemoveAll(name => name.Equals(detail.Name, StringComparison.OrdinalIgnoreCase));
-                    SettingsChanged = true;
-                    RefreshTrayIcons();
-                    ScheduleAutoSave();
-                };
-                subTrayPanel.Children.Add(subTrayCheckbox);
-            }
-
-            Grid.SetRow(subTrayPanel, 3);
-            grid.Children.Add(subTrayPanel);
+            this.AddSubTraySection(grid, config, subTrayDetails);
         }
 
         card.Child = grid;
-        ProvidersStack.Children.Add(card);
+        this.ProvidersStack.Children.Add(card);
+    }
+
+    internal static bool ShouldRenderAsSettingsSubItem(
+        string providerId,
+        bool isDerived)
+    {
+        if (!isDerived)
+        {
+            return false;
+        }
+
+        return ProviderMetadataCatalog.ShouldRenderAsSettingsSubItem(providerId);
+    }
+
+    private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
+    {
+        return settingsBehavior.InputMode switch
+        {
+            ProviderInputMode.DerivedReadOnly
+                or ProviderInputMode.AutoDetectedStatus
+                or ProviderInputMode.ExternalAuthStatus
+                or ProviderInputMode.SessionAuthStatus
+                => this.BuildStatusPanel(config, usage, settingsBehavior),
+            _ => this.BuildApiKeyEditor(config),
+        };
+    }
+
+    private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
+    {
+        var presentation = ProviderStatusPresentationCatalog.Create(
+            config,
+            usage,
+            settingsBehavior.InputMode,
+            this._isPrivacyMode);
+
+        var panel = new StackPanel
+        {
+            Orientation = presentation.UseHorizontalLayout ? Orientation.Horizontal : Orientation.Vertical,
+        };
+
+        var statusText = new TextBlock
+        {
+            Text = presentation.PrimaryText,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            FontStyle = presentation.PrimaryItalic ? FontStyles.Italic : FontStyles.Normal,
+        };
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, presentation.PrimaryResourceKey);
+        panel.Children.Add(statusText);
+
+        foreach (var line in presentation.SecondaryLines)
+        {
+            var secondaryText = this.CreateSecondaryStatusText(line.Text);
+            secondaryText.TextWrapping = line.Wrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            if (line.ExtraTopMargin)
+            {
+                secondaryText.Margin = new Thickness(0, 4, 0, 0);
+            }
+
+            panel.Children.Add(secondaryText);
+        }
+
+        return panel;
+    }
+
+    private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)
+    {
+        var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+
+        var icon = this.CreateProviderIcon(config.ProviderId);
+        icon.Width = 16;
+        icon.Height = 16;
+        icon.Margin = new Thickness(0, 0, 8, 0);
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        headerPanel.Children.Add(icon);
+
+        var title = new TextBlock
+        {
+            Text = isDerived
+                ? $"-> {ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId)}"
+                : ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId),
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            MinWidth = 120,
+        };
+        title.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
+        headerPanel.Children.Add(title);
+
+        headerPanel.Children.Add(this.CreateProviderHeaderCheckBox(
+            content: "Tray",
+            isChecked: config.ShowInTray,
+            margin: new Thickness(12, 0, 0, 0),
+            isEnabled: !isDerived,
+            onCheckedChanged: isChecked =>
+            {
+                var trackedConfig = this.GetOrCreateTrackedConfig(config);
+                trackedConfig.ShowInTray = isChecked;
+                this.MarkSettingsChanged(refreshTrayIcons: true);
+            }));
+
+        headerPanel.Children.Add(this.CreateProviderHeaderCheckBox(
+            content: "Notify",
+            isChecked: config.EnableNotifications,
+            margin: new Thickness(8, 0, 0, 0),
+            isEnabled: !isDerived,
+            onCheckedChanged: isChecked =>
+            {
+                var trackedConfig = this.GetOrCreateTrackedConfig(config);
+                trackedConfig.EnableNotifications = isChecked;
+                this.MarkSettingsChanged();
+            }));
+
+        if (settingsBehavior.IsInactive)
+        {
+            headerPanel.Children.Add(this.CreateInactiveBadge());
+        }
+
+        return headerPanel;
+    }
+
+    private CheckBox CreateProviderHeaderCheckBox(
+        string content,
+        bool isChecked,
+        Thickness margin,
+        bool isEnabled,
+        Action<bool> onCheckedChanged)
+    {
+        var checkBox = new CheckBox
+        {
+            Content = content,
+            IsChecked = isChecked,
+            FontSize = 10,
+            VerticalAlignment = VerticalAlignment.Center,
+            Cursor = Cursors.Hand,
+            Margin = margin,
+            IsEnabled = isEnabled,
+        };
+        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
+        checkBox.Checked += (_, _) => onCheckedChanged(true);
+        checkBox.Unchecked += (_, _) => onCheckedChanged(false);
+        return checkBox;
+    }
+
+    private Border CreateInactiveBadge()
+    {
+        var status = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(205, 92, 92)),
+            CornerRadius = new CornerRadius(3),
+            Margin = new Thickness(10, 0, 0, 0),
+            Padding = new Thickness(8, 3, 8, 3),
+        };
+
+        status.Child = new TextBlock
+        {
+            Text = "Inactive",
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.FromRgb(240, 240, 240)),
+            FontWeight = FontWeights.SemiBold,
+        };
+        return status;
+    }
+
+    private void AddSubTraySection(Grid grid, ProviderConfig config, IReadOnlyList<ProviderUsageDetail> subTrayDetails)
+    {
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var separator = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 8, 0, 8),
+        };
+        separator.SetResourceReference(Border.BackgroundProperty, "Separator");
+        Grid.SetRow(separator, 2);
+        grid.Children.Add(separator);
+
+        var subTrayPanel = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
+
+        var subTrayTitle = new TextBlock
+        {
+            Text = "Sub-tray icons",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4),
+        };
+        subTrayTitle.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        subTrayPanel.Children.Add(subTrayTitle);
+
+        foreach (var detail in subTrayDetails)
+        {
+            subTrayPanel.Children.Add(this.CreateSubTrayCheckBox(config, detail.Name));
+        }
+
+        Grid.SetRow(subTrayPanel, 3);
+        grid.Children.Add(subTrayPanel);
+    }
+
+    private CheckBox CreateSubTrayCheckBox(ProviderConfig config, string detailName)
+    {
+        var enabledSubTrays = config.EnabledSubTrays ?? new List<string>();
+        var checkBox = new CheckBox
+        {
+            Content = detailName,
+            IsChecked = enabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase),
+            FontSize = 10,
+            Margin = new Thickness(0, 1, 0, 1),
+            Cursor = Cursors.Hand,
+        };
+        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
+        checkBox.Checked += (_, _) =>
+        {
+            var trackedConfig = this.GetOrCreateTrackedConfig(config);
+            trackedConfig.EnabledSubTrays ??= new List<string>();
+            if (!trackedConfig.EnabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase))
+            {
+                var enabledSubTrays = trackedConfig.EnabledSubTrays.ToList();
+                enabledSubTrays.Add(detailName);
+                trackedConfig.EnabledSubTrays = enabledSubTrays;
+            }
+
+            this.MarkSettingsChanged(refreshTrayIcons: true);
+        };
+        checkBox.Unchecked += (_, _) =>
+        {
+            var trackedConfig = this.GetOrCreateTrackedConfig(config);
+            trackedConfig.EnabledSubTrays ??= new List<string>();
+            var enabledSubTrays = trackedConfig.EnabledSubTrays.ToList();
+            enabledSubTrays.RemoveAll(name => name.Equals(detailName, StringComparison.OrdinalIgnoreCase));
+            trackedConfig.EnabledSubTrays = enabledSubTrays;
+            this.MarkSettingsChanged(refreshTrayIcons: true);
+        };
+        return checkBox;
+    }
+
+    private TextBox BuildApiKeyEditor(ProviderConfig config)
+    {
+        var keyBox = new TextBox
+        {
+            Text = ProviderApiKeyPresentationCatalog.GetDisplayApiKey(config.ApiKey, this._isPrivacyMode),
+            Tag = config,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            IsReadOnly = this._isPrivacyMode,
+        };
+
+        if (!this._isPrivacyMode)
+        {
+            keyBox.TextChanged += (s, e) =>
+            {
+                var trackedConfig = this.GetOrCreateTrackedConfig(config);
+                trackedConfig.ApiKey = keyBox.Text;
+                this.MarkSettingsChanged();
+            };
+        }
+
+        return keyBox;
+    }
+
+    private TextBlock CreateSecondaryStatusText(string text)
+    {
+        var statusText = new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 10,
+            Margin = new Thickness(0, 3, 0, 0),
+        };
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        return statusText;
     }
 
     private void RefreshTrayIcons()
     {
         if (Application.Current is App app)
         {
-            app.UpdateProviderTrayIcons(_usages, _configs, _preferences);
+            app.UpdateProviderTrayIcons(this._usages, this._configs, this._preferences);
         }
+    }
+
+    private void MarkSettingsChanged(bool refreshTrayIcons = false)
+    {
+        this.SettingsChanged = true;
+        if (refreshTrayIcons)
+        {
+            this.RefreshTrayIcons();
+        }
+
+        this.ScheduleAutoSave();
+    }
+
+    private ProviderConfig GetOrCreateTrackedConfig(ProviderConfig config)
+    {
+        var existing = this._configs.FirstOrDefault(current =>
+            current.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        var tracked = this.CloneConfig(config);
+        this._configs.Add(tracked);
+        return tracked;
+    }
+
+    private ProviderConfig CloneConfig(ProviderConfig config)
+    {
+        return new ProviderConfig
+        {
+            ProviderId = config.ProviderId,
+            ApiKey = config.ApiKey,
+            Type = config.Type,
+            PlanType = config.PlanType,
+            Limit = config.Limit,
+            BaseUrl = config.BaseUrl,
+            ShowInTray = config.ShowInTray,
+            EnableNotifications = config.EnableNotifications,
+            EnabledSubTrays = config.EnabledSubTrays.ToList(),
+            AuthSource = config.AuthSource,
+            Description = config.Description,
+            Models = config.Models
+                .Select(model => new AIModelConfig
+                {
+                    Id = model.Id,
+                    Name = model.Name,
+                    Matches = model.Matches.ToList(),
+                    Color = model.Color,
+                })
+                .ToList(),
+        };
+    }
+
+    private void ApplyFontPreferenceChange(Action applyChange)
+    {
+        applyChange();
+        this.UpdateFontPreview();
+        this.ScheduleAutoSave();
     }
 
     private async Task<bool> SaveUiPreferencesAsync(bool showErrorDialog = false)
     {
-        App.Preferences = _preferences;
-        var saved = await _preferencesStore.SaveAsync(_preferences);
+        App.Preferences = this._preferences;
+        var saved = await this._preferencesStore.SaveAsync(this._preferences);
         if (!saved)
         {
-            _logger.LogWarning("Failed to save Slim UI preferences");
+            this._logger.LogWarning("Failed to save Slim UI preferences");
             if (showErrorDialog)
             {
                 MessageBox.Show(
@@ -1587,7 +890,7 @@ public partial class SettingsWindow : Window
     {
         // Map to SVG or create fallback
         var image = new Image();
-        image.Source = GetProviderImageSource(providerId);
+        image.Source = this.GetProviderImageSource(providerId);
         return image;
     }
 
@@ -1595,23 +898,7 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            string filename = providerId.ToLower() switch
-            {
-                "github-copilot" => "github",
-                "gemini-cli" => "google",
-                "antigravity" => "google",
-                "codex" => "openai",
-                "codex.spark" => "openai",
-                "claude-code" => "claude",
-                "zai" => "zai",
-                "zai-coding-plan" => "zai",
-                "minimax" => "minimax",
-                "minimax-io" => "minimax",
-                "minimax-global" => "minimax",
-                "kimi" => "kimi",
-                "xiaomi" => "xiaomi",
-                _ => providerId.ToLower()
-            };
+            var filename = ProviderMetadataCatalog.GetIconAssetName(providerId);
 
             var appDir = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -1620,7 +907,7 @@ public partial class SettingsWindow : Window
             if (System.IO.File.Exists(svgPath))
             {
                 // Return a simple colored circle as fallback (SVG loading requires SharpVectors)
-                return CreateFallbackIcon(providerId);
+                return this.CreateFallbackIcon(providerId);
             }
 
             // Try ICO
@@ -1636,25 +923,18 @@ public partial class SettingsWindow : Window
                 return icoImage;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            this._logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
+        }
 
-        return CreateFallbackIcon(providerId);
+        return this.CreateFallbackIcon(providerId);
     }
 
     private ImageSource CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
-        var (color, _) = providerId.ToLower() switch
-        {
-            "openai" => (Brushes.DarkCyan, "AI"),
-            "codex" => (Brushes.DarkCyan, "AI"),
-            "codex.spark" => (Brushes.DarkCyan, "AI"),
-            "anthropic" => (Brushes.IndianRed, "An"),
-            "github-copilot" => (Brushes.MediumPurple, "GH"),
-            "gemini" or "google" => (Brushes.DodgerBlue, "G"),
-            "deepseek" => (Brushes.DeepSkyBlue, "DS"),
-            _ => (Brushes.Gray, "?")
-        };
+        var (color, _) = ProviderVisualCatalog.GetFallbackBadge(providerId, Brushes.Gray);
 
         // Return a drawing image with just a colored rectangle (simplified)
         var drawing = new GeometryDrawing(
@@ -1666,97 +946,125 @@ public partial class SettingsWindow : Window
         return image;
     }
 
-    private string MaskString(string input)
-    {
-        if (string.IsNullOrEmpty(input))
-        {
-            return input;
-        }
-
-        if (input.Length <= 2)
-        {
-            return new string('*', input.Length);
-        }
-
-        return input[0] + new string('*', input.Length - 2) + input[^1];
-    }
-
-    private string MaskAccountIdentifier(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return input;
-        }
-
-        var atIndex = input.IndexOf('@');
-        if (atIndex > 0 && atIndex < input.Length - 1)
-        {
-            var localPart = input[..atIndex];
-            var domainPart = input[(atIndex + 1)..];
-            var maskedDomainChars = domainPart.ToCharArray();
-            for (var i = 0; i < maskedDomainChars.Length; i++)
-            {
-                if (maskedDomainChars[i] != '.')
-                {
-                    maskedDomainChars[i] = '*';
-                }
-            }
-
-            var maskedDomain = new string(maskedDomainChars);
-            if (localPart.Length <= 2)
-            {
-                return $"{new string('*', localPart.Length)}@{maskedDomain}";
-            }
-
-            return $"{localPart[0]}{new string('*', localPart.Length - 2)}{localPart[^1]}@{maskedDomain}";
-        }
-
-        return MaskString(input);
-    }
-
     private void PopulateLayoutSettings()
     {
-        AlwaysOnTopCheck.IsChecked = _preferences.AlwaysOnTop;
-        AggressiveTopmostCheck.IsChecked = _preferences.AggressiveAlwaysOnTop;
-        ForceWin32TopmostCheck.IsChecked = _preferences.ForceWin32Topmost;
-        InvertProgressCheck.IsChecked = _preferences.InvertProgressBar;
-        InvertCalculationsCheck.IsChecked = _preferences.InvertCalculations;
-        ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
-        ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
-        ThemeCombo.ItemsSource = GetThemeOptions();
-        ThemeCombo.SelectedValue = _preferences.Theme;
-        
-        UpdateChannelCombo.ItemsSource = new[] 
-        { 
+        this.AlwaysOnTopCheck.IsChecked = this._preferences.AlwaysOnTop;
+        this.AggressiveTopmostCheck.IsChecked = this._preferences.AggressiveAlwaysOnTop;
+        this.ForceWin32TopmostCheck.IsChecked = this._preferences.ForceWin32Topmost;
+        this.ApplyDisplayModePreference();
+        this.ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
+        this.ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
+        this.ThemeCombo.ItemsSource = this.GetThemeOptions();
+        this.ThemeCombo.SelectedValue = this._preferences.Theme;
+
+        this.UpdateChannelCombo.ItemsSource = new[]
+        {
             new { Label = "Stable", Value = UpdateChannel.Stable },
-            new { Label = "Beta", Value = UpdateChannel.Beta }
+            new { Label = "Beta", Value = UpdateChannel.Beta },
         };
-        UpdateChannelCombo.DisplayMemberPath = "Label";
-        UpdateChannelCombo.SelectedValuePath = "Value";
-        UpdateChannelCombo.SelectedValue = _preferences.UpdateChannel;
-        
-        EnableWindowsNotificationsCheck.IsChecked = _agentPreferences.EnableNotifications;
-        NotificationThresholdBox.Text = _agentPreferences.NotificationThreshold.ToString("0.#");
-        NotifyUsageThresholdCheck.IsChecked = _agentPreferences.NotifyOnUsageThreshold;
-        NotifyQuotaExceededCheck.IsChecked = _agentPreferences.NotifyOnQuotaExceeded;
-        NotifyProviderErrorsCheck.IsChecked = _agentPreferences.NotifyOnProviderErrors;
-        EnableQuietHoursCheck.IsChecked = _agentPreferences.EnableQuietHours;
-        QuietHoursStartBox.Text = string.IsNullOrWhiteSpace(_agentPreferences.QuietHoursStart) ? "22:00" : _agentPreferences.QuietHoursStart;
-        QuietHoursEndBox.Text = string.IsNullOrWhiteSpace(_agentPreferences.QuietHoursEnd) ? "07:00" : _agentPreferences.QuietHoursEnd;
-        ApplyNotificationControlsState();
-        YellowThreshold.Text = _preferences.ColorThresholdYellow.ToString();
-        RedThreshold.Text = _preferences.ColorThresholdRed.ToString();
-        
+        this.UpdateChannelCombo.DisplayMemberPath = "Label";
+        this.UpdateChannelCombo.SelectedValuePath = "Value";
+        this.UpdateChannelCombo.SelectedValue = this._preferences.UpdateChannel;
+
+        this.EnableWindowsNotificationsCheck.IsChecked = this._preferences.EnableNotifications;
+        this.NotificationThresholdBox.Text = this._preferences.NotificationThreshold.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+        this.NotifyUsageThresholdCheck.IsChecked = this._preferences.NotifyOnUsageThreshold;
+        this.NotifyQuotaExceededCheck.IsChecked = this._preferences.NotifyOnQuotaExceeded;
+        this.NotifyProviderErrorsCheck.IsChecked = this._preferences.NotifyOnProviderErrors;
+        this.EnableQuietHoursCheck.IsChecked = this._preferences.EnableQuietHours;
+        this.QuietHoursStartBox.Text = string.IsNullOrWhiteSpace(this._preferences.QuietHoursStart) ? "22:00" : this._preferences.QuietHoursStart;
+        this.QuietHoursEndBox.Text = string.IsNullOrWhiteSpace(this._preferences.QuietHoursEnd) ? "07:00" : this._preferences.QuietHoursEnd;
+        this.ApplyNotificationControlsState();
+        this.YellowThreshold.Text = this._preferences.ColorThresholdYellow.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        this.RedThreshold.Text = this._preferences.ColorThresholdRed.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         // Font settings
-        PopulateFontComboBox();
-        FontFamilyCombo.SelectedItem = _preferences.FontFamily;
-        FontSizeBox.Text = _preferences.FontSize.ToString();
-        FontBoldCheck.IsChecked = _preferences.FontBold;
-        FontItalicCheck.IsChecked = _preferences.FontItalic;
-        UpdateFontPreview();
+        this.PopulateFontComboBox();
+        this.FontFamilyCombo.SelectedItem = this._preferences.FontFamily;
+        this.FontSizeBox.Text = this._preferences.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        this.FontBoldCheck.IsChecked = this._preferences.FontBold;
+        this.FontItalicCheck.IsChecked = this._preferences.FontItalic;
+        this.UpdateFontPreview();
     }
 
-    private static IReadOnlyList<ThemeOption> GetThemeOptions()
+    private void ApplyDisplayModePreference()
+    {
+        if (this.ShowUsedPercentagesCheck != null)
+        {
+            this.ShowUsedPercentagesCheck.IsChecked = this._displayPreferences.ShouldShowUsedPercentages(this._preferences);
+        }
+    }
+
+    private void PopulateProviderVisibilitySettings()
+    {
+        this.ProviderCardVisibilityPanel.Children.Clear();
+        var hidden = this._preferences.HiddenProviderItemIds;
+
+        // Run the same pipeline as the main window (no hidden filter) to get every card
+        // that could potentially appear, then group by canonical provider.
+        var renderPrep = ProviderUsageDisplayCatalog.PrepareForMainWindow(this._usages);
+        var allCards = ProviderUsageDisplayCatalog
+            .ExpandSyntheticAggregateChildren(renderPrep.DisplayableUsages, hiddenItemIds: [])
+            .ToList();
+
+        var groups = allCards
+            .GroupBy(
+                u => ProviderMetadataCatalog.GetCanonicalProviderId(u.ProviderId ?? string.Empty),
+                StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var group in groups)
+        {
+            var cards = group.ToList();
+
+            if (cards.Count == 1)
+            {
+                // Single card: flat checkbox with no heading.
+                var usage = cards[0];
+                var checkBox = new CheckBox
+                {
+                    Content = usage.ProviderName ?? usage.ProviderId,
+                    Tag = usage.ProviderId,
+                    IsChecked = !hidden.Contains(usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase),
+                    Margin = new Thickness(0, 2, 0, 6),
+                    Foreground = (Brush)this.FindResource("SecondaryText"),
+                };
+                checkBox.Checked += this.ProviderVisibility_Changed;
+                checkBox.Unchecked += this.ProviderVisibility_Changed;
+                this.ProviderCardVisibilityPanel.Children.Add(checkBox);
+            }
+            else
+            {
+                // Multiple cards for one provider: bold heading + indented checkboxes.
+                ProviderMetadataCatalog.TryGet(group.Key, out var definition);
+                this.ProviderCardVisibilityPanel.Children.Add(new TextBlock
+                {
+                    Text = definition?.DisplayName ?? group.Key,
+                    FontWeight = FontWeights.SemiBold,
+                    Margin = new Thickness(0, 4, 0, 4),
+                    Foreground = (Brush)this.FindResource("SecondaryText"),
+                });
+
+                for (var i = 0; i < cards.Count; i++)
+                {
+                    var usage = cards[i];
+                    var checkBox = new CheckBox
+                    {
+                        Content = usage.ProviderName ?? usage.ProviderId,
+                        Tag = usage.ProviderId,
+                        IsChecked = !hidden.Contains(usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase),
+                        Margin = new Thickness(15, 2, 0, i == cards.Count - 1 ? 16 : 2),
+                        Foreground = (Brush)this.FindResource("SecondaryText"),
+                    };
+                    checkBox.Checked += this.ProviderVisibility_Changed;
+                    checkBox.Unchecked += this.ProviderVisibility_Changed;
+                    this.ProviderCardVisibilityPanel.Children.Add(checkBox);
+                }
+            }
+        }
+    }
+
+    private IReadOnlyList<ThemeOption> GetThemeOptions()
     {
         return new List<ThemeOption>
         {
@@ -1773,7 +1081,7 @@ public partial class SettingsWindow : Window
             new() { Value = AppTheme.CatppuccinFrappe, Label = "Catppuccin Frappe" },
             new() { Value = AppTheme.CatppuccinMacchiato, Label = "Catppuccin Macchiato" },
             new() { Value = AppTheme.CatppuccinMocha, Label = "Catppuccin Mocha" },
-            new() { Value = AppTheme.CatppuccinLatte, Label = "Catppuccin Latte" }
+            new() { Value = AppTheme.CatppuccinLatte, Label = "Catppuccin Latte" },
         };
     }
 
@@ -1782,18 +1090,18 @@ public partial class SettingsWindow : Window
         // Get all system fonts
         var fonts = System.Windows.Media.Fonts.GetFontFamilies(new Uri("pack://application:,,,/"))
             .Select(ff => ff.FamilyNames.FirstOrDefault().Value ?? ff.Source)
-            .OrderBy(f => f)
+            .OrderBy(f => f, StringComparer.Ordinal)
             .ToList();
-        
+
         // If no fonts from pack URI, try alternative method
         if (fonts.Count == 0)
         {
             fonts = System.Windows.Media.Fonts.GetFontFamilies(Environment.GetFolderPath(Environment.SpecialFolder.Fonts))
                 .Select(ff => ff.FamilyNames.FirstOrDefault().Value ?? ff.Source)
-                .OrderBy(f => f)
+                .OrderBy(f => f, StringComparer.Ordinal)
                 .ToList();
         }
-        
+
         // Fallback to common fonts if still empty
         if (fonts.Count == 0)
         {
@@ -1801,136 +1109,134 @@ public partial class SettingsWindow : Window
             {
                 "Arial", "Calibri", "Cambria", "Comic Sans MS", "Consolas", "Courier New",
                 "Georgia", "Helvetica", "Lucida Console", "Segoe UI", "Tahoma", "Times New Roman",
-                "Trebuchet MS", "Verdana"
-            }.OrderBy(f => f).ToList();
+                "Trebuchet MS", "Verdana",
+            }.OrderBy(f => f, StringComparer.Ordinal).ToList();
         }
-        
-        FontFamilyCombo.ItemsSource = fonts;
+
+        this.FontFamilyCombo.ItemsSource = fonts;
     }
 
     private void UpdateFontPreview()
     {
-        if (FontPreviewText == null) return;
-        
-        // Update font family
-        if (!string.IsNullOrEmpty(_preferences.FontFamily))
+        if (this.FontPreviewText == null)
         {
-            FontPreviewText.FontFamily = new System.Windows.Media.FontFamily(_preferences.FontFamily);
+            return;
         }
-        
+
+        // Update font family
+        if (!string.IsNullOrEmpty(this._preferences.FontFamily))
+        {
+            this.FontPreviewText.FontFamily = new System.Windows.Media.FontFamily(this._preferences.FontFamily);
+        }
+
         // Update font size
-        FontPreviewText.FontSize = _preferences.FontSize > 0 ? _preferences.FontSize : 12;
-        
+        this.FontPreviewText.FontSize = this._preferences.FontSize > 0 ? this._preferences.FontSize : 12;
+
         // Update font weight
-        FontPreviewText.FontWeight = _preferences.FontBold ? FontWeights.Bold : FontWeights.Normal;
-        
+        this.FontPreviewText.FontWeight = this._preferences.FontBold ? FontWeights.Bold : FontWeights.Normal;
+
         // Update font style
-        FontPreviewText.FontStyle = _preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
+        this.FontPreviewText.FontStyle = this._preferences.FontItalic ? FontStyles.Italic : FontStyles.Normal;
     }
 
     private void ResetFontBtn_Click(object sender, RoutedEventArgs e)
     {
-        // Reset to defaults
-        _preferences.FontFamily = "Segoe UI";
-        _preferences.FontSize = 12;
-        _preferences.FontBold = false;
-        _preferences.FontItalic = false;
-        
-        // Update UI
-        FontFamilyCombo.SelectedItem = _preferences.FontFamily;
-        FontSizeBox.Text = _preferences.FontSize.ToString();
-        FontBoldCheck.IsChecked = _preferences.FontBold;
-        FontItalicCheck.IsChecked = _preferences.FontItalic;
-        UpdateFontPreview();
-        ScheduleAutoSave();
+        this.ApplyFontPreferenceChange(() =>
+        {
+            this._preferences.FontFamily = "Segoe UI";
+            this._preferences.FontSize = 12;
+            this._preferences.FontBold = false;
+            this._preferences.FontItalic = false;
+
+            this.FontFamilyCombo.SelectedItem = this._preferences.FontFamily;
+            this.FontSizeBox.Text = this._preferences.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            this.FontBoldCheck.IsChecked = this._preferences.FontBold;
+            this.FontItalicCheck.IsChecked = this._preferences.FontItalic;
+        });
     }
 
     private void FontFamilyCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (FontFamilyCombo.SelectedItem is string font)
+        if (this.FontFamilyCombo.SelectedItem is string font)
         {
-            _preferences.FontFamily = font;
-            UpdateFontPreview();
-            ScheduleAutoSave();
+            this.ApplyFontPreferenceChange(() => this._preferences.FontFamily = font);
         }
     }
 
     private void FontSizeBox_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (int.TryParse(FontSizeBox.Text, out int size) && size > 0 && size <= 72)
+        if (int.TryParse(this.FontSizeBox.Text, System.Globalization.CultureInfo.InvariantCulture, out int size) && size > 0 && size <= 72)
         {
-            _preferences.FontSize = size;
-            UpdateFontPreview();
-            ScheduleAutoSave();
+            this.ApplyFontPreferenceChange(() => this._preferences.FontSize = size);
         }
     }
 
     private void FontBoldCheck_CheckedChanged(object sender, RoutedEventArgs e)
     {
-        _preferences.FontBold = FontBoldCheck.IsChecked ?? false;
-        UpdateFontPreview();
-        ScheduleAutoSave();
+        this.ApplyFontPreferenceChange(() => this._preferences.FontBold = this.FontBoldCheck.IsChecked ?? false);
     }
 
     private void FontItalicCheck_CheckedChanged(object sender, RoutedEventArgs e)
     {
-        _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
-        UpdateFontPreview();
-        ScheduleAutoSave();
+        this.ApplyFontPreferenceChange(() => this._preferences.FontItalic = this.FontItalicCheck.IsChecked ?? false);
     }
 
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            var newPrivacyMode = !_isPrivacyMode;
-            _preferences.IsPrivacyMode = newPrivacyMode;
+            var newPrivacyMode = !this._isPrivacyMode;
+            this._preferences.IsPrivacyMode = newPrivacyMode;
             App.SetPrivacyMode(newPrivacyMode);
-            await SaveUiPreferencesAsync();
-            SettingsChanged = true;
+            await this.SaveUiPreferencesAsync();
+            this.SettingsChanged = true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "PrivacyBtn_Click failed");
+            this._logger.LogError(ex, "PrivacyBtn_Click failed");
             MessageBox.Show($"Failed to update privacy mode: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
-    }
-
-    private void CloseBtn_Click(object sender, RoutedEventArgs e)
-    {
-        this.Close();
     }
 
     private async void ScanBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            ScanBtn.IsEnabled = false;
-            ScanBtn.Content = "Scanning...";
-            
-            var (count, configs) = await _monitorService.ScanForKeysAsync();
-            
-            if (count > 0)
+            this.ScanBtn.IsEnabled = false;
+            this.ScanBtn.Content = "Scanning...";
+
+            var scanResult = await this._monitorService.ScanForKeysAsync();
+
+            if (scanResult.Count > 0)
             {
-                MessageBox.Show($"Found {count} new API key(s). They have been added to your configuration.", 
-                    "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
-                await LoadDataAsync();
+                MessageBox.Show(
+                    $"Found {scanResult.Count} new API key(s). They have been added to your configuration.",
+                    "Scan Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                await this.LoadDataAsync();
             }
             else
             {
-                MessageBox.Show("No new API keys found.", 
-                    "Scan Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    "No new API keys found.",
+                    "Scan Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to scan for keys: {ex.Message}", 
-                "Scan Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to scan for keys: {ex.Message}",
+                "Scan Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
-            ScanBtn.IsEnabled = true;
-            ScanBtn.Content = "Scan for Keys";
+            this.ScanBtn.IsEnabled = true;
+            this.ScanBtn.Content = "Scan for Keys";
         }
     }
 
@@ -1939,21 +1245,27 @@ public partial class SettingsWindow : Window
         try
         {
             // Trigger refresh on agent
-            await _monitorService.TriggerRefreshAsync();
-            
+            await this._monitorService.TriggerRefreshAsync();
+
             // Wait a moment for refresh to complete
             await Task.Delay(2000);
-            
+
             // Reload data
-            await LoadDataAsync();
-            
-            MessageBox.Show("Data refreshed successfully.", "Refresh Complete", 
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            await this.LoadDataAsync();
+
+            MessageBox.Show(
+                "Data refreshed successfully.",
+                "Refresh Complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to refresh data: {ex.Message}", "Refresh Error", 
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to refresh data: {ex.Message}",
+                "Refresh Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1961,37 +1273,46 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            var history = await _monitorService.GetHistoryAsync(100);
-            HistoryDataGrid.ItemsSource = history;
-            
+            var history = await this._monitorService.GetHistoryAsync(100);
+            this.HistoryDataGrid.ItemsSource = history;
+
             if (history.Count == 0)
             {
-                MessageBox.Show("No history data available. The agent may not have collected any data yet.", 
-                    "No Data", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    "No history data available. The agent may not have collected any data yet.",
+                    "No Data",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to load history: {ex.Message}", "History Error", 
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to load history: {ex.Message}",
+                "History Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
     private void ClearHistoryBtn_Click(object sender, RoutedEventArgs e)
     {
-        HistoryDataGrid.ItemsSource = null;
+        this.HistoryDataGrid.ItemsSource = null;
     }
 
     private async void ExportCsvBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            await _monitorService.RefreshPortAsync();
-            var csv = await _monitorService.ExportDataAsync("csv");
+            await this._monitorService.RefreshPortAsync();
+            var csv = await this._monitorService.ExportDataAsync("csv");
             if (string.IsNullOrEmpty(csv))
             {
-                MessageBox.Show("No data to export or Monitor is not running.", "Export", 
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    "No data to export or Monitor is not running.",
+                    "Export",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
                 return;
             }
 
@@ -1999,20 +1320,26 @@ public partial class SettingsWindow : Window
             {
                 Filter = "CSV files (*.csv)|*.csv",
                 DefaultExt = ".csv",
-                FileName = $"usage_export_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+                FileName = $"usage_export_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
             };
 
             if (dialog.ShowDialog() == true)
             {
                 await File.WriteAllTextAsync(dialog.FileName, csv);
-                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete", 
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    $"Exported to {dialog.FileName}",
+                    "Export Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Export failed: {ex.Message}", "Export Error", 
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Export failed: {ex.Message}",
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -2020,12 +1347,15 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            await _monitorService.RefreshPortAsync();
-            var json = await _monitorService.ExportDataAsync("json");
-            if (json == "[]" || string.IsNullOrEmpty(json))
+            await this._monitorService.RefreshPortAsync();
+            var json = await this._monitorService.ExportDataAsync("json");
+            if (string.Equals(json, "[]", StringComparison.Ordinal) || string.IsNullOrEmpty(json))
             {
-                MessageBox.Show("No data to export or Monitor is not running.", "Export", 
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    "No data to export or Monitor is not running.",
+                    "Export",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
                 return;
             }
 
@@ -2033,24 +1363,30 @@ public partial class SettingsWindow : Window
             {
                 Filter = "JSON files (*.json)|*.json",
                 DefaultExt = ".json",
-                FileName = $"usage_export_{DateTime.Now:yyyyMMdd_HHmmss}.json"
+                FileName = $"usage_export_{DateTime.Now:yyyyMMdd_HHmmss}.json",
             };
 
             if (dialog.ShowDialog() == true)
             {
                 await File.WriteAllTextAsync(dialog.FileName, json);
-                MessageBox.Show($"Exported to {dialog.FileName}", "Export Complete", 
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    $"Exported to {dialog.FileName}",
+                    "Export Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Export failed: {ex.Message}", "Export Error", 
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Export failed: {ex.Message}",
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
-    private async void BackupDbBtn_Click(object sender, RoutedEventArgs e)
+    private void BackupDbBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
@@ -2058,33 +1394,39 @@ public partial class SettingsWindow : Window
             {
                 Filter = "Database files (*.db)|*.db",
                 DefaultExt = ".db",
-                FileName = $"usage_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db"
+                FileName = $"usage_backup_{DateTime.Now:yyyyMMdd_HHmmss}.db",
             };
 
             if (dialog.ShowDialog() == true)
             {
-                var dbPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "AIUsageTracker",
-                    "usage.db");
+                var dbPath = this._pathProvider.GetDatabasePath();
 
                 if (File.Exists(dbPath))
                 {
                     File.Copy(dbPath, dialog.FileName, true);
-                    MessageBox.Show($"Backup saved to {dialog.FileName}", "Backup Complete", 
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show(
+                        $"Backup saved to {dialog.FileName}",
+                        "Backup Complete",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                 }
                 else
                 {
-                    MessageBox.Show("Database file not found.", "Backup Error", 
-                        MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show(
+                        "Database file not found.",
+                        "Backup Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
                 }
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Backup failed: {ex.Message}", "Backup Error", 
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Backup failed: {ex.Message}",
+                "Backup Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -2096,31 +1438,47 @@ public partial class SettingsWindow : Window
             foreach (var process in System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")
                 .Concat(System.Diagnostics.Process.GetProcessesByName("AIUsageTracker.Monitor")))
             {
-                try { process.Kill(); } catch { }
+                try
+                {
+                    process.Kill();
+                }
+                catch (Exception ex)
+                {
+                    this._logger.LogDebug(ex, "Failed to terminate monitor process {ProcessId}", process.Id);
+                }
             }
-            
+
             await Task.Delay(1000);
-            
+
             // Restart agent
-            if (await MonitorLauncher.StartAgentAsync())
+            if (await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(true))
             {
-                MessageBox.Show("Monitor restarted successfully.", "Restart Complete", 
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(
+                    "Monitor restarted successfully.",
+                    "Restart Complete",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
             else
             {
-                MessageBox.Show("Failed to restart Monitor.", "Restart Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(
+                    "Failed to restart Monitor.",
+                    "Restart Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to restart Monitor: {ex.Message}", "Restart Error", 
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to restart Monitor: {ex.Message}",
+                "Restart Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
-            RefreshDiagnosticsLog();
+            this.RefreshDiagnosticsLog();
         }
     }
 
@@ -2128,40 +1486,114 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
+            var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
+            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
             var status = isRunning ? "Running" : "Not Running";
-            
-            MessageBox.Show($"Monitor Status: {status}\n\nPort: {port}", "Health Check", 
-                MessageBoxButton.OK, isRunning ? MessageBoxImage.Information : MessageBoxImage.Warning);
+
+            MessageBox.Show(
+                this.BuildHealthCheckMessage(status, port, healthSnapshot),
+                "Health Check",
+                MessageBoxButton.OK,
+                this.GetHealthCheckIcon(isRunning, healthSnapshot));
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to check health: {ex.Message}", "Health Check Error", 
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to check health: {ex.Message}",
+                "Health Check Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
-            RefreshDiagnosticsLog();
+            this.RefreshDiagnosticsLog();
         }
+    }
+
+    private string BuildHealthCheckMessage(string processStatus, int port, MonitorHealthSnapshot? healthSnapshot)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Monitor Status: {processStatus}"));
+        builder.AppendLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Port: {port}"));
+
+        if (healthSnapshot == null)
+        {
+            return builder.ToString();
+        }
+
+        builder.AppendLine($"Service Health: {healthSnapshot.ServiceHealth}");
+        builder.AppendLine($"Monitor Version: {healthSnapshot.AgentVersion ?? "unknown"}");
+        var contractVersion = healthSnapshot.EffectiveContractVersion ?? "unknown";
+        builder.AppendLine($"API Contract: {contractVersion}");
+        if (!string.IsNullOrWhiteSpace(healthSnapshot.EffectiveMinClientContractVersion))
+        {
+            builder.AppendLine($"Min Client Contract: {healthSnapshot.EffectiveMinClientContractVersion}");
+        }
+
+        builder.AppendLine($"Last Health Ping: {FormatHealthTimestamp(healthSnapshot.Timestamp)}");
+        builder.AppendLine($"Refresh Status: {healthSnapshot.RefreshHealth.Status}");
+        builder.AppendLine($"Last Refresh Attempt: {FormatHealthTimestamp(healthSnapshot.RefreshHealth.LastRefreshAttemptUtc)}");
+        builder.AppendLine($"Last Successful Refresh: {FormatHealthTimestamp(healthSnapshot.RefreshHealth.LastSuccessfulRefreshUtc)}");
+        builder.AppendLine(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Providers In Backoff: {healthSnapshot.RefreshHealth.ProvidersInBackoff}"));
+
+        if (healthSnapshot.RefreshHealth.FailingProviders.Count > 0)
+        {
+            builder.AppendLine($"Failing Providers: {string.Join(", ", healthSnapshot.RefreshHealth.FailingProviders)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(healthSnapshot.RefreshHealth.LastError))
+        {
+            builder.AppendLine($"Last Refresh Error: {healthSnapshot.RefreshHealth.LastError}");
+        }
+
+        return builder.ToString();
+    }
+
+    private MessageBoxImage GetHealthCheckIcon(bool isRunning, MonitorHealthSnapshot? healthSnapshot)
+    {
+        if (!isRunning)
+        {
+            return MessageBoxImage.Warning;
+        }
+
+        return string.Equals(healthSnapshot?.ServiceHealth, "degraded", StringComparison.OrdinalIgnoreCase)
+            ? MessageBoxImage.Warning
+            : MessageBoxImage.Information;
+    }
+
+    private static string FormatHealthTimestamp(DateTime? timestampUtc)
+    {
+        if (!timestampUtc.HasValue)
+        {
+            return "Never";
+        }
+
+        return $"{timestampUtc.Value.ToLocalTime():yyyy-MM-dd HH:mm:ss} (local)";
     }
 
     private async void ExportDiagnosticsBtn_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            await _monitorService.RefreshPortAsync();
-            await _monitorService.RefreshAgentInfoAsync();
+            await this._monitorService.RefreshPortAsync();
+            await this._monitorService.RefreshAgentInfoAsync();
 
-            var (isRunning, port) = await MonitorLauncher.IsAgentRunningWithPortAsync();
-            var healthDetails = await _monitorService.GetHealthDetailsAsync();
-            var diagnosticsDetails = await _monitorService.GetDiagnosticsDetailsAsync();
+            var (isRunning, port) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync().ConfigureAwait(true);
+            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
+            var diagnosticsSnapshot = await this._monitorService.GetDiagnosticsSnapshotAsync();
+            var healthDetails = this.SerializeBundlePayload(
+                healthSnapshot,
+                "Health payload unavailable.");
+            var diagnosticsDetails = this.SerializeBundlePayload(
+                diagnosticsSnapshot,
+                "Diagnostics payload unavailable.");
 
             var saveDialog = new SaveFileDialog
             {
                 FileName = $"ai-usage-tracker-diagnostics-{DateTime.Now:yyyyMMdd-HHmmss}.txt",
                 Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
                 DefaultExt = ".txt",
-                AddExtension = true
+                AddExtension = true,
             };
 
             if (saveDialog.ShowDialog(this) != true)
@@ -2174,38 +1606,57 @@ public partial class SettingsWindow : Window
             bundle.AppendLine("AI Usage Tracker - Diagnostics Bundle");
             bundle.AppendLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");
             bundle.AppendLine($"SlimVersion: {typeof(SettingsWindow).Assembly.GetName().Version?.ToString() ?? "unknown"}");
-            bundle.AppendLine($"AgentUrl: {_monitorService.AgentUrl}");
+            bundle.AppendLine($"AgentUrl: {this._monitorService.AgentUrl}");
             bundle.AppendLine($"AgentRunning: {isRunning}");
-            bundle.AppendLine($"AgentPort: {port}");
+            bundle.AppendLine($"AgentPort: {port.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+            bundle.AppendLine();
+
+            bundle.AppendLine("=== Monitor Health Summary ===");
+            bundle.AppendLine(this.BuildHealthCheckMessage(isRunning ? "Running" : "Not Running", port, healthSnapshot).TrimEnd());
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Health ===");
-            bundle.AppendLine(FormatJsonForBundle(healthDetails));
+            bundle.AppendLine(healthDetails);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Diagnostics ===");
-            bundle.AppendLine(FormatJsonForBundle(diagnosticsDetails));
+            this.AppendMonitorDiagnosticsSummary(bundle, diagnosticsSnapshot);
+            bundle.AppendLine();
+            bundle.AppendLine(diagnosticsDetails);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Monitor Errors (monitor.json) ===");
-            if (_monitorService.LastAgentErrors.Count == 0)
+            if (this._monitorService.LastAgentErrors.Count == 0)
             {
                 bundle.AppendLine("None");
             }
             else
             {
-                foreach (var error in _monitorService.LastAgentErrors)
+                foreach (var error in this._monitorService.LastAgentErrors)
                 {
                     bundle.AppendLine($"- {error}");
                 }
             }
+
             bundle.AppendLine();
 
             bundle.AppendLine("=== Slim Telemetry ===");
-            bundle.AppendLine(
-                $"Usage: count={telemetry.UsageRequestCount}, avg={telemetry.UsageAverageLatencyMs:F1}ms, last={telemetry.UsageLastLatencyMs}ms, errors={telemetry.UsageErrorCount} ({telemetry.UsageErrorRatePercent:F1}%)");
-            bundle.AppendLine(
-                $"Refresh: count={telemetry.RefreshRequestCount}, avg={telemetry.RefreshAverageLatencyMs:F1}ms, last={telemetry.RefreshLastLatencyMs}ms, errors={telemetry.RefreshErrorCount} ({telemetry.RefreshErrorRatePercent:F1}%)");
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Usage: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
+                telemetry.UsageRequestCount,
+                telemetry.UsageAverageLatencyMs,
+                telemetry.UsageLastLatencyMs,
+                telemetry.UsageErrorCount,
+                telemetry.UsageErrorRatePercent);
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "Refresh: count={0}, avg={1:F1}ms, last={2}ms, errors={3} ({4:F1}%)\r\n",
+                telemetry.RefreshRequestCount,
+                telemetry.RefreshAverageLatencyMs,
+                telemetry.RefreshLastLatencyMs,
+                telemetry.RefreshErrorCount,
+                telemetry.RefreshErrorRatePercent);
             bundle.AppendLine();
 
             bundle.AppendLine("=== Slim Diagnostics Log ===");
@@ -2223,190 +1674,194 @@ public partial class SettingsWindow : Window
             }
 
             await File.WriteAllTextAsync(saveDialog.FileName, bundle.ToString());
-            MessageBox.Show($"Diagnostics bundle saved to:\n{saveDialog.FileName}", "Export Complete",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                $"Diagnostics bundle saved to:\n{saveDialog.FileName}",
+                "Export Complete",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to export diagnostics bundle: {ex.Message}", "Export Error",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                $"Failed to export diagnostics bundle: {ex.Message}",
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
         finally
         {
-            RefreshDiagnosticsLog();
+            this.RefreshDiagnosticsLog();
         }
     }
 
-    private static string FormatJsonForBundle(string content)
+    private string SerializeBundlePayload<T>(T? payload, string emptyFallback)
     {
-        if (string.IsNullOrWhiteSpace(content))
+        if (payload == null)
         {
-            return "(empty)";
+            return emptyFallback;
         }
 
-        try
-        {
-            using var document = JsonDocument.Parse(content);
-            return JsonSerializer.Serialize(document.RootElement, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-        }
-        catch
-        {
-            return content;
-        }
+        return JsonSerializer.Serialize(payload, BundleJsonOptions);
     }
 
-    private static DateTime? InferResetTimeFromDetails(ProviderUsage? usage)
+    private void AppendMonitorDiagnosticsSummary(StringBuilder bundle, AgentDiagnosticsSnapshot? diagnostics)
     {
-        if (usage?.Details == null)
+        if (diagnostics == null)
         {
-            return null;
+            bundle.AppendLine("Summary unavailable (typed diagnostics not available).");
+            return;
         }
 
-        foreach (var detail in usage.Details)
-        {
-            if (string.IsNullOrWhiteSpace(detail.Description))
-            {
-                continue;
-            }
+        bundle.AppendLine("Summary:");
+        bundle.AppendFormat(
+            System.Globalization.CultureInfo.InvariantCulture,
+            "- Endpoint: port={0}, pid={1}, runtime={2}, args={3}\r\n",
+            diagnostics.Port,
+            diagnostics.ProcessId,
+            diagnostics.Runtime,
+            diagnostics.Args.Count);
 
-            var match = Regex.Match(detail.Description, @"Resets in\s+(\d+)s", RegexOptions.IgnoreCase);
-            if (match.Success && int.TryParse(match.Groups[1].Value, out var seconds) && seconds > 0)
-            {
-                return DateTime.Now.AddSeconds(seconds);
-            }
+        if (diagnostics.RefreshTelemetry != null)
+        {
+            var refresh = diagnostics.RefreshTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Refresh telemetry: count={0}, success={1}, failure={2}, error_rate={3:F1}%, avg={4:F1}ms, last={5}ms\r\n",
+                refresh.RefreshCount,
+                refresh.RefreshSuccessCount,
+                refresh.RefreshFailureCount,
+                refresh.ErrorRatePercent,
+                refresh.AverageLatencyMs,
+                refresh.LastLatencyMs);
         }
 
-        return null;
-    }
-
-    private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
-    {
-        if (string.IsNullOrWhiteSpace(detail.Name))
+        if (diagnostics.SchedulerTelemetry != null)
         {
-            return false;
+            var scheduler = diagnostics.SchedulerTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Scheduler telemetry: queued={0} (h={1}, n={2}, l={3}), recurring={4}, executed={5}, failed={6}, enqueued={7}, dequeued={8}, coalesced_skipped={9}, noop_signals={10}, in_flight={11}\r\n",
+                scheduler.TotalQueuedJobs,
+                scheduler.HighPriorityQueuedJobs,
+                scheduler.NormalPriorityQueuedJobs,
+                scheduler.LowPriorityQueuedJobs,
+                scheduler.RecurringJobs,
+                scheduler.ExecutedJobs,
+                scheduler.FailedJobs,
+                scheduler.EnqueuedJobs,
+                scheduler.DequeuedJobs,
+                scheduler.CoalescedSkippedJobs,
+                scheduler.DispatchNoopSignals,
+                scheduler.InFlightJobs);
         }
 
-        if (detail.DetailType != ProviderUsageDetailType.Model && detail.DetailType != ProviderUsageDetailType.Other)
+        if (diagnostics.PipelineTelemetry != null)
         {
-            return false;
+            var pipeline = diagnostics.PipelineTelemetry;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Pipeline telemetry: processed={0}, accepted={1}, rejected={2}, invalid_identity={3}, inactive_filtered={4}, placeholders={5}, detail_adjusted={6}, normalized={7}, privacy_redacted={8}, last_run={9}/{10}\r\n",
+                pipeline.TotalProcessedEntries,
+                pipeline.TotalAcceptedEntries,
+                pipeline.TotalRejectedEntries,
+                pipeline.InvalidIdentityCount,
+                pipeline.InactiveProviderFilteredCount,
+                pipeline.PlaceholderFilteredCount,
+                pipeline.DetailContractAdjustedCount,
+                pipeline.NormalizedCount,
+                pipeline.PrivacyRedactedCount,
+                pipeline.LastRunAcceptedEntries,
+                pipeline.LastRunTotalEntries);
         }
 
-        var match = Regex.Match(detail.Used ?? string.Empty, @"(?<percent>\d+(\.\d+)?)\s*%", RegexOptions.IgnoreCase);
-        if (!match.Success)
+        if (diagnostics.Observability?.ActivitySourceNames.Count > 0)
         {
-            return false;
+            bundle.AppendFormat(
+                System.Globalization.CultureInfo.InvariantCulture,
+                "- Observability: activity_sources={0}\r\n",
+                string.Join(", ", diagnostics.Observability.ActivitySourceNames));
         }
-
-        return double.TryParse(match.Groups["percent"].Value, out _);
-    }
-
-    private static string GetProviderDisplayName(string providerId)
-    {
-        return ProviderMetadataCatalog.GetDisplayName(providerId);
-    }
-
-    private static bool IsDerivedProviderVisibleInSettings(string? providerId)
-    {
-        return string.Equals(providerId, "codex.spark", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task PersistAllSettingsAsync(bool showErrorDialog)
     {
-        if (_isLoadingSettings)
+        if (this._isLoadingSettings)
         {
             return;
         }
 
-        await _autoSaveSemaphore.WaitAsync();
+        await this._autoSaveSemaphore.WaitAsync();
         try
         {
-            if (!_hasPendingAutoSave && !showErrorDialog)
+            if (!this._hasPendingAutoSave && !showErrorDialog)
             {
                 return;
             }
 
-            _hasPendingAutoSave = false;
-            _preferences.AlwaysOnTop = AlwaysOnTopCheck.IsChecked ?? true;
-            _preferences.AggressiveAlwaysOnTop = AggressiveTopmostCheck.IsChecked ?? false;
-            _preferences.ForceWin32Topmost = ForceWin32TopmostCheck.IsChecked ?? false;
-            _preferences.InvertProgressBar = InvertProgressCheck.IsChecked ?? false;
-            _preferences.InvertCalculations = InvertCalculationsCheck.IsChecked ?? false;
-            if (ThemeCombo.SelectedValue is AppTheme appTheme)
+            this._hasPendingAutoSave = false;
+            this._preferences.AlwaysOnTop = this.AlwaysOnTopCheck.IsChecked ?? true;
+            this._preferences.AggressiveAlwaysOnTop = this.AggressiveTopmostCheck.IsChecked ?? false;
+            this._preferences.ForceWin32Topmost = this.ForceWin32TopmostCheck.IsChecked ?? false;
+            var showUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
+            this._displayPreferences.SetShowUsedPercentages(this._preferences, showUsedPercentages);
+            if (this.ThemeCombo.SelectedValue is AppTheme appTheme)
             {
-                _preferences.Theme = appTheme;
+                this._preferences.Theme = appTheme;
                 App.ApplyTheme(appTheme);
             }
 
-            if (UpdateChannelCombo.SelectedValue is UpdateChannel channel)
+            if (this.UpdateChannelCombo.SelectedValue is UpdateChannel channel)
             {
-                _preferences.UpdateChannel = channel;
+                this._preferences.UpdateChannel = channel;
             }
 
-            if (int.TryParse(YellowThreshold.Text, out var yellow))
+            if (int.TryParse(this.YellowThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var yellow))
             {
-                _preferences.ColorThresholdYellow = yellow;
+                this._preferences.ColorThresholdYellow = yellow;
             }
 
-            if (int.TryParse(RedThreshold.Text, out var red))
+            if (int.TryParse(this.RedThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var red))
             {
-                _preferences.ColorThresholdRed = red;
+                this._preferences.ColorThresholdRed = red;
             }
 
-            if (FontFamilyCombo.SelectedItem is string font)
+            if (this.FontFamilyCombo.SelectedItem is string font)
             {
-                _preferences.FontFamily = font;
+                this._preferences.FontFamily = font;
             }
 
-            if (int.TryParse(FontSizeBox.Text, out var size) && size > 0 && size <= 72)
+            if (int.TryParse(this.FontSizeBox.Text, System.Globalization.CultureInfo.InvariantCulture, out var size) && size > 0 && size <= 72)
             {
-                _preferences.FontSize = size;
+                this._preferences.FontSize = size;
             }
 
-            _preferences.FontBold = FontBoldCheck.IsChecked ?? false;
-            _preferences.FontItalic = FontItalicCheck.IsChecked ?? false;
-            _preferences.IsPrivacyMode = _isPrivacyMode;
+            this._preferences.FontBold = this.FontBoldCheck.IsChecked ?? false;
+            this._preferences.FontItalic = this.FontItalicCheck.IsChecked ?? false;
+            this._preferences.IsPrivacyMode = this._isPrivacyMode;
 
-            _agentPreferences.EnableNotifications = EnableWindowsNotificationsCheck.IsChecked ?? false;
-            if (double.TryParse(NotificationThresholdBox.Text, out var notifyThreshold))
+            this._preferences.EnableNotifications = this.EnableWindowsNotificationsCheck.IsChecked ?? false;
+            if (double.TryParse(this.NotificationThresholdBox.Text, System.Globalization.CultureInfo.InvariantCulture, out var notifyThreshold))
             {
-                _agentPreferences.NotificationThreshold = Math.Clamp(notifyThreshold, 0, 100);
+                this._preferences.NotificationThreshold = Math.Clamp(notifyThreshold, 0, 100);
             }
 
-            _agentPreferences.NotifyOnUsageThreshold = NotifyUsageThresholdCheck.IsChecked ?? true;
-            _agentPreferences.NotifyOnQuotaExceeded = NotifyQuotaExceededCheck.IsChecked ?? true;
-            _agentPreferences.NotifyOnProviderErrors = NotifyProviderErrorsCheck.IsChecked ?? false;
-            _agentPreferences.EnableQuietHours = EnableQuietHoursCheck.IsChecked ?? false;
-            _agentPreferences.QuietHoursStart = NormalizeQuietHour(QuietHoursStartBox.Text, "22:00");
-            _agentPreferences.QuietHoursEnd = NormalizeQuietHour(QuietHoursEndBox.Text, "07:00");
+            this._preferences.NotifyOnUsageThreshold = this.NotifyUsageThresholdCheck.IsChecked ?? true;
+            this._preferences.NotifyOnQuotaExceeded = this.NotifyQuotaExceededCheck.IsChecked ?? true;
+            this._preferences.NotifyOnProviderErrors = this.NotifyProviderErrorsCheck.IsChecked ?? false;
+            this._preferences.EnableQuietHours = this.EnableQuietHoursCheck.IsChecked ?? false;
+            this._preferences.QuietHoursStart = this.NormalizeQuietHour(this.QuietHoursStartBox.Text, "22:00");
+            this._preferences.QuietHoursEnd = this.NormalizeQuietHour(this.QuietHoursEndBox.Text, "07:00");
 
-            var prefsSaved = await SaveUiPreferencesAsync(showErrorDialog);
+            var prefsSaved = await this.SaveUiPreferencesAsync(showErrorDialog);
             if (!prefsSaved)
             {
                 return;
             }
 
-            var agentPrefsSaved = await _monitorService.SavePreferencesAsync(_agentPreferences);
-            if (!agentPrefsSaved)
-            {
-                if (showErrorDialog)
-                {
-                    MessageBox.Show(
-                        "Failed to save monitor notification preferences.",
-                        "Save Error",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Error);
-                }
-
-                return;
-            }
-
             var failedConfigs = new List<string>();
-            foreach (var config in _configs)
+            foreach (var config in this._configs)
             {
-                var saved = await _monitorService.SaveConfigAsync(config);
+                var saved = await this._monitorService.SaveConfigAsync(config);
                 if (!saved)
                 {
                     failedConfigs.Add(config.ProviderId);
@@ -2427,12 +1882,12 @@ public partial class SettingsWindow : Window
                 return;
             }
 
-            RefreshTrayIcons();
-            SettingsChanged = true;
+            this.RefreshTrayIcons();
+            this.SettingsChanged = true;
         }
         finally
         {
-            _autoSaveSemaphore.Release();
+            this._autoSaveSemaphore.Release();
         }
     }
 
@@ -2440,129 +1895,163 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            _autoSaveTimer.Stop();
-            await PersistAllSettingsAsync(showErrorDialog: false);
+            this._autoSaveTimer.Stop();
+            await this.PersistAllSettingsAsync(showErrorDialog: false);
             this.Close();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "CancelBtn_Click failed");
-            MessageBox.Show($"Failed to save settings: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            this._logger.LogError(ex, "CancelBtn_Click failed");
+            MessageBox.Show(
+                $"Failed to save settings: {ex.Message}",
+                "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
     private void ThemeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isLoadingSettings)
+        if (this._isLoadingSettings)
         {
             return;
         }
 
-        if (ThemeCombo.SelectedValue is AppTheme appTheme)
+        if (this.ThemeCombo.SelectedValue is AppTheme appTheme)
         {
-            _preferences.Theme = appTheme;
+            this._preferences.Theme = appTheme;
             App.ApplyTheme(appTheme);
-            ScheduleAutoSave();
+            this.ScheduleAutoSave();
         }
     }
 
     private void UpdateChannelCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_isLoadingSettings)
+        if (this._isLoadingSettings)
         {
             return;
         }
 
-        if (UpdateChannelCombo.SelectedValue is UpdateChannel channel)
+        if (this.UpdateChannelCombo.SelectedValue is UpdateChannel channel)
         {
-            _preferences.UpdateChannel = channel;
-            ScheduleAutoSave();
+            this._preferences.UpdateChannel = channel;
+            this.ScheduleAutoSave();
         }
     }
 
     private void LayoutSetting_Changed(object sender, RoutedEventArgs e)
     {
-        if (!IsInitialized)
+        if (!this.IsInitialized)
         {
             return;
         }
 
-        ApplyNotificationControlsState();
-        ScheduleAutoSave();
+        this.ApplyNotificationControlsState();
+        this.ScheduleAutoSave();
+    }
+
+    private void ProviderVisibility_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!this.IsInitialized || sender is not CheckBox { Tag: string itemId } cb)
+        {
+            return;
+        }
+
+        this.SetHiddenProviderItemId(itemId, !(cb.IsChecked ?? true));
+        this.ScheduleAutoSave();
+    }
+
+    private void SetHiddenProviderItemId(string id, bool hidden)
+    {
+        var list = this._preferences.HiddenProviderItemIds;
+        if (hidden)
+        {
+            if (!list.Contains(id, StringComparer.OrdinalIgnoreCase))
+            {
+                list.Add(id);
+            }
+        }
+        else
+        {
+            foreach (var item in list.Where(x => string.Equals(x, id, StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                list.Remove(item);
+            }
+        }
     }
 
     private void LayoutSetting_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (!IsInitialized)
+        if (!this.IsInitialized)
         {
             return;
         }
 
-        ScheduleAutoSave();
+        this.ScheduleAutoSave();
     }
 
     private void EnableWindowsNotificationsCheck_Changed(object sender, RoutedEventArgs e)
     {
-        if (!IsInitialized)
+        if (!this.IsInitialized)
         {
             return;
         }
 
-        ApplyNotificationControlsState();
-        ScheduleAutoSave();
+        this.ApplyNotificationControlsState();
+        this.ScheduleAutoSave();
     }
 
     private void ApplyNotificationControlsState()
     {
-        if (EnableWindowsNotificationsCheck == null)
+        if (this.EnableWindowsNotificationsCheck == null)
         {
             return;
         }
 
-        var enabled = EnableWindowsNotificationsCheck.IsChecked ?? false;
-        if (NotificationThresholdBox != null)
+        var enabled = this.EnableWindowsNotificationsCheck.IsChecked ?? false;
+        if (this.NotificationThresholdBox != null)
         {
-            NotificationThresholdBox.IsEnabled = enabled;
+            this.NotificationThresholdBox.IsEnabled = enabled;
         }
 
-        if (NotifyUsageThresholdCheck != null)
+        if (this.NotifyUsageThresholdCheck != null)
         {
-            NotifyUsageThresholdCheck.IsEnabled = enabled;
+            this.NotifyUsageThresholdCheck.IsEnabled = enabled;
         }
 
-        if (NotifyQuotaExceededCheck != null)
+        if (this.NotifyQuotaExceededCheck != null)
         {
-            NotifyQuotaExceededCheck.IsEnabled = enabled;
+            this.NotifyQuotaExceededCheck.IsEnabled = enabled;
         }
 
-        if (NotifyProviderErrorsCheck != null)
+        if (this.NotifyProviderErrorsCheck != null)
         {
-            NotifyProviderErrorsCheck.IsEnabled = enabled;
+            this.NotifyProviderErrorsCheck.IsEnabled = enabled;
         }
 
-        if (EnableQuietHoursCheck != null)
+        if (this.EnableQuietHoursCheck != null)
         {
-            EnableQuietHoursCheck.IsEnabled = enabled;
+            this.EnableQuietHoursCheck.IsEnabled = enabled;
         }
 
-        var quietHoursEnabled = enabled && (EnableQuietHoursCheck?.IsChecked ?? false);
-        if (QuietHoursStartBox != null)
+        var quietHoursEnabled = enabled && (this.EnableQuietHoursCheck?.IsChecked ?? false);
+        if (this.QuietHoursStartBox != null)
         {
-            QuietHoursStartBox.IsEnabled = quietHoursEnabled;
+            this.QuietHoursStartBox.IsEnabled = quietHoursEnabled;
         }
 
-        if (QuietHoursEndBox != null)
+        if (this.QuietHoursEndBox != null)
         {
-            QuietHoursEndBox.IsEnabled = quietHoursEnabled;
+            this.QuietHoursEndBox.IsEnabled = quietHoursEnabled;
         }
     }
 
-    private static string NormalizeQuietHour(string value, string fallback)
+    private string NormalizeQuietHour(string value, string fallback)
     {
         if (TimeSpan.TryParse(value, out var parsed))
         {
             var normalized = new TimeSpan(parsed.Hours, parsed.Minutes, 0);
-            return normalized.ToString("hh\\:mm");
+            return normalized.ToString("hh\\:mm", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         return fallback;
@@ -2572,32 +2061,23 @@ public partial class SettingsWindow : Window
     {
         try
         {
-            NotificationTestStatusText.Text = "Sending...";
+            this.NotificationTestStatusText.Text = "Sending...";
 
-            if (!(EnableWindowsNotificationsCheck.IsChecked ?? false))
+            if (!(this.EnableWindowsNotificationsCheck.IsChecked ?? false))
             {
-                NotificationTestStatusText.Text = "Enable notifications first.";
+                this.NotificationTestStatusText.Text = "Enable notifications first.";
                 return;
             }
 
-            var result = await _monitorService.SendTestNotificationDetailedAsync();
-            NotificationTestStatusText.Text = result.Message;
+            var result = await this._monitorService.SendTestNotificationDetailedAsync();
+            this.NotificationTestStatusText.Text = result.Message;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "SendTestNotificationBtn_Click failed");
-            NotificationTestStatusText.Text = $"Error: {ex.Message}";
+            this._logger.LogError(ex, "SendTestNotificationBtn_Click failed");
+            this.NotificationTestStatusText.Text = $"Error: {ex.Message}";
         }
     }
+#pragma warning restore VSTHRD100
 
-    private void Window_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Escape)
-        {
-            this.Close();
-        }
-    }
 }
-
-
-

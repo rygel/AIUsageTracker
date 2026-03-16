@@ -2,7 +2,7 @@
 <rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>AI Usage Tracker (Beta Channel - x86)</title>
-        <link>https://github.com/rygel/AIConsumptionTracker/releases</link>
+        <link>https://github.com/rygel/AIUsageTracker/releases</link>
         <description>Beta releases for x86 architecture.</description>
         <language>en</language>
         <!-- Beta releases will be added here -->

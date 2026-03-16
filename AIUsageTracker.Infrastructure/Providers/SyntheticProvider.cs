@@ -1,3 +1,8 @@
+// <copyright file="SyntheticProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -13,21 +18,30 @@ public sealed class SyntheticProvider : ProviderBase
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<SyntheticProvider> _logger;
-    public static ProviderDefinition StaticDefinition { get; } = new(
-        providerId: "synthetic",
-        displayName: "Synthetic",
-        planType: PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based");
-
-    public override ProviderDefinition Definition => StaticDefinition;
-    public override string ProviderId => StaticDefinition.ProviderId;
 
     public SyntheticProvider(HttpClient httpClient, ILogger<SyntheticProvider> logger)
     {
-        _httpClient = httpClient;
-        _logger = logger;
+        this._httpClient = httpClient;
+        this._logger = logger;
     }
+
+    public static ProviderDefinition StaticDefinition { get; } = new(
+        "synthetic",
+        "Synthetic.new",
+        PlanType.Coding,
+        isQuotaBased: true,
+        defaultConfigType: "quota-based")
+    {
+        DiscoveryEnvironmentVariables = new[] { "SYNTHETIC_API_KEY" },
+        RooConfigPropertyNames = new[] { "syntheticApiKey" },
+        IconAssetName = "synthetic",
+        FallbackBadgeColorHex = "#FFD700",
+        FallbackBadgeInitial = "Sy",
+    };
+
+    public override ProviderDefinition Definition => StaticDefinition;
+
+    public override string ProviderId => StaticDefinition.ProviderId;
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(
         ProviderConfig config,
@@ -35,7 +49,7 @@ public sealed class SyntheticProvider : ProviderBase
     {
         if (string.IsNullOrWhiteSpace(config.ApiKey))
         {
-            return new[] { CreateUnavailableUsage("API Key missing", 401, config.AuthSource) };
+            return new[] { this.CreateUnavailableUsage("API Key missing", 401, config.AuthSource, state: ProviderUsageState.Missing) };
         }
 
         var endpoint = string.IsNullOrWhiteSpace(config.BaseUrl)
@@ -47,24 +61,24 @@ public sealed class SyntheticProvider : ProviderBase
             using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
 
-            using var response = await _httpClient.SendAsync(request);
-            var content = await response.Content.ReadAsStringAsync();
+            using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
+            var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogDebug("Synthetic quota request failed with status code {StatusCode}", response.StatusCode);
-                return new[] { CreateUnavailableUsage($"API Error: {response.StatusCode}", (int)response.StatusCode, config.AuthSource) };
+                this._logger.LogDebug("Synthetic quota request failed with status code {StatusCode}", response.StatusCode);
+                return new[] { this.CreateUnavailableUsage($"API Error: {response.StatusCode}", (int)response.StatusCode, config.AuthSource) };
             }
 
             if (content.Trim().Equals("Not Found", StringComparison.OrdinalIgnoreCase))
             {
-                return new[] { CreateUnavailableUsage("Invalid key or quota endpoint", (int)response.StatusCode, config.AuthSource) };
+                return new[] { this.CreateUnavailableUsage("Endpoint returned 'Not Found' - check API key", (int)response.StatusCode, config.AuthSource) };
             }
 
             using var document = JsonDocument.Parse(content);
             if (!TryResolveUsage(document.RootElement, out var total, out var used, out var resetRaw))
             {
-                return new[] { CreateUnavailableUsage("Unexpected quota response format", (int)response.StatusCode, config.AuthSource) };
+                return new[] { this.CreateUnavailableUsage("Response missing quota fields (total/used/reset)", (int)response.StatusCode, config.AuthSource) };
             }
 
             var remainingPercent = Math.Clamp(((total - used) / total) * 100.0, 0, 100);
@@ -81,12 +95,11 @@ public sealed class SyntheticProvider : ProviderBase
             {
                 new ProviderUsage
                 {
-                    ProviderId = ProviderId,
-                    ProviderName = "Synthetic",
-                    RequestsPercentage = remainingPercent,
+                    ProviderId = this.ProviderId,
+                    ProviderName = "Synthetic.new",
+                    UsedPercent = Math.Clamp(used / total * 100.0, 0, 100),
                     RequestsUsed = used,
                     RequestsAvailable = total,
-                    UsageUnit = "Credits",
                     IsQuotaBased = true,
                     PlanType = PlanType.Coding,
                     IsAvailable = true,
@@ -94,14 +107,14 @@ public sealed class SyntheticProvider : ProviderBase
                     NextResetTime = nextResetTime,
                     AuthSource = config.AuthSource ?? string.Empty,
                     RawJson = content,
-                    HttpStatus = (int)response.StatusCode
-                }
+                    HttpStatus = (int)response.StatusCode,
+                },
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Synthetic provider check failed");
-            return new[] { CreateUnavailableUsage("Connection failed", 503, config.AuthSource) };
+            this._logger.LogError(ex, "Synthetic provider check failed");
+            return new[] { this.CreateUnavailableUsageFromException(ex, authSource: config.AuthSource) };
         }
     }
 
@@ -321,14 +334,13 @@ public sealed class SyntheticProvider : ProviderBase
     {
         nextResetTime = null;
 
-        if (string.IsNullOrWhiteSpace(resetRaw) || !DateTime.TryParse(resetRaw, out var parsed))
+        if (string.IsNullOrWhiteSpace(resetRaw) || !DateTime.TryParse(resetRaw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed))
         {
             return string.Empty;
         }
 
-        var localTime = parsed.ToLocalTime();
+        var localTime = parsed.ToUniversalTime().ToLocalTime();
         nextResetTime = localTime;
         return $" (Resets: {localTime:MMM dd HH:mm})";
     }
 }
-

@@ -1,223 +1,358 @@
+// <copyright file="MonitorProcessService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Diagnostics;
+using System.Globalization;
+
+using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 
 namespace AIUsageTracker.Web.Services;
 
 public class MonitorProcessService
 {
-    private readonly string _appDataPath;
+    private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Web.MonitorProcessService");
     private readonly ILogger<MonitorProcessService> _logger;
-    
-    public MonitorProcessService(ILogger<MonitorProcessService> logger)
+    private readonly IMonitorService _monitorService;
+    private readonly IMonitorLauncherClient _monitorLauncherClient;
+
+    public MonitorProcessService(ILogger<MonitorProcessService> logger, IMonitorService monitorService)
+        : this(logger, monitorService, new MonitorLauncherClient())
     {
-        _logger = logger;
-        _appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
     }
 
-    public async Task<(bool isRunning, int port)> GetAgentStatusAsync()
+    public MonitorProcessService(
+        ILogger<MonitorProcessService> logger,
+        IMonitorService monitorService,
+        IMonitorLauncherClient monitorLauncherClient)
     {
-        var detailed = await GetAgentStatusDetailedAsync();
-        return (detailed.isRunning, detailed.port);
+        this._logger = logger;
+        this._monitorService = monitorService;
+        this._monitorLauncherClient = monitorLauncherClient;
     }
 
-    public async Task<(bool isRunning, int port, string message, string? error)> GetAgentStatusDetailedAsync()
+    public async Task<(bool IsRunning, int Port)> GetAgentStatusAsync()
     {
-        var info = await GetAgentInfoAsync();
-        if (info == null)
+        var detailed = await this.GetAgentStatusDetailedAsync().ConfigureAwait(false);
+        return (detailed.IsRunning, detailed.Port);
+    }
+
+    public async Task<MonitorStatusResult> GetAgentStatusDetailedAsync()
+    {
+        using var activity = ActivitySource.StartActivity("web.monitor.get_status", ActivityKind.Internal);
+        var status = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.is_running", status.IsRunning);
+        activity?.SetTag("monitor.port", status.Port);
+        activity?.SetTag("monitor.error", status.Error);
+        if (!status.IsRunning)
         {
-            return (false, 5000, "Monitor info file not found. Start Monitor to initialize it.", "agent-info-missing");
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return CreateStatusResult(status, healthSnapshot: null, contractHandshake: null);
         }
-        
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+
         try
         {
-            var response = await client.GetAsync($"http://localhost:{info.Port}/api/health");
-            if (response.IsSuccessStatusCode)
-            {
-                return (true, info.Port, $"Healthy on port {info.Port}.", null);
-            }
-
-            return (false, info.Port, $"Health check failed ({(int)response.StatusCode} {response.ReasonPhrase}).", "health-check-failed");
+            await this._monitorService.RefreshAgentInfoAsync().ConfigureAwait(false);
+            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync().ConfigureAwait(false);
+            var contractVersion = healthSnapshot?.EffectiveContractVersion;
+            var minClientContractVersion = healthSnapshot?.EffectiveMinClientContractVersion;
+            var contractHandshake = MonitorApiContractEvaluator.Evaluate(
+                contractVersion,
+                minClientContractVersion,
+                healthSnapshot?.AgentVersion,
+                MonitorApiContract.CurrentVersion);
+            activity?.SetTag("monitor.service_health", healthSnapshot?.ServiceHealth);
+            activity?.SetTag("monitor.contract_compatible", contractHandshake.IsCompatible);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return CreateStatusResult(status, healthSnapshot, contractHandshake);
         }
         catch (Exception ex)
         {
-            return (false, info.Port, $"Monitor not reachable on port {info.Port}: {SimplifyExceptionMessage(ex)}", "monitor-unreachable");
+            this._logger.LogWarning(ex, "Failed to collect monitor health snapshot for web status API.");
+            activity?.SetTag("error.type", ex.GetType().Name);
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            return CreateStatusResult(status, healthSnapshot: null, contractHandshake: null);
         }
     }
 
     public async Task<bool> StartAgentAsync()
     {
-        var detailed = await StartAgentDetailedAsync();
-        return detailed.success;
+        var detailed = await this.StartAgentDetailedAsync().ConfigureAwait(false);
+        return detailed.Success;
     }
 
-    public async Task<(bool success, string message)> StartAgentDetailedAsync()
+    public async Task<MonitorActionResult> StartAgentDetailedAsync()
     {
-        var status = await GetAgentStatusDetailedAsync();
-        if (status.isRunning)
+        using var activity = ActivitySource.StartActivity("web.monitor.start", ActivityKind.Internal);
+        var status = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.is_running_before", status.IsRunning);
+        activity?.SetTag("monitor.port_before", status.Port);
+        if (status.IsRunning)
         {
-            return (true, $"Monitor already running on port {status.port}.");
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return new MonitorActionResult(
+                true,
+                $"Monitor already running on port {status.Port}.",
+                null,
+                null,
+                null);
         }
-        
-        var info = await GetAgentInfoAsync();
-        int port = info?.Port ?? 5000;
-        
-        var agentPath = FindAgentExecutable();
-        if (agentPath == null) 
-        {
-            _logger.LogError("Could not find agent executable");
-            return (false, "Monitor executable not found. Build/publish Monitor first.");
-        }
-        
-        try
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = agentPath,
-                Arguments = $"--urls \"http://localhost:{port}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = ProcessWindowStyle.Hidden,
-                WorkingDirectory = Path.GetDirectoryName(agentPath)
-            };
-            
-            var process = Process.Start(startInfo);
-            if (process == null)
-            {
-                return (false, "Failed to start monitor process.");
-            }
 
-            _logger.LogInformation("Started agent from {Path}", agentPath);
-
-            await Task.Delay(800);
-            var updated = await GetAgentStatusDetailedAsync();
-            if (updated.isRunning)
-            {
-                return (true, $"Monitor started on port {updated.port}.");
-            }
-
-            return (false, $"Start requested, but monitor did not become healthy. {updated.message}");
-        }
-        catch (Exception ex)
+        var started = await this._monitorLauncherClient.EnsureAgentRunningAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.start_requested", true);
+        activity?.SetTag("monitor.start_result", started);
+        if (!started)
         {
-            _logger.LogError(ex, "Failed to start agent");
-            return (false, $"Failed to start monitor: {SimplifyExceptionMessage(ex)}");
+            this._logger.LogWarning("Monitor failed to reach a healthy state after startup request.");
+            var failedStatus = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+            activity?.SetTag("monitor.error", failedStatus.Error);
+            activity?.SetStatus(ActivityStatusCode.Error, "Monitor failed to start");
+            return CreateStartFailureResult(
+                failedStatus,
+                "Failed to start monitor or monitor did not become healthy.",
+                GetRecentStartupFailureReason());
         }
+
+        var updated = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        if (updated.IsRunning)
+        {
+            activity?.SetTag("monitor.port_after", updated.Port);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return new MonitorActionResult(
+                true,
+                $"Monitor started on port {updated.Port}.",
+                null,
+                null,
+                null);
+        }
+
+        activity?.SetTag("monitor.error", updated.Error);
+        activity?.SetStatus(ActivityStatusCode.Error, "Monitor status unavailable after startup");
+        return CreateStartFailureResult(
+            updated,
+            $"Start requested, but monitor status is still unavailable. {updated.Message}",
+            GetRecentStartupFailureReason());
     }
 
     public async Task<bool> StopAgentAsync()
     {
-        var detailed = await StopAgentDetailedAsync();
-        return detailed.success;
+        var detailed = await this.StopAgentDetailedAsync().ConfigureAwait(false);
+        return detailed.Success;
     }
 
-    public async Task<(bool success, string message)> StopAgentDetailedAsync()
+    public async Task<MonitorActionResult> StopAgentDetailedAsync()
     {
-        var info = await GetAgentInfoAsync();
-        if (info == null)
+        using var activity = ActivitySource.StartActivity("web.monitor.stop", ActivityKind.Internal);
+        var status = await this._monitorLauncherClient.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.is_running_before", status.IsRunning);
+        activity?.SetTag("monitor.port_before", status.Port);
+        if (!status.IsRunning && string.Equals(status.Error, "agent-info-missing", StringComparison.Ordinal))
         {
-            _logger.LogWarning("Cannot stop agent: agent.info not found");
-            return (true, "Monitor already stopped (info file missing).");
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return new MonitorActionResult(
+                true,
+                "Monitor already stopped (info file missing).",
+                null,
+                null,
+                null);
         }
 
-        try
+        var stopped = await this._monitorLauncherClient.StopAgentAsync().ConfigureAwait(false);
+        activity?.SetTag("monitor.stop_result", stopped);
+        if (stopped)
         {
-            var process = Process.GetProcessById(info.ProcessId);
-            process.Kill();
-            _logger.LogInformation("Killed agent process {Pid}", info.ProcessId);
-            return (true, $"Monitor stopped (PID {info.ProcessId}).");
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            return new MonitorActionResult(
+                true,
+                $"Monitor stopped on port {status.Port}.",
+                null,
+                null,
+                null);
         }
-        catch (ArgumentException)
-        {
-            _logger.LogInformation("Agent process {Pid} not currently running", info.ProcessId);
-            return (true, $"Monitor process {info.ProcessId} already exited.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to stop agent process {Pid}", info.ProcessId);
-            return (false, $"Failed to stop monitor (PID {info.ProcessId}): {SimplifyExceptionMessage(ex)}");
-        }
+
+        this._logger.LogWarning("Monitor stop request failed.");
+        activity?.SetStatus(ActivityStatusCode.Error, "Monitor stop failed");
+        return new MonitorActionResult(false, "Failed to stop monitor.", null, null, null);
     }
 
-    private static string SimplifyExceptionMessage(Exception ex)
+    private static string BuildRunningMessage(int port, MonitorHealthSnapshot healthSnapshot)
     {
-        if (ex is HttpRequestException)
+        if (!string.Equals(healthSnapshot.ServiceHealth, "degraded", StringComparison.OrdinalIgnoreCase))
         {
-            return "HTTP request failed";
+            var lastSuccess = healthSnapshot.RefreshHealth.LastSuccessfulRefreshUtc?
+                .ToLocalTime()
+                .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            return lastSuccess == null
+                ? $"Healthy on port {port}."
+                : $"Healthy on port {port}. Last successful refresh: {lastSuccess}.";
         }
 
-        if (ex is TaskCanceledException)
-        {
-            return "timeout";
-        }
-
-        return ex.Message;
+        var providerSummary = healthSnapshot.RefreshHealth.FailingProviders.Count == 0
+            ? string.Empty
+            : $" Providers: {string.Join(", ", healthSnapshot.RefreshHealth.FailingProviders)}.";
+        var errorSummary = string.IsNullOrWhiteSpace(healthSnapshot.RefreshHealth.LastError)
+            ? string.Empty
+            : $" Last error: {healthSnapshot.RefreshHealth.LastError}.";
+        var backoffSummary = healthSnapshot.RefreshHealth.ProvidersInBackoff > 0
+            ? $" Backoff: {healthSnapshot.RefreshHealth.ProvidersInBackoff} provider(s)."
+            : string.Empty;
+        return $"Running on port {port}, but refresh health is degraded.{providerSummary}{errorSummary}{backoffSummary}";
     }
 
-    private string? FindAgentExecutable()
+    private static MonitorStatusResult CreateStatusResult(
+        MonitorAgentStatus status,
+        MonitorHealthSnapshot? healthSnapshot,
+        AgentContractHandshakeResult? contractHandshake)
     {
-        var baseDir = AppContext.BaseDirectory;
-        
-        var paths = new[]
+        var startupState = GetStartupState(status.Error);
+        var startupFailureReason = GetStartupFailureReason(status);
+        if (healthSnapshot == null)
         {
-            Path.Combine(baseDir, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0", "AIUsageTracker.Monitor.exe"),
-            Path.Combine(baseDir, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0", "AIUsageTracker.Monitor.exe"),
-            Path.Combine(baseDir, "AIUsageTracker.Monitor.exe"),
-            // Legacy compatibility
-            Path.Combine(baseDir, "..", "..", "..", "..", "AIConsumptionTracker.Agent", "bin", "Debug", "net8.0", "AIConsumptionTracker.Agent.exe"),
-            Path.Combine(baseDir, "..", "..", "..", "..", "AIConsumptionTracker.Agent", "bin", "Release", "net8.0", "AIConsumptionTracker.Agent.exe"),
-            Path.Combine(baseDir, "AIConsumptionTracker.Agent.exe"),
+            return new MonitorStatusResult(
+                status.IsRunning,
+                status.Port,
+                status.Message,
+                status.Error,
+                null,
+                null,
+                0,
+                Array.Empty<string>(),
+                null,
+                null,
+                null,
+                null,
+                startupState,
+                startupFailureReason);
+        }
+
+        var message = BuildRunningMessage(status.Port, healthSnapshot);
+        if (contractHandshake is { IsReachable: true, IsCompatible: false } &&
+            !string.IsNullOrWhiteSpace(contractHandshake.Message))
+        {
+            message = $"{message} Contract warning: {contractHandshake.Message}";
+        }
+
+        return new MonitorStatusResult(
+            status.IsRunning,
+            status.Port,
+            message,
+            status.Error,
+            healthSnapshot.ServiceHealth,
+            healthSnapshot.RefreshHealth.LastError,
+            healthSnapshot.RefreshHealth.ProvidersInBackoff,
+            healthSnapshot.RefreshHealth.FailingProviders,
+            contractHandshake?.IsCompatible,
+            contractHandshake?.AgentContractVersion,
+            contractHandshake?.MinClientContractVersion,
+            contractHandshake?.Message,
+            startupState,
+            startupFailureReason);
+    }
+
+    private static string? GetStartupState(string? error)
+    {
+        return error switch
+        {
+            "monitor-starting" => "starting",
+            "monitor-startup-failed" => "failed",
+            _ => null,
         };
-        
-        return paths.FirstOrDefault(File.Exists);
     }
 
-    private async Task<MonitorInfo?> GetAgentInfoAsync()
+    private static string? GetStartupFailureReason(MonitorAgentStatus status)
     {
-        try
+        if (!string.Equals(status.Error, "monitor-startup-failed", StringComparison.Ordinal))
         {
-            var infoFilePath = ResolveAgentInfoPath(_appDataPath);
-            if (File.Exists(infoFilePath))
+            return null;
+        }
+
+        return NormalizeStartupFailureReason(status.Message);
+    }
+
+    private static MonitorActionResult CreateStartFailureResult(
+        MonitorAgentStatus status,
+        string fallbackMessage,
+        string? preservedStartupFailureReason = null)
+    {
+        var startupState = GetStartupState(status.Error);
+        var startupFailureReason = GetStartupFailureReason(status) ?? NormalizeStartupFailureReason(preservedStartupFailureReason);
+        var error = status.Error;
+        if (!string.IsNullOrWhiteSpace(startupFailureReason))
+        {
+            startupState ??= "failed";
+            error = "monitor-startup-failed";
+        }
+
+        var message = status.Message;
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            message = fallbackMessage;
+        }
+        else if (!string.IsNullOrWhiteSpace(startupFailureReason))
+        {
+            message = $"Monitor startup failed: {startupFailureReason}";
+        }
+
+        return new MonitorActionResult(
+            false,
+            message,
+            error,
+            startupState,
+            startupFailureReason);
+    }
+
+    private static string? GetRecentStartupFailureReason()
+    {
+        var diagnostics = MonitorService.DiagnosticsLog;
+        const string startupFailurePrefix = "Monitor startup failed after";
+        const string reportedFailurePrefix = "Monitor startup reported failure:";
+        for (var index = diagnostics.Count - 1; index >= 0; index--)
+        {
+            var entry = diagnostics[index];
+            var reportedIndex = entry.IndexOf(reportedFailurePrefix, StringComparison.OrdinalIgnoreCase);
+            if (reportedIndex >= 0)
             {
-                var json = await File.ReadAllTextAsync(infoFilePath);
-                var options = new System.Text.Json.JsonSerializerOptions 
-                { 
-                    PropertyNameCaseInsensitive = true 
-                };
-                return System.Text.Json.JsonSerializer.Deserialize<MonitorInfo>(json, options);
+                return entry[(reportedIndex + reportedFailurePrefix.Length)..].Trim();
+            }
+
+            var startupIndex = entry.IndexOf(startupFailurePrefix, StringComparison.OrdinalIgnoreCase);
+            if (startupIndex < 0)
+            {
+                continue;
+            }
+
+            var colonIndex = entry.IndexOf(':', startupIndex + startupFailurePrefix.Length);
+            if (colonIndex >= 0 && colonIndex + 1 < entry.Length)
+            {
+                return entry[(colonIndex + 1)..].Trim();
             }
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to read agent.info");
-        }
+
         return null;
     }
 
-    private static string ResolveAgentInfoPath(string appData)
+    private static string? NormalizeStartupFailureReason(string? failureReason)
     {
-        var candidates = GetMonitorInfoCandidatePaths(appData).ToList();
-        var existing = candidates
-            .Where(File.Exists)
-            .OrderByDescending(path => File.GetLastWriteTimeUtc(path))
-            .FirstOrDefault();
-
-        return existing ?? candidates[0];
-    }
-
-    private static IEnumerable<string> GetMonitorInfoCandidatePaths(string appData)
-    {
-        return new[]
+        failureReason = failureReason?.Trim();
+        if (string.IsNullOrWhiteSpace(failureReason))
         {
-            Path.Combine(appData, "AIUsageTracker", "monitor.json"),
-            Path.Combine(appData, "AIUsageTracker", "Monitor", "monitor.json"),
-            Path.Combine(appData, "AIUsageTracker", "Agent", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Monitor", "monitor.json"),
-            Path.Combine(appData, "AIConsumptionTracker", "Agent", "monitor.json")
-        };
+            return null;
+        }
+
+        const string startupPrefix = "Startup status:";
+        if (failureReason.StartsWith(startupPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            failureReason = failureReason[startupPrefix.Length..].Trim();
+        }
+
+        const string failedPrefix = "failed:";
+        if (failureReason.StartsWith(failedPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            failureReason = failureReason[failedPrefix.Length..].Trim();
+        }
+
+        return string.IsNullOrWhiteSpace(failureReason) ? null : failureReason;
     }
-
 }
-
-

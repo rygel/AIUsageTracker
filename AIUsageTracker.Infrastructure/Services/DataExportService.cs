@@ -1,8 +1,13 @@
+// <copyright file="DataExportService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Globalization;
+using System.Text;
+using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
-using System.Text;
-using System.Text.Json;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
@@ -14,31 +19,31 @@ public class DataExportService : IDataExportService
 
     public DataExportService(IWebDatabaseRepository repository, ILogger<DataExportService> logger, string dbPath)
     {
-        _repository = repository;
-        _logger = logger;
-        _dbPath = dbPath;
+        this._repository = repository;
+        this._logger = logger;
+        this._dbPath = dbPath;
     }
 
     public async Task<string> ExportHistoryToCsvAsync()
     {
         try
         {
-            var history = await _repository.GetAllHistoryForExportAsync();
-            
+            var history = await this._repository.GetAllHistoryForExportAsync().ConfigureAwait(false);
+
             var sb = new StringBuilder();
             sb.AppendLine("provider_id,provider_name,requests_used,requests_available,requests_percentage,is_available,status_message,fetched_at,next_reset_time");
 
             foreach (var row in history)
             {
                 var isAvail = row.IsAvailable ? 1 : 0;
-                sb.AppendLine($"\"{row.ProviderId}\",\"{row.ProviderName}\",{row.RequestsUsed},{row.RequestsAvailable},{row.RequestsPercentage},{isAvail},\"{row.Description?.Replace("\"", "\"\"")}\",\"{row.FetchedAt:O}\",\"{row.NextResetTime?.ToString("O")}\"");
+                sb.AppendFormat(CultureInfo.InvariantCulture, "\"{0}\",\"{1}\",{2},{3},{4},{5},\"{6}\",\"{7:O}\",\"{8:O}\"\r\n", row.ProviderId, row.ProviderName, row.RequestsUsed, row.RequestsAvailable, row.UsedPercent, isAvail, row.Description?.Replace("\"", "\"\""), row.FetchedAt, row.NextResetTime?.ToString("O"));
             }
 
             return sb.ToString();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error exporting to CSV");
+            this._logger.LogError(ex, "Error exporting to CSV");
             return string.Empty;
         }
     }
@@ -47,12 +52,12 @@ public class DataExportService : IDataExportService
     {
         try
         {
-            var history = await _repository.GetAllHistoryForExportAsync(limit: 10000);
+            var history = await this._repository.GetAllHistoryForExportAsync(limit: 10000).ConfigureAwait(false);
             return JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error exporting to JSON");
+            this._logger.LogError(ex, "Error exporting to JSON");
             return "[]";
         }
     }
@@ -61,12 +66,16 @@ public class DataExportService : IDataExportService
     {
         try
         {
-            if (!File.Exists(_dbPath)) return null;
-            return await File.ReadAllBytesAsync(_dbPath);
+            if (!File.Exists(this._dbPath))
+            {
+                return null;
+            }
+
+            return await File.ReadAllBytesAsync(this._dbPath).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error creating database backup");
+            this._logger.LogError(ex, "Error creating database backup");
             return null;
         }
     }

@@ -1,5 +1,9 @@
-using AIUsageTracker.Core.Models;
+// <copyright file="MainViewModelTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Interfaces;
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -16,80 +20,80 @@ public class MainViewModelTests
 
     public MainViewModelTests()
     {
-        _monitorServiceMock = new Mock<IMonitorService>();
-        _analyticsServiceMock = new Mock<IUsageAnalyticsService>();
-        _loggerMock = new Mock<ILogger<MainViewModel>>();
-        _viewModel = new MainViewModel(
-            _monitorServiceMock.Object, 
-            _analyticsServiceMock.Object,
-            _loggerMock.Object);
+        this._monitorServiceMock = new Mock<IMonitorService>();
+        this._analyticsServiceMock = new Mock<IUsageAnalyticsService>();
+        this._loggerMock = new Mock<ILogger<MainViewModel>>();
+        this._viewModel = new MainViewModel(
+            this._monitorServiceMock.Object,
+            this._analyticsServiceMock.Object,
+            this._loggerMock.Object);
     }
 
     [Fact]
     public void InitialState_IsCorrect()
     {
-        Assert.Equal("Initializing...", _viewModel.StatusMessage);
-        Assert.False(_viewModel.IsLoading);
-        Assert.Empty(_viewModel.Usages);
+        Assert.Equal("Initializing...", this._viewModel.StatusMessage);
+        Assert.False(this._viewModel.IsLoading);
+        Assert.Empty(this._viewModel.Usages);
     }
 
     [Fact]
     public void SetPrivacyMode_UpdatesState()
     {
-        _viewModel.SetPrivacyMode(true);
-        Assert.True(_viewModel.IsPrivacyMode);
+        this._viewModel.SetPrivacyMode(true);
+        Assert.True(this._viewModel.IsPrivacyMode);
 
-        _viewModel.SetPrivacyMode(false);
-        Assert.False(_viewModel.IsPrivacyMode);
+        this._viewModel.SetPrivacyMode(false);
+        Assert.False(this._viewModel.IsPrivacyMode);
     }
 
     [Fact]
-    public async Task RefreshDataAsync_PopulatesUsages_WhenSuccessful()
+    public async Task RefreshDataAsync_PopulatesUsages_WhenSuccessfulAsync()
     {
         // Arrange
         var testUsages = new List<ProviderUsage>
         {
             new ProviderUsage { ProviderId = "p1", ProviderName = "P1" },
-            new ProviderUsage { ProviderId = "p2", ProviderName = "P2" }
+            new ProviderUsage { ProviderId = "p2", ProviderName = "P2" },
         };
-        _monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(testUsages);
+        this._monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(testUsages);
 
         // Act
-        await _viewModel.RefreshDataAsync();
+        await this._viewModel.RefreshDataAsync();
 
         // Assert
-        Assert.Equal(2, _viewModel.Usages.Count);
-        Assert.Equal("Data updated", _viewModel.StatusMessage);
-        Assert.NotEqual(DateTime.MinValue, _viewModel.LastRefreshTime);
-        Assert.False(_viewModel.IsLoading);
+        Assert.Equal(2, this._viewModel.Usages.Count);
+        Assert.Equal("Data updated", this._viewModel.StatusMessage);
+        Assert.NotEqual(DateTime.MinValue, this._viewModel.LastRefreshTime);
+        Assert.False(this._viewModel.IsLoading);
     }
 
     [Fact]
-    public async Task RefreshDataAsync_SetsErrorMessage_WhenServiceFails()
+    public async Task RefreshDataAsync_SetsErrorMessage_WhenServiceFailsAsync()
     {
         // Arrange
-        _monitorServiceMock.Setup(m => m.GetUsageAsync()).ThrowsAsync(new Exception("API Down"));
+        this._monitorServiceMock.Setup(m => m.GetUsageAsync()).ThrowsAsync(new Exception("API Down"));
 
         // Act
-        await _viewModel.RefreshDataAsync();
+        await this._viewModel.RefreshDataAsync();
 
         // Assert
-        Assert.Equal("Connection failed", _viewModel.StatusMessage);
-        Assert.Empty(_viewModel.Usages);
-        Assert.False(_viewModel.IsLoading);
+        Assert.Equal("Connection failed", this._viewModel.StatusMessage);
+        Assert.Empty(this._viewModel.Usages);
+        Assert.False(this._viewModel.IsLoading);
     }
 
     [Fact]
-    public async Task RefreshDataAsync_HandlesEmptyResults()
+    public async Task RefreshDataAsync_HandlesEmptyResultsAsync()
     {
         // Arrange
-        _monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(new List<ProviderUsage>());
+        this._monitorServiceMock.Setup(m => m.GetUsageAsync()).ReturnsAsync(new List<ProviderUsage>());
 
         // Act
-        await _viewModel.RefreshDataAsync();
+        await this._viewModel.RefreshDataAsync();
 
         // Assert
-        Assert.Equal("No active providers found", _viewModel.StatusMessage);
-        Assert.Empty(_viewModel.Usages);
+        Assert.Equal("No active providers found", this._viewModel.StatusMessage);
+        Assert.Empty(this._viewModel.Usages);
     }
 }

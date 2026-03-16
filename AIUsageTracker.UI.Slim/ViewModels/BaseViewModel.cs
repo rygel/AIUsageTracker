@@ -1,22 +1,15 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+// <copyright file="BaseViewModel.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AIUsageTracker.UI.Slim.ViewModels;
 
-public abstract class BaseViewModel : INotifyPropertyChanged
+/// <summary>
+/// Base class for all ViewModels in the application.
+/// Inherits from CommunityToolkit.Mvvm's ObservableObject for INotifyPropertyChanged support.
+/// </summary>
+public abstract class BaseViewModel : ObservableObject
 {
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
-    protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(field, value)) return false;
-        field = value;
-        OnPropertyChanged(propertyName);
-        return true;
-    }
 }

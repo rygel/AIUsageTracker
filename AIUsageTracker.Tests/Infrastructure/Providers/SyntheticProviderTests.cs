@@ -1,3 +1,7 @@
+// <copyright file="SyntheticProviderTests.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.Net;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
@@ -13,12 +17,12 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
 
     public SyntheticProviderTests()
     {
-        _provider = new SyntheticProvider(HttpClient, Logger.Object);
-        Config.ApiKey = "test-synthetic-key";
+        this._provider = new SyntheticProvider(this.HttpClient, this.Logger.Object);
+        this.Config.ApiKey = "test-synthetic-key";
     }
 
     [Fact]
-    public async Task GetUsageAsync_StandardPayload_ParsesCreditsCorrectly()
+    public async Task GetUsageAsync_StandardPayload_ParsesCreditsCorrectlyAsync()
     {
         // Arrange
         var responseData = new
@@ -27,71 +31,71 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
             {
                 limit = 1000.0,
                 usage = 250.0,
-                resetAt = "2026-03-10T12:00:00Z"
-            }
+                resetAt = "2026-03-10T12:00:00Z",
+            },
         };
 
-        SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
+        this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(JsonSerializer.Serialize(responseData))
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
         });
 
         // Act
-        var result = await _provider.GetUsageAsync(Config);
+        var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal("Synthetic", usage.ProviderName);
-        Assert.Equal(75.0, usage.RequestsPercentage); // (1000-250)/1000 * 100
+        Assert.Equal("Synthetic.new", usage.ProviderName);
+        Assert.Equal(25.0, usage.UsedPercent); // 250/1000 * 100 = 25% used
         Assert.Equal(250.0, usage.RequestsUsed);
-        Assert.Contains("250 / 1000 credits", usage.Description);
+        Assert.Contains("250 / 1000 credits", usage.Description, StringComparison.Ordinal);
         Assert.NotNull(usage.NextResetTime);
     }
 
     [Fact]
-    public async Task GetUsageAsync_FlatPayload_ParsesSuccessfully()
+    public async Task GetUsageAsync_FlatPayload_ParsesSuccessfullyAsync()
     {
         // Arrange
         var responseData = new
         {
             total = 500.0,
-            consumed = 100.0
+            consumed = 100.0,
         };
 
-        SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
+        this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
-            Content = new StringContent(JsonSerializer.Serialize(responseData))
+            Content = new StringContent(JsonSerializer.Serialize(responseData)),
         });
 
         // Act
-        var result = await _provider.GetUsageAsync(Config);
+        var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
-        Assert.Equal(80.0, usage.RequestsPercentage);
+        Assert.Equal(20.0, usage.UsedPercent); // 100/500 * 100 = 20% used
         Assert.Equal(100.0, usage.RequestsUsed);
     }
 
     [Fact]
-    public async Task GetUsageAsync_NotFoundContent_ReturnsUnavailable()
+    public async Task GetUsageAsync_NotFoundContent_ReturnsUnavailableAsync()
     {
         // Arrange
-        SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
+        this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK, // API sometimes returns 200 with "Not Found" string
-            Content = new StringContent("Not Found")
+            Content = new StringContent("Not Found"),
         });
 
         // Act
-        var result = await _provider.GetUsageAsync(Config);
+        var result = await this._provider.GetUsageAsync(this.Config);
 
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("Invalid key or quota endpoint", usage.Description);
+        Assert.Contains("Not Found", usage.Description, StringComparison.Ordinal);
     }
 }
