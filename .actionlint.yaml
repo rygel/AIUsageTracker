@@ -1,0 +1,4 @@
+self-hosted-runner:
+  labels:
+    # windows-2025 is a GitHub-hosted runner added after actionlint 1.7.4
+    - windows-2025
