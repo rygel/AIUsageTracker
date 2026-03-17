@@ -9,8 +9,6 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-using System.Globalization;
-
 namespace AIUsageTracker.UI.Slim.Services;
 
 public class WpfTrayIconService : ITrayIconService
@@ -198,19 +196,6 @@ public class WpfTrayIconService : ITrayIconService
             tray.Dispose();
         }
         _providerTrayIcons.Clear();
-    }
-
-    private static double? ParsePercent(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var parsedValue = value.Replace("%", string.Empty).Trim();
-        return double.TryParse(parsedValue, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed)
-            ? Math.Max(0, Math.Min(100, parsed))
-            : null;
     }
 
     private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
