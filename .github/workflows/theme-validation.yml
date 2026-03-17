@@ -24,15 +24,19 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   theme-validation:
     runs-on: windows-latest
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Verify theme contract parity
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-theme-contract.ps1

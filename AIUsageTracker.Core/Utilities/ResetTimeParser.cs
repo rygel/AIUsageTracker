@@ -13,6 +13,9 @@ namespace AIUsageTracker.Core.Utilities;
 /// </summary>
 public static class ResetTimeParser
 {
+    // Unix timestamp (seconds) for year 2100 — used to distinguish seconds from milliseconds.
+    private const long Year2100UnixSeconds = 4_102_444_800L;
+
     /// <summary>
     /// Parses a reset time from a Unix timestamp in seconds.
     /// </summary>
@@ -162,9 +165,8 @@ public static class ResetTimeParser
             {
                 if (element.TryGetInt64(out var longValue))
                 {
-                    // Assume seconds if value is reasonably small (< year 2100 in seconds)
-                    // Otherwise assume milliseconds
-                    if (longValue < 4_102_444_800L) // Year 2100 in seconds
+                    // Assume seconds if value is reasonably small, otherwise assume milliseconds
+                    if (longValue < Year2100UnixSeconds)
                     {
                         return FromUnixSeconds(longValue);
                     }

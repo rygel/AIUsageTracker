@@ -489,44 +489,7 @@ public class MonitorService : IMonitorService
                 };
             }
 
-            var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            await using (stream.ConfigureAwait(false))
-            {
-                using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
-                var root = document.RootElement;
-
-                var contractVersion = TryGetJsonString(root, MonitorApiContract.ContractVersionJsonKeys);
-                var minClientContractVersion = TryGetJsonString(root, MonitorApiContract.MinClientContractVersionJsonKeys);
-                var reportedAgentVersion = TryGetJsonString(root, MonitorApiContract.AgentVersionJsonKeys);
-
-                if (string.IsNullOrWhiteSpace(contractVersion))
-                {
-                    activity?.SetStatus(ActivityStatusCode.Error, "Missing API contract version");
-                    return EvaluateApiContractCompatibility(
-                        contractVersion,
-                        minClientContractVersion,
-                        reportedAgentVersion);
-                }
-
-                var result = EvaluateApiContractCompatibility(
-                    contractVersion,
-                    minClientContractVersion,
-                    reportedAgentVersion);
-                if (result.IsCompatible)
-                {
-                    activity?.SetTag("monitor.api_contract_version", contractVersion);
-                    activity?.SetTag("monitor.min_client_contract_version", minClientContractVersion);
-                    activity?.SetTag("monitor.agent_version", reportedAgentVersion);
-                    activity?.SetStatus(ActivityStatusCode.Ok);
-                    return result;
-                }
-
-                activity?.SetTag("monitor.api_contract_version", contractVersion);
-                activity?.SetTag("monitor.min_client_contract_version", minClientContractVersion);
-                activity?.SetTag("monitor.agent_version", reportedAgentVersion);
-                activity?.SetStatus(ActivityStatusCode.Error, "API contract mismatch");
-                return result;
-            }
+            return await ParseContractResponseAsync(response.Content, activity).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -615,6 +578,35 @@ public class MonitorService : IMonitorService
         }
 
         return null;
+    }
+
+    private static async Task<AgentContractHandshakeResult> ParseContractResponseAsync(HttpContent content, Activity? activity)
+    {
+        var stream = await content.ReadAsStreamAsync().ConfigureAwait(false);
+        await using (stream.ConfigureAwait(false))
+        {
+            using var document = await JsonDocument.ParseAsync(stream).ConfigureAwait(false);
+            var root = document.RootElement;
+
+            var contractVersion = TryGetJsonString(root, MonitorApiContract.ContractVersionJsonKeys);
+            var minClientContractVersion = TryGetJsonString(root, MonitorApiContract.MinClientContractVersionJsonKeys);
+            var reportedAgentVersion = TryGetJsonString(root, MonitorApiContract.AgentVersionJsonKeys);
+
+            if (string.IsNullOrWhiteSpace(contractVersion))
+            {
+                activity?.SetStatus(ActivityStatusCode.Error, "Missing API contract version");
+                return EvaluateApiContractCompatibility(contractVersion, minClientContractVersion, reportedAgentVersion);
+            }
+
+            var result = EvaluateApiContractCompatibility(contractVersion, minClientContractVersion, reportedAgentVersion);
+            activity?.SetTag("monitor.api_contract_version", contractVersion);
+            activity?.SetTag("monitor.min_client_contract_version", minClientContractVersion);
+            activity?.SetTag("monitor.agent_version", reportedAgentVersion);
+            var statusCode = result.IsCompatible ? ActivityStatusCode.Ok : ActivityStatusCode.Error;
+            var statusDescription = result.IsCompatible ? null : "API contract mismatch";
+            activity?.SetStatus(statusCode, statusDescription);
+            return result;
+        }
     }
 
     private static HttpClient GetOrCreateHttpClient()

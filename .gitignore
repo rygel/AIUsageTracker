@@ -221,6 +221,14 @@ temp/
 ci-artifacts/
 docs/backup_*/
 
+# AI tooling scratchpad files (session notes, problem logs, task lists)
+memory.md
+problems.md
+task.md
+
+# Stale root-level Inno Setup template (canonical script lives in scripts/setup.iss)
+/setup.iss
+
 # Microsoft Azure Web App publish settings. Comment the next line if you want to
 # checkin your Azure Web App publish settings, but sensitive information contained
 # in these scripts will be unencrypted

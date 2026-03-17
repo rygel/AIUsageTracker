@@ -1,18 +1,13 @@
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Tests.Infrastructure;
 using Xunit;
 
 namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
-public class AnthropicProviderTests : HttpProviderTestBase<AnthropicProvider>
+public class AnthropicProviderTests
 {
-    private readonly AnthropicProvider _provider;
-
-    public AnthropicProviderTests()
-    {
-        _provider = new AnthropicProvider(Logger.Object);
-    }
+    private readonly AnthropicProvider _provider = new();
+    private readonly ProviderConfig Config = new() { ProviderId = "anthropic", AuthSource = "test" };
 
     [Fact]
     public async Task GetUsageAsync_WhenApiKeyMissing_ReturnsUnavailable()

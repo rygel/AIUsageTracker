@@ -21,13 +21,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   verify-openapi-contract:
     runs-on: windows-latest
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache

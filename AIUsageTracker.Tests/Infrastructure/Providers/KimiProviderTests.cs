@@ -23,7 +23,6 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         this.Config.ApiKey = "test-key";
     }
 
-    #region Basic Usage Calculation Tests
 
     /// <summary>
     /// Tests basic usage calculation with simple values.
@@ -118,9 +117,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Equal(95, usage.RequestsUsed);
     }
 
-    #endregion
 
-    #region Realistic API Response Tests (Anonymized Reference Data)
 
     /// <summary>
     /// Tests parsing of a realistic Kimi API response with 5h and 7d quotas.
@@ -337,9 +334,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.True(usage.IsAvailable);
     }
 
-    #endregion
 
-    #region String-Typed Numeric Fields Tests
 
     /// <summary>
     /// Tests that the provider correctly handles numeric fields returned as JSON strings.
@@ -390,9 +385,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Contains("remaining", secondary.Description, StringComparison.Ordinal);
     }
 
-    #endregion
 
-    #region Window Kind Assignment Tests
 
     /// <summary>
     /// Tests that hourly limits are correctly assigned as Primary window kind.
@@ -516,9 +509,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Equal("1d Limit", primaryDetail!.Name); // Duration is formatted as "1d" not "Daily"
     }
 
-    #endregion
 
-    #region Error Handling Tests
 
     [Fact]
     public async Task GetUsageAsync_NoApiKey_ReturnsUnavailableAsync()
@@ -593,9 +584,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.False(usage.IsAvailable);
     }
 
-    #endregion
 
-    #region Provider Definition Tests
 
     [Fact]
     public void StaticDefinition_HasCorrectConfiguration()
@@ -611,5 +600,4 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Contains("MOONSHOT_API_KEY", definition.DiscoveryEnvironmentVariables);
     }
 
-    #endregion
 }

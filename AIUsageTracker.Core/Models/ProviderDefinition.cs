@@ -56,10 +56,6 @@ public sealed class ProviderDefinition
     /// </summary>
     public IReadOnlyCollection<string> AdditionalHandledProviderIds { get; init; } = Array.Empty<string>();
 
-    // Computed lazily: ProviderId + AdditionalHandledProviderIds
-    private HashSet<string> HandledProviderIdsSet => this._handledProviderIdsSet ??=
-        new HashSet<string>(this.AdditionalHandledProviderIds.Prepend(this.ProviderId), StringComparer.OrdinalIgnoreCase);
-
     public IReadOnlyCollection<string> HandledProviderIds => this.HandledProviderIdsSet;
 
     public IReadOnlyDictionary<string, string> DisplayNameOverrides { get; init; } =
@@ -157,6 +153,10 @@ public sealed class ProviderDefinition
     /// Leave null to use auto-derivation from QuotaWindows.
     /// </summary>
     public IReadOnlyList<(string ItemId, string Label)>? MainWindowVisibilityItemsOverride { get; init; }
+
+    // Computed lazily: ProviderId + AdditionalHandledProviderIds
+    private HashSet<string> HandledProviderIdsSet => this._handledProviderIdsSet ??=
+        new HashSet<string>(this.AdditionalHandledProviderIds.Prepend(this.ProviderId), StringComparer.OrdinalIgnoreCase);
 
     public bool HandlesProviderId(string providerId)
     {

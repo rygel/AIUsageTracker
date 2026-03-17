@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;

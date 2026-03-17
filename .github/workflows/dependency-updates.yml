@@ -9,6 +9,10 @@ concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: false
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   update-dependencies:
     name: Check and Update Dependencies
@@ -16,12 +20,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9  # v4
         with:
           dotnet-version: "8.0.x"
 
@@ -72,7 +76,7 @@ jobs:
 
       - name: Create Pull Request
         if: steps.changes.outputs.has_changes == 'true'
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c  # v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore(deps): update NuGet packages"

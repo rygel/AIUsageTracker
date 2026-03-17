@@ -16,8 +16,8 @@ on:
           - beta
         default: stable
       skip_file_updates:
-        description: 'Skip version-file updates because the release PR is already merged'
-        required: true
+        description: 'Skip version-file updates (auto-detected if omitted — files already at target version)'
+        required: false
         type: boolean
         default: false
 
@@ -28,19 +28,22 @@ jobs:
   validate-and-release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Validate Version Format
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
         run: |
-          version="${{ inputs.version }}"
-          channel="${{ inputs.channel }}"
-          
+          version="$INPUT_VERSION"
+          channel="$INPUT_CHANNEL"
+
           # Check version matches channel
           case "$channel" in
             stable)
@@ -56,59 +59,75 @@ jobs:
               fi
               ;;
           esac
-          
+
           echo "✓ Version $version matches channel $channel"
 
       - name: Update Version Files
+        id: update_versions
         if: ${{ !inputs.skip_file_updates }}
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          version="${{ inputs.version }}"
+          version="$INPUT_VERSION"
           clean_version="${version%%-*}"
-          
+
+          # Auto-skip if the version files are already at the target version
+          current_version=$(grep -oP '(?<=<TrackerVersion>)[^<]+' Directory.Build.props || echo "")
+          if [ "$current_version" = "$version" ]; then
+            echo "✓ Version files already at $version — skipping update"
+            echo "already_at_version=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "Updating version files to $version (clean: $clean_version)"
-          
+
           # Update Directory.Build.props
           if [ -f "Directory.Build.props" ]; then
             sed -i "s|<TrackerVersion>.*</TrackerVersion>|<TrackerVersion>$version</TrackerVersion>|g" Directory.Build.props
             sed -i "s|<TrackerAssemblyVersion>.*</TrackerAssemblyVersion>|<TrackerAssemblyVersion>$clean_version</TrackerAssemblyVersion>|g" Directory.Build.props
             echo "✓ Updated Directory.Build.props"
           fi
-          
+
           # Update README.md badge
           if [ -f "README.md" ]; then
             escaped_version="${version//-/--}"
             sed -i -E "s|!\[Version\]\(https://img\.shields\.io/badge/version-[^)]*\)|![Version](https://img.shields.io/badge/version-${escaped_version}-orange)|g" README.md
             echo "✓ Updated README.md"
           fi
-          
+
           # Update setup.iss
           if [ -f "scripts/setup.iss" ]; then
             sed -i "s|#define MyAppVersion \".*\"|#define MyAppVersion \"$version\"|g" scripts/setup.iss
             echo "✓ Updated scripts/setup.iss"
           fi
-          
+
           # Update publish-app.ps1
           if [ -f "scripts/publish-app.ps1" ]; then
             sed -i -E "s|Version [0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?|Version $version|g" scripts/publish-app.ps1
             echo "✓ Updated scripts/publish-app.ps1"
           fi
 
+          echo "already_at_version=false" >> "$GITHUB_OUTPUT"
+
       - name: Commit and Push Changes
-        if: ${{ !inputs.skip_file_updates }}
+        if: ${{ !inputs.skip_file_updates && steps.update_versions.outputs.already_at_version != 'true' }}
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
         run: |
-          version="${{ inputs.version }}"
-          channel="${{ inputs.channel }}"
-          
+          version="$INPUT_VERSION"
+          channel="$INPUT_CHANNEL"
+
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          
+
           git add Directory.Build.props README.md scripts/setup.iss scripts/publish-app.ps1 2>/dev/null || true
-          
+
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore(release): bump version to $version ($channel)"
-            
+
             # Push to appropriate branch
             if [ "$channel" = "stable" ]; then
               git push origin HEAD:main
@@ -120,19 +139,22 @@ jobs:
           fi
 
       - name: Success Summary
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_CHANNEL: ${{ inputs.channel }}
         run: |
           echo "=========================================="
-          echo "Release ${{ inputs.version }} (${{ inputs.channel }}) prepared successfully!"
+          echo "Release $INPUT_VERSION ($INPUT_CHANNEL) prepared successfully!"
           echo "=========================================="
           echo ""
           echo "Repository rules block GitHub Actions from creating release tags."
           echo "Create the tag manually with maintainer credentials:"
-          echo "  git tag -a v${{ inputs.version }} -m \"Release ${{ inputs.version }} (${{ inputs.channel }})\""
-          echo "  git push origin v${{ inputs.version }}"
+          echo "  git tag -a v$INPUT_VERSION -m \"Release $INPUT_VERSION ($INPUT_CHANNEL)\""
+          echo "  git push origin v$INPUT_VERSION"
           echo ""
           echo "Next steps:"
           echo "1. If skip_file_updates=false, wait for the version bump commit on the target branch"
-          echo "2. Create and push tag v${{ inputs.version }} with maintainer credentials"
+          echo "2. Create and push tag v$INPUT_VERSION with maintainer credentials"
           echo "3. The Publish & Distribute workflow will trigger from the tag push"
           echo "4. Check the Actions tab for build and release progress"
           echo ""

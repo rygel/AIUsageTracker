@@ -55,6 +55,9 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
   NUGET_XMLDOC_MODE: skip
 
+permissions:
+  contents: read
+
 jobs:
   detect-changes:
     name: Detect Changed Areas
@@ -68,12 +71,13 @@ jobs:
       run_cross: ${{ steps.filter.outputs.cross }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - id: filter
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36  # v3
         with:
           filters: |
             core:
@@ -133,9 +137,10 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
@@ -189,7 +194,7 @@ jobs:
         shell: pwsh
 
       - name: Upload test binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: test-binaries-debug
           path: |
@@ -213,7 +218,7 @@ jobs:
 
     steps:
       - name: Download test binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: test-binaries-debug
           path: .\_ci_test_binaries
@@ -231,7 +236,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: core-test-results
           path: TestResults/core-tests*.trx
@@ -248,7 +253,7 @@ jobs:
 
     steps:
       - name: Download test binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: test-binaries-debug
           path: .\_ci_test_binaries
@@ -266,7 +271,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: monitor-startup-config-results
           path: TestResults/monitor-startup-config*.trx
@@ -283,7 +288,7 @@ jobs:
 
     steps:
       - name: Download test binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: test-binaries-debug
           path: .\_ci_test_binaries
@@ -301,7 +306,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: monitor-test-results
           path: TestResults/monitor-tests*.trx
@@ -318,10 +323,12 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
 
       - name: Download test binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
         with:
           name: test-binaries-debug
           path: .\_ci_test_binaries
@@ -423,7 +430,7 @@ jobs:
 
       - name: Upload results
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: web-test-results
           path: TestResults/web-tests*.trx
@@ -432,7 +439,7 @@ jobs:
 
       - name: Upload Web UI screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: web-ui-screenshots
           path: |
@@ -458,10 +465,12 @@ jobs:
         os: [ubuntu-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9  # v4
         with:
           dotnet-version: "8.0.x"
 

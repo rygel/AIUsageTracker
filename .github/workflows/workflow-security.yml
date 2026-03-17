@@ -1,0 +1,71 @@
+name: Workflow Security & Lint
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
+
+      - name: Install and run actionlint
+        shell: bash
+        run: |
+          VERSION="1.7.4"
+          FILENAME="actionlint_${VERSION}_linux_amd64.tar.gz"
+          CHECKSUMS="actionlint_${VERSION}_checksums.txt"
+          RELEASE="https://github.com/rhysd/actionlint/releases/download/v${VERSION}"
+          curl -fsSL -o "${FILENAME}" "${RELEASE}/${FILENAME}"
+          curl -fsSL -o "${CHECKSUMS}" "${RELEASE}/${CHECKSUMS}"
+          grep "${FILENAME}" "${CHECKSUMS}" | sha256sum --check
+          tar xzf "${FILENAME}" actionlint
+          ./actionlint -color -config-file .actionlint.yaml -ignore 'SC[0-9]+:(info|style):'
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
+
+      - name: Install zizmor
+        run: pip install zizmor==1.5.0
+
+      - name: Run zizmor
+        run: zizmor --format sarif .github/workflows/ > zizmor.sarif
+        continue-on-error: true
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@603b797f8b14b413fe025cd935a91c16c4782713  # v3
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor

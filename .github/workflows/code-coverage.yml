@@ -31,6 +31,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   coverage:
     name: Collect Code Coverage
@@ -38,7 +41,9 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          persist-credentials: false
 
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
@@ -62,7 +67,7 @@ jobs:
           dotnet test AIUsageTracker.Monitor.Tests\AIUsageTracker.Monitor.Tests.csproj --configuration Debug --no-build --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238  # v4
         with:
           directory: TestResults
           files: "**/coverage.cobertura.xml"
@@ -72,7 +77,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: code-coverage-results
           path: |

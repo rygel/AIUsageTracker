@@ -1,6 +1,9 @@
+// <copyright file="AnthropicProvider.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
@@ -14,23 +17,18 @@ public class AnthropicProvider : ProviderBase
         defaultConfigType: "pay-as-you-go");
 
     public override ProviderDefinition Definition => StaticDefinition;
+
     public override string ProviderId => StaticDefinition.ProviderId;
-    private readonly ILogger<AnthropicProvider> _logger;
 
-    public AnthropicProvider(ILogger<AnthropicProvider> logger)
-    {
-        _logger = logger;
-    }
-
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
-            return new[]
+            return Task.FromResult<IEnumerable<ProviderUsage>>(new[]
             {
                 new ProviderUsage
                 {
-                    ProviderId = ProviderId,
+                    ProviderId = this.ProviderId,
                     ProviderName = "Anthropic",
                     IsAvailable = false,
                     Description = "API Key missing",
@@ -38,16 +36,16 @@ public class AnthropicProvider : ProviderBase
                     PlanType = PlanType.Usage,
                     AuthSource = config.AuthSource,
                     RawJson = "{\"source\":\"anthropic\",\"status\":\"api_key_missing\"}",
-                    HttpStatus = 401
-                }
-            };
+                    HttpStatus = 401,
+                },
+            });
         }
 
-        return new[]
+        return Task.FromResult<IEnumerable<ProviderUsage>>(new[]
         {
             new ProviderUsage
             {
-                ProviderId = ProviderId,
+                ProviderId = this.ProviderId,
                 ProviderName = "Anthropic",
                 IsAvailable = true,
                 IsQuotaBased = false,
@@ -55,10 +53,8 @@ public class AnthropicProvider : ProviderBase
                 Description = "Connected (Check Dashboard)",
                 AuthSource = config.AuthSource,
                 RawJson = "{\"source\":\"anthropic\",\"status\":\"connected_no_usage_endpoint\"}",
-                HttpStatus = 200
-            }
-        };
+                HttpStatus = 200,
+            },
+        });
     }
 }
-
-
