@@ -6,6 +6,9 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'           # Stable releases: v2.2.25
       - 'v[0-9]+.[0-9]+.[0-9]+-beta.*'    # Beta releases: v2.3.0-beta.1
 
+permissions:
+  contents: write  # create-release job creates GitHub releases and uploads assets
+
 jobs:
   publish:
     runs-on: windows-latest
