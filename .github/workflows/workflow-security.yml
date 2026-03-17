@@ -41,7 +41,7 @@ jobs:
           curl -fsSL -o "${CHECKSUMS}" "${RELEASE}/${CHECKSUMS}"
           grep "${FILENAME}" "${CHECKSUMS}" | sha256sum --check
           tar xzf "${FILENAME}" actionlint
-          ./actionlint -color -ignore 'SC[0-9]+:(info|style):'
+          ./actionlint -color -config-file .actionlint.yaml -ignore 'SC[0-9]+:(info|style):'
 
   zizmor:
     name: zizmor
