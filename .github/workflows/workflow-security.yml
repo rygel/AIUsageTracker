@@ -35,10 +35,11 @@ jobs:
         run: |
           VERSION="1.7.4"
           FILENAME="actionlint_${VERSION}_linux_amd64.tar.gz"
+          CHECKSUMS="actionlint_${VERSION}_checksums.txt"
           RELEASE="https://github.com/rhysd/actionlint/releases/download/v${VERSION}"
-          curl -sSL -o "${FILENAME}" "${RELEASE}/${FILENAME}"
-          curl -sSL -o checksums.txt "${RELEASE}/checksums.txt"
-          sha256sum --check --ignore-missing checksums.txt
+          curl -fsSL -o "${FILENAME}" "${RELEASE}/${FILENAME}"
+          curl -fsSL -o "${CHECKSUMS}" "${RELEASE}/${CHECKSUMS}"
+          grep "${FILENAME}" "${CHECKSUMS}" | sha256sum --check
           tar xzf "${FILENAME}" actionlint
           ./actionlint -color
 
