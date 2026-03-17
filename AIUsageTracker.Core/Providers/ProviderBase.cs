@@ -43,6 +43,34 @@ public abstract class ProviderBase : IProviderService
         ProviderConfig config,
         Action<ProviderUsage>? progressCallback = null);
 
+    /// <summary>
+    /// Formats a window reset description from a seconds-until-reset value.
+    /// Returns an empty string when no reset time is available.
+    /// </summary>
+    protected static string FormatResetDescription(double? resetAfterSeconds)
+    {
+        if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
+        {
+            return string.Empty;
+        }
+
+        return $"Resets in {(int)resetAfterSeconds.Value}s";
+    }
+
+    /// <summary>
+    /// Converts a seconds-until-reset value to an absolute local <see cref="DateTime"/>.
+    /// Returns <see langword="null"/> when no reset time is available.
+    /// </summary>
+    protected static DateTime? ResolveResetTimeFromSeconds(double? resetAfterSeconds)
+    {
+        if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
+        {
+            return null;
+        }
+
+        return DateTime.UtcNow.AddSeconds(resetAfterSeconds.Value).ToLocalTime();
+    }
+
     protected virtual ProviderUsage CreateUnavailableUsage(
         string description,
         int httpStatus = 0,
@@ -118,34 +146,6 @@ public abstract class ProviderBase : IProviderService
         };
 
         return this.CreateUnavailableUsage(message, 0, authSource);
-    }
-
-    /// <summary>
-    /// Formats a window reset description from a seconds-until-reset value.
-    /// Returns an empty string when no reset time is available.
-    /// </summary>
-    protected static string FormatResetDescription(double? resetAfterSeconds)
-    {
-        if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
-        {
-            return string.Empty;
-        }
-
-        return $"Resets in {(int)resetAfterSeconds.Value}s";
-    }
-
-    /// <summary>
-    /// Converts a seconds-until-reset value to an absolute local <see cref="DateTime"/>.
-    /// Returns <see langword="null"/> when no reset time is available.
-    /// </summary>
-    protected static DateTime? ResolveResetTimeFromSeconds(double? resetAfterSeconds)
-    {
-        if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
-        {
-            return null;
-        }
-
-        return DateTime.UtcNow.AddSeconds(resetAfterSeconds.Value).ToLocalTime();
     }
 
     protected virtual ProviderUsage CreateUnavailableUsageFromProviderException(

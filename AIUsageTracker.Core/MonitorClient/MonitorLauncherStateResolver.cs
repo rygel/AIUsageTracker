@@ -145,40 +145,8 @@ internal static class MonitorLauncherStateResolver
         }
 
         var port = metadataState.EffectivePort;
-        var isRunning = await checkHealthAsync(port).ConfigureAwait(false);
         var hasMetadata = metadataState.Path != null;
-        if (isRunning)
-        {
-            return new MonitorAgentStatus
-            {
-                IsRunning = true,
-                Port = port,
-                HasMetadata = hasMetadata,
-                Message = $"Healthy on port {port}.",
-                Error = null,
-            };
-        }
-
-        if (hasMetadata)
-        {
-            return new MonitorAgentStatus
-            {
-                IsRunning = false,
-                Port = port,
-                HasMetadata = true,
-                Message = $"Monitor not reachable on port {port}.",
-                Error = "monitor-unreachable",
-            };
-        }
-
-        return new MonitorAgentStatus
-        {
-            IsRunning = false,
-            Port = port,
-            HasMetadata = false,
-            Message = "Monitor info file not found. Start Monitor to initialize it.",
-            Error = "agent-info-missing",
-        };
+        return await GetStatusFromHealthCheckAsync(port, hasMetadata, checkHealthAsync).ConfigureAwait(false);
     }
 
     public static async Task<MonitorReadyState> ResolveReadyStateAsync(
@@ -285,6 +253,46 @@ internal static class MonitorLauncherStateResolver
 
         MonitorService.LogDiagnostic("Timed out waiting for Monitor.");
         return null;
+    }
+
+    private static async Task<MonitorAgentStatus> GetStatusFromHealthCheckAsync(
+        int port,
+        bool hasMetadata,
+        Func<int, Task<bool>> checkHealthAsync)
+    {
+        var isRunning = await checkHealthAsync(port).ConfigureAwait(false);
+        if (isRunning)
+        {
+            return new MonitorAgentStatus
+            {
+                IsRunning = true,
+                Port = port,
+                HasMetadata = hasMetadata,
+                Message = $"Healthy on port {port}.",
+                Error = null,
+            };
+        }
+
+        if (hasMetadata)
+        {
+            return new MonitorAgentStatus
+            {
+                IsRunning = false,
+                Port = port,
+                HasMetadata = true,
+                Message = $"Monitor not reachable on port {port}.",
+                Error = "monitor-unreachable",
+            };
+        }
+
+        return new MonitorAgentStatus
+        {
+            IsRunning = false,
+            Port = port,
+            HasMetadata = false,
+            Message = "Monitor info file not found. Start Monitor to initialize it.",
+            Error = "agent-info-missing",
+        };
     }
 
     private static string? GetStartupFailure(IReadOnlyList<string>? errors)

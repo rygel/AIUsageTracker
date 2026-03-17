@@ -10,19 +10,19 @@ namespace AIUsageTracker.Infrastructure.Providers;
 
 public class AnthropicProvider : ProviderBase
 {
+    private readonly ILogger<AnthropicProvider> _logger;
+
+    public AnthropicProvider(ILogger<AnthropicProvider> logger)
+    {
+        this._logger = logger;
+    }
+
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "anthropic",
         displayName: "Anthropic",
         planType: PlanType.Usage,
         isQuotaBased: false,
         defaultConfigType: "pay-as-you-go");
-
-    private readonly ILogger<AnthropicProvider> _logger;
-
-    public AnthropicProvider(ILogger<AnthropicProvider> logger)
-    {
-        _logger = logger;
-    }
 
     public override ProviderDefinition Definition => StaticDefinition;
 
@@ -36,7 +36,7 @@ public class AnthropicProvider : ProviderBase
             {
                 new ProviderUsage
                 {
-                    ProviderId = ProviderId,
+                    ProviderId = this.ProviderId,
                     ProviderName = "Anthropic",
                     IsAvailable = false,
                     Description = "API Key missing",
@@ -53,7 +53,7 @@ public class AnthropicProvider : ProviderBase
         {
             new ProviderUsage
             {
-                ProviderId = ProviderId,
+                ProviderId = this.ProviderId,
                 ProviderName = "Anthropic",
                 IsAvailable = true,
                 IsQuotaBased = false,
