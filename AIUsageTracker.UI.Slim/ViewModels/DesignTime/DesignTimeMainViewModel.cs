@@ -146,8 +146,8 @@ public class DesignTimeMainViewModel
 
         section.Items.Add(new DesignTimeProviderCardViewModel
         {
-            ProviderId = "anthropic", // provider-id-guardrail-allow: design-time sample data
-            DisplayName = "Anthropic API",
+            ProviderId = "openrouter", // provider-id-guardrail-allow: design-time sample data
+            DisplayName = "OpenRouter",
             AccountDisplay = string.Empty,
             HasAccountName = false,
             ProgressPercentage = 45,

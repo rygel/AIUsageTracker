@@ -435,7 +435,7 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("codex", true)]
     [InlineData("openai", false)]
-    [InlineData("anthropic", false)]
+    [InlineData("deepseek", false)]
     public void ShouldShowInSettings_UsesProviderDefinitions(string providerId, bool expected)
     {
         Assert.Equal(expected, ProviderMetadataCatalog.ShouldShowInSettings(providerId));
