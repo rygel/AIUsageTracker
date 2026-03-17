@@ -1,14 +1,19 @@
+// <copyright file="WpfTrayIconService.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Hardcodet.Wpf.TaskbarNotification;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim.Interfaces;
-using Microsoft.Extensions.Logging;
+using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 namespace AIUsageTracker.UI.Slim.Services;
 
 public class WpfTrayIconService : ITrayIconService
@@ -20,69 +25,83 @@ public class WpfTrayIconService : ITrayIconService
 
     public WpfTrayIconService(ILogger<WpfTrayIconService> logger, IServiceProvider serviceProvider)
     {
-        _logger = logger;
-        _serviceProvider = serviceProvider;
+        this._logger = logger;
+        this._serviceProvider = serviceProvider;
     }
 
     public void Initialize()
     {
-        // Create context menu
-        var contextMenu = new ContextMenu();
-        
-        // Show menu item
-        var showMenuItem = new MenuItem { Header = "Show" };
-        showMenuItem.Click += (s, e) => ShowMainWindow();
-        contextMenu.Items.Add(showMenuItem);
-        
-        // Separator
-        contextMenu.Items.Add(new Separator());
-        
-        // Info menu item
-        var infoMenuItem = new MenuItem { Header = "Info" };
-        infoMenuItem.Click += (s, e) => OpenInfoDialog();
-        contextMenu.Items.Add(infoMenuItem);
-        
-        // Separator
-        contextMenu.Items.Add(new Separator());
-        
-        // Exit menu item
-        var exitMenuItem = new MenuItem { Header = "Exit" };
-        exitMenuItem.Click += (s, e) =>
+        try
         {
-            Application.Current.Shutdown();
-        };
-        contextMenu.Items.Add(exitMenuItem);
-        
-        // Create tray icon
-        var trayIconPath = ResolveTrayIconPath();
-        var trayIcon = File.Exists(trayIconPath)
-            ? new System.Drawing.Icon(trayIconPath)
-            : System.Drawing.SystemIcons.Application;
+            var contextMenu = new ContextMenu();
 
-        _trayIcon = new TaskbarIcon
-        {
-            Icon = trayIcon,
-            ToolTipText = "AI Usage Tracker",
-            ContextMenu = contextMenu,
-            DoubleClickCommand = new RelayCommand(() =>
+            var showMenuItem = new MenuItem { Header = "Show" };
+            showMenuItem.Click += (s, e) => this.ShowMainWindow();
+            contextMenu.Items.Add(showMenuItem);
+
+            contextMenu.Items.Add(new Separator());
+
+            var infoMenuItem = new MenuItem { Header = "Info" };
+            infoMenuItem.Click += (s, e) => this.OpenInfoDialog();
+            contextMenu.Items.Add(infoMenuItem);
+
+            contextMenu.Items.Add(new Separator());
+
+            var exitMenuItem = new MenuItem { Header = "Exit" };
+            exitMenuItem.Click += (s, e) => Application.Current.Shutdown();
+            contextMenu.Items.Add(exitMenuItem);
+
+            var trayIconPath = ResolveTrayIconPath();
+            var trayIcon = File.Exists(trayIconPath)
+                ? new System.Drawing.Icon(trayIconPath)
+                : System.Drawing.SystemIcons.Application;
+
+            if (!File.Exists(trayIconPath))
             {
-                ShowMainWindow();
-            })
-        };
+                this._logger.LogWarning("Tray icon not found at expected paths. Falling back to system icon. Tried: {TrayIconPath}", trayIconPath);
+            }
 
-        if (!File.Exists(trayIconPath))
-        {
-            _logger.LogWarning("Tray icon not found at expected paths. Falling back to system icon. Tried: {TrayIconPath}", trayIconPath);
+            this._trayIcon = new TaskbarIcon
+            {
+                Icon = trayIcon,
+                ToolTipText = "AI Usage Tracker",
+                ContextMenu = contextMenu,
+                DoubleClickCommand = new RelayCommand(this.ShowMainWindow),
+            };
         }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Failed to initialize tray icon");
+        }
+    }
+
+    public void UpdateProviderTrayIcons(List<ProviderUsage> usages, List<ProviderConfig> configs, AppPreferences? prefs = null)
+    {
+        try
+        {
+            this.UpdateProviderTrayIconsCore(usages, configs, prefs);
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogError(ex, "Failed to update provider tray icons");
+        }
+    }
+
+    public void Dispose()
+    {
+        this._trayIcon?.Dispose();
+        foreach (var tray in this._providerTrayIcons.Values)
+        {
+            tray.Dispose();
+        }
+
+        this._providerTrayIcons.Clear();
     }
 
     private void ShowMainWindow()
     {
-        var window = _serviceProvider.GetService<MainWindow>();
-        if (window != null)
-        {
-            window.ShowAndActivate();
-        }
+        var window = this._serviceProvider.GetService<MainWindow>();
+        window?.ShowAndActivate();
     }
 
     private void OpenInfoDialog()
@@ -93,7 +112,7 @@ public class WpfTrayIconService : ITrayIconService
         }
     }
 
-    public void UpdateProviderTrayIcons(List<ProviderUsage> usages, List<ProviderConfig> configs, AppPreferences? prefs = null)
+    private void UpdateProviderTrayIconsCore(List<ProviderUsage> usages, List<ProviderConfig> configs, AppPreferences? prefs)
     {
         var desiredIcons = new Dictionary<string, (string ToolTip, double Percentage, bool IsQuota)>(StringComparer.OrdinalIgnoreCase);
         var yellowThreshold = prefs?.ColorThresholdYellow ?? 60;
@@ -124,12 +143,7 @@ public class WpfTrayIconService : ITrayIconService
             foreach (var subName in config.EnabledSubTrays)
             {
                 var detail = usage.Details.FirstOrDefault(d => d.Name.Equals(subName, StringComparison.OrdinalIgnoreCase));
-                if (detail == null)
-                {
-                    continue;
-                }
-
-                if (!IsSubTrayEligibleDetail(detail))
+                if (detail == null || !IsSubTrayEligibleDetail(detail))
                 {
                     continue;
                 }
@@ -146,21 +160,18 @@ public class WpfTrayIconService : ITrayIconService
                 desiredIcons[key] = (
                     $"{usage.ProviderName} - {subName}: {detail.Description} ({pctStr})",
                     effectiveUsedPct.Value,
-                    isQuotaSub
-                );
+                    isQuotaSub);
             }
         }
 
-        var currentKeys = _providerTrayIcons.Keys.ToList();
+        var currentKeys = this._providerTrayIcons.Keys.ToList();
         foreach (var key in currentKeys)
         {
-            if (desiredIcons.ContainsKey(key))
+            if (!desiredIcons.ContainsKey(key))
             {
-                continue;
+                this._providerTrayIcons[key].Dispose();
+                this._providerTrayIcons.Remove(key);
             }
-
-            _providerTrayIcons[key].Dispose();
-            _providerTrayIcons.Remove(key);
         }
 
         foreach (var kvp in desiredIcons)
@@ -169,34 +180,24 @@ public class WpfTrayIconService : ITrayIconService
             var info = kvp.Value;
             var iconSource = GenerateUsageIcon(info.Percentage, yellowThreshold, redThreshold, invert, info.IsQuota);
 
-            if (!_providerTrayIcons.ContainsKey(key))
+            if (!this._providerTrayIcons.ContainsKey(key))
             {
                 var tray = new TaskbarIcon
                 {
                     ToolTipText = info.ToolTip,
-                    IconSource = iconSource
+                    IconSource = iconSource,
                 };
-                tray.TrayLeftMouseDown += (s, e) => ShowMainWindow();
-                tray.TrayMouseDoubleClick += (s, e) => ShowMainWindow();
-                _providerTrayIcons.Add(key, tray);
+                tray.TrayLeftMouseDown += (s, e) => this.ShowMainWindow();
+                tray.TrayMouseDoubleClick += (s, e) => this.ShowMainWindow();
+                this._providerTrayIcons.Add(key, tray);
             }
             else
             {
-                var tray = _providerTrayIcons[key];
+                var tray = this._providerTrayIcons[key];
                 tray.ToolTipText = info.ToolTip;
                 tray.IconSource = iconSource;
             }
         }
-    }
-
-    public void Dispose()
-    {
-        _trayIcon?.Dispose();
-        foreach (var tray in _providerTrayIcons.Values)
-        {
-            tray.Dispose();
-        }
-        _providerTrayIcons.Clear();
     }
 
     private static bool IsSubTrayEligibleDetail(ProviderUsageDetail detail)
