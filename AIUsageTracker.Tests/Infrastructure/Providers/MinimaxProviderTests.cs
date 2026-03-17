@@ -25,7 +25,6 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         this.Config.ProviderId = MinimaxProvider.ChinaProviderId;
     }
 
-    #region Quota Percentage Semantic Tests
 
     /// <summary>
     /// Tests that UsedPercent stores the used percentage for quota-based providers.
@@ -203,9 +202,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Equal(1200000, usage.RequestsUsed);
     }
 
-    #endregion
 
-    #region Provider Configuration Tests
 
     [Fact]
     public void StaticDefinition_HasCorrectConfiguration()
@@ -320,9 +317,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Equal(10, usage.UsedPercent); // 10% used
     }
 
-    #endregion
 
-    #region Error Handling Tests
 
     [Fact]
     public async Task GetUsageAsync_NoApiKey_ReturnsUnavailableAsync()
@@ -420,9 +415,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Contains("TooManyRequests", usage.Description);
     }
 
-    #endregion
 
-    #region Edge Cases
 
     [Fact]
     public async Task GetUsageAsync_ZeroLimit_HandlesGracefullyAsync()
@@ -547,7 +540,6 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Equal(PlanType.Coding, usage.PlanType);
     }
 
-    #endregion
 
     private void SetupResponse(HttpStatusCode statusCode, string content, string? url = null)
     {

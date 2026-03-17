@@ -4,19 +4,11 @@
 
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
-using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
 public class AnthropicProvider : ProviderBase
 {
-    private readonly ILogger<AnthropicProvider> _logger;
-
-    public AnthropicProvider(ILogger<AnthropicProvider> logger)
-    {
-        this._logger = logger;
-    }
-
     public static ProviderDefinition StaticDefinition { get; } = new(
         providerId: "anthropic",
         displayName: "Anthropic",

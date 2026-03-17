@@ -22,7 +22,6 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.Config.ApiKey = "test-oauth-token";
     }
 
-    #region OAuth Usage Endpoint Tests
 
     /// <summary>
     /// Tests parsing of a typical OAuth usage response with moderate usage.
@@ -333,9 +332,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Single(result.Details!);
     }
 
-    #endregion
 
-    #region Error Handling Tests
 
     [Fact]
     public async Task GetUsageFromOAuthAsync_Unauthorized_ReturnsNullAsync()
@@ -405,9 +402,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
                 ItExpr.IsAny<CancellationToken>());
     }
 
-    #endregion
 
-    #region Integration Tests
 
     [Fact]
     public async Task GetUsageAsync_WithOAuthToken_UsesOAuthEndpointFirstAsync()
@@ -459,9 +454,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Contains("No API key configured", usage.Description);
     }
 
-    #endregion
 
-    #region Provider Definition Tests
 
     [Fact]
     public void StaticDefinition_HasCorrectConfiguration()
@@ -489,7 +482,6 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Equal("oauth-2025-04-20", ClaudeCodeProvider.OAuthBetaHeader);
     }
 
-    #endregion
 
     private void SetupOAuthResponse(HttpStatusCode statusCode, string content)
     {
