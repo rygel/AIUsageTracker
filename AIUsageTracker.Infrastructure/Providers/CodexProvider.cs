@@ -358,6 +358,13 @@ public class CodexProvider : ProviderBase
                     continue;
                 }
 
+                // Skip scalar properties (e.g. "allowed": true, "limit_reached": false) —
+                // the API added these alongside the window objects and they are not spark windows.
+                if (property.Value.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
                 var primaryUsedPercent = property.Value.ReadDouble("primary_window", "used_percent");
                 var primaryResetAfterSeconds = property.Value.ReadDouble("primary_window", "reset_after_seconds");
                 var secondaryUsedPercent = property.Value.ReadDouble("secondary_window", "used_percent");

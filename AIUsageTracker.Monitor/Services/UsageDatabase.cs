@@ -16,6 +16,14 @@ namespace AIUsageTracker.Monitor.Services;
 public class UsageDatabase : IUsageDatabase
 {
     private static readonly TimeSpan DetailFadeWindow = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Rows older than this are flagged as stale so the UI can warn the user
+    /// that the data may not reflect the current provider state. Set to 1 hour:
+    /// the circuit breaker retries every 30 min, so anything beyond that means
+    /// at least two full retry cycles have failed or the monitor was not running.
+    /// </summary>
+    private static readonly TimeSpan StaleDataThreshold = TimeSpan.FromHours(1);
     private readonly string _dbPath;
     private readonly string _connectionString;
     private readonly ILogger<UsageDatabase> _logger;
@@ -362,6 +370,7 @@ public class UsageDatabase : IUsageDatabase
 
             await this.MergeRecentlySeenDetailsAsync(connection, results, DateTime.UtcNow - DetailFadeWindow).ConfigureAwait(false);
 
+            var now = DateTime.UtcNow;
             foreach (var usage in results)
             {
                 if (ProviderMetadataCatalog.TryGetUsageSemantics(usage.ProviderId ?? string.Empty, out var planType, out var isQuotaBased))
@@ -373,6 +382,7 @@ public class UsageDatabase : IUsageDatabase
                 usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
 
                 ApplyUpstreamResponseValidity(usage);
+                MarkStaleIfOutdated(usage, now);
             }
 
             return results;
@@ -425,6 +435,38 @@ public class UsageDatabase : IUsageDatabase
         var evaluation = UpstreamResponseValidityCatalog.Evaluate(usage);
         usage.UpstreamResponseValidity = evaluation.Validity;
         usage.UpstreamResponseNote = evaluation.Note;
+    }
+
+    private static void MarkStaleIfOutdated(ProviderUsage usage, DateTime now)
+    {
+        // Only flag available entries — unavailable/missing entries already carry an
+        // explanatory description (e.g. "Temporarily paused", "Auth token not found"),
+        // so adding a stale suffix on top would be redundant and confusing.
+        if (!usage.IsAvailable)
+        {
+            return;
+        }
+
+        var fetchedAt = usage.FetchedAt.Kind == DateTimeKind.Utc
+            ? usage.FetchedAt
+            : usage.FetchedAt.ToUniversalTime();
+
+        if (now - fetchedAt <= StaleDataThreshold)
+        {
+            return;
+        }
+
+        usage.IsStale = true;
+        var age = now - fetchedAt;
+        var ageLabel = age.TotalDays >= 1
+            ? $"{(int)age.TotalDays}d ago"
+            : age.TotalHours >= 1
+                ? $"{(int)age.TotalHours}h ago"
+                : $"{(int)age.TotalMinutes}m ago";
+        var suffix = $"(last refreshed {ageLabel} — data may be outdated)";
+        usage.Description = string.IsNullOrWhiteSpace(usage.Description)
+            ? suffix
+            : $"{usage.Description} {suffix}";
     }
 
     private async Task MergeRecentlySeenDetailsAsync(

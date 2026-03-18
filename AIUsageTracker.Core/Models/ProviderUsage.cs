@@ -85,4 +85,11 @@ public class ProviderUsage
     public UpstreamResponseValidity UpstreamResponseValidity { get; set; } = UpstreamResponseValidity.Unknown;
 
     public string UpstreamResponseNote { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True when the row was retrieved from the database but is older than the staleness
+    /// threshold, meaning no successful refresh has occurred recently. The UI should
+    /// visually distinguish stale entries so users know they are looking at cached data.
+    /// </summary>
+    public bool IsStale { get; set; }
 }
