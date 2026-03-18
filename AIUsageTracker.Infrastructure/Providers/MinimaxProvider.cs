@@ -101,8 +101,7 @@ public class MinimaxProvider : ProviderBase
             }
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+        var request = CreateBearerRequest(HttpMethod.Get, url, config.ApiKey);
 
         var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
         var httpStatus = (int)response.StatusCode;

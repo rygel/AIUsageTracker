@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Exceptions;
@@ -69,6 +70,19 @@ public abstract class ProviderBase : IProviderService
         }
 
         return DateTime.UtcNow.AddSeconds(resetAfterSeconds.Value).ToLocalTime();
+    }
+
+    protected static HttpRequestMessage CreateBearerRequest(HttpMethod method, string url, string token)
+    {
+        var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return request;
+    }
+
+    protected static T? DeserializeJsonOrDefault<T>(string content)
+        where T : class
+    {
+        return JsonSerializer.Deserialize<T>(content, JsonOptions);
     }
 
     protected virtual ProviderUsage CreateUnavailableUsage(

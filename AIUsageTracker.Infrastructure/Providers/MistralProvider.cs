@@ -63,8 +63,7 @@ public class MistralProvider : ProviderBase
         // We verify the key works by calling the models list endpoint
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.mistral.ai/v1/models");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://api.mistral.ai/v1/models", apiKey);
 
             var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

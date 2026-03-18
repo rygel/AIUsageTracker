@@ -193,8 +193,7 @@ public class ClaudeCodeProvider : ProviderBase
 
     private async Task<(System.Net.HttpStatusCode StatusCode, string Body)> SendOAuthRequestAsync(string accessToken)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, OAuthUsageEndpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var request = CreateBearerRequest(HttpMethod.Get, OAuthUsageEndpoint, accessToken);
         request.Headers.Add("anthropic-beta", OAuthBetaHeader);
 
         using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);

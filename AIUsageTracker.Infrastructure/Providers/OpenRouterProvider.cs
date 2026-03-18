@@ -70,8 +70,7 @@ public class OpenRouterProvider : ProviderBase
         {
             this._logger.LogDebug("Calling OpenRouter credits API: https://openrouter.ai/api/v1/credits");
 
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/credits");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://openrouter.ai/api/v1/credits", config.ApiKey);
 
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             httpStatus = (int)response.StatusCode;
@@ -141,8 +140,7 @@ public class OpenRouterProvider : ProviderBase
         {
             this._logger.LogDebug("Calling OpenRouter key API: https://openrouter.ai/api/v1/key");
 
-            var keyRequest = new HttpRequestMessage(HttpMethod.Get, "https://openrouter.ai/api/v1/key");
-            keyRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            var keyRequest = CreateBearerRequest(HttpMethod.Get, "https://openrouter.ai/api/v1/key", config.ApiKey);
 
             var keyResponse = await this._httpClient.SendAsync(keyRequest).ConfigureAwait(false);
             var keyResponseBody = await keyResponse.Content.ReadAsStringAsync().ConfigureAwait(false);

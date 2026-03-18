@@ -57,8 +57,7 @@ public class KimiProvider : ProviderBase
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.kimi.com/coding/v1/usages");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://api.kimi.com/coding/v1/usages", config.ApiKey);
 
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
