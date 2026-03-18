@@ -58,8 +58,7 @@ public class DeepSeekProvider : ProviderBase
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.deepseek.com/user/balance");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://api.deepseek.com/user/balance", config.ApiKey);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
@@ -88,7 +87,7 @@ public class DeepSeekProvider : ProviderBase
                 };
             }
 
-            var result = JsonSerializer.Deserialize<DeepSeekBalanceResponse>(content);
+            var result = DeserializeJsonOrDefault<DeepSeekBalanceResponse>(content);
 
             if (result == null)
             {

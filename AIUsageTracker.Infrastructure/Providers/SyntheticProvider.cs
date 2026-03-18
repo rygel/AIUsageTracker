@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Globalization;
-using System.Net.Http.Headers;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -57,8 +56,7 @@ public sealed class SyntheticProvider : ProviderBase
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+            using var request = CreateBearerRequest(HttpMethod.Get, endpoint, config.ApiKey);
 
             using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);

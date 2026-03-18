@@ -603,6 +603,15 @@ public class ProviderMetadataCatalogTests
 string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("github-copilot", true)]
+    [InlineData("codex", true)]
+    [InlineData("openai", true)]
+    public void SupportsAccountIdentity_UsesProviderDefinitions(string providerId, bool expected)
+    {
+        Assert.Equal(expected, ProviderMetadataCatalog.SupportsAccountIdentity(providerId));
+    }
+
     [Fact]
     public void UsageFilter_RemovesNonPersistedProviderIds_UsingPersistenceGate()
     {
