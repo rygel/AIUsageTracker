@@ -220,4 +220,94 @@ public class ProviderRefreshCircuitBreakerServiceTests
         Assert.False(diagnostic.IsCircuitOpen);
         Assert.Null(diagnostic.LastRefreshError);
     }
+
+    // ── CreateCircuitOpenUsages ───────────────────────────────────────────────
+
+    [Fact]
+    public void CreateCircuitOpenUsages_WhenCircuitOpen_ReturnsSyntheticEntry()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "openrouter" },
+        };
+
+        // Trip the circuit.
+        for (var i = 0; i < 3; i++)
+        {
+            this._service.UpdateProviderFailureStates(configs, Array.Empty<ProviderUsage>());
+        }
+
+        var usages = this._service.CreateCircuitOpenUsages(configs);
+
+        var entry = Assert.Single(usages);
+        Assert.Equal("openrouter", entry.ProviderId);
+        Assert.False(entry.IsAvailable);
+        Assert.Equal(ProviderUsageState.Unavailable, entry.State);
+        Assert.Contains("Temporarily paused", entry.Description);
+        Assert.Contains("next check at", entry.Description);
+    }
+
+    [Fact]
+    public void CreateCircuitOpenUsages_WhenCircuitClosed_ReturnsEmpty()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "openrouter" },
+        };
+
+        // Only 2 failures — circuit stays closed.
+        for (var i = 0; i < 2; i++)
+        {
+            this._service.UpdateProviderFailureStates(configs, Array.Empty<ProviderUsage>());
+        }
+
+        var usages = this._service.CreateCircuitOpenUsages(configs);
+
+        Assert.Empty(usages);
+    }
+
+    [Fact]
+    public void CreateCircuitOpenUsages_WhenLastErrorPresent_IncludesItInDescription()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "mistral" },
+        };
+
+        var failedUsage = new ProviderUsage
+        {
+            ProviderId = "mistral",
+            IsAvailable = false,
+            Description = "HTTP 503 Service Unavailable",
+        };
+
+        for (var i = 0; i < 3; i++)
+        {
+            this._service.UpdateProviderFailureStates(configs, new[] { failedUsage });
+        }
+
+        var usages = this._service.CreateCircuitOpenUsages(configs);
+
+        var entry = Assert.Single(usages);
+        Assert.Contains("HTTP 503 Service Unavailable", entry.Description);
+    }
+
+    [Fact]
+    public void CreateCircuitOpenUsages_AfterCircuitReset_ReturnsEmpty()
+    {
+        var configs = new List<ProviderConfig>
+        {
+            new() { ProviderId = "openrouter" },
+        };
+
+        for (var i = 0; i < 3; i++)
+        {
+            this._service.UpdateProviderFailureStates(configs, Array.Empty<ProviderUsage>());
+        }
+
+        this._service.ResetProvider("openrouter", "manual reset");
+
+        var usages = this._service.CreateCircuitOpenUsages(configs);
+        Assert.Empty(usages);
+    }
 }

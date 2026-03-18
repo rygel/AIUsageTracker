@@ -48,6 +48,7 @@ public class ConfigService : IConfigService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to load configs: {Message}", ex.Message);
+            MonitorInfoPersistence.ReportError($"Config load failed: {ex.Message}", this._pathProvider, this._logger);
             return new List<ProviderConfig>();
         }
     }

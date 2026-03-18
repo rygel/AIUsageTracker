@@ -138,6 +138,7 @@ public class StartupSequenceServiceTests
         return new StartupSequenceService(
             refreshJobScheduler,
             this._configService.Object,
+            new Mock<IAppPathProvider>().Object,
             NullLogger<StartupSequenceService>.Instance);
     }
 }

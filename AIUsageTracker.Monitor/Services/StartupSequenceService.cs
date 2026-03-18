@@ -12,15 +12,18 @@ internal sealed class StartupSequenceService
 {
     private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
     private readonly IConfigService _configService;
+    private readonly IAppPathProvider _pathProvider;
     private readonly ILogger<StartupSequenceService> _logger;
 
     public StartupSequenceService(
         ProviderRefreshJobScheduler refreshJobScheduler,
         IConfigService configService,
+        IAppPathProvider pathProvider,
         ILogger<StartupSequenceService> logger)
     {
         this._refreshJobScheduler = refreshJobScheduler;
         this._configService = configService;
+        this._pathProvider = pathProvider;
         this._logger = logger;
     }
 
@@ -47,6 +50,7 @@ internal sealed class StartupSequenceService
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Error during first-time data seeding.");
+            MonitorInfoPersistence.ReportError($"Startup seeding failed: {ex.Message}", this._pathProvider, this._logger);
         }
     }
 
@@ -61,6 +65,7 @@ internal sealed class StartupSequenceService
         catch (Exception ex)
         {
             this._logger.LogWarning(ex, "Startup targeted refresh failed");
+            MonitorInfoPersistence.ReportError($"Startup targeted refresh failed: {ex.Message}", this._pathProvider, this._logger);
         }
     }
 }

@@ -220,7 +220,13 @@ public class ProviderRefreshService : BackgroundService
             var refreshableConfigs = bypassCircuitBreaker
                 ? activeConfigs
                 : this._providerCircuitBreakerService.GetRefreshableConfigs(activeConfigs, forceAll);
-            var circuitSkippedCount = activeConfigs.Count - refreshableConfigs.Count;
+            var refreshableIdSet = refreshableConfigs
+                .Select(c => c.ProviderId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var circuitSkippedConfigs = bypassCircuitBreaker
+                ? (IList<ProviderConfig>)Array.Empty<ProviderConfig>()
+                : activeConfigs.Where(c => !refreshableIdSet.Contains(c.ProviderId)).ToList();
+            var circuitSkippedCount = circuitSkippedConfigs.Count;
             refreshActivity?.SetTag("refresh.configs.refreshable", refreshableConfigs.Count);
             refreshActivity?.SetTag("refresh.configs.skipped_by_circuit", circuitSkippedCount);
             if (circuitSkippedCount > 0)
@@ -228,14 +234,14 @@ public class ProviderRefreshService : BackgroundService
                 this._logger.LogInformation("Circuit breaker skipping {Count} provider(s) this cycle", circuitSkippedCount);
             }
 
-            if (refreshableConfigs.Count > 0)
+            if (refreshableConfigs.Count > 0 || circuitSkippedConfigs.Count > 0)
             {
-                await this.RefreshAndStoreProviderDataAsync(configs, refreshableConfigs).ConfigureAwait(false);
+                await this.RefreshAndStoreProviderDataAsync(configs, refreshableConfigs, circuitSkippedConfigs).ConfigureAwait(false);
             }
             else
             {
                 this._logger.LogDebug("No refreshable providers currently available.");
-                this._logger.LogInformation("No providers configured or all providers are in backoff.");
+                this._logger.LogInformation("No providers configured.");
             }
 
             await this._database.CleanupOldSnapshotsAsync().ConfigureAwait(false);
@@ -263,31 +269,56 @@ public class ProviderRefreshService : BackgroundService
         }
     }
 
-    private async Task RefreshAndStoreProviderDataAsync(IList<ProviderConfig> allConfigs, IList<ProviderConfig> refreshableConfigs)
+    private async Task RefreshAndStoreProviderDataAsync(
+        IList<ProviderConfig> allConfigs,
+        IList<ProviderConfig> refreshableConfigs,
+        IList<ProviderConfig> circuitSkippedConfigs)
     {
         if (this.ProviderManager == null)
         {
             throw new InvalidOperationException("ProviderManager not initialized");
         }
 
-        this._logger.LogDebug("Querying {Count} providers with API keys...", refreshableConfigs.Count);
-        this._logger.LogInformation("Querying {Count} providers", refreshableConfigs.Count);
+        // Fetch live usage for providers whose circuit is closed.
+        IEnumerable<ProviderUsage> usages = Enumerable.Empty<ProviderUsage>();
+        if (refreshableConfigs.Count > 0)
+        {
+            this._logger.LogDebug("Querying {Count} providers with API keys...", refreshableConfigs.Count);
+            this._logger.LogInformation("Querying {Count} providers", refreshableConfigs.Count);
 
-        var providerIdsToQuery = refreshableConfigs
-            .Select(c => c.ProviderId)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            var providerIdsToQuery = refreshableConfigs
+                .Select(c => c.ProviderId)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
-        var usages = await this.ProviderManager.GetAllUsageAsync(
-            forceRefresh: true,
-            progressCallback: _ => { },
-            includeProviderIds: providerIdsToQuery).ConfigureAwait(false);
+            usages = await this.ProviderManager.GetAllUsageAsync(
+                forceRefresh: true,
+                progressCallback: _ => { },
+                includeProviderIds: providerIdsToQuery).ConfigureAwait(false);
 
-        this._logger.LogDebug("Received {Count} total usage results", usages.Count());
+            this._logger.LogDebug("Received {Count} total usage results", usages.Count());
+        }
+
+        // Synthesize "circuit open" entries so the UI shows an actionable message
+        // instead of stale cached data for providers currently in backoff.
+        var circuitOpenUsages = this._providerCircuitBreakerService.CreateCircuitOpenUsages(circuitSkippedConfigs);
+        if (circuitOpenUsages.Count > 0)
+        {
+            this._logger.LogDebug("Synthesizing {Count} circuit-open usage entries", circuitOpenUsages.Count);
+            usages = usages.Concat(circuitOpenUsages);
+        }
 
         var activeProviderIds = refreshableConfigs
             .Select(c => c.ProviderId)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Include circuit-skipped providers in the active set so their synthetic
+        // entries pass the pipeline authority stage.
+        foreach (var skipped in circuitSkippedConfigs)
+        {
+            activeProviderIds.Add(skipped.ProviderId);
+        }
+
         var prefs = await this._configService.GetPreferencesAsync().ConfigureAwait(false);
 
         var processingResult = this._usageProcessingPipeline.Process(

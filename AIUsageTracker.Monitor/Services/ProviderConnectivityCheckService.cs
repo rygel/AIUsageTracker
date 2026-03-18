@@ -33,7 +33,12 @@ internal sealed class ProviderConnectivityCheckService
 
         if (usage == null)
         {
-            return (false, "No usage data returned", 404);
+            // This only happens when the provider returned truly empty data (no description,
+            // no quota values) which the pipeline correctly treats as a placeholder.
+            var reason = processingResult.PlaceholderFilteredCount > 0
+                ? "Provider returned no data — check authentication or API key configuration"
+                : "Provider returned no usage data";
+            return (false, reason, 503);
         }
 
         if (usage.HttpStatus >= 400 && usage.HttpStatus != 429)
