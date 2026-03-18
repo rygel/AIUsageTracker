@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **Stale Codex / session-auth data after DB wipe**: Unavailable provider entries that carry a description (e.g. "Codex auth token not found", "API Key missing") are no longer silently dropped by the processing pipeline. They are now stored in the database and displayed in the UI, so customers see actionable re-auth messages instead of stale cached data that disappears after a database wipe.
+
 ## [2.3.1-beta.1] - 2026-03-18
 
 ### Removed

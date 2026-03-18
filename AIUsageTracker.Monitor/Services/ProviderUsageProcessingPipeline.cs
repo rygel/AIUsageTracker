@@ -449,11 +449,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             return false;
         }
 
-        if (usage.State == ProviderUsageState.Missing || usage.State == ProviderUsageState.Unavailable)
-        {
-            return true;
-        }
-
+        // Keep unavailable entries that carry a description — they are actionable
+        // (e.g. "Codex auth token not found", "API Key missing").  Only discard
+        // truly empty entries that have nothing to show the user.
         return string.IsNullOrWhiteSpace(usage.Description);
     }
 
