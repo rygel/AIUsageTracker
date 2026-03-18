@@ -31,6 +31,7 @@ public class DeepSeekProvider : ProviderBase
         defaultConfigType: "pay-as-you-go")
     {
         IncludeInWellKnownProviders = true,
+        ShowInSettings = false,
         DiscoveryEnvironmentVariables = new[] { "DEEPSEEK_API_KEY" },
         RooConfigPropertyNames = new[] { "deepseekApiKey" },
         IconAssetName = "deepseek",

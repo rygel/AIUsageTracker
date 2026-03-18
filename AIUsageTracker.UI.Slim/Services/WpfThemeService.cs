@@ -5,7 +5,7 @@ using AIUsageTracker.UI.Slim.Interfaces;
 
 namespace AIUsageTracker.UI.Slim.Services;
 
-public class WpfThemeService : IThemeService
+public class WpfThemeService : IThemeService, IWpfThemeService
 {
     public void ApplyTheme(AppTheme theme)
     {

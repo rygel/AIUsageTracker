@@ -51,6 +51,15 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         foreach (var usage in usages)
         {
             totalProcessedEntries++;
+
+            // Placeholder check must run on the ORIGINAL usage before normalization,
+            // because NormalizeUsage fills in "Unavailable" for empty descriptions —
+            // which would prevent the filter from ever seeing a blank description.
+            if (this.ShouldRejectPlaceholderStage(usage, ref placeholderFilteredCount))
+            {
+                continue;
+            }
+
             if (!this.TryNormalizeUsageForProcessing(
                     usage,
                     isPrivacyMode,
@@ -71,11 +80,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             }
 
             normalized = this.ApplyDetailContractStage(normalized, ref detailContractAdjustedCount);
-
-            if (this.ShouldRejectPlaceholderStage(normalized, ref placeholderFilteredCount))
-            {
-                continue;
-            }
 
             accepted.Add(normalized);
         }
