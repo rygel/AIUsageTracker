@@ -58,6 +58,11 @@ public static class HttpClientExtensions
         // or where retrying 429s is counterproductive (burns rate-limit budget).
         services.AddHttpClient("PlainClient");
 
+        // Short-timeout client for localhost API calls (e.g. AntigravityProvider).
+        // Localhost calls should respond near-instantly; a long timeout would stall the UI.
+        services.AddHttpClient("LocalhostClient")
+            .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(1.5));
+
         // Register ResilientHttpClient as transient
         services.AddTransient<IResilientHttpClient>(sp =>
         {

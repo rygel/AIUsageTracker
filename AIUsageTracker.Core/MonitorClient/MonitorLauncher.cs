@@ -17,6 +17,7 @@ public class MonitorLauncher
     private const int StopWaitSeconds = 5;
 
     private static readonly SemaphoreSlim StartupSemaphore = new(1, 1);
+    private static readonly HttpClient HealthCheckHttpClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
     private static ILogger<MonitorLauncher>? _logger;
     private static Func<IEnumerable<string>>? _monitorInfoCandidatePathsOverride;
     private static Func<int, Task<bool>>? _healthCheckOverride;
@@ -282,8 +283,7 @@ public class MonitorLauncher
 
         try
         {
-            using var client = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
-            var response = await client.GetAsync($"http://localhost:{port}/api/health").ConfigureAwait(false);
+            var response = await HealthCheckHttpClient.GetAsync($"http://localhost:{port}/api/health").ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch (HttpRequestException ex)
