@@ -125,7 +125,7 @@ public class DatabaseMigrationService
             return;
         }
 
-        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};");
+        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};"); // sql-interpolation-allow — tableName/columnName/definition are hardcoded migration constants, never user input
     }
 
     private static void ExecuteNonQuery(SqliteConnection connection, string sql)

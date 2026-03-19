@@ -27,8 +27,8 @@ public class AntigravityProvider : ProviderBase
     private List<(int Pid, string Token, int? Port)>? _cachedProcessInfos;
     private DateTime _lastProcessCheck = DateTime.MinValue;
 
-    public AntigravityProvider(ILogger<AntigravityProvider> logger)
-        : this(CreateLocalhostClient(), logger)
+    public AntigravityProvider(ILogger<AntigravityProvider> logger, IHttpClientFactory httpClientFactory)
+        : this(httpClientFactory.CreateClient("LocalhostClient"), logger)
     {
     }
 

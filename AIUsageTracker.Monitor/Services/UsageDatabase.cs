@@ -18,9 +18,14 @@ public class UsageDatabase : IUsageDatabase
 
     /// <summary>
     /// Rows older than this are flagged as stale so the UI can warn the user
-    /// that the data may not reflect the current provider state. Set to 1 hour:
-    /// the circuit breaker retries every 30 min, so anything beyond that means
-    /// at least two full retry cycles have failed or the monitor was not running.
+    /// that the data may not reflect the current provider state.
+    ///
+    /// This is intentionally set to 2× the circuit-breaker maximum backoff
+    /// (see <see cref="ProviderRefreshCircuitBreakerService"/> — CircuitBreakerMaxBackoff = 30 min).
+    /// A row older than 1 hour means at least two full retry windows have elapsed
+    /// without a successful refresh, either because repeated errors have kept the
+    /// circuit open at max backoff or because the monitor process was not running.
+    /// Changing CircuitBreakerMaxBackoff should be accompanied by a matching update here.
     /// </summary>
     private static readonly TimeSpan StaleDataThreshold = TimeSpan.FromHours(1);
 
@@ -549,18 +554,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             await this.MergeRecentlySeenDetailsAsync(connection, results, DateTime.UtcNow - DetailFadeWindow).ConfigureAwait(false);
             await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
@@ -693,6 +687,22 @@ public class UsageDatabase : IUsageDatabase
         var evaluation = UpstreamResponseValidityCatalog.Evaluate(usage);
         usage.UpstreamResponseValidity = evaluation.Validity;
         usage.UpstreamResponseNote = evaluation.Note;
+    }
+
+    private void PopulateDetails(IEnumerable<ProviderUsage> usages)
+    {
+        foreach (var usage in usages.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
+        {
+            try
+            {
+                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
+            }
+            catch (JsonException ex)
+            {
+                this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                usage.Details = new List<ProviderUsageDetail>();
+            }
+        }
     }
 
     private static void MarkStaleIfOutdated(ProviderUsage usage, DateTime now)
@@ -861,6 +871,8 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -885,18 +897,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -913,6 +914,8 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -938,18 +941,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -966,6 +958,8 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(countPerProvider);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(countPerProvider, 10_000);
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -997,18 +991,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {

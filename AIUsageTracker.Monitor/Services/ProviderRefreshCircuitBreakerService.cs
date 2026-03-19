@@ -11,6 +11,10 @@ public class ProviderRefreshCircuitBreakerService
 {
     private const int CircuitBreakerFailureThreshold = 3;
     private static readonly TimeSpan CircuitBreakerBaseBackoff = TimeSpan.FromMinutes(1);
+
+    // Maximum backoff before the circuit retries. UsageDatabase.StaleDataThreshold is set to
+    // 2× this value so that a row is only flagged stale after at least two max-backoff windows
+    // have passed without a successful refresh. If you change this value, update StaleDataThreshold too.
     private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
     private readonly ILogger<ProviderRefreshCircuitBreakerService> _logger;
     private readonly object _providerFailureLock = new();

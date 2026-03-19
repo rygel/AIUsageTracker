@@ -1718,9 +1718,9 @@ public partial class MainWindow : Window
                     };
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Fallback to circle with initial
+                this._logger.LogWarning(ex, "Failed to load SVG icon for provider '{ProviderId}' at '{SvgPath}'. Falling back to initial badge.", normalizedProviderId, svgPath);
             }
         }
 
@@ -1866,7 +1866,7 @@ public partial class MainWindow : Window
                     else if ((DateTime.Now - this._lastMonitorUpdate).TotalMinutes > 5)
                     {
                         // Keep showing old data, show yellow warning
-                        this.ShowStatus("Last update: " + this._lastMonitorUpdate.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + " (stale)", StatusType.Warning);
+                        this.ShowStatus(this.FormatMonitorOfflineStatus(), StatusType.Warning);
                     }
                 }
             }
@@ -1882,7 +1882,7 @@ public partial class MainWindow : Window
                 if (hasOldData)
                 {
                     // Has old data - show yellow warning, keep displaying stale data
-                    this.ShowStatus("Connection lost - showing stale data", StatusType.Warning);
+                    this.ShowStatus(this.FormatMonitorOfflineStatus(), StatusType.Warning);
                 }
                 else
                 {
@@ -2035,6 +2035,23 @@ public partial class MainWindow : Window
         {
             this._isPollingInProgress = false;
         }
+    }
+
+    private string FormatMonitorOfflineStatus()
+    {
+        if (this._lastMonitorUpdate == DateTime.MinValue)
+        {
+            return "Monitor offline — no data received yet";
+        }
+
+        var elapsed = DateTime.Now - this._lastMonitorUpdate;
+        var ago = elapsed.TotalSeconds < 60
+            ? $"{(int)elapsed.TotalSeconds}s ago"
+            : elapsed.TotalHours < 1
+                ? $"{(int)elapsed.TotalMinutes}m ago"
+                : $"{(int)elapsed.TotalHours}h ago";
+
+        return $"Monitor offline — last sync {ago}";
     }
 
     private void LogDiagnostic(string message)
