@@ -77,7 +77,7 @@ public abstract class DatabaseTestBase : IDisposable
                 http_status INTEGER NOT NULL DEFAULT 0,
                 upstream_response_validity INTEGER NOT NULL DEFAULT 0,
                 upstream_response_note TEXT NOT NULL DEFAULT '',
-                fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                fetched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
                 details_json TEXT,
                 parent_provider_id TEXT REFERENCES providers(provider_id) ON DELETE SET NULL,
                 FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
@@ -88,7 +88,7 @@ public abstract class DatabaseTestBase : IDisposable
                 provider_id TEXT NOT NULL REFERENCES providers(provider_id) ON DELETE CASCADE,
                 raw_json TEXT NOT NULL,
                 http_status INTEGER NOT NULL DEFAULT 200,
-                fetched_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                fetched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             );
 
             CREATE TABLE reset_events (
@@ -134,7 +134,7 @@ public abstract class DatabaseTestBase : IDisposable
         command.Parameters.AddWithValue("$used", used);
         command.Parameters.AddWithValue("$available", available);
         command.Parameters.AddWithValue("$pct", pct);
-        command.Parameters.AddWithValue("$at", fetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)); // Consistent format
+        command.Parameters.AddWithValue("$at", new DateTimeOffset(fetchedAt.Kind == DateTimeKind.Utc ? fetchedAt : fetchedAt.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds());
         command.Parameters.AddWithValue("$avail", isAvailable ? 1 : 0);
         command.Parameters.AddWithValue("$latency", latencyMs);
         command.ExecuteNonQuery();

@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -203,7 +202,7 @@ public class UsageDatabase : IUsageDatabase
                 var detailsJson = u.Details != null && u.Details.Any()
                     ? JsonSerializer.Serialize(u.Details)
                     : null;
-                var fetchedAt = (u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt).ToString("O");
+                var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
                 var nextResetTime = u.NextResetTime?.ToString("O");
                 var statusMessage = u.Description ?? string.Empty;
                 var validityEval = UpstreamResponseValidityCatalog.Evaluate(u);
@@ -348,7 +347,7 @@ public class UsageDatabase : IUsageDatabase
         int IsAvailable,
         string StatusMessage,
         string? NextResetTime,
-        string FetchedAt,
+        long FetchedAt,
         string? DetailsJson,
         double ResponseLatencyMs,
         int HttpStatus,
@@ -356,7 +355,10 @@ public class UsageDatabase : IUsageDatabase
         string UpstreamResponseNote,
         string? ParentProviderId);
 
-    private sealed record HistoryTouchParams(long Id, string FetchedAt);
+    private sealed record HistoryTouchParams(long Id, long FetchedAt);
+
+    private static long ToUnixEpoch(DateTime dt) =>
+        new DateTimeOffset(dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds();
 
     public async Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus)
     {
@@ -369,7 +371,7 @@ public class UsageDatabase : IUsageDatabase
 
             const string sql = @"
                 INSERT INTO raw_snapshots (provider_id, raw_json, http_status, fetched_at)
-                VALUES (@ProviderId, @RawJson, @HttpStatus, CURRENT_TIMESTAMP)";
+                VALUES (@ProviderId, @RawJson, @HttpStatus, strftime('%s', 'now'))";
 
             await connection.ExecuteAsync(sql, new { ProviderId = providerId, RawJson = rawJson, HttpStatus = httpStatus }).ConfigureAwait(false);
         }
@@ -387,7 +389,7 @@ public class UsageDatabase : IUsageDatabase
             using var connection = new SqliteConnection(this._connectionString);
             await connection.OpenAsync().ConfigureAwait(false);
 
-            const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < datetime('now', '-7 days')";
+            const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < (strftime('%s', 'now') - 604800)";
             await connection.ExecuteAsync(sql).ConfigureAwait(false);
         }
         finally
@@ -416,12 +418,12 @@ public class UsageDatabase : IUsageDatabase
                 WHERE id NOT IN (
                     SELECT MAX(id)
                     FROM provider_history
-                    WHERE fetched_at >= datetime('now', '-90 days')
-                      AND fetched_at < datetime('now', '-7 days')
-                    GROUP BY provider_id, strftime('%Y-%m-%dT%H', fetched_at)
+                    WHERE fetched_at >= (strftime('%s', 'now') - 7776000)
+                      AND fetched_at < (strftime('%s', 'now') - 604800)
+                    GROUP BY provider_id, strftime('%Y-%m-%dT%H', fetched_at, 'unixepoch')
                 )
-                AND fetched_at >= datetime('now', '-90 days')
-                AND fetched_at < datetime('now', '-7 days')";
+                AND fetched_at >= (strftime('%s', 'now') - 7776000)
+                AND fetched_at < (strftime('%s', 'now') - 604800)";
 
             // Phase 2: rows older than 90 days → keep last row per (provider, day)
             const string downsampleDaily = @"
@@ -429,10 +431,10 @@ public class UsageDatabase : IUsageDatabase
                 WHERE id NOT IN (
                     SELECT MAX(id)
                     FROM provider_history
-                    WHERE fetched_at < datetime('now', '-90 days')
-                    GROUP BY provider_id, DATE(fetched_at)
+                    WHERE fetched_at < (strftime('%s', 'now') - 7776000)
+                    GROUP BY provider_id, date(fetched_at, 'unixepoch')
                 )
-                AND fetched_at < datetime('now', '-90 days')";
+                AND fetched_at < (strftime('%s', 'now') - 7776000)";
 
             var deletedHourly = await connection.ExecuteAsync(downsampleHourly).ConfigureAwait(false);
             var deletedDaily = await connection.ExecuteAsync(downsampleDaily).ConfigureAwait(false);
@@ -529,7 +531,7 @@ public class UsageDatabase : IUsageDatabase
                        COALESCE(NULLIF(p.provider_name, ''), h.provider_id) AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                       h.status_message AS Description, h.fetched_at AS FetchedAt,
+                       h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
@@ -600,19 +602,20 @@ public class UsageDatabase : IUsageDatabase
         }
 
         // For each provider, find the row closest to 1 hour ago (within the 30 min–2 hr window).
+        // With epoch integers, time arithmetic is simple integer math (seconds).
         const string sql = @"
             WITH ranked AS (
                 SELECT provider_id,
                        requests_used,
                        fetched_at,
-                       ABS(CAST((julianday('now') - julianday(fetched_at)) * 24 * 60 AS INTEGER) - 60) AS minutes_from_target,
+                       ABS((strftime('%s', 'now') - fetched_at) / 60 - 60) AS minutes_from_target,
                        ROW_NUMBER() OVER (
                            PARTITION BY provider_id
-                           ORDER BY ABS(CAST((julianday('now') - julianday(fetched_at)) * 24 * 60 AS INTEGER) - 60)
+                           ORDER BY ABS((strftime('%s', 'now') - fetched_at) / 60 - 60)
                        ) AS rn
                 FROM provider_history
-                WHERE fetched_at >= datetime('now', '-2 hours')
-                  AND fetched_at <= datetime('now', '-30 minutes')
+                WHERE fetched_at >= (strftime('%s', 'now') - 7200)
+                  AND fetched_at <= (strftime('%s', 'now') - 1800)
             )
             SELECT provider_id AS ProviderId,
                    requests_used AS RequestsUsed,
@@ -620,10 +623,10 @@ public class UsageDatabase : IUsageDatabase
             FROM ranked
             WHERE rn = 1";
 
-        var baselines = (await connection.QueryAsync<(string ProviderId, double RequestsUsed, DateTime FetchedAt)>(sql).ConfigureAwait(false))
+        var baselines = (await connection.QueryAsync<(string ProviderId, double RequestsUsed, long FetchedAt)>(sql).ConfigureAwait(false))
             .ToDictionary(r => r.ProviderId, r => r);
 
-        var nowUtc = DateTime.UtcNow;
+        var nowEpoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         foreach (var usage in results)
         {
             if (usage.ProviderId is null || !baselines.TryGetValue(usage.ProviderId, out var baseline))
@@ -638,7 +641,7 @@ public class UsageDatabase : IUsageDatabase
                 continue;
             }
 
-            var hours = (nowUtc - baseline.FetchedAt).TotalHours;
+            var hours = (nowEpoch - baseline.FetchedAt) / 3600.0;
             if (hours < 0.1)
             {
                 continue;
@@ -746,7 +749,7 @@ public class UsageDatabase : IUsageDatabase
 
         var rows = await connection.QueryAsync<RecentProviderDetailsRow>(sql, new
         {
-            CutoffUtc = cutoffUtc.ToString("O"),
+            CutoffUtc = new DateTimeOffset(cutoffUtc.Kind == DateTimeKind.Utc ? cutoffUtc : cutoffUtc.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds(),
         }).ConfigureAwait(false);
 
         var latestByProvider = latestUsages.ToDictionary(
@@ -778,12 +781,7 @@ public class UsageDatabase : IUsageDatabase
                 continue;
             }
 
-            if (!DateTime.TryParse(row.FetchedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedFetchedAt))
-            {
-                continue;
-            }
-
-            var fetchedAtUtc = parsedFetchedAt.ToUniversalTime();
+            var fetchedAtUtc = DateTimeOffset.FromUnixTimeSeconds(row.FetchedAt).UtcDateTime;
             if (fetchedAtUtc < cutoffUtc)
             {
                 continue;
@@ -857,7 +855,7 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    private sealed record RecentProviderDetailsRow(string ProviderId, string DetailsJson, string FetchedAt);
+    private sealed record RecentProviderDetailsRow(string ProviderId, string DetailsJson, long FetchedAt);
 
     private sealed record RecentDetailSnapshot(ProviderUsageDetail Detail, DateTime FetchedAtUtc);
 
@@ -873,7 +871,7 @@ public class UsageDatabase : IUsageDatabase
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                       h.status_message AS Description, h.fetched_at AS FetchedAt,
+                       h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
@@ -925,7 +923,7 @@ public class UsageDatabase : IUsageDatabase
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                       h.status_message AS Description, h.fetched_at AS FetchedAt,
+                       h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
@@ -979,7 +977,7 @@ public class UsageDatabase : IUsageDatabase
                     SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                            h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                            h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                           h.status_message AS Description, h.fetched_at AS FetchedAt,
+                           h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                            h.next_reset_time AS NextResetTime,
                            h.details_json AS DetailsJson,
                            h.response_latency_ms AS ResponseLatencyMs,

@@ -51,6 +51,7 @@ public partial class InfoDialog : Window, IWeakEventListener
         this.UserNameText.Text = "d***r";
         this.ConfigDirText.Text = @"C:\Users\***\...\AIUsageTracker";
         this.DataDirText.Text = @"C:\Users\***\...\AIUsageTracker";
+        this.DatabaseSizeText.Text = "12.3 MB";
         this.PrivacyBtn.Foreground = Brushes.Gold;
     }
 
@@ -110,6 +111,21 @@ public partial class InfoDialog : Window, IWeakEventListener
         // Data Directory path
         this._realDataDir = this._pathProvider.GetAppDataRoot();
 
+        // Database file size
+        var dbPath = this._pathProvider.GetDatabasePath();
+        try
+        {
+            var dbInfo = new FileInfo(dbPath);
+            this.DatabaseSizeText.Text = dbInfo.Exists
+                ? FormatFileSize(dbInfo.Length)
+                : "not found";
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogWarning(ex, "Could not read database file size");
+            this.DatabaseSizeText.Text = "unavailable";
+        }
+
         this.UpdatePrivacyUI();
     }
 
@@ -163,6 +179,26 @@ public partial class InfoDialog : Window, IWeakEventListener
     {
         this._isPrivacyMode = e.IsPrivacyMode;
         this.UpdatePrivacyUI();
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes >= 1024 * 1024 * 1024)
+        {
+            return $"{bytes / (1024.0 * 1024 * 1024):F2} GB";
+        }
+
+        if (bytes >= 1024 * 1024)
+        {
+            return $"{bytes / (1024.0 * 1024):F1} MB";
+        }
+
+        if (bytes >= 1024)
+        {
+            return $"{bytes / 1024.0:F1} KB";
+        }
+
+        return $"{bytes} B";
     }
 
     private static string? GetPrereleaseLabel(Assembly assembly)

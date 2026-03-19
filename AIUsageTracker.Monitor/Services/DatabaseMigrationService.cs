@@ -229,6 +229,9 @@ public class DatabaseMigrationService
         EnsureColumn(connection, "provider_history", "upstream_response_note", "TEXT NOT NULL DEFAULT ''");
         EnsureColumn(connection, "provider_history", "parent_provider_id", "TEXT");
 
+        // Convert fetched_at TEXT → INTEGER epoch for databases that pre-date V11.
+        ConvertTimestampsToEpochIfNeeded(connection);
+
         ExecuteNonQuery(
             connection,
             @"
@@ -242,6 +245,83 @@ public class DatabaseMigrationService
         ");
 
         this._logger.LogInformation("Legacy database compatibility bootstrap completed.");
+    }
+
+    /// <summary>
+    /// If <c>provider_history.fetched_at</c> is still stored as TEXT (ISO 8601), recreates
+    /// both <c>provider_history</c> and <c>raw_snapshots</c> with INTEGER (Unix epoch seconds)
+    /// storage.  Idempotent — no-op when the column is already INTEGER.
+    /// This handles legacy databases that bypass EvolveDb and never ran V11.
+    /// </summary>
+    private static void ConvertTimestampsToEpochIfNeeded(SqliteConnection connection)
+    {
+        var type = GetColumnType(connection, "provider_history", "fetched_at");
+        if (string.IsNullOrEmpty(type) || !string.Equals(type, "TEXT", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        ExecuteNonQuery(connection, "PRAGMA foreign_keys = OFF");
+        ExecuteNonQuery(connection, @"
+            CREATE TABLE provider_history_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider_id TEXT NOT NULL,
+                is_available INTEGER NOT NULL DEFAULT 1,
+                status_message TEXT NOT NULL DEFAULT '',
+                next_reset_time TEXT,
+                requests_used REAL NOT NULL DEFAULT 0,
+                requests_available REAL NOT NULL DEFAULT 0,
+                requests_percentage REAL NOT NULL DEFAULT 0,
+                response_latency_ms REAL NOT NULL DEFAULT 0,
+                http_status INTEGER NOT NULL DEFAULT 0,
+                upstream_response_validity INTEGER NOT NULL DEFAULT 0,
+                upstream_response_note TEXT NOT NULL DEFAULT '',
+                fetched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+                details_json TEXT,
+                parent_provider_id TEXT REFERENCES providers(provider_id) ON DELETE SET NULL,
+                FOREIGN KEY (provider_id) REFERENCES providers(provider_id) ON DELETE CASCADE
+            );
+            INSERT INTO provider_history_new
+            SELECT id, provider_id, is_available, status_message, next_reset_time,
+                   requests_used, requests_available, requests_percentage,
+                   response_latency_ms, http_status, upstream_response_validity, upstream_response_note,
+                   CAST(strftime('%s', fetched_at) AS INTEGER),
+                   details_json, parent_provider_id
+            FROM provider_history;
+            DROP TABLE provider_history;
+            ALTER TABLE provider_history_new RENAME TO provider_history;
+
+            CREATE TABLE raw_snapshots_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider_id TEXT NOT NULL REFERENCES providers(provider_id) ON DELETE CASCADE,
+                raw_json TEXT NOT NULL,
+                http_status INTEGER NOT NULL DEFAULT 200,
+                fetched_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+            );
+            INSERT INTO raw_snapshots_new
+            SELECT id, provider_id, raw_json, http_status,
+                   CAST(strftime('%s', fetched_at) AS INTEGER)
+            FROM raw_snapshots;
+            DROP TABLE raw_snapshots;
+            ALTER TABLE raw_snapshots_new RENAME TO raw_snapshots;
+        ");
+        ExecuteNonQuery(connection, "PRAGMA foreign_keys = ON");
+    }
+
+    private static string? GetColumnType(SqliteConnection connection, string tableName, string columnName)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"PRAGMA table_info({tableName})";
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
+        {
+            if (string.Equals(reader["name"]?.ToString(), columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return reader["type"]?.ToString();
+            }
+        }
+
+        return null;
     }
 
     private void CleanupLegacyAnthropicRows(SqliteConnection connection)
