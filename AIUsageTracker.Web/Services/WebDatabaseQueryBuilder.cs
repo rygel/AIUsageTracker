@@ -31,7 +31,7 @@ internal static class WebDatabaseQueryBuilder
             FROM provider_history h
             JOIN providers p ON h.provider_id = p.provider_id
             ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
+            LIMIT {limit}"; // sql-interpolation-allow — limit is a bounds-validated integer (ThrowIfNegativeOrZero / ThrowIfGreaterThan)
     }
 
     public static string BuildProviderHistoryQuery(int limit)
@@ -44,7 +44,7 @@ internal static class WebDatabaseQueryBuilder
             JOIN providers p ON h.provider_id = p.provider_id
             WHERE h.provider_id = @ProviderId
             ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
+            LIMIT {limit}"; // sql-interpolation-allow — limit is a bounds-validated integer (ThrowIfNegativeOrZero / ThrowIfGreaterThan)
     }
 
     public static string BuildExportHistoryQuery(int limit)
@@ -63,7 +63,7 @@ internal static class WebDatabaseQueryBuilder
 
         if (limit > 0)
         {
-            sql += $" LIMIT {limit}";
+            sql += $" LIMIT {limit}"; // sql-interpolation-allow — limit is a bounds-validated integer (ThrowIfGreaterThan)
         }
 
         return sql;

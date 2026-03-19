@@ -23,6 +23,38 @@ public class CodeGuardrailTests
         RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Singleline,
         TimeSpan.FromMilliseconds(500));
 
+    // Only flag lines that are building an interpolated string. This intentionally excludes
+    // structured-logging templates ("SELECT ... {Param}") which use the same {Name} placeholder
+    // syntax but are never interpolated strings.
+    private static readonly Regex InterpolatedStringStartRegex = new(
+        @"\$@?""|@?\$""",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        TimeSpan.FromMilliseconds(500));
+
+    // Detects interpolation holes like {tableName}, {limit}, {offset} inside string literals.
+    private static readonly Regex InterpolationHoleRegex = new(
+        @"\{[A-Za-z_][A-Za-z0-9_.]*\}",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.ExplicitCapture,
+        TimeSpan.FromMilliseconds(500));
+
+    // SQL patterns that are unambiguously SQL in context (avoids common English words like
+    // "from", "limit", "update", and LINQ methods like .Select() or .Join()).
+    // Rules:
+    //   SELECT\s — whitespace after SELECT excludes LINQ .Select( and /select, shell args
+    //   (?<!\.)JOIN — dot-prefix exclusion eliminates string.Join()
+    //   INSERT\s+INTO — multi-word, SQL-only
+    //   DELETE\s+FROM — multi-word, SQL-only
+    //   UPDATE\s+\w+\s+SET — three-word form, SQL-only ("update" alone is common English)
+    //   ALTER\s+TABLE — DDL, SQL-only
+    //   DROP\s+TABLE — DDL, SQL-only
+    //   CREATE\s+TABLE — DDL, SQL-only
+    //   ORDER\s+BY — SQL-only two-word phrase
+    //   TRUNCATE — SQL-only
+    private static readonly Regex SqlKeywordRegex = new(
+        @"(?:\bSELECT\s|(?<!\.)\bJOIN\s|\bINSERT\s+INTO\b|\bDELETE\s+FROM\b|\bUPDATE\s+\w+\s+SET\b|\bALTER\s+TABLE\b|\bDROP\s+TABLE\b|\bCREATE\s+TABLE\b|\bORDER\s+BY\b|\bTRUNCATE\b)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase,
+        TimeSpan.FromMilliseconds(500));
+
     private static readonly (Regex Pattern, string Description)[] SyncOverAsyncPatterns =
     {
         (
@@ -102,6 +134,43 @@ public class CodeGuardrailTests
         Assert.True(
             violations.Count == 0,
             "Empty catch blocks are forbidden in production code." + Environment.NewLine + string.Join(Environment.NewLine, violations));
+    }
+
+    [Fact]
+    public void ProductionCode_DoesNotUseUnguardedSqlInterpolation()
+    {
+        // Flags any line that embeds an interpolation hole ({variable}) inside a string that also
+        // contains a SQL keyword.  Column names and table names cannot be parameterized in SQLite,
+        // so the only safe alternatives are:
+        //   • Use a whitelist-validated value before building the SQL string (see WebDatabaseRawTableReader).
+        //   • Use a bounds-validated integer (e.g. LIMIT {limit} in WebDatabaseQueryBuilder).
+        // Mark each legitimate use with the suppression comment:  // sql-interpolation-allow
+        var violations = new List<string>();
+
+        foreach (var file in EnumerateProductionSourceFiles())
+        {
+            var lines = File.ReadAllLines(file);
+            for (var index = 0; index < lines.Length; index++)
+            {
+                var line = lines[index];
+                if (line.Contains("sql-interpolation-allow", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (InterpolatedStringStartRegex.IsMatch(line) &&
+                    InterpolationHoleRegex.IsMatch(line) &&
+                    SqlKeywordRegex.IsMatch(line))
+                {
+                    violations.Add($"{GetRelativePath(file)}:{index + 1} uses unguarded SQL string interpolation");
+                }
+            }
+        }
+
+        Assert.True(
+            violations.Count == 0,
+            "SQL string interpolation is forbidden — use parameterized queries or whitelist-validated identifiers, then add // sql-interpolation-allow." +
+            Environment.NewLine + string.Join(Environment.NewLine, violations));
     }
 
     [Fact]

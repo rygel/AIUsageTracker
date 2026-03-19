@@ -39,10 +39,10 @@ internal static class WebDatabaseRawTableReader
         }
 
         var offset = (page - 1) * pageSize;
-        var orderClause = string.IsNullOrEmpty(orderBy) ? string.Empty : $"ORDER BY {orderBy}";
+        var orderClause = string.IsNullOrEmpty(orderBy) ? string.Empty : $"ORDER BY {orderBy}"; // sql-interpolation-allow — orderBy is from AllowedOrderByClauses whitelist above
 
-        var totalCount = await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM {tableName}").ConfigureAwait(false);
-        var sql = $"SELECT * FROM {tableName} {orderClause} LIMIT {pageSize} OFFSET {offset}";
+        var totalCount = await connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) FROM {tableName}").ConfigureAwait(false); // sql-interpolation-allow — tableName is from AllowedTables whitelist above
+        var sql = $"SELECT * FROM {tableName} {orderClause} LIMIT {pageSize} OFFSET {offset}"; // sql-interpolation-allow — tableName/orderClause are whitelist-validated; pageSize/offset are integers
         var rows = new List<Dictionary<string, object?>>();
 
         using var command = connection.CreateCommand();
