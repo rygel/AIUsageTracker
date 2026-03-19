@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.1-beta.4] - 2026-03-19
+
+### Added
+- **Integration tests for database read paths and pipeline**: Added 28 real-SQLite integration tests covering `GetHistoryAsync`, `GetHistoryByProviderAsync`, `GetRecentHistoryAsync`, and `GetLatestHistoryAsync` — verifying Dapper type mapping, stale-data detection, the full provider-data-to-database pipeline, and circuit-breaker deduplication behaviour. These tests would have caught the beta.3 `Int64`/`Int32` crash before release.
+
 ## [2.3.1-beta.3] - 2026-03-19
 
 ### Changed
