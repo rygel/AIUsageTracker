@@ -114,8 +114,7 @@ jobs:
             --title "chore: update $count screenshot baseline(s) from CI (windows-2025)" `
             --body "Automated baseline refresh captured on ``windows-2025`` by [run $env:CI_RUN_ID]($env:CI_RUN_URL).`n`nThe screenshot comparison check on this PR will pass — both baselines and candidates are rendered on the same runner OS." `
             --base $base `
-            --head $branch `
-            --label "automated"
+            --head $branch
         shell: pwsh
 
       # ── Pull-request path: compare candidate screenshots against committed baselines ──
