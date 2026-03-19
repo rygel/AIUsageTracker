@@ -89,7 +89,7 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
 
         // But fetched_at should be t3 (the most recent poll time)
         var storedFetchedAt = GetFetchedAt("codex");
-        Assert.Equal(t3.ToString("O"), storedFetchedAt);
+        Assert.Equal(EpochFloor(t3), storedFetchedAt);
     }
 
     // -------------------------------------------------------------------------
@@ -210,15 +210,26 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
         return Convert.ToInt32(cmd.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private string? GetFetchedAt(string providerId)
+    private DateTime? GetFetchedAt(string providerId)
     {
         using var connection = new SqliteConnection($"Data Source={this._dbPath}");
         connection.Open();
         using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT fetched_at FROM provider_history WHERE provider_id = $id ORDER BY id DESC LIMIT 1";
         cmd.Parameters.AddWithValue("$id", providerId);
-        return cmd.ExecuteScalar()?.ToString();
+        var raw = cmd.ExecuteScalar();
+        if (raw is null || raw == DBNull.Value)
+        {
+            return null;
+        }
+
+        var epoch = Convert.ToInt64(raw, System.Globalization.CultureInfo.InvariantCulture);
+        return DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
     }
+
+    // Epoch storage has second-level precision; floor expected DateTimes to match.
+    private static DateTime EpochFloor(DateTime dt) =>
+        DateTimeOffset.FromUnixTimeSeconds(new DateTimeOffset(dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds()).UtcDateTime;
 
     private sealed class TestDbPathProvider(string dbPath) : IAppPathProvider
     {

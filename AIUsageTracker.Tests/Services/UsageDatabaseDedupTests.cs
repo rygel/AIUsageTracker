@@ -55,7 +55,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 50, fetchedAt: t2)]);
 
         var storedFetchedAt = GetFetchedAt("codex");
-        Assert.Equal(t2.ToString("O"), storedFetchedAt);
+        Assert.Equal(EpochFloor(t2), storedFetchedAt);
     }
 
     // -------------------------------------------------------------------------
@@ -160,7 +160,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         Assert.Equal(1, CountRows("codex"));    // deduped
         Assert.Equal(2, CountRows("mistral"));  // new row
 
-        Assert.Equal(t2.ToString("O"), GetFetchedAt("codex"));
+        Assert.Equal(EpochFloor(t2), GetFetchedAt("codex"));
     }
 
     // -------------------------------------------------------------------------
@@ -188,7 +188,8 @@ public sealed class UsageDatabaseDedupTests : IDisposable
     public async Task CompactHistoryAsync_OldRowsBeyondSevenDays_DownsamplesToOnePerHourAsync()
     {
         var db = await CreateDatabaseAsync();
-        var baseTime = DateTime.UtcNow.AddDays(-10); // clearly in 7–90d window
+        var raw = DateTime.UtcNow.AddDays(-10);
+        var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, raw.Hour, 0, 0, DateTimeKind.Utc); // clearly in 7–90d window; truncate to hour start so rows don't span buckets
 
         // Insert 3 rows in the same hour (should keep only 1 — the last)
         InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
@@ -210,7 +211,8 @@ public sealed class UsageDatabaseDedupTests : IDisposable
     public async Task CompactHistoryAsync_KeepsLastRowOfEachHourBucketAsync()
     {
         var db = await CreateDatabaseAsync();
-        var baseTime = DateTime.UtcNow.AddDays(-10);
+        var raw = DateTime.UtcNow.AddDays(-10);
+        var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, raw.Hour, 0, 0, DateTimeKind.Utc); // truncate to hour start
 
         InsertHistoryRow("codex", requestsUsed: 10, fetchedAt: baseTime);
         InsertHistoryRow("codex", requestsUsed: 20, fetchedAt: baseTime.AddMinutes(20));
@@ -226,7 +228,8 @@ public sealed class UsageDatabaseDedupTests : IDisposable
     public async Task CompactHistoryAsync_RowsOlderThan90Days_DownsamplesToOnePerDayAsync()
     {
         var db = await CreateDatabaseAsync();
-        var baseTime = DateTime.UtcNow.AddDays(-95); // clearly >90d
+        var raw = DateTime.UtcNow.AddDays(-95);
+        var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, 0, 0, 0, DateTimeKind.Utc); // clearly >90d; truncate to day start so rows don't span day buckets
 
         // 3 rows on the same day → keep 1
         InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
@@ -248,7 +251,8 @@ public sealed class UsageDatabaseDedupTests : IDisposable
     public async Task CompactHistoryAsync_DoesNotAffectOtherProvidersAsync()
     {
         var db = await CreateDatabaseAsync();
-        var baseTime = DateTime.UtcNow.AddDays(-10);
+        var raw = DateTime.UtcNow.AddDays(-10);
+        var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, raw.Hour, 0, 0, DateTimeKind.Utc); // truncate to hour start
 
         // 3 old rows for codex (should be compacted to 1)
         InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
@@ -325,7 +329,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         cmd.Parameters.AddWithValue("$id", providerId);
         cmd.Parameters.AddWithValue("$used", requestsUsed);
         cmd.Parameters.AddWithValue("$pct", requestsUsed / 1000.0 * 100.0);
-        cmd.Parameters.AddWithValue("$at", fetchedAt.ToString("O"));
+        cmd.Parameters.AddWithValue("$at", new DateTimeOffset(fetchedAt.Kind == DateTimeKind.Utc ? fetchedAt : fetchedAt.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds());
         cmd.ExecuteNonQuery();
     }
 
@@ -339,15 +343,26 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         return Convert.ToInt32(cmd.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
     }
 
-    private string? GetFetchedAt(string providerId)
+    private DateTime? GetFetchedAt(string providerId)
     {
         using var connection = new SqliteConnection($"Data Source={this._dbPath}");
         connection.Open();
         using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT fetched_at FROM provider_history WHERE provider_id = $id ORDER BY id DESC LIMIT 1";
         cmd.Parameters.AddWithValue("$id", providerId);
-        return cmd.ExecuteScalar()?.ToString();
+        var raw = cmd.ExecuteScalar();
+        if (raw is null || raw == DBNull.Value)
+        {
+            return null;
+        }
+
+        var epoch = Convert.ToInt64(raw, System.Globalization.CultureInfo.InvariantCulture);
+        return DateTimeOffset.FromUnixTimeSeconds(epoch).UtcDateTime;
     }
+
+    // Epoch storage has second-level precision; floor expected DateTimes to match.
+    private static DateTime EpochFloor(DateTime dt) =>
+        DateTimeOffset.FromUnixTimeSeconds(new DateTimeOffset(dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds()).UtcDateTime;
 
     private double GetRequestsUsed(string providerId)
     {
