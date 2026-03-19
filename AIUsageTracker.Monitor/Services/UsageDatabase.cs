@@ -291,8 +291,8 @@ public class UsageDatabase : IUsageDatabase
     {
         return usage.RequestsUsed == last.RequestsUsed
             && usage.RequestsAvailable == last.RequestsAvailable
-            && (usage.IsAvailable ? 1 : 0) == last.IsAvailable
-            && usage.HttpStatus == last.HttpStatus
+            && (usage.IsAvailable ? 1L : 0L) == last.IsAvailable
+            && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
             && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
             && string.Equals(newDetailsJson, last.DetailsJson, StringComparison.Ordinal);
@@ -334,11 +334,11 @@ public class UsageDatabase : IUsageDatabase
         string ProviderId,
         double RequestsUsed,
         double RequestsAvailable,
-        int IsAvailable,
+        long IsAvailable,
         string? StatusMessage,
         string? NextResetTime,
         string? DetailsJson,
-        int HttpStatus);
+        long HttpStatus);
 
     private sealed record HistoryInsertParams(
         string ProviderId,
