@@ -16,14 +16,11 @@ Welcome to the **AI Consumption Tracker** user manual. This guide covers the Sli
 The screenshots in this document are generated from the app's deterministic headless screenshot flow used by CI/CD, so the visuals stay aligned with current UI behavior.
 
 - Dashboard: `docs/screenshot_dashboard_privacy.png`
-- Settings (Overview): `docs/screenshot_settings_privacy.png`
 - Settings > Providers: `docs/screenshot_settings_providers_privacy.png`
 - Settings > Layout: `docs/screenshot_settings_layout_privacy.png`
 - Settings > History: `docs/screenshot_settings_history_privacy.png`
-- Settings > Monitor: `docs/screenshot_settings_agent_privacy.png`
 - Settings > Monitor: `docs/screenshot_settings_monitor_privacy.png`
 - Info dialog: `docs/screenshot_info_privacy.png`
-- Tray context menu: `docs/screenshot_context_menu_privacy.png`
 - Web Providers: `docs/screenshot_web_providers.png`
 
 ---
@@ -50,8 +47,6 @@ The main dashboard provides a real-time overview of your AI usage across various
 
 ### Tray Context Menu
 
-![Tray Menu](screenshot_context_menu_privacy.png)
-
 Right-clicking the tray icon opens quick actions for:
 - show/hide dashboard
 - open settings
@@ -69,8 +64,6 @@ The Info dialog shows application/version details and helpful links for troubles
 ## 2. Settings & Configuration
 
 The **Settings** window (⚙️ icon) is where you manage your AI providers and application preferences.
-
-![Settings Overview](screenshot_settings_privacy.png)
 
 ### Providers Tab
 
@@ -102,12 +95,6 @@ Configure API keys for OpenAI, Anthropic, Gemini, etc.
 ![Settings History](screenshot_settings_history_privacy.png)
 
 Shows recent usage snapshots and provider history in one place for quick troubleshooting and trend checks.
-
-### Agent Tab
-
-![Settings Agent](screenshot_settings_agent_privacy.png)
-
-Shows Agent status/connection details and controls related to local data collection service behavior.
 
 ### Monitor Tab
 
