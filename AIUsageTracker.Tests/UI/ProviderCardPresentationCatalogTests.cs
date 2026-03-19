@@ -276,4 +276,60 @@ public sealed class ProviderCardPresentationCatalogTests
 
         Assert.Equal("$12.34", presentation.StatusText);
     }
+
+    [Fact]
+    public void Create_ShowsWarningTone_ForHttp429Response()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 429,
+            State = ProviderUsageState.Error,
+            Description = "Rate limited — retry in 60 seconds",
+        };
+
+        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+
+        Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
+        Assert.False(presentation.IsError, "HTTP 429 should not be treated as a generic error (would show red)");
+        Assert.False(presentation.ShouldHaveProgress);
+        Assert.Contains("Rate limited", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Create_ShowsFallbackRateLimitText_WhenDescriptionIsEmpty()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 429,
+            State = ProviderUsageState.Error,
+            Description = string.Empty,
+        };
+
+        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+
+        Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
+        Assert.Contains("Rate limited", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Create_TreatsNon429HttpErrorsAsError()
+    {
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openai",
+            IsAvailable = false,
+            HttpStatus = 503,
+            State = ProviderUsageState.Error,
+            Description = "Service unavailable",
+        };
+
+        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+
+        Assert.Equal(ProviderCardStatusTone.Error, presentation.StatusTone);
+        Assert.True(presentation.IsError);
+    }
 }

@@ -76,6 +76,12 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     public bool IsStale => this._presentation?.IsStale ?? false;
 
+    /// <summary>
+    /// True when the provider API returned HTTP 429 (Too Many Requests).
+    /// The card will show a Warning-tone status rather than an Error-tone status.
+    /// </summary>
+    public bool IsRateLimited => this.Usage.HttpStatus == 429;
+
     public bool IsQuotaBased => this.Usage.IsQuotaBased;
 
     public bool HasDualQuotaBuckets => this._presentation?.HasDualBuckets ?? false;
@@ -138,6 +144,7 @@ public partial class ProviderCardViewModel : BaseViewModel
         OnPropertyChanged(nameof(StatusTone));
         OnPropertyChanged(nameof(IsMissing));
         OnPropertyChanged(nameof(IsStale));
+        OnPropertyChanged(nameof(IsRateLimited));
         OnPropertyChanged(nameof(IsQuotaBased));
         OnPropertyChanged(nameof(HasDualQuotaBuckets));
         OnPropertyChanged(nameof(PrimaryUsedPercent));
