@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-03-19
+
+### Fixed
+- **OpenAI Codex data no longer updating**: Codex usage stopped refreshing on 2026-03-14 due to a change in the OpenAI API response format. The parser now handles the new response shape correctly.
+- **Stale data shown silently after re-authentication**: When a provider's auth token expires or is missing, the app now stores a visible "re-authenticate" message instead of continuing to show old cached data.
+- **Stale data indicator**: Provider cards that have not refreshed in over an hour now show a "last refreshed X ago — data may be outdated" notice.
+- **Circuit-breaker providers hidden from UI**: When a provider is temporarily paused due to repeated failures, the UI now shows a "Temporarily paused — next check at HH:MM" message with the pause duration and last error.
+- **Config and startup errors now visible in health endpoint**: Failures during config loading or startup are now reported in the monitor health endpoint instead of being silently swallowed.
+- **Connectivity check returned misleading 404**: The provider connectivity check endpoint now returns 503 with a clear message when no usage data is available.
+
+### Changed
+- **`provider_history` write deduplication**: The database no longer stores rows when nothing has changed. Only `fetched_at` is updated on the existing row so the stale-data detector stays accurate. During idle periods this eliminates virtually all writes.
+- **Automatic `provider_history` compaction**: Once per day, old history rows are downsampled — rows 7–90 days old to one per hour, rows older than 90 days to one per day. A `VACUUM` follows to reclaim freed disk space.
+- **Monitor version logged on startup**: The monitor now logs its full version (including pre-release suffix) on every startup, making it easy to confirm from log files which build is running.
+
 ## [2.3.1-beta.4] - 2026-03-19
 
 ### Added
