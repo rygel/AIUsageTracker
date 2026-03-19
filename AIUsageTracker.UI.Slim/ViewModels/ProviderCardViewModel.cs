@@ -30,6 +30,9 @@ public partial class ProviderCardViewModel : BaseViewModel
     private bool _showUsedPercentages;
 
     [ObservableProperty]
+    private bool _showUsagePerHour;
+
+    [ObservableProperty]
     private ObservableCollection<SubProviderCardViewModel> _details = new();
 
     private ProviderCardPresentation? _presentation;
@@ -41,6 +44,7 @@ public partial class ProviderCardViewModel : BaseViewModel
         this._yellowThreshold = prefs.ColorThresholdYellow;
         this._redThreshold = prefs.ColorThresholdRed;
         this._showUsedPercentages = prefs.ShowUsedPercentages;
+        this._showUsagePerHour = prefs.ShowUsagePerHour;
 
         this.UpdatePresentation();
         this.PopulateDetails();
@@ -100,6 +104,23 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     public string? TooltipContent => ProviderTooltipPresentationCatalog.BuildContent(this.Usage, this.DisplayName);
 
+    /// <summary>
+    /// Returns a formatted req/hr badge string when ShowUsagePerHour is enabled and data is available,
+    /// or null (causing the badge to collapse via NullToVisibilityConverter).
+    /// </summary>
+    public string? UsageRateBadgeText
+    {
+        get
+        {
+            if (!this.ShowUsagePerHour || this.Usage.UsagePerHour is null)
+            {
+                return null;
+            }
+
+            return $"{this.Usage.UsagePerHour.Value:F1}/hr";
+        }
+    }
+
     public bool HasDetails => this.Details.Count > 0;
 
     partial void OnUsageChanged(ProviderUsage value)
@@ -125,6 +146,7 @@ public partial class ProviderCardViewModel : BaseViewModel
         OnPropertyChanged(nameof(NextResetTime));
         OnPropertyChanged(nameof(TooltipContent));
         OnPropertyChanged(nameof(HasDetails));
+        OnPropertyChanged(nameof(UsageRateBadgeText));
     }
 
     partial void OnIsPrivacyModeChanged(bool value)
@@ -138,6 +160,11 @@ public partial class ProviderCardViewModel : BaseViewModel
         OnPropertyChanged(nameof(ProgressPercentage));
         OnPropertyChanged(nameof(StatusText));
         PopulateDetails();
+    }
+
+    partial void OnShowUsagePerHourChanged(bool value)
+    {
+        OnPropertyChanged(nameof(UsageRateBadgeText));
     }
 
     private void UpdatePresentation()

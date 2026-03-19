@@ -92,4 +92,13 @@ public class ProviderUsage
     /// visually distinguish stale entries so users know they are looking at cached data.
     /// </summary>
     public bool IsStale { get; set; }
+
+    /// <summary>
+    /// Derived burn rate: requests consumed per hour, computed from the delta between the
+    /// latest row and the row closest to one hour ago. Null when there is insufficient
+    /// history or when the counter was reset (delta would be negative).
+    /// Not stored in the database — computed on read and never serialised.
+    /// </summary>
+    [JsonIgnore]
+    public double? UsagePerHour { get; set; }
 }

@@ -98,6 +98,9 @@ public class AppPreferences
     // Update channel (Stable or Beta)
     public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 
+    // Display Options
+    public bool ShowUsagePerHour { get; set; } = false;
+
     public static AppPreferences Deserialize(string json)
     {
         var preferences = JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();

@@ -372,8 +372,13 @@
                             </Grid>
 
                             <CheckBox x:Name="ShowUsedPercentagesCheck" Content="Show Used Percentages"
-                                      Margin="0,15,0,20" Foreground="{DynamicResource SecondaryText}"
+                                      Margin="0,15,0,5" Foreground="{DynamicResource SecondaryText}"
                                       ToolTip="Display used percentages instead of remaining percentages for quota-style providers"
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+
+                            <CheckBox x:Name="ShowUsagePerHourCheck" Content="Show Usage Rate (req/hr)"
+                                      Margin="0,5,0,20" Foreground="{DynamicResource SecondaryText}"
+                                      ToolTip="Show a live burn-rate badge on each provider card. Requires at least 30 minutes of history."
                                       Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
                             <!-- Font Settings -->

@@ -993,6 +993,11 @@ public partial class SettingsWindow : Window
         {
             this.ShowUsedPercentagesCheck.IsChecked = this._displayPreferences.ShouldShowUsedPercentages(this._preferences);
         }
+
+        if (this.ShowUsagePerHourCheck != null)
+        {
+            this.ShowUsagePerHourCheck.IsChecked = this._preferences.ShowUsagePerHour;
+        }
     }
 
     private void PopulateProviderVisibilitySettings()
@@ -1804,6 +1809,7 @@ public partial class SettingsWindow : Window
             this._preferences.ForceWin32Topmost = this.ForceWin32TopmostCheck.IsChecked ?? false;
             var showUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
             this._displayPreferences.SetShowUsedPercentages(this._preferences, showUsedPercentages);
+            this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
             if (this.ThemeCombo.SelectedValue is AppTheme appTheme)
             {
                 this._preferences.Theme = appTheme;

@@ -1337,6 +1337,19 @@ public partial class MainWindow : Window
                 Dock.Right);
         }
 
+        // Usage rate badge (req/hr) — shown when preference is enabled and data is available
+        if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
+        {
+            this.AddDockedElement(
+                contentPanel,
+                this.CreateDockedTextBlock(
+                    $"{usage.UsagePerHour.Value:F1}/hr",
+                    fontSize: 9,
+                    foreground: this.GetResourceBrush("TertiaryText", Brushes.Gray),
+                    margin: new Thickness(6, 0, 0, 0)),
+                Dock.Right);
+        }
+
         // Right Side: Usage/Status - must be added last to Dock.Right to appear left of reset time
         this.AddDockedElement(
             contentPanel,

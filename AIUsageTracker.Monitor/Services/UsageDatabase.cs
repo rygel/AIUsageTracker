@@ -561,6 +561,7 @@ public class UsageDatabase : IUsageDatabase
             }
 
             await this.MergeRecentlySeenDetailsAsync(connection, results, DateTime.UtcNow - DetailFadeWindow).ConfigureAwait(false);
+            await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
 
             var now = DateTime.UtcNow;
             foreach (var usage in results)
@@ -582,6 +583,68 @@ public class UsageDatabase : IUsageDatabase
         finally
         {
             this._semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Computes a per-provider burn rate (requests/hour) from historical rows and stamps
+    /// it onto the in-memory <see cref="ProviderUsage.UsagePerHour"/> property.
+    /// Uses the row closest to one hour ago (within a 30–120 min window) as the baseline.
+    /// Returns null for a provider when there is insufficient history or the counter reset.
+    /// </summary>
+    private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<ProviderUsage> results)
+    {
+        if (results.Count == 0)
+        {
+            return;
+        }
+
+        // For each provider, find the row closest to 1 hour ago (within the 30 min–2 hr window).
+        const string sql = @"
+            WITH ranked AS (
+                SELECT provider_id,
+                       requests_used,
+                       fetched_at,
+                       ABS(CAST((julianday('now') - julianday(fetched_at)) * 24 * 60 AS INTEGER) - 60) AS minutes_from_target,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY provider_id
+                           ORDER BY ABS(CAST((julianday('now') - julianday(fetched_at)) * 24 * 60 AS INTEGER) - 60)
+                       ) AS rn
+                FROM provider_history
+                WHERE fetched_at >= datetime('now', '-2 hours')
+                  AND fetched_at <= datetime('now', '-30 minutes')
+            )
+            SELECT provider_id AS ProviderId,
+                   requests_used AS RequestsUsed,
+                   fetched_at AS FetchedAt
+            FROM ranked
+            WHERE rn = 1";
+
+        var baselines = (await connection.QueryAsync<(string ProviderId, double RequestsUsed, DateTime FetchedAt)>(sql).ConfigureAwait(false))
+            .ToDictionary(r => r.ProviderId, r => r);
+
+        var nowUtc = DateTime.UtcNow;
+        foreach (var usage in results)
+        {
+            if (usage.ProviderId is null || !baselines.TryGetValue(usage.ProviderId, out var baseline))
+            {
+                continue;
+            }
+
+            var delta = usage.RequestsUsed - baseline.RequestsUsed;
+            if (delta < 0)
+            {
+                // Counter reset — rate is undefined
+                continue;
+            }
+
+            var hours = (nowUtc - baseline.FetchedAt).TotalHours;
+            if (hours < 0.1)
+            {
+                continue;
+            }
+
+            usage.UsagePerHour = delta / hours;
         }
     }
 
