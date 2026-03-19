@@ -549,18 +549,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             await this.MergeRecentlySeenDetailsAsync(connection, results, DateTime.UtcNow - DetailFadeWindow).ConfigureAwait(false);
             await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
@@ -693,6 +682,22 @@ public class UsageDatabase : IUsageDatabase
         var evaluation = UpstreamResponseValidityCatalog.Evaluate(usage);
         usage.UpstreamResponseValidity = evaluation.Validity;
         usage.UpstreamResponseNote = evaluation.Note;
+    }
+
+    private void PopulateDetails(IEnumerable<ProviderUsage> usages)
+    {
+        foreach (var usage in usages.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
+        {
+            try
+            {
+                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
+            }
+            catch (JsonException ex)
+            {
+                this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                usage.Details = new List<ProviderUsageDetail>();
+            }
+        }
     }
 
     private static void MarkStaleIfOutdated(ProviderUsage usage, DateTime now)
@@ -887,18 +892,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -942,18 +936,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -1003,18 +986,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
