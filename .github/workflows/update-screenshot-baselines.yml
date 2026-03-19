@@ -1,0 +1,67 @@
+name: Update Screenshot Baselines
+
+on:
+  workflow_dispatch:
+    inputs:
+      configuration:
+        description: 'Build configuration'
+        required: false
+        default: 'Debug'
+        type: choice
+        options: [Debug, Release]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  update-baselines:
+    runs-on: windows-2025
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+          ref: ${{ github.ref }}
+
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
+        with:
+          dotnet-version: "8.0.x"
+          cache-key-prefix: "screenshot-update"
+
+      - name: Restore Slim UI dependencies
+        run: dotnet restore AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj
+
+      - name: Build Slim UI
+        run: >
+          dotnet build AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj
+          --configuration ${{ inputs.configuration || 'Debug' }}
+          --no-restore
+
+      - name: Generate fresh screenshots
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass
+          -File .\scripts\capture_screenshot.ps1
+          -Configuration ${{ inputs.configuration || 'Debug' }}
+          -SkipBuild
+        shell: pwsh
+
+      - name: Commit and push updated baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshot_*_privacy.png
+          if (git diff --cached --quiet) {
+            Write-Host "No screenshot changes — baselines are already up to date."
+            exit 0
+          }
+          $count = (git diff --cached --name-only | Measure-Object -Line).Lines
+          git commit -m "chore: update screenshot baselines from CI (windows-2025, ${{ inputs.configuration || 'Debug' }}) [skip ci]`n`nRegenerated $count baseline PNG(s) on the same runner OS used by the`nscreenshot-baseline comparison job to eliminate rendering-environment drift."
+          git push
+        shell: pwsh

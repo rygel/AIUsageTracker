@@ -3,7 +3,8 @@
 
 param(
     [string]$Configuration = "Release",
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [string]$OutputDir = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,6 +21,10 @@ $generatorArgs = @{
 
 if ($SkipBuild) {
     $generatorArgs.SkipBuild = $true
+}
+
+if ($OutputDir) {
+    $generatorArgs.OutputDir = $OutputDir
 }
 
 & $generatorScript @generatorArgs

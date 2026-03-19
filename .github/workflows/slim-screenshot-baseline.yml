@@ -5,9 +5,9 @@ on:
     branches: [ main, develop ]
     paths:
       - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Tests/UI/ScreenshotBaselineTests.cs"
       - "scripts/capture_screenshot.ps1"
       - "scripts/generate_screenshots.ps1"
-      - "scripts/verify_screenshot_baseline.ps1"
       - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
@@ -16,9 +16,9 @@ on:
     branches: [ main, develop ]
     paths:
       - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Tests/UI/ScreenshotBaselineTests.cs"
       - "scripts/capture_screenshot.ps1"
       - "scripts/generate_screenshots.ps1"
-      - "scripts/verify_screenshot_baseline.ps1"
       - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
@@ -55,30 +55,49 @@ jobs:
       - name: Build Slim UI
         run: dotnet build AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj --configuration Debug --no-restore
 
-      - name: Generate Slim UI screenshots (headless)
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\capture_screenshot.ps1 -Configuration Debug -SkipBuild
+      - name: Restore test dependencies
+        run: dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+
+      - name: Build tests
+        run: dotnet build AIUsageTracker.Tests\AIUsageTracker.Tests.csproj --configuration Debug --no-restore
+
+      # Copy committed baseline PNGs to a stable directory before the generate step
+      # overwrites docs/ with freshly-rendered images.
+      - name: Copy baseline screenshots
+        run: |
+          $baselineDir = "$env:RUNNER_TEMP\screenshot-baseline"
+          New-Item -ItemType Directory -Force -Path $baselineDir | Out-Null
+          Copy-Item docs\screenshot_*_privacy.png $baselineDir
+          Write-Host "Baselines copied to $baselineDir"
+        shell: pwsh
+
+      - name: Generate fresh screenshots (headless, to candidate dir)
+        run: |
+          $candidateDir = "$env:RUNNER_TEMP\screenshot-candidate"
+          New-Item -ItemType Directory -Force -Path $candidateDir | Out-Null
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\capture_screenshot.ps1 `
+            -Configuration Debug -SkipBuild -OutputDir $candidateDir
         shell: pwsh
 
       - name: Verify Slim themes render in headless mode
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_slim_theme_smoke.ps1 -Configuration Debug -SkipBuild
         shell: pwsh
 
-      - name: Verify screenshot baselines
-        if: false # Disabled due to non-deterministic WPF rendering causing CI failures
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_screenshot_baseline.ps1
-        shell: pwsh
+      - name: Compare screenshots against baseline (perceptual, 1% tolerance)
+        env:
+          SCREENSHOT_BASELINE_DIR: ${{ runner.temp }}\screenshot-baseline
+          SCREENSHOT_CANDIDATE_DIR: ${{ runner.temp }}\screenshot-candidate
+        run: >
+          dotnet test AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+          --no-build --configuration Debug
+          --filter "Category=Screenshot"
+          --logger "console;verbosity=normal"
 
-      - name: Upload Slim UI screenshots
+      - name: Upload screenshots and diffs on failure
         if: failure()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7
         with:
-          name: slim-ui-screenshots
+          name: slim-ui-screenshot-diff
           path: |
-            docs/screenshot_dashboard_privacy.png
-            docs/screenshot_settings_privacy.png
-            docs/screenshot_settings_providers_privacy.png
-            docs/screenshot_settings_layout_privacy.png
-            docs/screenshot_settings_history_privacy.png
-            docs/screenshot_settings_agent_privacy.png
-            docs/screenshot_info_privacy.png
-            docs/screenshot_context_menu_privacy.png
+            ${{ runner.temp }}/screenshot-baseline/*.png
+            ${{ runner.temp }}/screenshot-candidate/*.png
