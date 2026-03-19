@@ -1718,9 +1718,9 @@ public partial class MainWindow : Window
                     };
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Fallback to circle with initial
+                this._logger.LogWarning(ex, "Failed to load SVG icon for provider '{ProviderId}' at '{SvgPath}'. Falling back to initial badge.", normalizedProviderId, svgPath);
             }
         }
 
