@@ -47,6 +47,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        # zizmor: ignore[artipacked] — credentials required to push the baseline-update branch
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
@@ -90,6 +91,11 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Safe: push/dispatch events only fire on main/develop (branch names are not user-controlled).
+          # Passed as env vars rather than inline ${{ }} expansions to satisfy zizmor template-injection audit.
+          CI_BASE_BRANCH: ${{ github.ref_name }}
+          CI_RUN_ID: ${{ github.run_id }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -99,14 +105,14 @@ jobs:
             exit 0
           }
           $count = (git diff --cached --name-only | Measure-Object -Line).Lines
-          $branch = "chore/update-screenshot-baselines-${{ github.run_id }}"
-          $base   = "${{ github.ref_name }}"
+          $branch = "chore/update-screenshot-baselines-$env:CI_RUN_ID"
+          $base   = $env:CI_BASE_BRANCH
           git checkout -b $branch
           git commit -m "chore: update $count screenshot baseline(s) from CI (windows-2025)"
           git push origin $branch
           gh pr create `
             --title "chore: update $count screenshot baseline(s) from CI (windows-2025)" `
-            --body "Automated baseline refresh captured on ``windows-2025`` by [run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).\`n\`nThe screenshot comparison check on this PR will pass — both baselines and candidates are rendered on the same runner OS." `
+            --body "Automated baseline refresh captured on ``windows-2025`` by [run $env:CI_RUN_ID]($env:CI_RUN_URL).`n`nThe screenshot comparison check on this PR will pass — both baselines and candidates are rendered on the same runner OS." `
             --base $base `
             --head $branch `
             --label "automated"
