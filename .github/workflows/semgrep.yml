@@ -1,11 +1,10 @@
 name: Semgrep
 
+# Semgrep is fast and pattern-based — a good PR gate for catching new
+# C# mistakes, OWASP Top 10 patterns, and hardcoded secrets as they enter.
+# Weekly schedule picks up newly published rules against the full codebase.
+
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - "**/*.cs"
-      - ".github/workflows/semgrep.yml"
   pull_request:
     branches: [ main, develop ]
     paths:
@@ -13,6 +12,7 @@ on:
       - ".github/workflows/semgrep.yml"
   schedule:
     - cron: "0 8 * * 1"  # Weekly on Monday at 8 AM
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
