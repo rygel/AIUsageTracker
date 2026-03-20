@@ -52,8 +52,6 @@ public class DeepSeekProvider : ProviderBase
             {
                 this.CreateUnavailableUsage(
                 "API Key missing",
-                planType: PlanType.Usage,
-                isQuotaBased: false,
                 state: ProviderUsageState.Missing),
             };
         }
@@ -78,8 +76,8 @@ public class DeepSeekProvider : ProviderBase
                     ProviderName = this.Definition.DisplayName ?? this.ProviderId,
                     IsAvailable = true, // Key exists, just failed request
                     Description = $"API Error ({response.StatusCode})",
-                    PlanType = PlanType.Usage,
-                    IsQuotaBased = false,
+                    PlanType = this.Definition.PlanType,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
                     HttpStatus = (int)response.StatusCode,
                     UsedPercent = 0,
                     RequestsUsed = 0,
@@ -96,9 +94,7 @@ public class DeepSeekProvider : ProviderBase
                 return new[]
                 {
                     this.CreateUnavailableUsage(
-                    "Failed to parse DeepSeek response",
-                    planType: PlanType.Usage,
-                    isQuotaBased: false),
+                    "Failed to parse DeepSeek response"),
                 };
             }
 
@@ -132,13 +128,13 @@ public class DeepSeekProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "DeepSeek",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = true,
                 UsedPercent = 0,
                 RequestsUsed = 0,
                 RequestsAvailable = 0,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = mainDescription,
                 Details = details,
                 RawJson = content,

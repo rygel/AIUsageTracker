@@ -96,8 +96,8 @@ public class ZaiProvider : ProviderBase
                  ProviderName = providerLabel,
                  IsAvailable = false,
                  Description = "No usage data available",
-                 IsQuotaBased = true,
-                 PlanType = PlanType.Coding,
+                 IsQuotaBased = this.Definition.IsQuotaBased,
+                 PlanType = this.Definition.PlanType,
                  RawJson = responseString,
                  HttpStatus = httpStatus,
              },
@@ -304,8 +304,8 @@ public class ZaiProvider : ProviderBase
                 ProviderName = providerLabel,
                 IsAvailable = false,
                 Description = FormatDescription("Usage unknown (missing quota metrics)", planDescription),
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 RawJson = responseString,
                 HttpStatus = httpStatus,
             },
@@ -341,8 +341,8 @@ public class ZaiProvider : ProviderBase
             UsedPercent = finalUsedPercent,
             RequestsUsed = finalRequestsUsedReal,  // Store actual used count/percentage
             RequestsAvailable = finalRequestsAvailable, // Store actual total limit
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
             DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
             Description = FormatDescription(finalDescription, planDescription),
             NextResetTime = nextResetTime,

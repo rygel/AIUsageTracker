@@ -93,12 +93,12 @@ public sealed class SyntheticProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Synthetic.new",
+                    ProviderName = this.Definition.DisplayName,
                     UsedPercent = Math.Clamp(used / total * 100.0, 0, 100),
                     RequestsUsed = used,
                     RequestsAvailable = total,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     IsAvailable = true,
                     Description = $"{usedLabel} / {totalLabel} credits{resetLabel}",
                     NextResetTime = nextResetTime,

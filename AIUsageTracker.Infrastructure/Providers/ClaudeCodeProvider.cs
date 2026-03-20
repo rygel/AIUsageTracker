@@ -82,13 +82,13 @@ public class ClaudeCodeProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "Claude Code",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = false,
                 Description = "No API key configured",
                 State = ProviderUsageState.Missing,
                 IsStatusOnly = true,
                 IsQuotaBased = true,
-                PlanType = PlanType.Usage,
+                PlanType = this.Definition.PlanType,
                 RawJson = "{\"source\":\"claude-code\",\"status\":\"api_key_missing\"}",
                 HttpStatus = 401,
             },
@@ -340,12 +340,12 @@ public class ClaudeCodeProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = "Claude Code",
+            ProviderName = this.Definition.DisplayName,
             UsedPercent = mainPercent,
             RequestsUsed = mainPercent,
             RequestsAvailable = 100,
             IsQuotaBased = true,
-            PlanType = PlanType.Coding,
+            PlanType = this.Definition.PlanType,
             IsAvailable = true,
             Description = description,
             Details = details,
@@ -419,12 +419,12 @@ public class ClaudeCodeProvider : ProviderBase
                 return new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Claude Code",
+                    ProviderName = this.Definition.DisplayName,
                     UsedPercent = usagePercentage,
                     RequestsUsed = 0, // Anthropic doesn't provide cost via API
                     RequestsAvailable = 0,
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
+                    PlanType = this.Definition.PlanType,
                     IsAvailable = true,
                     Description = description,
                     Details = tooltipDetails,
@@ -508,12 +508,12 @@ public class ClaudeCodeProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = "Claude Code",
+                        ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsStatusOnly = true,
                         IsQuotaBased = false,
-                        PlanType = PlanType.Usage,
+                        PlanType = this.Definition.PlanType,
                         RawJson = "{\"source\":\"claude-cli\",\"status\":\"process_start_failed\"}",
                         HttpStatus = 503,
                     },
@@ -545,12 +545,12 @@ public class ClaudeCodeProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = "Claude Code",
+                        ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsStatusOnly = true,
                         IsQuotaBased = false,
-                        PlanType = PlanType.Usage,
+                        PlanType = this.Definition.PlanType,
                         RawJson = string.IsNullOrWhiteSpace(error) ? "{\"source\":\"claude-cli\",\"status\":\"failed\"}" : error,
                         HttpStatus = 500,
                     },
@@ -569,12 +569,12 @@ public class ClaudeCodeProvider : ProviderBase
                     new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Claude Code",
+                    ProviderName = this.Definition.DisplayName,
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
                     IsStatusOnly = true,
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
+                    PlanType = this.Definition.PlanType,
                     RawJson = ex.ToString(),
                     HttpStatus = 500,
                 },
@@ -616,13 +616,13 @@ public class ClaudeCodeProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = "Claude Code",
+            ProviderName = this.Definition.DisplayName,
             UsedPercent = Math.Min(usagePercentage, 100),
             RequestsUsed = currentUsage,
             RequestsAvailable = budgetLimit,
             IsCurrencyUsage = true,
             IsQuotaBased = false,
-            PlanType = PlanType.Usage,
+            PlanType = this.Definition.PlanType,
             IsAvailable = true,
             Description = budgetLimit > 0
                 ? $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used of ${budgetLimit.ToString("F2", CultureInfo.InvariantCulture)} limit"

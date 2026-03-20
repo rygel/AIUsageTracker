@@ -55,8 +55,6 @@ public class OpenRouterProvider : ProviderBase
             {
                 this.CreateUnavailableUsage(
                 "API Key missing - please configure OPENROUTER_API_KEY",
-                planType: PlanType.Usage,
-                isQuotaBased: false,
                 state: ProviderUsageState.Missing),
             };
         }
@@ -98,9 +96,7 @@ public class OpenRouterProvider : ProviderBase
                 return new[]
                 {
                     this.CreateUnavailableUsage(
-                    "Failed to parse credits response - API format may have changed",
-                    planType: PlanType.Usage,
-                    isQuotaBased: false),
+                    "Failed to parse credits response - API format may have changed"),
                 };
             }
 
@@ -110,9 +106,7 @@ public class OpenRouterProvider : ProviderBase
                 return new[]
                 {
                     this.CreateUnavailableUsage(
-                    "Invalid response format - missing data field",
-                    planType: PlanType.Usage,
-                    isQuotaBased: false),
+                    "Invalid response format - missing data field"),
                 };
             }
 
@@ -265,8 +259,8 @@ public class OpenRouterProvider : ProviderBase
             UsedPercent = 100.0 - remainingPercentage,
             RequestsUsed = used,
             RequestsAvailable = total,
-            PlanType = PlanType.Usage,
-            IsQuotaBased = true,
+            PlanType = this.Definition.PlanType,
+            IsQuotaBased = this.Definition.IsQuotaBased,
             IsAvailable = true,
             Description = $"{remaining.ToString("F2", CultureInfo.InvariantCulture)} Credits Remaining{mainReset}",
             NextResetTime = spendingLimitResetTime,
