@@ -20,10 +20,10 @@ public class PercentageToColorConverter : IMultiValueConverter
     /// </summary>
     /// <param name="values">
     /// Expected values:
-    /// [0] - percentage (double): The used percentage value (0-100)
-    /// [1] - yellowThreshold (int): Threshold for yellow color
-    /// [2] - redThreshold (int): Threshold for red color
-    /// [3] - isQuota (bool): Whether this is a quota-based provider (inverts color logic)
+    /// [0] - percentage (double): The used percentage value (0-100), pace-adjusted where applicable
+    /// [1] - yellowThreshold (int): Used-% threshold for yellow color
+    /// [2] - redThreshold (int): Used-% threshold for red color
+    /// [3] - (ignored) legacy isQuota parameter, kept for XAML binding compatibility
     /// </param>
     /// <param name="targetType">The target type.</param>
     /// <param name="parameter">Optional parameter.</param>
@@ -31,26 +31,23 @@ public class PercentageToColorConverter : IMultiValueConverter
     /// <returns>A SolidColorBrush representing the appropriate color.</returns>
     public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
     {
-        if (values.Length < 4 ||
+        if (values.Length < 3 ||
             values[0] is not double percentage ||
             values[1] is not int yellowThreshold ||
-            values[2] is not int redThreshold ||
-            values[3] is not bool isQuota)
+            values[2] is not int redThreshold)
         {
             return GetResourceBrush("ProgressBarGreen");
         }
 
-        // For quota-based providers, we compare remaining percentage.
-        // For pay-as-you-go, we compare used percentage.
-        // The percentage passed in is always the "used" percentage.
-        var valueToCompare = isQuota ? (100 - percentage) : percentage;
-
-        if (valueToCompare >= redThreshold)
+        // The percentage passed in is always the "used" percentage (pace-adjusted where applicable).
+        // Thresholds are defined as "used % triggers warning" regardless of quota vs pay-as-you-go.
+        // The progress bar direction (inverted/non-inverted) is handled separately by ProgressPercentage.
+        if (percentage >= redThreshold)
         {
             return GetResourceBrush("ProgressBarRed");
         }
 
-        if (valueToCompare >= yellowThreshold)
+        if (percentage >= yellowThreshold)
         {
             return GetResourceBrush("ProgressBarYellow");
         }
