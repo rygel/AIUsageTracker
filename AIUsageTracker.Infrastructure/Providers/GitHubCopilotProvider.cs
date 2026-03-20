@@ -1,4 +1,4 @@
-// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -36,8 +36,8 @@ public class GitHubCopilotProvider : ProviderBase
         SettingsMode = ProviderSettingsMode.ExternalAuthStatus,
         SupportsAccountIdentity = true,
         IconAssetName = "github",
-        FallbackBadgeColorHex = "#9370DB",
-        FallbackBadgeInitial = "GH",
+        BadgeColorHex = "#9370DB",
+        BadgeInitial = "GH",
         AuthIdentityCandidatePathTemplates = new[]
         {
             "%APPDATA%\\GitHub CLI\\hosts.yml",

@@ -98,9 +98,9 @@ public sealed class ProviderDefinition
 
     public string? IconAssetName { get; init; }
 
-    public string? FallbackBadgeColorHex { get; init; }
+    public string? BadgeColorHex { get; init; }
 
-    public string? FallbackBadgeInitial { get; init; }
+    public string? BadgeInitial { get; init; }
 
     public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
 

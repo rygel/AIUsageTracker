@@ -340,12 +340,12 @@ public class ProviderMetadataCatalogTests
     [InlineData("github-copilot", true, "GH")]
     [InlineData("claude-code", true, "C")]
     [InlineData("unknown-provider", false, "")]
-    public void TryGetFallbackBadgeDefinition_UsesProviderMetadata(
+    public void TryGetBadgeDefinition_UsesProviderMetadata(
         string providerId,
         bool expectedSuccess,
         string expectedInitial)
     {
-        var success = ProviderMetadataCatalog.TryGetFallbackBadgeDefinition(providerId, out _, out var initial);
+        var success = ProviderMetadataCatalog.TryGetBadgeDefinition(providerId, out _, out var initial);
 
         Assert.Equal(expectedSuccess, success);
         Assert.Equal(expectedInitial, initial);

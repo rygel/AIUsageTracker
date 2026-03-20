@@ -1,4 +1,4 @@
-// <copyright file="OpenRouterProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="OpenRouterProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -33,8 +33,8 @@ public class OpenRouterProvider : ProviderBase
         DiscoveryEnvironmentVariables = new[] { "OPENROUTER_API_KEY" },
         RooConfigPropertyNames = new[] { "openrouterApiKey" },
         IconAssetName = "openai",
-        FallbackBadgeColorHex = "#483D8B",
-        FallbackBadgeInitial = "OR",
+        BadgeColorHex = "#483D8B",
+        BadgeInitial = "OR",
     };
 
     /// <inheritdoc/>

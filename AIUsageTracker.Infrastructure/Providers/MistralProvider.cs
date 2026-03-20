@@ -1,4 +1,4 @@
-// <copyright file="MistralProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="MistralProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -34,8 +34,8 @@ public class MistralProvider : ProviderBase
     {
         RooConfigPropertyNames = new[] { "mistralApiKey" },
         IconAssetName = "mistral",
-        FallbackBadgeColorHex = "#FF4500",
-        FallbackBadgeInitial = "Mi",
+        BadgeColorHex = "#FF4500",
+        BadgeInitial = "Mi",
     };
 
     /// <inheritdoc/>

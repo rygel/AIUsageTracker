@@ -934,7 +934,7 @@ public partial class SettingsWindow : Window
     private ImageSource CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
-        var (color, _) = ProviderVisualCatalog.GetFallbackBadge(providerId, Brushes.Gray);
+        var (color, _) = ProviderVisualCatalog.GetBadge(providerId, Brushes.Gray);
 
         // Return a drawing image with just a colored rectangle (simplified)
         var drawing = new GeometryDrawing(

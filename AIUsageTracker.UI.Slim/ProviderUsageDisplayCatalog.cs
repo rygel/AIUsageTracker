@@ -244,16 +244,9 @@ internal static class ProviderUsageDisplayCatalog
     {
         if (windows.Count == 0) return null;
 
-        // Prefer exact match on both Kind and DetailName
-        var exact = windows.FirstOrDefault(w =>
+        return windows.FirstOrDefault(w =>
             w.Kind == detail.QuotaBucketKind &&
             w.DetailName != null &&
             string.Equals(w.DetailName, detail.Name, StringComparison.OrdinalIgnoreCase));
-        if (exact != null) return exact;
-
-        // Fall back to Kind-only match (works when each Kind appears at most once)
-        return windows.FirstOrDefault(w =>
-            w.Kind == detail.QuotaBucketKind &&
-            w.DetailName == null);
     }
 }

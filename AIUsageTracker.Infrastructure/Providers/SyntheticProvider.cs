@@ -1,4 +1,4 @@
-// <copyright file="SyntheticProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="SyntheticProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -33,8 +33,8 @@ public sealed class SyntheticProvider : ProviderBase
         DiscoveryEnvironmentVariables = new[] { "SYNTHETIC_API_KEY" },
         RooConfigPropertyNames = new[] { "syntheticApiKey" },
         IconAssetName = "synthetic",
-        FallbackBadgeColorHex = "#FFD700",
-        FallbackBadgeInitial = "Sy",
+        BadgeColorHex = "#FFD700",
+        BadgeInitial = "Sy",
     };
 
     public override ProviderDefinition Definition => StaticDefinition;

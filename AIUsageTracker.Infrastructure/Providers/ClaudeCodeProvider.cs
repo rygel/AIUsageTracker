@@ -1,4 +1,4 @@
-// <copyright file="ClaudeCodeProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="ClaudeCodeProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -46,8 +46,8 @@ public class ClaudeCodeProvider : ProviderBase
         FamilyMode = ProviderFamilyMode.SyntheticAggregateChildren,
         DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         IconAssetName = "anthropic",
-        FallbackBadgeColorHex = "#FFA500",
-        FallbackBadgeInitial = "C",
+        BadgeColorHex = "#FFA500",
+        BadgeInitial = "C",
         AuthIdentityCandidatePathTemplates = new[]
         {
             "%USERPROFILE%\\.claude\\.credentials.json",

@@ -1,4 +1,4 @@
-// <copyright file="CodexProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="CodexProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -45,8 +45,8 @@ public class CodexProvider : ProviderBase
         SessionIdentitySource = ProviderSessionIdentitySource.Codex,
         SupportsAccountIdentity = true,
         IconAssetName = "openai",
-        FallbackBadgeColorHex = "#008B8B",
-        FallbackBadgeInitial = "AI",
+        BadgeColorHex = "#008B8B",
+        BadgeInitial = "AI",
         AuthIdentityCandidatePathTemplates = new[]
         {
             "%USERPROFILE%\\.codex\\auth.json",

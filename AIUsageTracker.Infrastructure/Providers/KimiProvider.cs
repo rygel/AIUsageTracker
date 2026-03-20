@@ -1,4 +1,4 @@
-// <copyright file="KimiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="KimiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -35,8 +35,8 @@ public class KimiProvider : ProviderBase
         AdditionalHandledProviderIds = new[] { "kimi" },
         DiscoveryEnvironmentVariables = new[] { "KIMI_API_KEY", "MOONSHOT_API_KEY" },
         IconAssetName = "kimi",
-        FallbackBadgeColorHex = "#BA55D3",
-        FallbackBadgeInitial = "K",
+        BadgeColorHex = "#BA55D3",
+        BadgeInitial = "K",
         QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,   "Daily"),

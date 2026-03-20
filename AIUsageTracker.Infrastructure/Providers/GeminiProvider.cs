@@ -1,4 +1,4 @@
-// <copyright file="GeminiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="GeminiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -51,8 +51,8 @@ public class GeminiProvider : ProviderBase
                 modelIdContains: new[] { "day", "daily" }),
         },
         IconAssetName = "google",
-        FallbackBadgeColorHex = "#1E90FF",
-        FallbackBadgeInitial = "G",
+        BadgeColorHex = "#1E90FF",
+        BadgeInitial = "G",
         DerivedModelDisplaySuffix = "[Gemini CLI]",
     };
 

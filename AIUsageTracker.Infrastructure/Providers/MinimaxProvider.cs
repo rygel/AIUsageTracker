@@ -1,4 +1,4 @@
-// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -44,8 +44,8 @@ public class MinimaxProvider : ProviderBase
         SettingsAdditionalProviderIds = new[] { InternationalProviderId },
         DiscoveryEnvironmentVariables = new[] { "MINIMAX_API_KEY" },
         IconAssetName = "minimax",
-        FallbackBadgeColorHex = "#00CED1",
-        FallbackBadgeInitial = "MM",
+        BadgeColorHex = "#00CED1",
+        BadgeInitial = "MM",
     };
 
     /// <inheritdoc/>

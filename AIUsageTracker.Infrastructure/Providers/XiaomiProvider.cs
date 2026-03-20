@@ -1,4 +1,4 @@
-// <copyright file="XiaomiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="XiaomiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -32,8 +32,8 @@ public class XiaomiProvider : ProviderBase
         IncludeInWellKnownProviders = true,
         DiscoveryEnvironmentVariables = new[] { "XIAOMI_API_KEY", "MIMO_API_KEY" },
         IconAssetName = "xiaomi",
-        FallbackBadgeColorHex = "#FFA500",
-        FallbackBadgeInitial = "Xi",
+        BadgeColorHex = "#FFA500",
+        BadgeInitial = "Xi",
     };
 
     public override ProviderDefinition Definition => StaticDefinition;

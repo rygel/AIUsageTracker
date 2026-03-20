@@ -232,21 +232,21 @@ public static class ProviderMetadataCatalog
             : canonicalProviderId;
     }
 
-    public static bool TryGetFallbackBadgeDefinition(string providerId, out string colorHex, out string initial)
+    public static bool TryGetBadgeDefinition(string providerId, out string colorHex, out string initial)
     {
         var canonicalProviderId = GetCanonicalProviderId(providerId);
         colorHex = string.Empty;
         initial = string.Empty;
 
         if (!TryGet(canonicalProviderId, out var definition) ||
-            string.IsNullOrWhiteSpace(definition.FallbackBadgeColorHex) ||
-            string.IsNullOrWhiteSpace(definition.FallbackBadgeInitial))
+            string.IsNullOrWhiteSpace(definition.BadgeColorHex) ||
+            string.IsNullOrWhiteSpace(definition.BadgeInitial))
         {
             return false;
         }
 
-        colorHex = definition.FallbackBadgeColorHex;
-        initial = definition.FallbackBadgeInitial;
+        colorHex = definition.BadgeColorHex;
+        initial = definition.BadgeInitial;
         return true;
     }
 

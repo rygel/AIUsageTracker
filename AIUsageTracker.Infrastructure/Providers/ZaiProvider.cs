@@ -1,4 +1,4 @@
-// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -37,8 +37,8 @@ public class ZaiProvider : ProviderBase
         DiscoveryEnvironmentVariables = new[] { "ZAI_API_KEY", "Z_AI_API_KEY" },
         RooConfigPropertyNames = new[] { "zaiApiKey" },
         IconAssetName = "zai",
-        FallbackBadgeColorHex = "#20B2AA",
-        FallbackBadgeInitial = "Z",
+        BadgeColorHex = "#20B2AA",
+        BadgeInitial = "Z",
     };
 
     /// <inheritdoc/>

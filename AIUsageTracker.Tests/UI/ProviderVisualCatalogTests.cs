@@ -29,9 +29,9 @@ public class ProviderVisualCatalogTests
     [InlineData("claude-code", "C")]
     [InlineData("github-copilot", "GH")]
     [InlineData("unknown-provider", "UN")]
-    public void GetFallbackBadge_ReturnsStableBadgeInitials(string providerId, string expectedInitial)
+    public void GetBadge_ReturnsStableBadgeInitials(string providerId, string expectedInitial)
     {
-        var (_, initial) = ProviderVisualCatalog.GetFallbackBadge(providerId, Brushes.Gray);
+        var (_, initial) = ProviderVisualCatalog.GetBadge(providerId, Brushes.Gray);
 
         Assert.Equal(expectedInitial, initial);
     }

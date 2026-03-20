@@ -1,4 +1,4 @@
-// <copyright file="DeepSeekProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="DeepSeekProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -35,8 +35,8 @@ public class DeepSeekProvider : ProviderBase
         DiscoveryEnvironmentVariables = new[] { "DEEPSEEK_API_KEY" },
         RooConfigPropertyNames = new[] { "deepseekApiKey" },
         IconAssetName = "deepseek",
-        FallbackBadgeColorHex = "#00BFFF",
-        FallbackBadgeInitial = "DS",
+        BadgeColorHex = "#00BFFF",
+        BadgeInitial = "DS",
     };
 
     public override ProviderDefinition Definition => StaticDefinition;

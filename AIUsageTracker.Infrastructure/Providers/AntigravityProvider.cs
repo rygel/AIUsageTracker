@@ -1,4 +1,4 @@
-// <copyright file="AntigravityProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="AntigravityProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -53,8 +53,8 @@ public class AntigravityProvider : ProviderBase
         AggregateDetailDisplaySuffix = "[Antigravity]",
         SupportsAccountIdentity = true,
         IconAssetName = "google",
-        FallbackBadgeColorHex = "#1E90FF",
-        FallbackBadgeInitial = "G",
+        BadgeColorHex = "#1E90FF",
+        BadgeInitial = "G",
         DerivedModelDisplaySuffix = "[Antigravity]",
     };
 
