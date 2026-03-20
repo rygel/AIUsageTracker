@@ -23,6 +23,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5
@@ -104,8 +105,10 @@ jobs:
           labels: dependencies, automated
 
       - name: Summary
+        env:
+          HAS_CHANGES: ${{ steps.changes.outputs.has_changes }}
         run: |
-          if [ "${{ steps.changes.outputs.has_changes }}" = "true" ]; then
+          if [ "$HAS_CHANGES" = "true" ]; then
             echo "✅ Pull request created with dependency updates"
           else
             echo "✅ All dependencies are up to date"

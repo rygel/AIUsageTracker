@@ -121,8 +121,10 @@ jobs:
               - '.github/workflows/tests.yml'
 
       - id: flags
+        env:
+          EVENT_NAME: ${{ github.event_name }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "$EVENT_NAME" = "pull_request" ]; then
             echo "run_all=false" >> "$GITHUB_OUTPUT"
           else
             echo "run_all=true" >> "$GITHUB_OUTPUT"
@@ -150,11 +152,16 @@ jobs:
 
       - name: Restore dependencies
         shell: pwsh
+        env:
+          RUN_ALL: ${{ needs.detect-changes.outputs.run_all }}
+          RUN_CORE: ${{ needs.detect-changes.outputs.run_core }}
+          RUN_MONITOR: ${{ needs.detect-changes.outputs.run_monitor }}
+          RUN_WEB: ${{ needs.detect-changes.outputs.run_web }}
         run: |
-          $runAll = "${{ needs.detect-changes.outputs.run_all }}" -eq "true"
-          $runCore = "${{ needs.detect-changes.outputs.run_core }}" -eq "true"
-          $runMonitor = "${{ needs.detect-changes.outputs.run_monitor }}" -eq "true"
-          $runWeb = "${{ needs.detect-changes.outputs.run_web }}" -eq "true"
+          $runAll = "$env:RUN_ALL" -eq "true"
+          $runCore = "$env:RUN_CORE" -eq "true"
+          $runMonitor = "$env:RUN_MONITOR" -eq "true"
+          $runWeb = "$env:RUN_WEB" -eq "true"
 
           if ($runAll -or $runCore -or $runMonitor) {
             dotnet restore AIUsageTracker.Tests/AIUsageTracker.Tests.csproj
@@ -169,11 +176,16 @@ jobs:
 
       - name: Build projects
         shell: pwsh
+        env:
+          RUN_ALL: ${{ needs.detect-changes.outputs.run_all }}
+          RUN_CORE: ${{ needs.detect-changes.outputs.run_core }}
+          RUN_MONITOR: ${{ needs.detect-changes.outputs.run_monitor }}
+          RUN_WEB: ${{ needs.detect-changes.outputs.run_web }}
         run: |
-          $runAll = "${{ needs.detect-changes.outputs.run_all }}" -eq "true"
-          $runCore = "${{ needs.detect-changes.outputs.run_core }}" -eq "true"
-          $runMonitor = "${{ needs.detect-changes.outputs.run_monitor }}" -eq "true"
-          $runWeb = "${{ needs.detect-changes.outputs.run_web }}" -eq "true"
+          $runAll = "$env:RUN_ALL" -eq "true"
+          $runCore = "$env:RUN_CORE" -eq "true"
+          $runMonitor = "$env:RUN_MONITOR" -eq "true"
+          $runWeb = "$env:RUN_WEB" -eq "true"
 
           if ($runAll -or $runCore -or $runMonitor) {
             dotnet build AIUsageTracker.Tests/AIUsageTracker.Tests.csproj --configuration Debug --no-restore
@@ -502,19 +514,19 @@ jobs:
 
     steps:
       - name: Check test results
+        env:
+          RUN_ALL: ${{ needs.detect-changes.outputs.run_all }}
+          RUN_CORE: ${{ needs.detect-changes.outputs.run_core }}
+          RUN_MONITOR: ${{ needs.detect-changes.outputs.run_monitor }}
+          RUN_WEB: ${{ needs.detect-changes.outputs.run_web }}
+          RUN_CROSS: ${{ needs.detect-changes.outputs.run_cross }}
+          PREPARE: ${{ needs.prepare.result }}
+          CORE: ${{ needs.core-tests-windows.result }}
+          MONITOR_STARTUP: ${{ needs.monitor-startup-config-windows.result }}
+          MONITOR: ${{ needs.monitor-tests-windows.result }}
+          WEB: ${{ needs.web-tests-windows.result }}
+          CROSS: ${{ needs.core-tests-cross-platform.result }}
         run: |
-          RUN_ALL="${{ needs.detect-changes.outputs.run_all }}"
-          RUN_CORE="${{ needs.detect-changes.outputs.run_core }}"
-          RUN_MONITOR="${{ needs.detect-changes.outputs.run_monitor }}"
-          RUN_WEB="${{ needs.detect-changes.outputs.run_web }}"
-          RUN_CROSS="${{ needs.detect-changes.outputs.run_cross }}"
-
-          PREPARE="${{ needs.prepare.result }}"
-          CORE="${{ needs.core-tests-windows.result }}"
-          MONITOR_STARTUP="${{ needs.monitor-startup-config-windows.result }}"
-          MONITOR="${{ needs.monitor-tests-windows.result }}"
-          WEB="${{ needs.web-tests-windows.result }}"
-          CROSS="${{ needs.core-tests-cross-platform.result }}"
           
           echo "Test Results:"
           echo "  Prepare: $PREPARE"
