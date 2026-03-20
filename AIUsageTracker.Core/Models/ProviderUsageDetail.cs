@@ -36,16 +36,7 @@ public class ProviderUsageDetail
     [JsonPropertyName("window_kind")]
     public WindowKind QuotaBucketKind { get; set; } = WindowKind.None;
 
-    /// <summary>
-    /// Duration of the quota window (e.g. 5 hours for burst, 7 days for weekly rolling).
-    /// Used by the UI to compute time-adjusted pace and suppress false-positive alerts
-    /// when usage is below the expected pace for the elapsed fraction of the period.
-    /// Null when the window duration is unknown.
-    /// </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public TimeSpan? PeriodDuration { get; set; }
-
-    public bool IsDisplayableSubProviderDetail()
+public bool IsDisplayableSubProviderDetail()
     {
         return this.DetailType == ProviderUsageDetailType.Model || this.DetailType == ProviderUsageDetailType.Other || this.DetailType == ProviderUsageDetailType.RateLimit;
     }

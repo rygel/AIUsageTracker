@@ -210,21 +210,19 @@ public partial class ProviderCardViewModel : BaseViewModel
         }
 
         // For regular (non-synthetic) provider cards, look up the window duration from the
-        // provider's QuotaWindowDefinition — this is authoritative and never depends on
-        // JSON round-trip of per-detail PeriodDuration values.
+        // provider's QuotaWindowDefinition — the single source of truth.
         ProviderMetadataCatalog.TryGet(this.ProviderId, out var definition);
         var rollingWindow = definition?.QuotaWindows
             .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue);
-        var catalogPeriod = rollingWindow?.PeriodDuration;
+        if (rollingWindow == null)
+        {
+            return (null, null);
+        }
 
         var rollingDetail = this.Usage.Details?
             .FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling && d.NextResetTime.HasValue);
-        if (rollingDetail != null)
-        {
-            return (rollingDetail.NextResetTime, catalogPeriod ?? rollingDetail.PeriodDuration);
-        }
 
-        return (null, null);
+        return (rollingDetail?.NextResetTime, rollingWindow.PeriodDuration);
     }
 
     partial void OnUsageChanged(ProviderUsage value)
