@@ -1799,12 +1799,31 @@ public partial class MainWindow : Window
         {
             // Reload preferences and refresh data
             await this.InitializeAsync();
+            await this.ReloadPreferencesAfterSettingsAsync();
+        }
+    }
 
-            // Reapply preferences to update channel selector
-            if (this._preferencesLoaded)
-            {
-                this.ApplyPreferences();
-            }
+    private async Task ReloadPreferencesAfterSettingsAsync()
+    {
+        this._preferences = await this._preferencesStore.LoadAsync();
+        App.Preferences = this._preferences;
+        this._isPrivacyMode = this._preferences.IsPrivacyMode;
+        App.SetPrivacyMode(this._isPrivacyMode);
+        this._preferencesLoaded = true;
+
+        this.ApplyPreferences();
+        this.UpdatePrivacyButtonState();
+
+        bool hasUsages;
+        lock (this._dataLock)
+        {
+            hasUsages = this._usages.Count > 0;
+        }
+
+        if (hasUsages)
+        {
+            this.RenderProviders();
+            _ = this.UpdateTrayIconsAsync();
         }
     }
 
