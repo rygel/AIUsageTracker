@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Documentation
+- Updated `README.md`, `docs/user_manual.md`, `docs/provider_detail_contract.md`, and `docs/architecture.md` to reflect current pace-aware quota behaviour.
+- Documented the `Pace-Aware Quota Colours` setting and `On pace` badge semantics, including raw-used fallback when pace adjustment is disabled.
+- Clarified that pace metadata (`PeriodDuration`) is enriched upstream in `ProviderUsageDisplayCatalog` and consumed directly by ViewModels without downstream fallback catalog lookups.
+
 ## [2.3.2-beta.5] - 2026-03-20
 
 ### Fixed
@@ -101,4 +106,3 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
-
