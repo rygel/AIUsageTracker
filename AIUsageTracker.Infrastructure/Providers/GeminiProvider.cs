@@ -124,8 +124,8 @@ public class GeminiProvider : ProviderBase
                     ProviderId = this.ProviderId,
                     ProviderName = this.Definition.DisplayName,
                     IsAvailable = false,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     State = ProviderUsageState.Missing,
                     Description = "No Gemini accounts found",
                 },
@@ -198,8 +198,8 @@ public class GeminiProvider : ProviderBase
                     UsedPercent = usedPercentage,
                     RequestsUsed = usedPercentage,
                     RequestsAvailable = 100,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     AccountName = account.Email, // Separate usage per account
                     Description = $"{remainingPercentage:F1}% Remaining{mainResetStr}",
                     NextResetTime = soonestResetDt,
@@ -218,6 +218,8 @@ public class GeminiProvider : ProviderBase
                     ProviderName = this.Definition.DisplayName,
                     IsAvailable = false,
                     State = ProviderUsageState.Error,
+                    PlanType = this.Definition.PlanType,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
                     Description = $"Error: {ex.Message}",
                     AccountName = account.Email,
                 });
@@ -231,17 +233,7 @@ public class GeminiProvider : ProviderBase
 
         if (!results.Any())
         {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Error,
-                    Description = "Failed to fetch quota for any account",
-                },
-            };
+            return new[] { this.CreateUnavailableUsage("Failed to fetch quota for any account") };
         }
 
         return results;

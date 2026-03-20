@@ -49,10 +49,10 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Xiaomi",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = false,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = "API Key missing",
                 State = ProviderUsageState.Missing,
             },
@@ -89,12 +89,12 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Xiaomi",
+                ProviderName = this.Definition.DisplayName,
                 UsedPercent = usedPercent,
                 RequestsUsed = used,
                 RequestsAvailable = quota > 0 ? quota : balance,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 IsAvailable = true,
                 Description = quota > 0
                     ? $"{balance} remaining / {quota} total"
@@ -112,10 +112,10 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Xiaomi",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = false,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = $"Error: {ex.Message}",
             },
             };

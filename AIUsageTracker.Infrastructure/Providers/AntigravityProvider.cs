@@ -56,6 +56,7 @@ public class AntigravityProvider : ProviderBase
         BadgeColorHex = "#1E90FF",
         BadgeInitial = "G",
         DerivedModelDisplaySuffix = "[Antigravity]",
+        DisplayAsFraction = true,
     };
 
     /// <inheritdoc/>
@@ -110,8 +111,8 @@ public class AntigravityProvider : ProviderBase
                                 Details = null,
                                 AccountName = this._cachedUsage.AccountName,
                                 Description = description,
-                                IsQuotaBased = true,
-                                PlanType = PlanType.Coding,
+                                IsQuotaBased = this.Definition.IsQuotaBased,
+                                PlanType = this.Definition.PlanType,
                             },
                             };
                         }
@@ -135,8 +136,8 @@ public class AntigravityProvider : ProviderBase
                         Details = null,
                         AccountName = this._cachedUsage.AccountName,
                         Description = description,
-                        IsQuotaBased = true,
-                        PlanType = PlanType.Coding,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        PlanType = this.Definition.PlanType,
                     },
                     };
                 }
@@ -156,8 +157,8 @@ public class AntigravityProvider : ProviderBase
                         Description = appRunning
                             ? "Antigravity running, waiting for language server"
                             : "Application not running",
-                        IsQuotaBased = true,
-                        PlanType = PlanType.Coding,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        PlanType = this.Definition.PlanType,
                     },
                     };
                 }
@@ -249,8 +250,8 @@ public class AntigravityProvider : ProviderBase
                      RequestsUsed = 0,
                      RequestsAvailable = 0,
                      Description = "Not running",
-                     IsQuotaBased = true,
-                     PlanType = PlanType.Coding,
+                     IsQuotaBased = this.Definition.IsQuotaBased,
+                     PlanType = this.Definition.PlanType,
                  },
                 };
             }
@@ -298,8 +299,8 @@ public class AntigravityProvider : ProviderBase
                 Description = IsAntigravityDesktopRunning()
                     ? "Antigravity running, waiting for language server"
                     : "Application not running",
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
             },
             };
         }
@@ -461,7 +462,6 @@ public class AntigravityProvider : ProviderBase
 
         summary.RequestsAvailable = totalLimit;
         summary.RequestsUsed = totalUsed;
-        summary.DisplayAsFraction = true;
     }
 
     private static List<string> GetModelLabels(ModelGroup group)
@@ -845,8 +845,8 @@ public class AntigravityProvider : ProviderBase
                     UsedPercent = 0,
                     RequestsUsed = 0,
                     RequestsAvailable = 0,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     Description = "Usage unknown (no model quota data)",
                     AccountName = data.UserStatus.Email ?? string.Empty,
                 },
@@ -907,8 +907,8 @@ public class AntigravityProvider : ProviderBase
             UsedPercent = 100 - remainingPctTotal,
             RequestsUsed = 100 - remainingPctTotal,
             RequestsAvailable = 100,
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
             Description = $"{remainingPctTotal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
             Details = sortedDetails,
             AccountName = userStatus.Email ?? string.Empty,
@@ -950,8 +950,8 @@ public class AntigravityProvider : ProviderBase
                 UsedPercent = 100 - detailRemaining,
                 RequestsUsed = 100 - detailRemaining,
                 RequestsAvailable = 100,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = $"{detailRemaining.ToString("F0", CultureInfo.InvariantCulture)}% Remaining",
                 AccountName = accountName,
                 IsAvailable = true,

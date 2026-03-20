@@ -124,6 +124,12 @@ public sealed class ProviderDefinition
 
     public bool IsTooltipOnly { get; init; }
 
+    public bool IsStatusOnly { get; init; }
+
+    public bool IsCurrencyUsage { get; init; }
+
+    public bool DisplayAsFraction { get; init; }
+
     public IReadOnlyList<QuotaWindowDefinition> QuotaWindows { get; init; } = Array.Empty<QuotaWindowDefinition>();
 
     /// <summary>

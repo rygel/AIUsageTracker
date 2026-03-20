@@ -89,8 +89,6 @@ public abstract class ProviderBase : IProviderService
         string description,
         int httpStatus = 0,
         string? authSource = null,
-        PlanType planType = PlanType.Coding,
-        bool isQuotaBased = true,
         ProviderUsageState state = ProviderUsageState.Error)
     {
         return new ProviderUsage
@@ -100,8 +98,8 @@ public abstract class ProviderBase : IProviderService
             IsAvailable = false,
             Description = description,
             State = state,
-            PlanType = planType,
-            IsQuotaBased = isQuotaBased,
+            PlanType = this.Definition.PlanType,
+            IsQuotaBased = this.Definition.IsQuotaBased,
             AuthSource = authSource ?? string.Empty,
             HttpStatus = httpStatus,
             UsedPercent = 0,

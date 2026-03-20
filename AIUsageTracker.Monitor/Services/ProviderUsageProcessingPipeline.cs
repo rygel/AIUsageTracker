@@ -246,6 +246,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         var providerName = string.IsNullOrWhiteSpace(usage.ProviderName)
             ? providerId
             : usage.ProviderName.Trim();
+        ProviderMetadataCatalog.TryGet(providerId, out var definition);
 
         var requestsUsed = this.SanitizeNonNegativeFinite(usage.RequestsUsed);
         var requestsAvailable = this.SanitizeNonNegativeFinite(usage.RequestsAvailable);
@@ -298,11 +299,11 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             UsedPercent = requestsPercentage,
             PlanType = usage.PlanType,
             IsQuotaBased = usage.IsQuotaBased,
-            DisplayAsFraction = usage.DisplayAsFraction,
+            DisplayAsFraction = usage.DisplayAsFraction || (definition?.DisplayAsFraction ?? false),
             IsAvailable = usage.IsAvailable,
             State = usage.State,
-            IsStatusOnly = usage.IsStatusOnly,
-            IsCurrencyUsage = usage.IsCurrencyUsage,
+            IsStatusOnly = usage.IsStatusOnly || (definition?.IsStatusOnly ?? false),
+            IsCurrencyUsage = usage.IsCurrencyUsage || (definition?.IsCurrencyUsage ?? false),
             Description = description,
             AuthSource = usage.AuthSource,
             Details = details,
@@ -347,11 +348,11 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             UsedPercent = requestsPercentage,
             PlanType = usage.PlanType,
             IsQuotaBased = usage.IsQuotaBased,
-            DisplayAsFraction = usage.DisplayAsFraction,
+            DisplayAsFraction = usage.DisplayAsFraction || (definition?.DisplayAsFraction ?? false),
             IsAvailable = usage.IsAvailable,
             State = usage.State,
-            IsStatusOnly = usage.IsStatusOnly,
-            IsCurrencyUsage = usage.IsCurrencyUsage,
+            IsStatusOnly = usage.IsStatusOnly || (definition?.IsStatusOnly ?? false),
+            IsCurrencyUsage = usage.IsCurrencyUsage || (definition?.IsCurrencyUsage ?? false),
             Description = description,
             AuthSource = usage.AuthSource,
             Details = details,
