@@ -377,8 +377,13 @@
                                       Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
                             <CheckBox x:Name="ShowUsagePerHourCheck" Content="Show Usage Rate (req/hr)"
-                                      Margin="0,5,0,20" Foreground="{DynamicResource SecondaryText}"
+                                      Margin="0,5,0,5" Foreground="{DynamicResource SecondaryText}"
                                       ToolTip="Show a live burn-rate badge on each provider card. Requires at least 30 minutes of history."
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+
+                            <CheckBox x:Name="EnablePaceAdjustmentCheck" Content="Pace-Aware Quota Colours"
+                                      Margin="0,5,0,20" Foreground="{DynamicResource SecondaryText}"
+                                      ToolTip="Adjust progress-bar colour and alert threshold based on rolling-window pace. When enabled, a provider at 70% usage with 1 day left of a 7-day window shows green (on pace) instead of yellow. Also shows an &#x22;On pace&#x22; badge."
                                       Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
                             <!-- Font Settings -->

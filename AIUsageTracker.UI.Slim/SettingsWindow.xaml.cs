@@ -998,6 +998,11 @@ public partial class SettingsWindow : Window
         {
             this.ShowUsagePerHourCheck.IsChecked = this._preferences.ShowUsagePerHour;
         }
+
+        if (this.EnablePaceAdjustmentCheck != null)
+        {
+            this.EnablePaceAdjustmentCheck.IsChecked = this._preferences.EnablePaceAdjustment;
+        }
     }
 
     private void PopulateProviderVisibilitySettings()
@@ -1810,6 +1815,7 @@ public partial class SettingsWindow : Window
             var showUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
             this._displayPreferences.SetShowUsedPercentages(this._preferences, showUsedPercentages);
             this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
+            this._preferences.EnablePaceAdjustment = this.EnablePaceAdjustmentCheck.IsChecked ?? true;
             if (this.ThemeCombo.SelectedValue is AppTheme appTheme)
             {
                 this._preferences.Theme = appTheme;

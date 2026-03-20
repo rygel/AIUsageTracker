@@ -48,7 +48,10 @@ public class UsageAlertsService
             // For rolling-window providers with a known period duration, use the projected
             // end-of-period percentage instead of raw usage.  This suppresses false-positive
             // alerts when the user is under pace (e.g. 70% used at 86% of a weekly window).
-            var effectivePercentage = GetEffectiveAlertPercent(usage, usedPercentage);
+            // Only applied when the user has enabled pace adjustment in preferences.
+            var effectivePercentage = prefs.EnablePaceAdjustment
+                ? GetEffectiveAlertPercent(usage, usedPercentage)
+                : usedPercentage;
             if (effectivePercentage >= prefs.NotificationThreshold)
             {
                 this._notificationService.ShowUsageAlert(usage.ProviderName, usedPercentage);

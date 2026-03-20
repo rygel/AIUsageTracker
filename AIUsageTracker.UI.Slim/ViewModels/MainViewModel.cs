@@ -45,6 +45,9 @@ public partial class MainViewModel : BaseViewModel
     private bool _showUsedPercentages;
 
     [ObservableProperty]
+    private bool _enablePaceAdjustment = true;
+
+    [ObservableProperty]
     private bool _isAlwaysOnTop = true;
 
     /// <summary>
@@ -198,6 +201,7 @@ public partial class MainViewModel : BaseViewModel
         Func<Task>? savePreferencesAsync = null)
     {
         this.ShowUsedPercentages = prefs.ShowUsedPercentages;
+        this.EnablePaceAdjustment = prefs.EnablePaceAdjustment;
 
         var renderPreparation = ProviderUsageDisplayCatalog.PrepareForMainWindow(usages.ToList());
         var filteredUsages = renderPreparation.DisplayableUsages;
@@ -258,6 +262,17 @@ public partial class MainViewModel : BaseViewModel
             foreach (var card in section.Items)
             {
                 card.ShowUsedPercentages = value;
+            }
+        }
+    }
+
+    partial void OnEnablePaceAdjustmentChanged(bool value)
+    {
+        foreach (var section in Sections)
+        {
+            foreach (var card in section.Items)
+            {
+                card.EnablePaceAdjustment = value;
             }
         }
     }

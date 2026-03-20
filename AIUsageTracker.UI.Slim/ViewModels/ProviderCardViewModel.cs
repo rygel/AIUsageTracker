@@ -33,6 +33,9 @@ public partial class ProviderCardViewModel : BaseViewModel
     private bool _showUsagePerHour;
 
     [ObservableProperty]
+    private bool _enablePaceAdjustment = true;
+
+    [ObservableProperty]
     private ObservableCollection<SubProviderCardViewModel> _details = new();
 
     private ProviderCardPresentation? _presentation;
@@ -45,6 +48,7 @@ public partial class ProviderCardViewModel : BaseViewModel
         this._redThreshold = prefs.ColorThresholdRed;
         this._showUsedPercentages = prefs.ShowUsedPercentages;
         this._showUsagePerHour = prefs.ShowUsagePerHour;
+        this._enablePaceAdjustment = prefs.EnablePaceAdjustment;
 
         this.UpdatePresentation();
         this.PopulateDetails();
@@ -140,6 +144,11 @@ public partial class ProviderCardViewModel : BaseViewModel
     {
         get
         {
+            if (!this.EnablePaceAdjustment)
+            {
+                return this.UsedPercent;
+            }
+
             var (nextReset, period) = ResolveRollingWindowInfo();
             if (nextReset == null || period == null)
             {
@@ -164,6 +173,11 @@ public partial class ProviderCardViewModel : BaseViewModel
     {
         get
         {
+            if (!this.EnablePaceAdjustment)
+            {
+                return null;
+            }
+
             var (nextReset, period) = ResolveRollingWindowInfo();
             if (nextReset == null || period == null || period.Value.TotalSeconds <= 0)
             {
@@ -252,6 +266,12 @@ public partial class ProviderCardViewModel : BaseViewModel
     partial void OnShowUsagePerHourChanged(bool value)
     {
         OnPropertyChanged(nameof(UsageRateBadgeText));
+    }
+
+    partial void OnEnablePaceAdjustmentChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ColorIndicatorPercent));
+        OnPropertyChanged(nameof(PaceBadgeText));
     }
 
     private void UpdatePresentation()
