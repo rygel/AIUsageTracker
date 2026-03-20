@@ -45,8 +45,8 @@ public class GitHubCopilotProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Rolling, "Weekly"),
-            new(WindowKind.Burst,   "5h"),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
         },
     };
 
@@ -437,7 +437,6 @@ public class GitHubCopilotProvider : ProviderBase
                         NextResetTime = state.ResetTime,
                         PercentageValue = usedPercent,
                         PercentageSemantic = PercentageValueSemantic.Used,
-                        PeriodDuration = TimeSpan.FromDays(7),
                     });
                 }
 
@@ -463,7 +462,6 @@ public class GitHubCopilotProvider : ProviderBase
                         QuotaBucketKind = WindowKind.Burst,
                         PercentageValue = uUsedPercent,
                         PercentageSemantic = PercentageValueSemantic.Used,
-                        PeriodDuration = TimeSpan.FromHours(5),
                     });
                 }
 

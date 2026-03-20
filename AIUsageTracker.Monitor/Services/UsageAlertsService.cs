@@ -111,15 +111,11 @@ public class UsageAlertsService
             return rawUsedPercent;
         }
 
-        // Prefer PeriodDuration from the provider usage row itself (set by synthetic-child
-        // expansion), then fall back to the first rolling-window detail that declares one.
-        var periodDuration = usage.PeriodDuration;
-        if (!periodDuration.HasValue && usage.Details != null)
-        {
-            periodDuration = usage.Details
-                .FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling && d.PeriodDuration.HasValue)
-                ?.PeriodDuration;
-        }
+        // Duration is declared in QuotaWindowDefinition — the single source of truth.
+        ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition);
+        var periodDuration = definition?.QuotaWindows
+            .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue)
+            ?.PeriodDuration;
 
         if (!periodDuration.HasValue)
         {

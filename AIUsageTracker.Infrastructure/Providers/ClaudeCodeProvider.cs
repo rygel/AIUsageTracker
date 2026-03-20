@@ -58,10 +58,10 @@ public class ClaudeCodeProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session"),
-            new(WindowKind.ModelSpecific, "Sonnet",  ChildProviderId: "claude-code.sonnet",          SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet"),
-            new(WindowKind.ModelSpecific, "Opus",    ChildProviderId: "claude-code.opus",            SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus"),
-            new(WindowKind.Rolling,       "7-day",   ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models"),
+            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.ModelSpecific, "Sonnet",  ChildProviderId: "claude-code.sonnet",          SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Opus",    ChildProviderId: "claude-code.opus",            SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling,       "7-day",   ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -270,7 +270,6 @@ public class ClaudeCodeProvider : ProviderBase
                 DetailType = ProviderUsageDetailType.Model,
                 QuotaBucketKind = WindowKind.Burst,
                 NextResetTime = response.FiveHour.ResetsAt,
-                PeriodDuration = TimeSpan.FromHours(5),
             };
             fiveHourDetail.SetPercentageValue(
                 response.FiveHour.Utilization,
@@ -321,7 +320,6 @@ public class ClaudeCodeProvider : ProviderBase
                 DetailType = ProviderUsageDetailType.Model,
                 QuotaBucketKind = WindowKind.Rolling,
                 NextResetTime = response.SevenDay.ResetsAt,
-                PeriodDuration = TimeSpan.FromDays(7),
             };
             sevenDayDetail.SetPercentageValue(
                 response.SevenDay.Utilization,
