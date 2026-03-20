@@ -1043,6 +1043,7 @@ public partial class MainWindow : Window
                 return;
             }
 
+            var cardRenderer = this.CreateProviderCardRenderer();
             UIElement? currentHeader = null;
             StackPanel? currentContainer = null;
             bool? currentIsQuota = null;
@@ -1093,11 +1094,11 @@ public partial class MainWindow : Window
                     continue;
                 }
 
-                this.AddProviderCard(usage, currentContainer);
+                this.AddProviderCard(usage, currentContainer, cardRenderer);
 
                 if (usage.Details?.Any() == true)
                 {
-                    this.AddCollapsibleSubProviders(usage, currentContainer);
+                    this.AddCollapsibleSubProviders(usage, currentContainer, cardRenderer);
                 }
             }
 
@@ -1246,188 +1247,23 @@ public partial class MainWindow : Window
         return (header, container);
     }
 
-    private void AddProviderCard(ProviderUsage usage, StackPanel container, bool isChild = false)
+    private ProviderCardRenderer CreateProviderCardRenderer()
     {
-        var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-        var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed);
-
-        // Main Grid Container - single row layout
-        var grid = new Grid
-        {
-            Margin = new Thickness(isChild ? 20 : 0, 0, 0, 2),
-            Height = 24,
-            Background = Brushes.Transparent,
-            Tag = providerId,
-        };
-
-        // Background Progress Bar
-        var pGrid = new Grid();
-
-        if (presentation.HasDualBuckets)
-        {
-            pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-
-            var primaryRow = this.CreateProgressLayer(presentation.DualBucketPrimaryUsed!.Value, showUsed, opacity: 0.55);
-            var secondaryRow = this.CreateProgressLayer(presentation.DualBucketSecondaryUsed!.Value, showUsed, opacity: 0.35);
-            Grid.SetRow(primaryRow, 0);
-            Grid.SetRow(secondaryRow, 1);
-            pGrid.Children.Add(primaryRow);
-            pGrid.Children.Add(secondaryRow);
-        }
-        else
-        {
-            var indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
-            var colorIndicatorPercent = ProviderPacePresentationCatalog.GetColorIndicatorPercent(
-                usage,
-                presentation.UsedPercent,
-                this._preferences.EnablePaceAdjustment);
-            pGrid = this.CreateSingleProgressLayer(colorIndicatorPercent, indicatorWidth, opacity: 0.45);
-        }
-
-        pGrid.Visibility = presentation.ShouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
-        grid.Children.Add(pGrid);
-
-        // Background for non-progress items
-        var bg = new Border
-        {
-            Background = this.GetResourceBrush("CardBackground", Brushes.DarkGray),
-            CornerRadius = new CornerRadius(0),
-            Visibility = presentation.ShouldHaveProgress ? Visibility.Collapsed : Visibility.Visible,
-        };
-        grid.Children.Add(bg);
-
-        // Content Overlay
-        var contentPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
-
-        // Provider icon or bullet for child items
-        if (isChild)
-        {
-            this.AddDockedElement(contentPanel, this.CreateBulletMarker(), Dock.Left);
-        }
-        else
-        {
-            // Provider icon for parent items
-            var providerIcon = this.EnsureIconService().CreateIcon(providerId);
-            providerIcon.Margin = new Thickness(0, 0, 6, 0); // Reduced margin for specific alignment
-            providerIcon.Width = 14;
-            providerIcon.Height = 14;
-            providerIcon.VerticalAlignment = VerticalAlignment.Center;
-            this.AddDockedElement(contentPanel, providerIcon, Dock.Left);
-        }
-
-        // Right Side: Usage/Status
-        var statusText = presentation.StatusText;
-        Brush statusBrush = presentation.StatusTone switch
-        {
-            ProviderCardStatusTone.Missing => Brushes.IndianRed,
-            ProviderCardStatusTone.Warning => Brushes.Orange,
-            ProviderCardStatusTone.Error => Brushes.Red,
-            _ => this.GetResourceBrush("SecondaryText", Brushes.Gray),
-        };
-
-        // Reset time display (if available) - shown with muted golden color
-        var resetBadgeText = this.BuildResetBadgeText(usage, presentation);
-        if (!string.IsNullOrWhiteSpace(resetBadgeText))
-        {
-            this.AddDockedElement(
-                contentPanel,
-                this.CreateDockedTextBlock(
-                    resetBadgeText,
-                    fontSize: 10,
-                    foreground: this.GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
-                    fontWeight: FontWeights.SemiBold,
-                    margin: new Thickness(10, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        var paceBadgeText = ProviderPacePresentationCatalog.GetPaceBadgeText(
-            usage,
-            presentation.UsedPercent,
-            this._preferences.EnablePaceAdjustment);
-        if (!string.IsNullOrWhiteSpace(paceBadgeText))
-        {
-            this.AddDockedElement(
-                contentPanel,
-                this.CreateDockedTextBlock(
-                    paceBadgeText,
-                    fontSize: 9,
-                    foreground: this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
-                    fontWeight: FontWeights.SemiBold,
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        // Usage rate badge (req/hr) — shown when preference is enabled and data is available
-        if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
-        {
-            this.AddDockedElement(
-                contentPanel,
-                this.CreateDockedTextBlock(
-                    $"{usage.UsagePerHour.Value:F1}/hr",
-                    fontSize: 9,
-                    foreground: this.GetResourceBrush("TertiaryText", Brushes.Gray),
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        // Right Side: Usage/Status - must be added last to Dock.Right to appear left of reset time
-        this.AddDockedElement(
-            contentPanel,
-            this.CreateDockedTextBlock(
-                statusText,
-                fontSize: 10,
-                foreground: statusBrush,
-                margin: new Thickness(10, 0, 0, 0)),
-            Dock.Right);
-
-        // Name (gets remaining space)
-        var accountName = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
-            providerId,
-            usage.AccountName,
-            this._isPrivacyMode);
-        this.AddDockedElement(
-            contentPanel,
-            this.CreateProviderNameTextBlock(
-                friendlyName,
-                accountName,
-                presentation.IsMissing,
-                isChild),
-            Dock.Left);
-
-        grid.Children.Add(contentPanel);
-
-        if (presentation.IsStale)
-        {
-            grid.Opacity = 0.65;
-        }
-
-        var toolTipContent = ProviderTooltipPresentationCatalog.BuildContent(usage, friendlyName);
-        if (!string.IsNullOrEmpty(toolTipContent))
-        {
-            grid.ToolTip = this.CreateTopmostAwareToolTip(grid, toolTipContent);
-            this.ConfigureCardToolTip(grid);
-        }
-
-        container.Children.Add(grid);
+        return new ProviderCardRenderer(
+            this._preferences,
+            this._isPrivacyMode,
+            this.GetResourceBrush,
+            providerId => this.EnsureIconService().CreateIcon(providerId),
+            this.CreateTopmostAwareToolTip,
+            this.ConfigureCardToolTip,
+            this.GetRelativeTimeString);
     }
 
-    private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
+    private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
     {
-        var resetTimes = ProviderResetBadgePresentationCatalog.ResolveResetTimes(
-            usage,
-            presentation.SuppressSingleResetTime);
-        if (resetTimes.Count == 0)
-        {
-            return null;
-        }
-
-        var resetParts = resetTimes
-            .Select(this.GetRelativeTimeString)
-            .ToList();
-        return $"({string.Join(" | ", resetParts)})";
+        var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
+        var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild);
+        container.Children.Add(card);
     }
 
     private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)
@@ -1456,177 +1292,21 @@ public partial class MainWindow : Window
         return toolTip;
     }
 
-    private void AddDockedElement(DockPanel panel, UIElement element, Dock dock)
-    {
-        panel.Children.Add(element);
-        DockPanel.SetDock(element, dock);
-    }
-
-    private TextBlock CreateDockedTextBlock(
-        string text,
-        double fontSize,
-        Brush foreground,
-        FontWeight? fontWeight = null,
-        Thickness? margin = null,
-        TextTrimming textTrimming = TextTrimming.None)
-    {
-        return new TextBlock
-        {
-            Text = text,
-            FontSize = fontSize,
-            Foreground = foreground,
-            FontWeight = fontWeight ?? FontWeights.Normal,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = margin ?? new Thickness(0),
-            TextTrimming = textTrimming,
-        };
-    }
-
-    private Border CreateBulletMarker()
-    {
-        return new Border
-        {
-            Width = 4,
-            Height = 4,
-            Background = this.GetResourceBrush("SecondaryText", Brushes.Gray),
-            CornerRadius = new CornerRadius(2),
-            Margin = new Thickness(2, 0, 10, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-    }
-
-    private TextBlock CreateProviderNameTextBlock(
-        string providerName,
-        string accountName,
-        bool isMissing,
-        bool isChild)
-    {
-        var primaryTextBrush = isMissing
-            ? this.GetResourceBrush("TertiaryText", Brushes.Gray)
-            : this.GetResourceBrush("PrimaryText", Brushes.White);
-        var secondaryTextBrush = this.GetResourceBrush("SecondaryText", Brushes.Gray);
-
-        var textBlock = new TextBlock
-        {
-            FontSize = 11,
-            Foreground = primaryTextBrush,
-            FontWeight = isChild ? FontWeights.Normal : FontWeights.SemiBold,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-
-        textBlock.Inlines.Add(new Run(providerName));
-
-        if (!string.IsNullOrWhiteSpace(accountName))
-        {
-            textBlock.Inlines.Add(new Run($" [{accountName}]")
-            {
-                Foreground = secondaryTextBrush,
-                FontWeight = FontWeights.Normal,
-                FontStyle = FontStyles.Italic,
-            });
-        }
-
-        return textBlock;
-    }
-
     private void ConfigureCardToolTip(FrameworkElement target)
     {
         ToolTipService.SetInitialShowDelay(target, 100);
         ToolTipService.SetShowDuration(target, 15000);
     }
 
-    private Grid CreateProgressLayer(double usedPercent, bool showUsed, double opacity)
+
+    private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container, ProviderCardRenderer cardRenderer)
     {
-        var remainingPercent = Math.Max(0, 100 - usedPercent);
-        var indicatorWidth = showUsed ? usedPercent : remainingPercent;
-        return this.CreateSingleProgressLayer(usedPercent, indicatorWidth, opacity);
+        var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
+        var subCard = cardRenderer.CreateSubProviderCard(usage, detail, showUsed);
+        container.Children.Add(subCard);
     }
 
-    private Grid CreateSingleProgressLayer(double usedPercent, double indicatorWidth, double opacity)
-    {
-        var clampedWidth = Math.Clamp(indicatorWidth, 0, 100);
-
-        var layer = new Grid();
-        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(clampedWidth, GridUnitType.Star) });
-        layer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0.001, 100 - clampedWidth), GridUnitType.Star) });
-
-        layer.Children.Add(new Border
-        {
-            Background = this.GetProgressBarColor(usedPercent),
-            Opacity = opacity,
-            CornerRadius = new CornerRadius(0),
-        });
-
-        return layer;
-    }
-
-    private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container)
-    {
-        // Compact sub-item (child provider detail)
-        var grid = new Grid
-        {
-            Margin = new Thickness(20, 0, 0, 2),
-            Height = 20,
-            Background = Brushes.Transparent,
-        };
-
-        var presentation = ProviderSubDetailPresentationCatalog.Create(
-            detail,
-            this.ShowUsedToggle?.IsChecked ?? false,
-            this.GetRelativeTimeString);
-
-        // Background Progress Bar (Miniature)
-        var pGrid = this.CreateSingleProgressLayer(presentation.UsedPercent, presentation.IndicatorWidth, opacity: 0.3);
-        if (presentation.HasProgress)
-        {
-            grid.Children.Add(pGrid);
-        }
-
-        // Content Overlay
-        var bulletPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
-
-        this.AddDockedElement(bulletPanel, this.CreateBulletMarker(), Dock.Left);
-
-        // Reset time on the right (if available) - shown in yellow
-        if (!string.IsNullOrEmpty(presentation.ResetText))
-        {
-            this.AddDockedElement(
-                bulletPanel,
-                this.CreateDockedTextBlock(
-                    presentation.ResetText,
-                    fontSize: 9,
-                    foreground: this.GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
-                    fontWeight: FontWeights.SemiBold,
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        // Value on the right
-        this.AddDockedElement(
-            bulletPanel,
-            this.CreateDockedTextBlock(
-                presentation.DisplayText,
-                fontSize: 10,
-                foreground: this.GetResourceBrush("TertiaryText", Brushes.Gray),
-                margin: new Thickness(10, 0, 0, 0)),
-            Dock.Right);
-
-        // Name on the left
-        this.AddDockedElement(
-            bulletPanel,
-            this.CreateDockedTextBlock(
-                detail.Name,
-                fontSize: 10,
-                foreground: this.GetResourceBrush("SecondaryText", Brushes.LightGray),
-                textTrimming: TextTrimming.CharacterEllipsis),
-            Dock.Left);
-
-        grid.Children.Add(bulletPanel);
-        container.Children.Add(grid);
-    }
-
-    private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container)
+    private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer)
     {
         if (usage.Details?.Any() != true)
         {
@@ -1666,7 +1346,7 @@ public partial class MainWindow : Window
             // Add sub-provider details
             foreach (var detail in displayableDetails)
             {
-                this.AddSubProviderCard(usage, detail, subContainer);
+                this.AddSubProviderCard(usage, detail, subContainer, cardRenderer);
             }
         }
     }
@@ -1691,24 +1371,6 @@ public partial class MainWindow : Window
         }
 
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
-    }
-
-    private Brush GetProgressBarColor(double usedPercentage)
-    {
-        var yellowThreshold = this._preferences.ColorThresholdYellow;
-        var redThreshold = this._preferences.ColorThresholdRed;
-
-        if (usedPercentage >= redThreshold)
-        {
-            return this.GetResourceBrush("ProgressBarRed", Brushes.Crimson);
-        }
-
-        if (usedPercentage >= yellowThreshold)
-        {
-            return this.GetResourceBrush("ProgressBarYellow", Brushes.Gold);
-        }
-
-        return this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
     }
 
     private void StartPollingTimer()
