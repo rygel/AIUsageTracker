@@ -10,6 +10,14 @@ namespace AIUsageTracker.Monitor.Services;
 
 public class DatabaseMigrationService
 {
+    private static readonly IReadOnlySet<string> AllowedMigrationTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "providers",
+        "provider_history",
+        "raw_snapshots",
+        "reset_events",
+    };
+
     private readonly string _connectionString;
     private readonly ILogger<DatabaseMigrationService> _logger;
 
@@ -104,8 +112,11 @@ public class DatabaseMigrationService
 
     private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
     {
+        if (!AllowedMigrationTables.Contains(tableName))
+            throw new ArgumentException($"Table '{tableName}' is not in the migration allowlist.", nameof(tableName));
+
         using var infoCommand = connection.CreateCommand();
-        infoCommand.CommandText = $"PRAGMA table_info({tableName});"; // sql-interpolation-allow — tableName is a hardcoded migration constant, never user input // nosemgrep: csharp.lang.security.sqli.csharp-sqli
+        infoCommand.CommandText = $"PRAGMA table_info({tableName});"; // sql-interpolation-allow — tableName validated against AllowedMigrationTables
 
         var exists = false;
         using (var reader = infoCommand.ExecuteReader())
@@ -125,7 +136,7 @@ public class DatabaseMigrationService
             return;
         }
 
-        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};"); // sql-interpolation-allow — tableName/columnName/definition are hardcoded migration constants, never user input
+        ExecuteNonQuery(connection, $"ALTER TABLE {tableName} ADD COLUMN {columnName} {definition};"); // sql-interpolation-allow — tableName validated against AllowedMigrationTables; columnName/definition are hardcoded call-site constants
     }
 
     private static void ExecuteNonQuery(SqliteConnection connection, string sql)
@@ -310,8 +321,11 @@ public class DatabaseMigrationService
 
     private static string? GetColumnType(SqliteConnection connection, string tableName, string columnName)
     {
+        if (!AllowedMigrationTables.Contains(tableName))
+            throw new ArgumentException($"Table '{tableName}' is not in the migration allowlist.", nameof(tableName));
+
         using var cmd = connection.CreateCommand();
-        cmd.CommandText = $"PRAGMA table_info({tableName})"; // sql-interpolation-allow — tableName is a hardcoded migration constant, never user input // nosemgrep: csharp.lang.security.sqli.csharp-sqli
+        cmd.CommandText = $"PRAGMA table_info({tableName})"; // sql-interpolation-allow — tableName validated against AllowedMigrationTables
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
         {
