@@ -28,10 +28,11 @@ jobs:
 
       - name: Calculate PR diff stats
         id: stats
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Get the base and head commits
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           
           # Calculate lines changed
           git fetch origin $BASE_SHA $HEAD_SHA
@@ -63,12 +64,17 @@ jobs:
       - name: Comment on large PR
         if: steps.stats.outputs.total_lines > 1000
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8
+        env:
+          TOTAL_LINES: ${{ steps.stats.outputs.total_lines }}
+          FILES_CHANGED: ${{ steps.stats.outputs.files_changed }}
+          INSERTIONS: ${{ steps.stats.outputs.insertions }}
+          DELETIONS: ${{ steps.stats.outputs.deletions }}
         with:
           script: |
-            const totalLines = ${{ steps.stats.outputs.total_lines }};
-            const filesChanged = ${{ steps.stats.outputs.files_changed }};
-            const insertions = ${{ steps.stats.outputs.insertions }};
-            const deletions = ${{ steps.stats.outputs.deletions }};
+            const totalLines = parseInt(process.env.TOTAL_LINES);
+            const filesChanged = parseInt(process.env.FILES_CHANGED);
+            const insertions = parseInt(process.env.INSERTIONS);
+            const deletions = parseInt(process.env.DELETIONS);
             const body = "⚠️ **Large PR Detected**\n\nThis PR contains **" + totalLines + " lines** changed across **" + filesChanged + " files**.\n\n**Details:**\n- 📁 Files changed: " + filesChanged + "\n- ➕ Insertions: " + insertions + "\n- ➖ Deletions: " + deletions + "\n- 📊 Total: " + totalLines + " lines\n\n**Recommendation:**\nConsider splitting this PR into smaller, focused changes to make review easier and faster. PRs under 500 lines are ideal for thorough code review.\n\n---\n*This is an automated message. Feel free to ignore if this PR is intentionally large.*";
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -80,9 +86,11 @@ jobs:
       - name: Add size label
         if: steps.stats.outputs.total_lines > 1000
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8
+        env:
+          TOTAL_LINES: ${{ steps.stats.outputs.total_lines }}
         with:
           script: |
-            const totalLines = ${{ steps.stats.outputs.total_lines }};
+            const totalLines = parseInt(process.env.TOTAL_LINES);
             
             // Determine size label
             let sizeLabel = '';

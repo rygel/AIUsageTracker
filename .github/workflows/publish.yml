@@ -86,8 +86,11 @@ jobs:
           echo "Version: $VERSION, Channel: $CHANNEL"
 
       - name: Generate Appcast Files
+        env:
+          VERSION: ${{ steps.extract.outputs.version }}
+          CHANNEL: ${{ steps.extract.outputs.channel }}
         run: |
-          bash scripts/generate-appcast.sh "${{ steps.extract.outputs.version }}" "${{ steps.extract.outputs.channel }}"
+          bash scripts/generate-appcast.sh "$VERSION" "$CHANNEL"
 
       - name: Upload Appcast Artifacts
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7
@@ -138,10 +141,13 @@ jobs:
 
       - name: Verify Release Artifacts
         shell: pwsh
+        env:
+          VERSION: ${{ steps.extract.outputs.version }}
+          CHANNEL: ${{ steps.extract.outputs.channel }}
         run: |
           ./scripts/verify-release-artifacts.ps1 `
-            -Version "${{ steps.extract.outputs.version }}" `
-            -Channel "${{ steps.extract.outputs.channel }}" `
+            -Version "$env:VERSION" `
+            -Channel "$env:CHANNEL" `
             -ArtifactsDir "artifacts" `
             -AppcastDir "appcast"
 
