@@ -34,7 +34,7 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@603b797f8b14b413fe025cd935a91c16c4782713  # v3
+        uses: github/codeql-action/init@c6f931105cb2c34c8f901cc885ba1e2e259cf745  # v4.34.0
         with:
           languages: csharp
           queries: security-and-quality
@@ -43,6 +43,6 @@ jobs:
         run: dotnet build AIUsageTracker.sln --configuration Release
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@603b797f8b14b413fe025cd935a91c16c4782713  # v3
+        uses: github/codeql-action/analyze@c6f931105cb2c34c8f901cc885ba1e2e259cf745  # v4.34.0
         with:
           category: codeql-csharp
