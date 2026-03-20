@@ -202,20 +202,26 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     private (DateTime? NextReset, TimeSpan? PeriodDuration) ResolveRollingWindowInfo()
     {
-        // Synthetic-child rows carry PeriodDuration directly on the ProviderUsage.
+        // Synthetic-child rows carry PeriodDuration directly on the ProviderUsage
+        // (set from the QuotaWindowDefinition by ProviderUsageDisplayCatalog).
         if (this.Usage.PeriodDuration.HasValue && this.Usage.NextResetTime.HasValue)
         {
             return (this.Usage.NextResetTime, this.Usage.PeriodDuration);
         }
 
-        // For regular providers, find the first rolling-window detail with timing data.
+        // For regular (non-synthetic) provider cards, look up the window duration from the
+        // provider's QuotaWindowDefinition — this is authoritative and never depends on
+        // JSON round-trip of per-detail PeriodDuration values.
+        ProviderMetadataCatalog.TryGet(this.ProviderId, out var definition);
+        var rollingWindow = definition?.QuotaWindows
+            .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue);
+        var catalogPeriod = rollingWindow?.PeriodDuration;
+
         var rollingDetail = this.Usage.Details?
-            .FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling
-                                 && d.PeriodDuration.HasValue
-                                 && d.NextResetTime.HasValue);
+            .FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling && d.NextResetTime.HasValue);
         if (rollingDetail != null)
         {
-            return (rollingDetail.NextResetTime, rollingDetail.PeriodDuration);
+            return (rollingDetail.NextResetTime, catalogPeriod ?? rollingDetail.PeriodDuration);
         }
 
         return (null, null);

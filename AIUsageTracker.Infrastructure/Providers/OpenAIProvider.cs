@@ -72,8 +72,8 @@ public class OpenAIProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,   "5h"),
-            new(WindowKind.Rolling, "Weekly"),
+            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -147,7 +147,6 @@ public class OpenAIProvider : ProviderBase
                 QuotaBucketKind = WindowKind.Burst,
                 PercentageValue = primaryRemaining,
                 PercentageSemantic = PercentageValueSemantic.Remaining,
-                PeriodDuration = TimeSpan.FromHours(5),
             });
         }
 
@@ -166,7 +165,6 @@ public class OpenAIProvider : ProviderBase
                 QuotaBucketKind = WindowKind.Rolling,
                 PercentageValue = secondaryRemaining,
                 PercentageSemantic = PercentageValueSemantic.Remaining,
-                PeriodDuration = TimeSpan.FromDays(7),
             });
         }
 

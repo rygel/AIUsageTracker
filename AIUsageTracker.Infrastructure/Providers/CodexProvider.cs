@@ -62,9 +62,9 @@ public class CodexProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h"),
-            new(WindowKind.Rolling,       "Weekly"),
-            new(WindowKind.ModelSpecific, "Spark"),
+            new(WindowKind.Burst,         "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling,       "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Spark",  PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -670,7 +670,6 @@ public class CodexProvider : ProviderBase
                 QuotaBucketKind = WindowKind.Burst,
                 PercentageValue = primaryRemaining,
                 PercentageSemantic = PercentageValueSemantic.Remaining,
-                PeriodDuration = TimeSpan.FromHours(5),
             },
         };
 
@@ -686,7 +685,6 @@ public class CodexProvider : ProviderBase
                 QuotaBucketKind = WindowKind.Rolling,
                 PercentageValue = secondaryRemaining,
                 PercentageSemantic = PercentageValueSemantic.Remaining,
-                PeriodDuration = TimeSpan.FromDays(7),
             });
         }
 
@@ -747,7 +745,6 @@ public class CodexProvider : ProviderBase
                 QuotaBucketKind = WindowKind.Burst,
                 PercentageValue = sparkOwnRemaining,
                 PercentageSemantic = PercentageValueSemantic.Remaining,
-                PeriodDuration = TimeSpan.FromHours(5),
             });
 
             // Add the Rolling (weekly) detail for the Spark model whenever ANY weekly data is
@@ -769,7 +766,6 @@ public class CodexProvider : ProviderBase
                     QuotaBucketKind = WindowKind.Rolling,
                     PercentageValue = weeklyRemainingForModel,
                     PercentageSemantic = PercentageValueSemantic.Remaining,
-                    PeriodDuration = TimeSpan.FromDays(7),
                 });
             }
         }
