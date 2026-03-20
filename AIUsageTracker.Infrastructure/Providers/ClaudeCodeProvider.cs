@@ -288,6 +288,7 @@ public class ClaudeCodeProvider : ProviderBase
                 DetailType = ProviderUsageDetailType.Model,
                 QuotaBucketKind = WindowKind.ModelSpecific,
                 NextResetTime = response.SevenDay?.ResetsAt,
+                PeriodDuration = TimeSpan.FromDays(7),
             };
             sonnetDetail.SetPercentageValue(
                 response.SevenDaySonnet.Utilization,
@@ -304,6 +305,7 @@ public class ClaudeCodeProvider : ProviderBase
                 DetailType = ProviderUsageDetailType.Model,
                 QuotaBucketKind = WindowKind.ModelSpecific,
                 NextResetTime = response.SevenDay?.ResetsAt,
+                PeriodDuration = TimeSpan.FromDays(7),
             };
             opusDetail.SetPercentageValue(
                 response.SevenDayOpus.Utilization,
