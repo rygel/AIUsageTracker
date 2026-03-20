@@ -23,6 +23,7 @@ public class MonitorService : IMonitorService
 
     private static readonly List<string> _diagnosticsLog = new();
     private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
+    private static readonly HttpClient _sharedHttpClientInstance = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
     private static HttpClient? _sharedHttpClient;
     private static long _usageRequestCount;
     private static long _usageErrorCount;
@@ -611,12 +612,7 @@ public class MonitorService : IMonitorService
 
     private static HttpClient GetOrCreateHttpClient()
     {
-        if (_sharedHttpClient == null)
-        {
-            _sharedHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-        }
-
-        return _sharedHttpClient;
+        return _sharedHttpClient ?? _sharedHttpClientInstance;
     }
 
     private static void RecordUsageTelemetry(TimeSpan duration, bool success)

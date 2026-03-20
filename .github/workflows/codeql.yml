@@ -1,0 +1,48 @@
+name: CodeQL
+
+# CodeQL performs deep semantic analysis and requires a full build (~30 min).
+# It runs weekly to catch newly published query findings against the existing
+# codebase, not on every PR (too slow to be a useful gate).
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"  # Weekly on Monday at 7 AM
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: CodeQL Analysis (C#)
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@603b797f8b14b413fe025cd935a91c16c4782713  # v3
+        with:
+          languages: csharp
+          queries: security-and-quality
+
+      - name: Build solution
+        run: dotnet build AIUsageTracker.sln --configuration Release
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@603b797f8b14b413fe025cd935a91c16c4782713  # v3
+        with:
+          category: codeql-csharp

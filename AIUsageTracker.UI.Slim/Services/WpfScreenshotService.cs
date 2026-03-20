@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim.Services;
 
-public class WpfScreenshotService : IScreenshotService
+public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
 {
     private const double ScreenshotScaleFactor = 2.0;
     private const double ScreenshotDpi = 96.0 * ScreenshotScaleFactor;

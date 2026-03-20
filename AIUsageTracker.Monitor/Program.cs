@@ -82,7 +82,10 @@ public class Program
                 logger.LogError(ex, "Log rotation error");
             }
 
-            logger.LogInformation("=== Monitor starting ===");
+            var monitorVersion = System.Reflection.CustomAttributeExtensions
+                .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(Program).Assembly)
+                ?.InformationalVersion ?? "unknown";
+            logger.LogInformation("=== Monitor starting === (v{Version})", monitorVersion);
 
             // Machine-wide mutex to prevent concurrent launches
             string mutexName = @"Global\AIUsageTracker_Monitor_" + Environment.UserName;
@@ -120,6 +123,7 @@ public class Program
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
                 logger.LogInformation("  AIUsageTracker.Monitor - DEBUG MODE");
                 logger.LogInformation("═══════════════════════════════════════════════════════════════");
+                logger.LogInformation("  Version:    {Version}", monitorVersion);
                 logger.LogInformation("  Started:    {StartedAt}", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture));
                 logger.LogInformation("  Process ID: {ProcessId}", Environment.ProcessId);
                 logger.LogInformation("  Working Dir: {WorkingDir}", Directory.GetCurrentDirectory());

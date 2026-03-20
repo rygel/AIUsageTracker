@@ -70,7 +70,7 @@ public class ProviderConnectivityCheckServiceTests
     }
 
     [Fact]
-    public async Task EvaluateAsync_WhenNoUsageReturned_ReturnsNotFoundAsync()
+    public async Task EvaluateAsync_WhenNoUsageReturned_ReturnsServiceUnavailableAsync()
     {
         var service = this.CreateService();
         this._pipeline
@@ -85,7 +85,9 @@ public class ProviderConnectivityCheckServiceTests
 
         var result = await service.EvaluateAsync("openai", []);
 
-        Assert.Equal((false, "No usage data returned", 404), result);
+        Assert.False(result.Success);
+        Assert.Equal(503, result.Status);
+        Assert.Contains("no usage data", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

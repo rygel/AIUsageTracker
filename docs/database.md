@@ -56,9 +56,14 @@ Before introducing any new destructive behavior (`DELETE`, `DROP`, truncation, o
 
 ## Table 2: provider_history
 
-**Purpose:** Processed time-series usage data for analytics.
+**Purpose:** Processed time-series usage data for analytics. Each row represents a **meaningful state change** for a provider; rows where nothing changed are not inserted (see [Write Deduplication](#write-deduplication) below).
 
-**Retention:** **Indefinite** (kept forever for historical analysis).
+**Retention:** Managed automatically by two complementary mechanisms:
+
+1. **Write deduplication** — a new row is only inserted when at least one meaningful field changes. When data is unchanged the existing row's `fetched_at` is updated in-place instead.
+2. **Periodic compaction** — once per day, older rows are downsampled: 7–90 days → 1 row/hour/provider; >90 days → 1 row/day/provider. A `VACUUM` follows to reclaim disk space.
+
+See [ADR-004](adr/004-provider-history-write-dedup-and-compaction.md) for the full design rationale.
 
 ### Columns
 
@@ -72,7 +77,7 @@ Before introducing any new destructive behavior (`DELETE`, `DROP`, truncation, o
 | `is_available` | INTEGER | NOT NULL | 1 = success, 0 = error |
 | `status_message` | TEXT | NOT NULL | Human-readable status |
 | `next_reset_time` | TEXT | NULL | When quota resets |
-| `fetched_at` | TEXT | NOT NULL | ISO 8601 timestamp |
+| `fetched_at` | TEXT | NOT NULL | ISO 8601 — last time this data was **confirmed current** (updated on every successful poll, even when data is unchanged) |
 | `details_json` | TEXT | NULL | Optional model/sub-provider details |
 
 ### Indexes
@@ -263,6 +268,38 @@ Returns processed history from `provider_history`.
 GET /api/raw/{providerId}?limit=50
 ```
 Returns raw JSON snapshots (last 14 days only).
+
+## Write Deduplication
+
+The monitor refreshes every ~5 minutes. To avoid storing thousands of identical rows, `StoreHistoryAsync` compares each incoming reading against the last stored row for that provider before deciding whether to write.
+
+**A new row is inserted only when at least one of these fields has changed:**
+
+| Field | Why it matters |
+|---|---|
+| `requests_used` | Core quota metric |
+| `requests_available` | Core quota metric |
+| `is_available` | Provider going down/up is always meaningful |
+| `status_message` | Error messages carry diagnostic information |
+| `next_reset_time` | Quota reset timestamp change must be recorded |
+| `details_json` | Sub-quota window state (spark, daily, hourly, etc.) |
+| `http_status` | 200 → 429 / 5xx is a meaningful state change |
+
+**When the data is unchanged**, `fetched_at` on the existing last row is updated to the current time (`UPDATE provider_history SET fetched_at = @now WHERE id = @id`). This keeps the stale-data detector seeing a fresh timestamp even though no new row was written — see [ADR-004](adr/004-provider-history-write-dedup-and-compaction.md).
+
+`response_latency_ms` and `requests_percentage` are intentionally **not** compared — latency varies per network call, and percentage is derived from used/available.
+
+## Periodic Compaction
+
+Once per day (on the first refresh after each app restart, then every 23 hours), the monitor downsamples old history to bound long-term growth:
+
+| Age of row | Resolution kept |
+|---|---|
+| Last 7 days | Full (~5 min) — untouched |
+| 7 – 90 days | 1 row per hour per provider |
+| Older than 90 days | 1 row per day per provider |
+
+The most recent row of each bucket (`MAX(id)`) is kept. A `VACUUM` follows to reclaim freed pages and shrink the file on disk. The operation is rate-limited to once per day to avoid running the heavy DELETE+VACUUM path on every 5-minute refresh.
 
 ## Runtime Tuning (SQLite)
 

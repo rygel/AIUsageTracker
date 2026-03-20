@@ -1,4 +1,4 @@
-// <copyright file="DeepSeekProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="DeepSeekProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -31,11 +31,13 @@ public class DeepSeekProvider : ProviderBase
         defaultConfigType: "pay-as-you-go")
     {
         IncludeInWellKnownProviders = true,
+        ShowInSettings = false,
         DiscoveryEnvironmentVariables = new[] { "DEEPSEEK_API_KEY" },
         RooConfigPropertyNames = new[] { "deepseekApiKey" },
+        IsCurrencyUsage = true,
         IconAssetName = "deepseek",
-        FallbackBadgeColorHex = "#00BFFF",
-        FallbackBadgeInitial = "DS",
+        BadgeColorHex = "#00BFFF",
+        BadgeInitial = "DS",
     };
 
     public override ProviderDefinition Definition => StaticDefinition;
@@ -50,16 +52,13 @@ public class DeepSeekProvider : ProviderBase
             {
                 this.CreateUnavailableUsage(
                 "API Key missing",
-                planType: PlanType.Usage,
-                isQuotaBased: false,
                 state: ProviderUsageState.Missing),
             };
         }
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.deepseek.com/user/balance");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://api.deepseek.com/user/balance", config.ApiKey);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
@@ -77,8 +76,8 @@ public class DeepSeekProvider : ProviderBase
                     ProviderName = this.Definition.DisplayName ?? this.ProviderId,
                     IsAvailable = true, // Key exists, just failed request
                     Description = $"API Error ({response.StatusCode})",
-                    PlanType = PlanType.Usage,
-                    IsQuotaBased = false,
+                    PlanType = this.Definition.PlanType,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
                     HttpStatus = (int)response.StatusCode,
                     UsedPercent = 0,
                     RequestsUsed = 0,
@@ -88,16 +87,14 @@ public class DeepSeekProvider : ProviderBase
                 };
             }
 
-            var result = JsonSerializer.Deserialize<DeepSeekBalanceResponse>(content);
+            var result = DeserializeJsonOrDefault<DeepSeekBalanceResponse>(content);
 
             if (result == null)
             {
                 return new[]
                 {
                     this.CreateUnavailableUsage(
-                    "Failed to parse DeepSeek response",
-                    planType: PlanType.Usage,
-                    isQuotaBased: false),
+                    "Failed to parse DeepSeek response"),
                 };
             }
 
@@ -131,14 +128,13 @@ public class DeepSeekProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "DeepSeek",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = true,
                 UsedPercent = 0,
                 RequestsUsed = 0,
                 RequestsAvailable = 0,
-                IsCurrencyUsage = true,
-                IsQuotaBased = false,
-                PlanType = PlanType.Usage,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = mainDescription,
                 Details = details,
                 RawJson = content,

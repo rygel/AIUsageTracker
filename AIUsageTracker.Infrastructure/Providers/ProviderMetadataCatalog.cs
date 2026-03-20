@@ -65,39 +65,20 @@ public static class ProviderMetadataCatalog
     {
         if (TryGet(providerId, out var definition))
         {
-            var isDerivedProviderId = !string.Equals(
-                providerId,
-                definition.ProviderId,
-                StringComparison.OrdinalIgnoreCase);
-            var mapped = definition.ResolveDisplayName(providerId);
-
-            if (!string.IsNullOrWhiteSpace(mapped) &&
-                (!isDerivedProviderId ||
-                 definition.PreferDisplayNameOverridesForDerivedProviderIds ||
-                 string.IsNullOrWhiteSpace(runtimeLabel)))
-            {
-                return mapped;
-            }
-
-            if (isDerivedProviderId && !string.IsNullOrWhiteSpace(runtimeLabel))
+            // For derived provider IDs (e.g. "claude-code.sonnet"), prefer the runtime label
+            // set by the provider unless the definition explicitly declares name overrides for
+            // derived IDs. For canonical provider IDs, the definition is always authoritative.
+            var isDerived = !string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
+            if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel) && !definition.PreferDisplayNameOverridesForDerivedProviderIds)
             {
                 return runtimeLabel;
             }
 
-            if (!string.IsNullOrWhiteSpace(mapped))
-            {
-                return mapped;
-            }
-
-            return definition.DisplayName;
+            var mapped = definition.ResolveDisplayName(providerId);
+            return !string.IsNullOrWhiteSpace(mapped) ? mapped : definition.DisplayName;
         }
 
-        if (!string.IsNullOrWhiteSpace(runtimeLabel))
-        {
-            return runtimeLabel;
-        }
-
-        return providerId ?? string.Empty;
+        return !string.IsNullOrWhiteSpace(runtimeLabel) ? runtimeLabel : (providerId ?? string.Empty);
     }
 
     public static string GetDerivedModelDisplayName(string providerId, string modelName)
@@ -232,21 +213,21 @@ public static class ProviderMetadataCatalog
             : canonicalProviderId;
     }
 
-    public static bool TryGetFallbackBadgeDefinition(string providerId, out string colorHex, out string initial)
+    public static bool TryGetBadgeDefinition(string providerId, out string colorHex, out string initial)
     {
         var canonicalProviderId = GetCanonicalProviderId(providerId);
         colorHex = string.Empty;
         initial = string.Empty;
 
         if (!TryGet(canonicalProviderId, out var definition) ||
-            string.IsNullOrWhiteSpace(definition.FallbackBadgeColorHex) ||
-            string.IsNullOrWhiteSpace(definition.FallbackBadgeInitial))
+            string.IsNullOrWhiteSpace(definition.BadgeColorHex) ||
+            string.IsNullOrWhiteSpace(definition.BadgeInitial))
         {
             return false;
         }
 
-        colorHex = definition.FallbackBadgeColorHex;
-        initial = definition.FallbackBadgeInitial;
+        colorHex = definition.BadgeColorHex;
+        initial = definition.BadgeInitial;
         return true;
     }
 

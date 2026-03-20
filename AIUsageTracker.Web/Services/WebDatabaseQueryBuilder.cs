@@ -24,27 +24,37 @@ internal static class WebDatabaseQueryBuilder
 
     public static string BuildHistoryQuery(int limit)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
         return $@"
             SELECT h.*, p.provider_name as ProviderName
             FROM provider_history h
             JOIN providers p ON h.provider_id = p.provider_id
             ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
+            LIMIT {limit}"; // sql-interpolation-allow — limit is a bounds-validated integer (ThrowIfNegativeOrZero / ThrowIfGreaterThan)
     }
 
     public static string BuildProviderHistoryQuery(int limit)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
         return $@"
             SELECT h.*, p.provider_name as ProviderName
             FROM provider_history h
             JOIN providers p ON h.provider_id = p.provider_id
             WHERE h.provider_id = @ProviderId
             ORDER BY h.fetched_at DESC
-            LIMIT {limit}";
+            LIMIT {limit}"; // sql-interpolation-allow — limit is a bounds-validated integer (ThrowIfNegativeOrZero / ThrowIfGreaterThan)
     }
 
     public static string BuildExportHistoryQuery(int limit)
     {
+        if (limit < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), "Limit must be 0 (no limit) or a positive value.");
+        }
+
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100_000);
         var sql = @"
             SELECT h.*, p.provider_name as ProviderName
             FROM provider_history h
@@ -53,7 +63,7 @@ internal static class WebDatabaseQueryBuilder
 
         if (limit > 0)
         {
-            sql += $" LIMIT {limit}";
+            sql += $" LIMIT {limit}"; // sql-interpolation-allow — limit is a bounds-validated integer (ThrowIfGreaterThan)
         }
 
         return sql;

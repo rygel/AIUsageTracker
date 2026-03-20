@@ -1,4 +1,4 @@
-// <copyright file="MistralProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="MistralProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -33,9 +33,10 @@ public class MistralProvider : ProviderBase
         defaultConfigType: "pay-as-you-go")
     {
         RooConfigPropertyNames = new[] { "mistralApiKey" },
+        IsStatusOnly = true,
         IconAssetName = "mistral",
-        FallbackBadgeColorHex = "#FF4500",
-        FallbackBadgeInitial = "Mi",
+        BadgeColorHex = "#FF4500",
+        BadgeInitial = "Mi",
     };
 
     /// <inheritdoc/>
@@ -63,8 +64,7 @@ public class MistralProvider : ProviderBase
         // We verify the key works by calling the models list endpoint
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.mistral.ai/v1/models");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://api.mistral.ai/v1/models", apiKey);
 
             var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -79,10 +79,9 @@ public class MistralProvider : ProviderBase
                     ProviderName = this.Definition.DisplayName,
                     IsAvailable = true,
                     UsedPercent = 0,
-                    IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     Description = "Connected (Check Dashboard)",
-                    IsStatusOnly = true,
                     RawJson = content,
                     HttpStatus = (int)response.StatusCode,
                 },

@@ -147,7 +147,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             .Select(item => item.Config.ProviderId)
             .ToArray();
 
-        Assert.Equal(new[] { "deepseek", "codex", "codex.spark" }, orderedIds);
+        Assert.Equal(new[] { "codex", "codex.spark" }, orderedIds);
     }
 
     [Fact]

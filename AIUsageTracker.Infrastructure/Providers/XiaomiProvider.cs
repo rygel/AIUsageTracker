@@ -1,4 +1,4 @@
-// <copyright file="XiaomiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="XiaomiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -32,8 +32,8 @@ public class XiaomiProvider : ProviderBase
         IncludeInWellKnownProviders = true,
         DiscoveryEnvironmentVariables = new[] { "XIAOMI_API_KEY", "MIMO_API_KEY" },
         IconAssetName = "xiaomi",
-        FallbackBadgeColorHex = "#FFA500",
-        FallbackBadgeInitial = "Xi",
+        BadgeColorHex = "#FFA500",
+        BadgeInitial = "Xi",
     };
 
     public override ProviderDefinition Definition => StaticDefinition;
@@ -49,10 +49,10 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Xiaomi",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = false,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = "API Key missing",
                 State = ProviderUsageState.Missing,
             },
@@ -62,14 +62,13 @@ public class XiaomiProvider : ProviderBase
         try
         {
             // Endpoint based on research/best-guess
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.xiaomimimo.com/v1/user/balance");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://api.xiaomimimo.com/v1/user/balance", config.ApiKey);
 
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-            var data = JsonSerializer.Deserialize<XiaomiResponse>(content);
+            var data = DeserializeJsonOrDefault<XiaomiResponse>(content);
 
             if (data == null || data.Data == null)
             {
@@ -90,12 +89,12 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Xiaomi",
+                ProviderName = this.Definition.DisplayName,
                 UsedPercent = usedPercent,
                 RequestsUsed = used,
                 RequestsAvailable = quota > 0 ? quota : balance,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 IsAvailable = true,
                 Description = quota > 0
                     ? $"{balance} remaining / {quota} total"
@@ -113,10 +112,10 @@ public class XiaomiProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = config.ProviderId,
-                ProviderName = "Xiaomi",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = false,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = $"Error: {ex.Message}",
             },
             };

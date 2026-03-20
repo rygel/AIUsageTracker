@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim.Services;
 
-public class WpfTrayIconService : ITrayIconService
+public class WpfTrayIconService : ITrayIconService, IWpfTrayIconService
 {
     private TaskbarIcon? _trayIcon;
     private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new();

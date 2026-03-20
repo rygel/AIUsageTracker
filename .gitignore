@@ -494,3 +494,4 @@ nul
 
 # CI Artifacts
 ci_screenshots/
+.claude/worktrees/

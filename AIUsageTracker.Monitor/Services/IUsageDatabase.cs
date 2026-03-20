@@ -18,6 +18,8 @@ public interface IUsageDatabase
 
     Task CleanupOldSnapshotsAsync();
 
+    Task CompactHistoryAsync();
+
     Task OptimizeAsync();
 
     Task StoreResetEventAsync(string providerId, string providerName, double? previousUsage, double? newUsage, string resetType);

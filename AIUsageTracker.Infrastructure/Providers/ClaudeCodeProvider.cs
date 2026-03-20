@@ -1,4 +1,4 @@
-// <copyright file="ClaudeCodeProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="ClaudeCodeProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -46,8 +46,8 @@ public class ClaudeCodeProvider : ProviderBase
         FamilyMode = ProviderFamilyMode.SyntheticAggregateChildren,
         DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         IconAssetName = "anthropic",
-        FallbackBadgeColorHex = "#FFA500",
-        FallbackBadgeInitial = "C",
+        BadgeColorHex = "#FFA500",
+        BadgeInitial = "C",
         AuthIdentityCandidatePathTemplates = new[]
         {
             "%USERPROFILE%\\.claude\\.credentials.json",
@@ -58,10 +58,10 @@ public class ClaudeCodeProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session"),
-            new(WindowKind.ModelSpecific, "Sonnet",  ChildProviderId: "claude-code.sonnet",          SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet"),
-            new(WindowKind.ModelSpecific, "Opus",    ChildProviderId: "claude-code.opus",            SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus"),
-            new(WindowKind.Rolling,       "7-day",   ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models"),
+            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.ModelSpecific, "Sonnet",  ChildProviderId: "claude-code.sonnet",          SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Opus",    ChildProviderId: "claude-code.opus",            SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling,       "7-day",   ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -82,13 +82,13 @@ public class ClaudeCodeProvider : ProviderBase
                 new ProviderUsage
             {
                 ProviderId = this.ProviderId,
-                ProviderName = "Claude Code",
+                ProviderName = this.Definition.DisplayName,
                 IsAvailable = false,
                 Description = "No API key configured",
                 State = ProviderUsageState.Missing,
                 IsStatusOnly = true,
                 IsQuotaBased = true,
-                PlanType = PlanType.Usage,
+                PlanType = this.Definition.PlanType,
                 RawJson = "{\"source\":\"claude-code\",\"status\":\"api_key_missing\"}",
                 HttpStatus = 401,
             },
@@ -193,8 +193,7 @@ public class ClaudeCodeProvider : ProviderBase
 
     private async Task<(System.Net.HttpStatusCode StatusCode, string Body)> SendOAuthRequestAsync(string accessToken)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, OAuthUsageEndpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        var request = CreateBearerRequest(HttpMethod.Get, OAuthUsageEndpoint, accessToken);
         request.Headers.Add("anthropic-beta", OAuthBetaHeader);
 
         using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
@@ -339,12 +338,12 @@ public class ClaudeCodeProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = "Claude Code",
+            ProviderName = this.Definition.DisplayName,
             UsedPercent = mainPercent,
             RequestsUsed = mainPercent,
             RequestsAvailable = 100,
             IsQuotaBased = true,
-            PlanType = PlanType.Coding,
+            PlanType = this.Definition.PlanType,
             IsAvailable = true,
             Description = description,
             Details = details,
@@ -418,12 +417,12 @@ public class ClaudeCodeProvider : ProviderBase
                 return new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Claude Code",
+                    ProviderName = this.Definition.DisplayName,
                     UsedPercent = usagePercentage,
                     RequestsUsed = 0, // Anthropic doesn't provide cost via API
                     RequestsAvailable = 0,
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
+                    PlanType = this.Definition.PlanType,
                     IsAvailable = true,
                     Description = description,
                     Details = tooltipDetails,
@@ -507,12 +506,12 @@ public class ClaudeCodeProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = "Claude Code",
+                        ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsStatusOnly = true,
                         IsQuotaBased = false,
-                        PlanType = PlanType.Usage,
+                        PlanType = this.Definition.PlanType,
                         RawJson = "{\"source\":\"claude-cli\",\"status\":\"process_start_failed\"}",
                         HttpStatus = 503,
                     },
@@ -544,12 +543,12 @@ public class ClaudeCodeProvider : ProviderBase
                         new ProviderUsage
                     {
                         ProviderId = this.ProviderId,
-                        ProviderName = "Claude Code",
+                        ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         Description = "Connected (API key configured)",
                         IsStatusOnly = true,
                         IsQuotaBased = false,
-                        PlanType = PlanType.Usage,
+                        PlanType = this.Definition.PlanType,
                         RawJson = string.IsNullOrWhiteSpace(error) ? "{\"source\":\"claude-cli\",\"status\":\"failed\"}" : error,
                         HttpStatus = 500,
                     },
@@ -568,12 +567,12 @@ public class ClaudeCodeProvider : ProviderBase
                     new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Claude Code",
+                    ProviderName = this.Definition.DisplayName,
                     IsAvailable = true,
                     Description = "Connected (API key configured)",
                     IsStatusOnly = true,
                     IsQuotaBased = false,
-                    PlanType = PlanType.Usage,
+                    PlanType = this.Definition.PlanType,
                     RawJson = ex.ToString(),
                     HttpStatus = 500,
                 },
@@ -615,13 +614,13 @@ public class ClaudeCodeProvider : ProviderBase
         return new ProviderUsage
         {
             ProviderId = this.ProviderId,
-            ProviderName = "Claude Code",
+            ProviderName = this.Definition.DisplayName,
             UsedPercent = Math.Min(usagePercentage, 100),
             RequestsUsed = currentUsage,
             RequestsAvailable = budgetLimit,
             IsCurrencyUsage = true,
             IsQuotaBased = false,
-            PlanType = PlanType.Usage,
+            PlanType = this.Definition.PlanType,
             IsAvailable = true,
             Description = budgetLimit > 0
                 ? $"${currentUsage.ToString("F2", CultureInfo.InvariantCulture)} used of ${budgetLimit.ToString("F2", CultureInfo.InvariantCulture)} limit"

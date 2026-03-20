@@ -1,13 +1,20 @@
 name: Slim Screenshot Baseline
 
+# Behaviour split by event type:
+#   push / workflow_dispatch → generate fresh screenshots on windows-2025 and open a PR
+#            targeting the same branch.  The PR's screenshot check runs in comparison
+#            mode and passes (same OS, same build), so it can be merged immediately.
+#   pull_request → compare freshly-generated screenshots against the committed baselines
+#            and fail on regressions > 1% pixel error.  This is the regression gate.
+
 on:
   push:
     branches: [ main, develop ]
     paths:
       - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Tests/UI/ScreenshotBaselineTests.cs"
       - "scripts/capture_screenshot.ps1"
       - "scripts/generate_screenshots.ps1"
-      - "scripts/verify_screenshot_baseline.ps1"
       - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
@@ -16,9 +23,9 @@ on:
     branches: [ main, develop ]
     paths:
       - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.Tests/UI/ScreenshotBaselineTests.cs"
       - "scripts/capture_screenshot.ps1"
       - "scripts/generate_screenshots.ps1"
-      - "scripts/verify_screenshot_baseline.ps1"
       - "scripts/verify_slim_theme_smoke.ps1"
       - "docs/screenshot_*_privacy.png"
       - ".github/workflows/slim-screenshot-baseline.yml"
@@ -30,7 +37,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   screenshot-baseline:
@@ -38,10 +46,11 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        # zizmor: ignore[artipacked] — credentials required to push the baseline-update branch
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Setup .NET with Cache
         uses: ./.github/actions/setup-dotnet-cache
@@ -55,30 +64,96 @@ jobs:
       - name: Build Slim UI
         run: dotnet build AIUsageTracker.UI.Slim\AIUsageTracker.UI.Slim.csproj --configuration Debug --no-restore
 
-      - name: Generate Slim UI screenshots (headless)
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\capture_screenshot.ps1 -Configuration Debug -SkipBuild
-        shell: pwsh
+      - name: Restore test dependencies
+        run: dotnet restore AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+
+      - name: Build tests
+        run: dotnet build AIUsageTracker.Tests\AIUsageTracker.Tests.csproj --configuration Debug --no-restore
 
       - name: Verify Slim themes render in headless mode
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_slim_theme_smoke.ps1 -Configuration Debug -SkipBuild
         shell: pwsh
 
-      - name: Verify screenshot baselines
-        if: false # Disabled due to non-deterministic WPF rendering causing CI failures
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_screenshot_baseline.ps1
+      # ── Push / dispatch path: open a PR with refreshed baselines ──────────────
+      # Screenshots are generated directly into docs/ then committed to a new branch.
+      # The resulting PR runs the comparison check (PR mode below) which passes because
+      # both baseline and candidate come from the same windows-2025 runner.
+
+      - name: Generate fresh screenshots
+        if: github.event_name != 'pull_request'
+        run: >
+          powershell -NoProfile -ExecutionPolicy Bypass
+          -File .\scripts\capture_screenshot.ps1
+          -Configuration Debug -SkipBuild
         shell: pwsh
 
-      - name: Upload Slim UI screenshots
+      - name: Open baseline-update PR if screenshots changed
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Safe: push/dispatch events only fire on main/develop (branch names are not user-controlled).
+          # Passed as env vars rather than inline ${{ }} expansions to satisfy zizmor template-injection audit.
+          CI_BASE_BRANCH: ${{ github.ref_name }}
+          CI_RUN_ID: ${{ github.run_id }}
+          CI_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshot_*_privacy.png
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Baselines unchanged — no PR needed."
+            exit 0
+          }
+          $count = (git diff --cached --name-only | Measure-Object -Line).Lines
+          $branch = "chore/update-screenshot-baselines-$env:CI_RUN_ID"
+          $base   = $env:CI_BASE_BRANCH
+          git checkout -b $branch
+          git commit -m "chore: update $count screenshot baseline(s) from CI (windows-2025)"
+          git push origin $branch
+          gh pr create `
+            --title "chore: update $count screenshot baseline(s) from CI (windows-2025)" `
+            --body "Automated baseline refresh captured on ``windows-2025`` by [run $env:CI_RUN_ID]($env:CI_RUN_URL).`n`nThe screenshot comparison check on this PR will pass — both baselines and candidates are rendered on the same runner OS." `
+            --base $base `
+            --head $branch
+        shell: pwsh
+
+      # ── Pull-request path: compare candidate screenshots against committed baselines ──
+
+      - name: Copy baseline screenshots
+        if: github.event_name == 'pull_request'
+        run: |
+          $baselineDir = "$env:RUNNER_TEMP\screenshot-baseline"
+          New-Item -ItemType Directory -Force -Path $baselineDir | Out-Null
+          Copy-Item docs\screenshot_*_privacy.png $baselineDir
+          Write-Host "Baselines copied to $baselineDir"
+        shell: pwsh
+
+      - name: Generate fresh screenshots (to candidate dir)
+        if: github.event_name == 'pull_request'
+        run: |
+          $candidateDir = "$env:RUNNER_TEMP\screenshot-candidate"
+          New-Item -ItemType Directory -Force -Path $candidateDir | Out-Null
+          powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\capture_screenshot.ps1 `
+            -Configuration Debug -SkipBuild -OutputDir $candidateDir
+        shell: pwsh
+
+      - name: Compare screenshots against baseline (perceptual, 1% tolerance)
+        if: github.event_name == 'pull_request'
+        env:
+          SCREENSHOT_BASELINE_DIR: ${{ runner.temp }}\screenshot-baseline
+          SCREENSHOT_CANDIDATE_DIR: ${{ runner.temp }}\screenshot-candidate
+        run: >
+          dotnet test AIUsageTracker.Tests\AIUsageTracker.Tests.csproj
+          --no-build --configuration Debug
+          --filter "Category=Screenshot"
+          --logger "console;verbosity=normal"
+
+      - name: Upload screenshots and diffs on failure
         if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7
         with:
-          name: slim-ui-screenshots
+          name: slim-ui-screenshot-diff
           path: |
-            docs/screenshot_dashboard_privacy.png
-            docs/screenshot_settings_privacy.png
-            docs/screenshot_settings_providers_privacy.png
-            docs/screenshot_settings_layout_privacy.png
-            docs/screenshot_settings_history_privacy.png
-            docs/screenshot_settings_agent_privacy.png
-            docs/screenshot_info_privacy.png
-            docs/screenshot_context_menu_privacy.png
+            ${{ runner.temp }}/screenshot-baseline/*.png
+            ${{ runner.temp }}/screenshot-candidate/*.png

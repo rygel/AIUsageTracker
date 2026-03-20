@@ -1,0 +1,52 @@
+name: Semgrep
+
+# Semgrep is fast and pattern-based — a good PR gate for catching new
+# C# mistakes, OWASP Top 10 patterns, and hardcoded secrets as they enter.
+# Weekly schedule picks up newly published rules against the full codebase.
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - "**/*.cs"
+      - ".github/workflows/semgrep.yml"
+  schedule:
+    - cron: "0 8 * * 1"  # Weekly on Monday at 8 AM
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          persist-credentials: false
+
+      - name: Run Semgrep
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d  # v1
+        with:
+          config: >-
+            p/csharp
+            p/secrets
+            p/owasp-top-ten
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@603b797f8b14b413fe025cd935a91c16c4782713  # v3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep

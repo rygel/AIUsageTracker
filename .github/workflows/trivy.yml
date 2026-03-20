@@ -1,0 +1,57 @@
+name: Trivy
+
+# Split by concern:
+#   pull_request — secrets scan only (fast, blocks secrets entering the codebase)
+#   schedule     — full scan including vulnerabilities (Dependabot handles routine
+#                  NuGet updates; weekly Trivy catches new CVEs in existing deps
+#                  and refreshes the secret-pattern DB)
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - "**/*.cs"
+      - "**/*.csproj"
+      - "**/*.json"
+      - "**/*.yml"
+      - "**/*.yaml"
+      - ".github/workflows/trivy.yml"
+  schedule:
+    - cron: "0 9 * * 1"  # Weekly on Monday at 9 AM
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  trivy:
+    name: Trivy Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          persist-credentials: false
+
+      - name: Run Trivy (secrets on PRs; secrets + vulns on schedule)
+        uses: aquasecurity/trivy-action@9c000ba9d482773cbbc2c3544d61b109bc9eb832  # v0.29.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: ${{ github.event_name == 'pull_request' && 'secret' || 'secret,vuln' }}
+          severity: CRITICAL,HIGH,MEDIUM
+          format: sarif
+          output: trivy.sarif
+
+      - name: Upload SARIF results
+        if: always()
+        uses: github/codeql-action/upload-sarif@603b797f8b14b413fe025cd935a91c16c4782713  # v3
+        with:
+          sarif_file: trivy.sarif
+          category: trivy

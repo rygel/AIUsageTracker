@@ -56,6 +56,7 @@ internal static class ProviderRefreshServiceFactory
             new StartupSequenceService(
                 refreshJobScheduler,
                 configService,
+                pathProvider,
                 loggerFactory.CreateLogger<StartupSequenceService>()),
             resolvedUsageProcessingPipeline);
     }

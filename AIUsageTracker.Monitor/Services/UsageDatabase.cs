@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Globalization;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -16,6 +15,23 @@ namespace AIUsageTracker.Monitor.Services;
 public class UsageDatabase : IUsageDatabase
 {
     private static readonly TimeSpan DetailFadeWindow = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Rows older than this are flagged as stale so the UI can warn the user
+    /// that the data may not reflect the current provider state.
+    ///
+    /// This is intentionally set to 2× the circuit-breaker maximum backoff
+    /// (see <see cref="ProviderRefreshCircuitBreakerService"/> — CircuitBreakerMaxBackoff = 30 min).
+    /// A row older than 1 hour means at least two full retry windows have elapsed
+    /// without a successful refresh, either because repeated errors have kept the
+    /// circuit open at max backoff or because the monitor process was not running.
+    /// Changing CircuitBreakerMaxBackoff should be accompanied by a matching update here.
+    /// </summary>
+    private static readonly TimeSpan StaleDataThreshold = TimeSpan.FromHours(1);
+
+    // Compaction runs at most once per day. DateTime.MinValue means "never run" — compaction fires on first startup.
+    private DateTime _lastCompactedAt = DateTime.MinValue;
+
     private readonly string _dbPath;
     private readonly string _connectionString;
     private readonly ILogger<UsageDatabase> _logger;
@@ -167,65 +183,187 @@ public class UsageDatabase : IUsageDatabase
                     is_active = excluded.is_active,
                     updated_at = CURRENT_TIMESTAMP";
 
-            const string sql = @"
-                INSERT INTO provider_history (
-                    provider_id,
-                    requests_used, requests_available, requests_percentage,
-                    is_available, status_message, next_reset_time, fetched_at,
-                    details_json, response_latency_ms, http_status,
-                    upstream_response_validity, upstream_response_note,
-                    parent_provider_id
-                ) VALUES (
-                    @ProviderId,
-                    @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
-                    @IsAvailable, @StatusMessage, @NextResetTime, @FetchedAt,
-                    @DetailsJson, @ResponseLatencyMs, @HttpStatus,
-                    @UpstreamResponseValidity, @UpstreamResponseNote,
-                    @ParentProviderId
-                )";
-
-            var providerUpsertParameters = validUsages.Select(u => new
+            await connection.ExecuteAsync(providerUpsertSql, validUsages.Select(u => new
             {
                 ProviderId = u.ProviderId,
                 ProviderName = u.ProviderName,
                 AuthSource = u.AuthSource,
                 AccountName = u.AccountName,
                 IsActive = u.IsAvailable ? 1 : 0,
-            });
+            })).ConfigureAwait(false);
 
-            await connection.ExecuteAsync(providerUpsertSql, providerUpsertParameters).ConfigureAwait(false);
+            // Dedup gate: load the last stored row per provider and only INSERT when
+            // something meaningful has changed. When data is unchanged, we UPDATE the
+            // existing row's fetched_at so the stale-data detector keeps seeing a fresh
+            // timestamp even though no new row was written.
+            var providerIds = validUsages.Select(u => u.ProviderId!).ToList();
+            var lastRows = await LoadLastHistoryRowsAsync(connection, providerIds).ConfigureAwait(false);
 
-            var parameters = validUsages.Select(u => new
+            var toInsert = new List<HistoryInsertParams>();
+            var toTouch = new List<HistoryTouchParams>();
+
+            foreach (var u in validUsages)
             {
-                ProviderId = u.ProviderId,
-                RequestsUsed = u.RequestsUsed,
-                RequestsAvailable = u.RequestsAvailable,
-                RequestsPercentage = u.UsedPercent,
-                IsAvailable = u.IsAvailable ? 1 : 0,
-                StatusMessage = u.Description ?? string.Empty,
-                NextResetTime = u.NextResetTime?.ToString("O"),
-                FetchedAt = (u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt).ToString("O"),
-                DetailsJson = u.Details != null && u.Details.Any()
+                var detailsJson = u.Details != null && u.Details.Any()
                     ? JsonSerializer.Serialize(u.Details)
-                    : null,
-                ResponseLatencyMs = u.ResponseLatencyMs,
-                HttpStatus = u.HttpStatus,
-                UpstreamResponseValidity = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
-                    ? UpstreamResponseValidityCatalog.Evaluate(u).Validity
-                    : u.UpstreamResponseValidity),
-                UpstreamResponseNote = string.IsNullOrWhiteSpace(u.UpstreamResponseNote)
-                    ? UpstreamResponseValidityCatalog.Evaluate(u).Note
-                    : u.UpstreamResponseNote,
-                ParentProviderId = u.ParentProviderId,
-            });
+                    : null;
+                var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
+                var nextResetTime = u.NextResetTime?.ToString("O");
+                var statusMessage = u.Description ?? string.Empty;
+                var validityEval = UpstreamResponseValidityCatalog.Evaluate(u);
+                var validityInt = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
+                    ? validityEval.Validity
+                    : u.UpstreamResponseValidity);
+                var validityNote = string.IsNullOrWhiteSpace(u.UpstreamResponseNote)
+                    ? validityEval.Note
+                    : u.UpstreamResponseNote;
 
-            await connection.ExecuteAsync(sql, parameters).ConfigureAwait(false);
+                if (lastRows.TryGetValue(u.ProviderId!, out var last)
+                    && IsHistoryUnchanged(u, last, detailsJson, nextResetTime, statusMessage))
+                {
+                    toTouch.Add(new HistoryTouchParams(last.Id, fetchedAt));
+                }
+                else
+                {
+                    toInsert.Add(new HistoryInsertParams(
+                        u.ProviderId!,
+                        u.RequestsUsed,
+                        u.RequestsAvailable,
+                        u.UsedPercent,
+                        u.IsAvailable ? 1 : 0,
+                        statusMessage,
+                        nextResetTime,
+                        fetchedAt,
+                        detailsJson,
+                        u.ResponseLatencyMs,
+                        u.HttpStatus,
+                        validityInt,
+                        validityNote,
+                        u.ParentProviderId));
+                }
+            }
+
+            if (toInsert.Count > 0)
+            {
+                const string insertSql = @"
+                    INSERT INTO provider_history (
+                        provider_id,
+                        requests_used, requests_available, requests_percentage,
+                        is_available, status_message, next_reset_time, fetched_at,
+                        details_json, response_latency_ms, http_status,
+                        upstream_response_validity, upstream_response_note,
+                        parent_provider_id
+                    ) VALUES (
+                        @ProviderId,
+                        @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
+                        @IsAvailable, @StatusMessage, @NextResetTime, @FetchedAt,
+                        @DetailsJson, @ResponseLatencyMs, @HttpStatus,
+                        @UpstreamResponseValidity, @UpstreamResponseNote,
+                        @ParentProviderId
+                    )";
+
+                await connection.ExecuteAsync(insertSql, toInsert).ConfigureAwait(false);
+            }
+
+            if (toTouch.Count > 0)
+            {
+                await connection.ExecuteAsync(
+                    "UPDATE provider_history SET fetched_at = @FetchedAt WHERE id = @Id",
+                    toTouch).ConfigureAwait(false);
+            }
+
+            if (toInsert.Count > 0 || toTouch.Count > 0)
+            {
+                this._logger.LogDebug(
+                    "History write: {Inserted} inserted, {Touched} touched (data unchanged)",
+                    toInsert.Count,
+                    toTouch.Count);
+            }
         }
         finally
         {
             this._semaphore.Release();
         }
     }
+
+    private static bool IsHistoryUnchanged(
+        ProviderUsage usage,
+        LastHistoryRow last,
+        string? newDetailsJson,
+        string? newNextResetTime,
+        string newStatusMessage)
+    {
+        return usage.RequestsUsed == last.RequestsUsed
+            && usage.RequestsAvailable == last.RequestsAvailable
+            && (usage.IsAvailable ? 1L : 0L) == last.IsAvailable
+            && (long)usage.HttpStatus == last.HttpStatus
+            && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
+            && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
+            && string.Equals(newDetailsJson, last.DetailsJson, StringComparison.Ordinal);
+    }
+
+    private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(
+        SqliteConnection connection,
+        IList<string> providerIds)
+    {
+        if (providerIds.Count == 0)
+        {
+            return new Dictionary<string, LastHistoryRow>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        const string sql = @"
+            SELECT h.id AS Id,
+                   h.provider_id AS ProviderId,
+                   h.requests_used AS RequestsUsed,
+                   h.requests_available AS RequestsAvailable,
+                   h.is_available AS IsAvailable,
+                   h.status_message AS StatusMessage,
+                   h.next_reset_time AS NextResetTime,
+                   h.details_json AS DetailsJson,
+                   h.http_status AS HttpStatus
+            FROM provider_history h
+            WHERE h.id IN (
+                SELECT MAX(id)
+                FROM provider_history
+                WHERE provider_id IN @Ids
+                GROUP BY provider_id
+            )";
+
+        var rows = await connection.QueryAsync<LastHistoryRow>(sql, new { Ids = providerIds }).ConfigureAwait(false);
+        return rows.ToDictionary(r => r.ProviderId, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed record LastHistoryRow(
+        long Id,
+        string ProviderId,
+        double RequestsUsed,
+        double RequestsAvailable,
+        long IsAvailable,
+        string? StatusMessage,
+        string? NextResetTime,
+        string? DetailsJson,
+        long HttpStatus);
+
+    private sealed record HistoryInsertParams(
+        string ProviderId,
+        double RequestsUsed,
+        double RequestsAvailable,
+        double RequestsPercentage,
+        int IsAvailable,
+        string StatusMessage,
+        string? NextResetTime,
+        long FetchedAt,
+        string? DetailsJson,
+        double ResponseLatencyMs,
+        int HttpStatus,
+        int UpstreamResponseValidity,
+        string UpstreamResponseNote,
+        string? ParentProviderId);
+
+    private sealed record HistoryTouchParams(long Id, long FetchedAt);
+
+    private static long ToUnixEpoch(DateTime dt) =>
+        new DateTimeOffset(dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds();
 
     public async Task StoreRawSnapshotAsync(string providerId, string rawJson, int httpStatus)
     {
@@ -238,7 +376,7 @@ public class UsageDatabase : IUsageDatabase
 
             const string sql = @"
                 INSERT INTO raw_snapshots (provider_id, raw_json, http_status, fetched_at)
-                VALUES (@ProviderId, @RawJson, @HttpStatus, CURRENT_TIMESTAMP)";
+                VALUES (@ProviderId, @RawJson, @HttpStatus, strftime('%s', 'now'))";
 
             await connection.ExecuteAsync(sql, new { ProviderId = providerId, RawJson = rawJson, HttpStatus = httpStatus }).ConfigureAwait(false);
         }
@@ -256,8 +394,77 @@ public class UsageDatabase : IUsageDatabase
             using var connection = new SqliteConnection(this._connectionString);
             await connection.OpenAsync().ConfigureAwait(false);
 
-            const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < datetime('now', '-7 days')";
+            const string sql = "DELETE FROM raw_snapshots WHERE fetched_at < (strftime('%s', 'now') - 604800)";
             await connection.ExecuteAsync(sql).ConfigureAwait(false);
+        }
+        finally
+        {
+            this._semaphore.Release();
+        }
+    }
+
+    public async Task CompactHistoryAsync()
+    {
+        var now = DateTime.UtcNow;
+        if (now - this._lastCompactedAt < TimeSpan.FromHours(23))
+        {
+            return;
+        }
+
+        await this._semaphore.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            using var connection = new SqliteConnection(this._connectionString);
+            await connection.OpenAsync().ConfigureAwait(false);
+
+            // Phase 1: rows in the 7–90 day window → keep last row per (provider, hour)
+            const string downsampleHourly = @"
+                DELETE FROM provider_history
+                WHERE id NOT IN (
+                    SELECT MAX(id)
+                    FROM provider_history
+                    WHERE fetched_at >= (strftime('%s', 'now') - 7776000)
+                      AND fetched_at < (strftime('%s', 'now') - 604800)
+                    GROUP BY provider_id, strftime('%Y-%m-%dT%H', fetched_at, 'unixepoch')
+                )
+                AND fetched_at >= (strftime('%s', 'now') - 7776000)
+                AND fetched_at < (strftime('%s', 'now') - 604800)";
+
+            // Phase 2: rows older than 90 days → keep last row per (provider, day)
+            const string downsampleDaily = @"
+                DELETE FROM provider_history
+                WHERE id NOT IN (
+                    SELECT MAX(id)
+                    FROM provider_history
+                    WHERE fetched_at < (strftime('%s', 'now') - 7776000)
+                    GROUP BY provider_id, date(fetched_at, 'unixepoch')
+                )
+                AND fetched_at < (strftime('%s', 'now') - 7776000)";
+
+            var deletedHourly = await connection.ExecuteAsync(downsampleHourly).ConfigureAwait(false);
+            var deletedDaily = await connection.ExecuteAsync(downsampleDaily).ConfigureAwait(false);
+            var totalDeleted = deletedHourly + deletedDaily;
+
+            if (totalDeleted > 0)
+            {
+                this._logger.LogInformation(
+                    "History compacted: removed {Total} rows ({Hourly} from 7–90d window, {Daily} from >90d window). Running VACUUM.",
+                    totalDeleted,
+                    deletedHourly,
+                    deletedDaily);
+
+                // VACUUM must run outside a transaction and requires a separate connection.
+                await connection.CloseAsync().ConfigureAwait(false);
+                using var vacuumConnection = new SqliteConnection(this._connectionString);
+                await vacuumConnection.OpenAsync().ConfigureAwait(false);
+                await vacuumConnection.ExecuteAsync("VACUUM").ConfigureAwait(false);
+            }
+            else
+            {
+                this._logger.LogDebug("History compaction: nothing to compact.");
+            }
+
+            this._lastCompactedAt = now;
         }
         finally
         {
@@ -329,7 +536,7 @@ public class UsageDatabase : IUsageDatabase
                        COALESCE(NULLIF(p.provider_name, ''), h.provider_id) AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                       h.status_message AS Description, h.fetched_at AS FetchedAt,
+                       h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
@@ -347,21 +554,12 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             await this.MergeRecentlySeenDetailsAsync(connection, results, DateTime.UtcNow - DetailFadeWindow).ConfigureAwait(false);
+            await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
 
+            var now = DateTime.UtcNow;
             foreach (var usage in results)
             {
                 if (ProviderMetadataCatalog.TryGetUsageSemantics(usage.ProviderId ?? string.Empty, out var planType, out var isQuotaBased))
@@ -373,6 +571,7 @@ public class UsageDatabase : IUsageDatabase
                 usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
 
                 ApplyUpstreamResponseValidity(usage);
+                MarkStaleIfOutdated(usage, now);
             }
 
             return results;
@@ -380,6 +579,69 @@ public class UsageDatabase : IUsageDatabase
         finally
         {
             this._semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Computes a per-provider burn rate (requests/hour) from historical rows and stamps
+    /// it onto the in-memory <see cref="ProviderUsage.UsagePerHour"/> property.
+    /// Uses the row closest to one hour ago (within a 30–120 min window) as the baseline.
+    /// Returns null for a provider when there is insufficient history or the counter reset.
+    /// </summary>
+    private static async Task StampUsageRatesAsync(SqliteConnection connection, IReadOnlyList<ProviderUsage> results)
+    {
+        if (results.Count == 0)
+        {
+            return;
+        }
+
+        // For each provider, find the row closest to 1 hour ago (within the 30 min–2 hr window).
+        // With epoch integers, time arithmetic is simple integer math (seconds).
+        const string sql = @"
+            WITH ranked AS (
+                SELECT provider_id,
+                       requests_used,
+                       fetched_at,
+                       ABS((strftime('%s', 'now') - fetched_at) / 60 - 60) AS minutes_from_target,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY provider_id
+                           ORDER BY ABS((strftime('%s', 'now') - fetched_at) / 60 - 60)
+                       ) AS rn
+                FROM provider_history
+                WHERE fetched_at >= (strftime('%s', 'now') - 7200)
+                  AND fetched_at <= (strftime('%s', 'now') - 1800)
+            )
+            SELECT provider_id AS ProviderId,
+                   requests_used AS RequestsUsed,
+                   fetched_at AS FetchedAt
+            FROM ranked
+            WHERE rn = 1";
+
+        var baselines = (await connection.QueryAsync<(string ProviderId, double RequestsUsed, long FetchedAt)>(sql).ConfigureAwait(false))
+            .ToDictionary(r => r.ProviderId, r => r);
+
+        var nowEpoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        foreach (var usage in results)
+        {
+            if (usage.ProviderId is null || !baselines.TryGetValue(usage.ProviderId, out var baseline))
+            {
+                continue;
+            }
+
+            var delta = usage.RequestsUsed - baseline.RequestsUsed;
+            if (delta < 0)
+            {
+                // Counter reset — rate is undefined
+                continue;
+            }
+
+            var hours = (nowEpoch - baseline.FetchedAt) / 3600.0;
+            if (hours < 0.1)
+            {
+                continue;
+            }
+
+            usage.UsagePerHour = delta / hours;
         }
     }
 
@@ -427,6 +689,54 @@ public class UsageDatabase : IUsageDatabase
         usage.UpstreamResponseNote = evaluation.Note;
     }
 
+    private void PopulateDetails(IEnumerable<ProviderUsage> usages)
+    {
+        foreach (var usage in usages.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
+        {
+            try
+            {
+                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
+            }
+            catch (JsonException ex)
+            {
+                this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
+                usage.Details = new List<ProviderUsageDetail>();
+            }
+        }
+    }
+
+    private static void MarkStaleIfOutdated(ProviderUsage usage, DateTime now)
+    {
+        // Only flag available entries — unavailable/missing entries already carry an
+        // explanatory description (e.g. "Temporarily paused", "Auth token not found"),
+        // so adding a stale suffix on top would be redundant and confusing.
+        if (!usage.IsAvailable)
+        {
+            return;
+        }
+
+        var fetchedAt = usage.FetchedAt.Kind == DateTimeKind.Utc
+            ? usage.FetchedAt
+            : usage.FetchedAt.ToUniversalTime();
+
+        if (now - fetchedAt <= StaleDataThreshold)
+        {
+            return;
+        }
+
+        usage.IsStale = true;
+        var age = now - fetchedAt;
+        var ageLabel = age.TotalDays >= 1
+            ? $"{(int)age.TotalDays}d ago"
+            : age.TotalHours >= 1
+                ? $"{(int)age.TotalHours}h ago"
+                : $"{(int)age.TotalMinutes}m ago";
+        var suffix = $"(last refreshed {ageLabel} — data may be outdated)";
+        usage.Description = string.IsNullOrWhiteSpace(usage.Description)
+            ? suffix
+            : $"{usage.Description} {suffix}";
+    }
+
     private async Task MergeRecentlySeenDetailsAsync(
         SqliteConnection connection,
         IReadOnlyCollection<ProviderUsage> latestUsages,
@@ -449,7 +759,7 @@ public class UsageDatabase : IUsageDatabase
 
         var rows = await connection.QueryAsync<RecentProviderDetailsRow>(sql, new
         {
-            CutoffUtc = cutoffUtc.ToString("O"),
+            CutoffUtc = new DateTimeOffset(cutoffUtc.Kind == DateTimeKind.Utc ? cutoffUtc : cutoffUtc.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds(),
         }).ConfigureAwait(false);
 
         var latestByProvider = latestUsages.ToDictionary(
@@ -481,12 +791,7 @@ public class UsageDatabase : IUsageDatabase
                 continue;
             }
 
-            if (!DateTime.TryParse(row.FetchedAt, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedFetchedAt))
-            {
-                continue;
-            }
-
-            var fetchedAtUtc = parsedFetchedAt.ToUniversalTime();
+            var fetchedAtUtc = DateTimeOffset.FromUnixTimeSeconds(row.FetchedAt).UtcDateTime;
             if (fetchedAtUtc < cutoffUtc)
             {
                 continue;
@@ -560,12 +865,14 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    private sealed record RecentProviderDetailsRow(string ProviderId, string DetailsJson, string FetchedAt);
+    private sealed record RecentProviderDetailsRow(string ProviderId, string DetailsJson, long FetchedAt);
 
     private sealed record RecentDetailSnapshot(ProviderUsageDetail Detail, DateTime FetchedAtUtc);
 
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -576,7 +883,7 @@ public class UsageDatabase : IUsageDatabase
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                       h.status_message AS Description, h.fetched_at AS FetchedAt,
+                       h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
@@ -590,18 +897,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -618,6 +914,8 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryByProviderAsync(string providerId, int limit = 100)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 10_000);
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -628,7 +926,7 @@ public class UsageDatabase : IUsageDatabase
                 SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                       h.status_message AS Description, h.fetched_at AS FetchedAt,
+                       h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
                        h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
@@ -643,18 +941,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -671,6 +958,8 @@ public class UsageDatabase : IUsageDatabase
 
     public async Task<IReadOnlyList<ProviderUsage>> GetRecentHistoryAsync(int countPerProvider)
     {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(countPerProvider);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(countPerProvider, 10_000);
         await this._semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -682,7 +971,7 @@ public class UsageDatabase : IUsageDatabase
                     SELECT h.provider_id AS ProviderId, p.provider_name AS ProviderName,
                            h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                            h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
-                           h.status_message AS Description, h.fetched_at AS FetchedAt,
+                           h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                            h.next_reset_time AS NextResetTime,
                            h.details_json AS DetailsJson,
                            h.response_latency_ms AS ResponseLatencyMs,
@@ -702,18 +991,7 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
 
-            foreach (var usage in results.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-            {
-                try
-                {
-                    usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
-                }
-                catch (JsonException ex)
-                {
-                    this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                    usage.Details = new List<ProviderUsageDetail>();
-                }
-            }
+            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {

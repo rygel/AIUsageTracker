@@ -1,4 +1,4 @@
-// <copyright file="CodexProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="CodexProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -45,8 +45,8 @@ public class CodexProvider : ProviderBase
         SessionIdentitySource = ProviderSessionIdentitySource.Codex,
         SupportsAccountIdentity = true,
         IconAssetName = "openai",
-        FallbackBadgeColorHex = "#008B8B",
-        FallbackBadgeInitial = "AI",
+        BadgeColorHex = "#008B8B",
+        BadgeInitial = "AI",
         AuthIdentityCandidatePathTemplates = new[]
         {
             "%USERPROFILE%\\.codex\\auth.json",
@@ -62,9 +62,9 @@ public class CodexProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h"),
-            new(WindowKind.Rolling,       "Weekly"),
-            new(WindowKind.ModelSpecific, "Spark"),
+            new(WindowKind.Burst,         "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling,       "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Spark",  PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -358,6 +358,13 @@ public class CodexProvider : ProviderBase
                     continue;
                 }
 
+                // Skip scalar properties (e.g. "allowed": true, "limit_reached": false) —
+                // the API added these alongside the window objects and they are not spark windows.
+                if (property.Value.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
+
                 var primaryUsedPercent = property.Value.ReadDouble("primary_window", "used_percent");
                 var primaryResetAfterSeconds = property.Value.ReadDouble("primary_window", "reset_after_seconds");
                 var secondaryUsedPercent = property.Value.ReadDouble("secondary_window", "used_percent");
@@ -541,8 +548,8 @@ public class CodexProvider : ProviderBase
                 UsedPercent = effectiveUsedPercent,
                 RequestsUsed = effectiveUsedPercent,
                 RequestsAvailable = 100.0,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 IsAvailable = true,
                 Description = BuildUsageDescription(remainingPercent, effectiveUsedPercent, effectiveSparkPercent, planType),
                 AccountName = accountIdentity ?? string.Empty,

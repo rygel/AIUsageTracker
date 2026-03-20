@@ -38,8 +38,21 @@ public class UsageAlertsService
         foreach (var usage in usages)
         {
             var config = configs.FirstOrDefault(c => c.ProviderId.Equals(usage.ProviderId, StringComparison.OrdinalIgnoreCase));
+            if (config == null || !config.EnableNotifications)
+            {
+                continue;
+            }
+
             var usedPercentage = UsageMath.GetEffectiveUsedPercent(usage);
-            if (config != null && config.EnableNotifications && usedPercentage >= prefs.NotificationThreshold)
+
+            // For rolling-window providers with a known period duration, use the projected
+            // end-of-period percentage instead of raw usage.  This suppresses false-positive
+            // alerts when the user is under pace (e.g. 70% used at 86% of a weekly window).
+            // Only applied when the user has enabled pace adjustment in preferences.
+            var effectivePercentage = prefs.EnablePaceAdjustment
+                ? GetEffectiveAlertPercent(usage, usedPercentage)
+                : usedPercentage;
+            if (effectivePercentage >= prefs.NotificationThreshold)
             {
                 this._notificationService.ShowUsageAlert(usage.ProviderName, usedPercentage);
             }
@@ -88,6 +101,31 @@ public class UsageAlertsService
                 this._logger.LogWarning(ex, "Reset check failed for {ProviderId}: {Message}", usage.ProviderId, ex.Message);
             }
         }
+    }
+
+    private static double GetEffectiveAlertPercent(ProviderUsage usage, double rawUsedPercent)
+    {
+        // Only apply time-adjustment for rolling-window providers where we have timing data.
+        if (!usage.NextResetTime.HasValue)
+        {
+            return rawUsedPercent;
+        }
+
+        // Duration is declared in QuotaWindowDefinition — the single source of truth.
+        ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition);
+        var periodDuration = definition?.QuotaWindows
+            .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue)
+            ?.PeriodDuration;
+
+        if (!periodDuration.HasValue)
+        {
+            return rawUsedPercent;
+        }
+
+        return UsageMath.CalculateProjectedFinalPercent(
+            rawUsedPercent,
+            usage.NextResetTime.Value.ToUniversalTime(),
+            periodDuration.Value);
     }
 
     private static (bool IsReset, string Reason) TryDetectReset(ProviderUsage usage, ProviderUsage previous, ProviderUsage current)

@@ -1,4 +1,4 @@
-// <copyright file="KimiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="KimiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -35,8 +35,8 @@ public class KimiProvider : ProviderBase
         AdditionalHandledProviderIds = new[] { "kimi" },
         DiscoveryEnvironmentVariables = new[] { "KIMI_API_KEY", "MOONSHOT_API_KEY" },
         IconAssetName = "kimi",
-        FallbackBadgeColorHex = "#BA55D3",
-        FallbackBadgeInitial = "K",
+        BadgeColorHex = "#BA55D3",
+        BadgeInitial = "K",
         QuotaWindows = new QuotaWindowDefinition[]
         {
             new(WindowKind.Burst,   "Daily"),
@@ -57,8 +57,7 @@ public class KimiProvider : ProviderBase
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.kimi.com/coding/v1/usages");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", config.ApiKey);
+            var request = CreateBearerRequest(HttpMethod.Get, "https://api.kimi.com/coding/v1/usages", config.ApiKey);
 
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -200,8 +199,8 @@ public class KimiProvider : ProviderBase
                 UsedPercent = limit > 0 ? UsageMath.CalculateUsedPercent(used, limit) : 0,
                 RequestsUsed = used,
                 RequestsAvailable = limit,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 IsAvailable = true,
                 Description = description,
                 RawJson = content,

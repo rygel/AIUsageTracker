@@ -1,4 +1,4 @@
-// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -37,8 +37,8 @@ public class ZaiProvider : ProviderBase
         DiscoveryEnvironmentVariables = new[] { "ZAI_API_KEY", "Z_AI_API_KEY" },
         RooConfigPropertyNames = new[] { "zaiApiKey" },
         IconAssetName = "zai",
-        FallbackBadgeColorHex = "#20B2AA",
-        FallbackBadgeInitial = "Z",
+        BadgeColorHex = "#20B2AA",
+        BadgeInitial = "Z",
     };
 
     /// <inheritdoc/>
@@ -96,8 +96,8 @@ public class ZaiProvider : ProviderBase
                  ProviderName = providerLabel,
                  IsAvailable = false,
                  Description = "No usage data available",
-                 IsQuotaBased = true,
-                 PlanType = PlanType.Coding,
+                 IsQuotaBased = this.Definition.IsQuotaBased,
+                 PlanType = this.Definition.PlanType,
                  RawJson = responseString,
                  HttpStatus = httpStatus,
              },
@@ -304,8 +304,8 @@ public class ZaiProvider : ProviderBase
                 ProviderName = providerLabel,
                 IsAvailable = false,
                 Description = FormatDescription("Usage unknown (missing quota metrics)", planDescription),
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 RawJson = responseString,
                 HttpStatus = httpStatus,
             },
@@ -341,8 +341,8 @@ public class ZaiProvider : ProviderBase
             UsedPercent = finalUsedPercent,
             RequestsUsed = finalRequestsUsedReal,  // Store actual used count/percentage
             RequestsAvailable = finalRequestsAvailable, // Store actual total limit
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
             DisplayAsFraction = finalRequestsAvailable > 100, // Explicitly request fraction display if we have real numbers
             Description = FormatDescription(finalDescription, planDescription),
             NextResetTime = nextResetTime,

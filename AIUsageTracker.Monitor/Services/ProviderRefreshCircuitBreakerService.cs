@@ -11,6 +11,10 @@ public class ProviderRefreshCircuitBreakerService
 {
     private const int CircuitBreakerFailureThreshold = 3;
     private static readonly TimeSpan CircuitBreakerBaseBackoff = TimeSpan.FromMinutes(1);
+
+    // Maximum backoff before the circuit retries. UsageDatabase.StaleDataThreshold is set to
+    // 2× this value so that a row is only flagged stale after at least two max-backoff windows
+    // have passed without a successful refresh. If you change this value, update StaleDataThreshold too.
     private static readonly TimeSpan CircuitBreakerMaxBackoff = TimeSpan.FromMinutes(30);
     private readonly ILogger<ProviderRefreshCircuitBreakerService> _logger;
     private readonly object _providerFailureLock = new();
@@ -127,6 +131,50 @@ public class ProviderRefreshCircuitBreakerService
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Creates synthetic <see cref="ProviderUsage"/> entries for providers whose circuit is
+    /// currently open so they are stored in the database and surfaced in the UI rather than
+    /// showing stale data silently.
+    /// </summary>
+    public IReadOnlyList<ProviderUsage> CreateCircuitOpenUsages(IEnumerable<ProviderConfig> skippedConfigs)
+    {
+        var result = new List<ProviderUsage>();
+        lock (this._providerFailureLock)
+        {
+            var now = DateTime.UtcNow;
+            foreach (var config in skippedConfigs)
+            {
+                if (!this._providerFailureStates.TryGetValue(config.ProviderId, out var state) ||
+                    !state.CircuitOpenUntilUtc.HasValue ||
+                    state.CircuitOpenUntilUtc.Value <= now)
+                {
+                    continue;
+                }
+
+                var retryLocal = state.CircuitOpenUntilUtc.Value.ToLocalTime();
+                var description = string.IsNullOrWhiteSpace(state.LastError)
+                    ? $"Temporarily paused after repeated failures — next check at {retryLocal:HH:mm}"
+                    : $"Temporarily paused — next check at {retryLocal:HH:mm} (last error: {state.LastError})";
+
+                var displayName = ProviderMetadataCatalog.ResolveDisplayLabel(config.ProviderId, config.ProviderId);
+                result.Add(new ProviderUsage
+                {
+                    ProviderId = config.ProviderId,
+                    ProviderName = displayName,
+                    IsAvailable = false,
+                    State = ProviderUsageState.Unavailable,
+                    Description = description,
+                    RequestsUsed = 0,
+                    RequestsAvailable = 0,
+                    FetchedAt = now,
+                    AuthSource = config.AuthSource ?? string.Empty,
+                });
+            }
+        }
+
+        return result;
     }
 
     public IReadOnlyList<ProviderRefreshDiagnostic> GetProviderDiagnostics()

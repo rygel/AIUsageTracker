@@ -263,6 +263,32 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
 - **3 constants files** with 250+ constants for endpoints, headers, and messages
 - **All 162 unit tests passing**
 
+## Integration & E2E Test Gaps (Added: 2026-03-19)
+
+These gaps were identified after the `provider_history` dedup gate crashed in production with a Dapper `Int32`/`Int64` type mismatch — a bug class that only real-SQLite integration tests can catch.
+
+- [ ] **Read-path Dapper mapping tests** (Priority: P1, Effort: S): Add real-SQLite integration tests for `GetHistoryAsync`, `GetHistoryByProviderAsync`, and `GetRecentHistoryAsync` to verify Dapper positional-constructor type mapping for all columns.
+  - Motivation: Same `Int64` vs `Int32` mismatch that crashed the dedup gate could exist in any method that Dapper-maps a DB record.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseReadTests.cs` (new file)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+- [ ] **Full pipeline integration test** (Priority: P1, Effort: M): Inject real provider output through `ProviderUsageProcessingPipeline` → `StoreHistoryAsync` → `GetLatestHistoryAsync` and assert that what the UI sees matches the original provider data.
+  - Motivation: Validates the full data path end-to-end; a type or mapping regression anywhere would be caught.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabasePipelineTests.cs` (new file)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+- [ ] **Circuit-breaker write suppression test** (Priority: P2, Effort: M): Verify that a tripped circuit breaker (provider returning errors repeatedly) suppresses `StoreHistoryAsync` calls over multiple refresh cycles, and that history stays stable.
+  - Motivation: Circuit breaker state must propagate correctly all the way to DB writes, not just be visible in the ProviderUsage object.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseCircuitBreakerTests.cs` (new file)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+- [ ] **Stale-data detection E2E test** (Priority: P1, Effort: S): Store a row with `fetched_at` older than `StaleDataThreshold`, call `GetLatestHistoryAsync`, and assert `IsStale = true` with the correct description suffix.
+  - Motivation: The dedup gate changes `fetched_at` semantics (now "last confirmed current"); must verify stale detection still fires correctly.
+  - Location: `AIUsageTracker.Tests/Services/UsageDatabaseReadTests.cs` (new file, same class)
+  - **In-progress**: `test/database-and-pipeline-integration`
+
+---
+
 ## CI/CD Pipeline Optimization Opportunities
 
 ### Phase 1 - Quick Wins (High Impact, Low Effort)

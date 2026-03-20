@@ -99,8 +99,11 @@ public class ProviderUsageProcessingPipelineTests
     }
 
     [Fact]
-    public void Process_WhenApiKeyPlaceholder_DropsUsage()
+    public void Process_WhenUnavailableWithDescription_KeepsUsage()
     {
+        // Missing/Unavailable entries with a description are actionable
+        // (e.g. "API Key missing", "auth token not found") and must reach
+        // the DB so the UI can show them instead of stale cached data.
         var usage = new ProviderUsage
         {
             ProviderId = "openrouter",
@@ -111,6 +114,33 @@ public class ProviderUsageProcessingPipelineTests
             IsAvailable = false,
             State = ProviderUsageState.Missing,
             Description = "API Key missing",
+        };
+
+        var result = this._pipeline.Process(
+            new[] { usage },
+            new[] { "openrouter" },
+            isPrivacyMode: false);
+
+        var kept = Assert.Single(result.Usages);
+        Assert.Equal("API Key missing", kept.Description);
+        Assert.Equal(0, result.PlaceholderFilteredCount);
+    }
+
+    [Fact]
+    public void Process_WhenUnavailableWithNoDescription_DropsUsage()
+    {
+        // Truly empty entries (no description, no quota data) are placeholders
+        // and should not pollute the DB or UI.
+        var usage = new ProviderUsage
+        {
+            ProviderId = "openrouter",
+            ProviderName = "OpenRouter",
+            RequestsUsed = 0,
+            RequestsAvailable = 0,
+            UsedPercent = 0,
+            IsAvailable = false,
+            State = ProviderUsageState.Missing,
+            Description = string.Empty,
         };
 
         var result = this._pipeline.Process(
@@ -464,7 +494,7 @@ public class ProviderUsageProcessingPipelineTests
                 ProviderName = "OpenAI",
                 IsAvailable = false,
                 State = ProviderUsageState.Missing,
-                Description = "API Key missing",
+                Description = string.Empty,
                 RequestsUsed = 0,
                 RequestsAvailable = 0,
                 UsedPercent = 0,

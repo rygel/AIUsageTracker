@@ -98,9 +98,9 @@ public sealed class ProviderDefinition
 
     public string? IconAssetName { get; init; }
 
-    public string? FallbackBadgeColorHex { get; init; }
+    public string? BadgeColorHex { get; init; }
 
-    public string? FallbackBadgeInitial { get; init; }
+    public string? BadgeInitial { get; init; }
 
     public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
 
@@ -123,6 +123,12 @@ public sealed class ProviderDefinition
     public string? DerivedModelDisplaySuffix { get; init; }
 
     public bool IsTooltipOnly { get; init; }
+
+    public bool IsStatusOnly { get; init; }
+
+    public bool IsCurrencyUsage { get; init; }
+
+    public bool DisplayAsFraction { get; init; }
 
     public IReadOnlyList<QuotaWindowDefinition> QuotaWindows { get; init; } = Array.Empty<QuotaWindowDefinition>();
 

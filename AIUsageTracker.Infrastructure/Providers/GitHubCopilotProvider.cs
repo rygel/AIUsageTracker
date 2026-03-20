@@ -1,4 +1,4 @@
-// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -36,8 +36,8 @@ public class GitHubCopilotProvider : ProviderBase
         SettingsMode = ProviderSettingsMode.ExternalAuthStatus,
         SupportsAccountIdentity = true,
         IconAssetName = "github",
-        FallbackBadgeColorHex = "#9370DB",
-        FallbackBadgeInitial = "GH",
+        BadgeColorHex = "#9370DB",
+        BadgeInitial = "GH",
         AuthIdentityCandidatePathTemplates = new[]
         {
             "%APPDATA%\\GitHub CLI\\hosts.yml",
@@ -45,8 +45,8 @@ public class GitHubCopilotProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Rolling, "Weekly"),
-            new(WindowKind.Burst,   "5h"),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
         },
     };
 
@@ -75,13 +75,13 @@ public class GitHubCopilotProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "GitHub Copilot",
+                    ProviderName = this.Definition.DisplayName,
                     AccountName = username,
                     IsAvailable = false,
                     State = ProviderUsageState.Missing,
                     Description = "Not authenticated. Please login in Settings.",
-                    PlanType = PlanType.Coding,
-                    IsQuotaBased = true,
+                    PlanType = this.Definition.PlanType,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
                 },
             };
         }
@@ -495,8 +495,8 @@ public class GitHubCopilotProvider : ProviderBase
             UsedPercent = 100.0 - state.Percentage,
             RequestsAvailable = state.CostLimit,
             RequestsUsed = state.CostUsed,
-            PlanType = PlanType.Coding,
-            IsQuotaBased = true,
+            PlanType = this.Definition.PlanType,
+            IsQuotaBased = this.Definition.IsQuotaBased,
             AuthSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName,
             NextResetTime = state.ResetTime,
             Details = state.Details,

@@ -36,6 +36,27 @@ internal static class ProviderCardPresentationCatalog
             !isMissing &&
             !isError;
 
+        // HTTP 429 (rate limited) is a known temporary state — show as Warning (orange), not Error (red),
+        // so users understand this is transient and not a configuration problem.
+        if (usage.HttpStatus == 429)
+        {
+            var rateLimitText = string.IsNullOrWhiteSpace(description)
+                ? "Rate limited — request limit reached"
+                : description;
+
+            return CreatePresentation(
+                isMissing: false,
+                isUnknown: false,
+                isError: false,
+                shouldHaveProgress: false,
+                suppressSingleResetTime: false,
+                usedPercent: usedPercent,
+                remainingPercent: remainingPercent,
+                statusText: rateLimitText,
+                statusTone: ProviderCardStatusTone.Warning,
+                isStale: isStale);
+        }
+
         if (TryCreateSpecialPresentation(
             isMissing,
             isUnknown,

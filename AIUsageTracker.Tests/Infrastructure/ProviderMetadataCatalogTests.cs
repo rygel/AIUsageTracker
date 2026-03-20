@@ -340,12 +340,12 @@ public class ProviderMetadataCatalogTests
     [InlineData("github-copilot", true, "GH")]
     [InlineData("claude-code", true, "C")]
     [InlineData("unknown-provider", false, "")]
-    public void TryGetFallbackBadgeDefinition_UsesProviderMetadata(
+    public void TryGetBadgeDefinition_UsesProviderMetadata(
         string providerId,
         bool expectedSuccess,
         string expectedInitial)
     {
-        var success = ProviderMetadataCatalog.TryGetFallbackBadgeDefinition(providerId, out _, out var initial);
+        var success = ProviderMetadataCatalog.TryGetBadgeDefinition(providerId, out _, out var initial);
 
         Assert.Equal(expectedSuccess, success);
         Assert.Equal(expectedInitial, initial);
@@ -435,7 +435,7 @@ public class ProviderMetadataCatalogTests
     [Theory]
     [InlineData("codex", true)]
     [InlineData("openai", false)]
-    [InlineData("anthropic", false)]
+    [InlineData("deepseek", false)]
     public void ShouldShowInSettings_UsesProviderDefinitions(string providerId, bool expected)
     {
         Assert.Equal(expected, ProviderMetadataCatalog.ShouldShowInSettings(providerId));
@@ -601,6 +601,15 @@ public class ProviderMetadataCatalogTests
         Assert.Contains("%USERPROFILE%\\.claude\\.credentials.json", definition!.AuthIdentityCandidatePathTemplates);
         Assert.Contains(definition.SessionAuthFileSchemas, schema => string.Equals(schema.RootProperty, "claudeAiOauth", StringComparison.Ordinal) &&
 string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("github-copilot", true)]
+    [InlineData("codex", true)]
+    [InlineData("openai", true)]
+    public void SupportsAccountIdentity_UsesProviderDefinitions(string providerId, bool expected)
+    {
+        Assert.Equal(expected, ProviderMetadataCatalog.SupportsAccountIdentity(providerId));
     }
 
     [Fact]

@@ -1,9 +1,8 @@
-// <copyright file="SyntheticProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="SyntheticProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
 using System.Globalization;
-using System.Net.Http.Headers;
 using System.Text.Json;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
@@ -34,8 +33,8 @@ public sealed class SyntheticProvider : ProviderBase
         DiscoveryEnvironmentVariables = new[] { "SYNTHETIC_API_KEY" },
         RooConfigPropertyNames = new[] { "syntheticApiKey" },
         IconAssetName = "synthetic",
-        FallbackBadgeColorHex = "#FFD700",
-        FallbackBadgeInitial = "Sy",
+        BadgeColorHex = "#FFD700",
+        BadgeInitial = "Sy",
     };
 
     public override ProviderDefinition Definition => StaticDefinition;
@@ -57,8 +56,7 @@ public sealed class SyntheticProvider : ProviderBase
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, endpoint);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+            using var request = CreateBearerRequest(HttpMethod.Get, endpoint, config.ApiKey);
 
             using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -95,12 +93,12 @@ public sealed class SyntheticProvider : ProviderBase
                 new ProviderUsage
                 {
                     ProviderId = this.ProviderId,
-                    ProviderName = "Synthetic.new",
+                    ProviderName = this.Definition.DisplayName,
                     UsedPercent = Math.Clamp(used / total * 100.0, 0, 100),
                     RequestsUsed = used,
                     RequestsAvailable = total,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     IsAvailable = true,
                     Description = $"{usedLabel} / {totalLabel} credits{resetLabel}",
                     NextResetTime = nextResetTime,

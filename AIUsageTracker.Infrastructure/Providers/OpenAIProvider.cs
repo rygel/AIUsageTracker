@@ -1,4 +1,4 @@
-// <copyright file="OpenAIProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="OpenAIProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -53,8 +53,8 @@ public class OpenAIProvider : ProviderBase
         SupportsAccountIdentity = true,
         ShowInSettings = false,
         IconAssetName = "openai",
-        FallbackBadgeColorHex = "#008B8B",
-        FallbackBadgeInitial = "AI",
+        BadgeColorHex = "#008B8B",
+        BadgeInitial = "AI",
         AuthIdentityCandidatePathTemplates = new[]
         {
             "%USERPROFILE%\\.local\\share\\opencode\\auth.json",
@@ -72,8 +72,8 @@ public class OpenAIProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,   "5h"),
-            new(WindowKind.Rolling, "Weekly"),
+            new(WindowKind.Burst,   "5h",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling, "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -259,8 +259,8 @@ public class OpenAIProvider : ProviderBase
                     IsAvailable = false,
                     State = ProviderUsageState.Missing,
                     Description = "Project keys (sk-proj-...) not supported yet. Use a standard user API key.",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                 },
             };
         }
@@ -281,8 +281,8 @@ public class OpenAIProvider : ProviderBase
                         ProviderName = this.Definition.DisplayName,
                         IsAvailable = true,
                         UsedPercent = 0,
-                        IsQuotaBased = true,
-                        PlanType = PlanType.Coding,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        PlanType = this.Definition.PlanType,
                         Description = "Connected (API Key)",
                         IsStatusOnly = true,
                     },
@@ -298,8 +298,8 @@ public class OpenAIProvider : ProviderBase
                     IsAvailable = false,
                     State = ProviderUsageState.Error,
                     Description = $"Invalid Key ({response.StatusCode})",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                 },
             };
         }
@@ -315,8 +315,8 @@ public class OpenAIProvider : ProviderBase
                     IsAvailable = false,
                     State = ProviderUsageState.Error,
                     Description = "Connection Failed",
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                 },
             };
         }
@@ -366,8 +366,8 @@ public class OpenAIProvider : ProviderBase
             ProviderName = this.Definition.DisplayName,
             AccountName = GetAccountIdentity(doc.RootElement, accessToken, accountId) ?? string.Empty,
             IsAvailable = true,
-            IsQuotaBased = true,
-            PlanType = PlanType.Coding,
+            IsQuotaBased = this.Definition.IsQuotaBased,
+            PlanType = this.Definition.PlanType,
             UsedPercent = used,
             RequestsUsed = used,
             RequestsAvailable = 100,

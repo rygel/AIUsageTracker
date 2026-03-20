@@ -14,12 +14,12 @@ namespace AIUsageTracker.Tests.Architecture;
 public class ConverterTests
 {
     [Theory]
-    [InlineData(50, 60, 80, false, "Green")]   // Pay-as-you-go: 50% used = green
-    [InlineData(65, 60, 80, false, "Yellow")]  // Pay-as-you-go: 65% used = yellow
-    [InlineData(85, 60, 80, false, "Red")]     // Pay-as-you-go: 85% used = red
-    [InlineData(50, 60, 80, true, "Green")]    // Quota: 50% remaining = green
-    [InlineData(35, 60, 80, true, "Yellow")]   // Quota: 35% remaining = yellow (65% used)
-    [InlineData(15, 60, 80, true, "Red")]      // Quota: 15% remaining = red (85% used)
+    [InlineData(50, 60, 80, false, "Green")]   // Pay-as-you-go: 50% used → green
+    [InlineData(65, 60, 80, false, "Yellow")]  // Pay-as-you-go: 65% used → yellow
+    [InlineData(85, 60, 80, false, "Red")]     // Pay-as-you-go: 85% used → red
+    [InlineData(50, 60, 80, true, "Green")]    // Quota: 50% used → green (50% remaining — well within budget)
+    [InlineData(65, 60, 80, true, "Yellow")]   // Quota: 65% used → yellow (35% remaining — approaching limit)
+    [InlineData(85, 60, 80, true, "Red")]      // Quota: 85% used → red  (15% remaining — critical)
     public void PercentageToColorConverter_ReturnsCorrectColor(
         double percentage, int yellow, int red, bool isQuota, string expectedColorName)
     {

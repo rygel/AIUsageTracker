@@ -2,67 +2,103 @@
 
 ## [Unreleased]
 
-## [2.3.0] - 2026-03-16
-
-### Added
-- **Card Visibility Controls**: Settings → Providers tab now has a "Card Visibility" section listing every card currently shown in the main window. Each card has an individual checkbox to hide or show it. Standalone providers (Kimi, Z.ai, etc.) appear as flat checkboxes; multi-card providers (Codex, Gemini, Antigravity, Claude Code) appear under a bold heading with one checkbox per sub-card. The list is derived from the same live pipeline as the main window, so it automatically includes all runtime model cards (e.g. every Antigravity model, every Gemini quota window) without any static configuration.
-- **Claude Code OAuth Integration**: OAuth usage endpoint for Claude subscription users with dual quota buckets (5-hour burst + 7-day rolling window), per-model breakdowns (Sonnet/Opus), and extra usage status.
-- **Dual Progress Bars**: Full support for displaying burst and rolling quota bars simultaneously on Kimi, OpenAI Codex, and GitHub Copilot cards.
-- **Burn Rate Forecasting**: Forecast methods, confidence levels, and trend detection for provider usage projections.
-- **Gemini CLI Auth Fallback**: Provider-level fallback from OpenCode Antigravity accounts to native Gemini CLI auth files (`.gemini/oauth_creds.json`), with account identity extraction and deterministic project resolution.
-- **DB Schema**: Added `parent_provider_id` column to `provider_history` and a foreign-key constraint on `raw_snapshots` for richer lineage queries.
-- **WPF Architecture**: Declarative attached behaviors (`WindowDragBehavior`, `KeyboardShortcutBehavior`, `CloseWindowBehavior`), design-time ViewModels, Rx-based polling service, and `WeakEventManager` for memory-safe event subscriptions.
+## [2.3.2-beta.5] - 2026-03-20
 
 ### Fixed
-- **Z.ai Reset Timer**: When the 5-hour rolling window is fresh (0% used), the API returns the billing period end date (~8 days away) as `nextResetTime`. The UI was showing "7 days 17 hours" for a limit that resets every 5 hours. Now parses `unit`/`number` fields to show a "5h window" label instead. When the window is active the actual close time is shown as before.
-- **Codex Spark Weekly Quota**: Spark's child card was showing the main Codex weekly usage instead of its own independent counter. Fixed by preferring Spark's own secondary window and falling back to the main weekly only when absent.
-- **Kimi Dual Bar Wrong Percentage**: Kimi card was inverting the weekly bar due to a fallback in `ProviderDualQuotaBucketPresentationCatalog` that silently reused the same `WindowKind` for both buckets. Removed the fallback — dual bar now requires two genuinely different `WindowKind`s.
-- **Codex Dual Bars**: Both quota bars (5-hour burst + weekly rolling) were not rendering because `NormalizeDetails` dropped `PercentageValue`/`PercentageSemantic` when copying detail objects. Fixed field preservation in the processing pipeline.
-- **Claude Code OAuth Token Staleness**: Monitor was reusing an expired OAuth access token (valid ~1 hour). Provider now re-reads `~/.claude/.credentials.json` on every request.
-- **Claude Code Timeout**: Polly retry-on-429 policy was consuming ~14s of the 25s budget. Providers now use a plain `HttpClient` without retry policies and manage their own fallback chains.
-- **Kimi Provider ID**: Renamed from `kimi` to `kimi-for-coding` to match OpenCode's `auth.json` key format. Auth file discovery extended to `~/.opencode/auth.json`.
-- **Monitor Auto-Restart on Version Mismatch**: Slim UI now detects a stale monitor process after an upgrade and restarts it automatically.
-- **Quota Percentage Calculation**: OpenAI and Codex providers now use the highest usage across all quota windows (primary, secondary, spark) for the parent card, fixing incorrect 0% when only secondary/spark had usage.
-- **Auth Discovery**: Restored legacy/shared OpenCode auth file locations; fixed Synthetic and Z.AI key resolution from `~/.local/share/opencode/auth.json`; reordered priority so fresh keys win.
-- **Provider DI Registration**: Fixed `HttpClient` singleton registration in the Monitor DI container, resolving startup errors for `ClaudeCodeProvider` and `KimiProvider`.
-- **OpenAI Dual Bars**: Legacy database records used PascalCase `"WindowKind"` key, causing deserialization to silently drop the value. Normalized on read.
+- **Pace-adjusted bar still yellow when clearly under pace**: The quadratic forgiveness formula (`usedPercent² / expectedPercent`) produced a pace-adjusted value of ~60.2% for Sonnet at 73% used with 88.5% of the 7-day window elapsed — barely above the 60% yellow threshold despite being well under pace. Changed to a cubic formula (`usedPercent³ / expectedPercent²`) which gives 49.7% in the same scenario, correctly rendering the bar green. The new formula is more forgiving for providers that are meaningfully under pace while still warning when genuinely approaching the limit.
 
-### Changed
-- **Breaking — Model Cleanup**: Removed `RequestsPercentage`, `UsageUnit`, and `Used` string properties. Removed legacy `WindowKind` aliases (`Primary`, `Secondary`, `Spark`). Consumers should use `UsedPercent`/`RemainingPercent` and `WindowKind.Burst`/`Rolling`/`ModelSpecific`.
-- **Providers as Source of Truth**: Provider definitions are the single authority for discovery, canonicalization, visibility, visuals, session-auth ownership, and quota window declarations. Removed all string-inspection heuristics from the pipeline.
-- **Architecture Simplification**: Removed `ProviderCapabilityCatalog` (96-line pass-through layer). Collapsed `ExpandSyntheticAggregateChildren` logic into `ProviderUsageDisplayCatalog`. Dual-bucket percentages computed once in `ProviderCardPresentationCatalog` and carried on the presentation record.
-- **No Console Window**: Monitor and Web server no longer open a console window on Windows (`OutputType=WinExe`).
-- **Auth Source Precedence**: App-local auth (`%LOCALAPPDATA%\AIUsageTracker\auth.json`) is now the final auth source, overriding earlier sources. Config paths deduplicated when multiple entries resolve to the same file.
+## [2.3.2-beta.4] - 2026-03-20
 
-## [2.2.26] - 2026-02-28
+### Fixed
+- **Quota-based provider cards permanently stuck yellow/red**: `PercentageToColorConverter` was computing `remaining = 100 − usedPercent` for quota-based providers and then checking `remaining ≥ yellowThreshold`. With default thresholds (yellow = 60, red = 80), any provider with more than 40% remaining was shown as yellow or red regardless of actual usage — e.g. 30% used → 70% remaining → 70 ≥ 60 → yellow. The fix removes the inversion: colour thresholds now always compare against the used percentage (pace-adjusted for rolling-window providers), consistent with the threshold labels in Settings. Affects all quota-based providers: Claude Code, GitHub Copilot, OpenAI Codex, Z.AI, Opencode Zen, and others.
 
-## [2.2.26] - 2026-02-28
+### Security
+- **Resolved all 64 GitHub code-scanning alerts** (zizmor): `dangerous-triggers` — added trusted-source repository guard to the `workflow_run` trigger in `build-performance-monitor.yml`; `artipacked` — added `persist-credentials: false` to checkout steps in `release.yml` and `dependency-updates.yml`; `excessive-permissions` — added `permissions: contents: read` at workflow level in `experimental-rust.yml`; `template-injection` — moved all inline `${{ }}` expressions in shell scripts and `github-script` blocks to `env:` vars across `tests.yml`, `build-performance-monitor.yml`, and `dependency-updates.yml`.
+
+## [2.3.2-beta.3] - 2026-03-20
+
+### Fixed
+- **Pace adjustment not applied to Claude Code Sonnet/Opus cards**: The rolling-window pace indicator was correctly applied to the primary Claude Code card but not to the per-model Sonnet and Opus detail cards. All three cards now reflect pace-adjusted colours and thresholds consistently.
+
+### Refactored
+- **Provider metadata moved to `ProviderDefinition` (single source of truth)**: Static characteristics (`IsStatusOnly`, `IsCurrencyUsage`, `DisplayAsFraction`, `PlanType`, `IsQuotaBased`, `ProviderName`) are now declared once on `ProviderDefinition`. Per-instance assignments on `ProviderUsage` have been removed. The processing pipeline enforces definition values at the boundary — `PlanType` and `IsQuotaBased` are now overridden from the definition on every normalisation pass, not just at provider construction time.
+- **`ProviderBase.CreateUnavailableUsage` sources metadata from definition**: Previously defaulted to `PlanType.Coding` and `IsQuotaBased = true` for all error paths, producing incorrect metadata on error cards for providers like Mistral and DeepSeek.
+- **Eliminated post-fetch filtering in GeminiProvider**: Error results from failed account fetches are no longer added to the results list and then filtered out; only successful fetches enter the list. If all accounts fail a single unavailable card is returned.
+- **GeminiProvider OAuth client retry made explicit**: The implicit `catch when clientId == CLI` silent retry is replaced by `ResolveOAuthClientsToTry()` + `DetectPreferredOAuthClientId()` — the fallback order is now declared upfront.
+- **`ProviderUsageDisplayCatalog` single-pass filtering**: The two sequential filter passes (`ShouldShowInMainWindow` + hidden items) are merged into one `.Where()` predicate.
+- **`ResolveDisplayLabel` simplified**: Collapsed from a 7-level fallback chain to 3 clear branches with documented precedence.
+
+## [2.3.2-beta.2] - 2026-03-20
+
+### Fixed
+- **Pace adjustment not applied to Claude Code Sonnet/Opus cards**: The rolling-window pace indicator was correctly applied to the primary Claude Code card but not to the per-model Sonnet and Opus detail cards. All three cards now reflect pace-adjusted colours and thresholds consistently.
+
+### Refactored
+- **Provider metadata moved to `ProviderDefinition`**: Static characteristics (`IsStatusOnly`, `IsCurrencyUsage`, `DisplayAsFraction`, `PlanType`, `IsQuotaBased`, `ProviderName`) are now declared once on `ProviderDefinition` and sourced from there at runtime. Per-instance assignments on `ProviderUsage` objects have been removed. The processing pipeline ORs in definition flags so that any provider declaring a flag gets it applied even if the runtime object omits it.
+- **`ProviderBase.CreateUnavailableUsage` now sources metadata from definition**: The helper previously defaulted to `PlanType.Coding` and `IsQuotaBased = true` for all error/unavailable paths regardless of the actual provider type, causing incorrect metadata on error cards for providers like Mistral and DeepSeek.
+
+## [2.3.2-beta.1] - 2026-03-20
 
 ### Added
-- Dual release channel support (Stable and Beta)
-- Update channel selector in Settings window
-- develop branch for beta releases
+- **Pace-aware quota colours**: For providers with rolling quota windows (Claude Code 7-day, GitHub Copilot weekly, OpenAI/Codex weekly), the progress-bar colour and notification threshold now account for how much of the quota period has elapsed. A provider at 70% usage with only one day left of a 7-day window is considered on-budget and stays green — not yellow or red — because consumption is below the expected pace. An **"On pace"** badge appears in green when usage is meaningfully under pace. Can be toggled off under **Settings → Layout → Pace-Aware Quota Colours** (enabled by default).
+- **Usage rate badge**: Provider cards can now show a live **req/hr** burn-rate badge derived from history without any extra API calls. Toggle it on under **Settings → Layout → Show Usage Rate (req/hr)** (off by default). The badge is hidden when fewer than 30 minutes of history exist or after a quota reset.
 
-### Changes
-- Solution file updated to reference AIUsageTracker.* projects
-- App icon now properly embedded in all executables
+### Fixed
+- **HTTP 429 rate-limit cards now show orange instead of red**: A rate-limited provider is a temporary state, not a configuration error. Cards now render with a Warning (orange) tone so you know to wait rather than investigate.
+- **Monitor offline status now shows relative time**: The status bar shows `"Monitor offline — last sync 7m ago"` instead of a generic "Connection lost" message or an absolute timestamp.
+- **Stale-detection failures on non-UTC machines**: `fetched_at` timestamps in `provider_history` and `raw_snapshots` are now stored as Unix epoch integers instead of ISO-8601 text strings, eliminating `DateTimeKind.Unspecified` comparison failures that caused the stale-data indicator to fire incorrectly on machines not set to UTC.
+
+### Security
+- **SQL injection hardening**: Table names and ORDER BY clauses in `WebDatabaseRawTableReader` are now validated against an allowlist; LIMIT parameters are bounds-checked (1–10,000). An architecture guardrail test (`ProductionCode_DoesNotUseUnguardedSqlInterpolation`) enforces this going forward.
+- **Added CodeQL, Semgrep, and Trivy security scanning**: Three complementary scanners now run on a sensible schedule — Semgrep and Trivy secret-scanning gate every PR (fast, pattern-based), while CodeQL deep semantic analysis and Trivy full vulnerability scanning run weekly. Results are uploaded to GitHub Security as SARIF.
 
 ### CI/CD
-- New release.yml workflow with channel parameter
-- publish.yml updated to detect beta releases from tag patterns
-- generate-appcast.sh script with channel support
-- Beta appcast XML files for all architectures
+- Screenshot baseline comparison now runs on `windows-2025` for both generation and comparison, eliminating false failures caused by WPF font rendering differences between Windows 10 and Windows Server 2025.
 
-### Application
-- UpdateChannel enum in Core (Stable/Beta)
-- GitHubUpdateChecker now uses channel-specific appcast URLs
-
-## [2.2.25] - 2026-02-27
-
-### Added
-- Pay-as-you-go support for Mistral AI
-- Automatic retry for Gemini API on common failures
+## [2.3.1] - 2026-03-19
 
 ### Fixed
-- Anthropic authentication error handling
-- Layout issues on high-DPI displays
+- **OpenAI Codex data no longer updating**: Codex usage stopped refreshing on 2026-03-14 due to a change in the OpenAI API response format. The parser now handles the new response shape correctly.
+- **Stale data shown silently after re-authentication**: When a provider's auth token expires or is missing, the app now stores a visible "re-authenticate" message instead of continuing to show old cached data.
+- **Stale data indicator**: Provider cards that have not refreshed in over an hour now show a "last refreshed X ago — data may be outdated" notice.
+- **Circuit-breaker providers hidden from UI**: When a provider is temporarily paused due to repeated failures, the UI now shows a "Temporarily paused — next check at HH:MM" message with the pause duration and last error.
+- **Config and startup errors now visible in health endpoint**: Failures during config loading or startup are now reported in the monitor health endpoint instead of being silently swallowed.
+- **Connectivity check returned misleading 404**: The provider connectivity check endpoint now returns 503 with a clear message when no usage data is available.
+
+### Changed
+- **`provider_history` write deduplication**: The database no longer stores rows when nothing has changed. Only `fetched_at` is updated on the existing row so the stale-data detector stays accurate. During idle periods this eliminates virtually all writes.
+- **Automatic `provider_history` compaction**: Once per day, old history rows are downsampled — rows 7–90 days old to one per hour, rows older than 90 days to one per day. A `VACUUM` follows to reclaim freed disk space.
+- **Monitor version logged on startup**: The monitor now logs its full version (including pre-release suffix) on every startup, making it easy to confirm from log files which build is running.
+
+## [2.3.1-beta.4] - 2026-03-19
+
+### Added
+- **Integration tests for database read paths and pipeline**: Added 28 real-SQLite integration tests covering `GetHistoryAsync`, `GetHistoryByProviderAsync`, `GetRecentHistoryAsync`, and `GetLatestHistoryAsync` — verifying Dapper type mapping, stale-data detection, the full provider-data-to-database pipeline, and circuit-breaker deduplication behaviour. These tests would have caught the beta.3 `Int64`/`Int32` crash before release.
+
+## [2.3.1-beta.3] - 2026-03-19
+
+### Changed
+- **`provider_history` write deduplication**: The database no longer stores rows when nothing has changed. Before each write, the last stored row for each provider is checked against the incoming data. If the quota numbers, availability, status message, reset time, and sub-quota details are all identical, no new row is inserted — instead, only `fetched_at` is updated on the existing row so the stale-data detector stays accurate. During idle periods this eliminates virtually all writes; only genuine state changes are recorded.
+- **Automatic `provider_history` compaction**: Once per day, old history rows are downsampled: rows 7–90 days old are reduced to one per hour per provider; rows older than 90 days are reduced to one per day. A `VACUUM` runs afterwards to reclaim freed disk space. This acts as a safety valve for intensive-use periods where data changes on every poll.
+
+## [2.3.1-beta.2] - 2026-03-18
+
+### Fixed
+- **OpenAI Codex data no longer updating**: Codex usage stopped refreshing on 2026-03-14 due to a change in the OpenAI API response format. The parser now handles the new response shape correctly. If your Codex card has been showing the same data for days, it will update automatically on the next refresh cycle.
+- **Stale data shown silently after re-authentication**: When a provider's auth token expires or is missing, the app now stores a visible "re-authenticate" message instead of continuing to show old cached data. After a database wipe or first run, you will see an actionable message rather than an empty card.
+- **Stale data indicator**: Provider cards that have not refreshed in over an hour now show a "last refreshed X ago — data may be outdated" notice, so you always know when the data is fresh versus cached.
+- **Circuit-breaker providers hidden from UI**: When a provider is temporarily paused due to repeated failures, the UI now shows a "Temporarily paused — next check at HH:MM" message instead of silently serving stale cached data or showing nothing. The pause duration and last error are included so you know when it will retry.
+- **Config and startup errors now visible in health endpoint**: Failures during config loading or startup (e.g. a corrupted config file) are now reported in the monitor health endpoint instead of being silently swallowed.
+- **Connectivity check returned misleading 404**: The provider connectivity check endpoint now returns 503 with a clear message when no usage data is available, rather than a 404 that implied the endpoint itself was missing.
+
+## [2.3.1-beta.1] - 2026-03-18
+
+### Removed
+- **AnthropicProvider**: Removed the non-functional stub provider that returned hardcoded responses with no real API integration.
+
+### Changed
+- **ProviderBase Helpers**: Added `CreateBearerRequest()` and `DeserializeJsonOrDefault<T>()` helpers to `ProviderBase`, eliminating repeated boilerplate across all provider implementations.
+
+### CI/CD
+- Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
+

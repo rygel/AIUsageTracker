@@ -8,7 +8,6 @@ using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -23,14 +22,13 @@ using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Core.Updates;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
+using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Win32;
-using SharpVectors.Converters;
-using SharpVectors.Renderers.Wpf;
 
 namespace AIUsageTracker.UI.Slim;
 
@@ -41,11 +39,6 @@ public partial class MainWindow : Window
     private const uint SwpNoMove = 0x0002;
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpNoOwnerZOrder = 0x0200;
-
-    private static readonly Regex MarkdownTokenRegex = new(
-        @"(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*|\[[^\]]+\]\([^)]+\))",
-        RegexOptions.Compiled | RegexOptions.ExplicitCapture,
-        TimeSpan.FromSeconds(1));
 
     private static readonly TimeSpan StartupPollingInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan NormalPollingInterval = TimeSpan.FromMinutes(1);
@@ -59,9 +52,12 @@ public partial class MainWindow : Window
     private readonly ILogger<MainWindow> _logger;
     private readonly UiPreferencesStore _preferencesStore;
     private readonly DisplayPreferencesService _displayPreferences;
-    private readonly Dictionary<string, ImageSource> _iconCache = new(StringComparer.Ordinal);
     private readonly DispatcherTimer _updateCheckTimer;
     private readonly DispatcherTimer _alwaysOnTopTimer;
+
+    // Extracted UI services — initialized lazily after resource dictionary is loaded
+    private WpfProviderIconService? _iconService;
+    private ChangelogMarkdownRenderer? _markdownRenderer;
 
     private IUpdateCheckerService _updateChecker;
     private AppPreferences _preferences = new();
@@ -988,6 +984,16 @@ public partial class MainWindow : Window
         return this.FindResource(key) as SolidColorBrush ?? fallback;
     }
 
+    private WpfProviderIconService EnsureIconService()
+    {
+        return this._iconService ??= new WpfProviderIconService(this._logger, this.GetResourceBrush);
+    }
+
+    private ChangelogMarkdownRenderer EnsureMarkdownRenderer()
+    {
+        return this._markdownRenderer ??= new ChangelogMarkdownRenderer(this.GetResourceBrush);
+    }
+
     private void RenderProviders()
     {
         this.LogDiagnostic("[DIAGNOSTIC] RenderProviders called");
@@ -1304,7 +1310,7 @@ public partial class MainWindow : Window
         else
         {
             // Provider icon for parent items
-            var providerIcon = this.CreateProviderIcon(providerId);
+            var providerIcon = this.EnsureIconService().CreateIcon(providerId);
             providerIcon.Margin = new Thickness(0, 0, 6, 0); // Reduced margin for specific alignment
             providerIcon.Width = 14;
             providerIcon.Height = 14;
@@ -1334,6 +1340,19 @@ public partial class MainWindow : Window
                     foreground: this.GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
                     fontWeight: FontWeights.SemiBold,
                     margin: new Thickness(10, 0, 0, 0)),
+                Dock.Right);
+        }
+
+        // Usage rate badge (req/hr) — shown when preference is enabled and data is available
+        if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
+        {
+            this.AddDockedElement(
+                contentPanel,
+                this.CreateDockedTextBlock(
+                    $"{usage.UsagePerHour.Value:F1}/hr",
+                    fontSize: 9,
+                    foreground: this.GetResourceBrush("TertiaryText", Brushes.Gray),
+                    margin: new Thickness(6, 0, 0, 0)),
                 Dock.Right);
         }
 
@@ -1657,98 +1676,6 @@ public partial class MainWindow : Window
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
     }
 
-    private FrameworkElement CreateProviderIcon(string providerId)
-    {
-        var normalizedProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
-
-        // Check cache first
-        if (this._iconCache.TryGetValue(normalizedProviderId, out var cachedImage))
-        {
-            return new Image
-            {
-                Source = cachedImage,
-                Width = 16,
-                Height = 16,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-        }
-
-        // Map provider IDs to filename
-        var filename = ProviderMetadataCatalog.GetIconAssetName(providerId);
-
-        var appDir = AppDomain.CurrentDomain.BaseDirectory;
-        var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");
-
-        if (System.IO.File.Exists(svgPath))
-        {
-            try
-            {
-                var settings = new SharpVectors.Renderers.Wpf.WpfDrawingSettings
-                {
-                    IncludeRuntime = true,
-                    TextAsGeometry = true,
-                };
-                var reader = new SharpVectors.Converters.FileSvgReader(settings);
-                var drawing = reader.Read(svgPath);
-                if (drawing != null)
-                {
-                    var image = new DrawingImage(drawing);
-                    image.Freeze();
-                    this._iconCache[normalizedProviderId] = image;
-
-                    return new Image
-                    {
-                        Source = image,
-                        Width = 16,
-                        Height = 16,
-                        VerticalAlignment = VerticalAlignment.Center,
-                    };
-                }
-            }
-            catch
-            {
-                // Fallback to circle with initial
-            }
-        }
-
-        // Fallback: colored circle with initial
-        return this.CreateFallbackIcon(normalizedProviderId);
-    }
-
-    private FrameworkElement CreateFallbackIcon(string providerId)
-    {
-        var (color, initial) = ProviderVisualCatalog.GetFallbackBadge(
-            providerId,
-            this.GetResourceBrush("SecondaryText", Brushes.Gray));
-
-        var grid = new Grid { Width = 16, Height = 16 };
-
-        var circle = new Border
-        {
-            Width = 16,
-            Height = 16,
-            Background = color,
-            CornerRadius = new CornerRadius(8),
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        grid.Children.Add(circle);
-
-        var text = new TextBlock
-        {
-            Text = initial,
-            FontSize = 8,
-            FontWeight = FontWeights.Bold,
-            Foreground = Brushes.White,
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            TextAlignment = TextAlignment.Center,
-        };
-        grid.Children.Add(text);
-
-        return grid;
-    }
-
     private Brush GetProgressBarColor(double usedPercentage)
     {
         var yellowThreshold = this._preferences.ColorThresholdYellow;
@@ -1853,7 +1780,7 @@ public partial class MainWindow : Window
                     else if ((DateTime.Now - this._lastMonitorUpdate).TotalMinutes > 5)
                     {
                         // Keep showing old data, show yellow warning
-                        this.ShowStatus("Last update: " + this._lastMonitorUpdate.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) + " (stale)", StatusType.Warning);
+                        this.ShowStatus(this.FormatMonitorOfflineStatus(), StatusType.Warning);
                     }
                 }
             }
@@ -1869,7 +1796,7 @@ public partial class MainWindow : Window
                 if (hasOldData)
                 {
                     // Has old data - show yellow warning, keep displaying stale data
-                    this.ShowStatus("Connection lost - showing stale data", StatusType.Warning);
+                    this.ShowStatus(this.FormatMonitorOfflineStatus(), StatusType.Warning);
                 }
                 else
                 {
@@ -2022,6 +1949,23 @@ public partial class MainWindow : Window
         {
             this._isPollingInProgress = false;
         }
+    }
+
+    private string FormatMonitorOfflineStatus()
+    {
+        if (this._lastMonitorUpdate == DateTime.MinValue)
+        {
+            return "Monitor offline — no data received yet";
+        }
+
+        var elapsed = DateTime.Now - this._lastMonitorUpdate;
+        var ago = elapsed.TotalSeconds < 60
+            ? $"{(int)elapsed.TotalSeconds}s ago"
+            : elapsed.TotalHours < 1
+                ? $"{(int)elapsed.TotalMinutes}m ago"
+                : $"{(int)elapsed.TotalHours}h ago";
+
+        return $"Monitor offline — last sync {ago}";
     }
 
     private void LogDiagnostic(string message)
@@ -2425,265 +2369,11 @@ public partial class MainWindow : Window
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             IsToolBarVisible = false,
-            Document = this.BuildMarkdownDocument(updateInfo.ReleaseNotes),
+            Document = this.EnsureMarkdownRenderer().BuildDocument(updateInfo.ReleaseNotes),
         };
 
         changelogWindow.Content = viewer;
         changelogWindow.ShowDialog();
-    }
-
-    private FlowDocument BuildMarkdownDocument(string markdown)
-    {
-        var document = new FlowDocument
-        {
-            FontFamily = new FontFamily("Segoe UI"),
-            FontSize = 13,
-            PagePadding = new Thickness(16),
-            Background = Brushes.Transparent,
-        };
-
-        if (string.IsNullOrWhiteSpace(markdown))
-        {
-            var emptyParagraph = new Paragraph(new Run("No changelog available for this release."))
-            {
-                FontStyle = FontStyles.Italic,
-            };
-            document.Blocks.Add(emptyParagraph);
-            return document;
-        }
-
-        var lines = markdown.Replace("\r\n", "\n").Split('\n');
-        var inCodeBlock = false;
-        var codeBuilder = new StringBuilder();
-
-        foreach (var rawLine in lines)
-        {
-            var line = rawLine ?? string.Empty;
-            var trimmed = line.Trim();
-
-            if (trimmed.StartsWith("```", StringComparison.Ordinal))
-            {
-                if (inCodeBlock)
-                {
-                    this.AddCodeBlock(document, codeBuilder.ToString().TrimEnd());
-                    codeBuilder.Clear();
-                    inCodeBlock = false;
-                }
-                else
-                {
-                    inCodeBlock = true;
-                }
-
-                continue;
-            }
-
-            if (inCodeBlock)
-            {
-                codeBuilder.AppendLine(line);
-                continue;
-            }
-
-            if (string.IsNullOrWhiteSpace(trimmed))
-            {
-                continue;
-            }
-
-            var headerLevel = this.GetHeaderLevel(trimmed);
-            if (headerLevel > 0)
-            {
-                var headerText = trimmed[(headerLevel + 1)..];
-                var header = new Paragraph
-                {
-                    Margin = new Thickness(0, headerLevel == 1 ? 10 : 6, 0, 4),
-                    FontWeight = FontWeights.SemiBold,
-                    FontSize = headerLevel switch
-                    {
-                        1 => 22,
-                        2 => 18,
-                        3 => 16,
-                        _ => 14,
-                    },
-                };
-                this.AddMarkdownInlines(header, headerText);
-                document.Blocks.Add(header);
-                continue;
-            }
-
-            if (trimmed.StartsWith("- ", StringComparison.Ordinal) || trimmed.StartsWith("* ", StringComparison.Ordinal))
-            {
-                var bullet = new Paragraph
-                {
-                    Margin = new Thickness(0, 1, 0, 1),
-                };
-                bullet.Inlines.Add(new Run("• "));
-                this.AddMarkdownInlines(bullet, trimmed[2..]);
-                document.Blocks.Add(bullet);
-                continue;
-            }
-
-            if (this.TryParseNumberedItem(trimmed, out var numberedPrefix, out var numberedText))
-            {
-                var numbered = new Paragraph
-                {
-                    Margin = new Thickness(0, 1, 0, 1),
-                };
-                numbered.Inlines.Add(new Run($"{numberedPrefix}. "));
-                this.AddMarkdownInlines(numbered, numberedText);
-                document.Blocks.Add(numbered);
-                continue;
-            }
-
-            var paragraph = new Paragraph
-            {
-                Margin = new Thickness(0, 0, 0, 6),
-                LineHeight = 20,
-            };
-            this.AddMarkdownInlines(paragraph, trimmed);
-            document.Blocks.Add(paragraph);
-        }
-
-        if (inCodeBlock && codeBuilder.Length > 0)
-        {
-            this.AddCodeBlock(document, codeBuilder.ToString().TrimEnd());
-        }
-
-        return document;
-    }
-
-    private int GetHeaderLevel(string trimmedLine)
-    {
-        var level = 0;
-        while (level < trimmedLine.Length && trimmedLine[level] == '#')
-        {
-            level++;
-        }
-
-        return level > 0 && level < trimmedLine.Length && trimmedLine[level] == ' ' ? level : 0;
-    }
-
-    private bool TryParseNumberedItem(string line, out int number, out string content)
-    {
-        number = 0;
-        content = string.Empty;
-
-        var dotIndex = line.IndexOf(". ", StringComparison.Ordinal);
-        if (dotIndex <= 0)
-        {
-            return false;
-        }
-
-        var prefix = line[..dotIndex];
-        if (!int.TryParse(prefix, System.Globalization.CultureInfo.InvariantCulture, out number))
-        {
-            return false;
-        }
-
-        content = line[(dotIndex + 2)..];
-        return !string.IsNullOrWhiteSpace(content);
-    }
-
-    private void AddCodeBlock(FlowDocument document, string codeText)
-    {
-        var codeParagraph = new Paragraph(new Run(codeText))
-        {
-            Margin = new Thickness(0, 6, 0, 10),
-            Padding = new Thickness(10, 8, 10, 8),
-            FontFamily = new FontFamily("Consolas"),
-            FontSize = 12,
-            Background = this.GetResourceBrush("FooterBackground", Brushes.Black),
-            Foreground = this.GetResourceBrush("PrimaryText", Brushes.White),
-        };
-        document.Blocks.Add(codeParagraph);
-    }
-
-    private void AddMarkdownInlines(Paragraph paragraph, string text)
-    {
-        if (string.IsNullOrEmpty(text))
-        {
-            return;
-        }
-
-        var matches = MarkdownTokenRegex.Matches(text);
-        var cursor = 0;
-
-        foreach (Match match in matches)
-        {
-            if (match.Index > cursor)
-            {
-                paragraph.Inlines.Add(new Run(text[cursor..match.Index]));
-            }
-
-            var token = match.Value;
-            if (this.TryCreateHyperlink(token, out var hyperlink))
-            {
-                paragraph.Inlines.Add(hyperlink);
-            }
-            else if (token.StartsWith("**", StringComparison.Ordinal) && token.EndsWith("**", StringComparison.Ordinal))
-            {
-                paragraph.Inlines.Add(new Bold(new Run(token[2..^2])));
-            }
-            else if (token.StartsWith("*", StringComparison.Ordinal) && token.EndsWith("*", StringComparison.Ordinal))
-            {
-                paragraph.Inlines.Add(new Italic(new Run(token[1..^1])));
-            }
-            else if (token.StartsWith("`", StringComparison.Ordinal) && token.EndsWith("`", StringComparison.Ordinal))
-            {
-                paragraph.Inlines.Add(new Run(token[1..^1])
-                {
-                    FontFamily = new FontFamily("Consolas"),
-                    Background = this.GetResourceBrush("FooterBackground", Brushes.Black),
-                });
-            }
-            else
-            {
-                paragraph.Inlines.Add(new Run(token));
-            }
-
-            cursor = match.Index + match.Length;
-        }
-
-        if (cursor < text.Length)
-        {
-            paragraph.Inlines.Add(new Run(text[cursor..]));
-        }
-    }
-
-    private bool TryCreateHyperlink(string token, out Hyperlink hyperlink)
-    {
-        hyperlink = null!;
-
-        if (!token.StartsWith("[", StringComparison.Ordinal) || !token.EndsWith(")", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var separator = token.IndexOf("](", StringComparison.Ordinal);
-        if (separator <= 1)
-        {
-            return false;
-        }
-
-        var text = token[1..separator];
-        var url = token[(separator + 2)..^1];
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            return false;
-        }
-
-        hyperlink = new Hyperlink(new Run(text))
-        {
-            NavigateUri = uri,
-        };
-        hyperlink.Click += (s, e) =>
-        {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = url,
-                UseShellExecute = true,
-            });
-        };
-
-        return true;
     }
 
     private async Task CheckForUpdatesAsync()
@@ -2921,7 +2611,6 @@ public partial class MainWindow : Window
         else if (e.Key == Key.F2)
         {
             this.SettingsBtn_Click(this, new RoutedEventArgs());
-            e.Handled = true;
             e.Handled = true;
         }
     }

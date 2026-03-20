@@ -171,25 +171,8 @@ internal static class ProviderStatusPresentationCatalog
         var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
         var accountName = usage?.AccountName;
 
-        string displayText;
-        if (!isAuthenticated)
-        {
-            displayText = "Not Authenticated";
-        }
-        else if (!string.IsNullOrWhiteSpace(accountName))
-        {
-            displayText = isPrivacyMode
-                ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
-                : $"Authenticated ({accountName})";
-        }
-        else if (hasSessionToken && usage?.IsAvailable != true)
-        {
-            displayText = $"Authenticated via {providerSessionLabel} - refresh to load quota";
-        }
-        else
-        {
-            displayText = $"Authenticated via {providerSessionLabel}";
-        }
+        var displayText = ResolveSessionAuthDisplayText(
+            isAuthenticated, hasSessionToken, accountName, providerSessionLabel, usage?.IsAvailable, isPrivacyMode);
 
         var secondaryLines = new List<ProviderStatusLine>();
         var resolvedReset = usage?.NextResetTime;
@@ -208,6 +191,31 @@ internal static class ProviderStatusPresentationCatalog
             PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
             PrimaryItalic: false,
             SecondaryLines: secondaryLines.AsReadOnly());
+    }
+
+    private static string ResolveSessionAuthDisplayText(
+        bool isAuthenticated,
+        bool hasSessionToken,
+        string? accountName,
+        string providerSessionLabel,
+        bool? isUsageAvailable,
+        bool isPrivacyMode)
+    {
+        if (!isAuthenticated)
+        {
+            return "Not Authenticated";
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            return isPrivacyMode
+                ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
+                : $"Authenticated ({accountName})";
+        }
+
+        return hasSessionToken && isUsageAvailable != true
+            ? $"Authenticated via {providerSessionLabel} - refresh to load quota"
+            : $"Authenticated via {providerSessionLabel}";
     }
 
     private static string MaskString(string input)

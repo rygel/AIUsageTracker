@@ -22,7 +22,111 @@ public class Program
             return ExportData(args.Length > 1 ? args[1] : "test-fixtures/provider-data.json");
         }
 
+        if (args.Length > 0 && string.Equals(args[0], "stats", StringComparison.Ordinal))
+        {
+            return PrintStats();
+        }
+
         return SeedDatabase(args.Length > 0 ? args[0] : "test-fixtures/provider-data.json");
+    }
+
+    private static int PrintStats()
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var dbPath = Path.Combine(appData, "AIUsageTracker", "usage.db");
+
+        if (!File.Exists(dbPath))
+        {
+            Console.Error.WriteLine($"Database not found: {dbPath}");
+            return 1;
+        }
+
+        var fileSize = new FileInfo(dbPath).Length;
+        Console.WriteLine($"DB file: {dbPath}");
+        Console.WriteLine($"File size: {fileSize / 1024.0 / 1024.0:F1} MB");
+        Console.WriteLine();
+
+        var connectionString = $"Data Source={dbPath};Mode=ReadOnly";
+        using var connection = new SqliteConnection(connectionString);
+        connection.Open();
+
+        // Total rows and date range
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT
+                    COUNT(*) as total_rows,
+                    MIN(fetched_at) as oldest,
+                    MAX(fetched_at) as newest,
+                    AVG(CASE WHEN details_json IS NOT NULL THEN LENGTH(details_json) ELSE 0 END) as avg_details_bytes,
+                    SUM(CASE WHEN details_json IS NOT NULL THEN LENGTH(details_json) ELSE 0 END) as total_details_bytes,
+                    COUNT(DISTINCT provider_id) as provider_count
+                FROM provider_history";
+            using var reader = cmd.ExecuteReader();
+            if (reader.Read())
+            {
+                Console.WriteLine($"Total rows:      {reader.GetInt64(0):N0}");
+                Console.WriteLine($"Oldest entry:    {reader.GetString(1)}");
+                Console.WriteLine($"Newest entry:    {reader.GetString(2)}");
+                Console.WriteLine($"Providers:       {reader.GetInt64(5)}");
+                Console.WriteLine($"Avg details_json:{reader.GetDouble(3):F0} bytes");
+                Console.WriteLine($"Total details:   {reader.GetInt64(4) / 1024.0 / 1024.0:F1} MB");
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Rows per provider:");
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT provider_id, COUNT(*) as cnt,
+                       MIN(fetched_at) as oldest,
+                       MAX(fetched_at) as newest
+                FROM provider_history
+                GROUP BY provider_id
+                ORDER BY cnt DESC";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                Console.WriteLine($"  {reader.GetString(0),-30} {reader.GetInt64(1),8:N0}  ({reader.GetString(2)[..10]} → {reader.GetString(3)[..10]})");
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Rows per day (last 30 days):");
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT DATE(fetched_at) as day, COUNT(*) as cnt
+                FROM provider_history
+                WHERE fetched_at >= datetime('now', '-30 days')
+                GROUP BY day
+                ORDER BY day DESC";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                Console.WriteLine($"  {reader.GetString(0)}  {reader.GetInt64(1),6:N0}");
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Rows per month (older than 30 days):");
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT strftime('%Y-%m', fetched_at) as month, COUNT(*) as cnt
+                FROM provider_history
+                WHERE fetched_at < datetime('now', '-30 days')
+                GROUP BY month
+                ORDER BY month DESC";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                Console.WriteLine($"  {reader.GetString(0)}  {reader.GetInt64(1),8:N0}");
+            }
+        }
+
+        return 0;
     }
 
     private static int ExportData(string outputPath)

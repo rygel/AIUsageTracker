@@ -16,14 +16,17 @@ public class BrowserService : IBrowserService
 {
     private const string WebUiUrl = "http://localhost:5100";
     private readonly ILogger<BrowserService> _logger;
+    private readonly IHttpClientFactory _httpClientFactory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BrowserService"/> class.
     /// </summary>
     /// <param name="logger">The logger instance.</param>
-    public BrowserService(ILogger<BrowserService> logger)
+    /// <param name="httpClientFactory">The HTTP client factory.</param>
+    public BrowserService(ILogger<BrowserService> logger, IHttpClientFactory httpClientFactory)
     {
         this._logger = logger;
+        this._httpClientFactory = httpClientFactory;
     }
 
     /// <inheritdoc/>
@@ -49,7 +52,7 @@ public class BrowserService : IBrowserService
         try
         {
             // Check if web service is already running
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
+            using var client = this._httpClientFactory.CreateClient("LocalhostProbe");
             try
             {
                 var response = await client.GetAsync(WebUiUrl).ConfigureAwait(false);

@@ -63,7 +63,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Equal("claude-code", result.ProviderId); // provider-id-guardrail-allow: test assertion
         Assert.Equal("Claude Code", result.ProviderName);
         Assert.True(result.IsQuotaBased);
-        Assert.Equal(PlanType.Coding, result.PlanType);
+        Assert.Equal(PlanType.Usage, result.PlanType);
 
         // UsedPercent is max utilization: max(35%, 42%) = 42% used
         Assert.Equal(42, result.UsedPercent);

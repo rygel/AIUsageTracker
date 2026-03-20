@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 2
 
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -62,7 +62,7 @@ jobs:
 
       - name: Comment on large PR
         if: steps.stats.outputs.total_lines > 1000
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8
         with:
           script: |
             const totalLines = ${{ steps.stats.outputs.total_lines }};
@@ -79,7 +79,7 @@ jobs:
 
       - name: Add size label
         if: steps.stats.outputs.total_lines > 1000
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b  # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8
         with:
           script: |
             const totalLines = ${{ steps.stats.outputs.total_lines }};

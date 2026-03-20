@@ -1,4 +1,4 @@
-// <copyright file="GeminiProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="GeminiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -51,8 +51,8 @@ public class GeminiProvider : ProviderBase
                 modelIdContains: new[] { "day", "daily" }),
         },
         IconAssetName = "google",
-        FallbackBadgeColorHex = "#1E90FF",
-        FallbackBadgeInitial = "G",
+        BadgeColorHex = "#1E90FF",
+        BadgeInitial = "G",
         DerivedModelDisplaySuffix = "[Gemini CLI]",
     };
 
@@ -124,8 +124,8 @@ public class GeminiProvider : ProviderBase
                     ProviderId = this.ProviderId,
                     ProviderName = this.Definition.DisplayName,
                     IsAvailable = false,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     State = ProviderUsageState.Missing,
                     Description = "No Gemini accounts found",
                 },
@@ -198,8 +198,8 @@ public class GeminiProvider : ProviderBase
                     UsedPercent = usedPercentage,
                     RequestsUsed = usedPercentage,
                     RequestsAvailable = 100,
-                    IsQuotaBased = true,
-                    PlanType = PlanType.Coding,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    PlanType = this.Definition.PlanType,
                     AccountName = account.Email, // Separate usage per account
                     Description = $"{remainingPercentage:F1}% Remaining{mainResetStr}",
                     NextResetTime = soonestResetDt,
@@ -211,37 +211,13 @@ public class GeminiProvider : ProviderBase
             }
             catch (Exception ex)
             {
-                this._logger.LogWarning(ex, $"Failed to fetch Gemini quota for {account.Email}");
-                results.Add(new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Error,
-                    Description = $"Error: {ex.Message}",
-                    AccountName = account.Email,
-                });
+                this._logger.LogWarning(ex, "Failed to fetch Gemini quota for {AccountEmail}", account.Email);
             }
-        }
-
-        if (results.Any(r => r.IsAvailable))
-        {
-            results = results.Where(r => r.IsAvailable).ToList();
         }
 
         if (!results.Any())
         {
-            return new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
-                    IsAvailable = false,
-                    State = ProviderUsageState.Error,
-                    Description = "Failed to fetch quota for any account",
-                },
-            };
+            return new[] { this.CreateUnavailableUsage("Failed to fetch quota for any account") };
         }
 
         return results;
@@ -487,57 +463,85 @@ public class GeminiProvider : ProviderBase
 
     private async Task<string> RefreshTokenAsync(string refreshToken)
     {
-        string clientId = GeminiCliClientId;
+        // Try each client in order. CLI defaults to [cli, plugin] (plugin as fallback).
+        // Plugin-identified credentials only try the plugin client.
+        var clientsToTry = this.ResolveOAuthClientsToTry();
+        Exception? lastException = null;
 
-        // Logic to prefer Plugin Client ID if specified in oauth_creds.json.
-        var oauthCredsPath = this.ResolveOauthCredsPath();
-        if (File.Exists(oauthCredsPath))
+        foreach (var (clientId, clientSecret) in clientsToTry)
         {
             try
             {
-                var json = File.ReadAllText(oauthCredsPath);
-                using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("id_token", out var idToken))
-                {
-                    var token = idToken.GetString();
-                    if (!string.IsNullOrEmpty(token))
-                    {
-                        var parts = token.Split('.');
-                        if (parts.Length > 1)
-                        {
-                            var payload = Encoding.UTF8.GetString(Convert.FromBase64String(parts[1].Replace('-', '+').Replace('_', '/').PadRight(parts[1].Length + ((4 - (parts[1].Length % 4)) % 4), '=')));
-                            using var payloadDoc = JsonDocument.Parse(payload);
-                            if (payloadDoc.RootElement.TryGetProperty("aud", out var aud) && string.Equals(aud.GetString(), GeminiPluginClientId, StringComparison.Ordinal))
-                            {
-                                clientId = GeminiPluginClientId;
-                            }
-                        }
-                    }
-                }
+                this._logger.LogDebug(
+                    "Gemini token refresh using OAuth client {ClientKind}",
+                    string.Equals(clientId, GeminiPluginClientId, StringComparison.Ordinal) ? "plugin" : "cli");
+                return await this.DoRefreshTokenAsync(refreshToken, clientId, clientSecret).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                this._logger.LogDebug(ex, "Failed to inspect Gemini oauth creds for client-id preference");
+                lastException = ex;
+                this._logger.LogWarning(ex, "Gemini token refresh failed with client {ClientId}", clientId);
             }
+        }
+
+        throw lastException ?? new InvalidOperationException("No OAuth clients available for token refresh");
+    }
+
+    private (string ClientId, string ClientSecret)[] ResolveOAuthClientsToTry()
+    {
+        var preferredClientId = this.DetectPreferredOAuthClientId();
+
+        // Plugin credentials do not fall back to the CLI client — they are intentionally bound
+        // to the plugin OAuth app. CLI credentials fall back to plugin as a last resort.
+        if (string.Equals(preferredClientId, GeminiPluginClientId, StringComparison.Ordinal))
+        {
+            return new[] { (GeminiPluginClientId, GeminiPluginClientSecret) };
+        }
+
+        return new[]
+        {
+            (GeminiCliClientId, GeminiCliClientSecret),
+            (GeminiPluginClientId, GeminiPluginClientSecret),
+        };
+    }
+
+    private string DetectPreferredOAuthClientId()
+    {
+        var oauthCredsPath = this.ResolveOauthCredsPath();
+        if (!File.Exists(oauthCredsPath))
+        {
+            return GeminiCliClientId;
         }
 
         try
         {
-            var clientSecret = string.Equals(clientId, GeminiPluginClientId, StringComparison.Ordinal)
-                ? GeminiPluginClientSecret
-                : GeminiCliClientSecret;
-            this._logger.LogDebug(
-                "Gemini token refresh using OAuth client {ClientKind}",
-                string.Equals(clientId, GeminiPluginClientId, StringComparison.Ordinal) ? "plugin" : "cli");
-            return await this.DoRefreshTokenAsync(refreshToken, clientId, clientSecret).ConfigureAwait(false);
+            var json = File.ReadAllText(oauthCredsPath);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("id_token", out var idToken))
+            {
+                var token = idToken.GetString();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    var parts = token.Split('.');
+                    if (parts.Length > 1)
+                    {
+                        var payload = this.DecodeBase64Url(parts[1]);
+                        using var payloadDoc = JsonDocument.Parse(payload);
+                        if (payloadDoc.RootElement.TryGetProperty("aud", out var aud) &&
+                            string.Equals(aud.GetString(), GeminiPluginClientId, StringComparison.Ordinal))
+                        {
+                            return GeminiPluginClientId;
+                        }
+                    }
+                }
+            }
         }
-        catch when (string.Equals(clientId, GeminiCliClientId, StringComparison.Ordinal))
+        catch (Exception ex)
         {
-            // If default client fails, retry with plugin client
-            this._logger.LogWarning(
-                "Gemini token refresh failed with CLI client; retrying with plugin client");
-            return await this.DoRefreshTokenAsync(refreshToken, GeminiPluginClientId, GeminiPluginClientSecret).ConfigureAwait(false);
+            this._logger.LogDebug(ex, "Failed to inspect Gemini oauth creds for client-id preference");
         }
+
+        return GeminiCliClientId;
     }
 
     private async Task<string> DoRefreshTokenAsync(string refreshToken, string clientId, string clientSecret)

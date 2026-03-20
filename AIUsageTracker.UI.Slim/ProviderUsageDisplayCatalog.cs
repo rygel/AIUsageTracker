@@ -13,17 +13,17 @@ internal static class ProviderUsageDisplayCatalog
         IReadOnlyCollection<ProviderUsage> usages,
         IEnumerable<string>? hiddenItemIds = null)
     {
-        var filteredUsages = usages
-            .Where(usage => ProviderMetadataCatalog.ShouldShowInMainWindow(usage.ProviderId ?? string.Empty))
-            .ToList();
+        var hiddenSet = hiddenItemIds != null
+            ? new HashSet<string>(hiddenItemIds, StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (hiddenItemIds != null)
-        {
-            var hiddenSet = new HashSet<string>(hiddenItemIds, StringComparer.OrdinalIgnoreCase);
-            filteredUsages = filteredUsages
-                .Where(u => !hiddenSet.Contains(u.ProviderId ?? string.Empty))
-                .ToList();
-        }
+        var filteredUsages = usages
+            .Where(usage =>
+            {
+                var id = usage.ProviderId ?? string.Empty;
+                return ProviderMetadataCatalog.ShouldShowInMainWindow(id) && !hiddenSet.Contains(id);
+            })
+            .ToList();
 
         var collapsedParentProviderIds = ResolveCollapsedParentProviderIds(filteredUsages);
 
@@ -205,6 +205,7 @@ internal static class ProviderUsageDisplayCatalog
             IsAvailable = parentUsage.IsAvailable,
             AuthSource = parentUsage.AuthSource,
             AccountName = parentUsage.AccountName,
+            PeriodDuration = declaredWindow?.PeriodDuration,
         };
     }
 
@@ -243,16 +244,9 @@ internal static class ProviderUsageDisplayCatalog
     {
         if (windows.Count == 0) return null;
 
-        // Prefer exact match on both Kind and DetailName
-        var exact = windows.FirstOrDefault(w =>
+        return windows.FirstOrDefault(w =>
             w.Kind == detail.QuotaBucketKind &&
             w.DetailName != null &&
             string.Equals(w.DetailName, detail.Name, StringComparison.OrdinalIgnoreCase));
-        if (exact != null) return exact;
-
-        // Fall back to Kind-only match (works when each Kind appears at most once)
-        return windows.FirstOrDefault(w =>
-            w.Kind == detail.QuotaBucketKind &&
-            w.DetailName == null);
     }
 }

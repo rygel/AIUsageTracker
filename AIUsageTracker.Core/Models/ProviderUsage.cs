@@ -85,4 +85,30 @@ public class ProviderUsage
     public UpstreamResponseValidity UpstreamResponseValidity { get; set; } = UpstreamResponseValidity.Unknown;
 
     public string UpstreamResponseNote { get; set; } = string.Empty;
+
+    /// <summary>
+    /// True when the row was retrieved from the database but is older than the staleness
+    /// threshold, meaning no successful refresh has occurred recently. The UI should
+    /// visually distinguish stale entries so users know they are looking at cached data.
+    /// </summary>
+    public bool IsStale { get; set; }
+
+    /// <summary>
+    /// Derived burn rate: requests consumed per hour, computed from the delta between the
+    /// latest row and the row closest to one hour ago. Null when there is insufficient
+    /// history or when the counter was reset (delta would be negative).
+    /// Not stored in the database — computed on read and never serialised.
+    /// </summary>
+    [JsonIgnore]
+    public double? UsagePerHour { get; set; }
+
+    /// <summary>
+    /// Duration of the primary rolling quota window (e.g. 7 days for a weekly quota).
+    /// Set by the display layer when synthesising child provider rows from aggregate details,
+    /// or directly by the provider when the usage row represents a single rolling window.
+    /// Null when no rolling-window period duration is known.
+    /// Not stored in the database — derived on read and never serialised.
+    /// </summary>
+    [JsonIgnore]
+    public TimeSpan? PeriodDuration { get; set; }
 }

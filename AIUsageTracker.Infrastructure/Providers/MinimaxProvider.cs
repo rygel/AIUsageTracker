@@ -1,4 +1,4 @@
-// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
+﻿// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -44,8 +44,8 @@ public class MinimaxProvider : ProviderBase
         SettingsAdditionalProviderIds = new[] { InternationalProviderId },
         DiscoveryEnvironmentVariables = new[] { "MINIMAX_API_KEY" },
         IconAssetName = "minimax",
-        FallbackBadgeColorHex = "#00CED1",
-        FallbackBadgeInitial = "MM",
+        BadgeColorHex = "#00CED1",
+        BadgeInitial = "MM",
     };
 
     /// <inheritdoc/>
@@ -68,8 +68,8 @@ public class MinimaxProvider : ProviderBase
                 ProviderId = config.ProviderId,
                 ProviderName = providerLabel,
                 IsAvailable = false,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = "API Key not found.",
                 State = ProviderUsageState.Missing,
             },
@@ -101,8 +101,7 @@ public class MinimaxProvider : ProviderBase
             }
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+        var request = CreateBearerRequest(HttpMethod.Get, url, config.ApiKey);
 
         var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
         var httpStatus = (int)response.StatusCode;
@@ -117,8 +116,8 @@ public class MinimaxProvider : ProviderBase
                 ProviderId = config.ProviderId,
                 ProviderName = providerLabel,
                 IsAvailable = false,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = $"API returned {response.StatusCode} for {url}",
                 RawJson = errorContent,
                 HttpStatus = httpStatus,
@@ -148,8 +147,8 @@ public class MinimaxProvider : ProviderBase
                   ProviderId = config.ProviderId,
                   ProviderName = providerLabel,
                   IsAvailable = false,
-                  IsQuotaBased = true,
-                  PlanType = PlanType.Coding,
+                  IsQuotaBased = this.Definition.IsQuotaBased,
+                  PlanType = this.Definition.PlanType,
                   Description = "Invalid Minimax response format",
                   RawJson = responseString,
                   HttpStatus = httpStatus,
@@ -166,8 +165,8 @@ public class MinimaxProvider : ProviderBase
                 ProviderId = config.ProviderId,
                 ProviderName = providerLabel,
                 IsAvailable = false,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                PlanType = this.Definition.PlanType,
                 Description = $"Failed to parse Minimax response: {ex.Message}",
                 RawJson = responseString,
                 HttpStatus = httpStatus,
@@ -186,8 +185,8 @@ public class MinimaxProvider : ProviderBase
             UsedPercent = Math.Clamp(utilization, 0, 100),
             RequestsUsed = used,
             RequestsAvailable = total,
-            PlanType = PlanType.Coding,
-            IsQuotaBased = true,
+            PlanType = this.Definition.PlanType,
+            IsQuotaBased = this.Definition.IsQuotaBased,
             Description = $"{used:N0} tokens used" + (total > 0 ? $" / {total:N0} limit" : string.Empty),
             RawJson = responseString,
             HttpStatus = httpStatus,

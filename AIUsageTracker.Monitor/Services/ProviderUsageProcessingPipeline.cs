@@ -51,6 +51,15 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         foreach (var usage in usages)
         {
             totalProcessedEntries++;
+
+            // Placeholder check must run on the ORIGINAL usage before normalization,
+            // because NormalizeUsage fills in "Unavailable" for empty descriptions —
+            // which would prevent the filter from ever seeing a blank description.
+            if (this.ShouldRejectPlaceholderStage(usage, ref placeholderFilteredCount))
+            {
+                continue;
+            }
+
             if (!this.TryNormalizeUsageForProcessing(
                     usage,
                     isPrivacyMode,
@@ -71,11 +80,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             }
 
             normalized = this.ApplyDetailContractStage(normalized, ref detailContractAdjustedCount);
-
-            if (this.ShouldRejectPlaceholderStage(normalized, ref placeholderFilteredCount))
-            {
-                continue;
-            }
 
             accepted.Add(normalized);
         }
@@ -130,6 +134,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
     private static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
     {
+        // Provider-contract enforcement helper: used only when the provider omits NextResetTime.
         return UsageMath.InferResetTimeFromDetails(details);
     }
 
@@ -241,6 +246,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         var providerName = string.IsNullOrWhiteSpace(usage.ProviderName)
             ? providerId
             : usage.ProviderName.Trim();
+        ProviderMetadataCatalog.TryGet(providerId, out var definition);
 
         var requestsUsed = this.SanitizeNonNegativeFinite(usage.RequestsUsed);
         var requestsAvailable = this.SanitizeNonNegativeFinite(usage.RequestsAvailable);
@@ -257,6 +263,11 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
         var details = this.NormalizeDetails(usage.Details);
         var usageNextResetTimeUtc = usage.NextResetTime?.ToUniversalTime();
+
+        // Provider-contract enforcement: if the provider did not set NextResetTime on the root
+        // ProviderUsage, derive it from the details as a best-effort fallback. Providers SHOULD
+        // set NextResetTime explicitly; this step exists to enforce the contract at the pipeline
+        // boundary rather than silently dropping reset information.
         var normalizedNextResetTimeUtc = usageNextResetTimeUtc ?? InferResetTimeFromDetails(details);
 
         var rawJson = usage.RawJson;
@@ -286,13 +297,13 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             RequestsUsed = requestsUsed,
             RequestsAvailable = requestsAvailable,
             UsedPercent = requestsPercentage,
-            PlanType = usage.PlanType,
-            IsQuotaBased = usage.IsQuotaBased,
-            DisplayAsFraction = usage.DisplayAsFraction,
+            PlanType = definition?.PlanType ?? usage.PlanType,
+            IsQuotaBased = definition?.IsQuotaBased ?? usage.IsQuotaBased,
+            DisplayAsFraction = usage.DisplayAsFraction || (definition?.DisplayAsFraction ?? false),
             IsAvailable = usage.IsAvailable,
             State = usage.State,
-            IsStatusOnly = usage.IsStatusOnly,
-            IsCurrencyUsage = usage.IsCurrencyUsage,
+            IsStatusOnly = usage.IsStatusOnly || (definition?.IsStatusOnly ?? false),
+            IsCurrencyUsage = usage.IsCurrencyUsage || (definition?.IsCurrencyUsage ?? false),
             Description = description,
             AuthSource = usage.AuthSource,
             Details = details,
@@ -335,13 +346,13 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             RequestsUsed = requestsUsed,
             RequestsAvailable = requestsAvailable,
             UsedPercent = requestsPercentage,
-            PlanType = usage.PlanType,
-            IsQuotaBased = usage.IsQuotaBased,
-            DisplayAsFraction = usage.DisplayAsFraction,
+            PlanType = definition?.PlanType ?? usage.PlanType,
+            IsQuotaBased = definition?.IsQuotaBased ?? usage.IsQuotaBased,
+            DisplayAsFraction = usage.DisplayAsFraction || (definition?.DisplayAsFraction ?? false),
             IsAvailable = usage.IsAvailable,
             State = usage.State,
-            IsStatusOnly = usage.IsStatusOnly,
-            IsCurrencyUsage = usage.IsCurrencyUsage,
+            IsStatusOnly = usage.IsStatusOnly || (definition?.IsStatusOnly ?? false),
+            IsCurrencyUsage = usage.IsCurrencyUsage || (definition?.IsCurrencyUsage ?? false),
             Description = description,
             AuthSource = usage.AuthSource,
             Details = details,
@@ -449,11 +460,15 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             return false;
         }
 
-        if (usage.State == ProviderUsageState.Missing || usage.State == ProviderUsageState.Unavailable)
+        // Entries with details (quota windows, model data, etc.) are real — not placeholders.
+        if (usage.Details?.Count > 0)
         {
-            return true;
+            return false;
         }
 
+        // Keep unavailable entries that carry a description — they are actionable
+        // (e.g. "Codex auth token not found", "API Key missing").  Only discard
+        // truly empty entries that have nothing to show the user.
         return string.IsNullOrWhiteSpace(usage.Description);
     }
 
