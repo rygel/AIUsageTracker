@@ -21,9 +21,9 @@ public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
 
     public WpfScreenshotService(IServiceProvider serviceProvider, ILogger<WpfScreenshotService> logger, IThemeService themeService)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _themeService = themeService;
+        this._serviceProvider = serviceProvider;
+        this._logger = logger;
+        this._themeService = themeService;
     }
 
     public async Task RunHeadlessScreenshotCaptureAsync(string[] args)
@@ -51,14 +51,14 @@ public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
                 FontBold = false,
                 FontItalic = false,
                 IsPrivacyMode = true,
-                Theme = selectedTheme
+                Theme = selectedTheme,
             };
-            
-            _themeService.ApplyTheme(selectedTheme);
+
+            this._themeService.ApplyTheme(selectedTheme);
             App.SetPrivacyMode(true);
 
             var outputDirectoryArg = GetArgumentValue(args, "--output-dir");
-            
+
             // Resolve screenshots directory
             var screenshotsDir = string.IsNullOrWhiteSpace(outputDirectoryArg)
                 ? ResolveScreenshotsDirectory()
@@ -68,17 +68,17 @@ public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
             if (isThemeSmokeMode)
             {
                 var smokeFileName = $"theme_smoke_{selectedTheme.ToString().ToLowerInvariant()}.png";
-                await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName));
+                await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, smokeFileName)).ConfigureAwait(false);
                 return;
             }
 
-            await CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
-            await CaptureSettingsScreenshotsAsync(screenshotsDir);
-            CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
+            await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png")).ConfigureAwait(false);
+            await this.CaptureSettingsScreenshotsAsync(screenshotsDir).ConfigureAwait(false);
+            this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Headless screenshot capture failed");
+            this._logger.LogError(ex, "Headless screenshot capture failed");
             Environment.ExitCode = 1;
         }
         finally
@@ -122,10 +122,12 @@ public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
         {
             width = root.Width;
         }
+
         if (double.IsNaN(width) || width <= 0)
         {
             width = Math.Max(1, root.ActualWidth);
         }
+
         if (width <= 0)
         {
             width = 380;
@@ -179,12 +181,12 @@ public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
 
     private async Task CaptureMainWindowScreenshotAsync(string outputPath)
     {
-        var window = _serviceProvider.GetRequiredService<MainWindow>();
+        var window = this._serviceProvider.GetRequiredService<MainWindow>();
         try
         {
-            await window.PrepareForHeadlessScreenshotAsync(deterministic: true);
+            await window.PrepareForHeadlessScreenshotAsync(deterministic: true).ConfigureAwait(false);
             await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
-            RenderWindowContent(window, outputPath);
+            this.RenderWindowContent(window, outputPath);
         }
         finally
         {
@@ -194,10 +196,10 @@ public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
 
     private async Task CaptureSettingsScreenshotsAsync(string outputDirectory)
     {
-        var window = _serviceProvider.GetRequiredService<SettingsWindow>();
+        var window = this._serviceProvider.GetRequiredService<SettingsWindow>();
         try
         {
-            await window.CaptureHeadlessTabScreenshotsAsync(outputDirectory);
+            await window.CaptureHeadlessTabScreenshotsAsync(outputDirectory).ConfigureAwait(false);
         }
         finally
         {
@@ -215,8 +217,9 @@ public class WpfScreenshotService : IScreenshotService, IWpfScreenshotService
             {
                 infoDialog.PrepareForHeadlessScreenshot();
             }
+
             window.UpdateLayout();
-            RenderWindowContent(window, outputPath);
+            this.RenderWindowContent(window, outputPath);
         }
         finally
         {

@@ -112,10 +112,7 @@ public class UsageAlertsService
         }
 
         // Duration is declared in QuotaWindowDefinition — the single source of truth.
-        ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition);
-        var periodDuration = definition?.QuotaWindows
-            .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue)
-            ?.PeriodDuration;
+        var periodDuration = ResolvePeriodDuration(usage.ProviderId ?? string.Empty);
 
         if (!periodDuration.HasValue)
         {
@@ -126,6 +123,28 @@ public class UsageAlertsService
             rawUsedPercent,
             usage.NextResetTime.Value.ToUniversalTime(),
             periodDuration.Value);
+    }
+
+    private static TimeSpan? ResolvePeriodDuration(string providerId)
+    {
+        if (!ProviderMetadataCatalog.TryGet(providerId, out var definition))
+        {
+            return null;
+        }
+
+        if (string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            return definition.QuotaWindows
+                .FirstOrDefault(window => window.Kind == WindowKind.Rolling && window.PeriodDuration.HasValue)
+                ?.PeriodDuration;
+        }
+
+        return definition.QuotaWindows
+            .FirstOrDefault(window =>
+                window.PeriodDuration.HasValue &&
+                !string.IsNullOrWhiteSpace(window.ChildProviderId) &&
+                string.Equals(window.ChildProviderId, providerId, StringComparison.OrdinalIgnoreCase))
+            ?.PeriodDuration;
     }
 
     private static (bool IsReset, string Reason) TryDetectReset(ProviderUsage usage, ProviderUsage previous, ProviderUsage current)

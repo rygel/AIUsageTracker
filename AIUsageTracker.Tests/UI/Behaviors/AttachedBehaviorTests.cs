@@ -16,7 +16,7 @@ public class AttachedBehaviorTests
     private static readonly TimeSpan StaTestTimeout = TimeSpan.FromSeconds(5);
 
     [Fact]
-    public Task WindowDragBehavior_GetEnableDrag_ReturnsFalseByDefault()
+    public Task WindowDragBehavior_GetEnableDrag_ReturnsFalseByDefaultAsync()
     {
         return RunInStaAsync(() =>
         {
@@ -33,7 +33,7 @@ public class AttachedBehaviorTests
     }
 
     [Fact]
-    public Task WindowDragBehavior_SetEnableDrag_SetsValue()
+    public Task WindowDragBehavior_SetEnableDrag_SetsValueAsync()
     {
         return RunInStaAsync(() =>
         {
@@ -51,7 +51,7 @@ public class AttachedBehaviorTests
     }
 
     [Fact]
-    public Task CloseWindowBehavior_GetCloseOnClick_ReturnsFalseByDefault()
+    public Task CloseWindowBehavior_GetCloseOnClick_ReturnsFalseByDefaultAsync()
     {
         return RunInStaAsync(() =>
         {
@@ -68,7 +68,7 @@ public class AttachedBehaviorTests
     }
 
     [Fact]
-    public Task CloseWindowBehavior_SetCloseOnClick_SetsValue()
+    public Task CloseWindowBehavior_SetCloseOnClick_SetsValueAsync()
     {
         return RunInStaAsync(() =>
         {
@@ -86,7 +86,7 @@ public class AttachedBehaviorTests
     }
 
     [Fact]
-    public Task CloseWindowBehavior_GetHideOnClick_ReturnsFalseByDefault()
+    public Task CloseWindowBehavior_GetHideOnClick_ReturnsFalseByDefaultAsync()
     {
         return RunInStaAsync(() =>
         {
@@ -103,7 +103,7 @@ public class AttachedBehaviorTests
     }
 
     [Fact]
-    public Task CloseWindowBehavior_SetHideOnClick_SetsValue()
+    public Task CloseWindowBehavior_SetHideOnClick_SetsValueAsync()
     {
         return RunInStaAsync(() =>
         {
@@ -121,7 +121,7 @@ public class AttachedBehaviorTests
     }
 
     [Fact]
-    public Task OpenFolderBehavior_GetFolderPath_ReturnsNullByDefault()
+    public Task OpenFolderBehavior_GetFolderPath_ReturnsNullByDefaultAsync()
     {
         return RunInStaAsync(() =>
         {
@@ -138,7 +138,7 @@ public class AttachedBehaviorTests
     }
 
     [Fact]
-    public Task OpenFolderBehavior_SetFolderPath_SetsValue()
+    public Task OpenFolderBehavior_SetFolderPath_SetsValueAsync()
     {
         return RunInStaAsync(() =>
         {

@@ -32,6 +32,11 @@ public static class UsageMath
         RegexOptions.CultureInvariant,
         RegexTimeout);
 
+    private static readonly Regex SNumericPattern = new(
+        @"^\s*(?<percent>\d+(?:\.\d+)?)\s*$",
+        RegexOptions.CultureInvariant,
+        RegexTimeout);
+
     /// <summary>
     /// Clamps a percentage value to the range [0, 100], handling NaN and Infinity.
     /// </summary>
@@ -148,9 +153,9 @@ public static class UsageMath
             return ClampPercent(percent);
         }
 
-        if (TryParseFallbackNumber(value, out var result))
+        if (TryParseNumericPercent(value, out var numericPercent))
         {
-            return ClampPercent(result);
+            return ClampPercent(numericPercent);
         }
 
         return null;
@@ -464,11 +469,20 @@ public static class UsageMath
             out percent);
     }
 
-    private static bool TryParseFallbackNumber(string value, out double result)
+    private static bool TryParseNumericPercent(string value, out double percent)
     {
-        result = 0;
-        var cleanValue = new string(value.Where(c => char.IsDigit(c) || c == '.').ToArray());
-        return double.TryParse(cleanValue, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out result);
+        percent = 0;
+        var match = SNumericPattern.Match(value);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        return double.TryParse(
+            match.Groups["percent"].Value,
+            System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out percent);
     }
 
     private static List<ProviderUsage> FilterValidSamples(IEnumerable<ProviderUsage> history)

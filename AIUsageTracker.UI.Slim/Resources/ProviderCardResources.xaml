@@ -67,7 +67,6 @@
                                     <Binding Path="ColorIndicatorPercent"/>
                                     <Binding Path="YellowThreshold"/>
                                     <Binding Path="RedThreshold"/>
-                                    <Binding Path="IsQuotaBased"/>
                                 </MultiBinding>
                             </Border.Background>
                         </Border>
@@ -91,7 +90,6 @@
                                         <Binding Path="PrimaryUsedPercent"/>
                                         <Binding Path="YellowThreshold"/>
                                         <Binding Path="RedThreshold"/>
-                                        <Binding Path="IsQuotaBased"/>
                                     </MultiBinding>
                                 </Border.Background>
                             </Border>
@@ -108,7 +106,6 @@
                                         <Binding Path="SecondaryUsedPercent"/>
                                         <Binding Path="YellowThreshold"/>
                                         <Binding Path="RedThreshold"/>
-                                        <Binding Path="IsQuotaBased"/>
                                     </MultiBinding>
                                 </Border.Background>
                             </Border>

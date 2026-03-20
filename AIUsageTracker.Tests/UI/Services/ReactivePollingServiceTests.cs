@@ -73,7 +73,7 @@ public class ReactivePollingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RefreshNowAsync_CallsMonitorService()
+    public async Task RefreshNowAsync_CallsMonitorServiceAsync()
     {
         // Arrange
         var usages = new List<ProviderUsage>
@@ -92,7 +92,7 @@ public class ReactivePollingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RefreshNowAsync_EmitsToUsageStream()
+    public async Task RefreshNowAsync_EmitsToUsageStreamAsync()
     {
         // Arrange
         var usages = new List<ProviderUsage>
@@ -116,7 +116,7 @@ public class ReactivePollingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task RefreshNowAsync_EmitsToErrorStream_OnException()
+    public async Task RefreshNowAsync_EmitsToErrorStream_OnExceptionAsync()
     {
         // Arrange
         var expectedException = new InvalidOperationException("Test error");
@@ -177,7 +177,7 @@ public class ReactivePollingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CreatePollingObservable_ReturnsObservableOfUsages()
+    public async Task CreatePollingObservable_ReturnsObservableOfUsagesAsync()
     {
         // Arrange
         var usages = new List<ProviderUsage>

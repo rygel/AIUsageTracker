@@ -138,6 +138,7 @@ public class ProviderRefreshCircuitBreakerService
     /// currently open so they are stored in the database and surfaced in the UI rather than
     /// showing stale data silently.
     /// </summary>
+    /// <returns></returns>
     public IReadOnlyList<ProviderUsage> CreateCircuitOpenUsages(IEnumerable<ProviderConfig> skippedConfigs)
     {
         var result = new List<ProviderUsage>();

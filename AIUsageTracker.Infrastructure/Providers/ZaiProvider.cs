@@ -1,4 +1,4 @@
-﻿// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
+// <copyright file="ZaiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -401,13 +401,13 @@ public class ZaiProvider : ProviderBase
         public long? NextResetTime { get; set; }
 
         /// <summary>
-        /// Z.ai window duration unit. Observed values: 3 = hours, 5 = months.
+        /// Gets or sets z.ai window duration unit. Observed values: 3 = hours, 5 = months.
         /// Coding Plan TOKENS_LIMIT: unit=3, number=5 → 5-hour rolling window.
         /// </summary>
         [JsonPropertyName("unit")]
         public int? Unit { get; set; }
 
-        /// <summary>Number of units in the window duration (e.g. 5 for a 5-hour window).</summary>
+        /// <summary>Gets or sets number of units in the window duration (e.g. 5 for a 5-hour window).</summary>
         [JsonPropertyName("number")]
         public long? Number { get; set; }
     }

@@ -1,4 +1,4 @@
-﻿// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
+// <copyright file="GitHubCopilotProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

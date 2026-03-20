@@ -81,7 +81,7 @@ public partial class ProviderCardViewModel : BaseViewModel
     public bool IsStale => this._presentation?.IsStale ?? false;
 
     /// <summary>
-    /// True when the provider API returned HTTP 429 (Too Many Requests).
+    /// Gets a value indicating whether true when the provider API returned HTTP 429 (Too Many Requests).
     /// The card will show a Warning-tone status rather than an Error-tone status.
     /// </summary>
     public bool IsRateLimited => this.Usage.HttpStatus == 429;
@@ -115,7 +115,7 @@ public partial class ProviderCardViewModel : BaseViewModel
     public string? TooltipContent => ProviderTooltipPresentationCatalog.BuildContent(this.Usage, this.DisplayName);
 
     /// <summary>
-    /// Returns a formatted req/hr badge string when ShowUsagePerHour is enabled and data is available,
+    /// Gets a formatted req/hr badge string when ShowUsagePerHour is enabled and data is available,
     /// or null (causing the badge to collapse via NullToVisibilityConverter).
     /// </summary>
     public string? UsageRateBadgeText
@@ -134,7 +134,7 @@ public partial class ProviderCardViewModel : BaseViewModel
     public bool HasDetails => this.Details.Count > 0;
 
     /// <summary>
-    /// Pace-adjusted used percentage for progress-bar colour decisions.
+    /// Gets pace-adjusted used percentage for progress-bar colour decisions.
     /// PeriodDuration and NextResetTime are set on every usage by ProviderUsageDisplayCatalog
     /// before the ViewModel is constructed, so no catalog lookup or fallback is needed here.
     /// </summary>
@@ -155,7 +155,7 @@ public partial class ProviderCardViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// "On pace" badge when usage is meaningfully under the expected rate for the elapsed
+    /// Gets "On pace" badge when usage is meaningfully under the expected rate for the elapsed
     /// fraction of the quota window. Null when pace info is unavailable or user is at/over pace.
     /// </summary>
     public string? PaceBadgeText

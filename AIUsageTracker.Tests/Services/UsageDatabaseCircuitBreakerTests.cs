@@ -32,11 +32,10 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
     // -------------------------------------------------------------------------
     // State transition: available → unavailable (circuit opens)
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_AvailableToUnavailable_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
 
         // First poll: provider is healthy
@@ -45,17 +44,16 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
         // Second poll: circuit opens, provider now returns 503
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, httpStatus: 503, statusMessage: "Service unavailable", fetchedAt: t1.AddMinutes(5))]);
 
-        Assert.Equal(2, CountRows("codex")); // state changed → new row
+        Assert.Equal(2, this.CountRows("codex")); // state changed → new row
     }
 
     // -------------------------------------------------------------------------
     // Circuit breaker open: repeated identical error state is deduplicated
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_RepeatedSameErrorState_DoesNotFloodDatabaseAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
 
         // Initial availability → unavailable transition (circuit opens)
@@ -69,13 +67,13 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
         }
 
         // Should be exactly 2 rows: the initial healthy row + one 503 row (all duplicates suppressed)
-        Assert.Equal(2, CountRows("codex"));
+        Assert.Equal(2, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task StoreHistoryAsync_RepeatedSameErrorState_UpdatesFetchedAtToLatestPollAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
         var t2 = t1.AddMinutes(1);
         var t3 = t1.AddMinutes(2);
@@ -85,21 +83,20 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, httpStatus: 503, statusMessage: "Circuit open", fetchedAt: t3)]);
 
         // Row count stays at 1 (all deduplicated)
-        Assert.Equal(1, CountRows("codex"));
+        Assert.Equal(1, this.CountRows("codex"));
 
         // But fetched_at should be t3 (the most recent poll time)
-        var storedFetchedAt = GetFetchedAt("codex");
+        var storedFetchedAt = this.GetFetchedAt("codex");
         Assert.Equal(EpochFloor(t3), storedFetchedAt);
     }
 
     // -------------------------------------------------------------------------
     // Circuit breaker recovery: unavailable → available (circuit closes)
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_UnavailableToAvailable_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
 
         // Circuit open
@@ -108,17 +105,16 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
         // Circuit closes — provider recovers
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: true, httpStatus: 200, statusMessage: "ok", fetchedAt: t1.AddMinutes(5))]);
 
-        Assert.Equal(2, CountRows("codex")); // recovery → new row
+        Assert.Equal(2, this.CountRows("codex")); // recovery → new row
     }
 
     // -------------------------------------------------------------------------
     // Circuit breaker with different HTTP status transitions
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_HttpStatusChangesDuringCircuitOpen_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
 
         // Initial circuit trip at 503
@@ -127,17 +123,16 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
         // HTTP status changes to 429 (rate-limited instead of down)
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, httpStatus: 429, statusMessage: "Service unavailable", fetchedAt: t1.AddMinutes(2))]);
 
-        Assert.Equal(2, CountRows("codex")); // http_status changed → new row
+        Assert.Equal(2, this.CountRows("codex")); // http_status changed → new row
     }
 
     // -------------------------------------------------------------------------
     // Multiple providers independently circuit-break
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_MultipleProviders_CircuitBreakersOperateIndependentlyAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
 
         // Both start healthy
@@ -161,14 +156,13 @@ public sealed class UsageDatabaseCircuitBreakerTests : IDisposable
             ]);
         }
 
-        Assert.Equal(2, CountRows("codex"));   // healthy row + one circuit-open row
-        Assert.Equal(1, CountRows("mistral")); // never changed; all deduplicated
+        Assert.Equal(2, this.CountRows("codex"));   // healthy row + one circuit-open row
+        Assert.Equal(1, this.CountRows("mistral")); // never changed; all deduplicated
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
     public void Dispose() => TestTempPaths.CleanupPath(this._dbPath);
 
     private async Task<UsageDatabase> CreateDatabaseAsync()

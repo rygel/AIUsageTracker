@@ -5,6 +5,15 @@ name: CodeQL
 # codebase, not on every PR (too slow to be a useful gate).
 
 on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - "AIUsageTracker.Core/**"
+      - "AIUsageTracker.Infrastructure/**"
+      - "AIUsageTracker.Monitor/**"
+      - "AIUsageTracker.Web/**"
+      - "AIUsageTracker.UI.Slim/**"
+      - "AIUsageTracker.CLI/**"
   schedule:
     - cron: "0 7 * * 1"  # Weekly on Monday at 7 AM
   workflow_dispatch:
@@ -28,10 +37,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
         with:
           dotnet-version: "8.0.x"
+          cache-key-prefix: "codeql"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@c6f931105cb2c34c8f901cc885ba1e2e259cf745  # v4.34.0

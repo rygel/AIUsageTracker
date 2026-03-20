@@ -25,10 +25,10 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         this.Config.ProviderId = MinimaxProvider.ChinaProviderId;
     }
 
-
     /// <summary>
     /// Tests that UsedPercent stores the used percentage for quota-based providers.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_ModerateUsage_ReturnsUsedPercentageAsync()
     {
@@ -60,6 +60,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     /// <summary>
     /// Tests parsing when user is at high utilization (85% used).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_HighUsage_ReturnsCorrectUsedPercentAsync()
     {
@@ -89,6 +90,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     /// <summary>
     /// Tests parsing when at 100% capacity.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_AtCapacity_ReturnsFullUsedAsync()
     {
@@ -118,6 +120,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     /// <summary>
     /// Tests parsing with minimal usage (2% used).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_MinimalUsage_ReturnsLowUsedPercentAsync()
     {
@@ -147,6 +150,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     /// <summary>
     /// Tests parsing with zero usage (0% used).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_ZeroUsage_ReturnsZeroUsedPercentAsync()
     {
@@ -176,6 +180,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     /// <summary>
     /// Tests that usage over 100% is clamped to 100%.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_OverLimit_ClampsToMaxUsedAsync()
     {
@@ -201,8 +206,6 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Equal(100, usage.UsedPercent);
         Assert.Equal(1200000, usage.RequestsUsed);
     }
-
-
 
     [Fact]
     public void StaticDefinition_HasCorrectConfiguration()
@@ -317,8 +320,6 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         Assert.Equal(10, usage.UsedPercent); // 10% used
     }
 
-
-
     [Fact]
     public async Task GetUsageAsync_NoApiKey_ReturnsUnavailableAsync()
     {
@@ -331,7 +332,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("API Key not found", usage.Description);
+        Assert.Contains("API Key not found", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -346,7 +347,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("InternalServerError", usage.Description);
+        Assert.Contains("InternalServerError", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -361,7 +362,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("Unauthorized", usage.Description);
+        Assert.Contains("Unauthorized", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -376,7 +377,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("Failed to parse", usage.Description);
+        Assert.Contains("Failed to parse", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -397,7 +398,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("Invalid Minimax response format", usage.Description);
+        Assert.Contains("Invalid Minimax response format", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -412,10 +413,8 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("TooManyRequests", usage.Description);
+        Assert.Contains("TooManyRequests", usage.Description, StringComparison.Ordinal);
     }
-
-
 
     [Fact]
     public async Task GetUsageAsync_ZeroLimit_HandlesGracefullyAsync()
@@ -539,7 +538,6 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
         var usage = result.Single();
         Assert.Equal(PlanType.Coding, usage.PlanType);
     }
-
 
     private void SetupResponse(HttpStatusCode statusCode, string content, string? url = null)
     {

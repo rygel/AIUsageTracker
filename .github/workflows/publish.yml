@@ -37,10 +37,11 @@ jobs:
           Write-Host "Channel: $channel"
         shell: pwsh
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
         with:
           dotnet-version: '10.0.x'
+          cache-key-prefix: 'publish'
 
       - name: Install Inno Setup
         if: startsWith(matrix.runtime, 'win-')

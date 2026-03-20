@@ -29,91 +29,89 @@ public sealed class UsageDatabaseDedupTests : IDisposable
     // -------------------------------------------------------------------------
     // Dedup gate — no insert when data is unchanged
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_IdenticalData_DoesNotInsertNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 50, fetchedAt: t1)]);
-        Assert.Equal(1, CountRows("codex"));
+        Assert.Equal(1, this.CountRows("codex"));
 
         var t2 = t1.AddMinutes(5);
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 50, fetchedAt: t2)]);
-        Assert.Equal(1, CountRows("codex"));
+        Assert.Equal(1, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task StoreHistoryAsync_IdenticalData_UpdatesFetchedAtOnExistingRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = new DateTime(2026, 3, 19, 10, 0, 0, DateTimeKind.Utc);
         var t2 = t1.AddMinutes(5);
 
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 50, fetchedAt: t1)]);
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 50, fetchedAt: t2)]);
 
-        var storedFetchedAt = GetFetchedAt("codex");
+        var storedFetchedAt = this.GetFetchedAt("codex");
         Assert.Equal(EpochFloor(t2), storedFetchedAt);
     }
 
     // -------------------------------------------------------------------------
     // Dedup gate — insert when any meaningful field changes
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_ChangedRequestsUsed_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 50, fetchedAt: t1)]);
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 75, fetchedAt: t1.AddMinutes(5))]);
 
-        Assert.Equal(2, CountRows("codex"));
+        Assert.Equal(2, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task StoreHistoryAsync_ChangedIsAvailable_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: true, fetchedAt: t1)]);
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, fetchedAt: t1.AddMinutes(5))]);
 
-        Assert.Equal(2, CountRows("codex"));
+        Assert.Equal(2, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task StoreHistoryAsync_ChangedStatusMessage_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([MakeUsage("codex", statusMessage: "ok", fetchedAt: t1)]);
         await db.StoreHistoryAsync([MakeUsage("codex", statusMessage: "degraded", fetchedAt: t1.AddMinutes(5))]);
 
-        Assert.Equal(2, CountRows("codex"));
+        Assert.Equal(2, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task StoreHistoryAsync_ChangedHttpStatus_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([MakeUsage("codex", httpStatus: 200, fetchedAt: t1)]);
         await db.StoreHistoryAsync([MakeUsage("codex", httpStatus: 429, fetchedAt: t1.AddMinutes(5))]);
 
-        Assert.Equal(2, CountRows("codex"));
+        Assert.Equal(2, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task StoreHistoryAsync_ChangedDetailsJson_InsertsNewRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([MakeUsage("codex", fetchedAt: t1, details: [
@@ -123,27 +121,26 @@ public sealed class UsageDatabaseDedupTests : IDisposable
             new ProviderUsageDetail { Name = "primary", PercentageValue = 75 },
         ])]);
 
-        Assert.Equal(2, CountRows("codex"));
+        Assert.Equal(2, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task StoreHistoryAsync_FirstInsertForProvider_InsertsRowAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         await db.StoreHistoryAsync([MakeUsage("new-provider", fetchedAt: DateTime.UtcNow)]);
 
-        Assert.Equal(1, CountRows("new-provider"));
+        Assert.Equal(1, this.CountRows("new-provider"));
     }
 
     // -------------------------------------------------------------------------
     // Dedup gate — multiple providers in one batch
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task StoreHistoryAsync_MixedBatch_InsertsChangedAndTouchesUnchangedAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
         await db.StoreHistoryAsync([
@@ -157,124 +154,122 @@ public sealed class UsageDatabaseDedupTests : IDisposable
             MakeUsage("mistral", requestsUsed: 30, fetchedAt: t2), // changed
         ]);
 
-        Assert.Equal(1, CountRows("codex"));    // deduped
-        Assert.Equal(2, CountRows("mistral"));  // new row
+        Assert.Equal(1, this.CountRows("codex"));    // deduped
+        Assert.Equal(2, this.CountRows("mistral"));  // new row
 
-        Assert.Equal(EpochFloor(t2), GetFetchedAt("codex"));
+        Assert.Equal(EpochFloor(t2), this.GetFetchedAt("codex"));
     }
 
     // -------------------------------------------------------------------------
     // Compaction
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task CompactHistoryAsync_RowsWithinSevenDays_AreUntouchedAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var now = DateTime.UtcNow;
 
         // Insert 5 rows at 5-minute intervals within the last 7 days
         for (var i = 0; i < 5; i++)
         {
-            InsertHistoryRow("codex", requestsUsed: i, fetchedAt: now.AddMinutes(-i * 5));
+            this.InsertHistoryRow("codex", requestsUsed: i, fetchedAt: now.AddMinutes(-i * 5));
         }
 
         await db.CompactHistoryAsync();
 
-        Assert.Equal(5, CountRows("codex"));
+        Assert.Equal(5, this.CountRows("codex"));
     }
 
     [Fact]
     public async Task CompactHistoryAsync_OldRowsBeyondSevenDays_DownsamplesToOnePerHourAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var raw = DateTime.UtcNow.AddDays(-10);
         var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, raw.Hour, 0, 0, DateTimeKind.Utc); // clearly in 7–90d window; truncate to hour start so rows don't span buckets
 
         // Insert 3 rows in the same hour (should keep only 1 — the last)
-        InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
-        InsertHistoryRow("codex", requestsUsed: 2, fetchedAt: baseTime.AddMinutes(15));
-        InsertHistoryRow("codex", requestsUsed: 3, fetchedAt: baseTime.AddMinutes(30));
+        this.InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
+        this.InsertHistoryRow("codex", requestsUsed: 2, fetchedAt: baseTime.AddMinutes(15));
+        this.InsertHistoryRow("codex", requestsUsed: 3, fetchedAt: baseTime.AddMinutes(30));
 
         // Insert 2 rows in a different hour (should also keep only 1)
-        InsertHistoryRow("codex", requestsUsed: 4, fetchedAt: baseTime.AddHours(1));
-        InsertHistoryRow("codex", requestsUsed: 5, fetchedAt: baseTime.AddHours(1).AddMinutes(20));
+        this.InsertHistoryRow("codex", requestsUsed: 4, fetchedAt: baseTime.AddHours(1));
+        this.InsertHistoryRow("codex", requestsUsed: 5, fetchedAt: baseTime.AddHours(1).AddMinutes(20));
 
-        Assert.Equal(5, CountRows("codex"));
+        Assert.Equal(5, this.CountRows("codex"));
 
         await db.CompactHistoryAsync();
 
-        Assert.Equal(2, CountRows("codex")); // 1 per hour
+        Assert.Equal(2, this.CountRows("codex")); // 1 per hour
     }
 
     [Fact]
     public async Task CompactHistoryAsync_KeepsLastRowOfEachHourBucketAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var raw = DateTime.UtcNow.AddDays(-10);
         var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, raw.Hour, 0, 0, DateTimeKind.Utc); // truncate to hour start
 
-        InsertHistoryRow("codex", requestsUsed: 10, fetchedAt: baseTime);
-        InsertHistoryRow("codex", requestsUsed: 20, fetchedAt: baseTime.AddMinutes(20));
-        InsertHistoryRow("codex", requestsUsed: 30, fetchedAt: baseTime.AddMinutes(40)); // last in hour — kept
+        this.InsertHistoryRow("codex", requestsUsed: 10, fetchedAt: baseTime);
+        this.InsertHistoryRow("codex", requestsUsed: 20, fetchedAt: baseTime.AddMinutes(20));
+        this.InsertHistoryRow("codex", requestsUsed: 30, fetchedAt: baseTime.AddMinutes(40)); // last in hour — kept
 
         await db.CompactHistoryAsync();
 
-        Assert.Equal(1, CountRows("codex"));
-        Assert.Equal(30.0, GetRequestsUsed("codex"));
+        Assert.Equal(1, this.CountRows("codex"));
+        Assert.Equal(30.0, this.GetRequestsUsed("codex"));
     }
 
     [Fact]
     public async Task CompactHistoryAsync_RowsOlderThan90Days_DownsamplesToOnePerDayAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var raw = DateTime.UtcNow.AddDays(-95);
         var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, 0, 0, 0, DateTimeKind.Utc); // clearly >90d; truncate to day start so rows don't span day buckets
 
         // 3 rows on the same day → keep 1
-        InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
-        InsertHistoryRow("codex", requestsUsed: 2, fetchedAt: baseTime.AddHours(6));
-        InsertHistoryRow("codex", requestsUsed: 3, fetchedAt: baseTime.AddHours(12));
+        this.InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
+        this.InsertHistoryRow("codex", requestsUsed: 2, fetchedAt: baseTime.AddHours(6));
+        this.InsertHistoryRow("codex", requestsUsed: 3, fetchedAt: baseTime.AddHours(12));
 
         // 2 rows on a different day → keep 1
-        InsertHistoryRow("codex", requestsUsed: 4, fetchedAt: baseTime.AddDays(1));
-        InsertHistoryRow("codex", requestsUsed: 5, fetchedAt: baseTime.AddDays(1).AddHours(6));
+        this.InsertHistoryRow("codex", requestsUsed: 4, fetchedAt: baseTime.AddDays(1));
+        this.InsertHistoryRow("codex", requestsUsed: 5, fetchedAt: baseTime.AddDays(1).AddHours(6));
 
-        Assert.Equal(5, CountRows("codex"));
+        Assert.Equal(5, this.CountRows("codex"));
 
         await db.CompactHistoryAsync();
 
-        Assert.Equal(2, CountRows("codex")); // 1 per day
+        Assert.Equal(2, this.CountRows("codex")); // 1 per day
     }
 
     [Fact]
     public async Task CompactHistoryAsync_DoesNotAffectOtherProvidersAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var raw = DateTime.UtcNow.AddDays(-10);
         var baseTime = new DateTime(raw.Year, raw.Month, raw.Day, raw.Hour, 0, 0, DateTimeKind.Utc); // truncate to hour start
 
         // 3 old rows for codex (should be compacted to 1)
-        InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
-        InsertHistoryRow("codex", requestsUsed: 2, fetchedAt: baseTime.AddMinutes(10));
-        InsertHistoryRow("codex", requestsUsed: 3, fetchedAt: baseTime.AddMinutes(20));
+        this.InsertHistoryRow("codex", requestsUsed: 1, fetchedAt: baseTime);
+        this.InsertHistoryRow("codex", requestsUsed: 2, fetchedAt: baseTime.AddMinutes(10));
+        this.InsertHistoryRow("codex", requestsUsed: 3, fetchedAt: baseTime.AddMinutes(20));
 
         // 3 recent rows for mistral (should be untouched)
         var recent = DateTime.UtcNow.AddMinutes(-15);
-        InsertHistoryRow("mistral", requestsUsed: 10, fetchedAt: recent);
-        InsertHistoryRow("mistral", requestsUsed: 11, fetchedAt: recent.AddMinutes(5));
-        InsertHistoryRow("mistral", requestsUsed: 12, fetchedAt: recent.AddMinutes(10));
+        this.InsertHistoryRow("mistral", requestsUsed: 10, fetchedAt: recent);
+        this.InsertHistoryRow("mistral", requestsUsed: 11, fetchedAt: recent.AddMinutes(5));
+        this.InsertHistoryRow("mistral", requestsUsed: 12, fetchedAt: recent.AddMinutes(10));
 
         await db.CompactHistoryAsync();
 
-        Assert.Equal(1, CountRows("codex"));
-        Assert.Equal(3, CountRows("mistral"));
+        Assert.Equal(1, this.CountRows("codex"));
+        Assert.Equal(3, this.CountRows("mistral"));
     }
 
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
     public void Dispose() => TestTempPaths.CleanupPath(this._dbPath);
 
     private async Task<UsageDatabase> CreateDatabaseAsync()

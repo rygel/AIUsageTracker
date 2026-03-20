@@ -136,12 +136,13 @@ jobs:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' || needs.detect-changes.outputs.run_monitor == 'true' || needs.detect-changes.outputs.run_web == 'true' }}
     runs-on: windows-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+          fetch-tags: false
           persist-credentials: false
 
       - name: Setup .NET with Cache
@@ -345,6 +346,15 @@ jobs:
           name: test-binaries-debug
           path: .\_ci_test_binaries
 
+      - name: Cache Playwright browsers
+        id: cache-playwright
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5
+        with:
+          path: ~\AppData\Local\ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/AIUsageTracker.Web.Tests.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright browsers
         shell: pwsh
         run: |
@@ -481,10 +491,11 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5
+      - name: Setup .NET with Cache
+        uses: ./.github/actions/setup-dotnet-cache
         with:
           dotnet-version: "8.0.x"
+          cache-key-prefix: "cross-platform"
 
       - name: Restore Core
         run: dotnet restore AIUsageTracker.Core/AIUsageTracker.Core.csproj

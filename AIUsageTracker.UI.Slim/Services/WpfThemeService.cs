@@ -484,14 +484,14 @@ public class WpfThemeService : IThemeService, IWpfThemeService
 
     public void ApplyTheme(Window window)
     {
-        ApplyTheme(App.Preferences.Theme);
+        this.ApplyTheme(App.Preferences.Theme);
     }
 
     public void ApplyTheme(Window window, string themeName)
     {
         if (Enum.TryParse<AppTheme>(themeName, true, out var theme))
         {
-            ApplyTheme(theme);
+            this.ApplyTheme(theme);
         }
     }
 

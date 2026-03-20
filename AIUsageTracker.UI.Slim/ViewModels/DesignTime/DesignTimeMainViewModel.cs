@@ -11,7 +11,7 @@ namespace AIUsageTracker.UI.Slim.ViewModels.DesignTime;
 /// Design-time ViewModel for MainWindow, providing sample data for XAML designer.
 /// </summary>
 /// <remarks>
-/// This class uses sample provider IDs for design-time preview. provider-id-guardrail-allow
+/// This class uses sample provider IDs for design-time preview. provider-id-guardrail-allow.
 /// </remarks>
 public class DesignTimeMainViewModel
 {

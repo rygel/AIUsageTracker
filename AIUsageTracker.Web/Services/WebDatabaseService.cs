@@ -46,17 +46,30 @@ public class WebDatabaseService : IWebDatabaseRepository
             )";
 
     private const string HistorySamplesSql = @"
-            WITH ranked AS (
+            WITH normalized AS (
                 SELECT h.provider_id AS ProviderId,
                        h.requests_used AS RequestsUsed,
                        h.requests_available AS RequestsAvailable,
                        h.is_available AS IsAvailable,
                        h.response_latency_ms AS ResponseLatencyMs,
-                       h.fetched_at AS FetchedAt,
-                       ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY datetime(h.fetched_at) DESC) AS RowNum
+                       CASE
+                           WHEN typeof(h.fetched_at) IN ('integer', 'real')
+                               THEN datetime(CAST(h.fetched_at AS INTEGER), 'unixepoch')
+                           ELSE datetime(h.fetched_at)
+                       END AS FetchedAtUtc
                 FROM provider_history h
                 WHERE h.provider_id IN @ProviderIds
-                  AND datetime(h.fetched_at) >= datetime(@CutoffUtc)
+            ),
+            ranked AS (
+                SELECT ProviderId,
+                       RequestsUsed,
+                       RequestsAvailable,
+                       IsAvailable,
+                       ResponseLatencyMs,
+                       FetchedAtUtc AS FetchedAt,
+                       ROW_NUMBER() OVER (PARTITION BY ProviderId ORDER BY datetime(FetchedAtUtc) DESC) AS RowNum
+                FROM normalized
+                WHERE datetime(FetchedAtUtc) >= datetime(@CutoffUtc)
             )
             SELECT * FROM ranked
             WHERE RowNum <= @MaxSamples

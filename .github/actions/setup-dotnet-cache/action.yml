@@ -15,12 +15,12 @@ runs:
   using: "composite"
   steps:
     - name: Setup .NET
-      uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5
+      uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5.0.4
       with:
         dotnet-version: ${{ inputs.dotnet-version }}
 
     - name: Cache NuGet packages
-      uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-${{ inputs.cache-key-prefix }}-${{ hashFiles('**/*.slnx', '**/*.csproj', '**/*.props', 'nuget.config') }}
@@ -29,7 +29,7 @@ runs:
           ${{ runner.os }}-nuget-
 
     - name: Cache global tools
-      uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7  # v5.0.4
       with:
         path: ~/.dotnet/tools
         key: ${{ runner.os }}-dotnet-tools-${{ hashFiles('**/dotnet-tools.json') }}

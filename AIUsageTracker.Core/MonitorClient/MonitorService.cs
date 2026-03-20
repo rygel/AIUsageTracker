@@ -464,7 +464,6 @@ public class MonitorService : IMonitorService
         return this.GetEndpointDetailsAsync(MonitorApiRoutes.Health);
     }
 
-    /// <inheritdoc/>
     public Task<string> GetDiagnosticsDetailsAsync()
     {
         return this.GetEndpointDetailsAsync(MonitorApiRoutes.Diagnostics);

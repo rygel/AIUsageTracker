@@ -117,7 +117,7 @@ public class CollapsibleSectionViewModelTests
     }
 
     [Fact]
-    public async Task ToggleExpandedCommand_TogglesIsExpanded()
+    public async Task ToggleExpandedCommand_TogglesIsExpandedAsync()
     {
         // Arrange
         var prefs = CreateDefaultPreferences();
@@ -136,7 +136,7 @@ public class CollapsibleSectionViewModelTests
     }
 
     [Fact]
-    public async Task ToggleExpandedCommand_UpdatesPreferences_QuotaSection()
+    public async Task ToggleExpandedCommand_UpdatesPreferences_QuotaSectionAsync()
     {
         // Arrange
         var prefs = CreateDefaultPreferences();
@@ -154,7 +154,7 @@ public class CollapsibleSectionViewModelTests
     }
 
     [Fact]
-    public async Task ToggleExpandedCommand_UpdatesPreferences_PaygoSection()
+    public async Task ToggleExpandedCommand_UpdatesPreferences_PaygoSectionAsync()
     {
         // Arrange
         var prefs = CreateDefaultPreferences();
@@ -172,7 +172,7 @@ public class CollapsibleSectionViewModelTests
     }
 
     [Fact]
-    public async Task ToggleExpandedCommand_CallsSavePreferencesCallback()
+    public async Task ToggleExpandedCommand_CallsSavePreferencesCallbackAsync()
     {
         // Arrange
         var prefs = CreateDefaultPreferences();

@@ -59,6 +59,7 @@ public class ViewModelArchitectureTests
                         !t.IsInterface &&
                         t != typeof(BaseViewModel) &&
                         t != typeof(AsyncViewModel) &&
+
                         // Exclude design-time ViewModels which are for XAML designer only
                         !t.Namespace?.Contains("DesignTime", StringComparison.Ordinal) == true)
             .ToList();
@@ -107,5 +108,4 @@ public class ViewModelArchitectureTests
             $"All services should have a corresponding interface for testability.{Environment.NewLine}" +
             string.Join(Environment.NewLine, violations));
     }
-
 }
