@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.2] - 2026-03-20
+
+### Fixed
+- **Pace adjustment not applied to Claude Code Sonnet/Opus cards**: The rolling-window pace indicator was correctly applied to the primary Claude Code card but not to the per-model Sonnet and Opus detail cards. All three cards now reflect pace-adjusted colours and thresholds consistently.
+
+### Refactored
+- **Provider metadata moved to `ProviderDefinition`**: Static characteristics (`IsStatusOnly`, `IsCurrencyUsage`, `DisplayAsFraction`, `PlanType`, `IsQuotaBased`, `ProviderName`) are now declared once on `ProviderDefinition` and sourced from there at runtime. Per-instance assignments on `ProviderUsage` objects have been removed. The processing pipeline ORs in definition flags so that any provider declaring a flag gets it applied even if the runtime object omits it.
+- **`ProviderBase.CreateUnavailableUsage` now sources metadata from definition**: The helper previously defaulted to `PlanType.Coding` and `IsQuotaBased = true` for all error/unavailable paths regardless of the actual provider type, causing incorrect metadata on error cards for providers like Mistral and DeepSeek.
+
 ## [2.3.2-beta.1] - 2026-03-20
 
 ### Added
