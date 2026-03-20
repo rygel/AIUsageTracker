@@ -150,6 +150,67 @@ public class DialogOpenBehaviorTests
         });
     }
 
+    [Fact]
+    public Task OpenSettingsDialogAsync_WhenSettingsChanged_ReloadsEnablePaceAdjustmentFromStoreAsync()
+    {
+        return RunInStaAsync(async () =>
+        {
+            EnsureAppCreated();
+
+            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var dialogWindow = new Window();
+            var preferencesStore = Assert.IsType<UiPreferencesStore>(GetPrivateField(mainWindow, "_preferencesStore"));
+            var pathOverrideMethod = typeof(UiPreferencesStore).GetMethod(
+                "SetPreferencesPathOverrideForTesting",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(pathOverrideMethod);
+
+            var tempPreferencesPath = Path.Combine(
+                Path.GetTempPath(),
+                $"aiusagetracker-prefs-{Guid.NewGuid():N}.json");
+
+            pathOverrideMethod.Invoke(preferencesStore, new object?[] { tempPreferencesPath });
+
+            try
+            {
+                var persisted = new AppPreferences
+                {
+                    EnablePaceAdjustment = false,
+                    ShowUsedPercentages = true,
+                };
+                await preferencesStore.SaveAsync(persisted).ConfigureAwait(false);
+
+                SetPrivateField(mainWindow, "_preferences", new AppPreferences
+                {
+                    EnablePaceAdjustment = true,
+                    ShowUsedPercentages = true,
+                });
+                SetPrivateField(mainWindow, "_preferencesLoaded", true);
+
+                // Avoid monitor startup work in this unit test; we only need the settings-change path.
+                SetPrivateField(mainWindow, "_isLoading", true);
+
+                mainWindow.SettingsDialogFactory = () => (dialogWindow, () => true);
+                mainWindow.ShowOwnedDialog = _ => true;
+
+                await mainWindow.OpenSettingsDialogAsync().ConfigureAwait(false);
+
+                var reloaded = Assert.IsType<AppPreferences>(GetPrivateField(mainWindow, "_preferences"));
+                Assert.False(reloaded.EnablePaceAdjustment);
+            }
+            finally
+            {
+                if (File.Exists(tempPreferencesPath))
+                {
+                    File.Delete(tempPreferencesPath);
+                }
+
+                dialogWindow.Close();
+                mainWindow.Close();
+            }
+        });
+    }
+
     private static App EnsureAppCreated()
     {
         if (Application.Current is App app)
