@@ -134,6 +134,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
     private static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
     {
+        // Provider-contract enforcement helper: used only when the provider omits NextResetTime.
         return UsageMath.InferResetTimeFromDetails(details);
     }
 
@@ -261,6 +262,11 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
         var details = this.NormalizeDetails(usage.Details);
         var usageNextResetTimeUtc = usage.NextResetTime?.ToUniversalTime();
+
+        // Provider-contract enforcement: if the provider did not set NextResetTime on the root
+        // ProviderUsage, derive it from the details as a best-effort fallback. Providers SHOULD
+        // set NextResetTime explicitly; this step exists to enforce the contract at the pipeline
+        // boundary rather than silently dropping reset information.
         var normalizedNextResetTimeUtc = usageNextResetTimeUtc ?? InferResetTimeFromDetails(details);
 
         var rawJson = usage.RawJson;
