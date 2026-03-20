@@ -62,6 +62,7 @@ internal static class ProviderUsageDisplayCatalog
             var children = CreateAggregateDetailUsages(usage);
             foreach (var child in children)
             {
+                EnrichWithPeriodDuration(child);
                 if (!hiddenItemIds.Contains(child.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase))
                 {
                     yield return child;
@@ -71,8 +72,8 @@ internal static class ProviderUsageDisplayCatalog
     }
 
     /// <summary>
-    /// Sets PeriodDuration on a ProviderUsage from the provider catalog's primary rolling window,
-    /// so the ViewModel can compute pace-adjusted colours by reading Usage.PeriodDuration directly.
+    /// Sets PeriodDuration on a ProviderUsage from rolling/model-specific quota windows
+    /// so downstream colour logic can compute pace directly from Usage.PeriodDuration.
     /// No-ops if the usage already has PeriodDuration set (e.g. synthetic aggregate children).
     /// </summary>
     private static void EnrichWithPeriodDuration(ProviderUsage usage)
@@ -81,12 +82,14 @@ internal static class ProviderUsageDisplayCatalog
 
         var canonicalId = ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId ?? string.Empty);
         ProviderMetadataCatalog.TryGet(canonicalId, out var definition);
-        var rollingWindow = definition?.QuotaWindows
-            .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue);
+        var periodWindow = definition?.QuotaWindows
+            .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue)
+            ?? definition?.QuotaWindows
+                .FirstOrDefault(w => w.Kind == WindowKind.ModelSpecific && w.PeriodDuration.HasValue);
 
-        if (rollingWindow != null)
+        if (periodWindow != null)
         {
-            usage.PeriodDuration = rollingWindow.PeriodDuration;
+            usage.PeriodDuration = periodWindow.PeriodDuration;
         }
     }
 

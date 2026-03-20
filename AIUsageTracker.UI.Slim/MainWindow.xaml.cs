@@ -1284,7 +1284,8 @@ public partial class MainWindow : Window
         else
         {
             var indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
-            pGrid = this.CreateSingleProgressLayer(presentation.UsedPercent, indicatorWidth, opacity: 0.45);
+            var colorIndicatorPercent = this.GetColorIndicatorPercent(usage, presentation.UsedPercent);
+            pGrid = this.CreateSingleProgressLayer(colorIndicatorPercent, indicatorWidth, opacity: 0.45);
         }
 
         pGrid.Visibility = presentation.ShouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
@@ -1340,6 +1341,20 @@ public partial class MainWindow : Window
                     foreground: this.GetResourceBrush("StatusTextWarning", Brushes.Goldenrod),
                     fontWeight: FontWeights.SemiBold,
                     margin: new Thickness(10, 0, 0, 0)),
+                Dock.Right);
+        }
+
+        var paceBadgeText = this.GetPaceBadgeText(usage, presentation.UsedPercent);
+        if (!string.IsNullOrWhiteSpace(paceBadgeText))
+        {
+            this.AddDockedElement(
+                contentPanel,
+                this.CreateDockedTextBlock(
+                    paceBadgeText,
+                    fontSize: 9,
+                    foreground: this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+                    fontWeight: FontWeights.SemiBold,
+                    margin: new Thickness(6, 0, 0, 0)),
                 Dock.Right);
         }
 
@@ -1674,6 +1689,35 @@ public partial class MainWindow : Window
         }
 
         return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
+    }
+
+    private double GetColorIndicatorPercent(ProviderUsage usage, double usedPercent)
+    {
+        if (!this._preferences.EnablePaceAdjustment || !usage.PeriodDuration.HasValue || !usage.NextResetTime.HasValue)
+        {
+            return usedPercent;
+        }
+
+        return UsageMath.CalculatePaceAdjustedColorPercent(
+            usedPercent,
+            usage.NextResetTime.Value.ToUniversalTime(),
+            usage.PeriodDuration.Value);
+    }
+
+    private string? GetPaceBadgeText(ProviderUsage usage, double usedPercent)
+    {
+        if (!this._preferences.EnablePaceAdjustment || !usage.PeriodDuration.HasValue || !usage.NextResetTime.HasValue)
+        {
+            return null;
+        }
+
+        var period = usage.PeriodDuration.Value;
+        var periodStart = usage.NextResetTime.Value.ToUniversalTime() - period;
+        var elapsed = DateTime.UtcNow - periodStart;
+        var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / period.TotalSeconds, 0.01, 1.0);
+        var expectedPercent = elapsedFraction * 100.0;
+
+        return usedPercent < expectedPercent * 0.95 ? "On pace" : null;
     }
 
     private Brush GetProgressBarColor(double usedPercentage)
