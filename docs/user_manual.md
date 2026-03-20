@@ -6,6 +6,9 @@ Welcome to the **AI Consumption Tracker** user manual. This guide covers the Sli
 
 - Unified provider dashboard across Slim UI, Web UI, and CLI.
 - Real-time usage/quota refresh with tray-friendly compact monitoring.
+- Pace-aware quota colouring for rolling windows with an `On pace` badge when usage is below expected elapsed pace.
+- Toggleable display mode for used vs remaining percentages.
+- Optional usage-rate badge (`req/hr`) on provider cards.
 - Provider-level and global Windows notification controls (threshold + quiet hours + test action).
 - Theme system with shared Slim/Web catalog and persistent preferences.
 - Built-in key discovery from environment variables and common local auth/config files.
@@ -31,7 +34,7 @@ The screenshots in this document are generated from the app's deterministic head
 
 ![Dashboard](screenshot_dashboard_privacy.png)
 
-The main dashboard provides a real-time overview of your AI usage across various providers. It is designed to be lightweight and stay out of your way.
+The main dashboard provides a real-time overview of your AI usage across various providers. It is designed to be lightweight and stay out of your way. For rolling-window quotas, cards can show an `On pace` badge and pace-adjusted color state when enabled in Layout settings.
 
 ### Top Bar & Window Controls
 - **Draggable Header**: Move the window by clicking and dragging the top dark bar.
@@ -79,7 +82,14 @@ Configure API keys for OpenAI, Anthropic, Gemini, etc.
 ![Settings Layout](screenshot_settings_layout_privacy.png)
 
 - **Auto Refresh (Minutes)**: How often the app refreshes in the background (0 = Disabled).
-- **Invert Progress Bars**: represent **Remaining** capacity (Default) or **Used** capacity.
+- **Show Used Percentages**:
+  - Enabled: show used percentage values.
+  - Disabled (default): show remaining percentage values for quota-style providers.
+- **Show Usage Rate (req/hr)**: show a live burn-rate badge when enough history exists.
+- **Pace-Aware Quota Colours**:
+  - Enabled (default): rolling-window cards use elapsed-time pace for color/threshold evaluation and can show `On pace`.
+  - Disabled: color and threshold evaluation use raw used percentage only.
+- **Color Thresholds**: yellow/red thresholds for usage warnings.
 - **Font Settings**: Customize font family, size, and style for the dashboard.
 
 ### Notifications Tab
@@ -227,5 +237,4 @@ Click **"Scan for Keys"** in Settings or run `act scan` to trigger discovery fro
 
 ---
 
-*Version: 2.2.5 | Author: Alexander Brandt*
-
+*Version: 2.3.2 beta series | Author: Alexander Brandt*

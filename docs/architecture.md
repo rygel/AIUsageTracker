@@ -103,6 +103,22 @@ Enhanced percentage calculations:
 - **CalculateRemainingPercent()** - Calculate remaining percentage
 - **CalculateUtilizationPercent()** - Quota-aware calculation
 - **PercentOf()** - Generic percentage calculation
+- **CalculatePaceAdjustedColorPercent()** - Pace-aware colour score for rolling/model-specific quota windows (`used³ / expected²` when under pace)
+- **CalculateProjectedFinalPercent()** - End-of-window projection used for threshold/alert evaluation
+
+### Slim UI Pace Path (No-Interpretation Downstream)
+
+**Locations**:
+- `AIUsageTracker.UI.Slim/ProviderUsageDisplayCatalog.cs`
+- `AIUsageTracker.UI.Slim/ViewModels/ProviderCardViewModel.cs`
+- `AIUsageTracker.UI.Slim/ProviderPacePresentationCatalog.cs`
+
+**Flow**:
+1. `ProviderUsageDisplayCatalog` prepares render data and calls `EnrichWithPeriodDuration()` for each usage before ViewModel creation.
+2. `EnrichWithPeriodDuration()` resolves period metadata from provider catalog quota windows (rolling first, model-specific fallback).
+3. `ProviderCardViewModel` consumes `Usage.PeriodDuration` and `Usage.NextResetTime` directly for `ColorIndicatorPercent` and `PaceBadgeText`.
+4. No provider-catalog lookup or fallback chain exists in ViewModel pace logic.
+5. If pace adjustment is disabled, the path returns raw used percentage and suppresses the `On pace` badge.
 
 ### Constants
 
@@ -204,6 +220,5 @@ When creating or updating a provider:
 - **Type-safe exceptions** enable targeted retry logic
 - **Centralized constants** reduce typos and enable IntelliSense
 - **All 162 unit tests passing**
-
 
 
