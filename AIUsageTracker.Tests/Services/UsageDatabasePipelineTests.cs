@@ -33,11 +33,10 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     // -------------------------------------------------------------------------
     // Data preservation through the full pipeline
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task Pipeline_ProviderData_IsStoredAndRetrievedFaithfullyAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var fetchedAt = new DateTime(2026, 3, 19, 10, 0, 0, DateTimeKind.Utc);
 
         var originalUsage = new ProviderUsage
@@ -58,7 +57,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
 
         var latest = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(latest, u => u.ProviderId == "codex");
+        var codex = Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Equal(123.5, codex.RequestsUsed, precision: 5);
         Assert.Equal(876.5, codex.RequestsAvailable, precision: 5);
         Assert.True(codex.IsAvailable);
@@ -68,7 +67,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     [Fact]
     public async Task Pipeline_UnavailableProvider_IsStoredCorrectlyAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         var unavailable = new ProviderUsage
         {
@@ -87,7 +86,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
 
         var latest = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(latest, u => u.ProviderId == "codex");
+        var codex = Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.False(codex.IsAvailable);
         Assert.Equal(401, codex.HttpStatus);
         Assert.Contains("Auth token", codex.Description, StringComparison.OrdinalIgnoreCase);
@@ -96,7 +95,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     [Fact]
     public async Task Pipeline_InactiveProvider_IsFilteredAndNotStoredAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         var usage = new ProviderUsage
         {
@@ -125,7 +124,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     [Fact]
     public async Task Pipeline_MixedBatch_ActiveStoredInactiveFilteredAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var fetchedAt = DateTime.UtcNow.AddMinutes(-1);
 
         var usages = new[]
@@ -138,14 +137,14 @@ public sealed class UsageDatabasePipelineTests : IDisposable
         await db.StoreHistoryAsync(result.Usages);
 
         var latest = await db.GetLatestHistoryAsync();
-        Assert.Single(latest, u => u.ProviderId == "codex");
-        Assert.DoesNotContain(latest, u => u.ProviderId == "suspended-provider");
+        Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
+        Assert.DoesNotContain(latest, u => string.Equals(u.ProviderId, "suspended-provider", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task Pipeline_WithDetails_DetailsRoundTripThroughDatabaseAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         var usage = new ProviderUsage
         {
@@ -174,7 +173,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
 
         var latest = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(latest, u => u.ProviderId == "codex");
+        var codex = Assert.Single(latest, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.NotNull(codex.Details);
         Assert.Single(codex.Details!);
         Assert.Equal("Primary Window", codex.Details![0].Name);
@@ -184,7 +183,7 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     [Fact]
     public async Task Pipeline_SequentialPolls_DedupGateSuppressesSecondInsertAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
         var t2 = t1.AddMinutes(3);
 
@@ -204,7 +203,6 @@ public sealed class UsageDatabasePipelineTests : IDisposable
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
     public void Dispose() => TestTempPaths.CleanupPath(this._dbPath);
 
     private async Task<UsageDatabase> CreateDatabaseAsync()

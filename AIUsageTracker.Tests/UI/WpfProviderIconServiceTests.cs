@@ -13,13 +13,12 @@ namespace AIUsageTracker.Tests.UI;
 public sealed class WpfProviderIconServiceTests
 {
     // Brush resolver that always returns the fallback — no WPF resource dictionary needed.
-    private static SolidColorBrush PassthroughBrush(string _, SolidColorBrush fallback) => fallback;
+    private static SolidColorBrush PassthroughBrush(string providerId, SolidColorBrush fallback) => fallback;
 
     private static WpfProviderIconService CreateService() =>
         new(NullLogger.Instance, PassthroughBrush);
 
     // ── CreateIcon — fallback badge ───────────────────────────────────────────
-
     [Fact]
     public void CreateIcon_ReturnsFrameworkElement_ForUnknownProvider()
     {
@@ -42,7 +41,11 @@ public sealed class WpfProviderIconServiceTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
+
         Assert.NotNull(result);
     }
 
@@ -78,7 +81,11 @@ public sealed class WpfProviderIconServiceTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
+
         Assert.Equal(16, width);
         Assert.Equal(16, height);
     }
@@ -113,7 +120,11 @@ public sealed class WpfProviderIconServiceTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
+
         Assert.Equal(2, childCount);
         Assert.True(hasBorder, "Expected a Border child (the circle)");
         Assert.True(hasText, "Expected a TextBlock child (the initial)");
@@ -143,7 +154,11 @@ public sealed class WpfProviderIconServiceTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
+
         Assert.NotNull(result);
     }
 
@@ -173,7 +188,11 @@ public sealed class WpfProviderIconServiceTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
+
         Assert.NotNull(first);
         Assert.NotNull(second);
         Assert.NotSame(first, second);

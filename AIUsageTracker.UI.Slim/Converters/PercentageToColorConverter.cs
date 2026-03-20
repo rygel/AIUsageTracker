@@ -22,8 +22,7 @@ public class PercentageToColorConverter : IMultiValueConverter
     /// Expected values:
     /// [0] - percentage (double): The used percentage value (0-100), pace-adjusted where applicable
     /// [1] - yellowThreshold (int): Used-% threshold for yellow color
-    /// [2] - redThreshold (int): Used-% threshold for red color
-    /// [3] - (ignored) legacy isQuota parameter, kept for XAML binding compatibility
+    /// [2] - redThreshold (int): Used-% threshold for red color.
     /// </param>
     /// <param name="targetType">The target type.</param>
     /// <param name="parameter">Optional parameter.</param>

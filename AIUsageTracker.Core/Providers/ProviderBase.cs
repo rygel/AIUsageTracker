@@ -48,6 +48,7 @@ public abstract class ProviderBase : IProviderService
     /// Formats a window reset description from a seconds-until-reset value.
     /// Returns an empty string when no reset time is available.
     /// </summary>
+    /// <returns></returns>
     protected static string FormatResetDescription(double? resetAfterSeconds)
     {
         if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
@@ -62,6 +63,7 @@ public abstract class ProviderBase : IProviderService
     /// Converts a seconds-until-reset value to an absolute local <see cref="DateTime"/>.
     /// Returns <see langword="null"/> when no reset time is available.
     /// </summary>
+    /// <returns></returns>
     protected static DateTime? ResolveResetTimeFromSeconds(double? resetAfterSeconds)
     {
         if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)

@@ -1,4 +1,4 @@
-﻿// <copyright file="OpenRouterProvider.cs" company="AIUsageTracker">
+// <copyright file="OpenRouterProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

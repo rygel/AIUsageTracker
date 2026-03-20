@@ -36,7 +36,7 @@ public class ProviderUsageDetail
     [JsonPropertyName("window_kind")]
     public WindowKind QuotaBucketKind { get; set; } = WindowKind.None;
 
-public bool IsDisplayableSubProviderDetail()
+    public bool IsDisplayableSubProviderDetail()
     {
         return this.DetailType == ProviderUsageDetailType.Model || this.DetailType == ProviderUsageDetailType.Other || this.DetailType == ProviderUsageDetailType.RateLimit;
     }

@@ -1,4 +1,4 @@
-﻿// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
+// <copyright file="MinimaxProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

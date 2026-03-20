@@ -222,7 +222,6 @@ public class ProviderRefreshCircuitBreakerServiceTests
     }
 
     // ── CreateCircuitOpenUsages ───────────────────────────────────────────────
-
     [Fact]
     public void CreateCircuitOpenUsages_WhenCircuitOpen_ReturnsSyntheticEntry()
     {
@@ -243,8 +242,8 @@ public class ProviderRefreshCircuitBreakerServiceTests
         Assert.Equal("openrouter", entry.ProviderId);
         Assert.False(entry.IsAvailable);
         Assert.Equal(ProviderUsageState.Unavailable, entry.State);
-        Assert.Contains("Temporarily paused", entry.Description);
-        Assert.Contains("next check at", entry.Description);
+        Assert.Contains("Temporarily paused", entry.Description, StringComparison.Ordinal);
+        Assert.Contains("next check at", entry.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -289,7 +288,7 @@ public class ProviderRefreshCircuitBreakerServiceTests
         var usages = this._service.CreateCircuitOpenUsages(configs);
 
         var entry = Assert.Single(usages);
-        Assert.Contains("HTTP 503 Service Unavailable", entry.Description);
+        Assert.Contains("HTTP 503 Service Unavailable", entry.Description, StringComparison.Ordinal);
     }
 
     [Fact]

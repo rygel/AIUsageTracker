@@ -164,11 +164,10 @@ public sealed class ProviderCardPresentationCatalogTests
     }
 
     [Fact]
-    public void Create_ExtractsDurationLabelFromDetailName_ForKimiStyleLimitNames()
+    public void Create_UsesDeclaredWindowLabels_ForKimiStyleLimitNames()
     {
-        // Kimi detail names follow "{duration} Limit" format (e.g. "5h Limit", "Weekly Limit").
-        // GetWindowLabel should extract the duration prefix rather than falling back to
-        // the static DualBarLabel ("Daily"), which is inaccurate for sub-day windows.
+        // Labels are driven by provider-declared quota windows.
+        // Kimi declares "5h Limit" -> "5h" and "Weekly Limit" -> "Weekly".
         var burstDetail = new ProviderUsageDetail
         {
             Name = "5h Limit",
@@ -196,7 +195,6 @@ public sealed class ProviderCardPresentationCatalogTests
 
         var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: true);
 
-        // "5h Limit" → "5h" (not "Daily"), "Weekly Limit" → "Weekly"
         // Short window (5h/Burst) is top bar (Primary), long window (Weekly/Rolling) is bottom.
         Assert.Equal("5h 0% used | Weekly 25% used", presentation.StatusText);
     }
@@ -205,7 +203,6 @@ public sealed class ProviderCardPresentationCatalogTests
     // These tests verify the full pipeline from AgentGroupedUsageSnapshot through
     // GroupedUsageDisplayAdapter → ProviderCardPresentationCatalog so that bugs
     // suppressed by a broken intermediate layer cannot be masked.
-
     [Fact]
     public void Pipeline_KimiProviderQuotaDetails_ProducesDualBarOnParentCard()
     {

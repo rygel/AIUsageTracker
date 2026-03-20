@@ -111,7 +111,12 @@ public class PollingService : IPollingService
         this._disposed = true;
     }
 
-    private async void OnTimerTick(object? sender, EventArgs e)
+    private void OnTimerTick(object? sender, EventArgs e)
+    {
+        _ = this.OnTimerTickAsync();
+    }
+
+    private async Task OnTimerTickAsync()
     {
         try
         {
@@ -142,12 +147,12 @@ public class PollingService : IPollingService
             var usages = await this._monitorService.GetUsageAsync().ConfigureAwait(false);
             this._logger.LogDebug("Poll completed, received {Count} usages", usages.Count);
 
-            UsageUpdated?.Invoke(this, new UsageUpdatedEventArgs(usages));
+            this.UsageUpdated?.Invoke(this, new UsageUpdatedEventArgs(usages));
         }
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Polling failed");
-            PollingError?.Invoke(this, new PollingErrorEventArgs(ex, ex.Message));
+            this.PollingError?.Invoke(this, new PollingErrorEventArgs(ex, ex.Message));
         }
         finally
         {

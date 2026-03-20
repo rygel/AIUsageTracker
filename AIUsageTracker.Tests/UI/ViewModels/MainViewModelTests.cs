@@ -60,7 +60,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_SetsIsLoadingTrue_WhileRefreshing()
+    public async Task RefreshDataCommand_SetsIsLoadingTrue_WhileRefreshingAsync()
     {
         // Arrange
         var isLoadingValues = new List<bool>();
@@ -86,7 +86,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesUsages_OnSuccess()
+    public async Task RefreshDataCommand_UpdatesUsages_OnSuccessAsync()
     {
         // Arrange
         var usages = new List<ProviderUsage>
@@ -108,7 +108,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesStatusMessage_OnSuccess()
+    public async Task RefreshDataCommand_UpdatesStatusMessage_OnSuccessAsync()
     {
         // Arrange
         var usages = new List<ProviderUsage>
@@ -129,7 +129,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesStatusMessage_WhenNoProviders()
+    public async Task RefreshDataCommand_UpdatesStatusMessage_WhenNoProvidersAsync()
     {
         // Arrange
         this._mockMonitorService
@@ -146,7 +146,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesStatusMessage_OnError()
+    public async Task RefreshDataCommand_UpdatesStatusMessage_OnErrorAsync()
     {
         // Arrange
         this._mockMonitorService
@@ -163,7 +163,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesLastRefreshTime()
+    public async Task RefreshDataCommand_UpdatesLastRefreshTimeAsync()
     {
         // Arrange
         this._mockMonitorService
@@ -181,12 +181,13 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_DoesNotRunConcurrently()
+    public async Task RefreshDataCommand_DoesNotRunConcurrentlyAsync()
     {
         // Arrange
         var callCount = 0;
         var tcs = new TaskCompletionSource<IReadOnlyList<ProviderUsage>>();
 
+#pragma warning disable VSTHRD003 // Test intentionally returns externally-controlled TaskCompletionSource task.
         this._mockMonitorService
             .Setup(m => m.GetUsageAsync())
             .Returns(() =>
@@ -194,6 +195,7 @@ public class MainViewModelTests
                 callCount++;
                 return tcs.Task;
             });
+#pragma warning restore VSTHRD003
 
         var viewModel = this.CreateViewModel();
 
@@ -243,6 +245,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider IDs from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -268,6 +271,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider ID from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -301,6 +305,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider ID from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -327,6 +332,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider ID from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -349,7 +355,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task OpenWebUICommand_CallsBrowserService()
+    public async Task OpenWebUICommand_CallsBrowserServiceAsync()
     {
         // Arrange
         var mockBrowserService = new Mock<IBrowserService>();
@@ -380,7 +386,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task OpenSettingsCommand_CallsDialogService()
+    public async Task OpenSettingsCommand_CallsDialogServiceAsync()
     {
         // Arrange
         var mockDialogService = new Mock<IDialogService>();
@@ -396,7 +402,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task OpenSettingsCommand_RefreshesData_WhenSettingsChanged()
+    public async Task OpenSettingsCommand_RefreshesData_WhenSettingsChangedAsync()
     {
         // Arrange
         var mockDialogService = new Mock<IDialogService>();

@@ -35,6 +35,7 @@ internal sealed class WpfProviderIconService : IWpfProviderIconService
     /// Returns a 16×16 provider icon for <paramref name="providerId"/>.
     /// First tries an SVG asset; falls back to a coloured initial badge.
     /// </summary>
+    /// <returns></returns>
     public FrameworkElement CreateIcon(string providerId)
     {
         var canonicalId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);

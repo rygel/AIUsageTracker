@@ -214,7 +214,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_NativeSession_BurstWindowJustReset_EmitsBurstDetailWith100Remaining()
+    public async Task GetUsageAsync_NativeSession_BurstWindowJustReset_EmitsBurstDetailWith100RemainingAsync()
     {
         // Regression: when the 5h burst window just reset, the API may omit used_percent and
         // only return reset_after_seconds. The previous guard `if (used.HasValue)` would skip

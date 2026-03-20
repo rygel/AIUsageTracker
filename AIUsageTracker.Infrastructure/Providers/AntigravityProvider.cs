@@ -1,4 +1,4 @@
-﻿// <copyright file="AntigravityProvider.cs" company="AIUsageTracker">
+// <copyright file="AntigravityProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -965,8 +965,8 @@ public class AntigravityProvider : ProviderBase
             {
                 childUsage.RequestsAvailable = detailTotal.Value;
                 childUsage.RequestsUsed = detailUsed ?? 0;
-                // Actual token counts available; display as fraction
 
+                // Actual token counts available; display as fraction
             }
 
             results.Add(childUsage);

@@ -114,7 +114,9 @@ public class DatabaseMigrationService
     private static void EnsureColumn(SqliteConnection connection, string tableName, string columnName, string definition)
     {
         if (!TableInfoSql.TryGetValue(tableName, out var pragmaSql))
+        {
             throw new ArgumentException($"Table '{tableName}' is not in the migration allowlist.", nameof(tableName));
+        }
 
         using var infoCommand = connection.CreateCommand();
         infoCommand.CommandText = pragmaSql;
@@ -235,6 +237,7 @@ public class DatabaseMigrationService
         EnsureColumn(connection, "providers", "auth_source", "TEXT DEFAULT 'manual'");
         EnsureColumn(connection, "providers", "plan_type", "TEXT DEFAULT 'usage'");
         EnsureColumn(connection, "provider_history", "details_json", "TEXT");
+        EnsureColumn(connection, "provider_history", "next_reset_time", "TEXT");
         EnsureColumn(connection, "provider_history", "response_latency_ms", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "provider_history", "http_status", "INTEGER NOT NULL DEFAULT 0");
         EnsureColumn(connection, "provider_history", "upstream_response_validity", "INTEGER NOT NULL DEFAULT 0");
@@ -323,7 +326,9 @@ public class DatabaseMigrationService
     private static string? GetColumnType(SqliteConnection connection, string tableName, string columnName)
     {
         if (!TableInfoSql.TryGetValue(tableName, out var pragmaSql))
+        {
             throw new ArgumentException($"Table '{tableName}' is not in the migration allowlist.", nameof(tableName));
+        }
 
         using var cmd = connection.CreateCommand();
         cmd.CommandText = pragmaSql;

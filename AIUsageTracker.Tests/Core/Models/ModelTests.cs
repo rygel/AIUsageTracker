@@ -28,4 +28,3 @@ public class ModelTests
         Assert.Equal("pay-as-you-go", config.Type);
     }
 }
-

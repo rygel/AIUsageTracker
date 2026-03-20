@@ -180,9 +180,13 @@ public class ProviderDiRegistrationTests
 
         public string? GetCurrentToken() => null;
 
-        public void Logout() { }
+        public void Logout()
+        {
+        }
 
-        public void InitializeToken(string token) { }
+        public void InitializeToken(string token)
+        {
+        }
 
         public Task<string?> GetUsernameAsync() => Task.FromResult<string?>(null);
     }

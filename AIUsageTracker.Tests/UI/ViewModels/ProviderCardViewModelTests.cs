@@ -57,7 +57,7 @@ public class ProviderCardViewModelTests
         var viewModel = new ProviderCardViewModel(usage, prefs, isPrivacyMode: false);
 
         // Assert
-        Assert.Contains("user@example.com", viewModel.AccountDisplay);
+        Assert.Contains("user@example.com", viewModel.AccountDisplay, StringComparison.Ordinal);
     }
 
     [Fact]

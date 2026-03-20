@@ -1,4 +1,4 @@
-﻿// <copyright file="MistralProvider.cs" company="AIUsageTracker">
+// <copyright file="MistralProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

@@ -18,7 +18,7 @@ namespace AIUsageTracker.Tests.Integration;
 public class HttpClientRegistrationTests
 {
     [Fact]
-    public void PlainClient_DoesNotRetryOn429()
+    public async Task PlainClient_DoesNotRetryOn429Async()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -42,7 +42,7 @@ public class HttpClientRegistrationTests
 
         // Verify by making a real request through a handler without policies
         var directClient = new HttpClient(handler);
-        directClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, "http://test.invalid/")).GetAwaiter().GetResult();
+        await directClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, "http://test.invalid/"));
 
         // Assert — handler was called exactly once (no retries)
         Assert.Equal(1, callCount);
@@ -104,7 +104,7 @@ public class HttpClientRegistrationTests
     }
 
     [Fact]
-    public async Task PlainClient_Returns429Immediately_WithoutRetry()
+    public async Task PlainClient_Returns429Immediately_WithoutRetryAsync()
     {
         // Arrange
         var callCount = 0;
@@ -128,7 +128,7 @@ public class HttpClientRegistrationTests
     }
 
     [Fact]
-    public async Task PlainClient_DoesNotRetryTransientErrors()
+    public async Task PlainClient_DoesNotRetryTransientErrorsAsync()
     {
         // Arrange
         var callCount = 0;

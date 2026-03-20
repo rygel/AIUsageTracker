@@ -31,32 +31,31 @@ public sealed class UsageDatabaseReadTests : IDisposable
     // -------------------------------------------------------------------------
     // GetLatestHistoryAsync — stale-data detection
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task GetLatestHistoryAsync_RecentRow_IsNotStaleAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var recentFetch = DateTime.UtcNow.AddMinutes(-10); // within 1-hour threshold
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: true, fetchedAt: recentFetch)]);
 
         var results = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(results, u => u.ProviderId == "codex");
+        var codex = Assert.Single(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.False(codex.IsStale);
     }
 
     [Fact]
     public async Task GetLatestHistoryAsync_OldRow_IsStaleAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var oldFetch = DateTime.UtcNow.AddHours(-2); // beyond 1-hour threshold
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: true, statusMessage: "ok", fetchedAt: oldFetch)]);
 
         var results = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(results, u => u.ProviderId == "codex");
+        var codex = Assert.Single(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.True(codex.IsStale);
         Assert.Contains("last refreshed", codex.Description, StringComparison.OrdinalIgnoreCase);
     }
@@ -65,14 +64,14 @@ public sealed class UsageDatabaseReadTests : IDisposable
     public async Task GetLatestHistoryAsync_UnavailableOldRow_IsNotMarkedStaleAsync()
     {
         // IsAvailable=false entries carry their own description; stale suffix would be redundant.
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var oldFetch = DateTime.UtcNow.AddHours(-3);
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, statusMessage: "Auth token missing", fetchedAt: oldFetch)]);
 
         var results = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(results, u => u.ProviderId == "codex");
+        var codex = Assert.Single(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.False(codex.IsStale);
     }
 
@@ -81,14 +80,14 @@ public sealed class UsageDatabaseReadTests : IDisposable
     {
         // Verify that bool IsAvailable and int HttpStatus survive the SQLite round-trip
         // without a Dapper type-mapping exception.
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var fetchedAt = DateTime.UtcNow.AddMinutes(-1);
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: true, httpStatus: 429, fetchedAt: fetchedAt)]);
 
         var results = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(results, u => u.ProviderId == "codex");
+        var codex = Assert.Single(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.True(codex.IsAvailable);
         Assert.Equal(429, codex.HttpStatus);
     }
@@ -96,13 +95,13 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetLatestHistoryAsync_FalseIsAvailable_RoundTripsCorrectlyAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, httpStatus: 503, fetchedAt: DateTime.UtcNow)]);
 
         var results = await db.GetLatestHistoryAsync();
 
-        var codex = Assert.Single(results, u => u.ProviderId == "codex");
+        var codex = Assert.Single(results, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.False(codex.IsAvailable);
         Assert.Equal(503, codex.HttpStatus);
     }
@@ -110,11 +109,10 @@ public sealed class UsageDatabaseReadTests : IDisposable
     // -------------------------------------------------------------------------
     // GetHistoryAsync — Dapper type mapping + pagination
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task GetHistoryAsync_ReturnsAllRowsUpToLimitAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var baseTime = DateTime.UtcNow.AddMinutes(-30);
 
         for (var i = 0; i < 5; i++)
@@ -130,7 +128,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetHistoryAsync_ReturnsRowsOrderedByFetchedAtDescendingAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var baseTime = DateTime.UtcNow.AddMinutes(-30);
 
         await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 10, fetchedAt: baseTime)]);
@@ -148,7 +146,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     public async Task GetHistoryAsync_CorrectlyMapsBoolAndIntColumnsAsync()
     {
         // This would have crashed in production if ProviderUsage used a positional record.
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, httpStatus: 429, fetchedAt: DateTime.UtcNow.AddMinutes(-1))]);
 
@@ -162,7 +160,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetHistoryAsync_MultipleProviders_ReturnsAllInterleaved_OrderedByFetchedAtAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
         var t2 = t1.AddMinutes(3);
 
@@ -181,11 +179,10 @@ public sealed class UsageDatabaseReadTests : IDisposable
     // -------------------------------------------------------------------------
     // GetHistoryByProviderAsync — filtering
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task GetHistoryByProviderAsync_FiltersToRequestedProviderOnlyAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-10);
 
         await db.StoreHistoryAsync([
@@ -202,7 +199,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetHistoryByProviderAsync_LimitIsRespectedAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var baseTime = DateTime.UtcNow.AddMinutes(-30);
 
         for (var i = 0; i < 5; i++)
@@ -218,7 +215,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetHistoryByProviderAsync_CorrectlyMapsBoolAndIntColumnsAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: true, httpStatus: 200, fetchedAt: DateTime.UtcNow.AddMinutes(-1))]);
 
@@ -232,7 +229,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetHistoryByProviderAsync_UnknownProvider_ReturnsEmptyAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         await db.StoreHistoryAsync([MakeUsage("codex", fetchedAt: DateTime.UtcNow.AddMinutes(-1))]);
 
@@ -244,11 +241,10 @@ public sealed class UsageDatabaseReadTests : IDisposable
     // -------------------------------------------------------------------------
     // GetRecentHistoryAsync — per-provider N-row slice
     // -------------------------------------------------------------------------
-
     [Fact]
     public async Task GetRecentHistoryAsync_ReturnsAtMostNRowsPerProviderAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var baseTime = DateTime.UtcNow.AddMinutes(-30);
 
         // 5 rows for codex, 3 rows for mistral
@@ -264,8 +260,8 @@ public sealed class UsageDatabaseReadTests : IDisposable
 
         var results = await db.GetRecentHistoryAsync(countPerProvider: 2);
 
-        var codexRows = results.Where(r => r.ProviderId == "codex").ToList();
-        var mistralRows = results.Where(r => r.ProviderId == "mistral").ToList();
+        var codexRows = results.Where(r => string.Equals(r.ProviderId, "codex", StringComparison.Ordinal)).ToList();
+        var mistralRows = results.Where(r => string.Equals(r.ProviderId, "mistral", StringComparison.Ordinal)).ToList();
 
         Assert.Equal(2, codexRows.Count);
         Assert.Equal(2, mistralRows.Count);
@@ -274,7 +270,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetRecentHistoryAsync_CorrectlyMapsBoolAndIntColumnsAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
 
         await db.StoreHistoryAsync([MakeUsage("codex", isAvailable: false, httpStatus: 503, fetchedAt: DateTime.UtcNow.AddMinutes(-1))]);
 
@@ -288,7 +284,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
     [Fact]
     public async Task GetRecentHistoryAsync_ReturnsNewestRowsPerProviderAsync()
     {
-        var db = await CreateDatabaseAsync();
+        var db = await this.CreateDatabaseAsync();
         var baseTime = DateTime.UtcNow.AddMinutes(-30);
 
         // Insert 3 rows for codex; oldest has requestsUsed=5, newest has requestsUsed=25
@@ -298,7 +294,7 @@ public sealed class UsageDatabaseReadTests : IDisposable
 
         var results = await db.GetRecentHistoryAsync(countPerProvider: 2);
 
-        var codexRows = results.Where(r => r.ProviderId == "codex").OrderByDescending(r => r.FetchedAt).ToList();
+        var codexRows = results.Where(r => string.Equals(r.ProviderId, "codex", StringComparison.Ordinal)).OrderByDescending(r => r.FetchedAt).ToList();
         Assert.Equal(2, codexRows.Count);
         Assert.Equal(25.0, codexRows[0].RequestsUsed); // newest
         Assert.Equal(15.0, codexRows[1].RequestsUsed); // second newest
@@ -307,7 +303,6 @@ public sealed class UsageDatabaseReadTests : IDisposable
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
-
     public void Dispose() => TestTempPaths.CleanupPath(this._dbPath);
 
     private async Task<UsageDatabase> CreateDatabaseAsync()

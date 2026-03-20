@@ -246,7 +246,6 @@ public sealed class ProviderUsageDisplayCatalogTests
     // ── Synthetic aggregate children (claude-code) ─────────────────────────────
     // Guards that each synthetic child card carries the correct per-window
     // NextResetTime from its originating detail row.
-
     [Fact]
     public void ExpandSyntheticAggregateChildren_SetsPerWindowResetTime_OnEachChildCard()
     {
@@ -342,6 +341,92 @@ public sealed class ProviderUsageDisplayCatalogTests
         {
             Assert.Equal(weeklyReset, child.NextResetTime);
         }
+    }
+
+    [Fact]
+    public void ExpandSyntheticAggregateChildren_UsesDeclaredWindows_WhenModelDetailKindsAreMissing()
+    {
+        var weeklyReset = new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc);
+        var burstReset = new DateTime(2026, 4, 1, 8, 0, 0, DateTimeKind.Utc);
+
+        ProviderUsageDetail MakeDetail(string name, DateTime resetTime)
+        {
+            var detail = new ProviderUsageDetail
+            {
+                Name = name,
+                DetailType = ProviderUsageDetailType.Model,
+                QuotaBucketKind = WindowKind.None,
+                NextResetTime = resetTime,
+            };
+            detail.SetPercentageValue(25.0, PercentageValueSemantic.Used);
+            return detail;
+        }
+
+        var parent = new ProviderUsage
+        {
+            ProviderId = "claude-code",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            Details = new List<ProviderUsageDetail>
+            {
+                MakeDetail("Current Session", burstReset),
+                MakeDetail("Sonnet", weeklyReset),
+                MakeDetail("Opus", weeklyReset),
+                MakeDetail("All Models", weeklyReset),
+            },
+        };
+
+        var children = ProviderUsageDisplayCatalog.ExpandSyntheticAggregateChildren(
+            new[] { parent },
+            Array.Empty<string>()).ToList();
+
+        var currentSession = Assert.Single(children, c => string.Equals(c.ProviderId, "claude-code.current-session", StringComparison.OrdinalIgnoreCase));
+        var sonnet = Assert.Single(children, c => string.Equals(c.ProviderId, "claude-code.sonnet", StringComparison.OrdinalIgnoreCase));
+        var opus = Assert.Single(children, c => string.Equals(c.ProviderId, "claude-code.opus", StringComparison.OrdinalIgnoreCase));
+        var allModels = Assert.Single(children, c => string.Equals(c.ProviderId, "claude-code.all-models", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(TimeSpan.FromHours(5), currentSession.PeriodDuration);
+        Assert.Equal(TimeSpan.FromDays(7), sonnet.PeriodDuration);
+        Assert.Equal(TimeSpan.FromDays(7), opus.PeriodDuration);
+        Assert.Equal(TimeSpan.FromDays(7), allModels.PeriodDuration);
+    }
+
+    [Fact]
+    public void ExpandSyntheticAggregateChildren_SkipsUndeclaredModelDetails()
+    {
+        var weeklyReset = new DateTime(2026, 4, 7, 0, 0, 0, DateTimeKind.Utc);
+
+        ProviderUsageDetail MakeDetail(string name)
+        {
+            var detail = new ProviderUsageDetail
+            {
+                Name = name,
+                DetailType = ProviderUsageDetailType.Model,
+                QuotaBucketKind = WindowKind.None,
+                NextResetTime = weeklyReset,
+            };
+            detail.SetPercentageValue(25.0, PercentageValueSemantic.Used);
+            return detail;
+        }
+
+        var parent = new ProviderUsage
+        {
+            ProviderId = "claude-code",
+            IsAvailable = true,
+            IsQuotaBased = true,
+            Details = new List<ProviderUsageDetail>
+            {
+                MakeDetail("Sonnet"),
+                MakeDetail("Experimental Unknown Window"),
+            },
+        };
+
+        var children = ProviderUsageDisplayCatalog.ExpandSyntheticAggregateChildren(
+            new[] { parent },
+            Array.Empty<string>()).ToList();
+
+        var sonnet = Assert.Single(children);
+        Assert.Equal("claude-code.sonnet", sonnet.ProviderId);
     }
 
     [Fact]

@@ -336,7 +336,6 @@ public class UsageMathTests
     }
 
     // ── CalculatePaceAdjustedColorPercent ────────────────────────────────────
-
     [Fact]
     public void CalculatePaceAdjustedColorPercent_UnderPace_ReturnsReducedPercent()
     {
@@ -408,7 +407,6 @@ public class UsageMathTests
     }
 
     // ── CalculateProjectedFinalPercent ───────────────────────────────────────
-
     [Fact]
     public void CalculateProjectedFinalPercent_UnderPace_ProjectsBelow100()
     {

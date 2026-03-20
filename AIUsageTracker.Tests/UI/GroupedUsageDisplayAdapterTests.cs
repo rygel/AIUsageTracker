@@ -115,6 +115,59 @@ public class GroupedUsageDisplayAdapterTests
         Assert.Equal("OpenAI (Codex)", parent.ProviderName);
         Assert.Equal("OpenAI (GPT-5.3 Codex Spark)", spark.ProviderName);
         Assert.Equal(28, spark.UsedPercent, 1); // RemainingPercentage = 72 → UsedPercent = 28
+        Assert.Equal(TimeSpan.FromDays(7), spark.PeriodDuration);
+    }
+
+    [Fact]
+    public void Expand_ClaudeSnapshot_MapsDeclaredWindowKinds_ForParentModelDetails()
+    {
+        var now = DateTime.UtcNow;
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "claude-code",
+                    ProviderName = "Claude Code",
+                    IsAvailable = true,
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Usage,
+                    UsedPercent = 73,
+                    Models = new[]
+                    {
+                        new AgentGroupedModelUsage
+                        {
+                            ModelId = "sonnet",
+                            ModelName = "Sonnet",
+                            RemainingPercentage = 27,
+                            UsedPercentage = 73,
+                            NextResetTime = now.AddDays(1),
+                        },
+                        new AgentGroupedModelUsage
+                        {
+                            ModelId = "all-models",
+                            ModelName = "All Models",
+                            RemainingPercentage = 15,
+                            UsedPercentage = 85,
+                            NextResetTime = now.AddDays(1),
+                        },
+                    },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+
+        var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "claude-code", StringComparison.Ordinal));
+        Assert.Equal(TimeSpan.FromDays(7), parent.PeriodDuration);
+        Assert.NotNull(parent.Details);
+
+        var sonnet = Assert.Single(parent.Details!, detail => string.Equals(detail.Name, "Sonnet", StringComparison.Ordinal));
+        var allModels = Assert.Single(parent.Details!, detail => string.Equals(detail.Name, "All Models", StringComparison.Ordinal));
+
+        Assert.Equal(WindowKind.ModelSpecific, sonnet.QuotaBucketKind);
+        Assert.Equal(WindowKind.Rolling, allModels.QuotaBucketKind);
     }
 
     [Fact]

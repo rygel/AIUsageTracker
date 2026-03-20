@@ -1,4 +1,4 @@
-﻿// <copyright file="OpenAIProvider.cs" company="AIUsageTracker">
+// <copyright file="OpenAIProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

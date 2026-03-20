@@ -42,6 +42,7 @@ public interface IPollingService : IDisposable
     /// <summary>
     /// Performs an immediate refresh outside of the normal polling cycle.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     Task RefreshNowAsync();
 
     /// <summary>

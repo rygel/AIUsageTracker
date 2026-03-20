@@ -1,4 +1,4 @@
-﻿// <copyright file="GeminiProvider.cs" company="AIUsageTracker">
+// <copyright file="GeminiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

@@ -45,6 +45,7 @@ internal static class GroupedUsageDisplayAdapter
                 FetchedAt = provider.FetchedAt,
                 NextResetTime = provider.NextResetTime,
                 Details = parentDetails.Count > 0 ? parentDetails.ToList() : null,
+                PeriodDuration = ResolvePeriodDuration(provider.ProviderId),
             };
 
             usages.Add(parentUsage);
@@ -67,6 +68,7 @@ internal static class GroupedUsageDisplayAdapter
             .Select(model =>
             {
                 var modelState = ResolveModelState(model, provider.IsQuotaBased);
+                var declaredWindow = ResolveDeclaredWindow(provider.ProviderId, model.ModelName);
                 var detail = new ProviderUsageDetail
                 {
                     Name = model.ModelName,
@@ -74,7 +76,7 @@ internal static class GroupedUsageDisplayAdapter
                     Description = modelState.Description,
                     NextResetTime = modelState.NextResetTime,
                     DetailType = ProviderUsageDetailType.Model,
-                    QuotaBucketKind = WindowKind.None,
+                    QuotaBucketKind = declaredWindow?.Kind ?? WindowKind.None,
                 };
 
                 if (provider.IsQuotaBased)
@@ -139,6 +141,7 @@ internal static class GroupedUsageDisplayAdapter
                 FetchedAt = parentUsage.FetchedAt,
                 NextResetTime = modelState.NextResetTime,
                 Details = quotaBucketDetails.Count > 0 ? quotaBucketDetails : null,
+                PeriodDuration = ResolvePeriodDuration(assignment.ProviderId),
             });
         }
 
@@ -190,5 +193,39 @@ internal static class GroupedUsageDisplayAdapter
         bool parentIsQuotaBased)
     {
         return AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, parentIsQuotaBased);
+    }
+
+    private static QuotaWindowDefinition? ResolveDeclaredWindow(string providerId, string modelName)
+    {
+        if (string.IsNullOrWhiteSpace(modelName) || !ProviderMetadataCatalog.TryGet(providerId, out var definition))
+        {
+            return null;
+        }
+
+        return definition.QuotaWindows.FirstOrDefault(window =>
+            !string.IsNullOrWhiteSpace(window.DetailName) &&
+            string.Equals(window.DetailName, modelName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static TimeSpan? ResolvePeriodDuration(string providerId)
+    {
+        if (!ProviderMetadataCatalog.TryGet(providerId, out var definition))
+        {
+            return null;
+        }
+
+        if (string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            return definition.QuotaWindows
+                .FirstOrDefault(window => window.Kind == WindowKind.Rolling && window.PeriodDuration.HasValue)
+                ?.PeriodDuration;
+        }
+
+        return definition.QuotaWindows
+            .FirstOrDefault(window =>
+                window.PeriodDuration.HasValue &&
+                !string.IsNullOrWhiteSpace(window.ChildProviderId) &&
+                string.Equals(window.ChildProviderId, providerId, StringComparison.OrdinalIgnoreCase))
+            ?.PeriodDuration;
     }
 }

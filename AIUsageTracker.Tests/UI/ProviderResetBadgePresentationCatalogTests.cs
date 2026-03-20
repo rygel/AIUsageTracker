@@ -35,6 +35,7 @@ public class ProviderResetBadgePresentationCatalogTests
 
         var usage = new ProviderUsage
         {
+            ProviderId = "codex",
             IsQuotaBased = true,
             NextResetTime = now.AddHours(8),
             Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
@@ -82,7 +83,6 @@ public class ProviderResetBadgePresentationCatalogTests
     // Providers like Codex set PercentageValue but leave the Used string empty.
     // After NormalizeDetails, PercentageValue must survive so TryGetPresentation
     // succeeds and both reset times are returned — not just the burst fallback.
-
     [Fact]
     public void ResolveResetTimes_ReturnsBothTimes_WhenDetailsUseTypedPercentageOnly()
     {
@@ -112,6 +112,7 @@ public class ProviderResetBadgePresentationCatalogTests
 
         var usage = new ProviderUsage
         {
+            ProviderId = "codex",
             IsQuotaBased = true,
             NextResetTime = burstReset, // provider sets this to burst; should NOT override dual result
             Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
@@ -136,6 +137,7 @@ public class ProviderResetBadgePresentationCatalogTests
 
         var usage = new ProviderUsage
         {
+            ProviderId = "codex",
             IsQuotaBased = true,
             NextResetTime = burstReset,
             Details = new List<ProviderUsageDetail>
@@ -146,6 +148,7 @@ public class ProviderResetBadgePresentationCatalogTests
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     QuotaBucketKind = WindowKind.Burst,
                     NextResetTime = burstReset,
+
                     // PercentageValue intentionally null — simulates post-pipeline state before the fix
                 },
                 new()
@@ -154,6 +157,7 @@ public class ProviderResetBadgePresentationCatalogTests
                     DetailType = ProviderUsageDetailType.QuotaWindow,
                     QuotaBucketKind = WindowKind.Rolling,
                     NextResetTime = weeklyReset,
+
                     // PercentageValue intentionally null
                 },
             },

@@ -1,4 +1,4 @@
-﻿// <copyright file="KimiProvider.cs" company="AIUsageTracker">
+// <copyright file="KimiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -39,8 +39,10 @@ public class KimiProvider : ProviderBase
         BadgeInitial = "K",
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,   "Daily"),
-            new(WindowKind.Rolling, "Weekly"),
+            new(WindowKind.Burst,   "5h",     DetailName: "5h Limit",     PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Burst,   "Daily",  DetailName: "1 Day Limit",  PeriodDuration: TimeSpan.FromDays(1)),
+            new(WindowKind.Rolling, "Weekly", DetailName: "Weekly Limit", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling, "Weekly", DetailName: "7 Day Limit",  PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 

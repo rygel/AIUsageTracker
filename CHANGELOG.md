@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed
+- Pace-adjusted quota colours now apply correctly to model-specific detail cards (for example Claude Sonnet/Opus) by propagating declared period durations through the catalog pipeline.
+- Legacy database compatibility bootstrap now ensures `provider_history.next_reset_time` exists before timestamp conversion, preventing migration failures on older schemas.
+- Web usage/history mapping now handles both epoch and text timestamps consistently, restoring correct reliability and latest-row projections.
+
+### Changed
+- Removed fallback heuristics in quota/reset presentation paths; dual-bucket and reset badge rendering now resolve from provider metadata declarations.
+- Simplified percentage parsing to explicit supported formats while preserving plain numeric values (for example `"50"`).
+- Normalized formatting/newline/encoding and analyzer baseline configuration so release pre-commit validation passes cleanly.
+
 ## [2.3.2-beta.5] - 2026-03-20
 
 ### Fixed
@@ -101,4 +111,3 @@
 
 ### CI/CD
 - Updated all GitHub Actions to latest major versions (checkout v6, setup-dotnet v5, upload-artifact v7, download-artifact v8, github-script v8, cache v5, codecov v5, create-pull-request v8, paths-filter v4) to eliminate Node.js 20 deprecation warnings.
-

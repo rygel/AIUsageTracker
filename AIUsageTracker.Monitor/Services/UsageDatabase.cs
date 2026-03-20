@@ -618,7 +618,7 @@ public class UsageDatabase : IUsageDatabase
             WHERE rn = 1";
 
         var baselines = (await connection.QueryAsync<(string ProviderId, double RequestsUsed, long FetchedAt)>(sql).ConfigureAwait(false))
-            .ToDictionary(r => r.ProviderId, r => r);
+            .ToDictionary(r => r.ProviderId, r => r, StringComparer.Ordinal);
 
         var nowEpoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         foreach (var usage in results)

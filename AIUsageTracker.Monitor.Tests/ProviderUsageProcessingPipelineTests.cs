@@ -538,7 +538,6 @@ public class ProviderUsageProcessingPipelineTests
     // These guard against regressions like the beta.39 bug where NormalizeDetails
     // dropped PercentageValue/PercentageSemantic, causing TryGetPresentation to
     // return false for providers that used typed percentage fields (e.g. Codex).
-
     [Fact]
     public void Process_NormalizeDetails_PreservesTypedPercentageValue()
     {

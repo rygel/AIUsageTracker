@@ -102,7 +102,7 @@ public class AppPreferences
     public bool ShowUsagePerHour { get; set; } = false;
 
     /// <summary>
-    /// When true, progress-bar colour and notification threshold are adjusted for rolling-window
+    /// Gets or sets a value indicating whether when true, progress-bar colour and notification threshold are adjusted for rolling-window
     /// pace: a provider at 70% usage with 1 day left of a 7-day window is treated as on-budget,
     /// not alarming. Disabling this reverts to the raw percentage for all colour and alert logic.
     /// </summary>

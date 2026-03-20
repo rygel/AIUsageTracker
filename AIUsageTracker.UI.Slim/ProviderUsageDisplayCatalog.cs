@@ -45,6 +45,7 @@ internal static class ProviderUsageDisplayCatalog
     /// and aggregate providers with no details are yielded as-is, enriched with PeriodDuration
     /// from the catalog so the ViewModel can read it directly without any fallback chain.
     /// </summary>
+    /// <returns></returns>
     public static IEnumerable<ProviderUsage> ExpandSyntheticAggregateChildren(
         IEnumerable<ProviderUsage> usages,
         IEnumerable<string> hiddenItemIds)
@@ -62,6 +63,7 @@ internal static class ProviderUsageDisplayCatalog
             var children = CreateAggregateDetailUsages(usage);
             foreach (var child in children)
             {
+                EnrichWithPeriodDuration(child);
                 if (!hiddenItemIds.Contains(child.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase))
                 {
                     yield return child;
@@ -71,22 +73,42 @@ internal static class ProviderUsageDisplayCatalog
     }
 
     /// <summary>
-    /// Sets PeriodDuration on a ProviderUsage from the provider catalog's primary rolling window,
-    /// so the ViewModel can compute pace-adjusted colours by reading Usage.PeriodDuration directly.
-    /// No-ops if the usage already has PeriodDuration set (e.g. synthetic aggregate children).
+    /// Sets <see cref="ProviderUsage.PeriodDuration"/> from provider metadata.
+    /// Canonical provider rows use the declared rolling-window duration.
+    /// Derived rows use the declared child-window duration matched by ChildProviderId.
+    /// No-op if already set.
     /// </summary>
     private static void EnrichWithPeriodDuration(ProviderUsage usage)
     {
-        if (usage.PeriodDuration.HasValue) return;
-
-        var canonicalId = ProviderMetadataCatalog.GetCanonicalProviderId(usage.ProviderId ?? string.Empty);
-        ProviderMetadataCatalog.TryGet(canonicalId, out var definition);
-        var rollingWindow = definition?.QuotaWindows
-            .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue);
-
-        if (rollingWindow != null)
+        if (usage.PeriodDuration.HasValue)
         {
-            usage.PeriodDuration = rollingWindow.PeriodDuration;
+            return;
+        }
+
+        var providerId = usage.ProviderId ?? string.Empty;
+        if (!ProviderMetadataCatalog.TryGet(providerId, out var definition))
+        {
+            return;
+        }
+
+        QuotaWindowDefinition? matchedWindow;
+        if (string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            matchedWindow = definition.QuotaWindows
+                .FirstOrDefault(w => w.Kind == WindowKind.Rolling && w.PeriodDuration.HasValue);
+        }
+        else
+        {
+            matchedWindow = definition.QuotaWindows
+                .FirstOrDefault(w =>
+                    w.PeriodDuration.HasValue &&
+                    !string.IsNullOrWhiteSpace(w.ChildProviderId) &&
+                    string.Equals(w.ChildProviderId, providerId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (matchedWindow?.PeriodDuration is { } duration)
+        {
+            usage.PeriodDuration = duration;
         }
     }
 
@@ -113,11 +135,17 @@ internal static class ProviderUsageDisplayCatalog
 
         return parentUsage.Details
             .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
-            .Select(detail => new { Detail = detail, ModelDisplayName = ResolveAggregateDetailDisplayName(detail) })
+            .Select(detail => new
+            {
+                Detail = detail,
+                ModelDisplayName = ResolveAggregateDetailDisplayName(detail),
+                DeclaredWindow = FindMatchingWindow(detail, quotaWindows),
+            })
             .Where(x => !string.IsNullOrWhiteSpace(x.ModelDisplayName))
+            .Where(x => x.DeclaredWindow != null && !string.IsNullOrWhiteSpace(x.DeclaredWindow.ChildProviderId))
             .GroupBy(x => x.ModelDisplayName, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
-            .OrderBy(x => GetAggregateDetailSortOrder(x.Detail, quotaWindows))
+            .OrderBy(x => GetDeclaredWindowSortOrder(x.DeclaredWindow!, quotaWindows))
             .ThenBy(x => x.ModelDisplayName, StringComparer.OrdinalIgnoreCase)
             .Select(x => CreateAggregateDetailUsage(
                 canonicalProviderId,
@@ -127,7 +155,7 @@ internal static class ProviderUsageDisplayCatalog
                 x.Detail,
                 x.ModelDisplayName,
                 parentUsage,
-                quotaWindows))
+                x.DeclaredWindow!))
             .ToList();
     }
 
@@ -198,7 +226,7 @@ internal static class ProviderUsageDisplayCatalog
         ProviderUsageDetail detail,
         string modelDisplayName,
         ProviderUsage parentUsage,
-        IReadOnlyList<QuotaWindowDefinition> quotaWindows)
+        QuotaWindowDefinition declaredWindow)
     {
         var effectiveUsed = UsageMath.GetEffectiveUsedPercent(detail);
         var hasRemainingPercent = effectiveUsed.HasValue;
@@ -206,14 +234,9 @@ internal static class ProviderUsageDisplayCatalog
             ? 0
             : Math.Clamp(100 - effectiveUsed.Value, 0, 100);
 
-        // Use declared ChildProviderId when available; fall back to name-derivation heuristic.
-        var declaredWindow = FindMatchingWindow(detail, quotaWindows);
-        var childProviderId = declaredWindow?.ChildProviderId
-            ?? $"{canonicalProviderId}.{modelDisplayName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal)}";
-
         return new ProviderUsage
         {
-            ProviderId = childProviderId,
+            ProviderId = declaredWindow.ChildProviderId!,
             ProviderName = $"{modelDisplayName} {aggregateDetailDisplaySuffix}",
             UsedPercent = effectiveUsed ?? 0,
             RequestsUsed = 100.0 - effectiveRemaining,
@@ -227,7 +250,7 @@ internal static class ProviderUsageDisplayCatalog
             IsAvailable = parentUsage.IsAvailable,
             AuthSource = parentUsage.AuthSource,
             AccountName = parentUsage.AccountName,
-            PeriodDuration = declaredWindow?.PeriodDuration,
+            PeriodDuration = declaredWindow.PeriodDuration,
         };
     }
 
@@ -243,32 +266,37 @@ internal static class ProviderUsageDisplayCatalog
             : detail.ModelName.Trim();
     }
 
-    private static int GetAggregateDetailSortOrder(ProviderUsageDetail detail, IReadOnlyList<QuotaWindowDefinition> quotaWindows)
+    private static int GetDeclaredWindowSortOrder(
+        QuotaWindowDefinition declaredWindow,
+        IReadOnlyList<QuotaWindowDefinition> quotaWindows)
     {
-        var declared = FindMatchingWindow(detail, quotaWindows);
-        if (declared != null)
+        for (var idx = 0; idx < quotaWindows.Count; idx++)
         {
-            var idx = quotaWindows.ToList().IndexOf(declared);
-            if (idx >= 0) return idx;
+            if (ReferenceEquals(quotaWindows[idx], declaredWindow))
+            {
+                return idx;
+            }
         }
 
-        // Legacy fallback
-        return detail.QuotaBucketKind switch
-        {
-            WindowKind.Burst => 0,
-            WindowKind.ModelSpecific => 1,
-            WindowKind.Rolling => 2,
-            _ => 3,
-        };
+        return int.MaxValue;
     }
 
     private static QuotaWindowDefinition? FindMatchingWindow(ProviderUsageDetail detail, IReadOnlyList<QuotaWindowDefinition> windows)
     {
-        if (windows.Count == 0) return null;
+        if (windows.Count == 0)
+        {
+            return null;
+        }
+
+        var detailName = detail.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(detailName))
+        {
+            return null;
+        }
 
         return windows.FirstOrDefault(w =>
-            w.Kind == detail.QuotaBucketKind &&
-            w.DetailName != null &&
-            string.Equals(w.DetailName, detail.Name, StringComparison.OrdinalIgnoreCase));
+            !string.IsNullOrWhiteSpace(w.DetailName) &&
+            string.Equals(w.DetailName, detailName, StringComparison.OrdinalIgnoreCase) &&
+            (detail.QuotaBucketKind == WindowKind.None || w.Kind == detail.QuotaBucketKind));
     }
 }

@@ -19,7 +19,7 @@ namespace AIUsageTracker.UI.Slim.Services;
 public class WpfTrayIconService : ITrayIconService, IWpfTrayIconService
 {
     private TaskbarIcon? _trayIcon;
-    private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new();
+    private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new(StringComparer.Ordinal);
     private readonly ILogger<WpfTrayIconService> _logger;
     private readonly IServiceProvider _serviceProvider;
 
@@ -256,7 +256,7 @@ public class WpfTrayIconService : ITrayIconService, IWpfTrayIconService
         {
             Path.Combine(AppContext.BaseDirectory, "Assets", "app_icon.ico"),
             Path.Combine(Environment.CurrentDirectory, "Assets", "app_icon.ico"),
-            Path.Combine(Environment.CurrentDirectory, "AIUsageTracker.UI.Slim", "Assets", "app_icon.ico")
+            Path.Combine(Environment.CurrentDirectory, "AIUsageTracker.UI.Slim", "Assets", "app_icon.ico"),
         };
 
         foreach (var candidate in candidates)
@@ -277,7 +277,7 @@ public class RelayCommand : System.Windows.Input.ICommand
 
     public RelayCommand(Action execute)
     {
-        _execute = execute;
+        this._execute = execute;
     }
 
     public event EventHandler? CanExecuteChanged
@@ -288,5 +288,5 @@ public class RelayCommand : System.Windows.Input.ICommand
 
     public bool CanExecute(object? parameter) => true;
 
-    public void Execute(object? parameter) => _execute();
+    public void Execute(object? parameter) => this._execute();
 }

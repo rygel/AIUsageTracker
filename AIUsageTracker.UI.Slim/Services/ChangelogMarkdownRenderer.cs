@@ -35,6 +35,7 @@ internal sealed class ChangelogMarkdownRenderer
     }
 
     /// <summary>Renders <paramref name="markdown"/> into a <see cref="FlowDocument"/>.</summary>
+    /// <returns></returns>
     public FlowDocument BuildDocument(string markdown)
     {
         var document = new FlowDocument
