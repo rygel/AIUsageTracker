@@ -85,7 +85,7 @@ internal sealed class WpfProviderIconService : IWpfProviderIconService
 
     private FrameworkElement CreateFallbackBadge(string canonicalId)
     {
-        var (color, initial) = ProviderVisualCatalog.GetFallbackBadge(
+        var (color, initial) = ProviderVisualCatalog.GetBadge(
             canonicalId,
             this._resolveResourceBrush("SecondaryText", Brushes.Gray));
 
