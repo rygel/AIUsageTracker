@@ -10,8 +10,10 @@ using System.Windows.Controls;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.UI.Slim;
-using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
+using AIUsageTracker.UI.Slim.Services;
+using AIUsageTracker.UI.Slim.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Tests.UI;
 
@@ -26,7 +28,7 @@ public class DialogOpenBehaviorTests
         {
             EnsureAppCreated();
 
-            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var mainWindow = CreateMainWindowForTesting();
             var dialogWindow = new Window();
             var shown = 0;
 
@@ -58,7 +60,7 @@ public class DialogOpenBehaviorTests
         return RunInStaAsync(() =>
         {
             var app = EnsureAppCreated();
-            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var mainWindow = CreateMainWindowForTesting();
             var infoDialog = new Window();
             var shown = 0;
 
@@ -86,7 +88,7 @@ public class DialogOpenBehaviorTests
         {
             EnsureAppCreated();
 
-            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var mainWindow = CreateMainWindowForTesting();
             var dialogWindow = new Window();
 
             mainWindow.Show();
@@ -128,7 +130,7 @@ public class DialogOpenBehaviorTests
             EnsureAppCreated();
 
             var preferences = new AppPreferences { ShowUsedPercentages = true };
-            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var mainWindow = CreateMainWindowForTesting();
             var settingsWindow = (SettingsWindow)FormatterServices.GetUninitializedObject(typeof(SettingsWindow));
             var displayPreferences = new DisplayPreferencesService();
 
@@ -157,7 +159,7 @@ public class DialogOpenBehaviorTests
         {
             EnsureAppCreated();
 
-            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var mainWindow = CreateMainWindowForTesting();
             var dialogWindow = new Window();
             var preferencesStore = Assert.IsType<UiPreferencesStore>(GetPrivateField(mainWindow, "_preferencesStore"));
             var pathOverrideMethod = typeof(UiPreferencesStore).GetMethod(
@@ -222,6 +224,24 @@ public class DialogOpenBehaviorTests
 
         // Use reflection to initialize Host if needed, or rely on App.xaml.cs default init
         return newApp;
+    }
+
+    private static MainWindow CreateMainWindowForTesting()
+    {
+        EnsureAppCreated();
+        var services = App.Host.Services;
+
+        return new MainWindow(
+            skipUiInitialization: true,
+            services.GetRequiredService<MainViewModel>(),
+            services.GetRequiredService<IMonitorService>(),
+            services.GetRequiredService<IMonitorLifecycleService>(),
+            services.GetRequiredService<IMonitorStartupOrchestrator>(),
+            services.GetRequiredService<ILogger<MainWindow>>(),
+            services.GetRequiredService<IUpdateCheckerFactory>(),
+            services.GetRequiredService<IUpdateCheckerService>(),
+            services.GetRequiredService<UiPreferencesStore>(),
+            services.GetRequiredService<DisplayPreferencesService>());
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)

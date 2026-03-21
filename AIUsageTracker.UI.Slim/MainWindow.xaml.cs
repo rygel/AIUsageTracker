@@ -25,7 +25,6 @@ using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Win32;
@@ -125,36 +124,7 @@ public partial class MainWindow : Window
     {
     }
 
-    public MainWindow()
-        : this(
-            App.Host.Services.GetRequiredService<MainViewModel>(),
-            App.Host.Services.GetRequiredService<IMonitorService>(),
-            App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
-            App.Host.Services.GetRequiredService<IMonitorStartupOrchestrator>(),
-            App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
-            App.Host.Services.GetRequiredService<IUpdateCheckerFactory>(),
-            App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
-            App.Host.Services.GetRequiredService<UiPreferencesStore>(),
-            App.Host.Services.GetRequiredService<DisplayPreferencesService>())
-    {
-    }
-
-    internal MainWindow(bool skipUiInitialization)
-        : this(
-            skipUiInitialization,
-            App.Host.Services.GetRequiredService<MainViewModel>(),
-            App.Host.Services.GetRequiredService<IMonitorService>(),
-            App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
-            App.Host.Services.GetRequiredService<IMonitorStartupOrchestrator>(),
-            App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
-            App.Host.Services.GetRequiredService<IUpdateCheckerFactory>(),
-            App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
-            App.Host.Services.GetRequiredService<UiPreferencesStore>(),
-            App.Host.Services.GetRequiredService<DisplayPreferencesService>())
-    {
-    }
-
-    private MainWindow(
+    internal MainWindow(
         bool skipUiInitialization,
         MainViewModel viewModel,
         IMonitorService monitorService,
