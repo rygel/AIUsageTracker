@@ -77,7 +77,7 @@ public partial class SettingsWindow
             lines.AddRange(logs);
         }
 
-        var telemetry = MonitorService.GetTelemetrySnapshot();
+        var telemetry = ((MonitorService)App.MonitorService).GetTelemetrySnapshot();
         lines.Add("---- Slim Telemetry ----");
         lines.Add(
             $"Usage: count={telemetry.UsageRequestCount}, avg={telemetry.UsageAverageLatencyMs:F1}ms, last={telemetry.UsageLastLatencyMs}ms, errors={telemetry.UsageErrorCount} ({telemetry.UsageErrorRatePercent:F1}%)");
@@ -259,7 +259,7 @@ public partial class SettingsWindow
                 return;
             }
 
-            var telemetry = MonitorService.GetTelemetrySnapshot();
+            var telemetry = ((MonitorService)App.MonitorService).GetTelemetrySnapshot();
             var bundle = new StringBuilder();
             bundle.AppendLine("AI Usage Tracker - Diagnostics Bundle");
             bundle.AppendLine($"GeneratedAtUtc: {DateTime.UtcNow:O}");

@@ -93,7 +93,7 @@ public class MonitorServiceTests
     public async Task GetUsageAsync_RecordsUsageTelemetryAsync()
     {
         // Arrange
-        var baseline = MonitorService.GetTelemetrySnapshot();
+        var baseline = this._service.GetTelemetrySnapshot();
         var usage = new List<ProviderUsage>
         {
             new() { ProviderId = "openai", ProviderName = "OpenAI", IsAvailable = true },
@@ -102,7 +102,7 @@ public class MonitorServiceTests
 
         // Act
         var result = await this._service.GetUsageAsync();
-        var telemetry = MonitorService.GetTelemetrySnapshot();
+        var telemetry = this._service.GetTelemetrySnapshot();
 
         // Assert
         Assert.Single(result);
@@ -314,7 +314,7 @@ public class MonitorServiceTests
     public async Task TriggerRefreshAsync_RequestFails_RecordsRefreshErrorTelemetryAsync()
     {
         // Arrange
-        var baseline = MonitorService.GetTelemetrySnapshot();
+        var baseline = this._service.GetTelemetrySnapshot();
         this._mockHandler.Protected()
             .Setup<Task<HttpResponseMessage>>(
                 "SendAsync",
@@ -324,7 +324,7 @@ public class MonitorServiceTests
 
         // Act
         var success = await this._service.TriggerRefreshAsync();
-        var telemetry = MonitorService.GetTelemetrySnapshot();
+        var telemetry = this._service.GetTelemetrySnapshot();
 
         // Assert
         Assert.False(success);

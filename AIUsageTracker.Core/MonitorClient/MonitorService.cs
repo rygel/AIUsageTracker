@@ -23,16 +23,15 @@ public class MonitorService : IMonitorService
 
     private static readonly List<string> _diagnosticsLog = new();
     private static readonly ActivitySource ActivitySource = new("AIUsageTracker.Core.MonitorService");
-    private static readonly HttpClient _sharedHttpClientInstance = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-    private static HttpClient? _sharedHttpClient;
-    private static long _usageRequestCount;
-    private static long _usageErrorCount;
-    private static long _usageTotalLatencyMs;
-    private static long _usageLastLatencyMs;
-    private static long _refreshRequestCount;
-    private static long _refreshErrorCount;
-    private static long _refreshTotalLatencyMs;
-    private static long _refreshLastLatencyMs;
+
+    private long _usageRequestCount;
+    private long _usageErrorCount;
+    private long _usageTotalLatencyMs;
+    private long _usageLastLatencyMs;
+    private long _refreshRequestCount;
+    private long _refreshErrorCount;
+    private long _refreshTotalLatencyMs;
+    private long _refreshLastLatencyMs;
 
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
@@ -40,7 +39,7 @@ public class MonitorService : IMonitorService
     private readonly IMonitorLauncher _monitorLauncher;
 
     public MonitorService()
-        : this(GetOrCreateHttpClient(), null)
+        : this(CreateDefaultHttpClient(), null)
     {
     }
 
@@ -83,16 +82,16 @@ public class MonitorService : IMonitorService
         System.Diagnostics.Debug.WriteLine($"[{timestamp}] [DIAG] {message}");
     }
 
-    public static AgentTelemetrySnapshot GetTelemetrySnapshot()
+    public AgentTelemetrySnapshot GetTelemetrySnapshot()
     {
-        var usageRequestCount = Interlocked.Read(ref _usageRequestCount);
-        var usageErrorCount = Interlocked.Read(ref _usageErrorCount);
-        var usageTotalLatencyMs = Interlocked.Read(ref _usageTotalLatencyMs);
-        var usageLastLatencyMs = Interlocked.Read(ref _usageLastLatencyMs);
-        var refreshRequestCount = Interlocked.Read(ref _refreshRequestCount);
-        var refreshErrorCount = Interlocked.Read(ref _refreshErrorCount);
-        var refreshTotalLatencyMs = Interlocked.Read(ref _refreshTotalLatencyMs);
-        var refreshLastLatencyMs = Interlocked.Read(ref _refreshLastLatencyMs);
+        var usageRequestCount = Interlocked.Read(ref this._usageRequestCount);
+        var usageErrorCount = Interlocked.Read(ref this._usageErrorCount);
+        var usageTotalLatencyMs = Interlocked.Read(ref this._usageTotalLatencyMs);
+        var usageLastLatencyMs = Interlocked.Read(ref this._usageLastLatencyMs);
+        var refreshRequestCount = Interlocked.Read(ref this._refreshRequestCount);
+        var refreshErrorCount = Interlocked.Read(ref this._refreshErrorCount);
+        var refreshTotalLatencyMs = Interlocked.Read(ref this._refreshTotalLatencyMs);
+        var refreshLastLatencyMs = Interlocked.Read(ref this._refreshLastLatencyMs);
 
         return new AgentTelemetrySnapshot
         {
@@ -611,32 +610,32 @@ public class MonitorService : IMonitorService
         }
     }
 
-    private static HttpClient GetOrCreateHttpClient()
+    private static HttpClient CreateDefaultHttpClient()
     {
-        return _sharedHttpClient ?? _sharedHttpClientInstance;
+        return new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
     }
 
-    private static void RecordUsageTelemetry(TimeSpan duration, bool success)
+    private void RecordUsageTelemetry(TimeSpan duration, bool success)
     {
         var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref _usageRequestCount);
-        Interlocked.Add(ref _usageTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref _usageLastLatencyMs, latencyMs);
+        Interlocked.Increment(ref this._usageRequestCount);
+        Interlocked.Add(ref this._usageTotalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref this._usageLastLatencyMs, latencyMs);
         if (!success)
         {
-            Interlocked.Increment(ref _usageErrorCount);
+            Interlocked.Increment(ref this._usageErrorCount);
         }
     }
 
-    private static void RecordRefreshTelemetry(TimeSpan duration, bool success)
+    private void RecordRefreshTelemetry(TimeSpan duration, bool success)
     {
         var latencyMs = (long)Math.Max(0, duration.TotalMilliseconds);
-        Interlocked.Increment(ref _refreshRequestCount);
-        Interlocked.Add(ref _refreshTotalLatencyMs, latencyMs);
-        Interlocked.Exchange(ref _refreshLastLatencyMs, latencyMs);
+        Interlocked.Increment(ref this._refreshRequestCount);
+        Interlocked.Add(ref this._refreshTotalLatencyMs, latencyMs);
+        Interlocked.Exchange(ref this._refreshLastLatencyMs, latencyMs);
         if (!success)
         {
-            Interlocked.Increment(ref _refreshErrorCount);
+            Interlocked.Increment(ref this._refreshErrorCount);
         }
     }
 
