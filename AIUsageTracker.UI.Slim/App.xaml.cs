@@ -150,6 +150,7 @@ public partial class App : Application
         services.AddSingleton<IDialogService, DialogService>();
         services.AddSingleton<IPollingService, PollingService>();
         services.AddSingleton<IReactivePollingService, ReactivePollingService>();
+        services.AddSingleton<IMonitorStartupOrchestrator, MonitorStartupOrchestrator>();
         services.AddSingleton<IBrowserService, BrowserService>();
 
         // ViewModels

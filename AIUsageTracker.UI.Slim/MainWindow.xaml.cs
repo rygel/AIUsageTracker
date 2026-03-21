@@ -49,6 +49,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     private readonly IMonitorService _monitorService;
     private readonly IMonitorLifecycleService _monitorLifecycleService;
+    private readonly IMonitorStartupOrchestrator _monitorStartupOrchestrator;
     private readonly ILogger<MainWindow> _logger;
     private readonly UiPreferencesStore _preferencesStore;
     private readonly DisplayPreferencesService _displayPreferences;
@@ -113,11 +114,12 @@ public partial class MainWindow : Window
         MainViewModel viewModel,
         IMonitorService monitorService,
         IMonitorLifecycleService monitorLifecycleService,
+        IMonitorStartupOrchestrator monitorStartupOrchestrator,
         ILogger<MainWindow> logger,
         IUpdateCheckerService updateChecker,
         UiPreferencesStore preferencesStore,
         DisplayPreferencesService displayPreferences)
-        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, logger, updateChecker, preferencesStore, displayPreferences)
+        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, monitorStartupOrchestrator, logger, updateChecker, preferencesStore, displayPreferences)
     {
     }
 
@@ -126,6 +128,7 @@ public partial class MainWindow : Window
             App.Host.Services.GetRequiredService<MainViewModel>(),
             App.Host.Services.GetRequiredService<IMonitorService>(),
             App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
+            App.Host.Services.GetRequiredService<IMonitorStartupOrchestrator>(),
             App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
             App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
             App.Host.Services.GetRequiredService<UiPreferencesStore>(),
@@ -134,34 +137,53 @@ public partial class MainWindow : Window
     }
 
     internal MainWindow(bool skipUiInitialization)
-        : this(skipUiInitialization, null, null, null, null, null, null, null)
+        : this(
+            skipUiInitialization,
+            App.Host.Services.GetRequiredService<MainViewModel>(),
+            App.Host.Services.GetRequiredService<IMonitorService>(),
+            App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
+            App.Host.Services.GetRequiredService<IMonitorStartupOrchestrator>(),
+            App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
+            App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
+            App.Host.Services.GetRequiredService<UiPreferencesStore>(),
+            App.Host.Services.GetRequiredService<DisplayPreferencesService>())
     {
     }
 
     private MainWindow(
         bool skipUiInitialization,
-        MainViewModel? viewModel,
-        IMonitorService? monitorService,
-        IMonitorLifecycleService? monitorLifecycleService,
-        ILogger<MainWindow>? logger,
-        IUpdateCheckerService? updateChecker,
-        UiPreferencesStore? preferencesStore,
-        DisplayPreferencesService? displayPreferences)
+        MainViewModel viewModel,
+        IMonitorService monitorService,
+        IMonitorLifecycleService monitorLifecycleService,
+        IMonitorStartupOrchestrator monitorStartupOrchestrator,
+        ILogger<MainWindow> logger,
+        IUpdateCheckerService updateChecker,
+        UiPreferencesStore preferencesStore,
+        DisplayPreferencesService displayPreferences)
     {
+        ArgumentNullException.ThrowIfNull(viewModel);
+        ArgumentNullException.ThrowIfNull(monitorService);
+        ArgumentNullException.ThrowIfNull(monitorLifecycleService);
+        ArgumentNullException.ThrowIfNull(monitorStartupOrchestrator);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(updateChecker);
+        ArgumentNullException.ThrowIfNull(preferencesStore);
+        ArgumentNullException.ThrowIfNull(displayPreferences);
+
         if (!skipUiInitialization)
         {
             this.InitializeComponent();
             this.ApplyVersionDisplay();
         }
 
-        // Fallbacks for internal/test use
-        this._logger = logger ?? App.CreateLogger<MainWindow>();
-        this._monitorService = monitorService ?? App.MonitorService;
-        this._monitorLifecycleService = monitorLifecycleService ?? App.Host.Services.GetRequiredService<IMonitorLifecycleService>();
-        this._updateChecker = updateChecker ?? App.Host.Services.GetRequiredService<IUpdateCheckerService>();
-        this._preferencesStore = preferencesStore ?? App.Host.Services.GetRequiredService<UiPreferencesStore>();
-        this._displayPreferences = displayPreferences ?? App.Host.Services.GetRequiredService<DisplayPreferencesService>();
-        this._viewModel = viewModel ?? App.Host.Services.GetRequiredService<MainViewModel>();
+        this._logger = logger;
+        this._monitorService = monitorService;
+        this._monitorLifecycleService = monitorLifecycleService;
+        this._monitorStartupOrchestrator = monitorStartupOrchestrator;
+        this._updateChecker = updateChecker;
+        this._preferencesStore = preferencesStore;
+        this._displayPreferences = displayPreferences;
+        this._viewModel = viewModel;
         this.DataContext = this._viewModel;
 
         this._updateCheckTimer = new DispatcherTimer
@@ -394,7 +416,7 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
-        if (this._isLoading || this._monitorService == null)
+        if (this._isLoading)
         {
             return;
         }
@@ -416,62 +438,22 @@ public partial class MainWindow : Window
 
             this.ShowStatus("Checking monitor status...", StatusType.Info);
 
-            // Offload the expensive discovery/startup logic to a background thread
-            // to prevent UI freezing during port scans or agent startup waits.
-            var success = await Task.Run(async () =>
+            var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(
+                async (message, type) =>
+                {
+                    await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type));
+                });
+            var success = startupResult.IsSuccess;
+
+            if (!success && startupResult.IsLaunchFailure)
             {
-                try
-                {
-                    // Refresh the monitor endpoint from authoritative metadata/health before first contact.
-                    await this._monitorService.RefreshPortAsync();
-
-                    var monitorStatus = await this._monitorLifecycleService.GetAgentStatusInfoAsync();
-
-                    // Check if Monitor is running on the discovered port
-                    var isRunning = monitorStatus.IsRunning || await this._monitorService.CheckHealthAsync();
-
-                    if (!isRunning)
-                    {
-                        var launchMessage = string.Equals(monitorStatus.Error, "monitor-starting", StringComparison.Ordinal)
-                            ? "Monitor is starting..."
-                            : "Monitor not running. Starting monitor...";
-                        await this.Dispatcher.InvokeAsync(() => this.ShowStatus(launchMessage, StatusType.Warning));
-                        await this.Dispatcher.InvokeAsync(() => this.ShowStatus("Waiting for monitor...", StatusType.Warning));
-                        var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
-                        if (!monitorReady)
-                        {
-                            await this._monitorService.RefreshAgentInfoAsync();
-                            await this.Dispatcher.InvokeAsync(() =>
-                            {
-                                this.ShowStatus("Monitor failed to start", StatusType.Error);
-                                this.ShowErrorState(this.BuildMonitorLaunchErrorMessage());
-                            });
-                            return false;
-                        }
-
-                        // Monitor may have started on a different port; refresh the client endpoint before using it.
-                        await this._monitorService.RefreshPortAsync();
-                    }
-                    else if (await this.TryRestartMonitorForVersionMismatchAsync())
-                    {
-                        // Monitor was restarted due to version mismatch; refresh the client endpoint.
-                        await this._monitorService.RefreshPortAsync();
-                    }
-
-                    // Update monitor toggle button state
-                    await this.UpdateMonitorToggleButtonStateAsync();
-
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    this._logger.LogError(ex, "Background initialization failed");
-                    return false;
-                }
-            });
+                this.ShowStatus("Monitor failed to start", StatusType.Error);
+                this.ShowErrorState(this.BuildMonitorLaunchErrorMessage());
+            }
 
             if (success)
             {
+                await this.UpdateMonitorToggleButtonStateAsync();
                 var handshakeResult = await this._monitorService.CheckApiContractAsync();
                 this.ApplyMonitorContractStatus(handshakeResult);
 
@@ -661,59 +643,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task<bool> TryRestartMonitorForVersionMismatchAsync()
-    {
-        try
-        {
-            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
-            if (healthSnapshot == null)
-            {
-                return false;
-            }
-
-            var monitorVersion = healthSnapshot.AgentVersion;
-            var uiVersion = typeof(App).Assembly.GetName().Version?.ToString();
-
-            if (string.IsNullOrEmpty(monitorVersion) || string.IsNullOrEmpty(uiVersion))
-            {
-                return false;
-            }
-
-            if (string.Equals(monitorVersion, uiVersion, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            MonitorService.LogDiagnostic(
-                $"Monitor version mismatch (monitor: {monitorVersion}, ui: {uiVersion}). Restarting monitor...");
-            this._logger.LogWarning(
-                "Monitor version mismatch (monitor: {MonitorVersion}, ui: {UiVersion}). Restarting monitor...",
-                monitorVersion,
-                uiVersion);
-
-            await this.Dispatcher.InvokeAsync(() =>
-                this.ShowStatus("Restarting monitor (version mismatch)...", StatusType.Warning));
-
-            await this._monitorLifecycleService.StopAgentAsync();
-
-            var started = await this._monitorLifecycleService.EnsureAgentRunningAsync();
-            if (!started)
-            {
-                MonitorService.LogDiagnostic("Failed to restart monitor after version mismatch.");
-                this._logger.LogError("Failed to restart monitor after version mismatch");
-                return false;
-            }
-
-            MonitorService.LogDiagnostic("Monitor restarted successfully after version mismatch.");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogError(ex, "Error during monitor version mismatch restart");
-            return false;
-        }
-    }
-
     private string BuildMonitorLaunchErrorMessage()
     {
         return this.BuildMonitorErrorMessage(
@@ -876,7 +805,7 @@ public partial class MainWindow : Window
 
     private async Task RefreshDataAsync()
     {
-        if (this._isLoading || this._monitorService == null)
+        if (this._isLoading)
         {
             return;
         }
@@ -1550,11 +1479,6 @@ public partial class MainWindow : Window
 
     private async Task InitializeSignalRAsync()
     {
-        if (this._monitorService == null)
-        {
-            return;
-        }
-
         try
         {
             var hubUrl = $"{this._monitorService.AgentUrl.TrimEnd('/')}/hubs/usage";
