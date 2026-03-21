@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.12] - 2026-03-21
+
+### Fixed
+- **Pace calculation used burst reset time instead of weekly**: Codex and Claude Code set the parent card's NextResetTime from the 5-hour burst window, but PeriodDuration was 7 days. This made pace projection nonsensical — showing "On pace" when nearly all weekly quota was consumed. Fixed by correcting NextResetTime to the rolling window detail in the UI enrichment layer.
+
+### Changed
+- Split SettingsWindow.xaml.cs (2,500 lines) into partial classes per tab (Providers, Monitor, Data).
+- Split MainWindow update/SignalR logic into separate partial files.
+- Move Win32 P/Invoke declarations to shared Win32Interop helper class.
+- Replace reflection-based provider discovery with explicit static registration list.
+- Convert MonitorLauncher from static class to injectable singleton (remove AsyncLocal test overrides).
+- Delete unused experimental-rust CI workflow (12 Rust build jobs).
+
 ## [2.3.2-beta.11] - 2026-03-21
 
 ### Fixed
