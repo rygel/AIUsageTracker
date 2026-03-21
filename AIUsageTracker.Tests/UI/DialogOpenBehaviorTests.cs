@@ -205,7 +205,10 @@ public class DialogOpenBehaviorTests
                     File.Delete(tempPreferencesPath);
                 }
 
-                mainWindow.Close();
+                if (mainWindow.Dispatcher.CheckAccess())
+                {
+                    mainWindow.Close();
+                }
             }
         });
     }

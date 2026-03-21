@@ -28,6 +28,7 @@ public class ReactivePollingServiceTests : IDisposable
         this._logger = NullLogger<ReactivePollingService>.Instance;
         this._service = new ReactivePollingService(
             this._mockMonitorService.Object,
+            new PollingIntervalPolicy(),
             this._logger);
     }
 

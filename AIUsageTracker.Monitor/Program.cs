@@ -33,6 +33,7 @@ public class Program
         ILoggerFactory? loggerFactory = null;
         ILogger? logger = null;
         Mutex? startupMutex = null;
+        var holdsStartupMutex = false;
 
         try
         {
@@ -91,20 +92,44 @@ public class Program
             string mutexName = @"Global\AIUsageTracker_Monitor_" + Environment.UserName;
             bool createdNew;
             startupMutex = new Mutex(true, mutexName, out createdNew);
+            holdsStartupMutex = createdNew;
 
             if (!createdNew)
             {
-                logger.LogWarning("Another Monitor instance appears to be starting. Waiting for it to complete...");
+                logger.LogWarning("Monitor startup lock is already held. Checking for existing healthy monitor instance.");
+                var existingStatus = await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+                if (existingStatus.IsRunning)
+                {
+                    logger.LogWarning(
+                        "Monitor is already running on port {Port}. Skipping duplicate startup request.",
+                        existingStatus.Port);
+                    return;
+                }
+
+                logger.LogWarning("No healthy monitor instance detected yet. Waiting up to 10 seconds for startup lock.");
                 try
                 {
                     if (!startupMutex.WaitOne(TimeSpan.FromSeconds(10)))
                     {
-                        logger.LogError("Timeout waiting for other Monitor instance");
+                        var statusAfterWait = await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+                        if (statusAfterWait.IsRunning)
+                        {
+                            logger.LogWarning(
+                                "Monitor became healthy on port {Port} while waiting. Skipping duplicate startup request.",
+                                statusAfterWait.Port);
+                            return;
+                        }
+
+                        logger.LogError(
+                            "Timeout waiting for monitor startup lock and no healthy monitor detected. Aborting duplicate startup.");
                         return;
                     }
+
+                    holdsStartupMutex = true;
                 }
                 catch (AbandonedMutexException)
                 {
+                    holdsStartupMutex = true;
                     logger.LogWarning("Other Monitor instance exited unexpectedly. Proceeding.");
                 }
             }
@@ -290,7 +315,18 @@ public class Program
         }
         finally
         {
-            // Release the startup mutex
+            if (holdsStartupMutex && startupMutex != null)
+            {
+                try
+                {
+                    startupMutex.ReleaseMutex();
+                }
+                catch (ApplicationException)
+                {
+                    logger?.LogDebug("Startup mutex ownership was lost before shutdown.");
+                }
+            }
+
             startupMutex?.Dispose();
             loggerFactory?.Dispose();
         }

@@ -13,9 +13,8 @@ namespace AIUsageTracker.UI.Slim.Services;
 /// </summary>
 public class PollingService : IPollingService
 {
-    private static readonly TimeSpan DefaultInterval = TimeSpan.FromMinutes(1);
-
     private readonly IMonitorService _monitorService;
+    private readonly IPollingIntervalPolicy _intervalPolicy;
     private readonly ILogger<PollingService> _logger;
     private readonly DispatcherTimer _timer;
     private readonly object _lockObject = new();
@@ -23,13 +22,17 @@ public class PollingService : IPollingService
     private bool _isPollingInProgress;
     private bool _disposed;
 
-    public PollingService(IMonitorService monitorService, ILogger<PollingService> logger)
+    public PollingService(
+        IMonitorService monitorService,
+        IPollingIntervalPolicy intervalPolicy,
+        ILogger<PollingService> logger)
     {
         this._monitorService = monitorService;
+        this._intervalPolicy = intervalPolicy;
         this._logger = logger;
         this._timer = new DispatcherTimer
         {
-            Interval = DefaultInterval,
+            Interval = this._intervalPolicy.DefaultInterval,
         };
         this._timer.Tick += this.OnTimerTick;
     }
@@ -84,8 +87,8 @@ public class PollingService : IPollingService
             return;
         }
 
-        this._timer.Interval = interval;
-        this._logger.LogDebug("Polling interval changed to {Interval}", interval);
+        this._timer.Interval = this._intervalPolicy.Normalize(interval);
+        this._logger.LogDebug("Polling interval changed to {Interval}", this._timer.Interval);
     }
 
     /// <inheritdoc />
@@ -111,7 +114,12 @@ public class PollingService : IPollingService
         this._disposed = true;
     }
 
-    private async void OnTimerTick(object? sender, EventArgs e)
+    private void OnTimerTick(object? sender, EventArgs e)
+    {
+        _ = this.PollFromTimerAsync();
+    }
+
+    private async Task PollFromTimerAsync()
     {
         try
         {

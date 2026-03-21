@@ -5,6 +5,7 @@
 using System.Diagnostics;
 using System.Net.Http;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.Runtime;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Core.MonitorClient;
@@ -19,12 +20,8 @@ public class MonitorLauncher
 
     private static readonly SemaphoreSlim StartupSemaphore = new(1, 1);
     private static readonly HttpClient HealthCheckHttpClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
+    private static readonly AsyncLocal<TestOverrides?> TestOverridesContext = new();
     private static ILogger<MonitorLauncher>? _logger;
-    private static Func<IEnumerable<string>>? _monitorInfoCandidatePathsOverride;
-    private static Func<int, Task<bool>>? _healthCheckOverride;
-    private static Func<int, Task<bool>>? _processRunningOverride;
-    private static Func<int, Task<bool>>? _stopProcessOverride;
-    private static Func<Task<bool>>? _stopNamedProcessesOverride;
 
     public static void SetLogger(ILogger<MonitorLauncher> logger) => _logger = logger;
 
@@ -167,13 +164,19 @@ public class MonitorLauncher
     public static async Task<bool> StopAgentAsync()
     {
         var metadataState = await ReadValidatedAgentInfoAsync().ConfigureAwait(false);
+        var testOverrides = TestOverridesContext.Value;
         return await MonitorLauncherProcessController.StopAgentAsync(
             metadataState.Info,
             metadataState.EffectivePort,
             StopWaitSeconds,
             CheckHealthAsync,
-            processId => MonitorLauncherProcessController.TryStopProcessAsync(processId, StopWaitSeconds, _stopProcessOverride),
-            () => MonitorLauncherProcessController.TryStopNamedProcessesAsync(StopWaitSeconds, _stopNamedProcessesOverride),
+            processId => MonitorLauncherProcessController.TryStopProcessAsync(
+                processId,
+                StopWaitSeconds,
+                testOverrides?.StopProcessOverride),
+            () => MonitorLauncherProcessController.TryStopNamedProcessesAsync(
+                StopWaitSeconds,
+                testOverrides?.StopNamedProcessesOverride),
             InvalidateMonitorInfoAsync,
             _logger).ConfigureAwait(false);
     }
@@ -219,45 +222,40 @@ public class MonitorLauncher
         Func<int, Task<bool>>? stopProcessAsync = null,
         Func<Task<bool>>? stopNamedProcessesAsync = null)
     {
-        var previousCandidatePaths = _monitorInfoCandidatePathsOverride;
-        var previousHealthCheck = _healthCheckOverride;
-        var previousProcessCheck = _processRunningOverride;
-        var previousStopProcess = _stopProcessOverride;
-        var previousStopNamedProcesses = _stopNamedProcessesOverride;
+        var previousOverrides = TestOverridesContext.Value;
+        var nextOverrides = previousOverrides?.Clone() ?? new TestOverrides();
 
         if (monitorInfoCandidatePaths != null)
         {
             var paths = monitorInfoCandidatePaths.ToArray();
-            _monitorInfoCandidatePathsOverride = () => paths;
+            nextOverrides.MonitorInfoCandidatePathsOverride = () => paths;
         }
 
         if (healthCheckAsync != null)
         {
-            _healthCheckOverride = healthCheckAsync;
+            nextOverrides.HealthCheckOverride = healthCheckAsync;
         }
 
         if (processRunningAsync != null)
         {
-            _processRunningOverride = processRunningAsync;
+            nextOverrides.ProcessRunningOverride = processRunningAsync;
         }
 
         if (stopProcessAsync != null)
         {
-            _stopProcessOverride = stopProcessAsync;
+            nextOverrides.StopProcessOverride = stopProcessAsync;
         }
 
         if (stopNamedProcessesAsync != null)
         {
-            _stopNamedProcessesOverride = stopNamedProcessesAsync;
+            nextOverrides.StopNamedProcessesOverride = stopNamedProcessesAsync;
         }
+
+        TestOverridesContext.Value = nextOverrides;
 
         return new TestOverrideScope(() =>
         {
-            _monitorInfoCandidatePathsOverride = previousCandidatePaths;
-            _healthCheckOverride = previousHealthCheck;
-            _processRunningOverride = previousProcessCheck;
-            _stopProcessOverride = previousStopProcess;
-            _stopNamedProcessesOverride = previousStopNamedProcesses;
+            TestOverridesContext.Value = previousOverrides;
         });
     }
 
@@ -310,9 +308,10 @@ public class MonitorLauncher
 
     private static async Task<bool> CheckHealthAsync(int port)
     {
-        if (_healthCheckOverride != null)
+        var testOverrides = TestOverridesContext.Value;
+        if (testOverrides?.HealthCheckOverride != null)
         {
-            return await _healthCheckOverride(port).ConfigureAwait(false);
+            return await testOverrides.HealthCheckOverride(port).ConfigureAwait(false);
         }
 
         try
@@ -339,9 +338,10 @@ public class MonitorLauncher
 
     private static Task<bool> CheckProcessRunningAsync(int processId)
     {
-        if (_processRunningOverride != null)
+        var testOverrides = TestOverridesContext.Value;
+        if (testOverrides?.ProcessRunningOverride != null)
         {
-            return _processRunningOverride(processId);
+            return testOverrides.ProcessRunningOverride(processId);
         }
 
         if (processId <= 0)
@@ -418,9 +418,10 @@ public class MonitorLauncher
 
     private static IEnumerable<string> GetMonitorInfoCandidatePaths()
     {
-        if (_monitorInfoCandidatePathsOverride != null)
+        var testOverrides = TestOverridesContext.Value;
+        if (testOverrides?.MonitorInfoCandidatePathsOverride != null)
         {
-            return _monitorInfoCandidatePathsOverride();
+            return testOverrides.MonitorInfoCandidatePathsOverride();
         }
 
         return MonitorInfoPathCatalog.GetReadCandidatePathsFromEnvironment();
@@ -428,12 +429,7 @@ public class MonitorLauncher
 
     private static string BuildLaunchMutexName()
     {
-        var userName = Environment.UserName
-            .Replace("\\", "_", StringComparison.Ordinal)
-            .Replace("/", "_", StringComparison.Ordinal)
-            .Replace(" ", "_", StringComparison.Ordinal);
-
-        return @"Global\AIUsageTracker_MonitorLaunch_" + userName;
+        return MutexNameBuilder.BuildGlobalName("AIUsageTracker_MonitorLaunch_");
     }
 
     private sealed class TestOverrideScope : IDisposable
@@ -455,6 +451,31 @@ public class MonitorLauncher
 
             this._disposed = true;
             this._reset();
+        }
+    }
+
+    private sealed class TestOverrides
+    {
+        public Func<IEnumerable<string>>? MonitorInfoCandidatePathsOverride { get; set; }
+
+        public Func<int, Task<bool>>? HealthCheckOverride { get; set; }
+
+        public Func<int, Task<bool>>? ProcessRunningOverride { get; set; }
+
+        public Func<int, Task<bool>>? StopProcessOverride { get; set; }
+
+        public Func<Task<bool>>? StopNamedProcessesOverride { get; set; }
+
+        public TestOverrides Clone()
+        {
+            return new TestOverrides
+            {
+                MonitorInfoCandidatePathsOverride = this.MonitorInfoCandidatePathsOverride,
+                HealthCheckOverride = this.HealthCheckOverride,
+                ProcessRunningOverride = this.ProcessRunningOverride,
+                StopProcessOverride = this.StopProcessOverride,
+                StopNamedProcessesOverride = this.StopNamedProcessesOverride,
+            };
         }
     }
 }

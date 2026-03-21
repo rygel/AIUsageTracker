@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
 
-public class UiPreferencesStore
+public class UiPreferencesStore : IUiPreferencesStore
 {
     private readonly ILogger<UiPreferencesStore> _logger;
     private readonly IAppPathProvider _pathProvider;

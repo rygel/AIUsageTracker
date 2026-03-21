@@ -56,4 +56,26 @@ public class PrivacyChangedWeakEventManagerTests
 
         Assert.Null(exception);
     }
+
+    [Fact]
+    public void AddHandler_WhenPrivacyModeChanges_InvokesTypedHandlerWithoutException()
+    {
+        var originalPrivacyMode = App.IsPrivacyMode;
+        var callCount = 0;
+        EventHandler<PrivacyChangedEventArgs> handler = (_, _) => callCount++;
+
+        PrivacyChangedWeakEventManager.AddHandler(handler);
+        try
+        {
+            var exception = Record.Exception(() => App.SetPrivacyMode(!originalPrivacyMode));
+
+            Assert.Null(exception);
+            Assert.Equal(1, callCount);
+        }
+        finally
+        {
+            PrivacyChangedWeakEventManager.RemoveHandler(handler);
+            App.SetPrivacyMode(originalPrivacyMode);
+        }
+    }
 }

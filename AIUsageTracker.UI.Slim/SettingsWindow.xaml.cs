@@ -16,6 +16,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.UI.Slim.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
@@ -67,7 +68,7 @@ public partial class SettingsWindow : Window
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
         this._displayPreferences = displayPreferences;
-        App.PrivacyChanged += this.OnPrivacyChanged;
+        PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
         this.Closed += this.SettingsWindow_Closed;
         this.Loaded += this.SettingsWindow_Loaded;
         this.UpdatePrivacyButtonState();
@@ -315,7 +316,7 @@ public partial class SettingsWindow : Window
     private void SettingsWindow_Closed(object? sender, EventArgs e)
     {
         this._autoSaveTimer.Stop();
-        App.PrivacyChanged -= this.OnPrivacyChanged;
+        PrivacyChangedWeakEventManager.RemoveHandler(this.OnPrivacyChanged);
     }
 
     private async void AutoSaveTimer_Tick(object? sender, EventArgs e)

@@ -8,5 +8,3 @@ public interface IMonitorStartupOrchestrator
 {
     Task<MonitorStartupOrchestrationResult> EnsureMonitorReadyAsync(Func<string, StatusType, Task> reportStatusAsync);
 }
-
-public sealed record MonitorStartupOrchestrationResult(bool IsSuccess, bool IsLaunchFailure);

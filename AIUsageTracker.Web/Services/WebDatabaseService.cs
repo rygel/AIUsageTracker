@@ -53,14 +53,14 @@ public class WebDatabaseService : IWebDatabaseRepository
                        h.is_available AS IsAvailable,
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.fetched_at AS FetchedAt,
-                       ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY datetime(h.fetched_at) DESC) AS RowNum
+                       ROW_NUMBER() OVER (PARTITION BY h.provider_id ORDER BY h.fetched_at DESC) AS RowNum
                 FROM provider_history h
                 WHERE h.provider_id IN @ProviderIds
-                  AND datetime(h.fetched_at) >= datetime(@CutoffUtc)
+                  AND h.fetched_at >= @CutoffEpoch
             )
             SELECT * FROM ranked
             WHERE RowNum <= @MaxSamples
-            ORDER BY ProviderId, datetime(FetchedAt) ASC";
+            ORDER BY ProviderId, FetchedAt ASC";
 
     private const string ChartDataSql = @"
             SELECT
@@ -204,15 +204,15 @@ public class WebDatabaseService : IWebDatabaseRepository
 
     public async Task<IReadOnlyList<ProviderUsage>> GetHistorySamplesAsync(IEnumerable<string> providerIds, int lookbackHours, int maxSamples)
     {
-        var cutoffUtc = DateTime.UtcNow
+        var cutoffEpoch = DateTimeOffset.UtcNow
             .AddHours(-lookbackHours)
-            .ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+            .ToUnixTimeSeconds();
 
         return await this.QueryUsageListIfDatabaseAvailableAsync(
             async connection => await connection.QueryAsync<dynamic>(HistorySamplesSql, new
             {
                 ProviderIds = providerIds,
-                CutoffUtc = cutoffUtc,
+                CutoffEpoch = cutoffEpoch,
                 MaxSamples = maxSamples,
             }).ConfigureAwait(false)).ConfigureAwait(false);
     }

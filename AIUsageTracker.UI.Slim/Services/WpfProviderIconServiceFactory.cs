@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim.Services;
 
-public sealed class WpfProviderIconServiceFactory : IWpfProviderIconServiceFactory
+internal sealed class WpfProviderIconServiceFactory : IWpfProviderIconServiceFactory
 {
     private readonly ILogger<WpfProviderIconService> _logger;
 

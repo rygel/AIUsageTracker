@@ -16,9 +16,8 @@ namespace AIUsageTracker.UI.Slim.Services;
 /// </summary>
 public class ReactivePollingService : IReactivePollingService
 {
-    private static readonly TimeSpan DefaultInterval = TimeSpan.FromMinutes(1);
-
     private readonly IMonitorService _monitorService;
+    private readonly IPollingIntervalPolicy _intervalPolicy;
     private readonly ILogger<ReactivePollingService> _logger;
     private readonly Subject<IReadOnlyList<ProviderUsage>> _usageSubject;
     private readonly Subject<Exception> _errorSubject;
@@ -36,14 +35,16 @@ public class ReactivePollingService : IReactivePollingService
     /// <param name="logger">The logger.</param>
     public ReactivePollingService(
         IMonitorService monitorService,
+        IPollingIntervalPolicy intervalPolicy,
         ILogger<ReactivePollingService> logger)
     {
         this._monitorService = monitorService ?? throw new ArgumentNullException(nameof(monitorService));
+        this._intervalPolicy = intervalPolicy ?? throw new ArgumentNullException(nameof(intervalPolicy));
         this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
         this._usageSubject = new Subject<IReadOnlyList<ProviderUsage>>();
         this._errorSubject = new Subject<Exception>();
-        this._intervalSubject = new BehaviorSubject<TimeSpan>(DefaultInterval);
+        this._intervalSubject = new BehaviorSubject<TimeSpan>(this._intervalPolicy.DefaultInterval);
         this._disposables = new CompositeDisposable();
 
         // Add subjects to disposables for cleanup
@@ -72,8 +73,9 @@ public class ReactivePollingService : IReactivePollingService
                 return;
             }
 
-            this._intervalSubject.OnNext(value);
-            this._logger.LogDebug("Polling interval changed to {Interval}", value);
+            var normalizedInterval = this._intervalPolicy.Normalize(value);
+            this._intervalSubject.OnNext(normalizedInterval);
+            this._logger.LogDebug("Polling interval changed to {Interval}", normalizedInterval);
 
             // If currently polling, restart with new interval
             if (this._isPolling)
@@ -150,8 +152,10 @@ public class ReactivePollingService : IReactivePollingService
     /// <returns>An observable of usage data.</returns>
     public IObservable<IReadOnlyList<ProviderUsage>> CreatePollingObservable(TimeSpan interval)
     {
+        var normalizedInterval = this._intervalPolicy.Normalize(interval);
+
         return Observable
-            .Timer(TimeSpan.Zero, interval)
+            .Timer(TimeSpan.Zero, normalizedInterval)
             .SelectMany(_ => Observable.FromAsync(async ct =>
             {
                 try

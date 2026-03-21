@@ -12,17 +12,19 @@ internal static class ProviderResetBadgePresentationCatalog
     {
         ArgumentNullException.ThrowIfNull(usage);
 
-        if (ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out var dualQuotaBuckets))
+        var detailResetTimes = usage.Details?
+            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
+            .Where(detail => detail.QuotaBucketKind != WindowKind.None)
+            .Where(detail => detail.NextResetTime.HasValue)
+            .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
+            .Select(detail => detail.NextResetTime!.Value)
+            .Distinct()
+            .ToList()
+            ?? new List<DateTime>();
+
+        if (detailResetTimes.Count >= 2)
         {
-            var resetTimes = new[] { dualQuotaBuckets.PrimaryResetTime, dualQuotaBuckets.SecondaryResetTime }
-                .Where(reset => reset.HasValue)
-                .Select(reset => reset!.Value)
-                .Distinct()
-                .ToList();
-            if (resetTimes.Count > 0)
-            {
-                return resetTimes;
-            }
+            return detailResetTimes;
         }
 
         if (suppressSingleResetFallback)

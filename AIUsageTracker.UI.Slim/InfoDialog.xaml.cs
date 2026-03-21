@@ -18,7 +18,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
 
-public partial class InfoDialog : Window, IWeakEventListener
+public partial class InfoDialog : Window
 {
     private readonly ILogger<InfoDialog> _logger;
     private readonly IAppPathProvider _pathProvider;
@@ -55,19 +55,6 @@ public partial class InfoDialog : Window, IWeakEventListener
         this.DataDirText.Text = @"C:\Users\***\...\AIUsageTracker";
         this.DatabaseSizeText.Text = "12.3 MB";
         this.PrivacyBtn.Foreground = Brushes.Gold;
-    }
-
-    /// <inheritdoc />
-    public bool ReceiveWeakEvent(Type managerType, object sender, EventArgs e)
-    {
-        if (managerType == typeof(PrivacyChangedWeakEventManager) && e is PrivacyChangedEventArgs args)
-        {
-            this._isPrivacyMode = args.IsPrivacyMode;
-            this.UpdatePrivacyUI();
-            return true;
-        }
-
-        return false;
     }
 
     private void LoadInfo()

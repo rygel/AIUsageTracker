@@ -234,6 +234,7 @@ public class DatabaseMigrationService
         EnsureColumn(connection, "providers", "config_json", "TEXT");
         EnsureColumn(connection, "providers", "auth_source", "TEXT DEFAULT 'manual'");
         EnsureColumn(connection, "providers", "plan_type", "TEXT DEFAULT 'usage'");
+        EnsureColumn(connection, "provider_history", "next_reset_time", "TEXT");
         EnsureColumn(connection, "provider_history", "details_json", "TEXT");
         EnsureColumn(connection, "provider_history", "response_latency_ms", "REAL NOT NULL DEFAULT 0");
         EnsureColumn(connection, "provider_history", "http_status", "INTEGER NOT NULL DEFAULT 0");

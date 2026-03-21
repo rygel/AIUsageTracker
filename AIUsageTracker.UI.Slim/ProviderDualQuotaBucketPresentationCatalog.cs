@@ -28,24 +28,38 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
             return false;
         }
 
-        // Prefer declaration-based ordering and labels; fall back to heuristics.
         ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition);
         var declaredWindows = definition?.QuotaWindows.Where(w => w.Kind != WindowKind.None).ToList();
-
-        var orderedBuckets = quotaBuckets
-            .OrderBy(detail => GetWindowOrder(detail.QuotaBucketKind, declaredWindows))
-            .ToList();
-
-        var firstDetail = orderedBuckets[0];
-        var secondDetail = orderedBuckets.Skip(1).FirstOrDefault(d => d.QuotaBucketKind != firstDetail.QuotaBucketKind);
-
-        if (secondDetail == null)
+        if (declaredWindows == null || declaredWindows.Count == 0)
         {
             return false;
         }
 
-        var parsedFirst = UsageMath.GetEffectiveUsedPercent(firstDetail);
-        var parsedSecond = UsageMath.GetEffectiveUsedPercent(secondDetail);
+        var orderedBuckets = quotaBuckets
+            .Select(detail => new
+            {
+                Detail = detail,
+                DeclaredWindow = FindMatchingWindow(detail, declaredWindows),
+            })
+            .Where(x => x.DeclaredWindow != null)
+            .OrderBy(x => GetDeclaredWindowOrder(x.DeclaredWindow!, declaredWindows))
+            .ToList();
+
+        if (orderedBuckets.Count < 2)
+        {
+            return false;
+        }
+
+        var first = orderedBuckets[0];
+        var second = orderedBuckets.Skip(1).FirstOrDefault(x => x.Detail.QuotaBucketKind != first.Detail.QuotaBucketKind);
+
+        if (second == null)
+        {
+            return false;
+        }
+
+        var parsedFirst = UsageMath.GetEffectiveUsedPercent(first.Detail);
+        var parsedSecond = UsageMath.GetEffectiveUsedPercent(second.Detail);
 
         if (!parsedFirst.HasValue || !parsedSecond.HasValue)
         {
@@ -53,33 +67,29 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
         }
 
         presentation = new ProviderDualQuotaBucketPresentation(
-            PrimaryLabel: GetWindowLabel(firstDetail, declaredWindows, "Burst"),
+            PrimaryLabel: GetWindowLabel(first.Detail, first.DeclaredWindow!),
             PrimaryUsedPercent: parsedFirst.Value,
-            PrimaryResetTime: firstDetail.NextResetTime,
-            SecondaryLabel: GetWindowLabel(secondDetail, declaredWindows, "Rolling"),
+            PrimaryResetTime: first.Detail.NextResetTime,
+            SecondaryLabel: GetWindowLabel(second.Detail, second.DeclaredWindow!),
             SecondaryUsedPercent: parsedSecond.Value,
-            SecondaryResetTime: secondDetail.NextResetTime);
+            SecondaryResetTime: second.Detail.NextResetTime);
         return true;
     }
 
-    private static int GetWindowOrder(WindowKind kind, List<QuotaWindowDefinition>? windows)
+    private static int GetDeclaredWindowOrder(QuotaWindowDefinition declaredWindow, IReadOnlyList<QuotaWindowDefinition> windows)
     {
-        var idx = windows?.FindIndex(w => w.Kind == kind) ?? -1;
-        if (idx >= 0)
+        for (var index = 0; index < windows.Count; index++)
         {
-            return idx;
+            if (ReferenceEquals(windows[index], declaredWindow))
+            {
+                return index;
+            }
         }
 
-        // Default ordering when no declaration exists: short windows (Burst) above long ones (Rolling).
-        return kind switch
-        {
-            WindowKind.Burst => 10,
-            WindowKind.Rolling => 20,
-            _ => 99,
-        };
+        return int.MaxValue;
     }
 
-    private static string GetWindowLabel(ProviderUsageDetail detail, List<QuotaWindowDefinition>? windows, string fallback)
+    private static string GetWindowLabel(ProviderUsageDetail detail, QuotaWindowDefinition declaredWindow)
     {
         // When the detail name carries explicit duration info (e.g. "5h Limit", "1 Day Limit"),
         // extract it as the label. This is more accurate than the static DualBarLabel when multiple
@@ -90,8 +100,24 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
             return nameLabel;
         }
 
-        var declared = windows?.FirstOrDefault(w => w.Kind == detail.QuotaBucketKind);
-        return declared?.DualBarLabel ?? fallback;
+        return declaredWindow.DualBarLabel;
+    }
+
+    private static QuotaWindowDefinition? FindMatchingWindow(
+        ProviderUsageDetail detail,
+        IReadOnlyList<QuotaWindowDefinition> declaredWindows)
+    {
+        var detailNameMatch = declaredWindows.FirstOrDefault(window =>
+            window.Kind == detail.QuotaBucketKind &&
+            window.DetailName != null &&
+            string.Equals(window.DetailName, detail.Name, StringComparison.OrdinalIgnoreCase));
+        if (detailNameMatch != null)
+        {
+            return detailNameMatch;
+        }
+
+        var sameKindWindows = declaredWindows.Where(window => window.Kind == detail.QuotaBucketKind).ToList();
+        return sameKindWindows.Count == 1 ? sameKindWindows[0] : null;
     }
 
     /// <summary>

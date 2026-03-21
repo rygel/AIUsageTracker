@@ -126,11 +126,18 @@ internal static class ProviderUsageDisplayCatalog
 
         return parentUsage.Details
             .Where(detail => detail.DetailType == ProviderUsageDetailType.Model)
-            .Select(detail => new { Detail = detail, ModelDisplayName = ResolveAggregateDetailDisplayName(detail) })
-            .Where(x => !string.IsNullOrWhiteSpace(x.ModelDisplayName))
-            .GroupBy(x => x.ModelDisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(detail => new
+            {
+                Detail = detail,
+                ModelDisplayName = ResolveAggregateDetailDisplayName(detail),
+                DeclaredWindow = FindMatchingWindow(detail, quotaWindows),
+            })
+            .Where(x =>
+                !string.IsNullOrWhiteSpace(x.ModelDisplayName) &&
+                !string.IsNullOrWhiteSpace(x.DeclaredWindow?.ChildProviderId))
+            .GroupBy(x => x.DeclaredWindow!.ChildProviderId, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
-            .OrderBy(x => GetAggregateDetailSortOrder(x.Detail, quotaWindows))
+            .OrderBy(x => GetQuotaWindowIndex(quotaWindows, x.DeclaredWindow!))
             .ThenBy(x => x.ModelDisplayName, StringComparer.OrdinalIgnoreCase)
             .Select(x => CreateAggregateDetailUsage(
                 canonicalProviderId,
@@ -140,7 +147,7 @@ internal static class ProviderUsageDisplayCatalog
                 x.Detail,
                 x.ModelDisplayName,
                 parentUsage,
-                quotaWindows))
+                x.DeclaredWindow!))
             .ToList();
     }
 
@@ -211,7 +218,7 @@ internal static class ProviderUsageDisplayCatalog
         ProviderUsageDetail detail,
         string modelDisplayName,
         ProviderUsage parentUsage,
-        IReadOnlyList<QuotaWindowDefinition> quotaWindows)
+        QuotaWindowDefinition declaredWindow)
     {
         var effectiveUsed = UsageMath.GetEffectiveUsedPercent(detail);
         var hasRemainingPercent = effectiveUsed.HasValue;
@@ -219,10 +226,7 @@ internal static class ProviderUsageDisplayCatalog
             ? 0
             : Math.Clamp(100 - effectiveUsed.Value, 0, 100);
 
-        // Use declared ChildProviderId when available; fall back to name-derivation heuristic.
-        var declaredWindow = FindMatchingWindow(detail, quotaWindows);
-        var childProviderId = declaredWindow?.ChildProviderId
-            ?? $"{canonicalProviderId}.{modelDisplayName.ToLowerInvariant().Replace(" ", "-", StringComparison.Ordinal)}";
+        var childProviderId = declaredWindow.ChildProviderId!;
 
         return new ProviderUsage
         {
@@ -240,7 +244,7 @@ internal static class ProviderUsageDisplayCatalog
             IsAvailable = parentUsage.IsAvailable,
             AuthSource = parentUsage.AuthSource,
             AccountName = parentUsage.AccountName,
-            PeriodDuration = declaredWindow?.PeriodDuration,
+            PeriodDuration = declaredWindow.PeriodDuration,
         };
     }
 
@@ -256,25 +260,6 @@ internal static class ProviderUsageDisplayCatalog
             : detail.ModelName.Trim();
     }
 
-    private static int GetAggregateDetailSortOrder(ProviderUsageDetail detail, IReadOnlyList<QuotaWindowDefinition> quotaWindows)
-    {
-        var declared = FindMatchingWindow(detail, quotaWindows);
-        if (declared != null)
-        {
-            var idx = quotaWindows.ToList().IndexOf(declared);
-            if (idx >= 0) return idx;
-        }
-
-        // Legacy fallback
-        return detail.QuotaBucketKind switch
-        {
-            WindowKind.Burst => 0,
-            WindowKind.ModelSpecific => 1,
-            WindowKind.Rolling => 2,
-            _ => 3,
-        };
-    }
-
     private static QuotaWindowDefinition? FindMatchingWindow(ProviderUsageDetail detail, IReadOnlyList<QuotaWindowDefinition> windows)
     {
         if (windows.Count == 0) return null;
@@ -283,5 +268,20 @@ internal static class ProviderUsageDisplayCatalog
             w.Kind == detail.QuotaBucketKind &&
             w.DetailName != null &&
             string.Equals(w.DetailName, detail.Name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int GetQuotaWindowIndex(
+        IReadOnlyList<QuotaWindowDefinition> windows,
+        QuotaWindowDefinition declaredWindow)
+    {
+        for (var index = 0; index < windows.Count; index++)
+        {
+            if (ReferenceEquals(windows[index], declaredWindow))
+            {
+                return index;
+            }
+        }
+
+        return int.MaxValue;
     }
 }
