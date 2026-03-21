@@ -99,6 +99,8 @@ public class AppPreferences
     public UpdateChannel UpdateChannel { get; set; } = UpdateChannel.Stable;
 
     // Display Options
+    public bool ShowInactiveProviders { get; set; } = false;
+
     public bool ShowUsagePerHour { get; set; } = false;
 
     /// <summary>
