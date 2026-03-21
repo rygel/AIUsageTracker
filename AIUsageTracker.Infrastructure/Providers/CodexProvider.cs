@@ -538,7 +538,10 @@ public class CodexProvider : ProviderBase
             sparkWindow,
             primaryModelName,
             root);
-        var nextResetTime = ResolveNextResetTime(primaryResetSeconds, sparkWindow.PrimaryResetAfterSeconds);
+        // Use the weekly (rolling) reset time for the parent card so pace calculation
+        // matches the 7-day PeriodDuration. Fall back to burst only if weekly unavailable.
+        var nextResetTime = ResolveResetTimeFromSeconds(secondaryResetSeconds)
+                            ?? ResolveNextResetTime(primaryResetSeconds, sparkWindow.PrimaryResetAfterSeconds);
         var usages = new List<ProviderUsage>
         {
             new ProviderUsage

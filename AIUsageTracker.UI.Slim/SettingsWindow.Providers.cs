@@ -1,0 +1,955 @@
+// <copyright file="SettingsWindow.Providers.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Providers;
+using Microsoft.Extensions.Logging;
+
+namespace AIUsageTracker.UI.Slim;
+
+public partial class SettingsWindow
+{
+    private sealed record StatusPanelPresentation(
+        bool UseHorizontalLayout,
+        string PrimaryText,
+        string PrimaryResourceKey,
+        bool PrimaryItalic,
+        IReadOnlyList<StatusSecondaryLine> SecondaryLines);
+
+    private readonly record struct StatusSecondaryLine(
+        string Text,
+        bool Wrap = false,
+        bool ExtraTopMargin = false);
+
+    private void PopulateProviders()
+    {
+        this.ProvidersStack.Children.Clear();
+
+        var displayItems = CreateProviderDisplayItems(this._configs, this._usages);
+        var usageByProviderId = this._usages.ToDictionary(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in displayItems)
+        {
+            usageByProviderId.TryGetValue(item.Config.ProviderId, out var usage);
+            this.AddProviderCard(item.Config, usage, item.IsDerived);
+        }
+
+        this.PopulateProviderVisibilitySettings();
+    }
+
+    private void AddProviderCard(ProviderConfig config, ProviderUsage? usage, bool isDerived = false)
+    {
+        var isSubItem = ShouldRenderAsSettingsSubItem(config.ProviderId, isDerived);
+
+        var card = new Border
+        {
+            CornerRadius = new CornerRadius(4),
+            BorderThickness = new Thickness(1),
+            Margin = new Thickness(isSubItem ? 18 : 0, 0, 0, 8),
+            Padding = new Thickness(10, 8, 10, 8),
+        };
+        card.SetResourceReference(Border.BackgroundProperty, "CardBackground");
+        card.SetResourceReference(Border.BorderBrushProperty, "CardBorder");
+
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
+
+        var settingsBehavior = ResolveProviderSettingsBehavior(config, usage, isDerived);
+        var headerPanel = this.BuildProviderHeader(config, settingsBehavior, isSubItem);
+
+        grid.Children.Add(headerPanel);
+
+        // Input row
+        var keyPanel = new Grid { Margin = new Thickness(0, 0, 0, 0) };
+        keyPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var keyContent = this.BuildProviderInputContent(config, usage, settingsBehavior);
+        Grid.SetColumn(keyContent, 0);
+        keyPanel.Children.Add(keyContent);
+
+        Grid.SetRow(keyPanel, 1);
+        grid.Children.Add(keyPanel);
+
+        var subTrayDetails = GetEligibleSubTrayDetails(usage);
+
+        if (!isSubItem && subTrayDetails is { Count: > 0 })
+        {
+            this.AddSubTraySection(grid, config, subTrayDetails);
+        }
+
+        card.Child = grid;
+        this.ProvidersStack.Children.Add(card);
+    }
+
+    internal static bool ShouldRenderAsSettingsSubItem(
+        string providerId,
+        bool isDerived)
+    {
+        if (!isDerived)
+        {
+            return false;
+        }
+
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+        var isCanonicalChild = !string.Equals(canonicalProviderId, providerId, StringComparison.OrdinalIgnoreCase);
+        return isCanonicalChild &&
+               (ProviderMetadataCatalog.Find(canonicalProviderId)?.CollapseDerivedChildrenInMainWindow ?? false);
+    }
+
+    internal static IReadOnlyList<ProviderUsageDetail> GetEligibleSubTrayDetails(ProviderUsage? usage)
+    {
+        if (usage?.Details == null)
+        {
+            return Array.Empty<ProviderUsageDetail>();
+        }
+
+        if (ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty)?.HasDisplayableDerivedProviders ?? false)
+        {
+            return Array.Empty<ProviderUsageDetail>();
+        }
+
+        return usage.Details
+            .Where(detail => MainWindowRuntimeLogic.IsEligibleDetail(detail, includeRateLimit: false))
+            .GroupBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    internal static IReadOnlyList<ProviderSettingsDisplayItem> CreateProviderDisplayItems(
+        IReadOnlyCollection<ProviderConfig> configs,
+        IReadOnlyCollection<ProviderUsage> usages)
+    {
+        var displayItems = configs
+            .Where(config => ProviderMetadataCatalog.Find(config.ProviderId)?.ShowInSettings ?? false)
+            .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false))
+            .ToList();
+        var configuredProviderIds = displayItems
+            .Select(item => item.Config.ProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var defaultProviderIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds()
+            .Where(providerId => !configuredProviderIds.Contains(providerId))
+            .ToList();
+
+        var defaultItems = defaultProviderIds
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(CreateDefaultDisplayConfig)
+            .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
+        var explicitDisplayProviderIds = configuredProviderIds
+            .Concat(defaultProviderIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var derivedItems = usages
+            .Select(usage => new { Usage = usage, ProviderId = usage.ProviderId ?? string.Empty })
+            .Where(x =>
+                !string.IsNullOrWhiteSpace(x.ProviderId) &&
+                ProviderMetadataCatalog.IsVisibleDerivedProviderId(x.ProviderId) &&
+                !explicitDisplayProviderIds.Contains(x.ProviderId))
+            .Select(x => x.Usage)
+            .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
+
+        displayItems.AddRange(defaultItems);
+        displayItems.AddRange(derivedItems);
+
+        return displayItems
+            .OrderBy(item => ProviderMetadataCatalog.ResolveDisplayLabel(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    internal static ProviderSettingsBehavior ResolveProviderSettingsBehavior(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        bool isDerived)
+    {
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId);
+        var hasSessionToken = IsSessionToken(config.ApiKey);
+        var inputMode = isDerived
+            ? ProviderInputMode.DerivedReadOnly
+            : ResolveProviderInputMode(canonicalProviderId, usage, hasSessionToken);
+        var isInactive = isDerived
+            ? false
+            : inputMode switch
+            {
+                ProviderInputMode.AutoDetectedStatus => usage == null || !usage.IsAvailable,
+                ProviderInputMode.SessionAuthStatus => string.IsNullOrWhiteSpace(config.ApiKey) && !(usage?.IsAvailable == true),
+                _ => string.IsNullOrWhiteSpace(config.ApiKey),
+            };
+        var sessionProviderLabel = inputMode == ProviderInputMode.SessionAuthStatus
+            ? ProviderMetadataCatalog.Find(canonicalProviderId)?.SessionStatusLabel
+            : null;
+
+        return new ProviderSettingsBehavior(
+            InputMode: inputMode,
+            IsInactive: isInactive,
+            IsDerivedVisible: ProviderMetadataCatalog.IsVisibleDerivedProviderId(config.ProviderId ?? string.Empty),
+            SessionProviderLabel: sessionProviderLabel);
+    }
+
+    internal static bool IsSessionToken(string? apiKey)
+    {
+        return !string.IsNullOrWhiteSpace(apiKey) &&
+               !apiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ProviderConfig CreateDefaultDisplayConfig(string providerId)
+    {
+        if (ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config))
+        {
+            return config;
+        }
+
+        return new ProviderConfig
+        {
+            ProviderId = providerId,
+        };
+    }
+
+    private static ProviderConfig CreateDerivedConfig(ProviderUsage usage)
+    {
+        return new ProviderConfig
+        {
+            ProviderId = usage.ProviderId,
+            Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
+            PlanType = usage.PlanType,
+        };
+    }
+
+    private static ProviderInputMode ResolveProviderInputMode(string canonicalProviderId, ProviderUsage? usage, bool hasSessionToken)
+    {
+        var settingsDef = ProviderMetadataCatalog.Find(canonicalProviderId);
+        var settingsMode = settingsDef?.SettingsMode ?? ProviderSettingsMode.StandardApiKey;
+        if (settingsMode == ProviderSettingsMode.SessionAuthStatus &&
+            (settingsDef?.UseSessionAuthStatusWhenQuotaBasedOrSessionToken ?? false) &&
+            usage?.IsQuotaBased != true &&
+            !hasSessionToken)
+        {
+            settingsMode = ProviderSettingsMode.StandardApiKey;
+        }
+
+        return settingsMode switch
+        {
+            ProviderSettingsMode.AutoDetectedStatus => ProviderInputMode.AutoDetectedStatus,
+            ProviderSettingsMode.ExternalAuthStatus => ProviderInputMode.ExternalAuthStatus,
+            ProviderSettingsMode.SessionAuthStatus => ProviderInputMode.SessionAuthStatus,
+            _ => ProviderInputMode.StandardApiKey,
+        };
+    }
+
+    private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
+    {
+        return settingsBehavior.InputMode switch
+        {
+            ProviderInputMode.DerivedReadOnly
+                or ProviderInputMode.AutoDetectedStatus
+                or ProviderInputMode.ExternalAuthStatus
+                or ProviderInputMode.SessionAuthStatus
+                => this.BuildStatusPanel(config, usage, settingsBehavior),
+            _ => this.BuildApiKeyEditor(config),
+        };
+    }
+
+    private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
+    {
+        var presentation = this.CreateStatusPresentation(
+            config,
+            usage,
+            settingsBehavior,
+            this._isPrivacyMode);
+
+        var panel = new StackPanel
+        {
+            Orientation = presentation.UseHorizontalLayout
+                ? Orientation.Horizontal
+                : Orientation.Vertical,
+        };
+
+        var statusText = new TextBlock
+        {
+            Text = presentation.PrimaryText,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            FontStyle = presentation.PrimaryItalic ? FontStyles.Italic : FontStyles.Normal,
+        };
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, presentation.PrimaryResourceKey);
+        panel.Children.Add(statusText);
+
+        foreach (var line in presentation.SecondaryLines)
+        {
+            var secondaryText = this.CreateSecondaryStatusText(line.Text);
+            secondaryText.TextWrapping = line.Wrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+            if (line.ExtraTopMargin)
+            {
+                secondaryText.Margin = new Thickness(0, 4, 0, 0);
+            }
+
+            panel.Children.Add(secondaryText);
+        }
+
+        return panel;
+    }
+
+    private StatusPanelPresentation CreateStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        ProviderSettingsBehavior settingsBehavior,
+        bool isPrivacyMode)
+    {
+        return settingsBehavior.InputMode switch
+        {
+            ProviderInputMode.DerivedReadOnly => this.CreateDerivedStatusPresentation(config, usage),
+            ProviderInputMode.AutoDetectedStatus => CreateAutoDetectedStatusPresentation(usage, isPrivacyMode),
+            ProviderInputMode.ExternalAuthStatus => CreateExternalAuthStatusPresentation(config, usage, isPrivacyMode),
+            ProviderInputMode.SessionAuthStatus => CreateSessionAuthStatusPresentation(config, usage, settingsBehavior, isPrivacyMode),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(settingsBehavior.InputMode),
+                settingsBehavior.InputMode,
+                "Status presentation is only valid for status-based provider modes."),
+        };
+    }
+
+    private StatusPanelPresentation CreateDerivedStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage)
+    {
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
+        var sourceLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
+        string primaryText;
+        string primaryResourceKey;
+
+        if (usage?.IsAvailable == true)
+        {
+            primaryText = $"Derived from {sourceLabel} usage (read-only)";
+            primaryResourceKey = "ProgressBarGreen";
+        }
+        else if (usage != null && !string.IsNullOrWhiteSpace(usage.Description))
+        {
+            primaryText = usage.Description;
+            primaryResourceKey = "TertiaryText";
+        }
+        else
+        {
+            primaryText = "Derived provider (waiting for usage data)";
+            primaryResourceKey = "TertiaryText";
+        }
+
+        if (usage?.NextResetTime is DateTime derivedReset)
+        {
+            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {derivedReset:g}"));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: primaryText,
+            PrimaryResourceKey: primaryResourceKey,
+            PrimaryItalic: false,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static StatusPanelPresentation CreateAutoDetectedStatusPresentation(
+        ProviderUsage? usage,
+        bool isPrivacyMode)
+    {
+        var isConnected = usage?.IsAvailable == true;
+        var accountInfo = usage?.AccountName;
+        var hasAccountInfo = !string.IsNullOrWhiteSpace(accountInfo) && accountInfo is not ("Unknown" or "User");
+        var displayAccount = hasAccountInfo
+            ? (isPrivacyMode ? MaskAccountIdentifier(accountInfo!) : accountInfo!)
+            : "No account detected";
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var antigravitySubmodels = usage?.Details?
+            .Where(d => d.DetailType == ProviderUsageDetailType.Model && !string.IsNullOrWhiteSpace(d.Name))
+            .Select(d => d.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (antigravitySubmodels is { Count: > 0 })
+        {
+            secondaryLines.Add(new StatusSecondaryLine(
+                Text: $"Models: {string.Join(", ", antigravitySubmodels)}",
+                Wrap: true,
+                ExtraTopMargin: true));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
+            PrimaryResourceKey: isConnected ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: !isConnected,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static StatusPanelPresentation CreateExternalAuthStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        bool isPrivacyMode)
+    {
+        var username = usage?.AccountName;
+        var hasUsername = !string.IsNullOrWhiteSpace(username) && username is not ("Unknown" or "User");
+        var isAuthenticated = !string.IsNullOrWhiteSpace(config.ApiKey) ||
+                              usage?.IsAvailable == true ||
+                              hasUsername;
+        var displayText = !isAuthenticated
+            ? "Not Authenticated"
+            : !hasUsername
+                ? "Authenticated"
+                : isPrivacyMode
+                    ? $"Authenticated ({MaskAccountIdentifier(username!)})"
+                    : $"Authenticated ({username})";
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: true,
+            PrimaryText: displayText,
+            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: false,
+            SecondaryLines: Array.Empty<StatusSecondaryLine>());
+    }
+
+    private static StatusPanelPresentation CreateSessionAuthStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        ProviderSettingsBehavior settingsBehavior,
+        bool isPrivacyMode)
+    {
+        var providerSessionLabel = settingsBehavior.SessionProviderLabel ??
+                                   ProviderMetadataCatalog.GetConfiguredDisplayName(
+                                       ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty));
+        var hasSessionToken = IsSessionToken(config.ApiKey);
+        var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
+        var accountName = usage?.AccountName;
+
+        var displayText = ResolveSessionAuthDisplayText(
+            isAuthenticated,
+            hasSessionToken,
+            accountName,
+            providerSessionLabel,
+            usage?.IsAvailable,
+            isPrivacyMode);
+
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var resolvedReset = usage?.NextResetTime;
+        if (resolvedReset is DateTime nextReset)
+        {
+            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {nextReset:g}"));
+        }
+        else if (isAuthenticated)
+        {
+            secondaryLines.Add(new StatusSecondaryLine("Next reset: loading..."));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: displayText,
+            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: false,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static string ResolveSessionAuthDisplayText(
+        bool isAuthenticated,
+        bool hasSessionToken,
+        string? accountName,
+        string providerSessionLabel,
+        bool? isUsageAvailable,
+        bool isPrivacyMode)
+    {
+        if (!isAuthenticated)
+        {
+            return "Not Authenticated";
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            return isPrivacyMode
+                ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
+                : $"Authenticated ({accountName})";
+        }
+
+        return hasSessionToken && isUsageAvailable != true
+            ? $"Authenticated via {providerSessionLabel} - refresh to load quota"
+            : $"Authenticated via {providerSessionLabel}";
+    }
+
+    private static string MaskAccountIdentifier(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return input;
+        }
+
+        var atIndex = input.IndexOf('@');
+        if (atIndex > 0 && atIndex < input.Length - 1)
+        {
+            var localPart = input[..atIndex];
+            var domainPart = input[(atIndex + 1)..];
+            var maskedDomainChars = domainPart.ToCharArray();
+            for (var i = 0; i < maskedDomainChars.Length; i++)
+            {
+                if (maskedDomainChars[i] != '.')
+                {
+                    maskedDomainChars[i] = '*';
+                }
+            }
+
+            var maskedDomain = new string(maskedDomainChars);
+            if (localPart.Length <= 2)
+            {
+                return $"{new string('*', localPart.Length)}@{maskedDomain}";
+            }
+
+            return $"{localPart[0]}{new string('*', localPart.Length - 2)}{localPart[^1]}@{maskedDomain}";
+        }
+
+        return MaskString(input);
+    }
+
+    private static string MaskString(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        if (input.Length <= 2)
+        {
+            return new string('*', input.Length);
+        }
+
+        return input[0] + new string('*', input.Length - 2) + input[^1];
+    }
+
+    private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)
+    {
+        var headerPanel = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 6) };
+
+        var icon = this.CreateProviderIcon(config.ProviderId);
+        icon.Width = 16;
+        icon.Height = 16;
+        icon.Margin = new Thickness(0, 0, 8, 0);
+        icon.VerticalAlignment = VerticalAlignment.Center;
+        headerPanel.Children.Add(icon);
+
+        var title = new TextBlock
+        {
+            Text = isDerived
+                ? $"-> {ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId)}"
+                : ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId),
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            MinWidth = 120,
+        };
+        title.SetResourceReference(TextBlock.ForegroundProperty, "PrimaryText");
+        headerPanel.Children.Add(title);
+
+        headerPanel.Children.Add(this.CreateProviderHeaderCheckBox(
+            content: "Tray",
+            isChecked: config.ShowInTray,
+            margin: new Thickness(12, 0, 0, 0),
+            isEnabled: !isDerived,
+            onCheckedChanged: isChecked =>
+            {
+                var trackedConfig = this.GetOrCreateTrackedConfig(config);
+                trackedConfig.ShowInTray = isChecked;
+                this.MarkSettingsChanged(refreshTrayIcons: true);
+            }));
+
+        headerPanel.Children.Add(this.CreateProviderHeaderCheckBox(
+            content: "Notify",
+            isChecked: config.EnableNotifications,
+            margin: new Thickness(8, 0, 0, 0),
+            isEnabled: !isDerived,
+            onCheckedChanged: isChecked =>
+            {
+                var trackedConfig = this.GetOrCreateTrackedConfig(config);
+                trackedConfig.EnableNotifications = isChecked;
+                this.MarkSettingsChanged();
+            }));
+
+        if (settingsBehavior.IsInactive)
+        {
+            headerPanel.Children.Add(this.CreateInactiveBadge());
+        }
+
+        return headerPanel;
+    }
+
+    private CheckBox CreateProviderHeaderCheckBox(
+        string content,
+        bool isChecked,
+        Thickness margin,
+        bool isEnabled,
+        Action<bool> onCheckedChanged)
+    {
+        var checkBox = new CheckBox
+        {
+            Content = content,
+            IsChecked = isChecked,
+            FontSize = 10,
+            VerticalAlignment = VerticalAlignment.Center,
+            Cursor = Cursors.Hand,
+            Margin = margin,
+            IsEnabled = isEnabled,
+        };
+        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
+        checkBox.Checked += (_, _) => onCheckedChanged(true);
+        checkBox.Unchecked += (_, _) => onCheckedChanged(false);
+        return checkBox;
+    }
+
+    private Border CreateInactiveBadge()
+    {
+        var status = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(205, 92, 92)),
+            CornerRadius = new CornerRadius(3),
+            Margin = new Thickness(10, 0, 0, 0),
+            Padding = new Thickness(8, 3, 8, 3),
+        };
+
+        status.Child = new TextBlock
+        {
+            Text = "Inactive",
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.FromRgb(240, 240, 240)),
+            FontWeight = FontWeights.SemiBold,
+        };
+        return status;
+    }
+
+    private void AddSubTraySection(Grid grid, ProviderConfig config, IReadOnlyList<ProviderUsageDetail> subTrayDetails)
+    {
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var separator = new Border
+        {
+            Height = 1,
+            Margin = new Thickness(0, 8, 0, 8),
+        };
+        separator.SetResourceReference(Border.BackgroundProperty, "Separator");
+        Grid.SetRow(separator, 2);
+        grid.Children.Add(separator);
+
+        var subTrayPanel = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
+
+        var subTrayTitle = new TextBlock
+        {
+            Text = "Sub-tray icons",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4),
+        };
+        subTrayTitle.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        subTrayPanel.Children.Add(subTrayTitle);
+
+        foreach (var detail in subTrayDetails)
+        {
+            subTrayPanel.Children.Add(this.CreateSubTrayCheckBox(config, detail.Name));
+        }
+
+        Grid.SetRow(subTrayPanel, 3);
+        grid.Children.Add(subTrayPanel);
+    }
+
+    private CheckBox CreateSubTrayCheckBox(ProviderConfig config, string detailName)
+    {
+        var enabledSubTrays = config.EnabledSubTrays ?? new List<string>();
+        var checkBox = new CheckBox
+        {
+            Content = detailName,
+            IsChecked = enabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase),
+            FontSize = 10,
+            Margin = new Thickness(0, 1, 0, 1),
+            Cursor = Cursors.Hand,
+        };
+        checkBox.SetResourceReference(CheckBox.ForegroundProperty, "SecondaryText");
+        checkBox.Checked += (_, _) =>
+        {
+            var trackedConfig = this.GetOrCreateTrackedConfig(config);
+            trackedConfig.EnabledSubTrays ??= new List<string>();
+            if (!trackedConfig.EnabledSubTrays.Contains(detailName, StringComparer.OrdinalIgnoreCase))
+            {
+                var enabledSubTrays = trackedConfig.EnabledSubTrays.ToList();
+                enabledSubTrays.Add(detailName);
+                trackedConfig.EnabledSubTrays = enabledSubTrays;
+            }
+
+            this.MarkSettingsChanged(refreshTrayIcons: true);
+        };
+        checkBox.Unchecked += (_, _) =>
+        {
+            var trackedConfig = this.GetOrCreateTrackedConfig(config);
+            trackedConfig.EnabledSubTrays ??= new List<string>();
+            var enabledSubTrays = trackedConfig.EnabledSubTrays.ToList();
+            enabledSubTrays.RemoveAll(name => name.Equals(detailName, StringComparison.OrdinalIgnoreCase));
+            trackedConfig.EnabledSubTrays = enabledSubTrays;
+            this.MarkSettingsChanged(refreshTrayIcons: true);
+        };
+        return checkBox;
+    }
+
+    private TextBox BuildApiKeyEditor(ProviderConfig config)
+    {
+        var keyBox = new TextBox
+        {
+            Text = GetDisplayApiKey(config.ApiKey, this._isPrivacyMode),
+            Tag = config,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            FontSize = 11,
+            IsReadOnly = this._isPrivacyMode,
+        };
+
+        if (!this._isPrivacyMode)
+        {
+            keyBox.TextChanged += (s, e) =>
+            {
+                var trackedConfig = this.GetOrCreateTrackedConfig(config);
+                trackedConfig.ApiKey = keyBox.Text;
+                this.MarkSettingsChanged();
+            };
+        }
+
+        return keyBox;
+    }
+
+    private static string GetDisplayApiKey(string? apiKey, bool isPrivacyMode)
+    {
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            return apiKey ?? string.Empty;
+        }
+
+        if (!isPrivacyMode)
+        {
+            return apiKey;
+        }
+
+        if (apiKey.Length > 8)
+        {
+            return apiKey[..4] + "****" + apiKey[^4..];
+        }
+
+        return "****";
+    }
+
+    private TextBlock CreateSecondaryStatusText(string text)
+    {
+        var statusText = new TextBlock
+        {
+            Text = text,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = 10,
+            Margin = new Thickness(0, 3, 0, 0),
+        };
+        statusText.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
+        return statusText;
+    }
+
+    private FrameworkElement CreateProviderIcon(string providerId)
+    {
+        // Map to SVG or create fallback
+        var image = new Image();
+        image.Source = this.GetProviderImageSource(providerId);
+        return image;
+    }
+
+    private ImageSource GetProviderImageSource(string providerId)
+    {
+        try
+        {
+            var filename = ProviderMetadataCatalog.GetIconAssetName(providerId);
+
+            var appDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            // Try SVG first
+            var svgPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.svg");
+            if (System.IO.File.Exists(svgPath))
+            {
+                // Return a simple colored circle as fallback (SVG loading requires SharpVectors)
+                return this.CreateFallbackIcon(providerId);
+            }
+
+            // Try ICO
+            var icoPath = System.IO.Path.Combine(appDir, "Assets", "ProviderLogos", $"{filename}.ico");
+            if (System.IO.File.Exists(icoPath))
+            {
+                var icoImage = new System.Windows.Media.Imaging.BitmapImage();
+                icoImage.BeginInit();
+                icoImage.UriSource = new Uri(icoPath);
+                icoImage.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                icoImage.EndInit();
+                icoImage.Freeze();
+                return icoImage;
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogDebug(ex, "Failed to load provider icon for {ProviderId}", providerId);
+        }
+
+        return this.CreateFallbackIcon(providerId);
+    }
+
+    private ImageSource CreateFallbackIcon(string providerId)
+    {
+        // Create a simple colored circle as fallback
+        var (color, _) = global::AIUsageTracker.UI.Slim.Services.WpfProviderIconService.GetBadge(providerId, Brushes.Gray);
+
+        // Return a drawing image with just a colored rectangle (simplified)
+        var drawing = new GeometryDrawing(
+            color,
+            new Pen(Brushes.Transparent, 0),
+            new RectangleGeometry(new Rect(0, 0, 16, 16)));
+        var image = new DrawingImage(drawing);
+        image.Freeze();
+        return image;
+    }
+
+    private ProviderConfig GetOrCreateTrackedConfig(ProviderConfig config)
+    {
+        var existing = this._configs.FirstOrDefault(current =>
+            current.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        var tracked = this.CloneConfig(config);
+        this._configs.Add(tracked);
+        return tracked;
+    }
+
+    private ProviderConfig CloneConfig(ProviderConfig config)
+    {
+        return new ProviderConfig
+        {
+            ProviderId = config.ProviderId,
+            ApiKey = config.ApiKey,
+            Type = config.Type,
+            PlanType = config.PlanType,
+            Limit = config.Limit,
+            BaseUrl = config.BaseUrl,
+            ShowInTray = config.ShowInTray,
+            EnableNotifications = config.EnableNotifications,
+            EnabledSubTrays = config.EnabledSubTrays.ToList(),
+            AuthSource = config.AuthSource,
+            Description = config.Description,
+            Models = config.Models
+                .Select(model => new AIModelConfig
+                {
+                    Id = model.Id,
+                    Name = model.Name,
+                    Matches = model.Matches.ToList(),
+                    Color = model.Color,
+                })
+                .ToList(),
+        };
+    }
+
+    private void PopulateProviderVisibilitySettings()
+    {
+        this.ProviderCardVisibilityPanel.Children.Clear();
+        var hidden = this._preferences.HiddenProviderItemIds;
+
+        // Run the same pipeline as the main window (no hidden filter) to get every card
+        // that could potentially appear, then group by canonical provider.
+        var renderPrep = MainWindowRuntimeLogic.PrepareForMainWindow(this._usages);
+        var allCards = MainWindowRuntimeLogic
+            .ExpandSyntheticAggregateChildren(renderPrep, hiddenItemIds: [])
+            .ToList();
+
+        var groups = allCards
+            .GroupBy(
+                u => ProviderMetadataCatalog.GetCanonicalProviderId(u.ProviderId ?? string.Empty),
+                StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var group in groups)
+        {
+            var cards = group.ToList();
+
+            if (cards.Count == 1)
+            {
+                // Single card: flat checkbox with no heading.
+                var usage = cards[0];
+                var checkBox = new CheckBox
+                {
+                    Content = usage.ProviderName ?? usage.ProviderId,
+                    Tag = usage.ProviderId,
+                    IsChecked = !hidden.Contains(usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase),
+                    Margin = new Thickness(0, 2, 0, 6),
+                    Foreground = (Brush)this.FindResource("SecondaryText"),
+                };
+                checkBox.Checked += this.ProviderVisibility_Changed;
+                checkBox.Unchecked += this.ProviderVisibility_Changed;
+                this.ProviderCardVisibilityPanel.Children.Add(checkBox);
+            }
+            else
+            {
+                // Multiple cards for one provider: bold heading + indented checkboxes.
+                ProviderMetadataCatalog.TryGet(group.Key, out var definition);
+                this.ProviderCardVisibilityPanel.Children.Add(new TextBlock
+                {
+                    Text = definition?.DisplayName ?? group.Key,
+                    FontWeight = FontWeights.SemiBold,
+                    Margin = new Thickness(0, 4, 0, 4),
+                    Foreground = (Brush)this.FindResource("SecondaryText"),
+                });
+
+                for (var i = 0; i < cards.Count; i++)
+                {
+                    var usage = cards[i];
+                    var checkBox = new CheckBox
+                    {
+                        Content = usage.ProviderName ?? usage.ProviderId,
+                        Tag = usage.ProviderId,
+                        IsChecked = !hidden.Contains(usage.ProviderId ?? string.Empty, StringComparer.OrdinalIgnoreCase),
+                        Margin = new Thickness(15, 2, 0, i == cards.Count - 1 ? 16 : 2),
+                        Foreground = (Brush)this.FindResource("SecondaryText"),
+                    };
+                    checkBox.Checked += this.ProviderVisibility_Changed;
+                    checkBox.Unchecked += this.ProviderVisibility_Changed;
+                    this.ProviderCardVisibilityPanel.Children.Add(checkBox);
+                }
+            }
+        }
+    }
+
+    private void ProviderVisibility_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!this.IsInitialized || sender is not CheckBox { Tag: string itemId } cb)
+        {
+            return;
+        }
+
+        this.SetHiddenProviderItemId(itemId, !(cb.IsChecked ?? true));
+        this.ScheduleAutoSave();
+    }
+
+    private void SetHiddenProviderItemId(string id, bool hidden)
+    {
+        var list = this._preferences.HiddenProviderItemIds;
+        if (hidden)
+        {
+            if (!list.Contains(id, StringComparer.OrdinalIgnoreCase))
+            {
+                list.Add(id);
+            }
+        }
+        else
+        {
+            foreach (var item in list.Where(x => string.Equals(x, id, StringComparison.OrdinalIgnoreCase)).ToList())
+            {
+                list.Remove(item);
+            }
+        }
+    }
+}

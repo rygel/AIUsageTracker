@@ -2,8 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Reflection;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -261,20 +259,26 @@ public static class ProviderMetadataCatalog
 
     private static IReadOnlyList<ProviderDefinition> LoadDefinitions()
     {
-        var definitions = typeof(ProviderMetadataCatalog).Assembly
-            .GetTypes()
-            .Where(type =>
-                type.IsClass &&
-                !type.IsAbstract &&
-                typeof(IProviderService).IsAssignableFrom(type))
-            .Select(ReadDefinition)
-            .OrderBy(definition => definition.ProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (definitions.Count == 0)
+        var definitions = new List<ProviderDefinition>
         {
-            throw new InvalidOperationException("No provider definitions were discovered.");
-        }
+            AntigravityProvider.StaticDefinition,
+            ClaudeCodeProvider.StaticDefinition,
+            CodexProvider.StaticDefinition,
+            DeepSeekProvider.StaticDefinition,
+            GeminiProvider.StaticDefinition,
+            GitHubCopilotProvider.StaticDefinition,
+            KimiProvider.StaticDefinition,
+            MinimaxProvider.StaticDefinition,
+            MistralProvider.StaticDefinition,
+            OpenAIProvider.StaticDefinition,
+            OpenCodeZenProvider.StaticDefinition,
+            OpenRouterProvider.StaticDefinition,
+            SyntheticProvider.StaticDefinition,
+            XiaomiProvider.StaticDefinition,
+            ZaiProvider.StaticDefinition,
+        };
+
+        definitions.Sort((a, b) => string.Compare(a.ProviderId, b.ProviderId, StringComparison.OrdinalIgnoreCase));
 
         ValidateNoDuplicateProviderIds(definitions);
         ValidateNoDuplicateHandledProviderIds(definitions);
@@ -405,27 +409,6 @@ public static class ProviderMetadataCatalog
         }
 
         return sourceConfig.Description;
-    }
-
-    private static ProviderDefinition ReadDefinition(Type providerType)
-    {
-        var staticDefinitionProperty = providerType.GetProperty(
-            "StaticDefinition",
-            BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-
-        if (staticDefinitionProperty?.PropertyType != typeof(ProviderDefinition))
-        {
-            throw new InvalidOperationException(
-                $"Provider type '{providerType.FullName}' must expose a public static ProviderDefinition StaticDefinition property.");
-        }
-
-        if (staticDefinitionProperty.GetValue(null) is not ProviderDefinition definition)
-        {
-            throw new InvalidOperationException(
-                $"Provider type '{providerType.FullName}' returned a null provider definition.");
-        }
-
-        return definition;
     }
 
     private static void ValidateNoDuplicateProviderIds(IReadOnlyCollection<ProviderDefinition> definitions)

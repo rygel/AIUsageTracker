@@ -45,17 +45,17 @@ public partial class MainWindow
 
     private string GetForegroundWindowSummary()
     {
-        var hwnd = GetForegroundWindow();
+        var hwnd = Win32Interop.GetForegroundWindow();
         if (hwnd == IntPtr.Zero)
         {
             return "none";
         }
 
-        var titleLength = GetWindowTextLength(hwnd);
+        var titleLength = Win32Interop.GetWindowTextLength(hwnd);
         var builder = new StringBuilder(Math.Max(titleLength + 1, 1));
-        _ = GetWindowText(hwnd, builder, builder.Capacity);
+        _ = Win32Interop.GetWindowText(hwnd, builder, builder.Capacity);
 
-        _ = GetWindowThreadProcessId(hwnd, out var processId);
+        _ = Win32Interop.GetWindowThreadProcessId(hwnd, out var processId);
         var processName = "unknown";
         if (processId > 0)
         {
@@ -165,14 +165,14 @@ public partial class MainWindow
             return;
         }
 
-        var flags = SwpNoMove | SwpNoSize | SwpNoOwnerZOrder;
+        var flags = Win32Interop.SwpNoMove | Win32Interop.SwpNoSize | Win32Interop.SwpNoOwnerZOrder;
         if (noActivate)
         {
-            flags |= SwpNoActivate;
+            flags |= Win32Interop.SwpNoActivate;
         }
 
-        var insertAfter = alwaysOnTop ? HwndTopmost : HwndNoTopmost;
-        var applied = SetWindowPos(handle, insertAfter, 0, 0, 0, 0, flags);
+        var insertAfter = alwaysOnTop ? Win32Interop.HwndTopmost : Win32Interop.HwndNoTopmost;
+        var applied = Win32Interop.SetWindowPos(handle, insertAfter, 0, 0, 0, 0, flags);
         if (!applied)
         {
             var win32Error = Marshal.GetLastWin32Error();

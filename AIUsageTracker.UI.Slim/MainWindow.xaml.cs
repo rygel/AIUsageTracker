@@ -5,8 +5,6 @@
 using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -31,16 +29,10 @@ namespace AIUsageTracker.UI.Slim;
 public partial class MainWindow : Window
 {
     private const int RefreshCooldownSeconds = 120;
-    private const uint SwpNoSize = 0x0001;
-    private const uint SwpNoMove = 0x0002;
-    private const uint SwpNoActivate = 0x0010;
-    private const uint SwpNoOwnerZOrder = 0x0200;
 
     private static readonly TimeSpan StartupPollingInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan NormalPollingInterval = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan TrayConfigRefreshInterval = TimeSpan.FromMinutes(5);
-    private static readonly IntPtr HwndTopmost = new(-1);
-    private static readonly IntPtr HwndNoTopmost = new(-2);
 
     private readonly MainViewModel _viewModel;
     private readonly IMonitorService _monitorService;
@@ -78,29 +70,6 @@ public partial class MainWindow : Window
     private int _topmostRecoveryGeneration;
     private bool _isSettingsDialogOpen;
     private bool _isTooltipOpen;
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
-
-    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern int GetWindowTextLength(IntPtr hWnd);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetWindowPos(
-        IntPtr hWnd,
-        IntPtr hWndInsertAfter,
-        int x,
-        int y,
-        int cx,
-        int cy,
-        uint uFlags);
 
     public MainWindow(
         MainViewModel viewModel,
@@ -1317,44 +1286,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task InitializeSignalRAsync()
-    {
-        try
-        {
-            var hubUrl = $"{this._monitorService.AgentUrl.TrimEnd('/')}/hubs/usage";
-            this._logger.LogInformation("Initializing SignalR connection to {HubUrl}", hubUrl);
-
-            this._hubConnection = new HubConnectionBuilder()
-                .WithUrl(hubUrl)
-                .WithAutomaticReconnect()
-                .Build();
-
-            this._hubConnection.On("RefreshStarted", async () =>
-            {
-                await this.Dispatcher.InvokeAsync(() =>
-                {
-                    this.ShowStatus("Monitor refreshing...", StatusType.Info);
-                });
-            });
-
-            this._hubConnection.On("UsageUpdated", async () =>
-            {
-                this._logger.LogInformation("SignalR: Received UsageUpdated event");
-                await this.Dispatcher.InvokeAsync(async () =>
-                {
-                    await this.FetchDataAsync(" (real-time)");
-                });
-            });
-
-            await this._hubConnection.StartAsync();
-            this._logger.LogInformation("SignalR connection established");
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogWarning(ex, "Failed to initialize SignalR connection. Falling back to polling only.");
-        }
-    }
-
     private async Task FetchDataAsync(string statusSuffix = "")
     {
         if (this._isPollingInProgress)
@@ -1693,169 +1624,6 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             this._logger.LogError(ex, "ShowUsedToggle_Checked failed");
-        }
-    }
-
-    private void ViewChangelogBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (this._latestUpdate == null)
-        {
-            OpenExternalUrl(AIUsageTracker.Infrastructure.Services.GitHubUpdateChecker.GetReleasesPageUrl());
-            return;
-        }
-
-        this.ShowChangelogWindow(this._latestUpdate);
-    }
-
-    private void ShowChangelogWindow(UpdateInfo updateInfo)
-    {
-        var changelogWindow = new Window
-        {
-            Title = $"Changelog - Version {updateInfo.Version}",
-            Width = 680,
-            Height = 520,
-            MinWidth = 480,
-            MinHeight = 320,
-            Owner = this,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = this.GetResourceBrush("CardBackground", Brushes.Black),
-            Foreground = this.GetResourceBrush("PrimaryText", Brushes.White),
-        };
-
-        var viewer = new FlowDocumentScrollViewer
-        {
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            IsToolBarVisible = false,
-            Document = this._buildChangelogDocument(updateInfo.ReleaseNotes),
-        };
-
-        changelogWindow.Content = viewer;
-        changelogWindow.ShowDialog();
-    }
-
-    private static void OpenExternalUrl(string url)
-    {
-        Process.Start(new ProcessStartInfo
-        {
-            FileName = url,
-            UseShellExecute = true,
-        });
-    }
-
-    private async Task CheckForUpdatesAsync()
-    {
-        if (this._isUpdateCheckInProgress)
-        {
-            this._logger.LogDebug("Skipping overlapping update check request.");
-            return;
-        }
-
-        try
-        {
-            this._isUpdateCheckInProgress = true;
-            this._latestUpdate = await this._updateChecker.CheckForUpdatesAsync();
-
-            var latestVersion = this._latestUpdate?.Version;
-            if (!string.IsNullOrWhiteSpace(latestVersion))
-            {
-                if (this.UpdateNotificationBanner != null && this.UpdateText != null)
-                {
-                    this.UpdateText.Text = $"New version available: {latestVersion}";
-                    this.UpdateNotificationBanner.Visibility = Visibility.Visible;
-                }
-            }
-            else if (this.UpdateNotificationBanner != null)
-            {
-                this.UpdateNotificationBanner.Visibility = Visibility.Collapsed;
-            }
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogWarning(ex, "Update check failed");
-        }
-        finally
-        {
-            this._isUpdateCheckInProgress = false;
-        }
-    }
-
-    private async void UpdateBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (this._latestUpdate == null)
-        {
-            OpenExternalUrl(AIUsageTracker.Infrastructure.Services.GitHubUpdateChecker.GetLatestReleasePageUrl());
-            return;
-        }
-
-        var result = MessageBox.Show(
-            $"Download and install version {this._latestUpdate.Version}?\n\nThe application will restart after installation.",
-            "Confirm Update",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result != MessageBoxResult.Yes)
-        {
-            return;
-        }
-
-        Window? progressWindow = null;
-
-        try
-        {
-            var progressBar = new ProgressBar
-            {
-                Height = 20,
-                Minimum = 0,
-                Maximum = 100,
-            };
-
-            progressWindow = new Window
-            {
-                Title = "Downloading Update",
-                Width = 400,
-                Height = 150,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                ResizeMode = ResizeMode.NoResize,
-                Content = new StackPanel
-                {
-                    Margin = new Thickness(20),
-                    Children =
-                    {
-                        new TextBlock { Text = $"Downloading version {this._latestUpdate.Version}...", Margin = new Thickness(0, 0, 0, 10) },
-                        progressBar,
-                    },
-                },
-            };
-
-            var progress = new Progress<double>(p => progressBar.Value = p);
-            progressWindow.Show();
-
-            var success = await this._updateChecker.DownloadAndInstallUpdateAsync(this._latestUpdate, progress);
-            progressWindow.Close();
-            progressWindow = null;
-
-            if (success)
-            {
-                Application.Current.Shutdown();
-            }
-            else
-            {
-                MessageBox.Show(
-                    "Failed to download or install the update. Please try again or download manually from the releases page.",
-                    "Update Failed",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Error);
-            }
-        }
-        catch (Exception ex)
-        {
-            progressWindow?.Close();
-            MessageBox.Show(
-                $"Update error: {ex.Message}",
-                "Update Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
         }
     }
 

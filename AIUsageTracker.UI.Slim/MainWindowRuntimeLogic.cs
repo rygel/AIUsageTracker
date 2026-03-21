@@ -246,6 +246,19 @@ internal static partial class MainWindowRuntimeLogic
         if (matchedWindow?.PeriodDuration is { } duration)
         {
             usage.PeriodDuration = duration;
+
+            // Ensure NextResetTime matches the rolling window, not the burst window.
+            // Providers often set the parent's NextResetTime from the burst (5h) window,
+            // which makes pace projection nonsensical against a 7-day PeriodDuration.
+            if (usage.Details != null && matchedWindow.Kind == WindowKind.Rolling)
+            {
+                var rollingDetail = usage.Details.FirstOrDefault(d =>
+                    d.QuotaBucketKind == WindowKind.Rolling && d.NextResetTime.HasValue);
+                if (rollingDetail != null)
+                {
+                    usage.NextResetTime = rollingDetail.NextResetTime;
+                }
+            }
         }
     }
 
