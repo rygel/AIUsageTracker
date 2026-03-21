@@ -263,14 +263,18 @@ public partial class ProviderCardViewModel : BaseViewModel
             return null;
         }
 
-        var now = nowUtc ?? DateTime.UtcNow;
-        var period = usage.PeriodDuration.Value;
-        var periodStart = usage.NextResetTime.Value.ToUniversalTime() - period;
-        var elapsed = now - periodStart;
-        var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / period.TotalSeconds, 0.01, 1.0);
-        var expectedPercent = elapsedFraction * 100.0;
+        var projected = UsageMath.CalculateProjectedFinalPercent(
+            usedPercent,
+            usage.NextResetTime.Value.ToUniversalTime(),
+            usage.PeriodDuration.Value,
+            nowUtc);
 
-        return usedPercent < expectedPercent * 0.95 ? "On pace" : null;
+        if (projected >= 100.0)
+        {
+            return "Over pace";
+        }
+
+        return projected < 90.0 ? "On pace" : null;
     }
 
     private static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage, bool suppressSingleResetFallback)

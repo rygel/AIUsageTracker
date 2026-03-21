@@ -237,11 +237,11 @@ public static class UsageMath
     /// When the user is <em>at or over pace</em>, the raw <paramref name="usedPercent"/> is
     /// returned unchanged so genuine high-usage situations still show as expected.
     /// </summary>
-    /// <param name="usedPercent">Current used percentage (0–100).</param>
-    /// <param name="nextResetUtc">Next reset time in UTC.</param>
-    /// <param name="periodDuration">Total duration of the quota window.</param>
-    /// <param name="nowUtc">Optional override for "now" (defaults to <see cref="DateTime.UtcNow"/>).</param>
-    /// <returns>Pace-adjusted used percentage clamped to [0, 100].</returns>
+    /// <summary>
+    /// Returns the projected end-of-period usage percentage, which is used for color thresholds.
+    /// Simple math: if you've used X% with Y% of the window elapsed, you're on track to use X/Y%.
+    /// Works for any window size (5h, 24h, 7-day, etc.).
+    /// </summary>
     public static double CalculatePaceAdjustedColorPercent(
         double usedPercent,
         DateTime nextResetUtc,
@@ -257,21 +257,13 @@ public static class UsageMath
         var periodStart = nextResetUtc - periodDuration;
         var elapsed = now - periodStart;
         var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / periodDuration.TotalSeconds, 0.01, 1.0);
-        var expectedPercent = elapsedFraction * 100.0;
 
-        // Under pace: user has consumed less than expected → reward with a reduced colour score.
-        // Formula: usedPercent³ / expectedPercent²
-        //   If you are at 82% of expected pace (e.g. 73% used vs 88.5% expected), the raw formula
-        //   would give ~60% — right on the yellow boundary. The cubic numerator amplifies the
-        //   forgiveness so that "clearly under pace" situations stay green.
-        // Over pace: return raw usedPercent so genuine high-usage is still highlighted.
-        if (usedPercent < expectedPercent)
-        {
-            var expectedSq = Math.Max(expectedPercent * expectedPercent, 1.0);
-            return ClampPercent(usedPercent * usedPercent * usedPercent / expectedSq);
-        }
-
-        return ClampPercent(usedPercent);
+        // Project current usage rate to end of period.
+        // E.g., 73% used at 85.7% elapsed → projected 85.2% at reset.
+        // E.g., 40% used at 50% elapsed → projected 80% at reset.
+        // E.g., 20% used 1h into 5h window → projected 100% at reset.
+        var projected = usedPercent / elapsedFraction;
+        return ClampPercent(projected);
     }
 
     /// <summary>

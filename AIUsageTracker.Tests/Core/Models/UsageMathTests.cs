@@ -335,57 +335,52 @@ public class UsageMathTests
         };
     }
 
-    // ── CalculatePaceAdjustedColorPercent ────────────────────────────────────
+    // ── CalculatePaceAdjustedColorPercent (projection-based) ────────────────
 
     [Fact]
-    public void CalculatePaceAdjustedColorPercent_UnderPace_ReturnsReducedPercent()
+    public void CalculatePaceAdjustedColorPercent_UnderPace_ProjectsToEndOfPeriod()
     {
-        // 70% used after 86% of a 7-day window has elapsed.
-        // User is under pace → colour should be reduced (cubic formula).
+        // 70% used after 86% of a 7-day window → projected 70/0.86 ≈ 81.4%
         var period = TimeSpan.FromDays(7);
-        var nextReset = DateTime.UtcNow.AddDays(1);   // 1 day left → ~86% elapsed
+        var nextReset = DateTime.UtcNow.AddDays(1); // 1 day left → ~86% elapsed
         var result = UsageMath.CalculatePaceAdjustedColorPercent(70.0, nextReset, period);
 
-        // 86% elapsed → expectedPercent ≈ 86 → 70³ / 86² ≈ 46.4
-        Assert.True(result < 70.0, "Under-pace result should be less than raw used percent.");
-        Assert.True(result < 60.0, "Under-pace result should be below the default yellow threshold (60).");
-        Assert.True(result >= 0.0);
+        Assert.True(result > 70.0, $"Projected should exceed raw usage, was {result:F1}");
+        Assert.True(result < 85.0, $"Projected should be ~81%, was {result:F1}");
     }
 
     [Fact]
-    public void CalculatePaceAdjustedColorPercent_BorderlineUnderPace_StaysGreen()
+    public void CalculatePaceAdjustedColorPercent_HighUsageLateInWindow_ShowsWarning()
     {
-        // Regression test: 73% used with ~88.5% of 7-day window elapsed (Sonnet real-world case).
-        // With the old quadratic formula: 73² / 88.5 ≈ 60.2 → yellow (wrong).
-        // With the cubic formula:        73³ / 88.5² ≈ 49.7 → green (correct).
+        // 73% used at 88.5% elapsed → projected 73/0.885 ≈ 82.5% (should be yellow/red, NOT green)
         var period = TimeSpan.FromDays(7);
         var now = new DateTime(2026, 3, 20, 13, 41, 0, DateTimeKind.Utc);
         var nextReset = new DateTime(2026, 3, 21, 9, 0, 1, DateTimeKind.Utc);
         var result = UsageMath.CalculatePaceAdjustedColorPercent(73.0, nextReset, period, nowUtc: now);
 
-        Assert.True(result < 60.0, $"73% used at 88.5% elapsed should be below yellow threshold (60), was {result:F2}");
+        Assert.True(result > 80.0, $"73% at 88.5% elapsed projects to ~82.5%, should be above red threshold, was {result:F2}");
     }
 
     [Fact]
-    public void CalculatePaceAdjustedColorPercent_OverPace_ReturnsRawPercent()
+    public void CalculatePaceAdjustedColorPercent_OverPace_ProjectsAbove100()
     {
-        // 85% used after only 50% of a 7-day window has elapsed (over pace).
+        // 85% used after only 50% of a 7-day window → projected 85/0.5 = 170% → clamped to 100
         var period = TimeSpan.FromDays(7);
-        var nextReset = DateTime.UtcNow.AddDays(3.5); // 3.5 days left → 50% elapsed
+        var nextReset = DateTime.UtcNow.AddDays(3.5);
         var result = UsageMath.CalculatePaceAdjustedColorPercent(85.0, nextReset, period);
 
-        Assert.Equal(85.0, result, precision: 1);
+        Assert.Equal(100.0, result, precision: 1);
     }
 
     [Fact]
-    public void CalculatePaceAdjustedColorPercent_AtPace_ReturnsRawPercent()
+    public void CalculatePaceAdjustedColorPercent_AtPace_ProjectsTo100()
     {
-        // 50% used after exactly 50% of the window (exactly at pace).
+        // 50% used after exactly 50% of the window → projected 50/0.5 = 100%
         var period = TimeSpan.FromDays(7);
         var nextReset = DateTime.UtcNow.AddDays(3.5);
         var result = UsageMath.CalculatePaceAdjustedColorPercent(50.0, nextReset, period);
 
-        Assert.Equal(50.0, result, precision: 1);
+        Assert.Equal(100.0, result, precision: 1);
     }
 
     [Fact]
@@ -397,14 +392,39 @@ public class UsageMathTests
     }
 
     [Fact]
-    public void CalculatePaceAdjustedColorPercent_ResultClamped_To100()
+    public void CalculatePaceAdjustedColorPercent_5hWindow_20PercentAfter1h_ProjectsTo100()
     {
-        // Extreme over-pace: 200% would clamp to 100.
-        var period = TimeSpan.FromDays(7);
-        var nextReset = DateTime.UtcNow.AddDays(3.5);
-        var result = UsageMath.CalculatePaceAdjustedColorPercent(100.0, nextReset, period);
+        // 5-hour window: 20% used after 1 hour → projected 20/0.2 = 100%
+        var period = TimeSpan.FromHours(5);
+        var now = DateTime.UtcNow;
+        var nextReset = now.AddHours(4); // 1h elapsed out of 5h
+        var result = UsageMath.CalculatePaceAdjustedColorPercent(20.0, nextReset, period, nowUtc: now);
 
         Assert.Equal(100.0, result, precision: 1);
+    }
+
+    [Fact]
+    public void CalculatePaceAdjustedColorPercent_5hWindow_60PercentAfter2h_ProjectsOver100()
+    {
+        // 5-hour window: 60% used after 2 hours → projected 60/0.4 = 150% → clamped to 100
+        var period = TimeSpan.FromHours(5);
+        var now = DateTime.UtcNow;
+        var nextReset = now.AddHours(3); // 2h elapsed out of 5h
+        var result = UsageMath.CalculatePaceAdjustedColorPercent(60.0, nextReset, period, nowUtc: now);
+
+        Assert.Equal(100.0, result, precision: 1);
+    }
+
+    [Fact]
+    public void CalculatePaceAdjustedColorPercent_5hWindow_10PercentAfter2h_ProjectsLow()
+    {
+        // 5-hour window: 10% used after 2 hours → projected 10/0.4 = 25% (comfortable)
+        var period = TimeSpan.FromHours(5);
+        var now = DateTime.UtcNow;
+        var nextReset = now.AddHours(3); // 2h elapsed out of 5h
+        var result = UsageMath.CalculatePaceAdjustedColorPercent(10.0, nextReset, period, nowUtc: now);
+
+        Assert.True(result < 30.0, $"10% at 40% elapsed should project to ~25%, was {result:F1}");
     }
 
     // ── CalculateProjectedFinalPercent ───────────────────────────────────────
