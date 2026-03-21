@@ -72,13 +72,37 @@ public partial class MainWindow : Window
                     continue;
                 }
 
-                foreach (var usage in section.Usages)
+                var (activeUsages, inactiveUsages) = SplitActiveInactive(section.Usages);
+
+                foreach (var usage in activeUsages)
                 {
                     this.AddProviderCard(usage, container, cardRenderer);
 
                     if (usage.Details?.Any() == true)
                     {
                         this.AddCollapsibleSubProviders(usage, container, cardRenderer);
+                    }
+                }
+
+                if (inactiveUsages.Count > 0)
+                {
+                    var (inactiveHeader, inactiveContainer) = this.CreateCollapsibleHeader(
+                        $"Other providers ({inactiveUsages.Count})",
+                        Brushes.Gray,
+                        isGroupHeader: false,
+                        groupKey: $"inactive_{section.SectionKey}",
+                        () => !this._preferences.ShowInactiveProviders,
+                        collapsed =>
+                        {
+                            this._preferences.ShowInactiveProviders = !collapsed;
+                        });
+
+                    container.Children.Add(inactiveHeader);
+                    container.Children.Add(inactiveContainer);
+
+                    foreach (var usage in inactiveUsages)
+                    {
+                        this.AddProviderCard(usage, inactiveContainer, cardRenderer);
                     }
                 }
             }
@@ -92,6 +116,32 @@ public partial class MainWindow : Window
             this.ProvidersList.Children.Add(this.CreateInfoTextBlock("Failed to render provider cards. Check logs for details."));
             this.ApplyProviderListFontPreferences();
         }
+    }
+
+    private static (IReadOnlyList<ProviderUsage> Active, IReadOnlyList<ProviderUsage> Inactive) SplitActiveInactive(
+        IReadOnlyList<ProviderUsage> usages)
+    {
+        var active = new List<ProviderUsage>();
+        var inactive = new List<ProviderUsage>();
+
+        foreach (var usage in usages)
+        {
+            // A provider is "inactive" if it has 0% usage, is available, and not errored
+            var isInactive = usage.IsAvailable
+                             && usage.UsedPercent <= 0
+                             && usage.HttpStatus is 0 or 200;
+
+            if (isInactive)
+            {
+                inactive.Add(usage);
+            }
+            else
+            {
+                active.Add(usage);
+            }
+        }
+
+        return (active, inactive);
     }
 
     private void ApplyProviderListFontPreferences()
