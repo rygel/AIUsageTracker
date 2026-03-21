@@ -53,7 +53,6 @@ public partial class MainWindow : Window
     private readonly Func<string, FrameworkElement> _createProviderIcon;
     private readonly Func<string, FlowDocument> _buildChangelogDocument;
     private readonly UiPreferencesStore _preferencesStore;
-    private readonly DisplayPreferencesService _displayPreferences;
     private readonly DispatcherTimer _updateCheckTimer;
     private readonly DispatcherTimer _alwaysOnTopTimer;
 
@@ -113,8 +112,7 @@ public partial class MainWindow : Window
         GitHubUpdateChecker updateChecker,
         IDialogService dialogService,
         IBrowserService browserService,
-        UiPreferencesStore preferencesStore,
-        DisplayPreferencesService displayPreferences)
+        UiPreferencesStore preferencesStore)
         : this(
             skipUiInitialization: false,
             viewModel,
@@ -126,8 +124,7 @@ public partial class MainWindow : Window
             updateChecker,
             dialogService,
             browserService,
-            preferencesStore,
-            displayPreferences)
+            preferencesStore)
     {
     }
 
@@ -142,8 +139,7 @@ public partial class MainWindow : Window
         GitHubUpdateChecker updateChecker,
         IDialogService dialogService,
         IBrowserService browserService,
-        UiPreferencesStore preferencesStore,
-        DisplayPreferencesService displayPreferences)
+        UiPreferencesStore preferencesStore)
     {
         ArgumentNullException.ThrowIfNull(viewModel);
         ArgumentNullException.ThrowIfNull(monitorService);
@@ -155,7 +151,6 @@ public partial class MainWindow : Window
         ArgumentNullException.ThrowIfNull(dialogService);
         ArgumentNullException.ThrowIfNull(browserService);
         ArgumentNullException.ThrowIfNull(preferencesStore);
-        ArgumentNullException.ThrowIfNull(displayPreferences);
 
         if (!skipUiInitialization)
         {
@@ -176,7 +171,6 @@ public partial class MainWindow : Window
         var markdownRenderer = new ChangelogMarkdownRenderer(this.GetResourceBrush);
         this._buildChangelogDocument = markdownRenderer.BuildDocument;
         this._preferencesStore = preferencesStore;
-        this._displayPreferences = displayPreferences;
         this._viewModel = viewModel;
         this.DataContext = this._viewModel;
 
@@ -603,7 +597,7 @@ public partial class MainWindow : Window
     {
         if (this.ShowUsedToggle != null)
         {
-            this.ShowUsedToggle.IsChecked = this._displayPreferences.ShouldShowUsedPercentages(this._preferences);
+            this.ShowUsedToggle.IsChecked = this._preferences.PercentageDisplayMode == PercentageDisplayMode.Used;
         }
     }
 
@@ -1690,7 +1684,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            this._displayPreferences.SetShowUsedPercentages(this._preferences, this.ShowUsedToggle.IsChecked ?? false);
+            this._preferences.ShowUsedPercentages = this.ShowUsedToggle.IsChecked ?? false;
             await this.SaveUiPreferencesAsync();
 
             // Refresh the display to show used% vs remaining%

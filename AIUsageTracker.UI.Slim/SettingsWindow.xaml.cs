@@ -35,7 +35,6 @@ public partial class SettingsWindow : Window
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
-    private readonly DisplayPreferencesService _displayPreferences;
     private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
     private readonly DispatcherTimer _autoSaveTimer;
 
@@ -52,8 +51,7 @@ public partial class SettingsWindow : Window
         MonitorLifecycleService monitorLifecycleService,
         ILogger<SettingsWindow> logger,
         UiPreferencesStore preferencesStore,
-        IAppPathProvider pathProvider,
-        DisplayPreferencesService displayPreferences)
+        IAppPathProvider pathProvider)
     {
         this._autoSaveTimer = new DispatcherTimer
         {
@@ -67,7 +65,6 @@ public partial class SettingsWindow : Window
         this._logger = logger;
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
-        this._displayPreferences = displayPreferences;
         PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
         this.Closed += this.SettingsWindow_Closed;
         this.Loaded += this.SettingsWindow_Loaded;
@@ -1387,7 +1384,7 @@ public partial class SettingsWindow : Window
     {
         if (this.ShowUsedPercentagesCheck != null)
         {
-            this.ShowUsedPercentagesCheck.IsChecked = this._displayPreferences.ShouldShowUsedPercentages(this._preferences);
+            this.ShowUsedPercentagesCheck.IsChecked = this._preferences.PercentageDisplayMode == PercentageDisplayMode.Used;
         }
 
         if (this.ShowUsagePerHourCheck != null)
@@ -2209,7 +2206,7 @@ public partial class SettingsWindow : Window
             this._preferences.AggressiveAlwaysOnTop = this.AggressiveTopmostCheck.IsChecked ?? false;
             this._preferences.ForceWin32Topmost = this.ForceWin32TopmostCheck.IsChecked ?? false;
             var showUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
-            this._displayPreferences.SetShowUsedPercentages(this._preferences, showUsedPercentages);
+            this._preferences.ShowUsedPercentages = showUsedPercentages;
             this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
             this._preferences.EnablePaceAdjustment = this.EnablePaceAdjustmentCheck.IsChecked ?? true;
             if (this.ThemeCombo.SelectedValue is AppTheme appTheme)

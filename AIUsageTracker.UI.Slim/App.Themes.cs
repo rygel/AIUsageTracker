@@ -488,19 +488,6 @@ public partial class App
     }
 #pragma warning restore MA0051
 
-    public static void ApplyTheme(Window window)
-    {
-        ApplyTheme(Preferences.Theme);
-    }
-
-    public static void ApplyTheme(Window window, string themeName)
-    {
-        if (Enum.TryParse<AppTheme>(themeName, true, out var theme))
-        {
-            ApplyTheme(theme);
-        }
-    }
-
     private static void SetBrushColor(ResourceDictionary resources, string key, Color color)
     {
         if (resources.Contains(key) && resources[key] is SolidColorBrush brush && !brush.IsFrozen)

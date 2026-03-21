@@ -132,11 +132,9 @@ public class DialogOpenBehaviorTests
             var preferences = new AppPreferences { ShowUsedPercentages = true };
             var mainWindow = CreateMainWindowForTesting();
             var settingsWindow = (SettingsWindow)FormatterServices.GetUninitializedObject(typeof(SettingsWindow));
-            var displayPreferences = new DisplayPreferencesService();
 
             SetPrivateField(mainWindow, "_preferences", preferences);
             SetPrivateField(settingsWindow, "_preferences", preferences);
-            SetPrivateField(settingsWindow, "_displayPreferences", displayPreferences);
             SetPrivateField(mainWindow, "ShowUsedToggle", new CheckBox());
             SetPrivateField(settingsWindow, "ShowUsedPercentagesCheck", new CheckBox());
             InvokePrivateMethod(mainWindow, "ApplyDisplayModePreference");
@@ -244,8 +242,7 @@ public class DialogOpenBehaviorTests
             services.GetRequiredService<GitHubUpdateChecker>(),
             dialogService ?? services.GetRequiredService<IDialogService>(),
             browserService ?? services.GetRequiredService<IBrowserService>(),
-            services.GetRequiredService<UiPreferencesStore>(),
-            services.GetRequiredService<DisplayPreferencesService>());
+            services.GetRequiredService<UiPreferencesStore>());
     }
 
     private sealed class TestDialogService : IDialogService

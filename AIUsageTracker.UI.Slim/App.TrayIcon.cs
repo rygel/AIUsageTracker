@@ -23,10 +23,9 @@ public partial class App
         IReadOnlyList<ProviderConfig> configs,
         AppPreferences? prefs = null)
     {
-        var displayPreferences = Host.Services.GetRequiredService<DisplayPreferencesService>();
         var yellowThreshold = prefs?.ColorThresholdYellow ?? 60;
         var redThreshold = prefs?.ColorThresholdRed ?? 80;
-        var showUsed = prefs != null && displayPreferences.ShouldShowUsedPercentages(prefs);
+        var showUsed = prefs?.PercentageDisplayMode == PercentageDisplayMode.Used;
         var desiredIcons = this.BuildDesiredIcons(usages, configs, showUsed);
 
         this.SyncProviderTrayIcons(desiredIcons, yellowThreshold, redThreshold, showUsed);

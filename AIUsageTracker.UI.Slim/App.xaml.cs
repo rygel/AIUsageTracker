@@ -88,8 +88,17 @@ public partial class App : Application
             return;
         }
 
-        var startupPreferencesService = Host.Services.GetRequiredService<StartupPreferencesService>();
-        Preferences = await startupPreferencesService.LoadAsync();
+        var preferencesStore = Host.Services.GetRequiredService<UiPreferencesStore>();
+        try
+        {
+            Preferences = await preferencesStore.LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Host.Services.GetRequiredService<ILogger<App>>().LogWarning(ex, "Failed to load preferences on startup.");
+            Preferences = new AppPreferences();
+        }
+
         ApplyTheme(Preferences.Theme);
         IsPrivacyMode = Preferences.IsPrivacyMode;
 
@@ -125,8 +134,6 @@ public partial class App : Application
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
         services.AddSingleton<IUiPreferencesStore>(sp => sp.GetRequiredService<UiPreferencesStore>());
-        services.AddSingleton<StartupPreferencesService>();
-        services.AddSingleton<DisplayPreferencesService>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<MonitorLifecycleService>();
         services.AddSingleton<GitHubUpdateChecker>();
