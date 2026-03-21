@@ -37,6 +37,9 @@ public partial class ProviderCardViewModel : BaseViewModel
     private bool _enablePaceAdjustment = true;
 
     [ObservableProperty]
+    private bool _useRelativeResetTime;
+
+    [ObservableProperty]
     private ObservableCollection<SubProviderCardViewModel> _details = new();
 
     private ProviderCardPresentation? _presentation;
@@ -50,6 +53,7 @@ public partial class ProviderCardViewModel : BaseViewModel
         this._showUsedPercentages = prefs.ShowUsedPercentages;
         this._showUsagePerHour = prefs.ShowUsagePerHour;
         this._enablePaceAdjustment = prefs.EnablePaceAdjustment;
+        this._useRelativeResetTime = prefs.UseRelativeResetTime;
 
         this.UpdatePresentation();
         this.PopulateDetails();
@@ -112,7 +116,7 @@ public partial class ProviderCardViewModel : BaseViewModel
                 return null;
             }
 
-            var resetParts = resetTimes.Select(GetRelativeTimeString).ToList();
+            var resetParts = resetTimes.Select(t => this.UseRelativeResetTime ? GetRelativeTimeString(t) : GetAbsoluteTimeString(t)).ToList();
             return $"({string.Join(" | ", resetParts)})";
         }
     }
@@ -374,6 +378,43 @@ public partial class ProviderCardViewModel : BaseViewModel
             (ProviderUsageDetailType.Credit, _) => 4,
             _ => 5,
         };
+    }
+
+    partial void OnUseRelativeResetTimeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ResetBadgeText));
+    }
+
+    private static string GetAbsoluteTimeString(DateTime nextReset)
+    {
+        var local = nextReset.Kind == DateTimeKind.Utc ? nextReset.ToLocalTime() : nextReset;
+        var diff = local - DateTime.Now;
+
+        if (diff.TotalSeconds <= 0)
+        {
+            return "now";
+        }
+
+        // Same day: just show time "22:15"
+        if (local.Date == DateTime.Today)
+        {
+            return local.ToString("HH:mm");
+        }
+
+        // Tomorrow
+        if (local.Date == DateTime.Today.AddDays(1))
+        {
+            return $"Tomorrow {local:HH:mm}";
+        }
+
+        // Within this week: "Saturday 17:44"
+        if (diff.TotalDays < 7)
+        {
+            return $"{local:dddd HH:mm}";
+        }
+
+        // Further out: "Mar 28 17:44"
+        return $"{local:MMM d HH:mm}";
     }
 
     private static string GetRelativeTimeString(DateTime nextReset)

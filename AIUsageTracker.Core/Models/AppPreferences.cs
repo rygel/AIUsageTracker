@@ -101,6 +101,8 @@ public class AppPreferences
     // Display Options
     public bool ShowInactiveProviders { get; set; } = false;
 
+    public bool UseRelativeResetTime { get; set; } = false;
+
     public bool ShowUsagePerHour { get; set; } = false;
 
     /// <summary>

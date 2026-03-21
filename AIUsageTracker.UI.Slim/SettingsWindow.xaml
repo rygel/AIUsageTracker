@@ -381,6 +381,11 @@
                                       ToolTip="Show a live burn-rate badge on each provider card. Requires at least 30 minutes of history."
                                       Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
+                            <CheckBox x:Name="UseRelativeResetTimeCheck" Content="Show relative reset times (e.g. 2h 15m)"
+                                      Margin="0,5,0,5" Foreground="{DynamicResource SecondaryText}"
+                                      ToolTip="Show countdown (2h 15m) instead of absolute times (22:15, Saturday 17:44) on reset badges"
+                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+
                             <CheckBox x:Name="EnablePaceAdjustmentCheck" Content="Pace-Aware Quota Colours"
                                       Margin="0,5,0,20" Foreground="{DynamicResource SecondaryText}"
                                       ToolTip="Adjust progress-bar colour and alert threshold based on rolling-window pace. When enabled, a provider at 70% usage with 1 day left of a 7-day window shows green (on pace) instead of yellow. Also shows an &#x22;On pace&#x22; badge."
