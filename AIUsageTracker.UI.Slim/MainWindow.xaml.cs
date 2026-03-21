@@ -747,9 +747,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var presentation = PrivacyButtonPresentationCatalog.Create(this._isPrivacyMode);
-        this.PrivacyBtn.Content = presentation.IconGlyph;
-        this.PrivacyBtn.Foreground = presentation.ForegroundKind == PrivacyButtonForegroundKind.Highlight
+        this.PrivacyBtn.Content = this._isPrivacyMode ? "\uE72E" : "\uE785";
+        this.PrivacyBtn.Foreground = this._isPrivacyMode
             ? Brushes.Gold
             : this.GetResourceBrush("SecondaryText", Brushes.Gray);
     }
