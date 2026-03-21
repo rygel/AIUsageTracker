@@ -259,6 +259,12 @@ public static class UsageMath
             return ClampPercent(usedPercent);
         }
 
+        // Guard against DateTime underflow when nextResetUtc is too close to MinValue
+        if (nextResetUtc.Ticks < periodDuration.Ticks)
+        {
+            return ClampPercent(usedPercent);
+        }
+
         var periodStart = nextResetUtc - periodDuration;
         var elapsed = now - periodStart;
         var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / periodDuration.TotalSeconds, 0.01, 1.0);
@@ -289,6 +295,12 @@ public static class UsageMath
     {
         var now = nowUtc ?? DateTime.UtcNow;
         if (periodDuration.TotalSeconds <= 0)
+        {
+            return ClampPercent(usedPercent);
+        }
+
+        // Guard against DateTime underflow when nextResetUtc is too close to MinValue
+        if (nextResetUtc.Ticks < periodDuration.Ticks)
         {
             return ClampPercent(usedPercent);
         }
