@@ -1650,6 +1650,7 @@ public partial class MainWindow : Window
     private void LogDiagnostic(string message)
     {
         this._logger.LogInformation("{DiagnosticMessage}", message);
+        UiDiagnosticFileLog.Write(message);
     }
 
     private void ShowStatus(string message, StatusType type)

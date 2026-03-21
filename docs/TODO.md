@@ -14,6 +14,11 @@
 ### Up Next
 All architecture streamlining tasks completed! See remaining feature backlog below.
 
+### UI Runtime Reliability Backlog (Added: 2026-03-21)
+- [ ] Slim UI multi-instance policy + guardrails (Priority: P1, Effort: M): Define supported behavior explicitly. Either enforce single-instance via named mutex (focus existing window and exit second launch) or allow multi-instance only in an explicit mode that prevents shared-state races (no preference writes, no monitor lifecycle ownership changes).
+- [ ] Persist Slim UI diagnostics to file (Priority: P1, Effort: S): Add UI log file output under `%LOCALAPPDATA%\\AIUsageTracker\\logs\\ui_YYYY-MM-DD.log` with render-path checkpoints (`raw count`, `post-filter count`, empty-state branch, render exceptions) for post-incident debugging.
+- [ ] Harden monitor duplicate-start guard (Priority: P1, Effort: S/M): Keep single active monitor process per user/session with explicit startup lock diagnostics and regression tests for concurrent launch attempts from multiple Slim UI processes.
+
 ### Cleanup Queue (Added: 2026-03-09)
 - [ ] Formatter-first mechanical pass (Priority: P1, Effort: M): Run repo-wide formatting and style normalization to reduce the largest warning buckets (`IDE0065`, `IDE0161`, `SA1028`, `SA1507`).
 - [ ] Initializer and layout consistency (Priority: P1, Effort: M): Fix multi-line initializer/list formatting and spacing (`SA1413`, `SA1117`, `SA1508`, `SA1516`).
