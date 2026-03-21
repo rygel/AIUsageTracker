@@ -544,15 +544,17 @@ public partial class SettingsWindow : Window
 
     private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
     {
-        var presentation = ProviderStatusPresentationCatalog.Create(
+        var presentation = this.CreateStatusPresentation(
             config,
             usage,
-            settingsBehavior.InputMode,
+            settingsBehavior,
             this._isPrivacyMode);
 
         var panel = new StackPanel
         {
-            Orientation = presentation.UseHorizontalLayout ? Orientation.Horizontal : Orientation.Vertical,
+            Orientation = presentation.UseHorizontalLayout
+                ? Orientation.Horizontal
+                : Orientation.Vertical,
         };
 
         var statusText = new TextBlock
@@ -579,6 +581,249 @@ public partial class SettingsWindow : Window
 
         return panel;
     }
+
+    private StatusPanelPresentation CreateStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        ProviderSettingsBehavior settingsBehavior,
+        bool isPrivacyMode)
+    {
+        return settingsBehavior.InputMode switch
+        {
+            ProviderInputMode.DerivedReadOnly => this.CreateDerivedStatusPresentation(config, usage),
+            ProviderInputMode.AutoDetectedStatus => CreateAutoDetectedStatusPresentation(usage, isPrivacyMode),
+            ProviderInputMode.ExternalAuthStatus => CreateExternalAuthStatusPresentation(config, usage, isPrivacyMode),
+            ProviderInputMode.SessionAuthStatus => CreateSessionAuthStatusPresentation(config, usage, settingsBehavior, isPrivacyMode),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(settingsBehavior.InputMode),
+                settingsBehavior.InputMode,
+                "Status presentation is only valid for status-based provider modes."),
+        };
+    }
+
+    private StatusPanelPresentation CreateDerivedStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage)
+    {
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
+        var sourceLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
+        string primaryText;
+        string primaryResourceKey;
+
+        if (usage?.IsAvailable == true)
+        {
+            primaryText = $"Derived from {sourceLabel} usage (read-only)";
+            primaryResourceKey = "ProgressBarGreen";
+        }
+        else if (usage != null && !string.IsNullOrWhiteSpace(usage.Description))
+        {
+            primaryText = usage.Description;
+            primaryResourceKey = "TertiaryText";
+        }
+        else
+        {
+            primaryText = "Derived provider (waiting for usage data)";
+            primaryResourceKey = "TertiaryText";
+        }
+
+        if (usage?.NextResetTime is DateTime derivedReset)
+        {
+            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {derivedReset:g}"));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: primaryText,
+            PrimaryResourceKey: primaryResourceKey,
+            PrimaryItalic: false,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static StatusPanelPresentation CreateAutoDetectedStatusPresentation(
+        ProviderUsage? usage,
+        bool isPrivacyMode)
+    {
+        var isConnected = usage?.IsAvailable == true;
+        var accountInfo = usage?.AccountName;
+        var hasAccountInfo = !string.IsNullOrWhiteSpace(accountInfo) && accountInfo is not ("Unknown" or "User");
+        var displayAccount = hasAccountInfo
+            ? (isPrivacyMode ? MaskAccountIdentifier(accountInfo!) : accountInfo!)
+            : "No account detected";
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var antigravitySubmodels = usage?.Details?
+            .Where(d => d.DetailType == ProviderUsageDetailType.Model && !string.IsNullOrWhiteSpace(d.Name))
+            .Select(d => d.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (antigravitySubmodels is { Count: > 0 })
+        {
+            secondaryLines.Add(new StatusSecondaryLine(
+                Text: $"Models: {string.Join(", ", antigravitySubmodels)}",
+                Wrap: true,
+                ExtraTopMargin: true));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
+            PrimaryResourceKey: isConnected ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: !isConnected,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static StatusPanelPresentation CreateExternalAuthStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        bool isPrivacyMode)
+    {
+        var username = usage?.AccountName;
+        var hasUsername = !string.IsNullOrWhiteSpace(username) && username is not ("Unknown" or "User");
+        var isAuthenticated = !string.IsNullOrWhiteSpace(config.ApiKey) ||
+                              usage?.IsAvailable == true ||
+                              hasUsername;
+        var displayText = !isAuthenticated
+            ? "Not Authenticated"
+            : !hasUsername
+                ? "Authenticated"
+                : isPrivacyMode
+                    ? $"Authenticated ({MaskAccountIdentifier(username!)})"
+                    : $"Authenticated ({username})";
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: true,
+            PrimaryText: displayText,
+            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: false,
+            SecondaryLines: Array.Empty<StatusSecondaryLine>());
+    }
+
+    private static StatusPanelPresentation CreateSessionAuthStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        ProviderSettingsBehavior settingsBehavior,
+        bool isPrivacyMode)
+    {
+        var providerSessionLabel = settingsBehavior.SessionProviderLabel ??
+                                   ProviderMetadataCatalog.GetConfiguredDisplayName(
+                                       ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty));
+        var hasSessionToken = ProviderSettingsCatalog.IsSessionToken(config.ApiKey);
+        var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
+        var accountName = usage?.AccountName;
+
+        var displayText = ResolveSessionAuthDisplayText(
+            isAuthenticated,
+            hasSessionToken,
+            accountName,
+            providerSessionLabel,
+            usage?.IsAvailable,
+            isPrivacyMode);
+
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var resolvedReset = usage?.NextResetTime;
+        if (resolvedReset is DateTime nextReset)
+        {
+            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {nextReset:g}"));
+        }
+        else if (isAuthenticated)
+        {
+            secondaryLines.Add(new StatusSecondaryLine("Next reset: loading..."));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: displayText,
+            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: false,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static string ResolveSessionAuthDisplayText(
+        bool isAuthenticated,
+        bool hasSessionToken,
+        string? accountName,
+        string providerSessionLabel,
+        bool? isUsageAvailable,
+        bool isPrivacyMode)
+    {
+        if (!isAuthenticated)
+        {
+            return "Not Authenticated";
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            return isPrivacyMode
+                ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
+                : $"Authenticated ({accountName})";
+        }
+
+        return hasSessionToken && isUsageAvailable != true
+            ? $"Authenticated via {providerSessionLabel} - refresh to load quota"
+            : $"Authenticated via {providerSessionLabel}";
+    }
+
+    private static string MaskAccountIdentifier(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return input;
+        }
+
+        var atIndex = input.IndexOf('@');
+        if (atIndex > 0 && atIndex < input.Length - 1)
+        {
+            var localPart = input[..atIndex];
+            var domainPart = input[(atIndex + 1)..];
+            var maskedDomainChars = domainPart.ToCharArray();
+            for (var i = 0; i < maskedDomainChars.Length; i++)
+            {
+                if (maskedDomainChars[i] != '.')
+                {
+                    maskedDomainChars[i] = '*';
+                }
+            }
+
+            var maskedDomain = new string(maskedDomainChars);
+            if (localPart.Length <= 2)
+            {
+                return $"{new string('*', localPart.Length)}@{maskedDomain}";
+            }
+
+            return $"{localPart[0]}{new string('*', localPart.Length - 2)}{localPart[^1]}@{maskedDomain}";
+        }
+
+        return MaskString(input);
+    }
+
+    private static string MaskString(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        if (input.Length <= 2)
+        {
+            return new string('*', input.Length);
+        }
+
+        return input[0] + new string('*', input.Length - 2) + input[^1];
+    }
+
+    private sealed record StatusPanelPresentation(
+        bool UseHorizontalLayout,
+        string PrimaryText,
+        string PrimaryResourceKey,
+        bool PrimaryItalic,
+        IReadOnlyList<StatusSecondaryLine> SecondaryLines);
+
+    private readonly record struct StatusSecondaryLine(
+        string Text,
+        bool Wrap = false,
+        bool ExtraTopMargin = false);
 
     private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)
     {
@@ -755,7 +1000,7 @@ public partial class SettingsWindow : Window
     {
         var keyBox = new TextBox
         {
-            Text = ProviderApiKeyPresentationCatalog.GetDisplayApiKey(config.ApiKey, this._isPrivacyMode),
+            Text = GetDisplayApiKey(config.ApiKey, this._isPrivacyMode),
             Tag = config,
             VerticalContentAlignment = VerticalAlignment.Center,
             FontSize = 11,
@@ -773,6 +1018,26 @@ public partial class SettingsWindow : Window
         }
 
         return keyBox;
+    }
+
+    private static string GetDisplayApiKey(string? apiKey, bool isPrivacyMode)
+    {
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            return apiKey ?? string.Empty;
+        }
+
+        if (!isPrivacyMode)
+        {
+            return apiKey;
+        }
+
+        if (apiKey.Length > 8)
+        {
+            return apiKey[..4] + "****" + apiKey[^4..];
+        }
+
+        return "****";
     }
 
     private TextBlock CreateSecondaryStatusText(string text)

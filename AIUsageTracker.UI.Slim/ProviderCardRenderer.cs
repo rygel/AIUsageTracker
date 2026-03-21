@@ -73,7 +73,7 @@ internal sealed class ProviderCardRenderer
         else
         {
             var indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
-            var colorIndicatorPercent = ProviderPacePresentationCatalog.GetColorIndicatorPercent(
+            var colorIndicatorPercent = GetColorIndicatorPercent(
                 usage,
                 presentation.UsedPercent,
                 this._preferences.EnablePaceAdjustment);
@@ -129,7 +129,7 @@ internal sealed class ProviderCardRenderer
                 Dock.Right);
         }
 
-        var paceBadgeText = ProviderPacePresentationCatalog.GetPaceBadgeText(
+        var paceBadgeText = GetPaceBadgeText(
             usage,
             presentation.UsedPercent,
             this._preferences.EnablePaceAdjustment);
@@ -187,7 +187,7 @@ internal sealed class ProviderCardRenderer
             grid.Opacity = 0.65;
         }
 
-        var toolTipContent = ProviderTooltipPresentationCatalog.BuildContent(usage, friendlyName);
+        var toolTipContent = BuildTooltipContent(usage, friendlyName);
         if (!string.IsNullOrEmpty(toolTipContent))
         {
             grid.ToolTip = this._createToolTip(grid, toolTipContent);
@@ -206,7 +206,7 @@ internal sealed class ProviderCardRenderer
             Background = Brushes.Transparent,
         };
 
-        var presentation = ProviderSubDetailPresentationCatalog.Create(
+        var presentation = ProviderSubDetailSectionCatalog.BuildDetailPresentation(
             detail,
             showUsed,
             this._getRelativeTimeString);
@@ -300,7 +300,7 @@ internal sealed class ProviderCardRenderer
 
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
     {
-        var resetTimes = ProviderResetBadgePresentationCatalog.ResolveResetTimes(
+        var resetTimes = ResolveResetTimes(
             usage,
             presentation.SuppressSingleResetTime);
         if (resetTimes.Count == 0)
@@ -312,6 +312,136 @@ internal sealed class ProviderCardRenderer
             .Select(this._getRelativeTimeString)
             .ToList();
         return $"({string.Join(" | ", resetParts)})";
+    }
+
+    private static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage, bool suppressSingleResetFallback)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var detailResetTimes = usage.Details?
+            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
+            .Where(detail => detail.QuotaBucketKind != WindowKind.None)
+            .Where(detail => detail.NextResetTime.HasValue)
+            .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
+            .Select(detail => detail.NextResetTime!.Value)
+            .Distinct()
+            .ToList()
+            ?? new List<DateTime>();
+
+        if (detailResetTimes.Count >= 2)
+        {
+            return detailResetTimes;
+        }
+
+        if (suppressSingleResetFallback)
+        {
+            return Array.Empty<DateTime>();
+        }
+
+        return usage.NextResetTime.HasValue
+            ? new[] { usage.NextResetTime.Value }
+            : Array.Empty<DateTime>();
+    }
+
+    private static double GetColorIndicatorPercent(
+        ProviderUsage usage,
+        double usedPercent,
+        bool enablePaceAdjustment,
+        DateTime? nowUtc = null)
+    {
+        if (!enablePaceAdjustment || !usage.PeriodDuration.HasValue || !usage.NextResetTime.HasValue)
+        {
+            return usedPercent;
+        }
+
+        return UsageMath.CalculatePaceAdjustedColorPercent(
+            usedPercent,
+            usage.NextResetTime.Value.ToUniversalTime(),
+            usage.PeriodDuration.Value,
+            nowUtc);
+    }
+
+    private static string? GetPaceBadgeText(
+        ProviderUsage usage,
+        double usedPercent,
+        bool enablePaceAdjustment,
+        DateTime? nowUtc = null)
+    {
+        if (!enablePaceAdjustment || !usage.PeriodDuration.HasValue || !usage.NextResetTime.HasValue)
+        {
+            return null;
+        }
+
+        var now = nowUtc ?? DateTime.UtcNow;
+        var period = usage.PeriodDuration.Value;
+        var periodStart = usage.NextResetTime.Value.ToUniversalTime() - period;
+        var elapsed = now - periodStart;
+        var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / period.TotalSeconds, 0.01, 1.0);
+        var expectedPercent = elapsedFraction * 100.0;
+
+        return usedPercent < expectedPercent * 0.95 ? "On pace" : null;
+    }
+
+    private static string? BuildTooltipContent(ProviderUsage usage, string friendlyName)
+    {
+        var tooltipBuilder = new System.Text.StringBuilder();
+        tooltipBuilder.AppendLine(friendlyName);
+        tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
+        if (!string.IsNullOrEmpty(usage.Description))
+        {
+            tooltipBuilder.AppendLine($"Description: {usage.Description}");
+        }
+
+        if (usage.Details?.Any() == true)
+        {
+            tooltipBuilder.AppendLine();
+            tooltipBuilder.AppendLine("Rate Limits:");
+            foreach (var detail in usage.Details
+                         .OrderBy(GetDetailSortOrder)
+                         .ThenBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
+            {
+                var detailValue = GetDetailDisplayValue(detail);
+                if (string.IsNullOrWhiteSpace(detailValue))
+                {
+                    continue;
+                }
+
+                tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detailValue}");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(usage.AuthSource))
+        {
+            tooltipBuilder.AppendLine();
+            tooltipBuilder.AppendLine($"Source: {usage.AuthSource}");
+        }
+
+        var result = tooltipBuilder.ToString().Trim();
+        return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    private static string GetDetailDisplayName(ProviderUsageDetail detail)
+    {
+        return detail.Name;
+    }
+
+    private static string GetDetailDisplayValue(ProviderUsageDetail detail)
+    {
+        return ProviderSubDetailSectionCatalog.GetStoredDisplayText(detail);
+    }
+
+    private static int GetDetailSortOrder(ProviderUsageDetail detail)
+    {
+        return (detail.DetailType, detail.QuotaBucketKind) switch
+        {
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.Burst) => 0,
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.Rolling) => 1,
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.ModelSpecific) => 2,
+            (ProviderUsageDetailType.QuotaWindow, _) => 3,
+            (ProviderUsageDetailType.Model, _) => 3,
+            (ProviderUsageDetailType.Credit, _) => 4,
+            _ => 5,
+        };
     }
 
     private Border CreateBulletMarker()

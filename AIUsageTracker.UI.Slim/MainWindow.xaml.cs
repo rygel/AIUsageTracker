@@ -327,10 +327,12 @@ public partial class MainWindow : Window
         var informationalVersion = assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
-        var prereleaseLabel = VersionDisplayCatalog.ParsePrereleaseLabel(informationalVersion);
-        var presentation = VersionDisplayCatalog.Create(versionCore, prereleaseLabel);
-        this.VersionText.Text = presentation.DisplayVersion;
-        this.Title = presentation.WindowTitle;
+        var prereleaseLabel = ParsePrereleaseLabel(informationalVersion);
+        var displayVersion = string.IsNullOrWhiteSpace(prereleaseLabel)
+            ? $"v{versionCore}"
+            : $"v{versionCore} {prereleaseLabel}";
+        this.VersionText.Text = displayVersion;
+        this.Title = $"AI Usage Tracker {displayVersion}";
     }
 
     private void PositionWindowNearTray()
@@ -409,7 +411,9 @@ public partial class MainWindow : Window
             {
                 this.ShowStatus("Monitor failed to start", StatusType.Error);
                 this.ShowErrorState(
-                    MonitorErrorPresentationCatalog.BuildLaunchErrorMessage(
+                    BuildMonitorErrorMessage(
+                        "Monitor failed to start.",
+                        "Please ensure AIUsageTracker.Monitor is installed and try again.",
                         this._monitorService.LastAgentErrors));
             }
 
@@ -440,9 +444,7 @@ public partial class MainWindow : Window
                     hasUsages = this._usages.Any();
                 }
 
-                if (MonitorStartupPresentationCatalog.ShouldShowConnectionFailureState(
-                        hasUsages,
-                        this.ProvidersList.Children.Count))
+                if (!hasUsages && this.ProvidersList.Children.Count <= 1)
                 {
                     // Still showing default "Loading..." - update to error state
                     this.ShowErrorState("Failed to connect to Monitor. Try refreshing.");
@@ -465,8 +467,7 @@ public partial class MainWindow : Window
         const int pollIntervalMs = 2000; // 2 seconds between attempts
 
         this.LogDiagnostic("[DIAGNOSTIC] RapidPollUntilDataAvailableAsync starting...");
-        var initialPresentation = RapidPollPresentationCatalog.CreateInitialLoading();
-        this.ShowStatus(initialPresentation.StatusMessage, initialPresentation.StatusType);
+        this.ShowStatus("Loading data...", StatusType.Info);
 
         // First, check if Monitor is reachable
         this.LogDiagnostic("[DIAGNOSTIC] Checking Monitor health...");
@@ -476,14 +477,12 @@ public partial class MainWindow : Window
         if (!isHealthy)
         {
             await this._monitorService.RefreshAgentInfoAsync();
-            var notReachablePresentation = RapidPollPresentationCatalog.CreateMonitorNotReachable(
-                MonitorErrorPresentationCatalog.BuildConnectionErrorMessage(
+            this.ShowStatus("Monitor not reachable", StatusType.Error);
+            this.ShowErrorState(
+                BuildMonitorErrorMessage(
+                    "Cannot connect to Monitor.",
+                    "Please ensure:\n1. Monitor is running\n2. Port is correct (check monitor.json)\n3. Firewall is not blocking\n\nTry restarting the Monitor.",
                     this._monitorService.LastAgentErrors));
-            this.ShowStatus(notReachablePresentation.StatusMessage, notReachablePresentation.StatusType);
-            if (notReachablePresentation.ErrorStateMessage != null)
-            {
-                this.ShowErrorState(notReachablePresentation.ErrorStateMessage);
-            }
 
             return;
         }
@@ -522,7 +521,7 @@ public partial class MainWindow : Window
 
                 // No data yet - on first attempt, trigger a background refresh
                 // and keep polling so data appears as soon as refresh completes.
-                if (RapidPollPresentationCatalog.ShouldTriggerBackgroundRefresh(attempt))
+                if (attempt == 0)
                 {
                     this.LogDiagnostic("[DIAGNOSTIC] First attempt, no data - triggering background refresh...");
                     _ = Task.Run(async () =>
@@ -540,37 +539,31 @@ public partial class MainWindow : Window
 
                     // Show UI immediately with empty state
                     this.LogDiagnostic("[DIAGNOSTIC] Showing empty state...");
-                    var scanningPresentation = RapidPollPresentationCatalog.CreateScanningForProviders();
-                    this.ShowStatus(scanningPresentation.StatusMessage, scanningPresentation.StatusType);
+                    this.ShowStatus("Scanning for providers...", StatusType.Info);
                     this.LogDiagnostic("[DIAGNOSTIC] About to call RenderProviders...");
                     this.RenderProviders(); // Will show empty or loading state
                     this.LogDiagnostic("[DIAGNOSTIC] RenderProviders completed");
                 }
 
                 // No data yet - wait and try again
-                if (RapidPollPresentationCatalog.ShouldWaitBeforeRetry(attempt, maxAttempts))
+                if (attempt < maxAttempts - 1)
                 {
-                    var waitingPresentation = RapidPollPresentationCatalog.CreateWaitingForData(attempt, maxAttempts);
-                    this.ShowStatus(waitingPresentation.StatusMessage, waitingPresentation.StatusType);
+                    this.ShowStatus($"Waiting for data... ({attempt + 1}/{maxAttempts})", StatusType.Warning);
                     await Task.Delay(pollIntervalMs);
                 }
             }
             catch (HttpRequestException ex)
             {
                 this.LogDiagnostic($"[DIAGNOSTIC] Connection error: {ex.Message}");
-                var connectionLostPresentation = RapidPollPresentationCatalog.CreateConnectionLost(ex.Message);
-                this.ShowStatus(connectionLostPresentation.StatusMessage, connectionLostPresentation.StatusType);
-                if (connectionLostPresentation.ErrorStateMessage != null)
-                {
-                    this.ShowErrorState(connectionLostPresentation.ErrorStateMessage);
-                }
+                this.ShowStatus("Connection lost", StatusType.Error);
+                this.ShowErrorState($"Lost connection to Monitor:\n{ex.Message}\n\nTry refreshing or restarting the Monitor.");
 
                 return;
             }
             catch (Exception ex)
             {
                 this.LogDiagnostic($"[DIAGNOSTIC] Error: {ex.Message}");
-                if (RapidPollPresentationCatalog.ShouldWaitBeforeRetry(attempt, maxAttempts))
+                if (attempt < maxAttempts - 1)
                 {
                     await Task.Delay(pollIntervalMs);
                 }
@@ -578,12 +571,8 @@ public partial class MainWindow : Window
         }
 
         this.LogDiagnostic("[DIAGNOSTIC] Max attempts reached, no data available");
-        var noDataPresentation = RapidPollPresentationCatalog.CreateNoDataAfterMaxAttempts();
-        this.ShowStatus(noDataPresentation.StatusMessage, noDataPresentation.StatusType);
-        if (noDataPresentation.ErrorStateMessage != null)
-        {
-            this.ShowErrorState(noDataPresentation.ErrorStateMessage);
-        }
+        this.ShowStatus("No data available", StatusType.Error);
+        this.ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually or check Settings > Monitor.");
     }
 
     private void ApplyPreferences()
@@ -780,12 +769,7 @@ public partial class MainWindow : Window
                 }
             }
 
-            var refreshPresentation = RefreshDataPresentationCatalog.Create(
-                hasLatestUsages: hasLatestUsages,
-                hasCurrentUsages: hasCurrentUsages,
-                now: now);
-
-            if (refreshPresentation.ApplyLatestUsages)
+            if (hasLatestUsages)
             {
                 lock (this._dataLock)
                 {
@@ -793,26 +777,17 @@ public partial class MainWindow : Window
                 }
 
                 this.RenderProviders();
-            }
-
-            if (refreshPresentation.UpdateLastMonitorTimestamp)
-            {
                 this._lastMonitorUpdate = now;
-            }
-
-            if (refreshPresentation.StatusMessage != null && refreshPresentation.StatusType.HasValue)
-            {
-                this.ShowStatus(refreshPresentation.StatusMessage, refreshPresentation.StatusType.Value);
-            }
-
-            if (refreshPresentation.TriggerTrayIconUpdate)
-            {
+                this.ShowStatus($"{now:HH:mm:ss}", StatusType.Success);
                 _ = this.UpdateTrayIconsAsync();
             }
-
-            if (refreshPresentation.UseErrorState && refreshPresentation.ErrorStateMessage != null)
+            else if (hasCurrentUsages)
             {
-                this.ShowErrorState(refreshPresentation.ErrorStateMessage);
+                this.ShowStatus("Refresh returned no data, keeping last snapshot", StatusType.Warning);
+            }
+            else
+            {
+                this.ShowErrorState("No provider data available.\n\nMonitor may still be initializing.");
             }
         }
         catch (Exception ex)
@@ -1027,35 +1002,42 @@ public partial class MainWindow : Window
         Func<bool> getCollapsed,
         Action<bool> setCollapsed)
     {
-        var presentation = CollapsibleHeaderPresentationCatalog.Create(title, isGroupHeader);
-        var titleForeground = presentation.UseAccentForTitle
+        var margin = isGroupHeader
+            ? new Thickness(0, 8, 0, 4)
+            : new Thickness(20, 4, 0, 2);
+        var toggleFontSize = isGroupHeader ? 10.0 : 9.0;
+        var titleFontWeight = isGroupHeader ? FontWeights.Bold : FontWeights.Normal;
+        var toggleOpacity = isGroupHeader ? 1.0 : 0.8;
+        var lineOpacity = isGroupHeader ? 0.5 : 0.3;
+        var titleText = isGroupHeader ? title.ToUpperInvariant() : title;
+        var titleForeground = isGroupHeader
             ? accent
             : this.GetResourceBrush("SecondaryText", Brushes.Gray);
 
-        var header = this.CreateCollapsibleHeaderGrid(presentation.Margin);
+        var header = this.CreateCollapsibleHeaderGrid(margin);
 
         // Toggle button
         var toggleText = this.CreateText(
             getCollapsed() ? "▶" : "▼",
-            presentation.ToggleFontSize,
+            toggleFontSize,
             accent,
             FontWeights.Bold,
             new Thickness(0, 0, 5, 0));
         toggleText.VerticalAlignment = VerticalAlignment.Center;
-        toggleText.Opacity = presentation.ToggleOpacity;
+        toggleText.Opacity = toggleOpacity;
         toggleText.Tag = "ToggleIcon";
 
         // Title
         var titleBlock = this.CreateText(
-            presentation.TitleText,
+            titleText,
             10.0,
             titleForeground,
-            presentation.TitleFontWeight,
+            titleFontWeight,
             new Thickness(0, 0, 10, 0));
         titleBlock.VerticalAlignment = VerticalAlignment.Center;
 
         // Separator line
-        var line = this.CreateSeparator(accent, presentation.LineOpacity);
+        var line = this.CreateSeparator(accent, lineOpacity);
 
         // Container
         var container = new StackPanel();
@@ -1097,7 +1079,7 @@ public partial class MainWindow : Window
             this._createProviderIcon,
             this.CreateTopmostAwareToolTip,
             this.ConfigureCardToolTip,
-            nextReset => RelativeTimePresentationCatalog.FormatUntil(nextReset, DateTime.Now));
+            nextReset => FormatRelativeTimeUntil(nextReset, DateTime.Now));
     }
 
     private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
@@ -1189,10 +1171,7 @@ public partial class MainWindow : Window
 
         this._pollingTimer = new DispatcherTimer
         {
-            Interval = PollingPresentationCatalog.ResolveInitialInterval(
-                hasUsages,
-                StartupPollingInterval,
-                NormalPollingInterval),
+            Interval = hasUsages ? NormalPollingInterval : StartupPollingInterval,
         };
 
         this._pollingTimer.Tick += async (s, e) =>
@@ -1257,16 +1236,28 @@ public partial class MainWindow : Window
                         hasCurrentUsages = this._usages.Any();
                     }
 
-                    var noDataPresentation = PollingPresentationCatalog.ResolveAfterEmptyRetry(
-                        hasCurrentUsages,
-                        this._lastMonitorUpdate,
-                        DateTime.Now);
-                    if (noDataPresentation.Message != null && noDataPresentation.StatusType.HasValue)
+                    var now = DateTime.Now;
+                    string? noDataMessage = null;
+                    StatusType? noDataStatusType = null;
+                    var switchToStartupInterval = false;
+                    if (!hasCurrentUsages)
                     {
-                        this.ShowStatus(noDataPresentation.Message, noDataPresentation.StatusType.Value);
+                        noDataMessage = "No data - waiting for Monitor";
+                        noDataStatusType = StatusType.Warning;
+                        switchToStartupInterval = true;
+                    }
+                    else if ((now - this._lastMonitorUpdate).TotalMinutes > 5)
+                    {
+                        noDataMessage = MonitorOfflineStatusCatalog.Format(this._lastMonitorUpdate, now);
+                        noDataStatusType = StatusType.Warning;
                     }
 
-                    if (noDataPresentation.SwitchToStartupInterval &&
+                    if (noDataMessage != null && noDataStatusType.HasValue)
+                    {
+                        this.ShowStatus(noDataMessage, noDataStatusType.Value);
+                    }
+
+                    if (switchToStartupInterval &&
                         this._pollingTimer != null &&
                         this._pollingTimer.Interval != StartupPollingInterval)
                     {
@@ -1283,16 +1274,24 @@ public partial class MainWindow : Window
                     hasOldData = this._usages.Any();
                 }
 
-                var exceptionPresentation = PollingPresentationCatalog.ResolveOnPollingException(
-                    hasOldData,
-                    this._lastMonitorUpdate,
-                    DateTime.Now);
-                if (exceptionPresentation.Message != null && exceptionPresentation.StatusType.HasValue)
+                var now = DateTime.Now;
+                string? exceptionMessage;
+                StatusType exceptionStatusType;
+                var switchToStartupInterval = false;
+                if (hasOldData)
                 {
-                    this.ShowStatus(exceptionPresentation.Message, exceptionPresentation.StatusType.Value);
+                    exceptionMessage = MonitorOfflineStatusCatalog.Format(this._lastMonitorUpdate, now);
+                    exceptionStatusType = StatusType.Warning;
                 }
+                else
+                {
+                    exceptionMessage = "Connection error";
+                    exceptionStatusType = StatusType.Error;
+                    switchToStartupInterval = true;
+                }
+                this.ShowStatus(exceptionMessage, exceptionStatusType);
 
-                if (exceptionPresentation.SwitchToStartupInterval &&
+                if (switchToStartupInterval &&
                     this._pollingTimer != null &&
                     this._pollingTimer.Interval != StartupPollingInterval)
                 {
@@ -1417,12 +1416,9 @@ public partial class MainWindow : Window
             if (usages.Any())
             {
                 var now = DateTime.Now;
-                var successPresentation = FetchDataSuccessPresentationCatalog.Create(
-                    now: now,
-                    statusSuffix: statusSuffix,
-                    hasPollingTimer: this._pollingTimer != null,
-                    currentInterval: this._pollingTimer?.Interval ?? TimeSpan.Zero,
-                    normalInterval: NormalPollingInterval);
+                var successStatusMessage = $"{now:HH:mm:ss}{statusSuffix}";
+                var switchToNormalInterval = this._pollingTimer != null
+                    && this._pollingTimer.Interval != NormalPollingInterval;
 
                 lock (this._dataLock)
                 {
@@ -1431,10 +1427,10 @@ public partial class MainWindow : Window
 
                 this.RenderProviders();
                 this._lastMonitorUpdate = now;
-                this.ShowStatus(successPresentation.StatusMessage, StatusType.Success);
+                this.ShowStatus(successStatusMessage, StatusType.Success);
                 _ = this.UpdateTrayIconsAsync();
 
-                if (successPresentation.SwitchToNormalInterval && this._pollingTimer != null)
+                if (switchToNormalInterval && this._pollingTimer != null)
                 {
                     this._pollingTimer.Interval = NormalPollingInterval;
                 }
@@ -1463,21 +1459,43 @@ public partial class MainWindow : Window
 
     private void ShowStatus(string message, StatusType type)
     {
-        var presentation = StatusPresentationCatalog.Create(
-            message,
-            type,
-            this._monitorContractWarningMessage,
-            this._lastMonitorUpdate);
+        var effectiveMessage = message;
+        var effectiveType = type;
+        if (effectiveType == StatusType.Success &&
+            !string.IsNullOrWhiteSpace(this._monitorContractWarningMessage))
+        {
+            effectiveMessage = this._monitorContractWarningMessage;
+            effectiveType = StatusType.Warning;
+        }
+
+        var tooltipText = this._lastMonitorUpdate == DateTime.MinValue
+            ? "Last update: Never"
+            : $"Last update: {this._lastMonitorUpdate:HH:mm:ss}";
+
+        var indicatorKind = effectiveType switch
+        {
+            StatusType.Success => StatusIndicatorKind.Success,
+            StatusType.Warning => StatusIndicatorKind.Warning,
+            StatusType.Error => StatusIndicatorKind.Error,
+            _ => StatusIndicatorKind.Neutral,
+        };
+
+        var logLevel = effectiveType switch
+        {
+            StatusType.Error => LogLevel.Error,
+            StatusType.Warning => LogLevel.Warning,
+            _ => LogLevel.Information,
+        };
 
         if (this.StatusText != null)
         {
-            this.StatusText.Text = presentation.Message;
+            this.StatusText.Text = effectiveMessage;
         }
 
         // Update LED color
         if (this.StatusLed != null)
         {
-            this.StatusLed.Fill = presentation.IndicatorKind switch
+            this.StatusLed.Fill = indicatorKind switch
             {
                 StatusIndicatorKind.Success => this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
                 StatusIndicatorKind.Warning => Brushes.Gold,
@@ -1488,19 +1506,19 @@ public partial class MainWindow : Window
 
         if (this.StatusLed != null)
         {
-            this.StatusLed.ToolTip = this.CreateTopmostAwareToolTip(this.StatusLed, presentation.TooltipText);
+            this.StatusLed.ToolTip = this.CreateTopmostAwareToolTip(this.StatusLed, tooltipText);
         }
 
         if (this.StatusText != null)
         {
-            this.StatusText.ToolTip = this.CreateTopmostAwareToolTip(this.StatusText, presentation.TooltipText);
+            this.StatusText.ToolTip = this.CreateTopmostAwareToolTip(this.StatusText, tooltipText);
         }
 
         this._logger.Log(
-            presentation.LogLevel,
+            logLevel,
             "[{StatusType}] {StatusMessage}",
-            presentation.Type,
-            presentation.Message);
+            effectiveType,
+            effectiveMessage);
     }
 
     private void ApplyMonitorContractStatus(AgentContractHandshakeResult handshakeResult)
@@ -1827,14 +1845,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        var confirmPresentation = UpdateInstallPresentationCatalog.CreateConfirm(this._latestUpdate.Version);
         var result = MessageBox.Show(
-            confirmPresentation.Message,
-            confirmPresentation.Title,
-            confirmPresentation.Buttons,
-            confirmPresentation.Icon);
+            $"Download and install version {this._latestUpdate.Version}?\n\nThe application will restart after installation.",
+            "Confirm Update",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
 
-        if (!UpdateInstallPresentationCatalog.ShouldProceed(result))
+        if (result != MessageBoxResult.Yes)
         {
             return;
         }
@@ -1850,10 +1867,9 @@ public partial class MainWindow : Window
                 Maximum = 100,
             };
 
-            var progressPresentation = UpdateInstallPresentationCatalog.CreateProgress(this._latestUpdate.Version);
             progressWindow = new Window
             {
-                Title = progressPresentation.WindowTitle,
+                Title = "Downloading Update",
                 Width = 400,
                 Height = 150,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -1864,7 +1880,7 @@ public partial class MainWindow : Window
                     Margin = new Thickness(20),
                     Children =
                     {
-                        new TextBlock { Text = progressPresentation.ProgressText, Margin = new Thickness(0, 0, 0, 10) },
+                        new TextBlock { Text = $"Downloading version {this._latestUpdate.Version}...", Margin = new Thickness(0, 0, 0, 10) },
                         progressBar,
                     },
                 },
@@ -1883,23 +1899,21 @@ public partial class MainWindow : Window
             }
             else
             {
-                var failedPresentation = UpdateInstallPresentationCatalog.CreateFailed();
                 MessageBox.Show(
-                    failedPresentation.Message,
-                    failedPresentation.Title,
-                    failedPresentation.Buttons,
-                    failedPresentation.Icon);
+                    "Failed to download or install the update. Please try again or download manually from the releases page.",
+                    "Update Failed",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
             }
         }
         catch (Exception ex)
         {
             progressWindow?.Close();
-            var errorPresentation = UpdateInstallPresentationCatalog.CreateError(ex.Message);
             MessageBox.Show(
-                errorPresentation.Message,
-                errorPresentation.Title,
-                errorPresentation.Buttons,
-                errorPresentation.Icon);
+                $"Update error: {ex.Message}",
+                "Update Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
@@ -1907,23 +1921,99 @@ public partial class MainWindow : Window
     {
         try
         {
-            var restartingPresentation = MonitorControlPresentationCatalog.CreateRestarting();
-            this.ShowStatus(restartingPresentation.Message, restartingPresentation.StatusType);
+            this.ShowStatus("Restarting monitor...", StatusType.Warning);
 
             // Try to start agent
             var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
-            var restartResultPresentation = MonitorControlPresentationCatalog.CreateRestartResult(monitorReady);
-            this.ShowStatus(restartResultPresentation.Message, restartResultPresentation.StatusType);
-            if (restartResultPresentation.TriggerRefreshData)
+            if (monitorReady)
             {
+                this.ShowStatus("Monitor restarted", StatusType.Success);
                 await this.RefreshDataAsync();
+            }
+            else
+            {
+                this.ShowStatus("Monitor restart failed", StatusType.Error);
             }
         }
         catch (Exception ex)
         {
-            var restartErrorPresentation = MonitorControlPresentationCatalog.CreateRestartError(ex.Message);
-            this.ShowStatus(restartErrorPresentation.Message, restartErrorPresentation.StatusType);
+            this.ShowStatus($"Restart error: {ex.Message}", StatusType.Error);
         }
+    }
+
+    private static string BuildMonitorErrorMessage(
+        string heading,
+        string fallbackDetails,
+        IReadOnlyCollection<string>? errors)
+    {
+        if (errors == null || errors.Count == 0)
+        {
+            return $"{heading}\n\n{fallbackDetails}";
+        }
+
+        var details = string.Join(
+            Environment.NewLine,
+            errors.Take(3).Select(error => $"- {error}"));
+
+        return $"{heading}\n\nMonitor reported:\n{details}\n\n{fallbackDetails}";
+    }
+
+    private static string FormatRelativeTimeUntil(DateTime nextReset, DateTime now)
+    {
+        var diff = nextReset - now;
+
+        if (diff.TotalSeconds <= 0)
+        {
+            return "0m";
+        }
+
+        if (diff.TotalDays >= 1)
+        {
+            return $"{diff.Days}d {diff.Hours}h";
+        }
+
+        if (diff.TotalHours >= 1)
+        {
+            return $"{diff.Hours}h {diff.Minutes}m";
+        }
+
+        return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
+    }
+
+    private static string? ParsePrereleaseLabel(string? informationalVersion)
+    {
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            return null;
+        }
+
+        var normalized = informationalVersion.Split('+')[0];
+        var dashIndex = normalized.IndexOf('-');
+        if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
+        {
+            return null;
+        }
+
+        var suffix = normalized[(dashIndex + 1)..];
+        if (suffix.StartsWith("beta.", StringComparison.OrdinalIgnoreCase))
+        {
+            var betaPart = suffix["beta.".Length..];
+            return string.IsNullOrWhiteSpace(betaPart) ? "Beta" : $"Beta {betaPart}";
+        }
+
+        if (suffix.StartsWith("alpha.", StringComparison.OrdinalIgnoreCase))
+        {
+            var alphaPart = suffix["alpha.".Length..];
+            return string.IsNullOrWhiteSpace(alphaPart) ? "Alpha" : $"Alpha {alphaPart}";
+        }
+
+        if (suffix.StartsWith("rc.", StringComparison.OrdinalIgnoreCase))
+        {
+            var rcPart = suffix["rc.".Length..];
+            return string.IsNullOrWhiteSpace(rcPart) ? "RC" : $"RC {rcPart}";
+        }
+
+        return suffix.Replace('.', ' ');
     }
 
     private async void MonitorToggleBtn_Click(object sender, RoutedEventArgs e)
@@ -1935,32 +2025,33 @@ public partial class MainWindow : Window
             if (isRunning)
             {
                 // Stop the agent
-                var stoppingPresentation = MonitorControlPresentationCatalog.CreateStopping();
-                this.ShowStatus(stoppingPresentation.Message, stoppingPresentation.StatusType);
+                this.ShowStatus("Stopping monitor...", StatusType.Warning);
                 var stopped = await this._monitorLifecycleService.StopAgentAsync();
-                var stopResultPresentation = MonitorControlPresentationCatalog.CreateStopResult(stopped);
-                this.ShowStatus(stopResultPresentation.Message, stopResultPresentation.StatusType);
-                if (stopResultPresentation.UpdateToggleButton)
+                if (stopped)
                 {
-                    this.UpdateMonitorToggleButton(stopResultPresentation.ToggleRunningState);
+                    this.ShowStatus("Monitor stopped", StatusType.Info);
+                    this.UpdateMonitorToggleButton(false);
+                }
+                else
+                {
+                    this.ShowStatus("Failed to stop monitor", StatusType.Error);
                 }
             }
             else
             {
                 // Start the monitor
-                var startingPresentation = MonitorControlPresentationCatalog.CreateStarting();
-                this.ShowStatus(startingPresentation.Message, startingPresentation.StatusType);
+                this.ShowStatus("Starting monitor...", StatusType.Warning);
                 var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
-                var startResultPresentation = MonitorControlPresentationCatalog.CreateStartResult(monitorReady);
-                this.ShowStatus(startResultPresentation.Message, startResultPresentation.StatusType);
-                if (startResultPresentation.UpdateToggleButton)
+                if (monitorReady)
                 {
-                    this.UpdateMonitorToggleButton(startResultPresentation.ToggleRunningState);
-                }
-
-                if (startResultPresentation.TriggerRefreshData)
-                {
+                    this.ShowStatus("Monitor started", StatusType.Success);
+                    this.UpdateMonitorToggleButton(true);
                     await this.RefreshDataAsync();
+                }
+                else
+                {
+                    this.ShowStatus("Monitor failed to start", StatusType.Error);
+                    this.UpdateMonitorToggleButton(false);
                 }
             }
         }

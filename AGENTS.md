@@ -19,6 +19,11 @@ This document provides essential information for agentic coding assistants worki
 - **DO NOT** show only a subset of providers (e.g., only antigravity) on startup
 - The UI must show provider cards immediately, even if data is stale or unavailable
 
+### Lean Code Requirement
+- **The goal is to keep as little source code as necessary** to deliver required functionality across these applications.
+- Prefer deleting redundant layers/wrappers over adding new abstraction when behavior can remain clear and testable.
+- New code must justify its existence; avoid duplicate logic paths and unnecessary fallback branches.
+
 ### Development Workflow
 
 - **Never push directly to `main`**: All changes, including release preparations, MUST be done on a feature branch (e.g., `feature/branch-name`) and integrated via a Pull Request.
@@ -786,6 +791,5 @@ Key rules:
 - Use fire-and-forget (`_ =`) for non-critical background work
 - Add exception handling to all `async void` event handlers
 - Use `ConfigureAwait(false)` in library code (Core/Infrastructure projects)
-
 
 

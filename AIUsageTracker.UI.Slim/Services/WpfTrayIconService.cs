@@ -154,7 +154,7 @@ public class WpfTrayIconService : ITrayIconService, IWpfTrayIconService
 
                 var key = $"{config.ProviderId}:{subName}";
                 var isQuotaSub = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
-                var pctStr = ProviderUsageDetailValuePresentationCatalog.GetDisplayText(detail, showUsed: invert, includeSemanticLabel: false);
+                var pctStr = ProviderSubDetailSectionCatalog.GetDisplayText(detail, showUsed: invert, includeSemanticLabel: false);
                 desiredIcons[key] = (
                     $"{usage.ProviderName} - {subName}: {detail.Description} ({pctStr})",
                     effectiveUsedPct.Value,

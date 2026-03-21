@@ -24,7 +24,11 @@ public partial class SubProviderCardViewModel : BaseViewModel
     [ObservableProperty]
     private bool _showUsedPercentages;
 
-    private ProviderSubDetailPresentation? _presentation;
+    private bool _hasProgress;
+    private double _usedPercent;
+    private double _indicatorWidth;
+    private string _displayValue = string.Empty;
+    private string? _resetText;
 
     public SubProviderCardViewModel(
         ProviderUsageDetail detail,
@@ -41,15 +45,15 @@ public partial class SubProviderCardViewModel : BaseViewModel
 
     public string DisplayName => this.Detail.Name;
 
-    public string DisplayValue => this._presentation?.DisplayText ?? string.Empty;
+    public string DisplayValue => this._displayValue;
 
-    public double IndicatorWidth => this._presentation?.IndicatorWidth ?? 0;
+    public double IndicatorWidth => this._indicatorWidth;
 
-    public double UsedPercent => this._presentation?.UsedPercent ?? 0;
+    public double UsedPercent => this._usedPercent;
 
-    public bool HasProgress => this._presentation?.HasProgress ?? false;
+    public bool HasProgress => this._hasProgress;
 
-    public string? ResetText => this._presentation?.ResetText;
+    public string? ResetText => this._resetText;
 
     public DateTime? NextResetTime => this.Detail.NextResetTime;
 
@@ -73,10 +77,15 @@ public partial class SubProviderCardViewModel : BaseViewModel
 
     private void UpdatePresentation()
     {
-        this._presentation = ProviderSubDetailPresentationCatalog.Create(
+        var presentation = ProviderSubDetailSectionCatalog.BuildDetailPresentation(
             this.Detail,
             this.ShowUsedPercentages,
             GetRelativeTimeString);
+        this._hasProgress = presentation.HasProgress;
+        this._usedPercent = presentation.UsedPercent;
+        this._indicatorWidth = presentation.IndicatorWidth;
+        this._displayValue = presentation.DisplayText;
+        this._resetText = presentation.ResetText;
     }
 
     private void NotifyAllPropertiesChanged()

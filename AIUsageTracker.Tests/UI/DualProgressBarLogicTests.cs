@@ -77,7 +77,7 @@ public class DualProgressBarLogicTests
             Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
         };
 
-        var result = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out var presentation);
+        var result = ProviderCardPresentationCatalog.TryGetDualQuotaBucketPresentation(usage, out var presentation);
 
         Assert.True(result);
         Assert.Equal("5h", presentation.PrimaryLabel);
@@ -115,7 +115,7 @@ public class DualProgressBarLogicTests
             },
         };
 
-        var result = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out _);
+        var result = ProviderCardPresentationCatalog.TryGetDualQuotaBucketPresentation(usage, out _);
 
         Assert.False(result);
     }

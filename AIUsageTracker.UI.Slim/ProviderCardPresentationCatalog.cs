@@ -25,7 +25,7 @@ internal static class ProviderCardPresentationCatalog
         var isAggregateParent = ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId)
             && string.Equals(providerId, canonicalProviderId, StringComparison.OrdinalIgnoreCase);
         var isStatusOnlyProvider = usage.IsStatusOnly;
-        var hasDualQuotaBucketPresentation = ProviderDualQuotaBucketPresentationCatalog.TryGetPresentation(usage, out var dualQuotaBucketPresentation);
+        var hasDualQuotaBucketPresentation = TryGetDualQuotaBucketPresentation(usage, out var dualQuotaBucketPresentation);
         var remainingPercent = usage.RemainingPercent;
         var usedPercent = usage.UsedPercent;
         var shouldHaveProgress = usage.IsAvailable &&
@@ -166,7 +166,7 @@ internal static class ProviderCardPresentationCatalog
         bool isAggregateParent,
         bool isStatusOnlyProvider,
         bool hasDualQuotaBucketPresentation,
-        ProviderDualQuotaBucketPresentation dualQuotaBucketPresentation)
+        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime) dualQuotaBucketPresentation)
     {
         if (isAggregateParent)
         {
@@ -254,7 +254,9 @@ internal static class ProviderCardPresentationCatalog
             IsStale: isStale);
     }
 
-    private static string BuildDualQuotaBucketStatusText(ProviderDualQuotaBucketPresentation presentation, bool showUsed)
+    private static string BuildDualQuotaBucketStatusText(
+        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime) presentation,
+        bool showUsed)
     {
         return $"{FormatDualQuotaBucketSegment(presentation.PrimaryLabel, presentation.PrimaryUsedPercent, showUsed)} | " +
                $"{FormatDualQuotaBucketSegment(presentation.SecondaryLabel, presentation.SecondaryUsedPercent, showUsed)}";
@@ -285,5 +287,126 @@ internal static class ProviderCardPresentationCatalog
         return showUsed
             ? $"{UsageMath.ClampPercent(usage.UsedPercent):F0}% used"
             : $"{UsageMath.ClampPercent(usage.RemainingPercent):F0}% remaining";
+    }
+
+    internal static bool TryGetDualQuotaBucketPresentation(
+        ProviderUsage usage,
+        out (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime) presentation)
+    {
+        presentation = default;
+
+        if (usage.Details?.Any() != true)
+        {
+            return false;
+        }
+
+        var quotaBuckets = usage.Details
+            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
+            .Where(detail => detail.QuotaBucketKind != WindowKind.None)
+            .ToList();
+
+        if (quotaBuckets.Count < 2)
+        {
+            return false;
+        }
+
+        ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition);
+        var declaredWindows = definition?.QuotaWindows.Where(w => w.Kind != WindowKind.None).ToList();
+        if (declaredWindows == null || declaredWindows.Count == 0)
+        {
+            return false;
+        }
+
+        var orderedBuckets = quotaBuckets
+            .Select(detail => new
+            {
+                Detail = detail,
+                DeclaredWindow = FindMatchingWindow(detail, declaredWindows),
+            })
+            .Where(x => x.DeclaredWindow != null)
+            .OrderBy(x => GetDeclaredWindowOrder(x.DeclaredWindow!, declaredWindows))
+            .ToList();
+
+        if (orderedBuckets.Count < 2)
+        {
+            return false;
+        }
+
+        var first = orderedBuckets[0];
+        var second = orderedBuckets.Skip(1).FirstOrDefault(x => x.Detail.QuotaBucketKind != first.Detail.QuotaBucketKind);
+
+        if (second == null)
+        {
+            return false;
+        }
+
+        var parsedFirst = UsageMath.GetEffectiveUsedPercent(first.Detail);
+        var parsedSecond = UsageMath.GetEffectiveUsedPercent(second.Detail);
+
+        if (!parsedFirst.HasValue || !parsedSecond.HasValue)
+        {
+            return false;
+        }
+
+        presentation = (
+            PrimaryLabel: GetWindowLabel(first.Detail, first.DeclaredWindow!),
+            PrimaryUsedPercent: parsedFirst.Value,
+            PrimaryResetTime: first.Detail.NextResetTime,
+            SecondaryLabel: GetWindowLabel(second.Detail, second.DeclaredWindow!),
+            SecondaryUsedPercent: parsedSecond.Value,
+            SecondaryResetTime: second.Detail.NextResetTime);
+        return true;
+    }
+
+    private static int GetDeclaredWindowOrder(QuotaWindowDefinition declaredWindow, IReadOnlyList<QuotaWindowDefinition> windows)
+    {
+        for (var index = 0; index < windows.Count; index++)
+        {
+            if (ReferenceEquals(windows[index], declaredWindow))
+            {
+                return index;
+            }
+        }
+
+        return int.MaxValue;
+    }
+
+    private static string GetWindowLabel(ProviderUsageDetail detail, QuotaWindowDefinition declaredWindow)
+    {
+        var nameLabel = ExtractDurationLabelFromDetailName(detail.Name);
+        if (!string.IsNullOrWhiteSpace(nameLabel))
+        {
+            return nameLabel;
+        }
+
+        return declaredWindow.DualBarLabel;
+    }
+
+    private static QuotaWindowDefinition? FindMatchingWindow(
+        ProviderUsageDetail detail,
+        IReadOnlyList<QuotaWindowDefinition> declaredWindows)
+    {
+        var detailNameMatch = declaredWindows.FirstOrDefault(window =>
+            window.Kind == detail.QuotaBucketKind &&
+            window.DetailName != null &&
+            string.Equals(window.DetailName, detail.Name, StringComparison.OrdinalIgnoreCase));
+        if (detailNameMatch != null)
+        {
+            return detailNameMatch;
+        }
+
+        var sameKindWindows = declaredWindows.Where(window => window.Kind == detail.QuotaBucketKind).ToList();
+        return sameKindWindows.Count == 1 ? sameKindWindows[0] : null;
+    }
+
+    private static string? ExtractDurationLabelFromDetailName(string? name)
+    {
+        const string suffix = " Limit";
+        if (string.IsNullOrWhiteSpace(name) || !name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return name[..^suffix.Length].Trim();
     }
 }

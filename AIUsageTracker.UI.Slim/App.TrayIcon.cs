@@ -70,7 +70,7 @@ public partial class App
                 }
 
                 var isQuotaSub = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
-                var detailPresentation = ProviderSubDetailPresentationCatalog.Create(
+                var detailPresentation = ProviderSubDetailSectionCatalog.BuildDetailPresentation(
                     detail,
                     showUsed,
                     _ => string.Empty);

@@ -22,7 +22,7 @@ internal static class ProviderSubTrayCatalog
         }
 
         return usage.Details
-            .Where(detail => ProviderSubDetailPresentationCatalog.IsEligibleDetail(detail, includeRateLimit: false))
+            .Where(detail => ProviderSubDetailSectionCatalog.IsEligibleDetail(detail, includeRateLimit: false))
             .GroupBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)

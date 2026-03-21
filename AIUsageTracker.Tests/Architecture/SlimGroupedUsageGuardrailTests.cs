@@ -55,9 +55,9 @@ public class SlimGroupedUsageGuardrailTests
     {
         var files = new[]
         {
-            GetRepoPath("AIUsageTracker.UI.Slim", "ProviderDualQuotaBucketPresentationCatalog.cs"),
-            GetRepoPath("AIUsageTracker.UI.Slim", "ProviderTooltipPresentationCatalog.cs"),
+            GetRepoPath("AIUsageTracker.UI.Slim", "ProviderCardPresentationCatalog.cs"),
             GetRepoPath("AIUsageTracker.UI.Slim", "GroupedUsageDisplayAdapter.cs"),
+            GetRepoPath("AIUsageTracker.UI.Slim", "ProviderCardRenderer.cs"),
         };
 
         foreach (var path in files)
