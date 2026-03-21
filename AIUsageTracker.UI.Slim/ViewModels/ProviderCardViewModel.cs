@@ -328,6 +328,23 @@ public partial class ProviderCardViewModel : BaseViewModel
             tooltipBuilder.AppendLine($"Description: {usage.Description}");
         }
 
+        if (usage.IsAvailable && usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
+        {
+            var days = usage.PeriodDuration.Value.TotalDays;
+            var dailyBudget = 100.0 / days;
+            var elapsedDays = 0.0;
+            if (usage.NextResetTime.HasValue && usage.NextResetTime.Value.Ticks > usage.PeriodDuration.Value.Ticks)
+            {
+                var periodStart = usage.NextResetTime.Value.ToUniversalTime() - usage.PeriodDuration.Value;
+                elapsedDays = (DateTime.UtcNow - periodStart).TotalDays;
+            }
+
+            var expectedAtThisPoint = dailyBudget * Math.Max(0, elapsedDays);
+            tooltipBuilder.AppendLine();
+            tooltipBuilder.AppendLine($"Daily budget: {dailyBudget:F0}%/day");
+            tooltipBuilder.AppendLine($"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usage.UsedPercent:F0}%");
+        }
+
         if (usage.Details?.Any() == true)
         {
             tooltipBuilder.AppendLine();
