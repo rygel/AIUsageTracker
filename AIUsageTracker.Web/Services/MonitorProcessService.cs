@@ -19,7 +19,7 @@ public class MonitorProcessService
     private readonly IMonitorLauncherClient _monitorLauncherClient;
 
     public MonitorProcessService(ILogger<MonitorProcessService> logger, IMonitorService monitorService)
-        : this(logger, monitorService, new MonitorLauncherClient())
+        : this(logger, monitorService, new MonitorLauncherClient(new MonitorLauncher()))
     {
     }
 

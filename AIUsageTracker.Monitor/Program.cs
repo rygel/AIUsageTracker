@@ -94,10 +94,12 @@ public class Program
             startupMutex = new Mutex(true, mutexName, out createdNew);
             holdsStartupMutex = createdNew;
 
+            var monitorLauncher = new MonitorLauncher();
+
             if (!createdNew)
             {
                 logger.LogWarning("Monitor startup lock is already held. Checking for existing healthy monitor instance.");
-                var existingStatus = await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+                var existingStatus = await monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
                 if (existingStatus.IsRunning)
                 {
                     logger.LogWarning(
@@ -111,7 +113,7 @@ public class Program
                 {
                     if (!startupMutex.WaitOne(TimeSpan.FromSeconds(10)))
                     {
-                        var statusAfterWait = await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+                        var statusAfterWait = await monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
                         if (statusAfterWait.IsRunning)
                         {
                             logger.LogWarning(

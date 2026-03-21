@@ -6,48 +6,55 @@ namespace AIUsageTracker.Core.MonitorClient;
 
 public sealed class MonitorLifecycleService
 {
+    private readonly IMonitorLauncher _launcher;
+
+    public MonitorLifecycleService(IMonitorLauncher monitorLauncher)
+    {
+        this._launcher = monitorLauncher;
+    }
+
     public Task<bool> StartAgentAsync()
     {
-        return MonitorLauncher.StartAgentAsync();
+        return this._launcher.StartAgentAsync();
     }
 
     public Task<bool> StopAgentAsync()
     {
-        return MonitorLauncher.StopAgentAsync();
+        return this._launcher.StopAgentAsync();
     }
 
     public Task<bool> EnsureAgentRunningAsync()
     {
-        return MonitorLauncher.EnsureAgentRunningAsync();
+        return this._launcher.EnsureAgentRunningAsync();
     }
 
     public Task<bool> WaitForAgentAsync(CancellationToken cancellationToken = default)
     {
-        return MonitorLauncher.WaitForAgentAsync(cancellationToken);
+        return this._launcher.WaitForAgentAsync(cancellationToken);
     }
 
     public Task<int> GetAgentPortAsync()
     {
-        return MonitorLauncher.GetAgentPortAsync();
+        return this._launcher.GetAgentPortAsync();
     }
 
     public Task<bool> IsAgentRunningAsync()
     {
-        return MonitorLauncher.IsAgentRunningAsync();
+        return this._launcher.IsAgentRunningAsync();
     }
 
     public Task<(bool IsRunning, int Port)> IsAgentRunningWithPortAsync()
     {
-        return MonitorLauncher.IsAgentRunningWithPortAsync();
+        return this._launcher.IsAgentRunningWithPortAsync();
     }
 
     public async Task<MonitorAgentStatus> GetAgentStatusInfoAsync()
     {
-        return await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        return await this._launcher.GetAgentStatusInfoAsync().ConfigureAwait(false);
     }
 
     public async Task<MonitorMetadataStatus> GetMonitorMetadataSnapshotAsync()
     {
-        return await MonitorLauncher.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
+        return await this._launcher.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
     }
 }

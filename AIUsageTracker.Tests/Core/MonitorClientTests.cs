@@ -76,21 +76,21 @@ public class MonitorClientTests
     {
         var type = typeof(MonitorLauncher);
 
-        Assert.NotNull(type.GetMethod("StartAgentAsync", BindingFlags.Public | BindingFlags.Static));
-        Assert.NotNull(type.GetMethod("StopAgentAsync", BindingFlags.Public | BindingFlags.Static));
-        Assert.NotNull(type.GetMethod("IsAgentRunningAsync", BindingFlags.Public | BindingFlags.Static));
-        Assert.NotNull(type.GetMethod("WaitForAgentAsync", BindingFlags.Public | BindingFlags.Static));
+        Assert.NotNull(type.GetMethod("StartAgentAsync", BindingFlags.Public | BindingFlags.Instance));
+        Assert.NotNull(type.GetMethod("StopAgentAsync", BindingFlags.Public | BindingFlags.Instance));
+        Assert.NotNull(type.GetMethod("IsAgentRunningAsync", BindingFlags.Public | BindingFlags.Instance));
+        Assert.NotNull(type.GetMethod("WaitForAgentAsync", BindingFlags.Public | BindingFlags.Instance));
     }
 
     [Fact]
     public async Task MonitorLauncher_GetAndValidateMonitorInfo_ReturnsNull_WhenHealthFailsAsync()
     {
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: Array.Empty<string>(),
-            healthCheckAsync: ignoredPort => Task.FromResult(false),
-            processRunningAsync: ignoredProcessId => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => Array.Empty<string>(),
+            healthCheckOverride: ignoredPort => Task.FromResult(false),
+            processRunningOverride: ignoredProcessId => Task.FromResult(false));
 
-        var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+        var result = await launcher.GetAndValidateMonitorInfoAsync();
 
         Assert.Null(result);
     }
@@ -98,7 +98,9 @@ public class MonitorClientTests
     [Fact]
     public async Task MonitorLauncher_InvalidateMonitorInfo_DoesNotThrow_WhenFileMissingAsync()
     {
+        var launcher = new MonitorLauncher();
+
         // Act & Assert
-        await MonitorLauncher.InvalidateMonitorInfoAsync();
+        await launcher.InvalidateMonitorInfoAsync();
     }
 }

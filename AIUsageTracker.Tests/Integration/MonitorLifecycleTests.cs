@@ -60,10 +60,12 @@ public class MonitorLifecycleTests
 
     private static async Task RunLifecycleScenarioAsync()
     {
+        var launcher = new MonitorLauncher();
+
         try
         {
             var canStart = await WithTimeoutAsync(
-                MonitorLauncher.StartAgentAsync(),
+                launcher.StartAgentAsync(),
                 StartStopTimeout,
                 "StartAgentAsync").ConfigureAwait(false);
             if (!canStart)
@@ -73,7 +75,7 @@ public class MonitorLifecycleTests
 
             using var initialWaitTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(35));
             var started = await WithTimeoutAsync(
-                MonitorLauncher.WaitForAgentAsync(initialWaitTokenSource.Token),
+                launcher.WaitForAgentAsync(initialWaitTokenSource.Token),
                 WaitReadyTimeout,
                 "WaitForAgentAsync (initial)").ConfigureAwait(false);
             if (!started)
@@ -82,12 +84,12 @@ public class MonitorLifecycleTests
             }
 
             await WithTimeoutAsync(
-                MonitorLauncher.StopAgentAsync(),
+                launcher.StopAgentAsync(),
                 StartStopTimeout,
                 "StopAgentAsync").ConfigureAwait(false);
 
             var restarted = await WithTimeoutAsync(
-                MonitorLauncher.StartAgentAsync(),
+                launcher.StartAgentAsync(),
                 StartStopTimeout,
                 "StartAgentAsync (restart)").ConfigureAwait(false);
             if (!restarted)
@@ -97,7 +99,7 @@ public class MonitorLifecycleTests
 
             using var restartWaitTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(35));
             var restartReady = await WithTimeoutAsync(
-                MonitorLauncher.WaitForAgentAsync(restartWaitTokenSource.Token),
+                launcher.WaitForAgentAsync(restartWaitTokenSource.Token),
                 WaitReadyTimeout,
                 "WaitForAgentAsync (restart)").ConfigureAwait(false);
             Assert.True(restartReady, "Monitor should be reachable after restart.");
@@ -106,7 +108,7 @@ public class MonitorLifecycleTests
         {
             // Ensure the test never leaves a monitor process running in CI.
             await WithTimeoutAsync(
-                MonitorLauncher.StopAgentAsync(),
+                launcher.StopAgentAsync(),
                 StartStopTimeout,
                 "StopAgentAsync (cleanup)").ConfigureAwait(false);
         }

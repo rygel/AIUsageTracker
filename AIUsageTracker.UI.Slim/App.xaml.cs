@@ -134,6 +134,8 @@ public partial class App : Application
         services.AddSingleton<IAppPathProvider, AIUsageTracker.Infrastructure.Helpers.DefaultAppPathProvider>();
         services.AddSingleton<UiPreferencesStore>();
         services.AddSingleton<IUiPreferencesStore>(sp => sp.GetRequiredService<UiPreferencesStore>());
+        services.AddSingleton<IMonitorLauncher, MonitorLauncher>();
+        services.AddSingleton<MonitorLauncher>();
         services.AddSingleton<IMonitorService, MonitorService>();
         services.AddSingleton<MonitorLifecycleService>();
         services.AddSingleton<GitHubUpdateChecker>();

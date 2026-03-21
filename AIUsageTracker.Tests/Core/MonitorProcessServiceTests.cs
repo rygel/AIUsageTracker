@@ -26,12 +26,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
     [Fact]
     public async Task GetAgentStatusDetailedAsync_ReturnsMissing_WhenMonitorInfoIsAbsentAsync()
     {
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: Array.Empty<string>(),
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => Array.Empty<string>(),
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var service = this.CreateService();
+        var service = this.CreateService(launcher: launcher);
 
         var result = await service.GetAgentStatusDetailedAsync();
 
@@ -51,12 +51,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
             ProcessId = 7777,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var service = this.CreateService();
+        var service = this.CreateService(launcher: launcher);
 
         var result = await service.GetAgentStatusDetailedAsync();
 
@@ -76,12 +76,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
             ProcessId = 8888,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 6222),
-            processRunningAsync: processId => Task.FromResult(processId == 8888));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 6222),
+            processRunningOverride: processId => Task.FromResult(processId == 8888));
 
-        var service = this.CreateService();
+        var service = this.CreateService(launcher: launcher);
 
         var result = await service.StartAgentDetailedAsync();
 
@@ -102,10 +102,10 @@ public sealed class MonitorProcessServiceTests : IDisposable
             Errors = new List<string> { "Startup status: starting" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(true));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(true));
 
         _ = Task.Run(async () =>
         {
@@ -123,7 +123,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
             File.Replace(replacementPath, infoPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
         });
 
-        var service = this.CreateService();
+        var service = this.CreateService(launcher: launcher);
 
         var result = await service.StartAgentDetailedAsync();
 
@@ -144,12 +144,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
             Errors = new List<string> { "Startup status: starting" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: processId => Task.FromResult(processId == 9999));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: processId => Task.FromResult(processId == 9999));
 
-        var service = this.CreateService();
+        var service = this.CreateService(launcher: launcher);
 
         var result = await service.GetAgentStatusDetailedAsync();
 
@@ -171,12 +171,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
             Errors = new List<string> { "Startup status: failed: port 5000 is already in use" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var service = this.CreateService();
+        var service = this.CreateService(launcher: launcher);
 
         var result = await service.GetAgentStatusDetailedAsync();
 
@@ -197,10 +197,10 @@ public sealed class MonitorProcessServiceTests : IDisposable
             ProcessId = 7777,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 6333),
-            processRunningAsync: processId => Task.FromResult(processId == 7777));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 6333),
+            processRunningOverride: processId => Task.FromResult(processId == 7777));
 
         var healthSnapshot = new MonitorHealthSnapshot
         {
@@ -217,7 +217,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
                 FailingProviders = new[] { "openai", "anthropic" },
             },
         };
-        var service = this.CreateService(healthSnapshot);
+        var service = this.CreateService(healthSnapshot, launcher);
 
         var result = await service.GetAgentStatusDetailedAsync();
 
@@ -245,10 +245,10 @@ public sealed class MonitorProcessServiceTests : IDisposable
             ProcessId = 7007,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 6444),
-            processRunningAsync: processId => Task.FromResult(processId == 7007));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 6444),
+            processRunningOverride: processId => Task.FromResult(processId == 7007));
 
         var healthSnapshot = new MonitorHealthSnapshot
         {
@@ -262,7 +262,7 @@ public sealed class MonitorProcessServiceTests : IDisposable
                 Status = "healthy",
             },
         };
-        var service = this.CreateService(healthSnapshot);
+        var service = this.CreateService(healthSnapshot, launcher);
 
         var result = await service.GetAgentStatusDetailedAsync();
 
@@ -277,12 +277,12 @@ public sealed class MonitorProcessServiceTests : IDisposable
     [Fact]
     public async Task StopAgentDetailedAsync_ReturnsAlreadyStopped_WhenMonitorInfoIsAbsentAsync()
     {
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: Array.Empty<string>(),
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => Array.Empty<string>(),
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var service = this.CreateService();
+        var service = this.CreateService(launcher: launcher);
 
         var result = await service.StopAgentDetailedAsync();
 
@@ -295,12 +295,14 @@ public sealed class MonitorProcessServiceTests : IDisposable
         TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
-    private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null)
+    private MonitorProcessService CreateService(MonitorHealthSnapshot? healthSnapshot = null, IMonitorLauncher? launcher = null)
     {
+        launcher ??= new MonitorLauncher();
         var monitorService = new Mock<IMonitorService>();
         monitorService.Setup(service => service.RefreshAgentInfoAsync()).Returns(Task.CompletedTask);
         monitorService.Setup(service => service.GetHealthSnapshotAsync()).ReturnsAsync(healthSnapshot);
-        return new MonitorProcessService(NullLogger<MonitorProcessService>.Instance, monitorService.Object);
+        var launcherClient = new MonitorLauncherClient(launcher);
+        return new MonitorProcessService(NullLogger<MonitorProcessService>.Instance, monitorService.Object, launcherClient);
     }
 
     private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)

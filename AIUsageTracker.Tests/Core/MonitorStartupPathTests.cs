@@ -34,12 +34,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             Errors = new List<string> { "warning" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 5123),
-            processRunningAsync: processId => Task.FromResult(processId == 4242));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 5123),
+            processRunningOverride: processId => Task.FromResult(processId == 4242));
 
-        var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+        var result = await launcher.GetAndValidateMonitorInfoAsync();
 
         Assert.NotNull(result);
         Assert.Equal(5123, result!.Port);
@@ -56,12 +56,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 9999,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+        var result = await launcher.GetAndValidateMonitorInfoAsync();
 
         Assert.Null(result);
         Assert.False(File.Exists(infoPath));
@@ -73,10 +73,10 @@ public sealed class MonitorStartupPathTests : IDisposable
     {
         var infoPath = await this.CreateMonitorInfoContentAsync("{ not valid json");
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath });
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath });
 
-        var result = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+        var result = await launcher.GetAndValidateMonitorInfoAsync();
 
         Assert.Null(result);
         Assert.False(File.Exists(infoPath));
@@ -93,10 +93,10 @@ public sealed class MonitorStartupPathTests : IDisposable
             await File.WriteAllTextAsync(stalePath, "stale");
         }
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath });
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath });
 
-        _ = await MonitorLauncher.GetAndValidateMonitorInfoAsync();
+        _ = await launcher.GetAndValidateMonitorInfoAsync();
 
         var staleFiles = Directory.GetFiles(this._tempDirectory, "monitor.json.stale.*", SearchOption.TopDirectoryOnly);
         Assert.True(staleFiles.Length <= MonitorLauncher.MaxStaleMetadataBackups);
@@ -121,12 +121,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             Errors = new List<string> { "Startup status: running" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 5333),
-            processRunningAsync: processId => Task.FromResult(processId == 1111));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 5333),
+            processRunningOverride: processId => Task.FromResult(processId == 1111));
 
-        var service = this.CreateMonitorService();
+        var service = this.CreateMonitorService(launcher);
 
         await service.RefreshAgentInfoAsync();
 
@@ -145,12 +145,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             Errors = new List<string> { "stale" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var service = this.CreateMonitorService();
+        var service = this.CreateMonitorService(launcher);
         service.AgentUrl = "http://localhost:5444";
 
         await service.RefreshAgentInfoAsync();
@@ -170,12 +170,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             Errors = new List<string> { "Startup status: failed: port bind failed" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var service = this.CreateMonitorService();
+        var service = this.CreateMonitorService(launcher);
         service.AgentUrl = "http://localhost:5444";
 
         await service.RefreshAgentInfoAsync();
@@ -195,12 +195,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 3210,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 5555),
-            processRunningAsync: processId => Task.FromResult(processId == 3210));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 5555),
+            processRunningOverride: processId => Task.FromResult(processId == 3210));
 
-        var service = this.CreateMonitorService();
+        var service = this.CreateMonitorService(launcher);
         service.AgentUrl = "http://localhost:5000";
 
         await service.RefreshPortAsync();
@@ -217,12 +217,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 2222,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
-        var service = this.CreateMonitorService();
+        var service = this.CreateMonitorService(launcher);
         service.AgentUrl = "http://localhost:5333";
 
         await service.RefreshPortAsync();
@@ -240,12 +240,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 3333,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 5666),
-            processRunningAsync: processId => Task.FromResult(processId == 3333));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 5666),
+            processRunningOverride: processId => Task.FromResult(processId == 3333));
 
-        var result = await MonitorLauncher.IsAgentRunningWithPortAsync();
+        var result = await launcher.IsAgentRunningWithPortAsync();
 
         Assert.True(result.IsRunning);
         Assert.Equal(5666, result.Port);
@@ -260,12 +260,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 4444,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 5777),
-            processRunningAsync: processId => Task.FromResult(processId == 4444));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 5777),
+            processRunningOverride: processId => Task.FromResult(processId == 4444));
 
-        var result = await MonitorLauncher.EnsureAgentRunningAsync();
+        var result = await launcher.EnsureAgentRunningAsync();
 
         Assert.True(result);
         Assert.True(File.Exists(infoPath));
@@ -274,21 +274,21 @@ public sealed class MonitorStartupPathTests : IDisposable
     [Fact]
     public async Task WaitForAgentAsync_ReturnsFalse_WhenCancelledAsync()
     {
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: Array.Empty<string>(),
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => Array.Empty<string>(),
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
         using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
 
-        var result = await MonitorLauncher.WaitForAgentAsync(cancellationTokenSource.Token);
+        var result = await launcher.WaitForAgentAsync(cancellationTokenSource.Token);
 
         Assert.False(result);
     }
 
     [Fact]
-    public async Task PushTestOverrides_IsolatedAcrossConcurrentAsyncFlowsAsync()
+    public async Task ConcurrentLaunchers_IsolatedAcrossInstancesAsync()
     {
         var firstPath = Path.Combine(this._tempDirectory, "monitor-first.json");
         var secondPath = Path.Combine(this._tempDirectory, "monitor-second.json");
@@ -309,10 +309,10 @@ public sealed class MonitorStartupPathTests : IDisposable
 
         async Task<MonitorAgentStatus> ResolveStatusAsync(string infoPath, int expectedPort, int expectedProcessId)
         {
-            using var overrides = MonitorLauncher.PushTestOverrides(
-                monitorInfoCandidatePaths: new[] { infoPath },
-                healthCheckAsync: port => Task.FromResult(port == expectedPort),
-                processRunningAsync: processId => Task.FromResult(processId == expectedProcessId));
+            var launcher = new MonitorLauncher(
+                monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+                healthCheckOverride: port => Task.FromResult(port == expectedPort),
+                processRunningOverride: processId => Task.FromResult(processId == expectedProcessId));
 
             if (Interlocked.Increment(ref readyCount) == 2)
             {
@@ -320,7 +320,7 @@ public sealed class MonitorStartupPathTests : IDisposable
             }
 
             await gate.Task.ConfigureAwait(false);
-            return await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+            return await launcher.GetAgentStatusInfoAsync().ConfigureAwait(false);
         }
 
         var firstStatusTask = ResolveStatusAsync(firstPath, 6111, 6111);
@@ -341,15 +341,15 @@ public sealed class MonitorStartupPathTests : IDisposable
             Errors = new List<string> { "Startup status: failed: port bind failed" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: _ => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: _ => Task.FromResult(false));
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
-        var result = await MonitorLauncher.WaitForAgentAsync(cancellationTokenSource.Token);
+        var result = await launcher.WaitForAgentAsync(cancellationTokenSource.Token);
 
         stopwatch.Stop();
         Assert.False(result);
@@ -366,12 +366,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             Errors = new List<string> { "Startup status: starting" },
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: _ => Task.FromResult(false),
-            processRunningAsync: processId => Task.FromResult(processId == 7788));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: _ => Task.FromResult(false),
+            processRunningOverride: processId => Task.FromResult(processId == 7788));
 
-        var result = await MonitorLauncher.GetAgentStatusInfoAsync();
+        var result = await launcher.GetAgentStatusInfoAsync();
 
         Assert.False(result.IsRunning);
         Assert.True(result.HasMetadata);
@@ -391,13 +391,13 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 5555,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 5888),
-            processRunningAsync: processId => Task.FromResult(processId == 5555),
-            stopProcessAsync: processId => Task.FromResult(processId == 5555));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 5888),
+            processRunningOverride: processId => Task.FromResult(processId == 5555),
+            stopProcessOverride: processId => Task.FromResult(processId == 5555));
 
-        var result = await MonitorLauncher.StopAgentAsync();
+        var result = await launcher.StopAgentAsync();
 
         Assert.True(result);
         Assert.False(File.Exists(infoPath));
@@ -413,14 +413,14 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 6666,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(port == 5999),
-            processRunningAsync: processId => Task.FromResult(processId == 6666),
-            stopProcessAsync: _ => Task.FromResult(false),
-            stopNamedProcessesAsync: () => Task.FromResult(false));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(port == 5999),
+            processRunningOverride: processId => Task.FromResult(processId == 6666),
+            stopProcessOverride: _ => Task.FromResult(false),
+            stopNamedProcessesOverride: () => Task.FromResult(false));
 
-        var result = await MonitorLauncher.StopAgentAsync();
+        var result = await launcher.StopAgentAsync();
 
         Assert.False(result);
         Assert.True(File.Exists(infoPath));
@@ -442,12 +442,12 @@ public sealed class MonitorStartupPathTests : IDisposable
             ProcessId = 1234,
         });
 
-        using var overrides = MonitorLauncher.PushTestOverrides(
-            monitorInfoCandidatePaths: new[] { infoPath },
-            healthCheckAsync: port => Task.FromResult(healthyPorts.Contains(port)),
-            processRunningAsync: processId => Task.FromResult(processId == 1234 || processId == 5678));
+        var launcher = new MonitorLauncher(
+            monitorInfoCandidatePathsOverride: () => new[] { infoPath },
+            healthCheckOverride: port => Task.FromResult(healthyPorts.Contains(port)),
+            processRunningOverride: processId => Task.FromResult(processId == 1234 || processId == 5678));
 
-        var service = new MonitorService(new HttpClient(), NullLogger<MonitorService>.Instance)
+        var service = new MonitorService(new HttpClient(), NullLogger<MonitorService>.Instance, launcher)
         {
             AgentUrl = "http://localhost:5000",
         };
@@ -491,9 +491,12 @@ public sealed class MonitorStartupPathTests : IDisposable
         TestTempPaths.CleanupPath(this._tempDirectory);
     }
 
-    private MonitorService CreateMonitorService()
+    private MonitorService CreateMonitorService(IMonitorLauncher? launcher = null)
     {
-        return new MonitorService(new HttpClient(new Mock<HttpMessageHandler>().Object), NullLogger<MonitorService>.Instance);
+        return new MonitorService(
+            new HttpClient(new Mock<HttpMessageHandler>().Object),
+            NullLogger<MonitorService>.Instance,
+            launcher);
     }
 
     private async Task<string> CreateMonitorInfoAsync(MonitorInfo info)
@@ -650,4 +653,3 @@ public sealed class MonitorStartupPathTests : IDisposable
         }
     }
 }
-

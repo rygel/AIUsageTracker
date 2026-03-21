@@ -8,18 +8,25 @@ namespace AIUsageTracker.Web.Services;
 
 public sealed class MonitorLauncherClient : IMonitorLauncherClient
 {
+    private readonly IMonitorLauncher _monitorLauncher;
+
+    public MonitorLauncherClient(IMonitorLauncher monitorLauncher)
+    {
+        this._monitorLauncher = monitorLauncher;
+    }
+
     public Task<MonitorAgentStatus> GetAgentStatusInfoAsync()
     {
-        return MonitorLauncher.GetAgentStatusInfoAsync();
+        return this._monitorLauncher.GetAgentStatusInfoAsync();
     }
 
     public Task<bool> EnsureAgentRunningAsync()
     {
-        return MonitorLauncher.EnsureAgentRunningAsync();
+        return this._monitorLauncher.EnsureAgentRunningAsync();
     }
 
     public Task<bool> StopAgentAsync()
     {
-        return MonitorLauncher.StopAgentAsync();
+        return this._monitorLauncher.StopAgentAsync();
     }
 }

@@ -37,16 +37,18 @@ public class MonitorService : IMonitorService
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly ILogger<MonitorService>? _logger;
+    private readonly IMonitorLauncher _monitorLauncher;
 
     public MonitorService()
         : this(GetOrCreateHttpClient(), null)
     {
     }
 
-    public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger)
+    public MonitorService(HttpClient httpClient, ILogger<MonitorService>? logger, IMonitorLauncher? monitorLauncher = null)
     {
         this._httpClient = httpClient;
         this._logger = logger;
+        this._monitorLauncher = monitorLauncher ?? new MonitorLauncher();
         this._jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
@@ -125,7 +127,7 @@ public class MonitorService : IMonitorService
         LogDiagnostic("Refreshing Monitor Info from file...");
         try
         {
-            var metadata = await MonitorLauncher.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
+            var metadata = await this._monitorLauncher.GetMonitorMetadataSnapshotAsync().ConfigureAwait(false);
             if (metadata.IsUsable && metadata.Info != null)
             {
                 var info = metadata.Info;
@@ -157,7 +159,7 @@ public class MonitorService : IMonitorService
     {
         using var activity = ActivitySource.StartActivity("monitor.refresh_port", ActivityKind.Internal);
         activity?.SetTag("monitor.agent_url.before", this.AgentUrl);
-        var status = await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        var status = await this._monitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
         activity?.SetTag("monitor.is_running", status.IsRunning);
         activity?.SetTag("monitor.port", status.Port);
         if (!status.IsRunning)
