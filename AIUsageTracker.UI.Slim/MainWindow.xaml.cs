@@ -465,7 +465,8 @@ public partial class MainWindow : Window
         const int pollIntervalMs = 2000; // 2 seconds between attempts
 
         this.LogDiagnostic("[DIAGNOSTIC] RapidPollUntilDataAvailableAsync starting...");
-        this.ShowStatus("Loading data...", StatusType.Info);
+        var initialPresentation = RapidPollPresentationCatalog.CreateInitialLoading();
+        this.ShowStatus(initialPresentation.StatusMessage, initialPresentation.StatusType);
 
         // First, check if Monitor is reachable
         this.LogDiagnostic("[DIAGNOSTIC] Checking Monitor health...");
@@ -475,10 +476,15 @@ public partial class MainWindow : Window
         if (!isHealthy)
         {
             await this._monitorService.RefreshAgentInfoAsync();
-            this.ShowStatus("Monitor not reachable", StatusType.Error);
-            this.ShowErrorState(
+            var notReachablePresentation = RapidPollPresentationCatalog.CreateMonitorNotReachable(
                 MonitorErrorPresentationCatalog.BuildConnectionErrorMessage(
                     this._monitorService.LastAgentErrors));
+            this.ShowStatus(notReachablePresentation.StatusMessage, notReachablePresentation.StatusType);
+            if (notReachablePresentation.ErrorStateMessage != null)
+            {
+                this.ShowErrorState(notReachablePresentation.ErrorStateMessage);
+            }
+
             return;
         }
 
@@ -516,7 +522,7 @@ public partial class MainWindow : Window
 
                 // No data yet - on first attempt, trigger a background refresh
                 // and keep polling so data appears as soon as refresh completes.
-                if (attempt == 0)
+                if (RapidPollPresentationCatalog.ShouldTriggerBackgroundRefresh(attempt))
                 {
                     this.LogDiagnostic("[DIAGNOSTIC] First attempt, no data - triggering background refresh...");
                     _ = Task.Run(async () =>
@@ -534,30 +540,37 @@ public partial class MainWindow : Window
 
                     // Show UI immediately with empty state
                     this.LogDiagnostic("[DIAGNOSTIC] Showing empty state...");
-                    this.ShowStatus("Scanning for providers...", StatusType.Info);
+                    var scanningPresentation = RapidPollPresentationCatalog.CreateScanningForProviders();
+                    this.ShowStatus(scanningPresentation.StatusMessage, scanningPresentation.StatusType);
                     this.LogDiagnostic("[DIAGNOSTIC] About to call RenderProviders...");
                     this.RenderProviders(); // Will show empty or loading state
                     this.LogDiagnostic("[DIAGNOSTIC] RenderProviders completed");
                 }
 
                 // No data yet - wait and try again
-                if (attempt < maxAttempts - 1)
+                if (RapidPollPresentationCatalog.ShouldWaitBeforeRetry(attempt, maxAttempts))
                 {
-                    this.ShowStatus($"Waiting for data... ({attempt + 1}/{maxAttempts})", StatusType.Warning);
+                    var waitingPresentation = RapidPollPresentationCatalog.CreateWaitingForData(attempt, maxAttempts);
+                    this.ShowStatus(waitingPresentation.StatusMessage, waitingPresentation.StatusType);
                     await Task.Delay(pollIntervalMs);
                 }
             }
             catch (HttpRequestException ex)
             {
                 this.LogDiagnostic($"[DIAGNOSTIC] Connection error: {ex.Message}");
-                this.ShowStatus("Connection lost", StatusType.Error);
-                this.ShowErrorState($"Lost connection to Monitor:\n{ex.Message}\n\nTry refreshing or restarting the Monitor.");
+                var connectionLostPresentation = RapidPollPresentationCatalog.CreateConnectionLost(ex.Message);
+                this.ShowStatus(connectionLostPresentation.StatusMessage, connectionLostPresentation.StatusType);
+                if (connectionLostPresentation.ErrorStateMessage != null)
+                {
+                    this.ShowErrorState(connectionLostPresentation.ErrorStateMessage);
+                }
+
                 return;
             }
             catch (Exception ex)
             {
                 this.LogDiagnostic($"[DIAGNOSTIC] Error: {ex.Message}");
-                if (attempt < maxAttempts - 1)
+                if (RapidPollPresentationCatalog.ShouldWaitBeforeRetry(attempt, maxAttempts))
                 {
                     await Task.Delay(pollIntervalMs);
                 }
@@ -565,8 +578,12 @@ public partial class MainWindow : Window
         }
 
         this.LogDiagnostic("[DIAGNOSTIC] Max attempts reached, no data available");
-        this.ShowStatus("No data available", StatusType.Error);
-        this.ShowErrorState("No provider data available.\n\nThe Monitor may still be initializing.\nTry refreshing manually or check Settings > Monitor.");
+        var noDataPresentation = RapidPollPresentationCatalog.CreateNoDataAfterMaxAttempts();
+        this.ShowStatus(noDataPresentation.StatusMessage, noDataPresentation.StatusType);
+        if (noDataPresentation.ErrorStateMessage != null)
+        {
+            this.ShowErrorState(noDataPresentation.ErrorStateMessage);
+        }
     }
 
     private void ApplyPreferences()
