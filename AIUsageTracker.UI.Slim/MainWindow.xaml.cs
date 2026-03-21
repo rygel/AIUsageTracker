@@ -1506,15 +1506,14 @@ public partial class MainWindow : Window
 
     private void ApplyMonitorContractStatus(AgentContractHandshakeResult handshakeResult)
     {
-        var presentation = MonitorContractPresentationCatalog.Create(
-            handshakeResult.IsCompatible,
-            handshakeResult.Message);
-
-        this._monitorContractWarningMessage = presentation.WarningMessage;
-        if (presentation.ShowStatus && presentation.StatusMessage != null && presentation.StatusType.HasValue)
+        if (handshakeResult.IsCompatible)
         {
-            this.ShowStatus(presentation.StatusMessage, presentation.StatusType.Value);
+            this._monitorContractWarningMessage = null;
+            return;
         }
+
+        this._monitorContractWarningMessage = handshakeResult.Message;
+        this.ShowStatus(handshakeResult.Message, StatusType.Warning);
     }
 
     private void ShowErrorState(string message)
