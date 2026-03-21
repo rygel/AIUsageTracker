@@ -87,7 +87,7 @@
                             <Border Grid.Column="0" Opacity="0.55">
                                 <Border.Background>
                                     <MultiBinding Converter="{StaticResource PercentageToColorConverter}">
-                                        <Binding Path="PrimaryUsedPercent"/>
+                                        <Binding Path="PrimaryColorPercent"/>
                                         <Binding Path="YellowThreshold"/>
                                         <Binding Path="RedThreshold"/>
                                     </MultiBinding>
@@ -103,7 +103,7 @@
                             <Border Grid.Column="0" Opacity="0.35">
                                 <Border.Background>
                                     <MultiBinding Converter="{StaticResource PercentageToColorConverter}">
-                                        <Binding Path="SecondaryUsedPercent"/>
+                                        <Binding Path="SecondaryColorPercent"/>
                                         <Binding Path="YellowThreshold"/>
                                         <Binding Path="RedThreshold"/>
                                     </MultiBinding>

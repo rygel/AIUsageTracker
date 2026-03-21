@@ -118,6 +118,8 @@ internal static partial class MainWindowRuntimeLogic
             ProviderCardStatusTone.Secondary,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryUsedPercent : (double?)null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryUsedPercent : (double?)null,
+            hasDualQuotaBucketPresentation ? ComputePaceProjectedPercent(dualQuotaBucketPresentation.PrimaryUsedPercent, dualQuotaBucketPresentation.PrimaryResetTime, dualQuotaBucketPresentation.PrimaryPeriodDuration) : (double?)null,
+            hasDualQuotaBucketPresentation ? ComputePaceProjectedPercent(dualQuotaBucketPresentation.SecondaryUsedPercent, dualQuotaBucketPresentation.SecondaryResetTime, dualQuotaBucketPresentation.SecondaryPeriodDuration) : (double?)null,
             isStale);
     }
 
@@ -191,7 +193,7 @@ internal static partial class MainWindowRuntimeLogic
         bool isAggregateParent,
         bool isStatusOnlyProvider,
         bool hasDualQuotaBucketPresentation,
-        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime) dualQuotaBucketPresentation)
+        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, TimeSpan? PrimaryPeriodDuration, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime, TimeSpan? SecondaryPeriodDuration) dualQuotaBucketPresentation)
     {
         if (isAggregateParent)
         {
@@ -262,6 +264,8 @@ internal static partial class MainWindowRuntimeLogic
         ProviderCardStatusTone statusTone,
         double? dualBucketPrimaryUsed = null,
         double? dualBucketSecondaryUsed = null,
+        double? dualBucketPrimaryColorPercent = null,
+        double? dualBucketSecondaryColorPercent = null,
         bool isStale = false)
     {
         return new ProviderCardPresentation(
@@ -276,11 +280,26 @@ internal static partial class MainWindowRuntimeLogic
             StatusTone: statusTone,
             DualBucketPrimaryUsed: dualBucketPrimaryUsed,
             DualBucketSecondaryUsed: dualBucketSecondaryUsed,
+            DualBucketPrimaryColorPercent: dualBucketPrimaryColorPercent,
+            DualBucketSecondaryColorPercent: dualBucketSecondaryColorPercent,
             IsStale: isStale);
     }
 
+    private static double? ComputePaceProjectedPercent(double usedPercent, DateTime? resetTime, TimeSpan? periodDuration)
+    {
+        if (!resetTime.HasValue || !periodDuration.HasValue)
+        {
+            return null;
+        }
+
+        return UsageMath.CalculatePaceAdjustedColorPercent(
+            usedPercent,
+            resetTime.Value.ToUniversalTime(),
+            periodDuration.Value);
+    }
+
     private static string BuildDualQuotaBucketStatusText(
-        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime) presentation,
+        (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, TimeSpan? PrimaryPeriodDuration, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime, TimeSpan? SecondaryPeriodDuration) presentation,
         bool showUsed)
     {
         return $"{FormatDualQuotaBucketSegment(presentation.PrimaryLabel, presentation.PrimaryUsedPercent, showUsed)} | " +
@@ -467,7 +486,7 @@ internal static partial class MainWindowRuntimeLogic
 
     internal static bool TryGetDualQuotaBucketPresentation(
         ProviderUsage usage,
-        out (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime) presentation)
+        out (string PrimaryLabel, double PrimaryUsedPercent, DateTime? PrimaryResetTime, TimeSpan? PrimaryPeriodDuration, string SecondaryLabel, double SecondaryUsedPercent, DateTime? SecondaryResetTime, TimeSpan? SecondaryPeriodDuration) presentation)
     {
         presentation = default;
 
@@ -528,9 +547,11 @@ internal static partial class MainWindowRuntimeLogic
             PrimaryLabel: GetWindowLabel(first.Detail, first.DeclaredWindow!),
             PrimaryUsedPercent: parsedFirst.Value,
             PrimaryResetTime: first.Detail.NextResetTime,
+            PrimaryPeriodDuration: first.DeclaredWindow!.PeriodDuration,
             SecondaryLabel: GetWindowLabel(second.Detail, second.DeclaredWindow!),
             SecondaryUsedPercent: parsedSecond.Value,
-            SecondaryResetTime: second.Detail.NextResetTime);
+            SecondaryResetTime: second.Detail.NextResetTime,
+            SecondaryPeriodDuration: second.DeclaredWindow!.PeriodDuration);
         return true;
     }
 

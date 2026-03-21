@@ -95,6 +95,12 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     public double SecondaryUsedPercent => this._presentation?.DualBucketSecondaryUsed ?? 0;
 
+    public double PrimaryColorPercent => this._presentation?.DualBucketPrimaryColorPercent
+                                         ?? this.PrimaryUsedPercent;
+
+    public double SecondaryColorPercent => this._presentation?.DualBucketSecondaryColorPercent
+                                          ?? this.SecondaryUsedPercent;
+
     public string? ResetBadgeText
     {
         get
@@ -185,6 +191,8 @@ public partial class ProviderCardViewModel : BaseViewModel
         OnPropertyChanged(nameof(HasDualQuotaBuckets));
         OnPropertyChanged(nameof(PrimaryUsedPercent));
         OnPropertyChanged(nameof(SecondaryUsedPercent));
+        OnPropertyChanged(nameof(PrimaryColorPercent));
+        OnPropertyChanged(nameof(SecondaryColorPercent));
         OnPropertyChanged(nameof(ResetBadgeText));
         OnPropertyChanged(nameof(NextResetTime));
         OnPropertyChanged(nameof(TooltipContent));
