@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.13] - 2026-03-21
+
+### Fixed
+- **Empty UI on startup (beta.12 regression)**: MonitorLauncher DI resolution failed because MS DI cannot resolve Func<> constructor parameters. Added a DI-friendly constructor. Added DI resolution smoke tests to prevent this class of bug.
+
 ## [2.3.2-beta.12] - 2026-03-21
 
 ### Fixed
