@@ -17,7 +17,7 @@ on:
       - "**/*.yaml"
       - ".github/workflows/trivy.yml"
   schedule:
-    - cron: "0 9 * * 1"  # Weekly on Monday at 9 AM
+    - cron: "0 6 * * 5"  # Friday at 6 AM
   workflow_dispatch:
 
 concurrency:
