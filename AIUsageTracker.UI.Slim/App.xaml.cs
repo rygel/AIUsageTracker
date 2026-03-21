@@ -141,6 +141,7 @@ public partial class App : Application
         services.AddSingleton<IUsageAnalyticsService, NoOpUsageAnalyticsService>();
         services.AddSingleton<IDataExportService, NoOpDataExportService>();
         services.AddSingleton<IUpdateCheckerService, GitHubUpdateChecker>();
+        services.AddSingleton<IUpdateCheckerFactory, UpdateCheckerFactory>();
         services.AddSingleton<HttpClient>();
         services.AddHttpClient("LocalhostProbe")
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(1));

@@ -51,6 +51,7 @@ public partial class MainWindow : Window
     private readonly IMonitorLifecycleService _monitorLifecycleService;
     private readonly IMonitorStartupOrchestrator _monitorStartupOrchestrator;
     private readonly ILogger<MainWindow> _logger;
+    private readonly IUpdateCheckerFactory _updateCheckerFactory;
     private readonly UiPreferencesStore _preferencesStore;
     private readonly DisplayPreferencesService _displayPreferences;
     private readonly DispatcherTimer _updateCheckTimer;
@@ -116,10 +117,11 @@ public partial class MainWindow : Window
         IMonitorLifecycleService monitorLifecycleService,
         IMonitorStartupOrchestrator monitorStartupOrchestrator,
         ILogger<MainWindow> logger,
+        IUpdateCheckerFactory updateCheckerFactory,
         IUpdateCheckerService updateChecker,
         UiPreferencesStore preferencesStore,
         DisplayPreferencesService displayPreferences)
-        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, monitorStartupOrchestrator, logger, updateChecker, preferencesStore, displayPreferences)
+        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, monitorStartupOrchestrator, logger, updateCheckerFactory, updateChecker, preferencesStore, displayPreferences)
     {
     }
 
@@ -130,6 +132,7 @@ public partial class MainWindow : Window
             App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
             App.Host.Services.GetRequiredService<IMonitorStartupOrchestrator>(),
             App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
+            App.Host.Services.GetRequiredService<IUpdateCheckerFactory>(),
             App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
             App.Host.Services.GetRequiredService<UiPreferencesStore>(),
             App.Host.Services.GetRequiredService<DisplayPreferencesService>())
@@ -144,6 +147,7 @@ public partial class MainWindow : Window
             App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
             App.Host.Services.GetRequiredService<IMonitorStartupOrchestrator>(),
             App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
+            App.Host.Services.GetRequiredService<IUpdateCheckerFactory>(),
             App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
             App.Host.Services.GetRequiredService<UiPreferencesStore>(),
             App.Host.Services.GetRequiredService<DisplayPreferencesService>())
@@ -157,6 +161,7 @@ public partial class MainWindow : Window
         IMonitorLifecycleService monitorLifecycleService,
         IMonitorStartupOrchestrator monitorStartupOrchestrator,
         ILogger<MainWindow> logger,
+        IUpdateCheckerFactory updateCheckerFactory,
         IUpdateCheckerService updateChecker,
         UiPreferencesStore preferencesStore,
         DisplayPreferencesService displayPreferences)
@@ -166,6 +171,7 @@ public partial class MainWindow : Window
         ArgumentNullException.ThrowIfNull(monitorLifecycleService);
         ArgumentNullException.ThrowIfNull(monitorStartupOrchestrator);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(updateCheckerFactory);
         ArgumentNullException.ThrowIfNull(updateChecker);
         ArgumentNullException.ThrowIfNull(preferencesStore);
         ArgumentNullException.ThrowIfNull(displayPreferences);
@@ -180,6 +186,7 @@ public partial class MainWindow : Window
         this._monitorService = monitorService;
         this._monitorLifecycleService = monitorLifecycleService;
         this._monitorStartupOrchestrator = monitorStartupOrchestrator;
+        this._updateCheckerFactory = updateCheckerFactory;
         this._updateChecker = updateChecker;
         this._preferencesStore = preferencesStore;
         this._displayPreferences = displayPreferences;
@@ -681,10 +688,7 @@ public partial class MainWindow : Window
         }
 
         var channel = this._preferences.UpdateChannel;
-        this._updateChecker = new GitHubUpdateChecker(
-            NullLogger<GitHubUpdateChecker>.Instance,
-            App.Host.Services.GetRequiredService<HttpClient>(),
-            channel);
+        this._updateChecker = this._updateCheckerFactory.Create(channel);
     }
 
     private async Task SaveUiPreferencesAsync()
