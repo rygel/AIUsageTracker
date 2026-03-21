@@ -324,54 +324,13 @@ public partial class MainWindow : Window
             ? $"{appVersion.Major}.{appVersion.Minor}.{appVersion.Build}"
             : "0.0.0";
 
-        var suffix = this.GetPrereleaseLabel(assembly);
-        var displayVersion = string.IsNullOrWhiteSpace(suffix)
-            ? $"v{versionCore}"
-            : $"v{versionCore} {suffix}";
-
-        this.VersionText.Text = displayVersion;
-        this.Title = $"AI Usage Tracker {displayVersion}";
-    }
-
-    private string? GetPrereleaseLabel(Assembly assembly)
-    {
         var informationalVersion = assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
-
-        if (string.IsNullOrWhiteSpace(informationalVersion))
-        {
-            return null;
-        }
-
-        // Trim build metadata (e.g., +sha) and keep semantic pre-release suffix.
-        var normalized = informationalVersion.Split('+')[0];
-        var dashIndex = normalized.IndexOf('-');
-        if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
-        {
-            return null;
-        }
-
-        var suffix = normalized[(dashIndex + 1)..];
-        if (suffix.StartsWith("beta.", StringComparison.OrdinalIgnoreCase))
-        {
-            var betaPart = suffix["beta.".Length..];
-            return string.IsNullOrWhiteSpace(betaPart) ? "Beta" : $"Beta {betaPart}";
-        }
-
-        if (suffix.StartsWith("alpha.", StringComparison.OrdinalIgnoreCase))
-        {
-            var alphaPart = suffix["alpha.".Length..];
-            return string.IsNullOrWhiteSpace(alphaPart) ? "Alpha" : $"Alpha {alphaPart}";
-        }
-
-        if (suffix.StartsWith("rc.", StringComparison.OrdinalIgnoreCase))
-        {
-            var rcPart = suffix["rc.".Length..];
-            return string.IsNullOrWhiteSpace(rcPart) ? "RC" : $"RC {rcPart}";
-        }
-
-        return suffix.Replace('.', ' ');
+        var prereleaseLabel = VersionDisplayCatalog.ParsePrereleaseLabel(informationalVersion);
+        var presentation = VersionDisplayCatalog.Create(versionCore, prereleaseLabel);
+        this.VersionText.Text = presentation.DisplayVersion;
+        this.Title = presentation.WindowTitle;
     }
 
     private void PositionWindowNearTray()
