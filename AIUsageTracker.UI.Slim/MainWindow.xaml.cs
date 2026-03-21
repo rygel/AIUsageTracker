@@ -1816,17 +1816,21 @@ public partial class MainWindow : Window
             this._isUpdateCheckInProgress = true;
             this._latestUpdate = await this._updateChecker.CheckForUpdatesAsync();
 
-            if (this._latestUpdate != null)
+            var updateNotificationPresentation = UpdateNotificationPresentationCatalog.Create(
+                latestVersion: this._latestUpdate?.Version,
+                hasBanner: this.UpdateNotificationBanner != null,
+                hasText: this.UpdateText != null);
+
+            if (updateNotificationPresentation.ApplyBannerText && this.UpdateText != null)
             {
-                if (this.UpdateNotificationBanner != null && this.UpdateText != null)
-                {
-                    this.UpdateText.Text = $"New version available: {this._latestUpdate.Version}";
-                    this.UpdateNotificationBanner.Visibility = Visibility.Visible;
-                }
+                this.UpdateText.Text = updateNotificationPresentation.BannerText;
             }
-            else if (this.UpdateNotificationBanner != null)
+
+            if (updateNotificationPresentation.ApplyBannerVisibility && this.UpdateNotificationBanner != null)
             {
-                this.UpdateNotificationBanner.Visibility = Visibility.Collapsed;
+                this.UpdateNotificationBanner.Visibility = updateNotificationPresentation.ShowBanner
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
             }
         }
         catch (Exception ex)
