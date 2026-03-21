@@ -98,8 +98,9 @@ public partial class App : Application
             App.ApplyTheme(Preferences.Theme);
             IsPrivacyMode = Preferences.IsPrivacyMode;
         }
-        catch
+        catch (Exception ex)
         {
+            UiDiagnosticFileLog.Write($"[DIAGNOSTIC] Failed to load preferences on startup: {ex.Message}");
             App.ApplyTheme(AppTheme.Dark);
         }
 
