@@ -3,8 +3,6 @@
 // </copyright>
 
 using System.Diagnostics;
-using System.IO;
-using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -51,6 +49,8 @@ public partial class MainWindow : Window
     private readonly IMonitorStartupOrchestrator _monitorStartupOrchestrator;
     private readonly ILogger<MainWindow> _logger;
     private readonly IUpdateCheckerFactory _updateCheckerFactory;
+    private readonly IDialogService _dialogService;
+    private readonly IBrowserService _browserService;
     private readonly UiPreferencesStore _preferencesStore;
     private readonly DisplayPreferencesService _displayPreferences;
     private readonly DispatcherTimer _updateCheckTimer;
@@ -83,10 +83,6 @@ public partial class MainWindow : Window
     private bool _isSettingsDialogOpen;
     private bool _isTooltipOpen;
 
-    internal Func<(Window Dialog, Func<bool> HasChanges)> SettingsDialogFactory { get; set; } = CreateDefaultSettingsDialog;
-
-    internal Func<Window, bool?> ShowOwnedDialog { get; set; } = static dialog => dialog.ShowDialog();
-
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
@@ -118,9 +114,11 @@ public partial class MainWindow : Window
         ILogger<MainWindow> logger,
         IUpdateCheckerFactory updateCheckerFactory,
         IUpdateCheckerService updateChecker,
+        IDialogService dialogService,
+        IBrowserService browserService,
         UiPreferencesStore preferencesStore,
         DisplayPreferencesService displayPreferences)
-        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, monitorStartupOrchestrator, logger, updateCheckerFactory, updateChecker, preferencesStore, displayPreferences)
+        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, monitorStartupOrchestrator, logger, updateCheckerFactory, updateChecker, dialogService, browserService, preferencesStore, displayPreferences)
     {
     }
 
@@ -133,6 +131,8 @@ public partial class MainWindow : Window
         ILogger<MainWindow> logger,
         IUpdateCheckerFactory updateCheckerFactory,
         IUpdateCheckerService updateChecker,
+        IDialogService dialogService,
+        IBrowserService browserService,
         UiPreferencesStore preferencesStore,
         DisplayPreferencesService displayPreferences)
     {
@@ -143,6 +143,8 @@ public partial class MainWindow : Window
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(updateCheckerFactory);
         ArgumentNullException.ThrowIfNull(updateChecker);
+        ArgumentNullException.ThrowIfNull(dialogService);
+        ArgumentNullException.ThrowIfNull(browserService);
         ArgumentNullException.ThrowIfNull(preferencesStore);
         ArgumentNullException.ThrowIfNull(displayPreferences);
 
@@ -158,6 +160,8 @@ public partial class MainWindow : Window
         this._monitorStartupOrchestrator = monitorStartupOrchestrator;
         this._updateCheckerFactory = updateCheckerFactory;
         this._updateChecker = updateChecker;
+        this._dialogService = dialogService;
+        this._browserService = browserService;
         this._preferencesStore = preferencesStore;
         this._displayPreferences = displayPreferences;
         this._viewModel = viewModel;
@@ -1674,19 +1678,13 @@ public partial class MainWindow : Window
 
     internal async Task OpenSettingsDialogAsync()
     {
-        var settingsDialog = this.SettingsDialogFactory();
-        var settingsWindow = settingsDialog.Dialog;
-        if (this.IsVisible)
-        {
-            settingsWindow.Owner = this;
-            settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        }
-
         this._isSettingsDialogOpen = true;
+        bool? settingsResult;
 
         try
         {
-            _ = this.ShowOwnedDialog(settingsWindow);
+            var owner = this.IsVisible ? this : null;
+            settingsResult = await this._dialogService.ShowSettingsAsync(owner);
         }
         finally
         {
@@ -1694,7 +1692,7 @@ public partial class MainWindow : Window
             this.EnsureAlwaysOnTop();
         }
 
-        if (settingsDialog.HasChanges())
+        if (settingsResult == true)
         {
             // Reload preferences and refresh data
             await this.InitializeAsync();
@@ -1726,12 +1724,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private static (Window Dialog, Func<bool> HasChanges) CreateDefaultSettingsDialog()
-    {
-        var settingsWindow = new SettingsWindow();
-        return (settingsWindow, () => settingsWindow.SettingsChanged);
-    }
-
     private async void WebBtn_Click(object sender, RoutedEventArgs e)
     {
         await this.OpenWebUIAsync();
@@ -1741,16 +1733,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            // Start the Web service if not running
-            await this.StartWebServiceAsync();
-
-            // Open browser to the Web UI
-            var webUrl = "http://localhost:5100";
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = webUrl,
-                UseShellExecute = true,
-            });
+            await this._browserService.OpenWebUIAsync();
         }
         catch (Exception ex)
         {
@@ -1761,96 +1744,6 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
-    }
-
-    private async Task StartWebServiceAsync()
-    {
-        try
-        {
-            // Check if web service is already running
-            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(1) };
-            try
-            {
-                var response = await client.GetAsync("http://localhost:5100");
-                if (response.IsSuccessStatusCode)
-                {
-                    this._logger.LogDebug("Web service already running");
-                    return;
-                }
-            }
-            catch
-            {
-                // Service not running, start it
-            }
-
-            // Find Web executable
-            var possiblePaths = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Debug", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Release", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Web.exe"),
-            };
-
-            var webPath = possiblePaths.FirstOrDefault(File.Exists);
-
-            if (webPath == null)
-            {
-                // Try dotnet run
-                var webProjectDir = this.FindProjectDirectory("AIUsageTracker.Web");
-                if (webProjectDir != null)
-                {
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = "dotnet",
-                        Arguments = $"run --project \"{webProjectDir}\" --urls \"http://localhost:5100\"",
-                        UseShellExecute = true,
-                        CreateNoWindow = true,
-                        WorkingDirectory = webProjectDir,
-                    };
-                    Process.Start(psi);
-                    this._logger.LogInformation("Started Web service via dotnet run");
-                    return;
-                }
-
-                this._logger.LogWarning("Web executable not found");
-                return;
-            }
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = webPath,
-                Arguments = "--urls \"http://localhost:5100\"",
-                UseShellExecute = true,
-                CreateNoWindow = true,
-                WorkingDirectory = Path.GetDirectoryName(webPath),
-            };
-
-            Process.Start(startInfo);
-            this._logger.LogInformation("Started Web service from: {WebPath}", webPath);
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogError(ex, "Failed to start Web service");
-        }
-    }
-
-    private string? FindProjectDirectory(string projectName)
-    {
-        var currentDir = AppContext.BaseDirectory;
-        var dir = new DirectoryInfo(currentDir);
-
-        while (dir != null)
-        {
-            var projectPath = Path.Combine(dir.FullName, projectName, $"{projectName}.csproj");
-            if (File.Exists(projectPath))
-            {
-                return Path.GetDirectoryName(projectPath);
-            }
-
-            dir = dir.Parent;
-        }
-
-        return null;
     }
 
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
