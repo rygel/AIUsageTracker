@@ -15,6 +15,7 @@ public class MonitorLauncher
     internal const int MaxStaleMetadataBackups = 10;
     private const int MaxWaitSeconds = 30;
     private const int StopWaitSeconds = 5;
+    private const int LaunchMutexWaitSeconds = 3;
 
     private static readonly SemaphoreSlim StartupSemaphore = new(1, 1);
     private static readonly HttpClient HealthCheckHttpClient = new HttpClient { Timeout = TimeSpan.FromMilliseconds(500) };
@@ -67,8 +68,28 @@ public class MonitorLauncher
     public static async Task<bool> StartAgentAsync()
     {
         await StartupSemaphore.WaitAsync().ConfigureAwait(false);
+        Mutex? launchMutex = null;
+        var holdsLaunchMutex = false;
         try
         {
+            launchMutex = new Mutex(initiallyOwned: false, name: BuildLaunchMutexName());
+            try
+            {
+                holdsLaunchMutex = launchMutex.WaitOne(TimeSpan.FromSeconds(LaunchMutexWaitSeconds));
+            }
+            catch (AbandonedMutexException)
+            {
+                holdsLaunchMutex = true;
+                MonitorService.LogDiagnostic("Monitor launch lock was abandoned; proceeding.");
+            }
+
+            if (!holdsLaunchMutex)
+            {
+                MonitorService.LogDiagnostic("Monitor launch lock is held by another process; waiting for readiness.");
+                var waitedState = await WaitForReadyStateAsync(CancellationToken.None).ConfigureAwait(false);
+                return waitedState.HasValue;
+            }
+
             var readyState = await ResolveReadyStateAsync().ConfigureAwait(false);
             if (readyState.IsRunning)
             {
@@ -100,6 +121,19 @@ public class MonitorLauncher
         }
         finally
         {
+            if (holdsLaunchMutex && launchMutex != null)
+            {
+                try
+                {
+                    launchMutex.ReleaseMutex();
+                }
+                catch (ApplicationException)
+                {
+                    // Ignore release attempts when lock ownership was lost unexpectedly.
+                }
+            }
+
+            launchMutex?.Dispose();
             StartupSemaphore.Release();
         }
     }
@@ -390,6 +424,16 @@ public class MonitorLauncher
         }
 
         return MonitorInfoPathCatalog.GetReadCandidatePathsFromEnvironment();
+    }
+
+    private static string BuildLaunchMutexName()
+    {
+        var userName = Environment.UserName
+            .Replace("\\", "_", StringComparison.Ordinal)
+            .Replace("/", "_", StringComparison.Ordinal)
+            .Replace(" ", "_", StringComparison.Ordinal);
+
+        return @"Global\AIUsageTracker_MonitorLaunch_" + userName;
     }
 
     private sealed class TestOverrideScope : IDisposable

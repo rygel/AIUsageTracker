@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Diagnostics;
 using System.Net.Http;
 using System.Windows;
 using AIUsageTracker.Core.Interfaces;
@@ -20,10 +21,14 @@ namespace AIUsageTracker.UI.Slim;
 
 public partial class App : Application
 {
+    private const int SingleInstanceLockWaitMilliseconds = 250;
+
     private static IHost? _host;
     private readonly Dictionary<string, TaskbarIcon> _providerTrayIcons = new(StringComparer.Ordinal);
     private TaskbarIcon? _trayIcon;
     private MainWindow? _mainWindow;
+    private Mutex? _singleInstanceMutex;
+    private bool _ownsSingleInstanceMutex;
 
     public App()
     {
@@ -68,6 +73,13 @@ public partial class App : Application
 #pragma warning disable VSTHRD100 // WPF Application lifecycle overrides require async void signatures
     protected override async void OnStartup(StartupEventArgs e)
     {
+        if (!this.TryAcquireSingleInstanceLock())
+        {
+            base.OnStartup(e);
+            this.Shutdown(0);
+            return;
+        }
+
         await Host.StartAsync();
         base.OnStartup(e);
 
@@ -112,6 +124,7 @@ public partial class App : Application
             await Host.StopAsync();
         }
 
+        this.ReleaseSingleInstanceLock();
         base.OnExit(e);
     }
 #pragma warning restore VSTHRD100
@@ -157,5 +170,62 @@ public partial class App : Application
             });
             builder.AddDebug();
         });
+    }
+
+    private bool TryAcquireSingleInstanceLock()
+    {
+        this._singleInstanceMutex ??= new Mutex(initiallyOwned: false, name: BuildSingleInstanceMutexName());
+
+        try
+        {
+            this._ownsSingleInstanceMutex = this._singleInstanceMutex.WaitOne(
+                TimeSpan.FromMilliseconds(SingleInstanceLockWaitMilliseconds));
+        }
+        catch (AbandonedMutexException)
+        {
+            this._ownsSingleInstanceMutex = true;
+            UiDiagnosticFileLog.Write("[DIAGNOSTIC] Slim UI single-instance lock was abandoned; continuing.");
+        }
+
+        if (this._ownsSingleInstanceMutex)
+        {
+            UiDiagnosticFileLog.Write("[DIAGNOSTIC] Slim UI single-instance lock acquired.");
+            return true;
+        }
+
+        const string duplicateLaunchMessage = "[DIAGNOSTIC] Duplicate Slim UI launch detected; exiting second instance.";
+        UiDiagnosticFileLog.Write(duplicateLaunchMessage);
+        Debug.WriteLine(duplicateLaunchMessage);
+        return false;
+    }
+
+    private void ReleaseSingleInstanceLock()
+    {
+        if (this._ownsSingleInstanceMutex && this._singleInstanceMutex != null)
+        {
+            try
+            {
+                this._singleInstanceMutex.ReleaseMutex();
+                UiDiagnosticFileLog.Write("[DIAGNOSTIC] Slim UI single-instance lock released.");
+            }
+            catch (ApplicationException ex)
+            {
+                UiDiagnosticFileLog.Write($"[DIAGNOSTIC] Failed to release Slim UI lock: {ex.Message}");
+            }
+        }
+
+        this._singleInstanceMutex?.Dispose();
+        this._singleInstanceMutex = null;
+        this._ownsSingleInstanceMutex = false;
+    }
+
+    private static string BuildSingleInstanceMutexName()
+    {
+        var userName = Environment.UserName
+            .Replace("\\", "_", StringComparison.Ordinal)
+            .Replace("/", "_", StringComparison.Ordinal)
+            .Replace(" ", "_", StringComparison.Ordinal);
+
+        return @"Local\AIUsageTracker_SlimUI_" + userName;
     }
 }
