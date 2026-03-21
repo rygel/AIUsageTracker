@@ -1,4 +1,4 @@
-﻿// <copyright file="CodexProvider.cs" company="AIUsageTracker">
+// <copyright file="CodexProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -64,7 +64,7 @@ public class CodexProvider : ProviderBase
         {
             new(WindowKind.Burst,         "5h",     PeriodDuration: TimeSpan.FromHours(5)),
             new(WindowKind.Rolling,       "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.ModelSpecific, "Spark",  PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Spark",  ChildProviderId: "codex.spark", PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -711,6 +711,7 @@ public class CodexProvider : ProviderBase
             // sparkModelSpecificResetSeconds — reset of whichever window is the overall binding
             //   constraint for the provider-level Spark detail.
             var sparkBurstResetSeconds = sparkWindow.PrimaryResetAfterSeconds ?? sparkWindow.SecondaryResetAfterSeconds;
+
             // Use Spark's own secondary reset time when available; fall back to main secondary.
             var weeklyResetSeconds = sparkWindow.SecondaryResetAfterSeconds ?? secondaryResetSeconds;
             var sparkModelSpecificResetSeconds = sparkEffectiveWeeklyUsed > sparkOwnUsed
@@ -809,7 +810,7 @@ public class CodexProvider : ProviderBase
         double? SecondaryResetAfterSeconds)
     {
         /// <summary>
-        /// True when any meaningful window data is present — usage percentages or reset timers.
+        /// Gets a value indicating whether true when any meaningful window data is present — usage percentages or reset timers.
         /// Allows the Spark block to be processed even when the burst window just reset and the
         /// API omits used_percent (returning only reset_after_seconds).
         /// </summary>

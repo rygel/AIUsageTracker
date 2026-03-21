@@ -23,7 +23,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
     {
         this._authService = new Mock<IGitHubAuthService>();
         this._discoveryService = new Mock<IProviderDiscoveryService>();
-        this._provider = new GitHubCopilotProvider(this.ResilientHttpClient.Object, this.Logger.Object, this._authService.Object, this._discoveryService.Object);
+        this._provider = new GitHubCopilotProvider(this.HttpClient, this.Logger.Object, this._authService.Object, this._discoveryService.Object);
         this.Config.ApiKey = "test-key";
     }
 

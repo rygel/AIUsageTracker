@@ -210,7 +210,7 @@ public class UsageDatabase : IUsageDatabase
                 var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
                 var nextResetTime = u.NextResetTime?.ToString("O");
                 var statusMessage = u.Description ?? string.Empty;
-                var validityEval = UpstreamResponseValidityCatalog.Evaluate(u);
+                var validityEval = u.EvaluateUpstreamResponseValidity();
                 var validityInt = (int)(u.UpstreamResponseValidity == UpstreamResponseValidity.Unknown
                     ? validityEval.Validity
                     : u.UpstreamResponseValidity);
@@ -562,10 +562,11 @@ public class UsageDatabase : IUsageDatabase
             var now = DateTime.UtcNow;
             foreach (var usage in results)
             {
-                if (ProviderMetadataCatalog.TryGetUsageSemantics(usage.ProviderId ?? string.Empty, out var planType, out var isQuotaBased))
+                var usageDef = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+                if (usageDef != null)
                 {
-                    usage.PlanType = planType;
-                    usage.IsQuotaBased = isQuotaBased;
+                    usage.PlanType = usageDef.PlanType;
+                    usage.IsQuotaBased = usageDef.IsQuotaBased;
                 }
 
                 usage.ProviderName = ProviderMetadataCatalog.ResolveDisplayLabel(usage.ProviderId ?? string.Empty, usage.ProviderName);
@@ -618,7 +619,7 @@ public class UsageDatabase : IUsageDatabase
             WHERE rn = 1";
 
         var baselines = (await connection.QueryAsync<(string ProviderId, double RequestsUsed, long FetchedAt)>(sql).ConfigureAwait(false))
-            .ToDictionary(r => r.ProviderId, r => r);
+            .ToDictionary(r => r.ProviderId, r => r, StringComparer.Ordinal);
 
         var nowEpoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         foreach (var usage in results)
@@ -684,7 +685,7 @@ public class UsageDatabase : IUsageDatabase
 
     private static void ApplyUpstreamResponseValidity(ProviderUsage usage)
     {
-        var evaluation = UpstreamResponseValidityCatalog.Evaluate(usage);
+        var evaluation = usage.EvaluateUpstreamResponseValidity();
         usage.UpstreamResponseValidity = evaluation.Validity;
         usage.UpstreamResponseNote = evaluation.Note;
     }

@@ -24,7 +24,7 @@ public class PrivacyMaskConverter : IMultiValueConverter
     /// <param name="values">
     /// Expected values:
     /// [0] - value (string): The original value to potentially mask
-    /// [1] - isPrivacyMode (bool): Whether privacy mode is enabled
+    /// [1] - isPrivacyMode (bool): Whether privacy mode is enabled.
     /// </param>
     /// <param name="targetType">The target type.</param>
     /// <param name="parameter">Optional parameter.</param>

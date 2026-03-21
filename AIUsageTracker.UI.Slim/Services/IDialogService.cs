@@ -22,6 +22,7 @@ public interface IDialogService
     /// Shows the info/about dialog.
     /// </summary>
     /// <param name="owner">Optional owner window.</param>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous operation.</placeholder></returns>
     Task ShowInfoAsync(Window? owner = null);
 
     /// <summary>

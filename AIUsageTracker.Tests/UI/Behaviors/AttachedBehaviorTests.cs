@@ -120,42 +120,6 @@ public class AttachedBehaviorTests
         });
     }
 
-    [Fact]
-    public Task OpenFolderBehavior_GetFolderPath_ReturnsNullByDefault()
-    {
-        return RunInStaAsync(() =>
-        {
-            // Arrange
-            var element = new Border();
-
-            // Act
-            var result = OpenFolderBehavior.GetFolderPath(element);
-
-            // Assert
-            Assert.Null(result);
-            return Task.CompletedTask;
-        });
-    }
-
-    [Fact]
-    public Task OpenFolderBehavior_SetFolderPath_SetsValue()
-    {
-        return RunInStaAsync(() =>
-        {
-            // Arrange
-            var element = new Border();
-            var path = @"C:\TestPath";
-
-            // Act
-            OpenFolderBehavior.SetFolderPath(element, path);
-            var result = OpenFolderBehavior.GetFolderPath(element);
-
-            // Assert
-            Assert.Equal(path, result);
-            return Task.CompletedTask;
-        });
-    }
-
     private static Task RunInStaAsync(Func<Task> testBody)
     {
         var tcs = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);

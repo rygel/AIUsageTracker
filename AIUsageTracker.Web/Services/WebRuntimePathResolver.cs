@@ -2,16 +2,16 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Paths;
-
 namespace AIUsageTracker.Web.Services;
 
 internal static class WebRuntimePathResolver
 {
+    private const string AppDirectoryName = "AIUsageTracker";
+
     public static WebRuntimePaths Resolve(string localAppDataRoot)
     {
-        var appRoot = AppPathCatalog.GetCanonicalAppDataRoot(localAppDataRoot);
-        var logDirectory = AppPathCatalog.GetCanonicalLogDirectory(localAppDataRoot);
+        var appRoot = GetCanonicalAppDataRoot(localAppDataRoot);
+        var logDirectory = GetCanonicalLogDirectory(localAppDataRoot);
         var runtimeFallbackRoot = Path.Combine(AppContext.BaseDirectory, ".runtime");
         var writableAppRoot = EnsureWritableDirectory(appRoot, Path.Combine(runtimeFallbackRoot, "app-data"));
         var writableLogDirectory = EnsureWritableDirectory(logDirectory, Path.Combine(runtimeFallbackRoot, "logs"));
@@ -58,6 +58,16 @@ internal static class WebRuntimePathResolver
         {
             return false;
         }
+    }
+
+    private static string GetCanonicalAppDataRoot(string localAppDataRoot)
+    {
+        return Path.Combine(localAppDataRoot, AppDirectoryName);
+    }
+
+    private static string GetCanonicalLogDirectory(string localAppDataRoot)
+    {
+        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "logs");
     }
 
     internal readonly record struct WebRuntimePaths(

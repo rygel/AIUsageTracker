@@ -48,7 +48,7 @@ public sealed class MonitorProgramTests : IDisposable
     [Fact]
     public void WriteCandidatePaths_OnlyIncludeCanonicalPath()
     {
-        var candidatePaths = MonitorInfoPathCatalog.GetWriteCandidatePaths(
+        var candidatePaths = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
             this._pathProvider.GetAppDataRoot(),
             this._pathProvider.GetUserProfileRoot());
 
@@ -62,7 +62,7 @@ public sealed class MonitorProgramTests : IDisposable
     public void WriteCandidatePaths_DoesNotAppendProductFolderTwice_WhenRootAlreadyCanonical()
     {
         var canonicalRoot = Path.Combine(this._tempDirectory, "AIUsageTracker");
-        var candidatePaths = MonitorInfoPathCatalog.GetWriteCandidatePaths(
+        var candidatePaths = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
             canonicalRoot,
             this._pathProvider.GetUserProfileRoot());
 
@@ -73,7 +73,7 @@ public sealed class MonitorProgramTests : IDisposable
     [Fact]
     public void ReportError_AppendsMessageToExistingMonitorInfo()
     {
-        var path = MonitorInfoPathCatalog.GetWriteCandidatePaths(
+        var path = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
             this._pathProvider.GetAppDataRoot(),
             this._pathProvider.GetUserProfileRoot())[0];
 
@@ -95,7 +95,7 @@ public sealed class MonitorProgramTests : IDisposable
     [Fact]
     public void ReportError_UpdatesNewestExistingMonitorInfoFile()
     {
-        var candidatePaths = MonitorInfoPathCatalog.GetWriteCandidatePaths(
+        var candidatePaths = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
             this._pathProvider.GetAppDataRoot(),
             this._pathProvider.GetUserProfileRoot());
         var path = candidatePaths[0];
@@ -129,7 +129,7 @@ public sealed class MonitorProgramTests : IDisposable
 
     private IEnumerable<string> GetExpectedMonitorInfoPaths()
     {
-        return MonitorInfoPathCatalog.GetWriteCandidatePaths(
+        return MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
             this._pathProvider.GetAppDataRoot(),
             this._pathProvider.GetUserProfileRoot());
     }
@@ -192,3 +192,4 @@ public sealed class MonitorProgramTests : IDisposable
         public string GetUserProfileRoot() => Path.Combine(this._root, "user-profile");
     }
 }
+

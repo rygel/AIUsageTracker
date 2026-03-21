@@ -73,6 +73,6 @@ internal sealed class ProviderUsagePersistenceService
     private static bool IsDynamicChildOfAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
     {
         return activeProviderIds.Any(providerId =>
-            ProviderMetadataCatalog.IsChildProviderId(providerId, usageProviderId));
+            (ProviderMetadataCatalog.Find(providerId)?.IsChildProviderId(usageProviderId) ?? false));
     }
 }

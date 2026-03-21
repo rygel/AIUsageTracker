@@ -23,10 +23,10 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         this.Config.ApiKey = "test-key";
     }
 
-
     /// <summary>
     /// Tests basic usage calculation with simple values.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_ValidResponse_CalculatesUsedPercentageCorrectlyAsync()
     {
@@ -60,6 +60,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     /// <summary>
     /// Tests usage calculation at 50% capacity.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_HalfCapacity_CalculatesCorrectlyAsync()
     {
@@ -90,6 +91,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     /// <summary>
     /// Tests usage calculation at near-capacity (high usage).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_NearCapacity_CalculatesCorrectlyAsync()
     {
@@ -117,12 +119,11 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Equal(95, usage.RequestsUsed);
     }
 
-
-
     /// <summary>
     /// Tests parsing of a realistic Kimi API response with 5h and 7d quotas.
     /// Response structure based on real API data (anonymized).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_RealisticResponse_WithDualQuotas_ParsesCorrectlyAsync()
     {
@@ -187,6 +188,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     /// <summary>
     /// Tests parsing when user is hitting the 5-hour burst limit.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_NearBurstLimit_ParsesCorrectlyAsync()
     {
@@ -239,6 +241,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     /// <summary>
     /// Tests parsing when user is hitting the 7-day weekly limit.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_NearWeeklyLimit_ParsesCorrectlyAsync()
     {
@@ -298,6 +301,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     /// <summary>
     /// Tests parsing of fresh subscription with minimal usage.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_MinimalUsage_ParsesCorrectlyAsync()
     {
@@ -334,12 +338,11 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.True(usage.IsAvailable);
     }
 
-
-
     /// <summary>
     /// Tests that the provider correctly handles numeric fields returned as JSON strings.
     /// The real Kimi API returns limit/used/remaining as strings (e.g., "100" not 100).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_WithStringTypedNumericFields_ParsesCorrectlyAsync()
     {
@@ -385,11 +388,10 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Contains("remaining", secondary.Description, StringComparison.Ordinal);
     }
 
-
-
     /// <summary>
     /// Tests that hourly limits are correctly assigned as Primary window kind.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_WithHourlyAndWeeklyLimits_SetsCorrectWindowKindsAsync()
     {
@@ -442,6 +444,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     /// <summary>
     /// Tests that 3-hour windows are correctly assigned as Primary.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_With3HourWindow_AssignsPrimaryWindowKindAsync()
     {
@@ -477,6 +480,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
     /// <summary>
     /// Tests that daily limits are correctly assigned as Primary.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageAsync_WithDailyLimit_AssignsPrimaryWindowKindAsync()
     {
@@ -509,8 +513,6 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Equal("1d Limit", primaryDetail!.Name); // Duration is formatted as "1d" not "Daily"
     }
 
-
-
     [Fact]
     public async Task GetUsageAsync_NoApiKey_ReturnsUnavailableAsync()
     {
@@ -520,7 +522,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("API Key missing", usage.Description);
+        Assert.Contains("API Key missing", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -566,7 +568,7 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("Failed to parse response", usage.Description);
+        Assert.Contains("Failed to parse response", usage.Description, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -584,8 +586,6 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.False(usage.IsAvailable);
     }
 
-
-
     [Fact]
     public void StaticDefinition_HasCorrectConfiguration()
     {
@@ -599,5 +599,4 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Contains("KIMI_API_KEY", definition.DiscoveryEnvironmentVariables);
         Assert.Contains("MOONSHOT_API_KEY", definition.DiscoveryEnvironmentVariables);
     }
-
 }

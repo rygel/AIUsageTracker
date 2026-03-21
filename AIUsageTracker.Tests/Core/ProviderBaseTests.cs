@@ -24,9 +24,7 @@ public class ProviderBaseTests
             defaultConfigType: "quota-based");
 
         public override Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
-        {
-            throw new NotImplementedException();
-        }
+            => throw new NotSupportedException();
 
         // Expose protected methods for testing
         public ProviderUsage TestCreateUnavailableUsage(string description, int httpStatus = 0)

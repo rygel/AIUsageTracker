@@ -14,7 +14,7 @@ public sealed class ProviderSettingsCatalogTests
     {
         var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
 
-        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
+        var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: true);
 
         Assert.Equal(ProviderInputMode.DerivedReadOnly, behavior.InputMode);
     }
@@ -24,7 +24,7 @@ public sealed class ProviderSettingsCatalogTests
     {
         var config = new ProviderConfig { ProviderId = "openai", ApiKey = "sess-token" };
 
-        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: false);
+        var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: false);
 
         Assert.Equal(ProviderInputMode.SessionAuthStatus, behavior.InputMode);
     }
@@ -34,7 +34,7 @@ public sealed class ProviderSettingsCatalogTests
     {
         var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
 
-        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
+        var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: true);
 
         Assert.False(behavior.IsInactive);
     }
@@ -44,7 +44,7 @@ public sealed class ProviderSettingsCatalogTests
     {
         var config = new ProviderConfig { ProviderId = "codex.spark", ApiKey = string.Empty };
 
-        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: true);
+        var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: true);
 
         Assert.True(behavior.IsDerivedVisible);
     }
@@ -54,7 +54,7 @@ public sealed class ProviderSettingsCatalogTests
     {
         var config = new ProviderConfig { ProviderId = "codex", ApiKey = "sess-token" };
 
-        var behavior = ProviderSettingsCatalog.Resolve(config, usage: null, isDerived: false);
+        var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: false);
 
         Assert.Equal(ProviderInputMode.SessionAuthStatus, behavior.InputMode);
         Assert.Equal("OpenAI (Codex)", behavior.SessionProviderLabel);
@@ -67,7 +67,7 @@ public sealed class ProviderSettingsCatalogTests
         var config = new ProviderConfig { ProviderId = "openai", ApiKey = string.Empty };
         var usage = new ProviderUsage { ProviderId = "openai", IsQuotaBased = true, IsAvailable = true };
 
-        var behavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived: false);
+        var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage, isDerived: false);
 
         Assert.Equal(ProviderInputMode.SessionAuthStatus, behavior.InputMode);
         Assert.Equal("OpenAI (API)", behavior.SessionProviderLabel);

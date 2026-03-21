@@ -1,4 +1,4 @@
-﻿// <copyright file="MistralProvider.cs" company="AIUsageTracker">
+// <copyright file="MistralProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -8,20 +8,20 @@ using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Providers;
-using AIUsageTracker.Infrastructure.Http;
+using System.Net.Http;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
 
 public class MistralProvider : ProviderBase
 {
-    private readonly IResilientHttpClient _resilientHttpClient;
+    private readonly HttpClient _httpClient;
     private readonly ILogger<MistralProvider> _logger;
 
-    public MistralProvider(IResilientHttpClient resilientHttpClient, ILogger<MistralProvider> logger, IProviderDiscoveryService? discoveryService = null)
+    public MistralProvider(HttpClient httpClient, ILogger<MistralProvider> logger, IProviderDiscoveryService? discoveryService = null)
         : base(discoveryService)
     {
-        this._resilientHttpClient = resilientHttpClient;
+        this._httpClient = httpClient;
         this._logger = logger;
     }
 
@@ -66,7 +66,7 @@ public class MistralProvider : ProviderBase
         {
             var request = CreateBearerRequest(HttpMethod.Get, "https://api.mistral.ai/v1/models", apiKey);
 
-            var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
             var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)

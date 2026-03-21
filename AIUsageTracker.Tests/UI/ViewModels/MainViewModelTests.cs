@@ -18,13 +18,15 @@ namespace AIUsageTracker.Tests.UI.ViewModels;
 public class MainViewModelTests
 {
     private readonly Mock<IMonitorService> _mockMonitorService;
-    private readonly Mock<IUsageAnalyticsService> _mockAnalyticsService;
+    private readonly Mock<IBrowserService> _mockBrowserService;
+    private readonly Mock<IDialogService> _mockDialogService;
     private readonly ILogger<MainViewModel> _logger;
 
     public MainViewModelTests()
     {
         this._mockMonitorService = new Mock<IMonitorService>();
-        this._mockAnalyticsService = new Mock<IUsageAnalyticsService>();
+        this._mockBrowserService = new Mock<IBrowserService>();
+        this._mockDialogService = new Mock<IDialogService>();
         this._logger = NullLogger<MainViewModel>.Instance;
 
         // Default setup for RefreshPortAsync which is called before GetUsageAsync
@@ -39,10 +41,9 @@ public class MainViewModelTests
     {
         return new MainViewModel(
             this._mockMonitorService.Object,
-            this._mockAnalyticsService.Object,
             this._logger,
-            browserService,
-            dialogService);
+            browserService ?? this._mockBrowserService.Object,
+            dialogService ?? this._mockDialogService.Object);
     }
 
     [Fact]
@@ -60,7 +61,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_SetsIsLoadingTrue_WhileRefreshing()
+    public async Task RefreshDataCommand_SetsIsLoadingTrue_WhileRefreshingAsync()
     {
         // Arrange
         var isLoadingValues = new List<bool>();
@@ -86,7 +87,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesUsages_OnSuccess()
+    public async Task RefreshDataCommand_UpdatesUsages_OnSuccessAsync()
     {
         // Arrange
         var usages = new List<ProviderUsage>
@@ -108,7 +109,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesStatusMessage_OnSuccess()
+    public async Task RefreshDataCommand_UpdatesStatusMessage_OnSuccessAsync()
     {
         // Arrange
         var usages = new List<ProviderUsage>
@@ -129,7 +130,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesStatusMessage_WhenNoProviders()
+    public async Task RefreshDataCommand_UpdatesStatusMessage_WhenNoProvidersAsync()
     {
         // Arrange
         this._mockMonitorService
@@ -146,7 +147,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesStatusMessage_OnError()
+    public async Task RefreshDataCommand_UpdatesStatusMessage_OnErrorAsync()
     {
         // Arrange
         this._mockMonitorService
@@ -163,7 +164,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_UpdatesLastRefreshTime()
+    public async Task RefreshDataCommand_UpdatesLastRefreshTimeAsync()
     {
         // Arrange
         this._mockMonitorService
@@ -181,12 +182,13 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task RefreshDataCommand_DoesNotRunConcurrently()
+    public async Task RefreshDataCommand_DoesNotRunConcurrentlyAsync()
     {
         // Arrange
         var callCount = 0;
         var tcs = new TaskCompletionSource<IReadOnlyList<ProviderUsage>>();
 
+#pragma warning disable VSTHRD003 // Test intentionally returns externally-controlled TaskCompletionSource task.
         this._mockMonitorService
             .Setup(m => m.GetUsageAsync())
             .Returns(() =>
@@ -194,6 +196,7 @@ public class MainViewModelTests
                 callCount++;
                 return tcs.Task;
             });
+#pragma warning restore VSTHRD003
 
         var viewModel = this.CreateViewModel();
 
@@ -243,6 +246,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider IDs from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -268,6 +272,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider ID from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -301,6 +306,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider ID from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -327,6 +333,7 @@ public class MainViewModelTests
     {
         // Arrange
         var viewModel = this.CreateViewModel();
+
         // Use valid provider ID from ProviderMetadataCatalog
         var usages = new List<ProviderUsage>
         {
@@ -349,7 +356,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task OpenWebUICommand_CallsBrowserService()
+    public async Task OpenWebUICommand_CallsBrowserServiceAsync()
     {
         // Arrange
         var mockBrowserService = new Mock<IBrowserService>();
@@ -380,7 +387,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task OpenSettingsCommand_CallsDialogService()
+    public async Task OpenSettingsCommand_CallsDialogServiceAsync()
     {
         // Arrange
         var mockDialogService = new Mock<IDialogService>();
@@ -396,7 +403,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public async Task OpenSettingsCommand_RefreshesData_WhenSettingsChanged()
+    public async Task OpenSettingsCommand_RefreshesData_WhenSettingsChangedAsync()
     {
         // Arrange
         var mockDialogService = new Mock<IDialogService>();

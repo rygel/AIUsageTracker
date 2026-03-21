@@ -2,9 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Updates;
 using Microsoft.Extensions.Logging;
 using NetSparkleUpdater;
 using NetSparkleUpdater.Enums;
@@ -12,8 +10,11 @@ using NetSparkleUpdater.SignatureVerifiers;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
-public class GitHubUpdateChecker : IUpdateCheckerService
+public class GitHubUpdateChecker
 {
+    private const string RepositoryBaseUrl = "https://github.com/rygel/AIUsageTracker";
+    private const string RepositoryApiBaseUrl = "https://api.github.com/repos/rygel/AIUsageTracker";
+
     private readonly ILogger<GitHubUpdateChecker> _logger;
     private readonly HttpClient _httpClient;
     private readonly UpdateChannel _channel;
@@ -28,6 +29,43 @@ public class GitHubUpdateChecker : IUpdateCheckerService
         {
             this._httpClient.DefaultRequestHeaders.Add("User-Agent", "AIUsageTracker");
         }
+    }
+
+    public static string GetReleasesPageUrl()
+    {
+        return $"{RepositoryBaseUrl}/releases";
+    }
+
+    public static string GetLatestReleasePageUrl()
+    {
+        return $"{GetReleasesPageUrl()}/latest";
+    }
+
+    public static string GetReleaseTagUrl(string version)
+    {
+        return $"{GetReleasesPageUrl()}/tag/v{version}";
+    }
+
+    public static string GetGitHubReleaseApiUrl(string version)
+    {
+        return $"{RepositoryApiBaseUrl}/releases/tags/v{version}";
+    }
+
+    public static string GetAppcastUrl(string architecture, bool isBeta)
+    {
+        var normalizedArchitecture = architecture.ToLowerInvariant() switch
+        {
+            "arm" => "arm64",
+            "arm64" => "arm64",
+            "x86" => "x86",
+            _ => "x64",
+        };
+
+        var appcastName = isBeta
+            ? $"appcast_beta_{normalizedArchitecture}.xml"
+            : $"appcast_{normalizedArchitecture}.xml";
+
+        return $"{GetReleasesPageUrl()}/latest/download/{appcastName}";
     }
 
     public async Task<AIUsageTracker.Core.Interfaces.UpdateInfo?> CheckForUpdatesAsync()
@@ -68,7 +106,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
                         return new AIUsageTracker.Core.Interfaces.UpdateInfo
                         {
                             Version = latest.Version ?? latestVersion.ToString(),
-                            ReleaseUrl = latest.ReleaseNotesLink ?? ReleaseUrlCatalog.GetReleaseTagUrl(latestVersion.ToString()),
+                            ReleaseUrl = latest.ReleaseNotesLink ?? GetReleaseTagUrl(latestVersion.ToString()),
                             DownloadUrl = latest.DownloadLink ?? string.Empty,
                             ReleaseNotes = releaseNotes,
                             PublishedAt = latest.PublicationDate,
@@ -150,7 +188,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
             this._logger.LogWarning("Unknown architecture {Architecture}, falling back to x64", currentArch);
         }
 
-        var url = ReleaseUrlCatalog.GetAppcastUrl(targetArch, this._channel == UpdateChannel.Beta);
+        var url = GetAppcastUrl(targetArch, this._channel == UpdateChannel.Beta);
         this._logger.LogDebug("Using appcast for architecture {Architecture} ({Channel}): {Url}", targetArch, this._channel, url);
         return url;
     }
@@ -201,7 +239,7 @@ public class GitHubUpdateChecker : IUpdateCheckerService
     {
         try
         {
-            var url = ReleaseUrlCatalog.GetGitHubReleaseApiUrl(version);
+            var url = GetGitHubReleaseApiUrl(version);
             this._logger.LogDebug("Fetching release notes from: {Url}", url);
 
             using var response = await this._httpClient.GetAsync(url).ConfigureAwait(false);

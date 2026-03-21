@@ -22,11 +22,11 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         this.Config.ApiKey = "test-oauth-token";
     }
 
-
     /// <summary>
     /// Tests parsing of a typical OAuth usage response with moderate usage.
     /// Response structure based on real API response (anonymized).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageFromOAuthAsync_ModerateUsage_ParsesCorrectlyAsync()
     {
@@ -68,8 +68,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // UsedPercent is max utilization: max(35%, 42%) = 42% used
         Assert.Equal(42, result.UsedPercent);
         Assert.Equal(42, result.RequestsUsed); // Used percentage stored separately
-        Assert.Contains("5h: 35%", result.Description);
-        Assert.Contains("7d: 42%", result.Description);
+        Assert.Contains("5h: 35%", result.Description, StringComparison.Ordinal);
+        Assert.Contains("7d: 42%", result.Description, StringComparison.Ordinal);
         Assert.NotNull(result.Details);
         Assert.Equal(4, result.Details!.Count);
     }
@@ -77,6 +77,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     /// <summary>
     /// Tests parsing when user is near 5-hour burst limit.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageFromOAuthAsync_NearBurstLimit_ShowsHigherQuotaAsync()
     {
@@ -114,7 +115,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // UsedPercent = max(92%, 28%) = 92% used
         Assert.Equal(92, result.UsedPercent);
         Assert.Equal(92, result.RequestsUsed); // Stores the used percentage
-        Assert.Contains("Extra usage enabled", result.Description);
+        Assert.Contains("Extra usage enabled", result.Description, StringComparison.Ordinal);
 
         // Verify 5-hour quota is primary
         var primaryDetail = result.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
@@ -127,6 +128,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     /// <summary>
     /// Tests parsing when user has high 7-day usage but low burst usage.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageFromOAuthAsync_HighWeeklyUsage_ParsesCorrectlyAsync()
     {
@@ -180,6 +182,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     /// <summary>
     /// Tests parsing of fresh subscription with minimal usage.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageFromOAuthAsync_MinimalUsage_ParsesCorrectlyAsync()
     {
@@ -223,6 +226,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     /// <summary>
     /// Tests parsing when at 100% capacity.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageFromOAuthAsync_AtCapacity_ParsesCorrectlyAsync()
     {
@@ -260,12 +264,13 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // UsedPercent = 100% used
         Assert.Equal(100, result.UsedPercent);
         Assert.Equal(100, result.RequestsUsed);
-        Assert.Contains("Extra usage enabled", result.Description);
+        Assert.Contains("Extra usage enabled", result.Description, StringComparison.Ordinal);
     }
 
     /// <summary>
     /// Tests that reset time uses the earlier of the two quota resets.
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageFromOAuthAsync_ResetTime_UsesEarlierResetAsync()
     {
@@ -305,6 +310,7 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     /// <summary>
     /// Tests handling of partial response (missing some fields).
     /// </summary>
+    /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
     public async Task GetUsageFromOAuthAsync_PartialResponse_HandlesGracefullyAsync()
     {
@@ -331,8 +337,6 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Equal(25, result.RequestsUsed);
         Assert.Single(result.Details!);
     }
-
-
 
     [Fact]
     public async Task GetUsageFromOAuthAsync_Unauthorized_ReturnsNullAsync()
@@ -402,8 +406,6 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
                 ItExpr.IsAny<CancellationToken>());
     }
 
-
-
     [Fact]
     public async Task GetUsageAsync_WithOAuthToken_UsesOAuthEndpointFirstAsync()
     {
@@ -451,10 +453,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         // Assert
         var usage = result.Single();
         Assert.False(usage.IsAvailable);
-        Assert.Contains("No API key configured", usage.Description);
+        Assert.Contains("No API key configured", usage.Description, StringComparison.Ordinal);
     }
-
-
 
     [Fact]
     public void StaticDefinition_HasCorrectConfiguration()
@@ -481,7 +481,6 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     {
         Assert.Equal("oauth-2025-04-20", ClaudeCodeProvider.OAuthBetaHeader);
     }
-
 
     private void SetupOAuthResponse(HttpStatusCode statusCode, string content)
     {

@@ -4,7 +4,6 @@
 
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Exceptions;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -13,12 +12,6 @@ namespace AIUsageTracker.Core.Providers;
 
 public abstract class ProviderBase : IProviderService
 {
-    /// <summary>
-    /// Shared JSON options for all providers. Case-insensitive property matching only.
-    /// Do NOT add NumberHandling.AllowReadingFromString here — any API that returns numbers
-    /// as strings should handle it explicitly on its model class with [JsonNumberHandling],
-    /// so that unexpected format changes produce logged errors rather than silent zeros.
-    /// </summary>
     protected static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -35,19 +28,12 @@ public abstract class ProviderBase : IProviderService
 
     protected IProviderDiscoveryService? DiscoveryService { get; }
 
-    public virtual bool CanHandleProviderId(string providerId)
-    {
-        return this.Definition.HandlesProviderId(providerId);
-    }
+    public bool CanHandleProviderId(string providerId) => this.Definition.HandlesProviderId(providerId);
 
     public abstract Task<IEnumerable<ProviderUsage>> GetUsageAsync(
         ProviderConfig config,
         Action<ProviderUsage>? progressCallback = null);
 
-    /// <summary>
-    /// Formats a window reset description from a seconds-until-reset value.
-    /// Returns an empty string when no reset time is available.
-    /// </summary>
     protected static string FormatResetDescription(double? resetAfterSeconds)
     {
         if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
@@ -58,10 +44,6 @@ public abstract class ProviderBase : IProviderService
         return $"Resets in {(int)resetAfterSeconds.Value}s";
     }
 
-    /// <summary>
-    /// Converts a seconds-until-reset value to an absolute local <see cref="DateTime"/>.
-    /// Returns <see langword="null"/> when no reset time is available.
-    /// </summary>
     protected static DateTime? ResolveResetTimeFromSeconds(double? resetAfterSeconds)
     {
         if (!resetAfterSeconds.HasValue || resetAfterSeconds.Value <= 0)
@@ -85,7 +67,7 @@ public abstract class ProviderBase : IProviderService
         return JsonSerializer.Deserialize<T>(content, JsonOptions);
     }
 
-    protected virtual ProviderUsage CreateUnavailableUsage(
+    protected ProviderUsage CreateUnavailableUsage(
         string description,
         int httpStatus = 0,
         string? authSource = null,
@@ -108,43 +90,23 @@ public abstract class ProviderBase : IProviderService
         };
     }
 
-    protected virtual ProviderUsage CreateUnavailableUsageFromStatus(
+    protected ProviderUsage CreateUnavailableUsageFromStatus(
         HttpResponseMessage response,
         string? authSource = null)
     {
         var statusCode = (int)response.StatusCode;
-
-        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        var description = response.StatusCode switch
         {
-            return this.CreateUnavailableUsage(
-                $"Authentication failed ({statusCode})",
-                statusCode,
-                authSource);
-        }
+            System.Net.HttpStatusCode.Unauthorized => $"Authentication failed ({statusCode})",
+            System.Net.HttpStatusCode.Forbidden => $"Access denied ({statusCode})",
+            _ when statusCode >= 500 => $"Server error ({statusCode})",
+            _ => $"Request failed ({statusCode})",
+        };
 
-        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-        {
-            return this.CreateUnavailableUsage(
-                $"Access denied ({statusCode})",
-                statusCode,
-                authSource);
-        }
-
-        if ((int)response.StatusCode >= 500)
-        {
-            return this.CreateUnavailableUsage(
-                $"Server error ({statusCode})",
-                statusCode,
-                authSource);
-        }
-
-        return this.CreateUnavailableUsage(
-            $"Request failed ({statusCode})",
-            statusCode,
-            authSource);
+        return this.CreateUnavailableUsage(description, statusCode, authSource);
     }
 
-    protected virtual ProviderUsage CreateUnavailableUsageFromException(
+    protected ProviderUsage CreateUnavailableUsageFromException(
         Exception ex,
         string context = "Provider check failed",
         string? authSource = null)
@@ -160,7 +122,7 @@ public abstract class ProviderBase : IProviderService
         return this.CreateUnavailableUsage(message, 0, authSource);
     }
 
-    protected virtual ProviderUsage CreateUnavailableUsageFromProviderException(
+    protected ProviderUsage CreateUnavailableUsageFromProviderException(
         ProviderException ex,
         string? authSource = null)
     {
@@ -178,9 +140,6 @@ public abstract class ProviderBase : IProviderService
             _ => ex.Message,
         };
 
-        return this.CreateUnavailableUsage(
-            description,
-            ex.HttpStatusCode ?? 0,
-            authSource);
+        return this.CreateUnavailableUsage(description, ex.HttpStatusCode ?? 0, authSource);
     }
 }

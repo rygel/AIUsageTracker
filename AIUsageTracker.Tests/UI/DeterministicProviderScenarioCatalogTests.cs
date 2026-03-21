@@ -12,7 +12,7 @@ public class DeterministicProviderScenarioCatalogTests
     public void Scenarios_DoNotDuplicateProviderIds()
     {
         var catalogType = typeof(AIUsageTracker.UI.Slim.MainWindow).Assembly
-            .GetType("AIUsageTracker.UI.Slim.DeterministicProviderScenarioCatalog", throwOnError: true)!;
+            .GetType("AIUsageTracker.UI.Slim.DeterministicProviderScenario", throwOnError: true)!;
         var scenarios = ((System.Collections.IEnumerable)catalogType.GetProperty("Scenarios", BindingFlags.Public | BindingFlags.Static)!.GetValue(null)!)
             .Cast<object>()
             .ToList();

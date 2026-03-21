@@ -23,7 +23,7 @@ public class Program
         try
         {
             // Ensure Agent is running
-            var lifecycleService = serviceProvider.GetRequiredService<IMonitorLifecycleService>();
+            var lifecycleService = serviceProvider.GetRequiredService<MonitorLifecycleService>();
             if (!await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false))
             {
                 Console.WriteLine("Agent is not running. Attempting to start...");
@@ -71,9 +71,9 @@ public class Program
         });
 
         services.AddHttpClient();
-        services.AddResilientHttpClient();
+        services.AddConfiguredHttpClients();
         services.AddSingleton<IMonitorService, MonitorService>();
-        services.AddSingleton<IMonitorLifecycleService, MonitorLifecycleService>();
+        services.AddSingleton<MonitorLifecycleService>();
 
         return services.BuildServiceProvider();
     }
@@ -103,7 +103,7 @@ public class Program
         var json = args.Contains("--json", StringComparer.Ordinal);
 
         var agentService = serviceProvider.GetRequiredService<IMonitorService>();
-        var lifecycleService = serviceProvider.GetRequiredService<IMonitorLifecycleService>();
+        var lifecycleService = serviceProvider.GetRequiredService<MonitorLifecycleService>();
 
         switch (command)
         {
@@ -445,7 +445,7 @@ public class Program
         }
     }
 
-    private static async Task ManageAgentAsync(IMonitorLifecycleService lifecycleService, string action)
+    private static async Task ManageAgentAsync(MonitorLifecycleService lifecycleService, string action)
     {
         switch (action.ToLower(System.Globalization.CultureInfo.InvariantCulture))
         {

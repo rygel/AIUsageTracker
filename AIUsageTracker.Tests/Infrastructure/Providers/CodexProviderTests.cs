@@ -235,7 +235,7 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
     }
 
     [Fact]
-    public async Task GetUsageAsync_SparkDetail_UsesSecondaryWindowUsage_WhenSparkPrimaryWindowHasReset()
+    public async Task GetUsageAsync_SparkDetail_UsesSecondaryWindowUsage_WhenSparkPrimaryWindowHasResetAsync()
     {
         // When Spark 5h window resets (primaryUsed=0) but the shared weekly window is heavily
         // used (secondaryUsed=98), the Spark detail must reflect the binding constraint (98%).
@@ -414,6 +414,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
                 rate_limit = new
                 {
                     primary_window = new { used_percent = 20, reset_after_seconds = 18000 },
+
                     // No secondary_window in the main rate_limit — weekly only in spark block.
                 },
                 additional_rate_limits = new object[]
@@ -472,7 +473,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task GetUsageAsync_SparkBurstWindowJustReset_EmitsModelScopedDualBarDetails()
+    public async Task GetUsageAsync_SparkBurstWindowJustReset_EmitsModelScopedDualBarDetailsAsync()
     {
         // Regression: when the Spark 5h burst window just reset, the API omits used_percent
         // and only returns reset_after_seconds. Previously HasWindowData checked only usage
@@ -503,6 +504,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
                 {
                     // Primary (5h) window: has usage data
                     primary_window = new { used_percent = 20, reset_after_seconds = 18000 },
+
                     // Weekly window present in main block
                     secondary_window = new { used_percent = 19, reset_after_seconds = 604800 },
                 },
@@ -564,7 +566,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task GetUsageAsync_SparkModelDetailName_ContainsSparkToken_ForChildCardAssignment()
+    public async Task GetUsageAsync_SparkModelDetailName_ContainsSparkToken_ForChildCardAssignmentAsync()
     {
         // Regression: primaryModelName defaults to "OpenAI" when the API response has no
         // root-level model_name. The DerivedModelSelector for codex.spark requires "spark" in
@@ -587,6 +589,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
             Content = new StringContent(JsonSerializer.Serialize(new
             {
                 plan_type = "plus",
+
                 // No root model_name → primaryModelName defaults to "OpenAI"
                 rate_limit = new
                 {
@@ -638,7 +641,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task GetUsageAsync_SparkWeeklyFullyConsumed_NoMainSecondaryWindow_EmitsDualBarDetails()
+    public async Task GetUsageAsync_SparkWeeklyFullyConsumed_NoMainSecondaryWindow_EmitsDualBarDetailsAsync()
     {
         // Production regression: real API response has rate_limit.secondary_window = null (absent),
         // and additional_rate_limits[spark].primary_window.used_percent = 0 (burst just reset),
@@ -665,6 +668,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
                 {
                     // Main burst window: 0% used (just reset)
                     primary_window = new { used_percent = 0, reset_after_seconds = 18000 },
+
                     // NOTE: no secondary_window — it is null/absent in the real API response
                 },
                 additional_rate_limits = new object[]
@@ -726,7 +730,7 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
     }
 
     [Fact]
-    public async Task GetUsageAsync_SparkHasOwnLowerWeeklyThanMainWeekly_UsesSparkOwnWeekly()
+    public async Task GetUsageAsync_SparkHasOwnLowerWeeklyThanMainWeekly_UsesSparkOwnWeeklyAsync()
     {
         // Production regression: when the main rate_limit.secondary_window has high usage (98%)
         // but Spark's own additional_rate_limits[spark].secondary_window has lower usage (19%),

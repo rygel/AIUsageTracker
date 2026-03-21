@@ -3,7 +3,7 @@
                     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
                     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                     xmlns:vm="clr-namespace:AIUsageTracker.UI.Slim.ViewModels"
-                    xmlns:designVm="clr-namespace:AIUsageTracker.UI.Slim.ViewModels.DesignTime"
+
                     mc:Ignorable="d">
 
     <!-- Collapsible Section Template -->

@@ -22,7 +22,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, usages);
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);
 
         var spark = Assert.Single(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
         Assert.False(spark.IsDerived);
@@ -41,7 +41,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "codex.spark", IsQuotaBased = true },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, usages);
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);
 
         Assert.Single(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));
         Assert.False(items.Single(item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal)).IsDerived);
@@ -57,7 +57,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "opencode-zen" },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.Equal(
             new[] { "codex", "opencode-zen", "xiaomi" },
@@ -69,7 +69,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
     [Fact]
     public void CreateDisplayItems_IncludesSupportedProviders_WhenNoConfigsExist()
     {
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(Array.Empty<ProviderConfig>(), Array.Empty<ProviderUsage>());
+        var items = SettingsWindow.CreateProviderDisplayItems(Array.Empty<ProviderConfig>(), Array.Empty<ProviderUsage>());
 
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) && !item.IsDerived);
@@ -88,7 +88,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "codex" },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "openai", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
@@ -103,7 +103,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "claude-code" },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "anthropic", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "claude-code", StringComparison.Ordinal));
@@ -118,7 +118,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "codex" },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.DoesNotContain(items, item => string.Equals(item.Config.ProviderId, "unknown-provider", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
@@ -138,7 +138,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "codex.spark", IsQuotaBased = true, PlanType = PlanType.Coding },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, usages);
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, usages);
         var orderedIds = items
             .Where(item =>
                 string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal) ||
@@ -159,7 +159,7 @@ public sealed class ProviderSettingsDisplayCatalogTests
             new() { ProviderId = "codex.spark" },
         };
 
-        var items = ProviderSettingsDisplayCatalog.CreateDisplayItems(configs, Array.Empty<ProviderUsage>());
+        var items = SettingsWindow.CreateProviderDisplayItems(configs, Array.Empty<ProviderUsage>());
 
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex", StringComparison.Ordinal));
         Assert.Contains(items, item => string.Equals(item.Config.ProviderId, "codex.spark", StringComparison.Ordinal));

@@ -105,7 +105,7 @@ public static class GroupedUsageProjectionService
         string canonicalProviderId)
     {
         var usages = group.ToList();
-        if (ProviderMetadataCatalog.ShouldUseChildProviderRowsForGroupedModels(canonicalProviderId) &&
+        if ((ProviderMetadataCatalog.Find(canonicalProviderId)?.UseChildProviderRowsForGroupedModels ?? false) &&
             ShouldBuildModelsFromExplicitChildRows(usages, canonicalProviderId))
         {
             return BuildModelsFromExplicitChildRows(usages, canonicalProviderId);
@@ -201,7 +201,7 @@ public static class GroupedUsageProjectionService
         IReadOnlyCollection<ProviderUsage> usages,
         string canonicalProviderId)
     {
-        if (!ProviderMetadataCatalog.ShouldUseChildProviderRowsForGroupedModels(canonicalProviderId))
+        if (!(ProviderMetadataCatalog.Find(canonicalProviderId)?.UseChildProviderRowsForGroupedModels ?? false))
         {
             return false;
         }
@@ -367,12 +367,12 @@ public static class GroupedUsageProjectionService
     {
         return !string.IsNullOrWhiteSpace(usage.ProviderId) &&
                !string.Equals(usage.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase) &&
-               ProviderMetadataCatalog.IsChildProviderId(canonicalProviderId, usage.ProviderId);
+               (ProviderMetadataCatalog.Find(canonicalProviderId)?.IsChildProviderId(usage.ProviderId) ?? false);
     }
 
     private static string ResolveChildModelId(ProviderUsage usage, string canonicalProviderId)
     {
-        if (ProviderMetadataCatalog.TryGetChildProviderKey(canonicalProviderId, usage.ProviderId ?? string.Empty, out var childProviderKey))
+        if (ProviderMetadataCatalog.Find(canonicalProviderId)?.TryGetChildProviderKey(usage.ProviderId ?? string.Empty, out var childProviderKey) ?? false)
         {
             return childProviderKey;
         }

@@ -9,9 +9,11 @@ namespace AIUsageTracker.Web.Services;
 
 internal static class WebDatabasePathResolver
 {
+    private const string AppDirectoryName = "AIUsageTracker";
+
     public static string Resolve(string localAppDataRoot, string snapshotRoot)
     {
-        var canonicalDatabasePath = AIUsageTracker.Core.Paths.AppPathCatalog.GetCanonicalDatabasePath(localAppDataRoot);
+        var canonicalDatabasePath = GetCanonicalDatabasePath(localAppDataRoot);
         var snapshotDatabasePath = Path.Combine(snapshotRoot, "usage.db");
         if (TryCopySnapshot(canonicalDatabasePath, snapshotDatabasePath) && CanOpen(snapshotDatabasePath))
         {
@@ -92,5 +94,10 @@ internal static class WebDatabasePathResolver
                 destinationDatabasePath);
             return false;
         }
+    }
+
+    private static string GetCanonicalDatabasePath(string localAppDataRoot)
+    {
+        return Path.Combine(localAppDataRoot, AppDirectoryName, "usage.db");
     }
 }

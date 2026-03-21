@@ -164,9 +164,23 @@ public sealed class ProviderDefinition
     private HashSet<string> HandledProviderIdsSet => this._handledProviderIdsSet ??=
         new HashSet<string>(this.AdditionalHandledProviderIds.Prepend(this.ProviderId), StringComparer.OrdinalIgnoreCase);
 
+    public bool HasDisplayableDerivedProviders =>
+        ProviderFamilyPolicy.HasDisplayableDerivedProviders(this.VisibleDerivedProviderIds, this.FamilyMode);
+
     public bool HandlesProviderId(string providerId)
     {
         return ProviderFamilyPolicy.BelongsToProviderFamily(this.HandledProviderIds, providerId, this.FamilyMode);
+    }
+
+    public bool IsChildProviderId(string candidateProviderId)
+    {
+        return ProviderFamilyPolicy.IsChildProviderId(this.HandledProviderIds, candidateProviderId, this.FamilyMode);
+    }
+
+    public bool TryGetChildProviderKey(string candidateProviderId, out string childProviderKey)
+    {
+        return ProviderFamilyPolicy.TryGetChildProviderKey(
+            this.HandledProviderIds, candidateProviderId, this.FamilyMode, out childProviderKey);
     }
 
     public string? ResolveDisplayName(string providerId)

@@ -20,7 +20,7 @@ public class MistralProviderTests : HttpProviderTestBase<MistralProvider>
 
     public MistralProviderTests()
     {
-        this._provider = new MistralProvider(this.ResilientHttpClient.Object, this.Logger.Object, new Mock<IProviderDiscoveryService>().Object);
+        this._provider = new MistralProvider(this.HttpClient, this.Logger.Object, new Mock<IProviderDiscoveryService>().Object);
         this.Config.ApiKey = "test-mistral-key";
     }
 

@@ -20,7 +20,7 @@ internal sealed class ProviderRefreshConfigSelector
     {
         this._autoIncludedProviderIds = providers
             .Select(provider => provider.ProviderId)
-            .Where(ProviderMetadataCatalog.IsAutoIncluded)
+            .Where(id => ProviderMetadataCatalog.Find(id)?.AutoIncludeWhenUnconfigured ?? false)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         this._logger = logger;
     }
@@ -79,7 +79,7 @@ internal sealed class ProviderRefreshConfigSelector
 
     private bool IsAutoIncludedProviderConfig(string providerId)
     {
-        return ProviderMetadataCatalog.IsAutoIncluded(providerId) &&
+        return (ProviderMetadataCatalog.Find(providerId)?.AutoIncludeWhenUnconfigured ?? false) &&
                this._autoIncludedProviderIds.Contains(ProviderMetadataCatalog.GetCanonicalProviderId(providerId));
     }
 }

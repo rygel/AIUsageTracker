@@ -26,7 +26,7 @@ public sealed class ProviderSubTrayCatalogTests
             },
         };
 
-        var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var details = SettingsWindow.GetEligibleSubTrayDetails(usage);
 
         Assert.Equal(
             new[] { "Gemini 2.5 Flash", "Gemini 2.5 Pro" },
@@ -36,7 +36,7 @@ public sealed class ProviderSubTrayCatalogTests
     [Fact]
     public void GetEligibleDetails_ReturnsEmpty_WhenUsageMissing()
     {
-        var details = ProviderSubTrayCatalog.GetEligibleDetails(null);
+        var details = SettingsWindow.GetEligibleSubTrayDetails(null);
 
         Assert.Empty(details);
     }
@@ -52,7 +52,7 @@ public sealed class ProviderSubTrayCatalogTests
             },
         };
 
-        var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var details = SettingsWindow.GetEligibleSubTrayDetails(usage);
 
         var detail = Assert.Single(details);
         Assert.Equal("GPT OSS", detail.Name);
@@ -70,7 +70,7 @@ public sealed class ProviderSubTrayCatalogTests
             },
         };
 
-        var details = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var details = SettingsWindow.GetEligibleSubTrayDetails(usage);
 
         Assert.Empty(details);
     }

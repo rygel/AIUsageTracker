@@ -10,75 +10,19 @@ using Xunit;
 namespace AIUsageTracker.Tests.Integration;
 
 /// <summary>
-/// Verifies that the PlainClient HttpClient registration does NOT include
-/// Polly retry policies. The default HttpClient retries 429 (TooManyRequests)
-/// with exponential backoff, which is counterproductive for providers that
-/// manage their own fallback chains (e.g. ClaudeCodeProvider).
+/// Verifies that named HttpClient registrations are created by
+/// <see cref="HttpClientExtensions.AddConfiguredHttpClients"/>.
 /// </summary>
 public class HttpClientRegistrationTests
 {
     [Fact]
-    public void PlainClient_DoesNotRetryOn429()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddResilientHttpClient();
-        var provider = services.BuildServiceProvider();
-        var factory = provider.GetRequiredService<IHttpClientFactory>();
-
-        var callCount = 0;
-        var handler = new TestHandler(() =>
-        {
-            callCount++;
-            return new HttpResponseMessage(HttpStatusCode.TooManyRequests);
-        });
-
-        // Act — send a request that returns 429 through a PlainClient-equivalent
-        // We can't inject a handler into the factory-created client, so instead
-        // verify the factory can create a PlainClient and that a direct HttpClient
-        // with the same name resolves without policies.
-        var plainClient = factory.CreateClient("PlainClient");
-        Assert.NotNull(plainClient);
-
-        // Verify by making a real request through a handler without policies
-        var directClient = new HttpClient(handler);
-        directClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, "http://test.invalid/")).GetAwaiter().GetResult();
-
-        // Assert — handler was called exactly once (no retries)
-        Assert.Equal(1, callCount);
-    }
-
-    [Fact]
-    public void DefaultClient_RetriesOn429()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddResilientHttpClient();
-        var provider = services.BuildServiceProvider();
-        var factory = provider.GetRequiredService<IHttpClientFactory>();
-
-        // Act — resolve the default client (should have Polly policies)
-        var defaultClient = factory.CreateClient(string.Empty);
-        Assert.NotNull(defaultClient);
-
-        // The default client has Polly policies attached — we verify this by
-        // checking that both named clients exist and are different configurations.
-        var plainClient = factory.CreateClient("PlainClient");
-        var resilientClient = factory.CreateClient("ResilientClient");
-
-        // Assert — all three clients resolve successfully
-        Assert.NotNull(plainClient);
-        Assert.NotNull(resilientClient);
-    }
-
-    [Fact]
-    public void PlainClient_IsRegistered_ByAddResilientHttpClient()
+    public void PlainClient_IsRegistered_ByAddConfiguredHttpClients()
     {
         // Arrange
         var services = new ServiceCollection();
 
         // Act
-        services.AddResilientHttpClient();
+        services.AddConfiguredHttpClients();
         var provider = services.BuildServiceProvider();
         var factory = provider.GetRequiredService<IHttpClientFactory>();
 
@@ -88,11 +32,27 @@ public class HttpClientRegistrationTests
     }
 
     [Fact]
+    public void LocalhostClient_IsRegistered_ByAddConfiguredHttpClients()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddConfiguredHttpClients();
+        var provider = services.BuildServiceProvider();
+        var factory = provider.GetRequiredService<IHttpClientFactory>();
+
+        // Assert — LocalhostClient should be resolvable
+        var client = factory.CreateClient("LocalhostClient");
+        Assert.NotNull(client);
+    }
+
+    [Fact]
     public void SingletonHttpClient_UsesPlainClient_NotDefaultClient()
     {
         // Arrange — simulate the Monitor's Program.cs registration
         var services = new ServiceCollection();
-        services.AddResilientHttpClient();
+        services.AddConfiguredHttpClients();
         services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("PlainClient"));
 
         // Act

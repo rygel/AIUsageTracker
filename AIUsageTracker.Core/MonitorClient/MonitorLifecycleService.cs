@@ -2,11 +2,9 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
-
 namespace AIUsageTracker.Core.MonitorClient;
 
-public sealed class MonitorLifecycleService : IMonitorLifecycleService
+public sealed class MonitorLifecycleService
 {
     public Task<bool> StartAgentAsync()
     {

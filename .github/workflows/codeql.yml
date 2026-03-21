@@ -15,7 +15,7 @@ on:
       - "AIUsageTracker.UI.Slim/**"
       - "AIUsageTracker.CLI/**"
   schedule:
-    - cron: "0 7 * * 1"  # Weekly on Monday at 7 AM
+    - cron: "0 6 * * 3"  # Wednesday at 6 AM
   workflow_dispatch:
 
 concurrency:

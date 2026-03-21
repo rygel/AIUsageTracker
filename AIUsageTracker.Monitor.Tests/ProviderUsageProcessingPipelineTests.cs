@@ -385,7 +385,7 @@ public class ProviderUsageProcessingPipelineTests
     }
 
     [Fact]
-    public void Process_WhenNextResetMissing_InferNextResetFromDetails()
+    public void Process_WhenNextResetMissing_DoesNotInferNextResetFromDetails()
     {
         var futureReset = DateTime.UtcNow.AddHours(2);
         var usage = new ProviderUsage
@@ -413,8 +413,10 @@ public class ProviderUsageProcessingPipelineTests
             isPrivacyMode: false);
 
         var processed = Assert.Single(result.Usages);
-        Assert.NotNull(processed.NextResetTime);
-        Assert.Equal(futureReset, processed.NextResetTime!.Value, TimeSpan.FromSeconds(1));
+        Assert.Null(processed.NextResetTime);
+        var processedDetail = Assert.Single(processed.Details!);
+        Assert.NotNull(processedDetail.NextResetTime);
+        Assert.Equal(futureReset, processedDetail.NextResetTime!.Value, TimeSpan.FromSeconds(1));
     }
 
     [Fact]
@@ -538,7 +540,6 @@ public class ProviderUsageProcessingPipelineTests
     // These guard against regressions like the beta.39 bug where NormalizeDetails
     // dropped PercentageValue/PercentageSemantic, causing TryGetPresentation to
     // return false for providers that used typed percentage fields (e.g. Codex).
-
     [Fact]
     public void Process_NormalizeDetails_PreservesTypedPercentageValue()
     {

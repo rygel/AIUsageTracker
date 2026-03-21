@@ -3,7 +3,6 @@
 // </copyright>
 
 using System.Diagnostics;
-using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -19,15 +18,12 @@ using System.Windows.Threading;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
-using AIUsageTracker.Core.Updates;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Win32;
 
 namespace AIUsageTracker.UI.Slim;
@@ -48,18 +44,19 @@ public partial class MainWindow : Window
 
     private readonly MainViewModel _viewModel;
     private readonly IMonitorService _monitorService;
-    private readonly IMonitorLifecycleService _monitorLifecycleService;
+    private readonly MonitorLifecycleService _monitorLifecycleService;
+    private readonly MonitorStartupOrchestrator _monitorStartupOrchestrator;
     private readonly ILogger<MainWindow> _logger;
+    private readonly Func<UpdateChannel, GitHubUpdateChecker> _createUpdateChecker;
+    private readonly IDialogService _dialogService;
+    private readonly IBrowserService _browserService;
+    private readonly Func<string, FrameworkElement> _createProviderIcon;
+    private readonly Func<string, FlowDocument> _buildChangelogDocument;
     private readonly UiPreferencesStore _preferencesStore;
-    private readonly DisplayPreferencesService _displayPreferences;
     private readonly DispatcherTimer _updateCheckTimer;
     private readonly DispatcherTimer _alwaysOnTopTimer;
 
-    // Extracted UI services — initialized lazily after resource dictionary is loaded
-    private WpfProviderIconService? _iconService;
-    private ChangelogMarkdownRenderer? _markdownRenderer;
-
-    private IUpdateCheckerService _updateChecker;
+    private GitHubUpdateChecker _updateChecker;
     private AppPreferences _preferences = new();
     private readonly object _dataLock = new();
     private List<ProviderUsage> _usages = new();
@@ -81,10 +78,6 @@ public partial class MainWindow : Window
     private int _topmostRecoveryGeneration;
     private bool _isSettingsDialogOpen;
     private bool _isTooltipOpen;
-
-    internal Func<(Window Dialog, Func<bool> HasChanges)> SettingsDialogFactory { get; set; } = CreateDefaultSettingsDialog;
-
-    internal Func<Window, bool?> ShowOwnedDialog { get; set; } = static dialog => dialog.ShowDialog();
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
@@ -112,56 +105,73 @@ public partial class MainWindow : Window
     public MainWindow(
         MainViewModel viewModel,
         IMonitorService monitorService,
-        IMonitorLifecycleService monitorLifecycleService,
+        MonitorLifecycleService monitorLifecycleService,
+        MonitorStartupOrchestrator monitorStartupOrchestrator,
         ILogger<MainWindow> logger,
-        IUpdateCheckerService updateChecker,
-        UiPreferencesStore preferencesStore,
-        DisplayPreferencesService displayPreferences)
-        : this(skipUiInitialization: false, viewModel, monitorService, monitorLifecycleService, logger, updateChecker, preferencesStore, displayPreferences)
-    {
-    }
-
-    public MainWindow()
+        Func<UpdateChannel, GitHubUpdateChecker> createUpdateChecker,
+        GitHubUpdateChecker updateChecker,
+        IDialogService dialogService,
+        IBrowserService browserService,
+        UiPreferencesStore preferencesStore)
         : this(
-            App.Host.Services.GetRequiredService<MainViewModel>(),
-            App.Host.Services.GetRequiredService<IMonitorService>(),
-            App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
-            App.Host.Services.GetRequiredService<ILogger<MainWindow>>(),
-            App.Host.Services.GetRequiredService<IUpdateCheckerService>(),
-            App.Host.Services.GetRequiredService<UiPreferencesStore>(),
-            App.Host.Services.GetRequiredService<DisplayPreferencesService>())
+            skipUiInitialization: false,
+            viewModel,
+            monitorService,
+            monitorLifecycleService,
+            monitorStartupOrchestrator,
+            logger,
+            createUpdateChecker,
+            updateChecker,
+            dialogService,
+            browserService,
+            preferencesStore)
     {
     }
 
-    internal MainWindow(bool skipUiInitialization)
-        : this(skipUiInitialization, null, null, null, null, null, null, null)
-    {
-    }
-
-    private MainWindow(
+    internal MainWindow(
         bool skipUiInitialization,
-        MainViewModel? viewModel,
-        IMonitorService? monitorService,
-        IMonitorLifecycleService? monitorLifecycleService,
-        ILogger<MainWindow>? logger,
-        IUpdateCheckerService? updateChecker,
-        UiPreferencesStore? preferencesStore,
-        DisplayPreferencesService? displayPreferences)
+        MainViewModel viewModel,
+        IMonitorService monitorService,
+        MonitorLifecycleService monitorLifecycleService,
+        MonitorStartupOrchestrator monitorStartupOrchestrator,
+        ILogger<MainWindow> logger,
+        Func<UpdateChannel, GitHubUpdateChecker> createUpdateChecker,
+        GitHubUpdateChecker updateChecker,
+        IDialogService dialogService,
+        IBrowserService browserService,
+        UiPreferencesStore preferencesStore)
     {
+        ArgumentNullException.ThrowIfNull(viewModel);
+        ArgumentNullException.ThrowIfNull(monitorService);
+        ArgumentNullException.ThrowIfNull(monitorLifecycleService);
+        ArgumentNullException.ThrowIfNull(monitorStartupOrchestrator);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(createUpdateChecker);
+        ArgumentNullException.ThrowIfNull(updateChecker);
+        ArgumentNullException.ThrowIfNull(dialogService);
+        ArgumentNullException.ThrowIfNull(browserService);
+        ArgumentNullException.ThrowIfNull(preferencesStore);
+
         if (!skipUiInitialization)
         {
             this.InitializeComponent();
             this.ApplyVersionDisplay();
         }
 
-        // Fallbacks for internal/test use
-        this._logger = logger ?? App.CreateLogger<MainWindow>();
-        this._monitorService = monitorService ?? App.MonitorService;
-        this._monitorLifecycleService = monitorLifecycleService ?? App.Host.Services.GetRequiredService<IMonitorLifecycleService>();
-        this._updateChecker = updateChecker ?? App.Host.Services.GetRequiredService<IUpdateCheckerService>();
-        this._preferencesStore = preferencesStore ?? App.Host.Services.GetRequiredService<UiPreferencesStore>();
-        this._displayPreferences = displayPreferences ?? App.Host.Services.GetRequiredService<DisplayPreferencesService>();
-        this._viewModel = viewModel ?? App.Host.Services.GetRequiredService<MainViewModel>();
+        this._logger = logger;
+        this._monitorService = monitorService;
+        this._monitorLifecycleService = monitorLifecycleService;
+        this._monitorStartupOrchestrator = monitorStartupOrchestrator;
+        this._createUpdateChecker = createUpdateChecker;
+        this._updateChecker = updateChecker;
+        this._dialogService = dialogService;
+        this._browserService = browserService;
+        var providerIconService = new WpfProviderIconService(this._logger, this.GetResourceBrush);
+        this._createProviderIcon = providerIconService.CreateIcon;
+        var markdownRenderer = new ChangelogMarkdownRenderer(this.GetResourceBrush);
+        this._buildChangelogDocument = markdownRenderer.BuildDocument;
+        this._preferencesStore = preferencesStore;
+        this._viewModel = viewModel;
         this.DataContext = this._viewModel;
 
         this._updateCheckTimer = new DispatcherTimer
@@ -195,10 +205,10 @@ public partial class MainWindow : Window
         this._alwaysOnTopTimer.Start();
 
         this.SourceInitialized += this.OnSourceInitialized;
-        App.PrivacyChanged += this.OnPrivacyChanged;
+        PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
         this.Closed += (s, e) =>
         {
-            App.PrivacyChanged -= this.OnPrivacyChanged;
+            PrivacyChangedWeakEventManager.RemoveHandler(this.OnPrivacyChanged);
             this._updateCheckTimer.Stop();
             this._alwaysOnTopTimer.Stop();
             this.SourceInitialized -= this.OnSourceInitialized;
@@ -301,54 +311,15 @@ public partial class MainWindow : Window
             ? $"{appVersion.Major}.{appVersion.Minor}.{appVersion.Build}"
             : "0.0.0";
 
-        var suffix = this.GetPrereleaseLabel(assembly);
-        var displayVersion = string.IsNullOrWhiteSpace(suffix)
-            ? $"v{versionCore}"
-            : $"v{versionCore} {suffix}";
-
-        this.VersionText.Text = displayVersion;
-        this.Title = $"AI Usage Tracker {displayVersion}";
-    }
-
-    private string? GetPrereleaseLabel(Assembly assembly)
-    {
         var informationalVersion = assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
             .InformationalVersion;
-
-        if (string.IsNullOrWhiteSpace(informationalVersion))
-        {
-            return null;
-        }
-
-        // Trim build metadata (e.g., +sha) and keep semantic pre-release suffix.
-        var normalized = informationalVersion.Split('+')[0];
-        var dashIndex = normalized.IndexOf('-');
-        if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
-        {
-            return null;
-        }
-
-        var suffix = normalized[(dashIndex + 1)..];
-        if (suffix.StartsWith("beta.", StringComparison.OrdinalIgnoreCase))
-        {
-            var betaPart = suffix["beta.".Length..];
-            return string.IsNullOrWhiteSpace(betaPart) ? "Beta" : $"Beta {betaPart}";
-        }
-
-        if (suffix.StartsWith("alpha.", StringComparison.OrdinalIgnoreCase))
-        {
-            var alphaPart = suffix["alpha.".Length..];
-            return string.IsNullOrWhiteSpace(alphaPart) ? "Alpha" : $"Alpha {alphaPart}";
-        }
-
-        if (suffix.StartsWith("rc.", StringComparison.OrdinalIgnoreCase))
-        {
-            var rcPart = suffix["rc.".Length..];
-            return string.IsNullOrWhiteSpace(rcPart) ? "RC" : $"RC {rcPart}";
-        }
-
-        return suffix.Replace('.', ' ');
+        var prereleaseLabel = ParsePrereleaseLabel(informationalVersion);
+        var displayVersion = string.IsNullOrWhiteSpace(prereleaseLabel)
+            ? $"v{versionCore}"
+            : $"v{versionCore} {prereleaseLabel}";
+        this.VersionText.Text = displayVersion;
+        this.Title = $"AI Usage Tracker {displayVersion}";
     }
 
     private void PositionWindowNearTray()
@@ -394,7 +365,7 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
-        if (this._isLoading || this._monitorService == null)
+        if (this._isLoading)
         {
             return;
         }
@@ -416,62 +387,26 @@ public partial class MainWindow : Window
 
             this.ShowStatus("Checking monitor status...", StatusType.Info);
 
-            // Offload the expensive discovery/startup logic to a background thread
-            // to prevent UI freezing during port scans or agent startup waits.
-            var success = await Task.Run(async () =>
+            var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(
+                async (message, type) =>
+                {
+                    await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type));
+                });
+            var success = startupResult.IsSuccess;
+
+            if (!success && startupResult.IsLaunchFailure)
             {
-                try
-                {
-                    // Refresh the monitor endpoint from authoritative metadata/health before first contact.
-                    await this._monitorService.RefreshPortAsync();
-
-                    var monitorStatus = await this._monitorLifecycleService.GetAgentStatusInfoAsync();
-
-                    // Check if Monitor is running on the discovered port
-                    var isRunning = monitorStatus.IsRunning || await this._monitorService.CheckHealthAsync();
-
-                    if (!isRunning)
-                    {
-                        var launchMessage = string.Equals(monitorStatus.Error, "monitor-starting", StringComparison.Ordinal)
-                            ? "Monitor is starting..."
-                            : "Monitor not running. Starting monitor...";
-                        await this.Dispatcher.InvokeAsync(() => this.ShowStatus(launchMessage, StatusType.Warning));
-                        await this.Dispatcher.InvokeAsync(() => this.ShowStatus("Waiting for monitor...", StatusType.Warning));
-                        var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
-                        if (!monitorReady)
-                        {
-                            await this._monitorService.RefreshAgentInfoAsync();
-                            await this.Dispatcher.InvokeAsync(() =>
-                            {
-                                this.ShowStatus("Monitor failed to start", StatusType.Error);
-                                this.ShowErrorState(this.BuildMonitorLaunchErrorMessage());
-                            });
-                            return false;
-                        }
-
-                        // Monitor may have started on a different port; refresh the client endpoint before using it.
-                        await this._monitorService.RefreshPortAsync();
-                    }
-                    else if (await this.TryRestartMonitorForVersionMismatchAsync())
-                    {
-                        // Monitor was restarted due to version mismatch; refresh the client endpoint.
-                        await this._monitorService.RefreshPortAsync();
-                    }
-
-                    // Update monitor toggle button state
-                    await this.UpdateMonitorToggleButtonStateAsync();
-
-                    return true;
-                }
-                catch (Exception ex)
-                {
-                    this._logger.LogError(ex, "Background initialization failed");
-                    return false;
-                }
-            });
+                this.ShowStatus("Monitor failed to start", StatusType.Error);
+                this.ShowErrorState(
+                    BuildMonitorErrorMessage(
+                        "Monitor failed to start.",
+                        "Please ensure AIUsageTracker.Monitor is installed and try again.",
+                        this._monitorService.LastAgentErrors));
+            }
 
             if (success)
             {
+                await this.UpdateMonitorToggleButtonStateAsync();
                 var handshakeResult = await this._monitorService.CheckApiContractAsync();
                 this.ApplyMonitorContractStatus(handshakeResult);
 
@@ -530,7 +465,12 @@ public partial class MainWindow : Window
         {
             await this._monitorService.RefreshAgentInfoAsync();
             this.ShowStatus("Monitor not reachable", StatusType.Error);
-            this.ShowErrorState(this.BuildMonitorConnectionErrorMessage());
+            this.ShowErrorState(
+                BuildMonitorErrorMessage(
+                    "Cannot connect to Monitor.",
+                    "Please ensure:\n1. Monitor is running\n2. Port is correct (check monitor.json)\n3. Firewall is not blocking\n\nTry restarting the Monitor.",
+                    this._monitorService.LastAgentErrors));
+
             return;
         }
 
@@ -604,6 +544,7 @@ public partial class MainWindow : Window
                 this.LogDiagnostic($"[DIAGNOSTIC] Connection error: {ex.Message}");
                 this.ShowStatus("Connection lost", StatusType.Error);
                 this.ShowErrorState($"Lost connection to Monitor:\n{ex.Message}\n\nTry refreshing or restarting the Monitor.");
+
                 return;
             }
             catch (Exception ex)
@@ -623,7 +564,6 @@ public partial class MainWindow : Window
 
     private void ApplyPreferences()
     {
-        // Apply window settings
         this.Topmost = this._preferences.AlwaysOnTop;
         this.Width = this._preferences.WindowWidth;
         this.Height = this._preferences.WindowHeight;
@@ -657,91 +597,8 @@ public partial class MainWindow : Window
     {
         if (this.ShowUsedToggle != null)
         {
-            this.ShowUsedToggle.IsChecked = this._displayPreferences.ShouldShowUsedPercentages(this._preferences);
+            this.ShowUsedToggle.IsChecked = this._preferences.PercentageDisplayMode == PercentageDisplayMode.Used;
         }
-    }
-
-    private async Task<bool> TryRestartMonitorForVersionMismatchAsync()
-    {
-        try
-        {
-            var healthSnapshot = await this._monitorService.GetHealthSnapshotAsync();
-            if (healthSnapshot == null)
-            {
-                return false;
-            }
-
-            var monitorVersion = healthSnapshot.AgentVersion;
-            var uiVersion = typeof(App).Assembly.GetName().Version?.ToString();
-
-            if (string.IsNullOrEmpty(monitorVersion) || string.IsNullOrEmpty(uiVersion))
-            {
-                return false;
-            }
-
-            if (string.Equals(monitorVersion, uiVersion, StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            MonitorService.LogDiagnostic(
-                $"Monitor version mismatch (monitor: {monitorVersion}, ui: {uiVersion}). Restarting monitor...");
-            this._logger.LogWarning(
-                "Monitor version mismatch (monitor: {MonitorVersion}, ui: {UiVersion}). Restarting monitor...",
-                monitorVersion,
-                uiVersion);
-
-            await this.Dispatcher.InvokeAsync(() =>
-                this.ShowStatus("Restarting monitor (version mismatch)...", StatusType.Warning));
-
-            await this._monitorLifecycleService.StopAgentAsync();
-
-            var started = await this._monitorLifecycleService.EnsureAgentRunningAsync();
-            if (!started)
-            {
-                MonitorService.LogDiagnostic("Failed to restart monitor after version mismatch.");
-                this._logger.LogError("Failed to restart monitor after version mismatch");
-                return false;
-            }
-
-            MonitorService.LogDiagnostic("Monitor restarted successfully after version mismatch.");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogError(ex, "Error during monitor version mismatch restart");
-            return false;
-        }
-    }
-
-    private string BuildMonitorLaunchErrorMessage()
-    {
-        return this.BuildMonitorErrorMessage(
-            "Monitor failed to start.",
-            "Please ensure AIUsageTracker.Monitor is installed and try again.");
-    }
-
-    private string BuildMonitorConnectionErrorMessage()
-    {
-        return this.BuildMonitorErrorMessage(
-            "Cannot connect to Monitor.",
-            "Please ensure:\n1. Monitor is running\n2. Port is correct (check monitor.json)\n3. Firewall is not blocking\n\nTry restarting the Monitor.");
-    }
-
-    private string BuildMonitorErrorMessage(string heading, string fallbackDetails)
-    {
-        if (this._monitorService.LastAgentErrors.Count == 0)
-        {
-            return $"{heading}\n\n{fallbackDetails}";
-        }
-
-        var details = string.Join(
-            Environment.NewLine,
-            this._monitorService.LastAgentErrors
-                .Take(3)
-                .Select(error => $"- {error}"));
-
-        return $"{heading}\n\nMonitor reported:\n{details}\n\n{fallbackDetails}";
     }
 
     private void InitializeUpdateChecker()
@@ -752,10 +609,7 @@ public partial class MainWindow : Window
         }
 
         var channel = this._preferences.UpdateChannel;
-        this._updateChecker = new GitHubUpdateChecker(
-            NullLogger<GitHubUpdateChecker>.Instance,
-            App.Host.Services.GetRequiredService<HttpClient>(),
-            channel);
+            this._updateChecker = this._createUpdateChecker(channel);
     }
 
     private async Task SaveUiPreferencesAsync()
@@ -802,41 +656,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private void FitWindowHeightForHeadlessScreenshot()
-    {
-        if (this.Content is not FrameworkElement root)
-        {
-            return;
-        }
-
-        var width = this.Width;
-        if (double.IsNaN(width) || width <= 0)
-        {
-            width = this.ActualWidth > 0 ? this.ActualWidth : 460;
-        }
-
-        root.Measure(new Size(width, double.PositiveInfinity));
-        var desiredHeight = Math.Ceiling(root.DesiredSize.Height);
-        if (desiredHeight > 0)
-        {
-            this.Height = Math.Max(this.MinHeight, desiredHeight);
-        }
-
-        this.UpdateLayout();
-
-        if (this.ProvidersScrollViewer is null)
-        {
-            return;
-        }
-
-        var overflow = this.ProvidersScrollViewer.ExtentHeight - this.ProvidersScrollViewer.ViewportHeight;
-        if (overflow > 0.5)
-        {
-            this.Height += Math.Ceiling(overflow) + 2;
-            this.UpdateLayout();
-        }
-    }
-
     private void OnPrivacyChanged(object? sender, PrivacyChangedEventArgs e)
     {
         if (!this.Dispatcher.CheckAccess())
@@ -871,12 +690,12 @@ public partial class MainWindow : Window
         this.PrivacyBtn.Content = this._isPrivacyMode ? "\uE72E" : "\uE785";
         this.PrivacyBtn.Foreground = this._isPrivacyMode
             ? Brushes.Gold
-            : (this.TryFindResource("SecondaryText") as Brush ?? Brushes.Gray);
+            : this.GetResourceBrush("SecondaryText", Brushes.Gray);
     }
 
     private async Task RefreshDataAsync()
     {
-        if (this._isLoading || this._monitorService == null)
+        if (this._isLoading)
         {
             return;
         }
@@ -891,7 +710,18 @@ public partial class MainWindow : Window
 
             // Get updated usage data
             var latestUsages = await this.GetUsageForDisplayAsync();
-            if (latestUsages.Any())
+            var now = DateTime.Now;
+            var hasLatestUsages = latestUsages.Any();
+            bool hasCurrentUsages = false;
+            if (!hasLatestUsages)
+            {
+                lock (this._dataLock)
+                {
+                    hasCurrentUsages = this._usages.Any();
+                }
+            }
+
+            if (hasLatestUsages)
             {
                 lock (this._dataLock)
                 {
@@ -899,25 +729,18 @@ public partial class MainWindow : Window
                 }
 
                 this.RenderProviders();
-                this._lastMonitorUpdate = DateTime.Now;
-                this.ShowStatus($"{DateTime.Now:HH:mm:ss}", StatusType.Success);
+                this._lastMonitorUpdate = now;
+                this.ShowStatus($"{now:HH:mm:ss}", StatusType.Success);
                 _ = this.UpdateTrayIconsAsync();
-                return;
             }
-
-            bool hasUsages;
-            lock (this._dataLock)
-            {
-                hasUsages = this._usages.Any();
-            }
-
-            if (hasUsages)
+            else if (hasCurrentUsages)
             {
                 this.ShowStatus("Refresh returned no data, keeping last snapshot", StatusType.Warning);
-                return;
             }
-
-            this.ShowErrorState("No provider data available.\n\nMonitor may still be initializing.");
+            else
+            {
+                this.ShowErrorState("No provider data available.\n\nMonitor may still be initializing.");
+            }
         }
         catch (Exception ex)
         {
@@ -984,16 +807,6 @@ public partial class MainWindow : Window
         return this.FindResource(key) as SolidColorBrush ?? fallback;
     }
 
-    private WpfProviderIconService EnsureIconService()
-    {
-        return this._iconService ??= new WpfProviderIconService(this._logger, this.GetResourceBrush);
-    }
-
-    private ChangelogMarkdownRenderer EnsureMarkdownRenderer()
-    {
-        return this._markdownRenderer ??= new ChangelogMarkdownRenderer(this.GetResourceBrush);
-    }
-
     private void RenderProviders()
     {
         this.LogDiagnostic("[DIAGNOSTIC] RenderProviders called");
@@ -1006,16 +819,19 @@ public partial class MainWindow : Window
         }
 
         this.LogDiagnostic($"[DIAGNOSTIC] ProvidersList cleared, _usages count: {usagesCopy.Count}");
+        var renderPlan = MainWindowRuntimeLogic.BuildProviderRenderPlan(usagesCopy, this._preferences.HiddenProviderItemIds);
+        this.LogDiagnostic(
+            $"[DIAGNOSTIC] Provider render counts: raw={renderPlan.RawCount}, rendered={renderPlan.RenderedCount}");
 
-        if (!usagesCopy.Any())
+        if (!string.IsNullOrWhiteSpace(renderPlan.Message))
         {
-            this.LogDiagnostic("[DIAGNOSTIC] No usages, creating 'No provider data available' message");
+            this.LogDiagnostic($"[DIAGNOSTIC] {renderPlan.Message}");
             try
             {
-                var messageBlock = this.CreateInfoTextBlock("No provider data available.");
+                var messageBlock = this.CreateInfoTextBlock(renderPlan.Message);
                 this.ProvidersList.Children.Add(messageBlock);
                 this.ApplyProviderListFontPreferences();
-                this.LogDiagnostic("[DIAGNOSTIC] 'No provider data available' message added");
+                this.LogDiagnostic("[DIAGNOSTIC] Empty-state provider message added");
             }
             catch (Exception ex)
             {
@@ -1027,78 +843,36 @@ public partial class MainWindow : Window
 
         try
         {
-            this.LogDiagnostic($"[DIAGNOSTIC] Rendering {usagesCopy.Count} providers...");
-
-            var expandedUsages = ProviderUsageDisplayCatalog.BuildMainWindowUsageList(
-                usagesCopy,
-                this._preferences.HiddenProviderItemIds);
-
-            this.LogDiagnostic(
-                $"[DIAGNOSTIC] Provider render counts: raw={usagesCopy.Count}, rendered={expandedUsages.Count}");
-
-            if (!expandedUsages.Any())
-            {
-                this.ProvidersList.Children.Add(this.CreateInfoTextBlock("Data received, but no displayable providers were found."));
-                this.ApplyProviderListFontPreferences();
-                return;
-            }
+            this.LogDiagnostic($"[DIAGNOSTIC] Rendering {renderPlan.RenderedCount} providers...");
 
             var cardRenderer = this.CreateProviderCardRenderer();
-            UIElement? currentHeader = null;
-            StackPanel? currentContainer = null;
-            bool? currentIsQuota = null;
-
-            foreach (var usage in expandedUsages)
+            foreach (var section in renderPlan.Sections)
             {
-                // Switch section if type changes
-                if (currentIsQuota != usage.IsQuotaBased)
-                {
-                    currentIsQuota = usage.IsQuotaBased;
-                    var sectionTitle = currentIsQuota.Value ? "Plans & Quotas" : "Pay As You Go";
-                    var sectionColor = currentIsQuota.Value ? Brushes.DeepSkyBlue : Brushes.MediumSeaGreen;
-                    var sectionKey = currentIsQuota.Value ? "PlansAndQuotas" : "PayAsYouGo";
+                var (header, container) = this.CreateCollapsibleHeader(
+                    section.Title,
+                    section.IsQuotaBased ? Brushes.DeepSkyBlue : Brushes.MediumSeaGreen,
+                    isGroupHeader: true,
+                    groupKey: section.SectionKey,
+                        () => MainWindowRuntimeLogic.GetSectionIsCollapsed(this._preferences, section.IsQuotaBased),
+                        v => MainWindowRuntimeLogic.SetSectionIsCollapsed(this._preferences, section.IsQuotaBased, v));
 
-                    var (header, container) = this.CreateCollapsibleHeader(
-                        sectionTitle,
-                        sectionColor,
-                        isGroupHeader: true,
-                        groupKey: sectionKey,
-                        () => currentIsQuota.Value ? this._preferences.IsPlansAndQuotasCollapsed : this._preferences.IsPayAsYouGoCollapsed,
-                        v =>
-                        {
-                            if (currentIsQuota.Value)
-                            {
-                                this._preferences.IsPlansAndQuotasCollapsed = v;
-                            }
-                            else
-                            {
-                                this._preferences.IsPayAsYouGoCollapsed = v;
-                            }
-                        });
+                this.ProvidersList.Children.Add(header);
+                this.ProvidersList.Children.Add(container);
 
-                    this.ProvidersList.Children.Add(header);
-                    this.ProvidersList.Children.Add(container);
-                    currentHeader = header;
-                    currentContainer = container;
-                }
-
-                if (currentContainer == null)
-                {
-                    continue;
-                }
-
-                // Check if this section is collapsed
-                var isCollapsed = currentIsQuota.Value ? this._preferences.IsPlansAndQuotasCollapsed : this._preferences.IsPayAsYouGoCollapsed;
+            var isCollapsed = MainWindowRuntimeLogic.GetSectionIsCollapsed(this._preferences, section.IsQuotaBased);
                 if (isCollapsed)
                 {
                     continue;
                 }
 
-                this.AddProviderCard(usage, currentContainer, cardRenderer);
-
-                if (usage.Details?.Any() == true)
+                foreach (var usage in section.Usages)
                 {
-                    this.AddCollapsibleSubProviders(usage, currentContainer, cardRenderer);
+                    this.AddProviderCard(usage, container, cardRenderer);
+
+                    if (usage.Details?.Any() == true)
+                    {
+                        this.AddCollapsibleSubProviders(usage, container, cardRenderer);
+                    }
                 }
             }
 
@@ -1180,23 +954,24 @@ public partial class MainWindow : Window
         Func<bool> getCollapsed,
         Action<bool> setCollapsed)
     {
-        // Group header has larger margins, sub-header is indented
         var margin = isGroupHeader
             ? new Thickness(0, 8, 0, 4)
             : new Thickness(20, 4, 0, 2);
-        var fontSize = isGroupHeader ? 10.0 : 9.0;
+        var toggleFontSize = isGroupHeader ? 10.0 : 9.0;
         var titleFontWeight = isGroupHeader ? FontWeights.Bold : FontWeights.Normal;
         var toggleOpacity = isGroupHeader ? 1.0 : 0.8;
         var lineOpacity = isGroupHeader ? 0.5 : 0.3;
-        var titleText = isGroupHeader ? title.ToUpper(System.Globalization.CultureInfo.InvariantCulture) : title;
-        var titleForeground = isGroupHeader ? accent : this.GetResourceBrush("SecondaryText", Brushes.Gray);
+        var titleText = isGroupHeader ? title.ToUpperInvariant() : title;
+        var titleForeground = isGroupHeader
+            ? accent
+            : this.GetResourceBrush("SecondaryText", Brushes.Gray);
 
         var header = this.CreateCollapsibleHeaderGrid(margin);
 
         // Toggle button
         var toggleText = this.CreateText(
             getCollapsed() ? "▶" : "▼",
-            fontSize,
+            toggleFontSize,
             accent,
             FontWeights.Bold,
             new Thickness(0, 0, 5, 0));
@@ -1253,10 +1028,10 @@ public partial class MainWindow : Window
             this._preferences,
             this._isPrivacyMode,
             this.GetResourceBrush,
-            providerId => this.EnsureIconService().CreateIcon(providerId),
+            this._createProviderIcon,
             this.CreateTopmostAwareToolTip,
             this.ConfigureCardToolTip,
-            this.GetRelativeTimeString);
+            nextReset => FormatRelativeTimeUntil(nextReset, DateTime.Now));
     }
 
     private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
@@ -1308,69 +1083,33 @@ public partial class MainWindow : Window
 
     private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer)
     {
-        if (usage.Details?.Any() != true)
+        var sectionOpt = MainWindowRuntimeLogic.Build(usage, this._preferences);
+        if (sectionOpt is null)
         {
             return;
         }
+        var section = sectionOpt.Value;
 
-        var displayableDetails = ProviderSubDetailPresentationCatalog.GetDisplayableDetails(
-            usage);
-
-        if (!displayableDetails.Any())
-        {
-            return;
-        }
-
-        // Create collapsible section for sub-providers
-        var useAntigravityCollapsePreference = ProviderMetadataCatalog.ShouldUseSharedSubDetailCollapsePreference(
-            usage.ProviderId ?? string.Empty);
         var (subHeader, subContainer) = this.CreateCollapsibleHeader(
-            $"{ProviderMetadataCatalog.ResolveDisplayLabel(usage)} Details",
+            section.Title,
             Brushes.DeepSkyBlue,
             isGroupHeader: false,
             groupKey: null,
-            () => useAntigravityCollapsePreference && this._preferences.IsAntigravityCollapsed,
-            v =>
-            {
-                if (useAntigravityCollapsePreference)
-                {
-                    this._preferences.IsAntigravityCollapsed = v;
-                }
-            });
+            () => MainWindowRuntimeLogic.GetIsCollapsed(this._preferences, section.ProviderId),
+            v => MainWindowRuntimeLogic.SetIsCollapsed(this._preferences, section.ProviderId, v));
 
         container.Children.Add(subHeader);
         container.Children.Add(subContainer);
 
-        if (!useAntigravityCollapsePreference || !this._preferences.IsAntigravityCollapsed)
+        if (section.IsCollapsed)
         {
-            // Add sub-provider details
-            foreach (var detail in displayableDetails)
-            {
-                this.AddSubProviderCard(usage, detail, subContainer, cardRenderer);
-            }
-        }
-    }
-
-    private string GetRelativeTimeString(DateTime nextReset)
-    {
-        var diff = nextReset - DateTime.Now;
-
-        if (diff.TotalSeconds <= 0)
-        {
-            return "0m";
+            return;
         }
 
-        if (diff.TotalDays >= 1)
+        foreach (var detail in section.Details)
         {
-            return $"{diff.Days}d {diff.Hours}h";
+            this.AddSubProviderCard(usage, detail, subContainer, cardRenderer);
         }
-
-        if (diff.TotalHours >= 1)
-        {
-            return $"{diff.Hours}h {diff.Minutes}m";
-        }
-
-        return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
     }
 
     private void StartPollingTimer()
@@ -1413,8 +1152,11 @@ public partial class MainWindow : Window
                 {
                     // Empty data - try to trigger a refresh if cooldown has passed
                     // This handles cases where Monitor restarted or hasn't completed its background refresh
-                    var secondsSinceLastRefresh = (DateTime.Now - this._lastRefreshTrigger).TotalSeconds;
-                    if (secondsSinceLastRefresh >= RefreshCooldownSeconds)
+                    var refreshDecision = MainWindowRuntimeLogic.CreatePollingRefreshDecision(
+                        this._lastRefreshTrigger,
+                        DateTime.Now,
+                        RefreshCooldownSeconds);
+                    if (refreshDecision.ShouldTriggerRefresh)
                     {
                         this._logger.LogDebug("Polling returned empty, triggering refresh");
                         this._lastRefreshTrigger = DateTime.Now;
@@ -1431,7 +1173,7 @@ public partial class MainWindow : Window
                     {
                         this._logger.LogDebug(
                             "Polling returned empty, refresh cooldown active ({SecondsSinceLastRefresh:F0}s ago)",
-                            secondsSinceLastRefresh);
+                            refreshDecision.SecondsSinceLastRefresh);
                     }
 
                     // Wait a moment and retry getting data
@@ -1447,19 +1189,32 @@ public partial class MainWindow : Window
                         hasCurrentUsages = this._usages.Any();
                     }
 
+                    var now = DateTime.Now;
+                    string? noDataMessage = null;
+                    StatusType? noDataStatusType = null;
+                    var switchToStartupInterval = false;
                     if (!hasCurrentUsages)
                     {
-                        // No current data and no previous data - show warning
-                        this.ShowStatus("No data - waiting for Monitor", StatusType.Warning);
-                        if (this._pollingTimer != null && this._pollingTimer.Interval != StartupPollingInterval)
-                        {
-                            this._pollingTimer.Interval = StartupPollingInterval;
-                        }
+                        noDataMessage = "No data - waiting for Monitor";
+                        noDataStatusType = StatusType.Warning;
+                        switchToStartupInterval = true;
                     }
-                    else if ((DateTime.Now - this._lastMonitorUpdate).TotalMinutes > 5)
+                    else if ((now - this._lastMonitorUpdate).TotalMinutes > 5)
                     {
-                        // Keep showing old data, show yellow warning
-                        this.ShowStatus(this.FormatMonitorOfflineStatus(), StatusType.Warning);
+                        noDataMessage = MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, now);
+                        noDataStatusType = StatusType.Warning;
+                    }
+
+                    if (noDataMessage != null && noDataStatusType.HasValue)
+                    {
+                        this.ShowStatus(noDataMessage, noDataStatusType.Value);
+                    }
+
+                    if (switchToStartupInterval &&
+                        this._pollingTimer != null &&
+                        this._pollingTimer.Interval != StartupPollingInterval)
+                    {
+                        this._pollingTimer.Interval = StartupPollingInterval;
                     }
                 }
             }
@@ -1472,19 +1227,28 @@ public partial class MainWindow : Window
                     hasOldData = this._usages.Any();
                 }
 
+                var now = DateTime.Now;
+                string? exceptionMessage;
+                StatusType exceptionStatusType;
+                var switchToStartupInterval = false;
                 if (hasOldData)
                 {
-                    // Has old data - show yellow warning, keep displaying stale data
-                    this.ShowStatus(this.FormatMonitorOfflineStatus(), StatusType.Warning);
+                    exceptionMessage = MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, now);
+                    exceptionStatusType = StatusType.Warning;
                 }
                 else
                 {
-                    // No old data - show red error
-                    this.ShowStatus("Connection error", StatusType.Error);
-                    if (this._pollingTimer != null && this._pollingTimer.Interval != StartupPollingInterval)
-                    {
-                        this._pollingTimer.Interval = StartupPollingInterval;
-                    }
+                    exceptionMessage = "Connection error";
+                    exceptionStatusType = StatusType.Error;
+                    switchToStartupInterval = true;
+                }
+                this.ShowStatus(exceptionMessage, exceptionStatusType);
+
+                if (switchToStartupInterval &&
+                    this._pollingTimer != null &&
+                    this._pollingTimer.Interval != StartupPollingInterval)
+                {
+                    this._pollingTimer.Interval = StartupPollingInterval;
                 }
             }
         };
@@ -1508,12 +1272,17 @@ public partial class MainWindow : Window
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            bool shouldRefreshConfigs;
+            bool hasCachedConfigs;
             lock (this._dataLock)
             {
-                shouldRefreshConfigs = !this._configs.Any() ||
-                    (DateTime.UtcNow - this._lastTrayConfigRefresh) >= TrayConfigRefreshInterval;
+                hasCachedConfigs = this._configs.Any();
             }
+
+            var shouldRefreshConfigs = MainWindowRuntimeLogic.ShouldRefreshTrayConfigs(
+                hasCachedConfigs: hasCachedConfigs,
+                lastRefreshUtc: this._lastTrayConfigRefresh,
+                nowUtc: DateTime.UtcNow,
+                refreshInterval: TrayConfigRefreshInterval);
 
             if (shouldRefreshConfigs)
             {
@@ -1550,11 +1319,6 @@ public partial class MainWindow : Window
 
     private async Task InitializeSignalRAsync()
     {
-        if (this._monitorService == null)
-        {
-            return;
-        }
-
         try
         {
             var hubUrl = $"{this._monitorService.AgentUrl.TrimEnd('/')}/hubs/usage";
@@ -1604,17 +1368,22 @@ public partial class MainWindow : Window
             var usages = await this.GetUsageForDisplayAsync();
             if (usages.Any())
             {
+                var now = DateTime.Now;
+                var successStatusMessage = $"{now:HH:mm:ss}{statusSuffix}";
+                var switchToNormalInterval = this._pollingTimer != null
+                    && this._pollingTimer.Interval != NormalPollingInterval;
+
                 lock (this._dataLock)
                 {
                     this._usages = usages.ToList();
                 }
 
                 this.RenderProviders();
-                this._lastMonitorUpdate = DateTime.Now;
-                this.ShowStatus($"{DateTime.Now:HH:mm:ss}{statusSuffix}", StatusType.Success);
+                this._lastMonitorUpdate = now;
+                this.ShowStatus(successStatusMessage, StatusType.Success);
                 _ = this.UpdateTrayIconsAsync();
 
-                if (this._pollingTimer != null && this._pollingTimer.Interval != NormalPollingInterval)
+                if (switchToNormalInterval && this._pollingTimer != null)
                 {
                     this._pollingTimer.Interval = NormalPollingInterval;
                 }
@@ -1632,19 +1401,7 @@ public partial class MainWindow : Window
 
     private string FormatMonitorOfflineStatus()
     {
-        if (this._lastMonitorUpdate == DateTime.MinValue)
-        {
-            return "Monitor offline — no data received yet";
-        }
-
-        var elapsed = DateTime.Now - this._lastMonitorUpdate;
-        var ago = elapsed.TotalSeconds < 60
-            ? $"{(int)elapsed.TotalSeconds}s ago"
-            : elapsed.TotalHours < 1
-                ? $"{(int)elapsed.TotalMinutes}m ago"
-                : $"{(int)elapsed.TotalHours}h ago";
-
-        return $"Monitor offline — last sync {ago}";
+        return MainWindowRuntimeLogic.FormatMonitorOfflineStatus(this._lastMonitorUpdate, DateTime.Now);
     }
 
     private void LogDiagnostic(string message)
@@ -1655,33 +1412,50 @@ public partial class MainWindow : Window
 
     private void ShowStatus(string message, StatusType type)
     {
-        if (type == StatusType.Success && !string.IsNullOrWhiteSpace(this._monitorContractWarningMessage))
+        var effectiveMessage = message;
+        var effectiveType = type;
+        if (effectiveType == StatusType.Success &&
+            !string.IsNullOrWhiteSpace(this._monitorContractWarningMessage))
         {
-            message = this._monitorContractWarningMessage;
-            type = StatusType.Warning;
+            effectiveMessage = this._monitorContractWarningMessage;
+            effectiveType = StatusType.Warning;
         }
+
+        var tooltipText = this._lastMonitorUpdate == DateTime.MinValue
+            ? "Last update: Never"
+            : $"Last update: {this._lastMonitorUpdate:HH:mm:ss}";
+
+        var indicatorKind = effectiveType switch
+        {
+            StatusType.Success => StatusIndicatorKind.Success,
+            StatusType.Warning => StatusIndicatorKind.Warning,
+            StatusType.Error => StatusIndicatorKind.Error,
+            _ => StatusIndicatorKind.Neutral,
+        };
+
+        var logLevel = effectiveType switch
+        {
+            StatusType.Error => LogLevel.Error,
+            StatusType.Warning => LogLevel.Warning,
+            _ => LogLevel.Information,
+        };
 
         if (this.StatusText != null)
         {
-            this.StatusText.Text = message;
+            this.StatusText.Text = effectiveMessage;
         }
 
         // Update LED color
         if (this.StatusLed != null)
         {
-            this.StatusLed.Fill = type switch
+            this.StatusLed.Fill = indicatorKind switch
             {
-                StatusType.Success => this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
-                StatusType.Warning => Brushes.Gold,
-                StatusType.Error => this.GetResourceBrush("ProgressBarRed", Brushes.Crimson),
+                StatusIndicatorKind.Success => this.GetResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+                StatusIndicatorKind.Warning => Brushes.Gold,
+                StatusIndicatorKind.Error => this.GetResourceBrush("ProgressBarRed", Brushes.Crimson),
                 _ => this.GetResourceBrush("SecondaryText", Brushes.Gray),
             };
         }
-
-        // Update tooltip with last agent update time
-        var tooltipText = this._lastMonitorUpdate == DateTime.MinValue
-            ? "Last update: Never"
-            : $"Last update: {this._lastMonitorUpdate:HH:mm:ss}";
 
         if (this.StatusLed != null)
         {
@@ -1693,13 +1467,11 @@ public partial class MainWindow : Window
             this.StatusText.ToolTip = this.CreateTopmostAwareToolTip(this.StatusText, tooltipText);
         }
 
-        var logLevel = type switch
-        {
-            StatusType.Error => LogLevel.Error,
-            StatusType.Warning => LogLevel.Warning,
-            _ => LogLevel.Information,
-        };
-        this._logger.Log(logLevel, "[{StatusType}] {StatusMessage}", type, message);
+        this._logger.Log(
+            logLevel,
+            "[{StatusType}] {StatusMessage}",
+            effectiveType,
+            effectiveMessage);
     }
 
     private void ApplyMonitorContractStatus(AgentContractHandshakeResult handshakeResult)
@@ -1776,19 +1548,13 @@ public partial class MainWindow : Window
 
     internal async Task OpenSettingsDialogAsync()
     {
-        var settingsDialog = this.SettingsDialogFactory();
-        var settingsWindow = settingsDialog.Dialog;
-        if (this.IsVisible)
-        {
-            settingsWindow.Owner = this;
-            settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        }
-
         this._isSettingsDialogOpen = true;
+        bool? settingsResult;
 
         try
         {
-            _ = this.ShowOwnedDialog(settingsWindow);
+            var owner = this.IsVisible ? this : null;
+            settingsResult = await this._dialogService.ShowSettingsAsync(owner);
         }
         finally
         {
@@ -1796,7 +1562,7 @@ public partial class MainWindow : Window
             this.EnsureAlwaysOnTop();
         }
 
-        if (settingsDialog.HasChanges())
+        if (settingsResult == true)
         {
             // Reload preferences and refresh data
             await this.InitializeAsync();
@@ -1812,26 +1578,32 @@ public partial class MainWindow : Window
         App.SetPrivacyMode(this._isPrivacyMode);
         this._preferencesLoaded = true;
 
-        this.ApplyPreferences();
-        this.UpdatePrivacyButtonState();
-
         bool hasUsages;
         lock (this._dataLock)
         {
             hasUsages = this._usages.Count > 0;
         }
 
-        if (hasUsages)
+        void ApplyUiState()
         {
-            this.RenderProviders();
-            _ = this.UpdateTrayIconsAsync();
-        }
-    }
+            this.ApplyPreferences();
+            this.UpdatePrivacyButtonState();
 
-    private static (Window Dialog, Func<bool> HasChanges) CreateDefaultSettingsDialog()
-    {
-        var settingsWindow = new SettingsWindow();
-        return (settingsWindow, () => settingsWindow.SettingsChanged);
+            if (hasUsages)
+            {
+                this.RenderProviders();
+                _ = this.UpdateTrayIconsAsync();
+            }
+        }
+
+        if (this.Dispatcher.CheckAccess())
+        {
+            ApplyUiState();
+        }
+        else
+        {
+            _ = this.Dispatcher.BeginInvoke(ApplyUiState);
+        }
     }
 
     private async void WebBtn_Click(object sender, RoutedEventArgs e)
@@ -1843,16 +1615,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            // Start the Web service if not running
-            await this.StartWebServiceAsync();
-
-            // Open browser to the Web UI
-            var webUrl = "http://localhost:5100";
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = webUrl,
-                UseShellExecute = true,
-            });
+            await this._browserService.OpenWebUIAsync();
         }
         catch (Exception ex)
         {
@@ -1863,96 +1626,6 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
-    }
-
-    private async Task StartWebServiceAsync()
-    {
-        try
-        {
-            // Check if web service is already running
-            using var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(1) };
-            try
-            {
-                var response = await client.GetAsync("http://localhost:5100");
-                if (response.IsSuccessStatusCode)
-                {
-                    this._logger.LogDebug("Web service already running");
-                    return;
-                }
-            }
-            catch
-            {
-                // Service not running, start it
-            }
-
-            // Find Web executable
-            var possiblePaths = new[]
-            {
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Debug", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "AIUsageTracker.Web", "bin", "Release", "net8.0", "AIUsageTracker.Web.exe"),
-                Path.Combine(AppContext.BaseDirectory, "AIUsageTracker.Web.exe"),
-            };
-
-            var webPath = possiblePaths.FirstOrDefault(File.Exists);
-
-            if (webPath == null)
-            {
-                // Try dotnet run
-                var webProjectDir = this.FindProjectDirectory("AIUsageTracker.Web");
-                if (webProjectDir != null)
-                {
-                    var psi = new ProcessStartInfo
-                    {
-                        FileName = "dotnet",
-                        Arguments = $"run --project \"{webProjectDir}\" --urls \"http://localhost:5100\"",
-                        UseShellExecute = true,
-                        CreateNoWindow = true,
-                        WorkingDirectory = webProjectDir,
-                    };
-                    Process.Start(psi);
-                    this._logger.LogInformation("Started Web service via dotnet run");
-                    return;
-                }
-
-                this._logger.LogWarning("Web executable not found");
-                return;
-            }
-
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = webPath,
-                Arguments = "--urls \"http://localhost:5100\"",
-                UseShellExecute = true,
-                CreateNoWindow = true,
-                WorkingDirectory = Path.GetDirectoryName(webPath),
-            };
-
-            Process.Start(startInfo);
-            this._logger.LogInformation("Started Web service from: {WebPath}", webPath);
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogError(ex, "Failed to start Web service");
-        }
-    }
-
-    private string? FindProjectDirectory(string projectName)
-    {
-        var currentDir = AppContext.BaseDirectory;
-        var dir = new DirectoryInfo(currentDir);
-
-        while (dir != null)
-        {
-            var projectPath = Path.Combine(dir.FullName, projectName, $"{projectName}.csproj");
-            if (File.Exists(projectPath))
-            {
-                return Path.GetDirectoryName(projectPath);
-            }
-
-            dir = dir.Parent;
-        }
-
-        return null;
     }
 
     private async void PrivacyBtn_Click(object sender, RoutedEventArgs e)
@@ -2002,12 +1675,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task Compact_CheckedAsync(object sender, RoutedEventArgs e)
-    {
-        // No-op (Field removed from UI)
-        await Task.CompletedTask;
-    }
-
     private async void ShowUsedToggle_Checked(object sender, RoutedEventArgs e)
     {
         try
@@ -2017,7 +1684,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            this._displayPreferences.SetShowUsedPercentages(this._preferences, this.ShowUsedToggle.IsChecked ?? false);
+            this._preferences.ShowUsedPercentages = this.ShowUsedToggle.IsChecked ?? false;
             await this.SaveUiPreferencesAsync();
 
             // Refresh the display to show used% vs remaining%
@@ -2029,20 +1696,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private void RefreshData_NoArgs(object sender, RoutedEventArgs e)
-    {
-        _ = this.RefreshDataAsync();
-    }
-
     private void ViewChangelogBtn_Click(object sender, RoutedEventArgs e)
     {
         if (this._latestUpdate == null)
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = ReleaseUrlCatalog.GetReleasesPageUrl(),
-                UseShellExecute = true,
-            });
+            OpenExternalUrl(AIUsageTracker.Infrastructure.Services.GitHubUpdateChecker.GetReleasesPageUrl());
             return;
         }
 
@@ -2068,11 +1726,20 @@ public partial class MainWindow : Window
         {
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             IsToolBarVisible = false,
-            Document = this.EnsureMarkdownRenderer().BuildDocument(updateInfo.ReleaseNotes),
+            Document = this._buildChangelogDocument(updateInfo.ReleaseNotes),
         };
 
         changelogWindow.Content = viewer;
         changelogWindow.ShowDialog();
+    }
+
+    private static void OpenExternalUrl(string url)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = url,
+            UseShellExecute = true,
+        });
     }
 
     private async Task CheckForUpdatesAsync()
@@ -2088,11 +1755,12 @@ public partial class MainWindow : Window
             this._isUpdateCheckInProgress = true;
             this._latestUpdate = await this._updateChecker.CheckForUpdatesAsync();
 
-            if (this._latestUpdate != null)
+            var latestVersion = this._latestUpdate?.Version;
+            if (!string.IsNullOrWhiteSpace(latestVersion))
             {
                 if (this.UpdateNotificationBanner != null && this.UpdateText != null)
                 {
-                    this.UpdateText.Text = $"New version available: {this._latestUpdate.Version}";
+                    this.UpdateText.Text = $"New version available: {latestVersion}";
                     this.UpdateNotificationBanner.Visibility = Visibility.Visible;
                 }
             }
@@ -2115,11 +1783,7 @@ public partial class MainWindow : Window
     {
         if (this._latestUpdate == null)
         {
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = ReleaseUrlCatalog.GetLatestReleasePageUrl(),
-                UseShellExecute = true,
-            });
+            OpenExternalUrl(AIUsageTracker.Infrastructure.Services.GitHubUpdateChecker.GetLatestReleasePageUrl());
             return;
         }
 
@@ -2195,28 +1859,79 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task RestartMonitorAsync()
+    private static string BuildMonitorErrorMessage(
+        string heading,
+        string fallbackDetails,
+        IReadOnlyCollection<string>? errors)
     {
-        try
+        if (errors == null || errors.Count == 0)
         {
-            this.ShowStatus("Restarting monitor...", StatusType.Warning);
+            return $"{heading}\n\n{fallbackDetails}";
+        }
 
-            // Try to start agent
-            var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync();
-            if (monitorReady)
-            {
-                this.ShowStatus("Monitor restarted", StatusType.Success);
-                await this.RefreshDataAsync();
-            }
-            else
-            {
-                this.ShowStatus("Monitor restart failed", StatusType.Error);
-            }
-        }
-        catch (Exception ex)
+        var details = string.Join(
+            Environment.NewLine,
+            errors.Take(3).Select(error => $"- {error}"));
+
+        return $"{heading}\n\nMonitor reported:\n{details}\n\n{fallbackDetails}";
+    }
+
+    private static string FormatRelativeTimeUntil(DateTime nextReset, DateTime now)
+    {
+        var diff = nextReset - now;
+
+        if (diff.TotalSeconds <= 0)
         {
-            this.ShowStatus($"Restart error: {ex.Message}", StatusType.Error);
+            return "0m";
         }
+
+        if (diff.TotalDays >= 1)
+        {
+            return $"{diff.Days}d {diff.Hours}h";
+        }
+
+        if (diff.TotalHours >= 1)
+        {
+            return $"{diff.Hours}h {diff.Minutes}m";
+        }
+
+        return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
+    }
+
+    private static string? ParsePrereleaseLabel(string? informationalVersion)
+    {
+        if (string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            return null;
+        }
+
+        var normalized = informationalVersion.Split('+')[0];
+        var dashIndex = normalized.IndexOf('-');
+        if (dashIndex < 0 || dashIndex >= normalized.Length - 1)
+        {
+            return null;
+        }
+
+        var suffix = normalized[(dashIndex + 1)..];
+        if (suffix.StartsWith("beta.", StringComparison.OrdinalIgnoreCase))
+        {
+            var betaPart = suffix["beta.".Length..];
+            return string.IsNullOrWhiteSpace(betaPart) ? "Beta" : $"Beta {betaPart}";
+        }
+
+        if (suffix.StartsWith("alpha.", StringComparison.OrdinalIgnoreCase))
+        {
+            var alphaPart = suffix["alpha.".Length..];
+            return string.IsNullOrWhiteSpace(alphaPart) ? "Alpha" : $"Alpha {alphaPart}";
+        }
+
+        if (suffix.StartsWith("rc.", StringComparison.OrdinalIgnoreCase))
+        {
+            var rcPart = suffix["rc.".Length..];
+            return string.IsNullOrWhiteSpace(rcPart) ? "RC" : $"RC {rcPart}";
+        }
+
+        return suffix.Replace('.', ' ');
     }
 
     private async void MonitorToggleBtn_Click(object sender, RoutedEventArgs e)
@@ -2270,7 +1985,6 @@ public partial class MainWindow : Window
     {
         if (this.MonitorToggleBtn != null && this.MonitorToggleIcon != null)
         {
-            // Update icon: Play (E768) when stopped, Stop (E71A) when running
             this.MonitorToggleIcon.Text = isRunning ? "\uE71A" : "\uE768";
             this.MonitorToggleBtn.ToolTip = isRunning ? "Stop Monitor" : "Start Monitor";
         }
@@ -2291,26 +2005,32 @@ public partial class MainWindow : Window
                 case Key.R:
                     this.RefreshBtn_Click(this, new RoutedEventArgs());
                     e.Handled = true;
-                    break;
+                    return;
                 case Key.P:
                     this.PrivacyBtn_Click(this, new RoutedEventArgs());
                     e.Handled = true;
-                    break;
+                    return;
                 case Key.Q:
                     this.CloseBtn_Click(this, new RoutedEventArgs());
                     e.Handled = true;
-                    break;
+                    return;
             }
         }
-        else if (e.Key == Key.Escape)
+
+        switch (e.Key)
         {
-            this.CloseBtn_Click(this, new RoutedEventArgs());
-            e.Handled = true;
-        }
-        else if (e.Key == Key.F2)
-        {
-            this.SettingsBtn_Click(this, new RoutedEventArgs());
-            e.Handled = true;
+            case Key.Escape:
+                this.CloseBtn_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            case Key.F2:
+                this.SettingsBtn_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                return;
+            default:
+                return;
         }
     }
 }
+
+

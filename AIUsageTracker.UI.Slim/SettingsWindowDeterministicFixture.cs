@@ -13,7 +13,7 @@ internal static class SettingsWindowDeterministicFixture
     {
         var deterministicNow = new DateTime(2026, 02, 01, 12, 00, 00, DateTimeKind.Local);
 
-        var configs = DeterministicProviderScenarioCatalog.Scenarios
+        var configs = DeterministicProviderScenario.Scenarios
             .Select(CreateConfig)
             .ToList();
 
@@ -34,11 +34,11 @@ internal static class SettingsWindowDeterministicFixture
                 }),
         };
 
-        usages.AddRange(DeterministicProviderScenarioCatalog.Scenarios
+        usages.AddRange(DeterministicProviderScenario.Scenarios
             .Where(scenario => scenario.SettingsWindowUsage != null)
             .Select(scenario => CreateUsage(scenario, deterministicNow, scenario.SettingsWindowUsage!)));
 
-        var historyRows = DeterministicProviderScenarioCatalog.Scenarios
+        var historyRows = DeterministicProviderScenario.Scenarios
             .Where(scenario => scenario.SettingsWindowHistory != null)
             .Select(scenario => CreateHistoryRow(scenario.ProviderId, scenario.SettingsWindowHistory!))
             .ToArray();
@@ -70,10 +70,10 @@ internal static class SettingsWindowDeterministicFixture
         bool isAvailable = true,
         List<ProviderUsageDetail>? details = null)
     {
-        if (!ProviderMetadataCatalog.TryGetUsageSemantics(scenario.ProviderId, out var planType, out var isQuotaBased))
-        {
-            throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
-        }
+        var def = ProviderMetadataCatalog.Find(scenario.ProviderId)
+            ?? throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
+        var planType = def.PlanType;
+        var isQuotaBased = def.IsQuotaBased;
 
         return new ProviderUsage
         {
@@ -109,10 +109,9 @@ internal static class SettingsWindowDeterministicFixture
 
     private static SettingsWindowHistoryRow CreateHistoryRow(string providerId, FixtureHistoryScenario scenario)
     {
-        if (!ProviderMetadataCatalog.TryGetUsageSemantics(providerId, out var planType, out _))
-        {
-            throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot history.");
-        }
+        var histDef = ProviderMetadataCatalog.Find(providerId)
+            ?? throw new InvalidOperationException($"Unknown provider id '{providerId}' in deterministic screenshot history.");
+        var planType = histDef.PlanType;
 
         return new SettingsWindowHistoryRow
         {

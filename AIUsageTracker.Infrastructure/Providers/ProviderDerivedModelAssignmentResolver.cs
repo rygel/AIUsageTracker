@@ -19,12 +19,18 @@ public static class ProviderDerivedModelAssignmentResolver
             return Array.Empty<ProviderDerivedModelAssignment>();
         }
 
-        if (ProviderMetadataCatalog.HasStaticVisibleDerivedProviders(canonicalProviderId))
+        var definition = ProviderMetadataCatalog.Find(canonicalProviderId);
+        if (definition == null)
         {
-            return BuildDerivedAssignments(canonicalProviderId, orderedModels);
+            return Array.Empty<ProviderDerivedModelAssignment>();
         }
 
-        if (ProviderMetadataCatalog.ShouldUseChildProviderRowsForGroupedModels(canonicalProviderId))
+        if (definition.VisibleDerivedProviderIds.Count > 0)
+        {
+            return BuildDerivedAssignments(definition, canonicalProviderId, orderedModels);
+        }
+
+        if (definition.UseChildProviderRowsForGroupedModels)
         {
             return BuildDynamicModelAssignments(canonicalProviderId, orderedModels);
         }
@@ -33,10 +39,11 @@ public static class ProviderDerivedModelAssignmentResolver
     }
 
     private static IReadOnlyList<ProviderDerivedModelAssignment> BuildDerivedAssignments(
+        ProviderDefinition definition,
         string canonicalProviderId,
         IReadOnlyList<AgentGroupedModelUsage> orderedModels)
     {
-        var visibleDerivedProviderIds = ProviderMetadataCatalog.GetVisibleDerivedProviderIds(canonicalProviderId).ToList();
+        var visibleDerivedProviderIds = definition.VisibleDerivedProviderIds.ToList();
         if (visibleDerivedProviderIds.Count == 0 || orderedModels.Count == 0)
         {
             return Array.Empty<ProviderDerivedModelAssignment>();
@@ -44,7 +51,7 @@ public static class ProviderDerivedModelAssignmentResolver
 
         var assignments = new List<ProviderDerivedModelAssignment>(Math.Min(visibleDerivedProviderIds.Count, orderedModels.Count));
         var usedModelIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var selectorsByProviderId = ProviderMetadataCatalog.GetDerivedModelSelectors(canonicalProviderId)
+        var selectorsByProviderId = definition.DerivedModelSelectors
             .GroupBy(selector => selector.DerivedProviderId, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 

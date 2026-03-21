@@ -11,7 +11,6 @@ namespace AIUsageTracker.Tests.UI;
 public sealed class ChangelogMarkdownRendererTests
 {
     // ── GetHeaderLevel ────────────────────────────────────────────────────────
-
     [Theory]
     [InlineData("# Title", 1)]
     [InlineData("## Section", 2)]
@@ -33,7 +32,6 @@ public sealed class ChangelogMarkdownRendererTests
     }
 
     // ── TryParseNumberedItem ──────────────────────────────────────────────────
-
     [Fact]
     public void TryParseNumberedItem_ReturnsTrueAndExtractsNumber()
     {
@@ -66,7 +64,6 @@ public sealed class ChangelogMarkdownRendererTests
     }
 
     // ── TryCreateHyperlink ────────────────────────────────────────────────────
-
     [Fact]
     public void TryCreateHyperlink_ReturnsTrueForValidMarkdownLink()
     {
@@ -93,7 +90,6 @@ public sealed class ChangelogMarkdownRendererTests
     }
 
     // ── BuildDocument (WPF — requires STA thread) ─────────────────────────────
-
     [Fact]
     public void BuildDocument_ReturnsEmptyMessage_ForNullOrWhitespace()
     {
@@ -120,7 +116,10 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.Equal(1, blockCount);
         Assert.Contains("No changelog", runText, StringComparison.OrdinalIgnoreCase);
@@ -160,7 +159,10 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.Equal(22, headingFontSize); // h1 = 22
         Assert.Equal(4, totalBlocks);     // heading + paragraph + 2 bullets
@@ -199,14 +201,16 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.Equal(2, blockCount); // intro paragraph + code block
         Assert.Equal("Consolas", lastFontFamilySource);
     }
 
     // ── Inline formatting (STA thread required) ───────────────────────────────
-
     [Fact]
     public void BuildDocument_RendersBoldInline()
     {
@@ -234,7 +238,10 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.True(hasBold, "Expected a Bold inline");
         Assert.Equal("major fix", boldText);
@@ -267,7 +274,10 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.True(hasItalic, "Expected an Italic inline");
         Assert.Equal("emphasis here", italicText);
@@ -288,7 +298,7 @@ public sealed class ChangelogMarkdownRendererTests
                 var doc = renderer.BuildDocument("Run `dotnet test` to execute.");
                 var paragraph = doc.Blocks.OfType<Paragraph>().Single();
                 var codeRun = paragraph.Inlines.OfType<Run>()
-                    .FirstOrDefault(r => r.FontFamily?.Source == "Consolas");
+                    .FirstOrDefault(r => string.Equals(r.FontFamily?.Source, "Consolas", StringComparison.Ordinal));
                 inlineCodeText = codeRun?.Text;
                 inlineCodeFont = codeRun?.FontFamily?.Source;
             }
@@ -301,7 +311,10 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.Equal("dotnet test", inlineCodeText);
         Assert.Equal("Consolas", inlineCodeFont);
@@ -327,7 +340,7 @@ public sealed class ChangelogMarkdownRendererTests
                 inlineCount = paragraph.Inlines.Count;
                 hasBold = paragraph.Inlines.OfType<Bold>().Any();
                 hasConsolas = paragraph.Inlines.OfType<Run>()
-                    .Any(r => r.FontFamily?.Source == "Consolas");
+                    .Any(r => string.Equals(r.FontFamily?.Source, "Consolas", StringComparison.Ordinal));
             }
             catch (Exception e)
             {
@@ -338,7 +351,10 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.True(hasBold, "Expected a Bold inline");
         Assert.True(hasConsolas, "Expected an inline code Run with Consolas font");
@@ -372,7 +388,10 @@ public sealed class ChangelogMarkdownRendererTests
         thread.Start();
         thread.Join();
 
-        if (ex != null) throw new Exception("STA thread threw", ex);
+        if (ex != null)
+        {
+            throw new Exception("STA thread threw", ex);
+        }
 
         Assert.Equal(new Uri("https://example.com/notes"), linkUri);
         Assert.Equal("release notes", linkText);

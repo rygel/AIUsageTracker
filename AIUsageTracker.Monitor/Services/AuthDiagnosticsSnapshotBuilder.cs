@@ -162,6 +162,6 @@ internal static class AuthDiagnosticsSnapshotBuilder
             }
         }
 
-        return ProviderMetadataCatalog.SupportsAccountIdentity(providerId);
+        return ProviderMetadataCatalog.Find(providerId)?.SupportsAccountIdentity ?? false;
     }
 }

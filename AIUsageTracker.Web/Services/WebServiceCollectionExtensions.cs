@@ -43,7 +43,7 @@ internal static class WebServiceCollectionExtensions
             var dbPath = sp.GetRequiredService<WebDatabaseConnectionFactory>().GetDatabasePath();
             return new DataExportService(repo, logger, dbPath);
         });
-        services.AddSingleton<IMonitorLifecycleService, MonitorLifecycleService>();
+        services.AddSingleton<MonitorLifecycleService>();
         services.AddSingleton<MonitorProcessService>();
         services.AddSingleton<IConfigLoader, JsonConfigLoader>();
         return services;

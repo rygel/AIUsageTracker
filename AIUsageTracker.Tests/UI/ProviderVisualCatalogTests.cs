@@ -5,6 +5,7 @@
 using System.Windows.Media;
 using AIUsageTracker.Infrastructure.Providers;
 using AIUsageTracker.UI.Slim;
+using AIUsageTracker.UI.Slim.Services;
 
 namespace AIUsageTracker.Tests.UI;
 
@@ -31,7 +32,7 @@ public class ProviderVisualCatalogTests
     [InlineData("unknown-provider", "UN")]
     public void GetBadge_ReturnsStableBadgeInitials(string providerId, string expectedInitial)
     {
-        var (_, initial) = ProviderVisualCatalog.GetBadge(providerId, Brushes.Gray);
+        var (_, initial) = WpfProviderIconService.GetBadge(providerId, Brushes.Gray);
 
         Assert.Equal(expectedInitial, initial);
     }

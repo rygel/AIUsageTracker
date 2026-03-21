@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 
 namespace AIUsageTracker.Tests.Architecture;
@@ -33,7 +34,7 @@ public class SlimGroupedUsageGuardrailTests
             .Select(definition => new
             {
                 definition.ProviderId,
-                Missing = ProviderMetadataCatalog.GetMissingDerivedModelSelectorProviderIds(definition.ProviderId),
+                Missing = GetMissingDerivedModelSelectorProviderIds(definition.ProviderId),
             })
             .Where(entry => entry.Missing.Count > 0)
             .ToList();
@@ -55,9 +56,9 @@ public class SlimGroupedUsageGuardrailTests
     {
         var files = new[]
         {
-            GetRepoPath("AIUsageTracker.UI.Slim", "ProviderDualQuotaBucketPresentationCatalog.cs"),
-            GetRepoPath("AIUsageTracker.UI.Slim", "ProviderTooltipPresentationCatalog.cs"),
+            GetRepoPath("AIUsageTracker.UI.Slim", "MainWindowRuntimeLogic.cs"),
             GetRepoPath("AIUsageTracker.UI.Slim", "GroupedUsageDisplayAdapter.cs"),
+            GetRepoPath("AIUsageTracker.UI.Slim", "ProviderCardRenderer.cs"),
         };
 
         foreach (var path in files)
@@ -84,4 +85,19 @@ public class SlimGroupedUsageGuardrailTests
         return directory?.FullName
             ?? throw new DirectoryNotFoundException("Could not locate repository root from test output directory.");
     }
+
+    private static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
+    {
+        var def = ProviderMetadataCatalog.Find(providerId);
+        var visibleDerivedProviderIds = def?.VisibleDerivedProviderIds ?? (IReadOnlyCollection<string>)Array.Empty<string>();
+        var selectorProviderIds = (def?.DerivedModelSelectors ?? (IReadOnlyCollection<ProviderDerivedModelSelector>)Array.Empty<ProviderDerivedModelSelector>())
+            .Select(selector => selector.DerivedProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return visibleDerivedProviderIds
+            .Where(derivedProviderId => !selectorProviderIds.Contains(derivedProviderId))
+            .OrderBy(derivedProviderId => derivedProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 }
+

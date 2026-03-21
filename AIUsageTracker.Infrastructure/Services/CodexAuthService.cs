@@ -4,14 +4,13 @@
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Services;
 
-public class CodexAuthService : ICodexAuthService
+public class CodexAuthService
 {
     private readonly ILogger<CodexAuthService> _logger;
     private readonly string? _authFilePath;

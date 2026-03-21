@@ -5,7 +5,6 @@
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
@@ -76,16 +75,8 @@ public class JsonConfigLoader : IConfigLoader
             return new AppPreferences();
         }
 
-        try
-        {
-            var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
-            return AppPreferences.Deserialize(json);
-        }
-        catch (Exception ex)
-        {
-            this._logger.LogDebug(ex, "Failed to load preferences from {Path}; using default preferences", path);
-            return new AppPreferences();
-        }
+        var json = await File.ReadAllTextAsync(path).ConfigureAwait(false);
+        return AppPreferences.Deserialize(json);
     }
 
     public async Task SavePreferencesAsync(AppPreferences preferences)
@@ -127,15 +118,73 @@ public class JsonConfigLoader : IConfigLoader
     {
         var mergedConfigs = new Dictionary<string, ProviderConfig>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var entry in ConfigPathCatalog.GetConfigEntries(this._pathProvider))
+        foreach (var entry in BuildConfigEntries(this._pathProvider))
         {
             await this.MergeConfigFileAsync(
                 mergedConfigs,
                 entry.Path,
-                entry.Kind == ConfigPathKind.Auth).ConfigureAwait(false);
+                entry.IsAuthFile).ConfigureAwait(false);
         }
 
         return mergedConfigs;
+    }
+
+    internal static IReadOnlyList<(string Path, bool IsAuthFile)> BuildConfigEntries(IAppPathProvider pathProvider)
+    {
+        ArgumentNullException.ThrowIfNull(pathProvider);
+
+        var entries = new List<(string Path, bool IsAuthFile)>();
+        var userProfileRoot = pathProvider.GetUserProfileRoot();
+        foreach (var legacyAuthPath in GetLegacyOpenCodeAuthPaths(userProfileRoot))
+        {
+            entries.Add((legacyAuthPath, true));
+        }
+
+        entries.Add((pathProvider.GetProviderConfigFilePath(), false));
+
+        var appDataRoot = pathProvider.GetAppDataRoot();
+        if (!string.IsNullOrWhiteSpace(appDataRoot))
+        {
+            entries.Add((Path.Combine(appDataRoot, "auth.json"), true));
+        }
+
+        // Canonical app auth file is read last so explicit user-entered keys remain authoritative.
+        entries.Add((pathProvider.GetAuthFilePath(), true));
+
+        var distinctEntries = new List<(string Path, bool IsAuthFile)>(entries.Count);
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entry in entries)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Path))
+            {
+                continue;
+            }
+
+            if (seenPaths.Add(entry.Path))
+            {
+                distinctEntries.Add(entry);
+            }
+        }
+
+        return distinctEntries;
+    }
+
+    private static IEnumerable<string> GetLegacyOpenCodeAuthPaths(string? userProfileRoot)
+    {
+        if (string.IsNullOrWhiteSpace(userProfileRoot))
+        {
+            yield break;
+        }
+
+        // Ordered least-authoritative to most-authoritative (later entries win).
+        // ~/.opencode/ is a legacy path with potentially stale keys.
+        // ~/.local/share/opencode/ is the active XDG data directory maintained by OpenCode.
+        yield return Path.Combine(userProfileRoot, ".opencode", "auth.json");
+        yield return Path.Combine(userProfileRoot, ".config", "opencode", "auth.json");
+        yield return Path.Combine(userProfileRoot, "AppData", "Roaming", "opencode", "auth.json");
+        yield return Path.Combine(userProfileRoot, "AppData", "Local", "opencode", "auth.json");
+        yield return Path.Combine(userProfileRoot, ".local", "share", "opencode", "auth.json");
     }
 
     private async Task MergeConfigFileAsync(Dictionary<string, ProviderConfig> mergedConfigs, string path, bool isAuthFile)

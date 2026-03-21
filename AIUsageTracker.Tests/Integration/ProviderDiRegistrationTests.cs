@@ -106,7 +106,7 @@ public class ProviderDiRegistrationTests
     }
 
     [Fact]
-    public void OpenAIProvider_RequiresResilientHttpClient_CanBeResolved()
+    public void OpenAIProvider_RequiresHttpClient_CanBeResolved()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -134,8 +134,8 @@ public class ProviderDiRegistrationTests
         // Plain HttpClient for providers that need it directly (no Polly retry-on-429)
         services.AddSingleton(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("PlainClient"));
 
-        // Resilient HTTP client
-        services.AddResilientHttpClient();
+        // Configured HTTP clients (PlainClient, LocalhostClient)
+        services.AddConfiguredHttpClients();
 
         // Provider discovery service (required by some providers)
         services.AddSingleton<IProviderDiscoveryService, NullProviderDiscoveryService>();
@@ -180,9 +180,13 @@ public class ProviderDiRegistrationTests
 
         public string? GetCurrentToken() => null;
 
-        public void Logout() { }
+        public void Logout()
+        {
+        }
 
-        public void InitializeToken(string token) { }
+        public void InitializeToken(string token)
+        {
+        }
 
         public Task<string?> GetUsernameAsync() => Task.FromResult<string?>(null);
     }

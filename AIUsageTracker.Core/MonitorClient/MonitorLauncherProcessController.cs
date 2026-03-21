@@ -10,12 +10,15 @@ namespace AIUsageTracker.Core.MonitorClient;
 
 internal static class MonitorLauncherProcessController
 {
+    private const string MonitorProjectDirectoryName = "AIUsageTracker.Monitor";
+    private const string MonitorProjectFileName = "AIUsageTracker.Monitor.csproj";
+
     public static LaunchPlan? TryResolveLaunchPlan(int port)
     {
         var monitorExeName = OperatingSystem.IsWindows()
             ? "AIUsageTracker.Monitor.exe"
             : "AIUsageTracker.Monitor";
-        var possiblePaths = MonitorExecutableCatalog.GetExecutableCandidates(AppContext.BaseDirectory, monitorExeName);
+        var possiblePaths = GetExecutableCandidates(AppContext.BaseDirectory, monitorExeName);
 
         MonitorService.LogDiagnostic($"Locating Monitor executable (checked {possiblePaths.Count} common locations)...");
         var agentPath = possiblePaths.FirstOrDefault(File.Exists);
@@ -27,7 +30,7 @@ internal static class MonitorLauncherProcessController
         }
 
         MonitorService.LogDiagnostic("Monitor executable not found. Searching for project directory for 'dotnet run'...");
-        var agentProjectDir = MonitorExecutableCatalog.FindProjectDirectory(AppContext.BaseDirectory);
+        var agentProjectDir = FindProjectDirectory(AppContext.BaseDirectory);
         if (agentProjectDir == null)
         {
             MonitorService.LogDiagnostic("Could not find Monitor executable or project directory.");
@@ -169,6 +172,60 @@ internal static class MonitorLauncherProcessController
             WindowStyle = ProcessWindowStyle.Hidden,
             WorkingDirectory = Path.GetDirectoryName(agentPath),
         };
+    }
+
+    private static IReadOnlyList<string> GetExecutableCandidates(string baseDirectory, string monitorExecutableName)
+    {
+        return new[]
+        {
+            Path.Combine(baseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Debug", "net8.0", monitorExecutableName),
+            Path.Combine(baseDirectory, "..", "..", "..", "..", "AIUsageTracker.Monitor", "bin", "Release", "net8.0", monitorExecutableName),
+            Path.Combine(baseDirectory, monitorExecutableName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "AIUsageTracker", monitorExecutableName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIUsageTracker", monitorExecutableName),
+        };
+    }
+
+    private static string? FindProjectDirectory(string baseDirectory)
+    {
+        var currentDir = baseDirectory;
+        for (var i = 0; i < 5; i++)
+        {
+            var candidate = Path.Combine(currentDir, MonitorProjectDirectoryName);
+            if (LooksLikeProjectDirectory(candidate))
+            {
+                return candidate;
+            }
+
+            var parent = Directory.GetParent(currentDir);
+            if (parent == null)
+            {
+                break;
+            }
+
+            currentDir = parent.FullName;
+        }
+
+        foreach (var root in new[] { Environment.CurrentDirectory, baseDirectory })
+        {
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
+
+            var candidate = Path.Combine(root, MonitorProjectDirectoryName);
+            if (LooksLikeProjectDirectory(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool LooksLikeProjectDirectory(string candidate)
+    {
+        return Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, MonitorProjectFileName));
     }
 
     private static ProcessStartInfo CreateProjectLaunchInfo(string agentProjectDir, int port)

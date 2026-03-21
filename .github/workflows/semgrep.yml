@@ -11,7 +11,7 @@ on:
       - "**/*.cs"
       - ".github/workflows/semgrep.yml"
   schedule:
-    - cron: "0 8 * * 1"  # Weekly on Monday at 8 AM
+    - cron: "0 6 * * 4"  # Thursday at 6 AM
   workflow_dispatch:
 
 concurrency:

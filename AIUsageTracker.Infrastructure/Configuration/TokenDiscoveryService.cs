@@ -13,9 +13,6 @@ namespace AIUsageTracker.Infrastructure.Configuration;
 
 public class TokenDiscoveryService
 {
-    private static readonly IReadOnlyList<IProviderAuthFallbackResolver> ExplicitProviderFallbackResolvers =
-        BuildExplicitProviderFallbackResolvers();
-
     private readonly ILogger<TokenDiscoveryService> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly IReadOnlyList<ProviderSessionTokenResolver> _sessionResolvers;
@@ -56,14 +53,6 @@ public class TokenDiscoveryService
         return discoveredConfigs;
     }
 
-    private static IReadOnlyList<IProviderAuthFallbackResolver> BuildExplicitProviderFallbackResolvers()
-    {
-        return ProviderMetadataCatalog.GetProviderIdsWithDiscoveryEnvironmentVariables()
-            .Select(providerId => (IProviderAuthFallbackResolver)new ProviderAuthFallbackResolver(
-                providerId,
-                ProviderMetadataCatalog.GetDiscoveryEnvironmentVariables(providerId).ToArray()))
-            .ToArray();
-    }
 
     private static IReadOnlyList<ProviderSessionTokenResolver> BuildSessionResolvers(
         ILogger<TokenDiscoveryService> logger,
@@ -104,9 +93,24 @@ public class TokenDiscoveryService
         List<ProviderConfig> discoveredConfigs,
         IReadOnlyDictionary<string, string> environmentVariables)
     {
-        foreach (var resolver in ExplicitProviderFallbackResolvers)
+        foreach (var providerId in ProviderMetadataCatalog.GetProviderIdsWithDiscoveryEnvironmentVariables())
         {
-            var resolved = resolver.Resolve(environmentVariables, discoveredConfigs);
+            var definition = ProviderMetadataCatalog.Find(providerId);
+            if (definition == null)
+            {
+                continue;
+            }
+
+            // Try environment variables first
+            var resolved = this.TryResolveFromEnvironmentVariables(
+                providerId, definition.DiscoveryEnvironmentVariables, environmentVariables);
+
+            // Fall back to Roo/Kilo discovered configs
+            resolved ??= discoveredConfigs.FirstOrDefault(config =>
+                string.Equals(config.ProviderId, providerId, StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrWhiteSpace(config.ApiKey) &&
+                AuthSource.IsRooOrKilo(config.AuthSource));
+
             if (resolved == null)
             {
                 continue;
@@ -119,6 +123,33 @@ public class TokenDiscoveryService
                 resolved.Description ?? "Discovered via explicit provider fallback",
                 resolved.AuthSource);
         }
+    }
+
+    private ProviderConfig? TryResolveFromEnvironmentVariables(
+        string providerId,
+        IReadOnlyCollection<string> environmentVariableNames,
+        IReadOnlyDictionary<string, string> environmentVariables)
+    {
+        foreach (var envVarName in environmentVariableNames)
+        {
+            if (!environmentVariables.TryGetValue(envVarName, out var value) ||
+                string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            if (ProviderMetadataCatalog.TryCreateDefaultConfig(
+                    providerId,
+                    out var envConfig,
+                    apiKey: value,
+                    authSource: AuthSource.FromEnvironmentVariable(envVarName),
+                    description: "Discovered via Environment Variable"))
+            {
+                return envConfig;
+            }
+        }
+
+        return null;
     }
 
     private async Task DiscoverSessionTokensAsync(List<ProviderConfig> configs)
@@ -226,13 +257,7 @@ public class TokenDiscoveryService
 
     private async Task DiscoverRooStateTokensAsync(List<ProviderConfig> configs)
     {
-        var vscodePath = this.GetVSCodeGlobalStoragePath();
-        if (string.IsNullOrEmpty(vscodePath))
-        {
-            return;
-        }
-
-        var rooStoragePath = Path.Combine(vscodePath, "roovetgit.roo-code");
+        var rooStoragePath = Path.Combine(this.GetVSCodeGlobalStoragePath(), "roovetgit.roo-code");
         if (!Directory.Exists(rooStoragePath))
         {
             return;
@@ -291,37 +316,22 @@ public class TokenDiscoveryService
         }
     }
 
-    private string? GetVSCodeGlobalStoragePath()
+    private string GetVSCodeGlobalStoragePath()
     {
-        try
-        {
-            // Windows
-            if (OperatingSystem.IsWindows())
-            {
-                var appData = Path.Combine(this.GetUserProfilePath(), "AppData", "Roaming");
-                return Path.Combine(appData, "Code", "User", "globalStorage");
-            }
+        var home = this.GetUserProfilePath();
 
-            // macOS
-            else if (OperatingSystem.IsMacOS())
-            {
-                var home = this.GetUserProfilePath();
-                return Path.Combine(home, "Library", "Application Support", "Code", "User", "globalStorage");
-            }
-
-            // Linux
-            else
-            {
-                var home = this.GetUserProfilePath();
-                var configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ?? Path.Combine(home, ".config");
-                return Path.Combine(configHome, "Code", "User", "globalStorage");
-            }
-        }
-        catch (Exception ex)
+        if (OperatingSystem.IsWindows())
         {
-            this._logger.LogDebug("VS Code config path discovery failed: {Message}", ex.Message);
-            return null;
+            return Path.Combine(home, "AppData", "Roaming", "Code", "User", "globalStorage");
         }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return Path.Combine(home, "Library", "Application Support", "Code", "User", "globalStorage");
+        }
+
+        var configHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME") ?? Path.Combine(home, ".config");
+        return Path.Combine(configHome, "Code", "User", "globalStorage");
     }
 
     private void TryProcessRooConfigJson(List<ProviderConfig> configs, string rooJson, string description, string source)

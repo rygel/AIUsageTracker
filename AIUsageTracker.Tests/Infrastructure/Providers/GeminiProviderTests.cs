@@ -474,8 +474,8 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             request =>
                 request.RequestUri != null &&
                 string.Equals(request.RequestUri.ToString(), "https://oauth2.googleapis.com/token", StringComparison.Ordinal) &&
-RequestContentContainsAsync(request, $"client_id={cliClientId}") &&
-RequestContentContainsAsync(request, $"client_secret={cliClientSecret}"),
+                RequestContentContainsAsync(request, $"client_id={cliClientId}").GetAwaiter().GetResult() &&
+                RequestContentContainsAsync(request, $"client_secret={cliClientSecret}").GetAwaiter().GetResult(),
             new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.Unauthorized,
@@ -486,8 +486,8 @@ RequestContentContainsAsync(request, $"client_secret={cliClientSecret}"),
             request =>
                 request.RequestUri != null &&
                 string.Equals(request.RequestUri.ToString(), "https://oauth2.googleapis.com/token", StringComparison.Ordinal) &&
-RequestContentContainsAsync(request, $"client_id={pluginClientId}") &&
-RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}"),
+                RequestContentContainsAsync(request, $"client_id={pluginClientId}").GetAwaiter().GetResult() &&
+                RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}").GetAwaiter().GetResult(),
             new HttpResponseMessage
             {
                 StatusCode = HttpStatusCode.OK,
@@ -516,8 +516,8 @@ RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}"),
                 ItExpr.Is<HttpRequestMessage>(request =>
                     request.RequestUri != null &&
                     request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
-RequestContentContainsAsync(request, $"client_id={cliClientId}") &&
-RequestContentContainsAsync(request, $"client_secret={cliClientSecret}")),
+                    RequestContentContainsAsync(request, $"client_id={cliClientId}").GetAwaiter().GetResult() &&
+                    RequestContentContainsAsync(request, $"client_secret={cliClientSecret}").GetAwaiter().GetResult()),
                 ItExpr.IsAny<CancellationToken>());
 
         this.MessageHandler.Protected()
@@ -527,21 +527,21 @@ RequestContentContainsAsync(request, $"client_secret={cliClientSecret}")),
                 ItExpr.Is<HttpRequestMessage>(request =>
                     request.RequestUri != null &&
                     request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
-RequestContentContainsAsync(request, $"client_id={pluginClientId}") &&
-RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}")),
+                    RequestContentContainsAsync(request, $"client_id={pluginClientId}").GetAwaiter().GetResult() &&
+                    RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}").GetAwaiter().GetResult()),
                 ItExpr.IsAny<CancellationToken>());
 
         Directory.Delete(tempDir, recursive: true);
     }
 
-    private static bool RequestContentContainsAsync(HttpRequestMessage request, string value)
+    private static async Task<bool> RequestContentContainsAsync(HttpRequestMessage request, string value)
     {
         if (request.Content == null)
         {
             return false;
         }
 
-        var content = request.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+        var content = await request.Content.ReadAsStringAsync();
         return content?.Contains(value, StringComparison.Ordinal) == true;
     }
 

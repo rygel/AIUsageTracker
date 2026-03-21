@@ -137,12 +137,13 @@ jobs:
     needs: detect-changes
     if: ${{ needs.detect-changes.outputs.run_all == 'true' || needs.detect-changes.outputs.run_core == 'true' || needs.detect-changes.outputs.run_monitor == 'true' || needs.detect-changes.outputs.run_web == 'true' }}
     runs-on: windows-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+          fetch-tags: false
           persist-credentials: false
 
       - name: Setup .NET with Cache

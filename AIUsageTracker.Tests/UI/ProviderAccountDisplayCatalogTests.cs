@@ -11,7 +11,7 @@ public sealed class ProviderAccountDisplayCatalogTests
     [Fact]
     public void ResolveDisplayAccountName_UsesUsageAccountName_WhenPresent()
     {
-        var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
+        var result = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId: "github-copilot",
             usageAccountName: "actual-gh-user",
             isPrivacyMode: false);
@@ -22,7 +22,7 @@ public sealed class ProviderAccountDisplayCatalogTests
     [Fact]
     public void ResolveDisplayAccountName_ReturnsEmpty_WhenUsageAccountMissing()
     {
-        var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
+        var result = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId: "github-copilot",
             usageAccountName: null,
             isPrivacyMode: false);
@@ -33,7 +33,7 @@ public sealed class ProviderAccountDisplayCatalogTests
     [Fact]
     public void ResolveDisplayAccountName_ReturnsEmpty_ForNonIdentityProvider()
     {
-        var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
+        var result = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId: "synthetic",
             usageAccountName: "should-not-render",
             isPrivacyMode: false);
@@ -44,7 +44,7 @@ public sealed class ProviderAccountDisplayCatalogTests
     [Fact]
     public void ResolveDisplayAccountName_MasksIdentity_WhenPrivacyModeEnabled()
     {
-        var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
+        var result = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId: "github-copilot",
             usageAccountName: "github-user@example.com",
             isPrivacyMode: true);
@@ -56,7 +56,7 @@ public sealed class ProviderAccountDisplayCatalogTests
     [Fact]
     public void ResolveDisplayAccountName_DoesNotInferIdentitySupport_ForUnknownDerivedId()
     {
-        var result = ProviderAccountDisplayCatalog.ResolveDisplayAccountName(
+        var result = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId: "github-copilot.enterprise",
             usageAccountName: "octocat",
             isPrivacyMode: false);
@@ -64,3 +64,4 @@ public sealed class ProviderAccountDisplayCatalogTests
         Assert.Equal(string.Empty, result);
     }
 }
+

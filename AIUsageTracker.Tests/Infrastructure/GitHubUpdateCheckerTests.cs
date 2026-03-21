@@ -5,7 +5,6 @@
 using System.Net.Http;
 using System.Reflection;
 using AIUsageTracker.Core.Models;
-using AIUsageTracker.Core.Updates;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -68,7 +67,7 @@ public class GitHubUpdateCheckerTests
         var url = InvokeGetAppcastUrlForCurrentArchitecture(checker);
 
         Assert.Equal(
-            ReleaseUrlCatalog.GetAppcastUrl(GetExpectedArchitecture(), isBeta: false),
+            GitHubUpdateChecker.GetAppcastUrl(GetExpectedArchitecture(), isBeta: false),
             url);
     }
 
@@ -84,7 +83,7 @@ public class GitHubUpdateCheckerTests
         var url = InvokeGetAppcastUrlForCurrentArchitecture(checker);
 
         Assert.Equal(
-            ReleaseUrlCatalog.GetAppcastUrl(GetExpectedArchitecture(), isBeta: true),
+            GitHubUpdateChecker.GetAppcastUrl(GetExpectedArchitecture(), isBeta: true),
             url);
     }
 

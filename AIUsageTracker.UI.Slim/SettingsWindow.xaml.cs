@@ -16,7 +16,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
-using Microsoft.Extensions.DependencyInjection;
+using AIUsageTracker.UI.Slim.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 
@@ -31,11 +31,10 @@ public partial class SettingsWindow : Window
     };
 
     private readonly IMonitorService _monitorService;
-    private readonly IMonitorLifecycleService _monitorLifecycleService;
+    private readonly MonitorLifecycleService _monitorLifecycleService;
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
-    private readonly DisplayPreferencesService _displayPreferences;
     private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
     private readonly DispatcherTimer _autoSaveTimer;
 
@@ -49,11 +48,10 @@ public partial class SettingsWindow : Window
 
     public SettingsWindow(
         IMonitorService monitorService,
-        IMonitorLifecycleService monitorLifecycleService,
+        MonitorLifecycleService monitorLifecycleService,
         ILogger<SettingsWindow> logger,
         UiPreferencesStore preferencesStore,
-        IAppPathProvider pathProvider,
-        DisplayPreferencesService displayPreferences)
+        IAppPathProvider pathProvider)
     {
         this._autoSaveTimer = new DispatcherTimer
         {
@@ -67,22 +65,10 @@ public partial class SettingsWindow : Window
         this._logger = logger;
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
-        this._displayPreferences = displayPreferences;
-        App.PrivacyChanged += this.OnPrivacyChanged;
+        PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
         this.Closed += this.SettingsWindow_Closed;
         this.Loaded += this.SettingsWindow_Loaded;
         this.UpdatePrivacyButtonState();
-    }
-
-    public SettingsWindow()
-        : this(
-        App.Host.Services.GetRequiredService<IMonitorService>(),
-        App.Host.Services.GetRequiredService<IMonitorLifecycleService>(),
-        App.Host.Services.GetRequiredService<ILogger<SettingsWindow>>(),
-        App.Host.Services.GetRequiredService<UiPreferencesStore>(),
-        App.Host.Services.GetRequiredService<IAppPathProvider>(),
-        App.Host.Services.GetRequiredService<DisplayPreferencesService>())
-    {
     }
 
     internal bool SettingsChanged { get; private set; }
@@ -327,7 +313,7 @@ public partial class SettingsWindow : Window
     private void SettingsWindow_Closed(object? sender, EventArgs e)
     {
         this._autoSaveTimer.Stop();
-        App.PrivacyChanged -= this.OnPrivacyChanged;
+        PrivacyChangedWeakEventManager.RemoveHandler(this.OnPrivacyChanged);
     }
 
     private async void AutoSaveTimer_Tick(object? sender, EventArgs e)
@@ -471,7 +457,7 @@ public partial class SettingsWindow : Window
     {
         this.ProvidersStack.Children.Clear();
 
-        var displayItems = ProviderSettingsDisplayCatalog.CreateDisplayItems(this._configs, this._usages);
+        var displayItems = CreateProviderDisplayItems(this._configs, this._usages);
         var usageByProviderId = this._usages.ToDictionary(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in displayItems)
@@ -501,7 +487,7 @@ public partial class SettingsWindow : Window
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Header
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto }); // Inputs
 
-        var settingsBehavior = ProviderSettingsCatalog.Resolve(config, usage, isDerived);
+        var settingsBehavior = ResolveProviderSettingsBehavior(config, usage, isDerived);
         var headerPanel = this.BuildProviderHeader(config, settingsBehavior, isSubItem);
 
         grid.Children.Add(headerPanel);
@@ -517,7 +503,7 @@ public partial class SettingsWindow : Window
         Grid.SetRow(keyPanel, 1);
         grid.Children.Add(keyPanel);
 
-        var subTrayDetails = ProviderSubTrayCatalog.GetEligibleDetails(usage);
+        var subTrayDetails = GetEligibleSubTrayDetails(usage);
 
         if (!isSubItem && subTrayDetails is { Count: > 0 })
         {
@@ -537,7 +523,149 @@ public partial class SettingsWindow : Window
             return false;
         }
 
-        return ProviderMetadataCatalog.ShouldRenderAsSettingsSubItem(providerId);
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+        var isCanonicalChild = !string.Equals(canonicalProviderId, providerId, StringComparison.OrdinalIgnoreCase);
+        return isCanonicalChild &&
+               (ProviderMetadataCatalog.Find(canonicalProviderId)?.CollapseDerivedChildrenInMainWindow ?? false);
+    }
+
+    internal static IReadOnlyList<ProviderUsageDetail> GetEligibleSubTrayDetails(ProviderUsage? usage)
+    {
+        if (usage?.Details == null)
+        {
+            return Array.Empty<ProviderUsageDetail>();
+        }
+
+        if (ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty)?.HasDisplayableDerivedProviders ?? false)
+        {
+            return Array.Empty<ProviderUsageDetail>();
+        }
+
+        return usage.Details
+            .Where(detail => MainWindowRuntimeLogic.IsEligibleDetail(detail, includeRateLimit: false))
+            .GroupBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    internal static IReadOnlyList<ProviderSettingsDisplayItem> CreateProviderDisplayItems(
+        IReadOnlyCollection<ProviderConfig> configs,
+        IReadOnlyCollection<ProviderUsage> usages)
+    {
+        var displayItems = configs
+            .Where(config => ProviderMetadataCatalog.Find(config.ProviderId)?.ShowInSettings ?? false)
+            .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false))
+            .ToList();
+        var configuredProviderIds = displayItems
+            .Select(item => item.Config.ProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var defaultProviderIds = ProviderMetadataCatalog.GetDefaultSettingsProviderIds()
+            .Where(providerId => !configuredProviderIds.Contains(providerId))
+            .ToList();
+
+        var defaultItems = defaultProviderIds
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(CreateDefaultDisplayConfig)
+            .Select(config => new ProviderSettingsDisplayItem(config, IsDerived: false));
+        var explicitDisplayProviderIds = configuredProviderIds
+            .Concat(defaultProviderIds)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var derivedItems = usages
+            .Select(usage => new { Usage = usage, ProviderId = usage.ProviderId ?? string.Empty })
+            .Where(x =>
+                !string.IsNullOrWhiteSpace(x.ProviderId) &&
+                ProviderMetadataCatalog.IsVisibleDerivedProviderId(x.ProviderId) &&
+                !explicitDisplayProviderIds.Contains(x.ProviderId))
+            .Select(x => x.Usage)
+            .Select(usage => new ProviderSettingsDisplayItem(CreateDerivedConfig(usage), IsDerived: true));
+
+        displayItems.AddRange(defaultItems);
+        displayItems.AddRange(derivedItems);
+
+        return displayItems
+            .OrderBy(item => ProviderMetadataCatalog.ResolveDisplayLabel(item.Config.ProviderId), StringComparer.OrdinalIgnoreCase)
+            .ThenBy(item => item.Config.ProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    internal static ProviderSettingsBehavior ResolveProviderSettingsBehavior(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        bool isDerived)
+    {
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId);
+        var hasSessionToken = IsSessionToken(config.ApiKey);
+        var inputMode = isDerived
+            ? ProviderInputMode.DerivedReadOnly
+            : ResolveProviderInputMode(canonicalProviderId, usage, hasSessionToken);
+        var isInactive = isDerived
+            ? false
+            : inputMode switch
+            {
+                ProviderInputMode.AutoDetectedStatus => usage == null || !usage.IsAvailable,
+                ProviderInputMode.SessionAuthStatus => string.IsNullOrWhiteSpace(config.ApiKey) && !(usage?.IsAvailable == true),
+                _ => string.IsNullOrWhiteSpace(config.ApiKey),
+            };
+        var sessionProviderLabel = inputMode == ProviderInputMode.SessionAuthStatus
+            ? ProviderMetadataCatalog.Find(canonicalProviderId)?.SessionStatusLabel
+            : null;
+
+        return new ProviderSettingsBehavior(
+            InputMode: inputMode,
+            IsInactive: isInactive,
+            IsDerivedVisible: ProviderMetadataCatalog.IsVisibleDerivedProviderId(config.ProviderId ?? string.Empty),
+            SessionProviderLabel: sessionProviderLabel);
+    }
+
+    internal static bool IsSessionToken(string? apiKey)
+    {
+        return !string.IsNullOrWhiteSpace(apiKey) &&
+               !apiKey.StartsWith("sk-", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ProviderConfig CreateDefaultDisplayConfig(string providerId)
+    {
+        if (ProviderMetadataCatalog.TryCreateDefaultConfig(providerId, out var config))
+        {
+            return config;
+        }
+
+        return new ProviderConfig
+        {
+            ProviderId = providerId,
+        };
+    }
+
+    private static ProviderConfig CreateDerivedConfig(ProviderUsage usage)
+    {
+        return new ProviderConfig
+        {
+            ProviderId = usage.ProviderId,
+            Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
+            PlanType = usage.PlanType,
+        };
+    }
+
+    private static ProviderInputMode ResolveProviderInputMode(string canonicalProviderId, ProviderUsage? usage, bool hasSessionToken)
+    {
+        var settingsDef = ProviderMetadataCatalog.Find(canonicalProviderId);
+        var settingsMode = settingsDef?.SettingsMode ?? ProviderSettingsMode.StandardApiKey;
+        if (settingsMode == ProviderSettingsMode.SessionAuthStatus &&
+            (settingsDef?.UseSessionAuthStatusWhenQuotaBasedOrSessionToken ?? false) &&
+            usage?.IsQuotaBased != true &&
+            !hasSessionToken)
+        {
+            settingsMode = ProviderSettingsMode.StandardApiKey;
+        }
+
+        return settingsMode switch
+        {
+            ProviderSettingsMode.AutoDetectedStatus => ProviderInputMode.AutoDetectedStatus,
+            ProviderSettingsMode.ExternalAuthStatus => ProviderInputMode.ExternalAuthStatus,
+            ProviderSettingsMode.SessionAuthStatus => ProviderInputMode.SessionAuthStatus,
+            _ => ProviderInputMode.StandardApiKey,
+        };
     }
 
     private FrameworkElement BuildProviderInputContent(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
@@ -555,15 +683,17 @@ public partial class SettingsWindow : Window
 
     private StackPanel BuildStatusPanel(ProviderConfig config, ProviderUsage? usage, ProviderSettingsBehavior settingsBehavior)
     {
-        var presentation = ProviderStatusPresentationCatalog.Create(
+        var presentation = this.CreateStatusPresentation(
             config,
             usage,
-            settingsBehavior.InputMode,
+            settingsBehavior,
             this._isPrivacyMode);
 
         var panel = new StackPanel
         {
-            Orientation = presentation.UseHorizontalLayout ? Orientation.Horizontal : Orientation.Vertical,
+            Orientation = presentation.UseHorizontalLayout
+                ? Orientation.Horizontal
+                : Orientation.Vertical,
         };
 
         var statusText = new TextBlock
@@ -590,6 +720,249 @@ public partial class SettingsWindow : Window
 
         return panel;
     }
+
+    private StatusPanelPresentation CreateStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        ProviderSettingsBehavior settingsBehavior,
+        bool isPrivacyMode)
+    {
+        return settingsBehavior.InputMode switch
+        {
+            ProviderInputMode.DerivedReadOnly => this.CreateDerivedStatusPresentation(config, usage),
+            ProviderInputMode.AutoDetectedStatus => CreateAutoDetectedStatusPresentation(usage, isPrivacyMode),
+            ProviderInputMode.ExternalAuthStatus => CreateExternalAuthStatusPresentation(config, usage, isPrivacyMode),
+            ProviderInputMode.SessionAuthStatus => CreateSessionAuthStatusPresentation(config, usage, settingsBehavior, isPrivacyMode),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(settingsBehavior.InputMode),
+                settingsBehavior.InputMode,
+                "Status presentation is only valid for status-based provider modes."),
+        };
+    }
+
+    private StatusPanelPresentation CreateDerivedStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage)
+    {
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty);
+        var sourceLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(canonicalProviderId);
+        string primaryText;
+        string primaryResourceKey;
+
+        if (usage?.IsAvailable == true)
+        {
+            primaryText = $"Derived from {sourceLabel} usage (read-only)";
+            primaryResourceKey = "ProgressBarGreen";
+        }
+        else if (usage != null && !string.IsNullOrWhiteSpace(usage.Description))
+        {
+            primaryText = usage.Description;
+            primaryResourceKey = "TertiaryText";
+        }
+        else
+        {
+            primaryText = "Derived provider (waiting for usage data)";
+            primaryResourceKey = "TertiaryText";
+        }
+
+        if (usage?.NextResetTime is DateTime derivedReset)
+        {
+            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {derivedReset:g}"));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: primaryText,
+            PrimaryResourceKey: primaryResourceKey,
+            PrimaryItalic: false,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static StatusPanelPresentation CreateAutoDetectedStatusPresentation(
+        ProviderUsage? usage,
+        bool isPrivacyMode)
+    {
+        var isConnected = usage?.IsAvailable == true;
+        var accountInfo = usage?.AccountName;
+        var hasAccountInfo = !string.IsNullOrWhiteSpace(accountInfo) && accountInfo is not ("Unknown" or "User");
+        var displayAccount = hasAccountInfo
+            ? (isPrivacyMode ? MaskAccountIdentifier(accountInfo!) : accountInfo!)
+            : "No account detected";
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var antigravitySubmodels = usage?.Details?
+            .Where(d => d.DetailType == ProviderUsageDetailType.Model && !string.IsNullOrWhiteSpace(d.Name))
+            .Select(d => d.Name)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (antigravitySubmodels is { Count: > 0 })
+        {
+            secondaryLines.Add(new StatusSecondaryLine(
+                Text: $"Models: {string.Join(", ", antigravitySubmodels)}",
+                Wrap: true,
+                ExtraTopMargin: true));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: isConnected ? $"Auto-Detected ({displayAccount})" : "Searching for local process...",
+            PrimaryResourceKey: isConnected ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: !isConnected,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static StatusPanelPresentation CreateExternalAuthStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        bool isPrivacyMode)
+    {
+        var username = usage?.AccountName;
+        var hasUsername = !string.IsNullOrWhiteSpace(username) && username is not ("Unknown" or "User");
+        var isAuthenticated = !string.IsNullOrWhiteSpace(config.ApiKey) ||
+                              usage?.IsAvailable == true ||
+                              hasUsername;
+        var displayText = !isAuthenticated
+            ? "Not Authenticated"
+            : !hasUsername
+                ? "Authenticated"
+                : isPrivacyMode
+                    ? $"Authenticated ({MaskAccountIdentifier(username!)})"
+                    : $"Authenticated ({username})";
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: true,
+            PrimaryText: displayText,
+            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: false,
+            SecondaryLines: Array.Empty<StatusSecondaryLine>());
+    }
+
+    private static StatusPanelPresentation CreateSessionAuthStatusPresentation(
+        ProviderConfig config,
+        ProviderUsage? usage,
+        ProviderSettingsBehavior settingsBehavior,
+        bool isPrivacyMode)
+    {
+        var providerSessionLabel = settingsBehavior.SessionProviderLabel ??
+                                   ProviderMetadataCatalog.GetConfiguredDisplayName(
+                                       ProviderMetadataCatalog.GetCanonicalProviderId(config.ProviderId ?? string.Empty));
+        var hasSessionToken = IsSessionToken(config.ApiKey);
+        var isAuthenticated = hasSessionToken || usage?.IsAvailable == true;
+        var accountName = usage?.AccountName;
+
+        var displayText = ResolveSessionAuthDisplayText(
+            isAuthenticated,
+            hasSessionToken,
+            accountName,
+            providerSessionLabel,
+            usage?.IsAvailable,
+            isPrivacyMode);
+
+        var secondaryLines = new List<StatusSecondaryLine>();
+        var resolvedReset = usage?.NextResetTime;
+        if (resolvedReset is DateTime nextReset)
+        {
+            secondaryLines.Add(new StatusSecondaryLine($"Next reset: {nextReset:g}"));
+        }
+        else if (isAuthenticated)
+        {
+            secondaryLines.Add(new StatusSecondaryLine("Next reset: loading..."));
+        }
+
+        return new StatusPanelPresentation(
+            UseHorizontalLayout: false,
+            PrimaryText: displayText,
+            PrimaryResourceKey: isAuthenticated ? "ProgressBarGreen" : "TertiaryText",
+            PrimaryItalic: false,
+            SecondaryLines: secondaryLines);
+    }
+
+    private static string ResolveSessionAuthDisplayText(
+        bool isAuthenticated,
+        bool hasSessionToken,
+        string? accountName,
+        string providerSessionLabel,
+        bool? isUsageAvailable,
+        bool isPrivacyMode)
+    {
+        if (!isAuthenticated)
+        {
+            return "Not Authenticated";
+        }
+
+        if (!string.IsNullOrWhiteSpace(accountName))
+        {
+            return isPrivacyMode
+                ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
+                : $"Authenticated ({accountName})";
+        }
+
+        return hasSessionToken && isUsageAvailable != true
+            ? $"Authenticated via {providerSessionLabel} - refresh to load quota"
+            : $"Authenticated via {providerSessionLabel}";
+    }
+
+    private static string MaskAccountIdentifier(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return input;
+        }
+
+        var atIndex = input.IndexOf('@');
+        if (atIndex > 0 && atIndex < input.Length - 1)
+        {
+            var localPart = input[..atIndex];
+            var domainPart = input[(atIndex + 1)..];
+            var maskedDomainChars = domainPart.ToCharArray();
+            for (var i = 0; i < maskedDomainChars.Length; i++)
+            {
+                if (maskedDomainChars[i] != '.')
+                {
+                    maskedDomainChars[i] = '*';
+                }
+            }
+
+            var maskedDomain = new string(maskedDomainChars);
+            if (localPart.Length <= 2)
+            {
+                return $"{new string('*', localPart.Length)}@{maskedDomain}";
+            }
+
+            return $"{localPart[0]}{new string('*', localPart.Length - 2)}{localPart[^1]}@{maskedDomain}";
+        }
+
+        return MaskString(input);
+    }
+
+    private static string MaskString(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return input;
+        }
+
+        if (input.Length <= 2)
+        {
+            return new string('*', input.Length);
+        }
+
+        return input[0] + new string('*', input.Length - 2) + input[^1];
+    }
+
+    private sealed record StatusPanelPresentation(
+        bool UseHorizontalLayout,
+        string PrimaryText,
+        string PrimaryResourceKey,
+        bool PrimaryItalic,
+        IReadOnlyList<StatusSecondaryLine> SecondaryLines);
+
+    private readonly record struct StatusSecondaryLine(
+        string Text,
+        bool Wrap = false,
+        bool ExtraTopMargin = false);
 
     private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)
     {
@@ -766,7 +1139,7 @@ public partial class SettingsWindow : Window
     {
         var keyBox = new TextBox
         {
-            Text = ProviderApiKeyPresentationCatalog.GetDisplayApiKey(config.ApiKey, this._isPrivacyMode),
+            Text = GetDisplayApiKey(config.ApiKey, this._isPrivacyMode),
             Tag = config,
             VerticalContentAlignment = VerticalAlignment.Center,
             FontSize = 11,
@@ -784,6 +1157,26 @@ public partial class SettingsWindow : Window
         }
 
         return keyBox;
+    }
+
+    private static string GetDisplayApiKey(string? apiKey, bool isPrivacyMode)
+    {
+        if (string.IsNullOrEmpty(apiKey))
+        {
+            return apiKey ?? string.Empty;
+        }
+
+        if (!isPrivacyMode)
+        {
+            return apiKey;
+        }
+
+        if (apiKey.Length > 8)
+        {
+            return apiKey[..4] + "****" + apiKey[^4..];
+        }
+
+        return "****";
     }
 
     private TextBlock CreateSecondaryStatusText(string text)
@@ -934,7 +1327,7 @@ public partial class SettingsWindow : Window
     private ImageSource CreateFallbackIcon(string providerId)
     {
         // Create a simple colored circle as fallback
-        var (color, _) = ProviderVisualCatalog.GetBadge(providerId, Brushes.Gray);
+        var (color, _) = global::AIUsageTracker.UI.Slim.Services.WpfProviderIconService.GetBadge(providerId, Brushes.Gray);
 
         // Return a drawing image with just a colored rectangle (simplified)
         var drawing = new GeometryDrawing(
@@ -991,7 +1384,7 @@ public partial class SettingsWindow : Window
     {
         if (this.ShowUsedPercentagesCheck != null)
         {
-            this.ShowUsedPercentagesCheck.IsChecked = this._displayPreferences.ShouldShowUsedPercentages(this._preferences);
+            this.ShowUsedPercentagesCheck.IsChecked = this._preferences.PercentageDisplayMode == PercentageDisplayMode.Used;
         }
 
         if (this.ShowUsagePerHourCheck != null)
@@ -1012,9 +1405,9 @@ public partial class SettingsWindow : Window
 
         // Run the same pipeline as the main window (no hidden filter) to get every card
         // that could potentially appear, then group by canonical provider.
-        var renderPrep = ProviderUsageDisplayCatalog.PrepareForMainWindow(this._usages);
-        var allCards = ProviderUsageDisplayCatalog
-            .ExpandSyntheticAggregateChildren(renderPrep.DisplayableUsages, hiddenItemIds: [])
+        var renderPrep = MainWindowRuntimeLogic.PrepareForMainWindow(this._usages);
+        var allCards = MainWindowRuntimeLogic
+            .ExpandSyntheticAggregateChildren(renderPrep, hiddenItemIds: [])
             .ToList();
 
         var groups = allCards
@@ -1813,7 +2206,7 @@ public partial class SettingsWindow : Window
             this._preferences.AggressiveAlwaysOnTop = this.AggressiveTopmostCheck.IsChecked ?? false;
             this._preferences.ForceWin32Topmost = this.ForceWin32TopmostCheck.IsChecked ?? false;
             var showUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
-            this._displayPreferences.SetShowUsedPercentages(this._preferences, showUsedPercentages);
+            this._preferences.ShowUsedPercentages = showUsedPercentages;
             this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
             this._preferences.EnablePaceAdjustment = this.EnablePaceAdjustmentCheck.IsChecked ?? true;
             if (this.ThemeCombo.SelectedValue is AppTheme appTheme)
@@ -2092,4 +2485,15 @@ public partial class SettingsWindow : Window
     }
 #pragma warning restore VSTHRD100
 
+    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == System.Windows.Input.Key.Escape)
+        {
+            this.Close();
+        }
+    }
 }
+
+
+
+

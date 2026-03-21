@@ -29,14 +29,14 @@
                 </div>
                 <div class="stat-card">
                     <h3>Last Update</h3>
-                    <div class="stat-value">@(Model.Summary.LastUpdate != null ? DateTime.Parse(Model.Summary.LastUpdate).ToString("g") : "Never")</div>
+                    <div class="stat-value">@GetLastUpdateDisplay(Model.Summary.LastUpdate)</div>
                 </div>
             </div>
         }
 
         @{
             var visibleUsage = (Model.LatestUsage ?? new List<AIUsageTracker.Core.Models.ProviderUsage>())
-                .Where(u => !ProviderMetadataCatalog.IsAggregateParentProviderId(u.ProviderId) && (Model.ShowInactiveProviders || u.IsAvailable))
+                .Where(u => !(ProviderMetadataCatalog.Find(u.ProviderId) is { } pDef && string.Equals(u.ProviderId, pDef.ProviderId, StringComparison.OrdinalIgnoreCase) && pDef.RenderDetailsAsSyntheticChildrenInMainWindow) && (Model.ShowInactiveProviders || u.IsAvailable))
                 .ToList();
         }
 
@@ -450,6 +450,36 @@
             >= 50 => "medium",
             _ => "low"
         };
+    }
+
+    string GetLastUpdateDisplay(string? lastUpdate)
+    {
+        if (string.IsNullOrWhiteSpace(lastUpdate))
+        {
+            return "Never";
+        }
+
+        if (DateTime.TryParse(lastUpdate, out var parsed))
+        {
+            return parsed.ToString("g");
+        }
+
+        if (long.TryParse(lastUpdate, out var unixValue))
+        {
+            try
+            {
+                var localDateTime = unixValue > 9999999999
+                    ? DateTimeOffset.FromUnixTimeMilliseconds(unixValue).LocalDateTime
+                    : DateTimeOffset.FromUnixTimeSeconds(unixValue).LocalDateTime;
+                return localDateTime.ToString("g");
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return "Never";
+            }
+        }
+
+        return "Never";
     }
 
     string GetRelativeTimeString(DateTime nextReset)

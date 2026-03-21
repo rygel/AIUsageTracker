@@ -1,4 +1,4 @@
-﻿// <copyright file="OpenAIProvider.cs" company="AIUsageTracker">
+// <copyright file="OpenAIProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -14,7 +14,7 @@ using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Paths;
 using AIUsageTracker.Core.Providers;
 using AIUsageTracker.Infrastructure.Constants;
-using AIUsageTracker.Infrastructure.Http;
+using System.Net.Http;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Infrastructure.Providers;
@@ -23,13 +23,13 @@ public class OpenAIProvider : ProviderBase
 {
     private const string WhamUsageEndpoint = "https://chatgpt.com/backend-api/wham/usage";
 
-    private readonly IResilientHttpClient _resilientHttpClient;
+    private readonly HttpClient _httpClient;
     private readonly ILogger<OpenAIProvider> _logger;
 
-    public OpenAIProvider(IResilientHttpClient resilientHttpClient, IProviderDiscoveryService discoveryService, ILogger<OpenAIProvider> logger)
+    public OpenAIProvider(HttpClient httpClient, IProviderDiscoveryService discoveryService, ILogger<OpenAIProvider> logger)
         : base(discoveryService)
     {
-        this._resilientHttpClient = resilientHttpClient;
+        this._httpClient = httpClient;
         this._logger = logger;
     }
 
@@ -269,7 +269,7 @@ public class OpenAIProvider : ProviderBase
         {
             var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
+            var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
 
             if (response.IsSuccessStatusCode)
             {
@@ -331,7 +331,7 @@ public class OpenAIProvider : ProviderBase
             request.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", accountId);
         }
 
-        using var response = await this._resilientHttpClient.SendAsync(request, this.ProviderId).ConfigureAwait(false);
+        using var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
         var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
         if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)

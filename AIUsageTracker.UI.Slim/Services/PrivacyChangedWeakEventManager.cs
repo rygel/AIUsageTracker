@@ -2,22 +2,16 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using System.Windows;
-
 namespace AIUsageTracker.UI.Slim.Services;
 
 /// <summary>
-/// WeakEventManager for the App.PrivacyChanged event to prevent memory leaks.
+/// Maintains weak subscriptions for <see cref="App.PrivacyChanged"/> handlers.
 /// </summary>
-/// <remarks>
-/// Using WeakEventManager ensures that event listeners don't prevent garbage collection
-/// of the subscribing objects when they're no longer needed.
-/// </remarks>
-public class PrivacyChangedWeakEventManager : WeakEventManager
+public static class PrivacyChangedWeakEventManager
 {
-    private PrivacyChangedWeakEventManager()
-    {
-    }
+    private static readonly object Sync = new();
+    private static readonly List<WeakReference<EventHandler<PrivacyChangedEventArgs>>> Handlers = [];
+    private static bool _isListening;
 
     /// <summary>
     /// Adds a handler for the PrivacyChanged event.
@@ -30,7 +24,12 @@ public class PrivacyChangedWeakEventManager : WeakEventManager
             throw new ArgumentNullException(nameof(handler));
         }
 
-        CurrentManager.ProtectedAddHandler(typeof(App), handler);
+        lock (Sync)
+        {
+            PruneDeadHandlersNoLock();
+            Handlers.Add(new WeakReference<EventHandler<PrivacyChangedEventArgs>>(handler));
+            EnsureListeningNoLock();
+        }
     }
 
     /// <summary>
@@ -44,40 +43,78 @@ public class PrivacyChangedWeakEventManager : WeakEventManager
             throw new ArgumentNullException(nameof(handler));
         }
 
-        CurrentManager.ProtectedRemoveHandler(typeof(App), handler);
-    }
-
-    private static PrivacyChangedWeakEventManager CurrentManager
-    {
-        get
+        lock (Sync)
         {
-            var managerType = typeof(PrivacyChangedWeakEventManager);
-            var manager = (PrivacyChangedWeakEventManager?)GetCurrentManager(managerType);
-
-            if (manager == null)
+            for (var index = Handlers.Count - 1; index >= 0; index--)
             {
-                manager = new PrivacyChangedWeakEventManager();
-                SetCurrentManager(managerType, manager);
+                if (!Handlers[index].TryGetTarget(out var existingHandler) || existingHandler == handler)
+                {
+                    Handlers.RemoveAt(index);
+                }
             }
 
-            return manager;
+            StopListeningIfNoHandlersNoLock();
         }
     }
 
-    /// <inheritdoc />
-    protected override void StartListening(object source)
+    private static void OnPrivacyChanged(object? sender, PrivacyChangedEventArgs e)
     {
-        App.PrivacyChanged += this.OnPrivacyChanged;
+        var liveHandlers = new List<EventHandler<PrivacyChangedEventArgs>>();
+        lock (Sync)
+        {
+            for (var index = Handlers.Count - 1; index >= 0; index--)
+            {
+                if (Handlers[index].TryGetTarget(out var handler))
+                {
+                    liveHandlers.Add(handler);
+                }
+                else
+                {
+                    Handlers.RemoveAt(index);
+                }
+            }
+
+            StopListeningIfNoHandlersNoLock();
+        }
+
+        liveHandlers.Reverse();
+
+        foreach (var handler in liveHandlers)
+        {
+            handler(sender, e);
+        }
     }
 
-    /// <inheritdoc />
-    protected override void StopListening(object source)
+    private static void EnsureListeningNoLock()
     {
-        App.PrivacyChanged -= this.OnPrivacyChanged;
+        if (_isListening)
+        {
+            return;
+        }
+
+        App.PrivacyChanged += OnPrivacyChanged;
+        _isListening = true;
     }
 
-    private void OnPrivacyChanged(object? sender, PrivacyChangedEventArgs e)
+    private static void StopListeningIfNoHandlersNoLock()
     {
-        this.DeliverEvent(typeof(App), e);
+        if (!_isListening || Handlers.Count != 0)
+        {
+            return;
+        }
+
+        App.PrivacyChanged -= OnPrivacyChanged;
+        _isListening = false;
+    }
+
+    private static void PruneDeadHandlersNoLock()
+    {
+        for (var index = Handlers.Count - 1; index >= 0; index--)
+        {
+            if (!Handlers[index].TryGetTarget(out _))
+            {
+                Handlers.RemoveAt(index);
+            }
+        }
     }
 }

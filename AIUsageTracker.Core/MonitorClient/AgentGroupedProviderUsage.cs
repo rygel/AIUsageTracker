@@ -9,7 +9,7 @@ namespace AIUsageTracker.Core.MonitorClient;
 public sealed class AgentGroupedProviderUsage
 {
     /// <summary>
-    /// Provider-level quota window details (e.g. Kimi's Weekly Limit + 5h Limit).
+    /// Gets or sets provider-level quota window details (e.g. Kimi's Weekly Limit + 5h Limit).
     /// Populated when the provider has QuotaWindow details that are not scoped to
     /// a specific model. Used by the UI to render dual progress bars on the parent card.
     /// </summary>

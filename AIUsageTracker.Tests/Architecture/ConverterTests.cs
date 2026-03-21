@@ -14,12 +14,12 @@ namespace AIUsageTracker.Tests.Architecture;
 public class ConverterTests
 {
     [Theory]
-    [InlineData(50, 60, 80, false, "Green")]   // Pay-as-you-go: 50% used → green
-    [InlineData(65, 60, 80, false, "Yellow")]  // Pay-as-you-go: 65% used → yellow
-    [InlineData(85, 60, 80, false, "Red")]     // Pay-as-you-go: 85% used → red
-    [InlineData(50, 60, 80, true, "Green")]    // Quota: 50% used → green (50% remaining — well within budget)
-    [InlineData(65, 60, 80, true, "Yellow")]   // Quota: 65% used → yellow (35% remaining — approaching limit)
-    [InlineData(85, 60, 80, true, "Red")]      // Quota: 85% used → red  (15% remaining — critical)
+    [InlineData(50, 60, 80, false, "Green")] // Pay-as-you-go: 50% used → green
+    [InlineData(65, 60, 80, false, "Yellow")] // Pay-as-you-go: 65% used → yellow
+    [InlineData(85, 60, 80, false, "Red")] // Pay-as-you-go: 85% used → red
+    [InlineData(50, 60, 80, true, "Green")] // Quota: 50% used → green (50% remaining — well within budget)
+    [InlineData(65, 60, 80, true, "Yellow")] // Quota: 65% used → yellow (35% remaining — approaching limit)
+    [InlineData(85, 60, 80, true, "Red")] // Quota: 85% used → red  (15% remaining — critical)
     public void PercentageToColorConverter_ReturnsCorrectColor(
         double percentage, int yellow, int red, bool isQuota, string expectedColorName)
     {
@@ -42,8 +42,8 @@ public class ConverterTests
     [Theory]
     [InlineData(true, false, "Visible")]
     [InlineData(false, false, "Collapsed")]
-    [InlineData(true, true, "Collapsed")]   // Inverted
-    [InlineData(false, true, "Visible")]    // Inverted
+    [InlineData(true, true, "Collapsed")] // Inverted
+    [InlineData(false, true, "Visible")] // Inverted
     public void BoolToVisibilityConverter_ReturnsCorrectVisibility(
         bool input, bool invert, string expectedVisibility)
     {
@@ -94,12 +94,12 @@ public class ConverterTests
         // Test future time - 2 hours
         var twoHours = DateTime.Now.AddHours(2).AddMinutes(1);
         result = converter.Convert(twoHours, typeof(string), null!, CultureInfo.InvariantCulture);
-        Assert.StartsWith("2h", result?.ToString() ?? string.Empty);
+        Assert.StartsWith("2h", result?.ToString() ?? string.Empty, StringComparison.Ordinal);
 
         // Test future time - 3 days
         var threeDays = DateTime.Now.AddDays(3).AddHours(1);
         result = converter.Convert(threeDays, typeof(string), null!, CultureInfo.InvariantCulture);
-        Assert.StartsWith("3d", result?.ToString() ?? string.Empty);
+        Assert.StartsWith("3d", result?.ToString() ?? string.Empty, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public class ConverterTests
     [InlineData(0.0, 0.0)]
     [InlineData(50.0, 50.0)]
     [InlineData(100.0, 100.0)]
-    [InlineData(-10.0, 0.0)]   // Should clamp to 0
+    [InlineData(-10.0, 0.0)] // Should clamp to 0
     [InlineData(150.0, 100.0)] // Should clamp to 100
     public void PercentageToWidthConverter_ClampsValues(double input, double expectedValue)
     {

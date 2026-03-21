@@ -1,4 +1,4 @@
-﻿// <copyright file="XiaomiProvider.cs" company="AIUsageTracker">
+// <copyright file="XiaomiProvider.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 

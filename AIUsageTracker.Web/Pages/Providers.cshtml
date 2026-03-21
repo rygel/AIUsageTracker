@@ -34,7 +34,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var provider in Model.Providers.Where(p => !ProviderMetadataCatalog.IsAggregateParentProviderId(p.ProviderId)))
+                @foreach (var provider in Model.Providers.Where(p => !(ProviderMetadataCatalog.Find(p.ProviderId) is { } pDef && string.Equals(p.ProviderId, pDef.ProviderId, StringComparison.OrdinalIgnoreCase) && pDef.RenderDetailsAsSyntheticChildrenInMainWindow)))
                 {
                     <tr>
                         <td>@provider.ProviderName</td>

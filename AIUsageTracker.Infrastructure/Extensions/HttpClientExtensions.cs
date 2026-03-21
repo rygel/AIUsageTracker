@@ -2,76 +2,23 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
-using AIUsageTracker.Infrastructure.Http;
-using AIUsageTracker.Infrastructure.Resilience;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Polly;
-using Polly.Extensions.Http;
 
 namespace AIUsageTracker.Infrastructure.Extensions;
 
 public static class HttpClientExtensions
 {
-    /// <summary>
-    /// Adds HttpClient with Polly retry and circuit breaker policies.
-    /// </summary>
-    /// <returns></returns>
-    public static IServiceCollection AddResilientHttpClient(this IServiceCollection services)
+    public static IServiceCollection AddConfiguredHttpClients(this IServiceCollection services)
     {
-        // Register ResilienceProvider as singleton
-        services.AddSingleton<IResilienceProvider, ResilienceProvider>();
+        // Default HttpClient for general use
+        services.AddHttpClient(string.Empty);
 
-        // Configure retry policy
-        var retryPolicy = HttpPolicyExtensions
-            .HandleTransientHttpError()
-            .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-            .WaitAndRetryAsync(
-                3,
-                retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                onRetry: (outcome, timeSpan, retryCount, context) =>
-                {
-                    // Logging is handled by the providers
-                });
-
-        // Configure circuit breaker policy
-        var circuitBreakerPolicy = HttpPolicyExtensions
-            .HandleTransientHttpError()
-            .CircuitBreakerAsync(
-                5,
-                TimeSpan.FromSeconds(30));
-
-        // Add named HttpClient with policies
-        services.AddHttpClient("ResilientClient")
-            .AddPolicyHandler(retryPolicy)
-            .AddPolicyHandler(circuitBreakerPolicy);
-
-        // Add default HttpClient with policies
-        // Note: AddHttpClient() without name returns IServiceCollection, so we need to configure it differently
-        services.AddHttpClient(string.Empty) // Empty string = default client
-            .AddPolicyHandler(retryPolicy)
-            .AddPolicyHandler(circuitBreakerPolicy);
-
-        // Add a plain HttpClient without retry/circuit-breaker policies.
-        // Used by providers (e.g. ClaudeCodeProvider) that handle retries themselves
-        // or where retrying 429s is counterproductive (burns rate-limit budget).
+        // Plain client for providers that handle retries themselves
         services.AddHttpClient("PlainClient");
 
-        // Short-timeout client for localhost API calls (e.g. AntigravityProvider).
-        // Localhost calls should respond near-instantly; a long timeout would stall the UI.
+        // Short-timeout client for localhost API calls (e.g. AntigravityProvider)
         services.AddHttpClient("LocalhostClient")
             .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(1.5));
-
-        // Register ResilientHttpClient as transient
-        services.AddTransient<IResilientHttpClient>(sp =>
-        {
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var httpClient = httpClientFactory.CreateClient("ResilientClient");
-            var resilienceProvider = sp.GetRequiredService<IResilienceProvider>();
-            var logger = sp.GetRequiredService<ILogger<ResilientHttpClient>>();
-            return new ResilientHttpClient(httpClient, resilienceProvider, logger);
-        });
 
         return services;
     }

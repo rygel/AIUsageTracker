@@ -14,6 +14,18 @@
 ### Up Next
 All architecture streamlining tasks completed! See remaining feature backlog below.
 
+### Grand Refactor (Ongoing)
+- [x] Extract startup preferences/theme bootstrap out of `App.xaml.cs` into services.
+- [x] Extract single-instance lock concerns out of `App.xaml.cs`.
+- [x] Isolate monitor launcher test overrides per async flow to reduce cross-test flakiness.
+- [x] Unify privacy event subscriptions in UI windows via `PrivacyChangedWeakEventManager`.
+- [x] Add explicit duplicate-monitor startup diagnostics and clean duplicate-start exit path.
+- [x] Remove aggregate-detail child-id/sort fallback heuristics from `ProviderUsageDisplayCatalog`.
+- [x] Remove dual-quota label/order fallback heuristics from `ProviderDualQuotaBucketPresentationCatalog`.
+- [x] Extract provider section layout grouping from `MainWindow.RenderProviders` into `ProviderSectionLayoutCatalog`.
+- [ ] Decompose `MainWindow` provider rendering path into smaller service components.
+- [ ] Continue fallback-logic removal pass in UI/catalog paths.
+
 ---
 
 ## Feature Backlog
@@ -287,4 +299,3 @@ Identified during code review on 2026-03-03. These are areas where the codebase 
   - Standardized naming and structure
   - Updated build-performance-monitor.yml references
   - Benefit: Easier maintenance, less confusion, clearer structure
-

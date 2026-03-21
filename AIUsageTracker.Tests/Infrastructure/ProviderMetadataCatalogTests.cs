@@ -64,7 +64,7 @@ public class ProviderMetadataCatalogTests
         string expectedSessionLabel)
     {
         Assert.Equal(expectedDisplayName, ProviderMetadataCatalog.ResolveDisplayLabel(providerId));
-        Assert.Equal(expectedSessionLabel, ProviderMetadataCatalog.GetSessionStatusLabel(providerId));
+        Assert.Equal(expectedSessionLabel, ProviderMetadataCatalog.Find(providerId)?.SessionStatusLabel);
     }
 
     [Theory]
@@ -130,7 +130,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("openrouter", false)]
     public void IsAutoIncluded_UsesProviderDefinitions(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.IsAutoIncluded(providerId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.AutoIncludeWhenUnconfigured ?? false);
     }
 
     [Theory]
@@ -153,7 +153,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("unknown-provider", "unknown-provider.child", false)]
     public void BelongsToProviderFamily_UsesProviderDefinitions(string providerId, string candidateProviderId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.BelongsToProviderFamily(providerId, candidateProviderId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.HandlesProviderId(candidateProviderId) ?? false);
     }
 
     [Theory]
@@ -165,7 +165,8 @@ public class ProviderMetadataCatalogTests
     [InlineData("unknown-provider.child", false)]
     public void IsChildProviderId_UsesProviderDefinitions(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.IsChildProviderId(providerId));
+        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(canonicalProviderId)?.IsChildProviderId(providerId) ?? false);
     }
 
     [Theory]
@@ -179,7 +180,8 @@ public class ProviderMetadataCatalogTests
         bool expected,
         string expectedChildProviderKey)
     {
-        var success = ProviderMetadataCatalog.TryGetChildProviderKey(providerId, candidateProviderId, out var childProviderKey);
+        var childProviderKey = string.Empty;
+        var success = ProviderMetadataCatalog.Find(providerId)?.TryGetChildProviderKey(candidateProviderId, out childProviderKey) ?? false;
 
         Assert.Equal(expected, success);
         Assert.Equal(expectedChildProviderKey, childProviderKey);
@@ -207,7 +209,11 @@ public class ProviderMetadataCatalogTests
     [InlineData("codex", false)]
     public void IsAggregateParentProviderId_DetectsOnlyAggregateParent(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.IsAggregateParentProviderId(providerId));
+        var def = ProviderMetadataCatalog.Find(providerId);
+        var actual = def != null
+            && string.Equals(providerId, def.ProviderId, StringComparison.OrdinalIgnoreCase)
+            && def.RenderDetailsAsSyntheticChildrenInMainWindow;
+        Assert.Equal(expected, actual);
     }
 
     [Theory]
@@ -217,7 +223,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("codex.spark", false)]
     public void ShouldCollapseDerivedChildrenInMainWindow_UsesProviderDefinitions(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.ShouldCollapseDerivedChildrenInMainWindow(providerId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.CollapseDerivedChildrenInMainWindow ?? false);
     }
 
     [Theory]
@@ -228,34 +234,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("unknown-provider", false)]
     public void ShouldShowInMainWindow_UsesCatalogVisibility(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.ShouldShowInMainWindow(providerId));
-    }
-
-    [Theory]
-    [InlineData("antigravity", false)]
-    [InlineData("antigravity.some-model", false)]
-    [InlineData("codex", false)]
-    public void ShouldRenderAggregateDetailsInMainWindow_UsesCatalogPolicy(string providerId, bool expected)
-    {
-        Assert.Equal(expected, ProviderMetadataCatalog.ShouldRenderAggregateDetailsInMainWindow(providerId));
-    }
-
-    [Theory]
-    [InlineData("antigravity", false)]
-    [InlineData("antigravity.some-model", false)]
-    [InlineData("codex", false)]
-    public void ShouldUseSharedSubDetailCollapsePreference_UsesCatalogPolicy(string providerId, bool expected)
-    {
-        Assert.Equal(expected, ProviderMetadataCatalog.ShouldUseSharedSubDetailCollapsePreference(providerId));
-    }
-
-    [Theory]
-    [InlineData("antigravity.some-model", false)]
-    [InlineData("codex.spark", false)]
-    [InlineData("codex", false)]
-    public void ShouldRenderAsSettingsSubItem_UsesCatalogPolicy(string providerId, bool expected)
-    {
-        Assert.Equal(expected, ProviderMetadataCatalog.ShouldRenderAsSettingsSubItem(providerId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.ShowInMainWindow ?? false);
     }
 
     [Theory]
@@ -265,17 +244,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("github-copilot", false)]
     public void HasDisplayableDerivedProviders_UsesProviderFamilyPolicy(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.HasDisplayableDerivedProviders(providerId));
-    }
-
-    [Theory]
-    [InlineData("antigravity", false)]
-    [InlineData("gemini-cli", true)]
-    [InlineData("codex", true)]
-    [InlineData("github-copilot", false)]
-    public void HasStaticVisibleDerivedProviders_UsesProviderDefinitions(string providerId, bool expected)
-    {
-        Assert.Equal(expected, ProviderMetadataCatalog.HasStaticVisibleDerivedProviders(providerId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.HasDisplayableDerivedProviders ?? false);
     }
 
     [Theory]
@@ -285,7 +254,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("github-copilot", false)]
     public void ShouldUseChildProviderRowsForGroupedModels_UsesProviderFamilyMode(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.ShouldUseChildProviderRowsForGroupedModels(providerId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.UseChildProviderRowsForGroupedModels ?? false);
     }
 
     [Theory]
@@ -294,7 +263,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("antigravity", new string[0])]
     public void GetVisibleDerivedProviderIds_UsesProviderDefinitions(string providerId, string[] expected)
     {
-        var providerIds = ProviderMetadataCatalog.GetVisibleDerivedProviderIds(providerId);
+        var providerIds = ProviderMetadataCatalog.Find(providerId)?.VisibleDerivedProviderIds ?? (IReadOnlyCollection<string>)Array.Empty<string>();
 
         Assert.Equal(expected, providerIds, StringComparer.OrdinalIgnoreCase);
     }
@@ -308,8 +277,8 @@ public class ProviderMetadataCatalogTests
         int expectedMissingCount,
         int expectedUnknownCount)
     {
-        Assert.Equal(expectedMissingCount, ProviderMetadataCatalog.GetMissingDerivedModelSelectorProviderIds(providerId).Count);
-        Assert.Equal(expectedUnknownCount, ProviderMetadataCatalog.GetUnknownDerivedModelSelectorProviderIds(providerId).Count);
+        Assert.Equal(expectedMissingCount, GetMissingDerivedModelSelectorProviderIds(providerId).Count);
+        Assert.Equal(expectedUnknownCount, GetUnknownDerivedModelSelectorProviderIds(providerId).Count);
     }
 
     [Theory]
@@ -320,11 +289,11 @@ public class ProviderMetadataCatalogTests
         PlanType expectedPlanType,
         bool expectedIsQuotaBased)
     {
-        var success = ProviderMetadataCatalog.TryGetUsageSemantics(providerId, out var planType, out var isQuotaBased);
+        var def = ProviderMetadataCatalog.Find(providerId);
 
-        Assert.True(success);
-        Assert.Equal(expectedPlanType, planType);
-        Assert.Equal(expectedIsQuotaBased, isQuotaBased);
+        Assert.NotNull(def);
+        Assert.Equal(expectedPlanType, def.PlanType);
+        Assert.Equal(expectedIsQuotaBased, def.IsQuotaBased);
     }
 
     [Theory]
@@ -438,7 +407,7 @@ public class ProviderMetadataCatalogTests
     [InlineData("deepseek", false)]
     public void ShouldShowInSettings_UsesProviderDefinitions(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.ShouldShowInSettings(providerId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.ShowInSettings ?? false);
     }
 
     [Fact]
@@ -609,7 +578,7 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
     [InlineData("openai", true)]
     public void SupportsAccountIdentity_UsesProviderDefinitions(string providerId, bool expected)
     {
-        Assert.Equal(expected, ProviderMetadataCatalog.SupportsAccountIdentity(providerId));
+        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.SupportsAccountIdentity ?? false);
     }
 
     [Fact]
@@ -627,5 +596,33 @@ string.Equals(schema.AccessTokenProperty, "accessToken", StringComparison.Ordina
 
         Assert.Single(visible);
         Assert.Equal("codex", visible[0].ProviderId);
+    }
+
+    private static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
+    {
+        var def = ProviderMetadataCatalog.Find(providerId);
+        var visibleDerivedProviderIds = def?.VisibleDerivedProviderIds ?? (IReadOnlyCollection<string>)Array.Empty<string>();
+        var selectorProviderIds = (def?.DerivedModelSelectors ?? (IReadOnlyCollection<ProviderDerivedModelSelector>)Array.Empty<ProviderDerivedModelSelector>())
+            .Select(selector => selector.DerivedProviderId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return visibleDerivedProviderIds
+            .Where(derivedProviderId => !selectorProviderIds.Contains(derivedProviderId))
+            .OrderBy(derivedProviderId => derivedProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> GetUnknownDerivedModelSelectorProviderIds(string providerId)
+    {
+        var def = ProviderMetadataCatalog.Find(providerId);
+        var visibleDerivedProviderIds = (def?.VisibleDerivedProviderIds ?? (IReadOnlyCollection<string>)Array.Empty<string>())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return (def?.DerivedModelSelectors ?? (IReadOnlyCollection<ProviderDerivedModelSelector>)Array.Empty<ProviderDerivedModelSelector>())
+            .Select(selector => selector.DerivedProviderId)
+            .Where(derivedProviderId => !visibleDerivedProviderIds.Contains(derivedProviderId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(derivedProviderId => derivedProviderId, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }

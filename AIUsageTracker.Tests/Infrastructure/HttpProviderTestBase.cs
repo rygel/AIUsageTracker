@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Infrastructure.Http;
 using Moq;
 using Moq.Protected;
 
@@ -15,22 +14,9 @@ public abstract class HttpProviderTestBase<TProvider> : ProviderTestBase<TProvid
     {
         this.MessageHandler = new Mock<HttpMessageHandler>();
         this.HttpClient = new HttpClient(this.MessageHandler.Object);
-        this.ResilientHttpClient = new Mock<IResilientHttpClient>();
-
-        // Default behavior for SendAsync without policy: delegate to HttpClient
-        this.ResilientHttpClient
-            .Setup(x => x.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<CancellationToken>()))
-            .Returns<HttpRequestMessage, CancellationToken>((req, ct) => this.HttpClient.SendAsync(req, ct));
-
-        // Default behavior for SendAsync with policy: delegate to HttpClient (ignoring policy for tests)
-        this.ResilientHttpClient
-            .Setup(x => x.SendAsync(It.IsAny<HttpRequestMessage>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .Returns<HttpRequestMessage, string, CancellationToken>((req, policy, ct) => this.HttpClient.SendAsync(req, ct));
     }
 
     protected Mock<HttpMessageHandler> MessageHandler { get; }
-
-    protected Mock<IResilientHttpClient> ResilientHttpClient { get; }
 
     protected HttpClient HttpClient { get; }
 

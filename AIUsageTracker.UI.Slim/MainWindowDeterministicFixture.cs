@@ -30,7 +30,7 @@ internal static class MainWindowDeterministicFixture
                 }),
         };
 
-        usages.AddRange(DeterministicProviderScenarioCatalog.Scenarios
+        usages.AddRange(DeterministicProviderScenario.Scenarios
             .Where(scenario => scenario.MainWindowUsage != null)
             .Select(scenario => CreateUsage(scenario, deterministicNow, scenario.MainWindowUsage!)));
 
@@ -60,10 +60,10 @@ internal static class MainWindowDeterministicFixture
         bool isAvailable = true,
         IReadOnlyList<ProviderUsageDetail>? details = null)
     {
-        if (!ProviderMetadataCatalog.TryGetUsageSemantics(scenario.ProviderId, out var planType, out var isQuotaBased))
-        {
-            throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
-        }
+        var def = ProviderMetadataCatalog.Find(scenario.ProviderId)
+            ?? throw new InvalidOperationException($"Unknown provider id '{scenario.ProviderId}' in deterministic screenshot data.");
+        var planType = def.PlanType;
+        var isQuotaBased = def.IsQuotaBased;
 
         return new ProviderUsage
         {

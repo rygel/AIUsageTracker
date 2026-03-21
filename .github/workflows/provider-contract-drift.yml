@@ -2,7 +2,7 @@ name: Provider Contract Drift
 
 on:
   schedule:
-    - cron: "0 6 * * 1"
+    - cron: "0 6 * * 2"  # Tuesday at 6 AM
   workflow_dispatch:
   pull_request:
     branches: [ main, develop ]

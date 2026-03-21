@@ -9,8 +9,8 @@
         Foreground="{DynamicResource PrimaryText}"
         ShowInTaskbar="True"
         WindowStartupLocation="CenterScreen"
-        behaviors:KeyboardShortcutBehavior.CloseOnEscape="True"
-        Icon="Assets/app_icon.ico">
+        Icon="Assets/app_icon.ico"
+        PreviewKeyDown="Window_PreviewKeyDown">
 
     <Window.Resources>
         <Style x:Key="ComboBoxToggleButton" TargetType="ToggleButton">

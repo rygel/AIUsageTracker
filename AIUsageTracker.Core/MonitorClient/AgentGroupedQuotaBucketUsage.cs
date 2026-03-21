@@ -22,7 +22,7 @@ public sealed class AgentGroupedQuotaBucketUsage
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
-    /// The quota window kind for this bucket. Used to render dual progress bars on child cards.
+    /// Gets or sets the quota window kind for this bucket. Used to render dual progress bars on child cards.
     /// <see cref="WindowKind.None"/> when not applicable (e.g. summary/effective buckets).
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

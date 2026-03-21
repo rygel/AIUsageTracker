@@ -4,6 +4,7 @@
 
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.UI.Slim.Services;
 using AIUsageTracker.UI.Slim.ViewModels;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -14,19 +15,22 @@ namespace AIUsageTracker.Tests.UI;
 public class MainViewModelTests
 {
     private readonly Mock<IMonitorService> _monitorServiceMock;
-    private readonly Mock<IUsageAnalyticsService> _analyticsServiceMock;
+    private readonly Mock<IBrowserService> _browserServiceMock;
+    private readonly Mock<IDialogService> _dialogServiceMock;
     private readonly Mock<ILogger<MainViewModel>> _loggerMock;
     private readonly MainViewModel _viewModel;
 
     public MainViewModelTests()
     {
         this._monitorServiceMock = new Mock<IMonitorService>();
-        this._analyticsServiceMock = new Mock<IUsageAnalyticsService>();
+        this._browserServiceMock = new Mock<IBrowserService>();
+        this._dialogServiceMock = new Mock<IDialogService>();
         this._loggerMock = new Mock<ILogger<MainViewModel>>();
         this._viewModel = new MainViewModel(
             this._monitorServiceMock.Object,
-            this._analyticsServiceMock.Object,
-            this._loggerMock.Object);
+            this._loggerMock.Object,
+            this._browserServiceMock.Object,
+            this._dialogServiceMock.Object);
     }
 
     [Fact]

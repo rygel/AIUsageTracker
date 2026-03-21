@@ -39,20 +39,21 @@ public static class ProviderMetadataCatalog
         return true;
     }
 
+    public static string GetCanonicalProviderId(string providerId)
+    {
+        return Find(providerId)?.ProviderId ?? providerId ?? string.Empty;
+    }
+
     public static string GetConfiguredDisplayName(string providerId)
     {
-        if (TryGet(providerId, out var definition))
+        var definition = Find(providerId);
+        if (definition == null)
         {
-            var mapped = definition.ResolveDisplayName(providerId);
-            if (!string.IsNullOrWhiteSpace(mapped))
-            {
-                return mapped;
-            }
-
-            return definition.DisplayName;
+            return providerId ?? string.Empty;
         }
 
-        return providerId ?? string.Empty;
+        var mapped = definition.ResolveDisplayName(providerId);
+        return !string.IsNullOrWhiteSpace(mapped) ? mapped : definition.DisplayName;
     }
 
     public static string ResolveDisplayLabel(ProviderUsage usage)
@@ -63,22 +64,20 @@ public static class ProviderMetadataCatalog
 
     public static string ResolveDisplayLabel(string providerId, string? runtimeLabel = null)
     {
-        if (TryGet(providerId, out var definition))
+        var definition = Find(providerId);
+        if (definition == null)
         {
-            // For derived provider IDs (e.g. "claude-code.sonnet"), prefer the runtime label
-            // set by the provider unless the definition explicitly declares name overrides for
-            // derived IDs. For canonical provider IDs, the definition is always authoritative.
-            var isDerived = !string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
-            if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel) && !definition.PreferDisplayNameOverridesForDerivedProviderIds)
-            {
-                return runtimeLabel;
-            }
-
-            var mapped = definition.ResolveDisplayName(providerId);
-            return !string.IsNullOrWhiteSpace(mapped) ? mapped : definition.DisplayName;
+            return !string.IsNullOrWhiteSpace(runtimeLabel) ? runtimeLabel : (providerId ?? string.Empty);
         }
 
-        return !string.IsNullOrWhiteSpace(runtimeLabel) ? runtimeLabel : (providerId ?? string.Empty);
+        var isDerived = !string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
+        if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel) && !definition.PreferDisplayNameOverridesForDerivedProviderIds)
+        {
+            return runtimeLabel;
+        }
+
+        var mapped = definition.ResolveDisplayName(providerId);
+        return !string.IsNullOrWhiteSpace(mapped) ? mapped : definition.DisplayName;
     }
 
     public static string GetDerivedModelDisplayName(string providerId, string modelName)
@@ -88,8 +87,8 @@ public static class ProviderMetadataCatalog
             return modelName;
         }
 
-        if (TryGet(providerId, out var definition) &&
-            !string.IsNullOrWhiteSpace(definition.DerivedModelDisplaySuffix))
+        var definition = Find(providerId);
+        if (definition != null && !string.IsNullOrWhiteSpace(definition.DerivedModelDisplaySuffix))
         {
             return $"{modelName} {definition.DerivedModelDisplaySuffix}";
         }
@@ -97,129 +96,22 @@ public static class ProviderMetadataCatalog
         return modelName;
     }
 
-    public static bool IsAutoIncluded(string providerId)
-    {
-        return TryGet(providerId, out var definition) && definition.AutoIncludeWhenUnconfigured;
-    }
-
-    public static bool TryGetUsageSemantics(string providerId, out PlanType planType, out bool isQuotaBased)
-    {
-        if (TryGet(providerId, out var definition))
-        {
-            planType = definition.PlanType;
-            isQuotaBased = definition.IsQuotaBased;
-            return true;
-        }
-
-        planType = default;
-        isQuotaBased = false;
-        return false;
-    }
-
-    public static string GetCanonicalProviderId(string providerId)
-    {
-        if (TryGet(providerId, out var definition))
-        {
-            return definition.ProviderId;
-        }
-
-        return providerId ?? string.Empty;
-    }
-
-    public static bool BelongsToProviderFamily(string providerId, string candidateProviderId)
-    {
-        return TryGet(providerId, out var definition) &&
-               ProviderFamilyPolicy.BelongsToProviderFamily(definition.HandledProviderIds, candidateProviderId, definition.FamilyMode);
-    }
-
-    public static bool IsChildProviderId(string providerId)
-    {
-        if (!TryGet(providerId, out var definition))
-        {
-            return false;
-        }
-
-        return ProviderFamilyPolicy.IsChildProviderId(definition.HandledProviderIds, providerId, definition.FamilyMode);
-    }
-
-    public static bool IsChildProviderId(string parentProviderId, string candidateProviderId)
-    {
-        return TryGet(parentProviderId, out var definition) &&
-               ProviderFamilyPolicy.IsChildProviderId(definition.HandledProviderIds, candidateProviderId, definition.FamilyMode);
-    }
-
-    public static bool TryGetChildProviderKey(string parentProviderId, string candidateProviderId, out string childProviderKey)
-    {
-        childProviderKey = string.Empty;
-        return TryGet(parentProviderId, out var definition) &&
-               ProviderFamilyPolicy.TryGetChildProviderKey(
-                   definition.HandledProviderIds,
-                   candidateProviderId,
-                   definition.FamilyMode,
-                   out childProviderKey);
-    }
-
-    public static bool HasDisplayableDerivedProviders(string providerId)
-    {
-        return TryGet(providerId, out var definition) &&
-               ProviderFamilyPolicy.HasDisplayableDerivedProviders(definition.VisibleDerivedProviderIds, definition.FamilyMode);
-    }
-
-    public static IReadOnlyCollection<string> GetVisibleDerivedProviderIds(string providerId)
-    {
-        return TryGet(providerId, out var definition)
-            ? definition.VisibleDerivedProviderIds
-            : Array.Empty<string>();
-    }
-
-    public static IReadOnlyCollection<ProviderDerivedModelSelector> GetDerivedModelSelectors(string providerId)
-    {
-        return TryGet(providerId, out var definition)
-            ? definition.DerivedModelSelectors
-            : Array.Empty<ProviderDerivedModelSelector>();
-    }
-
-    public static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(string providerId)
-    {
-        if (!TryGet(providerId, out var definition))
-        {
-            return Array.Empty<string>();
-        }
-
-        return GetMissingDerivedModelSelectorProviderIds(definition);
-    }
-
-    public static IReadOnlyList<string> GetUnknownDerivedModelSelectorProviderIds(string providerId)
-    {
-        if (!TryGet(providerId, out var definition))
-        {
-            return Array.Empty<string>();
-        }
-
-        return GetUnknownDerivedModelSelectorProviderIds(definition);
-    }
-
-    public static bool HasStaticVisibleDerivedProviders(string providerId)
-    {
-        return GetVisibleDerivedProviderIds(providerId).Count > 0;
-    }
-
     public static string GetIconAssetName(string providerId)
     {
         var canonicalProviderId = GetCanonicalProviderId(providerId);
-        return TryGet(canonicalProviderId, out var definition) &&
-               !string.IsNullOrWhiteSpace(definition.IconAssetName)
+        var definition = Find(canonicalProviderId);
+        return definition != null && !string.IsNullOrWhiteSpace(definition.IconAssetName)
             ? definition.IconAssetName
             : canonicalProviderId;
     }
 
     public static bool TryGetBadgeDefinition(string providerId, out string colorHex, out string initial)
     {
-        var canonicalProviderId = GetCanonicalProviderId(providerId);
         colorHex = string.Empty;
         initial = string.Empty;
 
-        if (!TryGet(canonicalProviderId, out var definition) ||
+        var definition = Find(GetCanonicalProviderId(providerId));
+        if (definition == null ||
             string.IsNullOrWhiteSpace(definition.BadgeColorHex) ||
             string.IsNullOrWhiteSpace(definition.BadgeInitial))
         {
@@ -231,65 +123,16 @@ public static class ProviderMetadataCatalog
         return true;
     }
 
-    public static bool IsAggregateParentProviderId(string providerId)
-    {
-        return TryGet(providerId, out var definition) &&
-               string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase) &&
-               ProviderFamilyPolicy.ShouldRenderSyntheticChildrenInMainWindow(definition.FamilyMode);
-    }
-
-    public static bool ShouldCollapseDerivedChildrenInMainWindow(string providerId)
-    {
-        return TryGet(providerId, out var definition) &&
-               ProviderFamilyPolicy.ShouldCollapseDerivedChildrenInMainWindow(definition.FamilyMode);
-    }
-
-    public static bool ShouldUseChildProviderRowsForGroupedModels(string providerId)
-    {
-        return TryGet(providerId, out var definition) &&
-               ProviderFamilyPolicy.UsesChildProviderRowsForGroupedModels(definition.FamilyMode);
-    }
-
-    public static bool IsTooltipOnlyProvider(string providerId)
-    {
-        return TryGet(providerId, out var definition) && definition.IsTooltipOnly;
-    }
-
-    public static bool ShouldShowInMainWindow(string providerId)
-    {
-        return TryGet(providerId, out var definition) && definition.ShowInMainWindow;
-    }
-
-    public static bool ShouldRenderAggregateDetailsInMainWindow(string providerId)
-    {
-        var canonicalProviderId = GetCanonicalProviderId(providerId);
-        return IsAggregateParentProviderId(canonicalProviderId);
-    }
-
     public static string GetAggregateDetailDisplaySuffix(string providerId)
     {
         var canonicalProviderId = GetCanonicalProviderId(providerId);
-        if (TryGet(canonicalProviderId, out var definition) &&
-            !string.IsNullOrWhiteSpace(definition.AggregateDetailDisplaySuffix))
+        var definition = Find(canonicalProviderId);
+        if (definition != null && !string.IsNullOrWhiteSpace(definition.AggregateDetailDisplaySuffix))
         {
             return definition.AggregateDetailDisplaySuffix!;
         }
 
-        var displayName = GetConfiguredDisplayName(canonicalProviderId);
-        return $"[{displayName}]";
-    }
-
-    public static bool ShouldUseSharedSubDetailCollapsePreference(string providerId)
-    {
-        var canonicalProviderId = GetCanonicalProviderId(providerId);
-        return ShouldCollapseDerivedChildrenInMainWindow(canonicalProviderId);
-    }
-
-    public static bool ShouldRenderAsSettingsSubItem(string providerId)
-    {
-        var canonicalProviderId = GetCanonicalProviderId(providerId);
-        var isCanonicalChild = !string.Equals(canonicalProviderId, providerId, StringComparison.OrdinalIgnoreCase);
-        return isCanonicalChild && ShouldUseSharedSubDetailCollapsePreference(canonicalProviderId);
+        return $"[{GetConfiguredDisplayName(canonicalProviderId)}]";
     }
 
     public static ProviderDefinition? FindByEnvironmentVariable(string environmentVariableName)
@@ -312,13 +155,6 @@ public static class ProviderMetadataCatalog
 
         return Definitions.FirstOrDefault(definition =>
             definition.RooConfigPropertyNames.Contains(propertyName, StringComparer.OrdinalIgnoreCase));
-    }
-
-    public static IReadOnlyCollection<string> GetDiscoveryEnvironmentVariables(string providerId)
-    {
-        return TryGet(providerId, out var definition)
-            ? definition.DiscoveryEnvironmentVariables
-            : Array.Empty<string>();
     }
 
     public static IReadOnlyList<string> GetProviderIdsWithDiscoveryEnvironmentVariables()
@@ -351,6 +187,23 @@ public static class ProviderMetadataCatalog
             .ToList();
     }
 
+    public static IReadOnlyList<string> GetDefaultSettingsProviderIds()
+    {
+        return Definitions
+            .Where(definition => definition.ShowInSettings)
+            .SelectMany(definition => new[] { definition.ProviderId }.Concat(definition.SettingsAdditionalProviderIds))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public static IReadOnlyList<string> GetStartupRefreshProviderIds()
+    {
+        return Definitions
+            .Where(definition => definition.RefreshOnStartupWithCachedData)
+            .Select(definition => definition.ProviderId)
+            .ToList();
+    }
+
     public static bool ShouldPersistProviderId(string providerId)
     {
         if (string.IsNullOrWhiteSpace(providerId))
@@ -363,7 +216,8 @@ public static class ProviderMetadataCatalog
             return false;
         }
 
-        if (!TryGet(providerId, out var definition))
+        var definition = Find(providerId);
+        if (definition == null)
         {
             return true;
         }
@@ -382,60 +236,6 @@ public static class ProviderMetadataCatalog
             definition.VisibleDerivedProviderIds.Contains(providerId, StringComparer.OrdinalIgnoreCase));
     }
 
-    public static bool ShouldShowInSettings(string providerId)
-    {
-        return TryGet(providerId, out var definition) && definition.ShowInSettings;
-    }
-
-    public static bool SupportsAccountIdentity(string providerId)
-    {
-        return TryGet(providerId, out var definition) && definition.SupportsAccountIdentity;
-    }
-
-    public static IReadOnlyList<string> GetDefaultSettingsProviderIds()
-    {
-        return Definitions
-            .Where(definition => definition.ShowInSettings)
-            .SelectMany(definition => new[] { definition.ProviderId }.Concat(definition.SettingsAdditionalProviderIds))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    public static IReadOnlyList<string> GetStartupRefreshProviderIds()
-    {
-        return Definitions
-            .Where(definition => definition.RefreshOnStartupWithCachedData)
-            .Select(definition => definition.ProviderId)
-            .ToList();
-    }
-
-    public static ProviderSettingsMode GetSettingsMode(string providerId)
-    {
-        return TryGet(providerId, out var definition)
-            ? definition.SettingsMode
-            : ProviderSettingsMode.StandardApiKey;
-    }
-
-    public static bool UsesSessionAuthStatusWhenQuotaBasedOrSessionToken(string providerId)
-    {
-        return TryGet(providerId, out var definition) &&
-               definition.UseSessionAuthStatusWhenQuotaBasedOrSessionToken;
-    }
-
-    public static string? GetSessionStatusLabel(string providerId)
-    {
-        return TryGet(providerId, out var definition)
-            ? definition.SessionStatusLabel
-            : null;
-    }
-
-    public static ProviderSessionIdentitySource GetSessionIdentitySource(string providerId)
-    {
-        return TryGet(providerId, out var definition)
-            ? definition.SessionIdentitySource
-            : ProviderSessionIdentitySource.None;
-    }
-
     public static bool TryCreateDefaultConfig(
         string providerId,
         out ProviderConfig config,
@@ -443,14 +243,14 @@ public static class ProviderMetadataCatalog
         string? authSource = null,
         string? description = null)
     {
-        if (!TryGet(providerId, out var definition))
+        var definition = Find(providerId);
+        if (definition == null)
         {
             config = null!;
             return false;
         }
 
         config = definition.CreateDefaultConfig(providerId, apiKey, authSource, description);
-
         return true;
     }
 
@@ -536,7 +336,7 @@ public static class ProviderMetadataCatalog
 
     private static string GetCanonicalConfigOwnerId(ProviderConfig config)
     {
-        if (ShouldRetainDedicatedConfig(config.ProviderId))
+        if (ShouldPersistProviderId(config.ProviderId) && IsVisibleDerivedProviderId(config.ProviderId))
         {
             return config.ProviderId;
         }
@@ -547,11 +347,6 @@ public static class ProviderMetadataCatalog
         }
 
         return GetCanonicalProviderId(config.ProviderId);
-    }
-
-    private static bool ShouldRetainDedicatedConfig(string providerId)
-    {
-        return ShouldPersistProviderId(providerId) && IsVisibleDerivedProviderId(providerId);
     }
 
     private static bool IsSessionAuthConfig(ProviderConfig config, ProviderDefinition definition)
@@ -676,34 +471,39 @@ public static class ProviderMetadataCatalog
             .Select(definition => new
             {
                 definition.ProviderId,
-                Missing = GetMissingDerivedModelSelectorProviderIds(definition),
+                Missing = definition.VisibleDerivedProviderIds.Count == 0
+                    ? Array.Empty<string>()
+                    : definition.VisibleDerivedProviderIds
+                        .Where(id => definition.DerivedModelSelectors.All(s =>
+                            !string.Equals(s.DerivedProviderId, id, StringComparison.OrdinalIgnoreCase)))
+                        .ToArray(),
             })
-            .Where(entry => entry.Missing.Count > 0)
+            .Where(entry => entry.Missing.Length > 0)
             .ToList();
         if (missingSelectors.Count > 0)
         {
             throw new InvalidOperationException(
                 "Missing derived model selectors: " +
-                string.Join(
-                    "; ",
-                    missingSelectors.Select(entry => $"{entry.ProviderId}: {string.Join(", ", entry.Missing)}")));
+                string.Join("; ", missingSelectors.Select(e => $"{e.ProviderId}: {string.Join(", ", e.Missing)}")));
         }
 
-        var unknownSelectorTargets = definitions
+        var unknownTargets = definitions
             .Select(definition => new
             {
                 definition.ProviderId,
-                Unknown = GetUnknownDerivedModelSelectorProviderIds(definition),
+                Unknown = definition.DerivedModelSelectors
+                    .Select(s => s.DerivedProviderId)
+                    .Where(id => !definition.VisibleDerivedProviderIds.Contains(id, StringComparer.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
             })
-            .Where(entry => entry.Unknown.Count > 0)
+            .Where(entry => entry.Unknown.Length > 0)
             .ToList();
-        if (unknownSelectorTargets.Count > 0)
+        if (unknownTargets.Count > 0)
         {
             throw new InvalidOperationException(
                 "Derived model selectors reference unknown provider ids: " +
-                string.Join(
-                    "; ",
-                    unknownSelectorTargets.Select(entry => $"{entry.ProviderId}: {string.Join(", ", entry.Unknown)}")));
+                string.Join("; ", unknownTargets.Select(e => $"{e.ProviderId}: {string.Join(", ", e.Unknown)}")));
         }
     }
 
@@ -741,8 +541,8 @@ public static class ProviderMetadataCatalog
 
         var invalidAggregateDefinitions = definitions
             .Where(definition =>
-                ProviderFamilyPolicy.ShouldRenderSyntheticChildrenInMainWindow(definition.FamilyMode) &&
-                !ProviderFamilyPolicy.SupportsChildProviderIds(definition.FamilyMode))
+                definition.RenderDetailsAsSyntheticChildrenInMainWindow &&
+                !definition.SupportsChildProviderIds)
             .Select(definition => definition.ProviderId)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -756,9 +556,9 @@ public static class ProviderMetadataCatalog
 
         var invalidGroupedModelChildRowDefinitions = definitions
             .Where(definition =>
-                ProviderFamilyPolicy.UsesChildProviderRowsForGroupedModels(definition.FamilyMode) &&
-                (!ProviderFamilyPolicy.SupportsChildProviderIds(definition.FamilyMode) ||
-                 ProviderFamilyPolicy.ShouldRenderSyntheticChildrenInMainWindow(definition.FamilyMode)))
+                definition.UseChildProviderRowsForGroupedModels &&
+                (!definition.SupportsChildProviderIds ||
+                 definition.RenderDetailsAsSyntheticChildrenInMainWindow))
             .Select(definition => definition.ProviderId)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -768,31 +568,5 @@ public static class ProviderMetadataCatalog
                 "Providers using child provider rows for grouped models must support child provider ids and avoid synthetic child rendering: " +
                 string.Join(", ", invalidGroupedModelChildRowDefinitions));
         }
-    }
-
-    private static IReadOnlyList<string> GetMissingDerivedModelSelectorProviderIds(ProviderDefinition definition)
-    {
-        if (definition.VisibleDerivedProviderIds.Count == 0)
-        {
-            return Array.Empty<string>();
-        }
-
-        return definition.VisibleDerivedProviderIds
-            .Where(derivedProviderId => definition.DerivedModelSelectors.All(selector =>
-                !string.Equals(selector.DerivedProviderId, derivedProviderId, StringComparison.OrdinalIgnoreCase)))
-            .OrderBy(derivedProviderId => derivedProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private static IReadOnlyList<string> GetUnknownDerivedModelSelectorProviderIds(ProviderDefinition definition)
-    {
-        return definition.DerivedModelSelectors
-            .Select(selector => selector.DerivedProviderId)
-            .Where(derivedProviderId => !definition.VisibleDerivedProviderIds.Contains(
-                derivedProviderId,
-                StringComparer.OrdinalIgnoreCase))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(derivedProviderId => derivedProviderId, StringComparer.OrdinalIgnoreCase)
-            .ToList();
     }
 }

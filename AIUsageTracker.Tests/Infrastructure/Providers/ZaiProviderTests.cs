@@ -138,6 +138,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 
         // Assert
         var usage = result.Single();
+
         // Active limit has 100M remaining = 0% used; description should show 100% remaining
         Assert.Equal(0, usage.UsedPercent, 1); // 0% used (100% remaining)
         Assert.Contains("Remaining", usage.Description, StringComparison.Ordinal);
@@ -180,8 +181,10 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         var usage = result.Single();
         Assert.True(usage.IsAvailable);
         Assert.Contains("5h window", usage.Description, StringComparison.Ordinal);
+
         // Must NOT contain a date string that looks like the billing period (many days away)
         Assert.DoesNotContain("Resets:", usage.Description, StringComparison.Ordinal);
+
         // nextResetTime should be null — no active window to point at
         Assert.Null(usage.NextResetTime);
     }
@@ -223,6 +226,7 @@ public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
         Assert.True(usage.IsAvailable);
         Assert.Contains("Resets:", usage.Description, StringComparison.Ordinal);
         Assert.NotNull(usage.NextResetTime);
+
         // Reset time should be roughly 3 hours from now, not days away
         var hoursUntilReset = (usage.NextResetTime!.Value - DateTime.Now).TotalHours;
         Assert.InRange(hoursUntilReset, 2.5, 3.5);

@@ -106,7 +106,7 @@ public sealed class MonitorStartupPathTests : IDisposable
     public void GetReadCandidatePaths_ReturnsCanonicalPathOnly()
     {
         var appDataRoot = Path.Combine(this._tempDirectory, "appdata");
-        var candidates = MonitorInfoPathCatalog.GetReadCandidatePaths(appDataRoot, this._tempDirectory);
+        var candidates = MonitorLauncher.GetMonitorInfoReadCandidatePaths(appDataRoot, this._tempDirectory);
 
         Assert.Collection(candidates, path => Assert.Equal(Path.Combine(appDataRoot, "AIUsageTracker", "monitor.json"), path));
     }
@@ -285,6 +285,50 @@ public sealed class MonitorStartupPathTests : IDisposable
         var result = await MonitorLauncher.WaitForAgentAsync(cancellationTokenSource.Token);
 
         Assert.False(result);
+    }
+
+    [Fact]
+    public async Task PushTestOverrides_IsolatedAcrossConcurrentAsyncFlowsAsync()
+    {
+        var firstPath = Path.Combine(this._tempDirectory, "monitor-first.json");
+        var secondPath = Path.Combine(this._tempDirectory, "monitor-second.json");
+
+        await File.WriteAllTextAsync(firstPath, JsonSerializer.Serialize(new MonitorInfo
+        {
+            Port = 6111,
+            ProcessId = 6111,
+        })).ConfigureAwait(false);
+        await File.WriteAllTextAsync(secondPath, JsonSerializer.Serialize(new MonitorInfo
+        {
+            Port = 6222,
+            ProcessId = 6222,
+        })).ConfigureAwait(false);
+
+        var gate = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readyCount = 0;
+
+        async Task<MonitorAgentStatus> ResolveStatusAsync(string infoPath, int expectedPort, int expectedProcessId)
+        {
+            using var overrides = MonitorLauncher.PushTestOverrides(
+                monitorInfoCandidatePaths: new[] { infoPath },
+                healthCheckAsync: port => Task.FromResult(port == expectedPort),
+                processRunningAsync: processId => Task.FromResult(processId == expectedProcessId));
+
+            if (Interlocked.Increment(ref readyCount) == 2)
+            {
+                gate.SetResult(null);
+            }
+
+            await gate.Task.ConfigureAwait(false);
+            return await MonitorLauncher.GetAgentStatusInfoAsync().ConfigureAwait(false);
+        }
+
+        var firstStatusTask = ResolveStatusAsync(firstPath, 6111, 6111);
+        var secondStatusTask = ResolveStatusAsync(secondPath, 6222, 6222);
+        var statuses = await Task.WhenAll(firstStatusTask, secondStatusTask).ConfigureAwait(false);
+
+        Assert.Contains(statuses, status => status.IsRunning && status.Port == 6111);
+        Assert.Contains(statuses, status => status.IsRunning && status.Port == 6222);
     }
 
     [Fact]
@@ -606,3 +650,4 @@ public sealed class MonitorStartupPathTests : IDisposable
         }
     }
 }
+

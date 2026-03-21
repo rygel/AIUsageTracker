@@ -82,7 +82,7 @@ public class ProviderRefreshCircuitBreakerService
 
                 state.LastRefreshAttemptUtc = now;
                 var providerUsages = usages
-                    .Where(u => IsUsageForProvider(config.ProviderId, u.ProviderId))
+                    .Where(u => ProviderMetadataCatalog.Find(config.ProviderId)?.HandlesProviderId(u.ProviderId) ?? false)
                     .ToList();
                 var isSuccess = providerUsages.Any(IsSuccessfulUsage);
 
@@ -138,6 +138,7 @@ public class ProviderRefreshCircuitBreakerService
     /// currently open so they are stored in the database and surfaced in the UI rather than
     /// showing stale data silently.
     /// </summary>
+    /// <returns></returns>
     public IReadOnlyList<ProviderUsage> CreateCircuitOpenUsages(IEnumerable<ProviderConfig> skippedConfigs)
     {
         var result = new List<ProviderUsage>();
@@ -228,11 +229,6 @@ public class ProviderRefreshCircuitBreakerService
                 providerId,
                 reason);
         }
-    }
-
-    private static bool IsUsageForProvider(string providerId, string usageProviderId)
-    {
-        return ProviderMetadataCatalog.BelongsToProviderFamily(providerId, usageProviderId);
     }
 
     private static bool IsSuccessfulUsage(ProviderUsage usage)

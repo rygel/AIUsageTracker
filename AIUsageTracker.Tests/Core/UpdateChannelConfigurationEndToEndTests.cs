@@ -4,7 +4,7 @@
 
 using System.Diagnostics;
 using System.Xml.Linq;
-using AIUsageTracker.Core.Updates;
+using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.Tests.Infrastructure;
 
 namespace AIUsageTracker.Tests.Core;
@@ -39,15 +39,15 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
         var x64File = Path.Combine(
             workingDirectory,
             "appcast",
-            Path.GetFileName(new Uri(ReleaseUrlCatalog.GetAppcastUrl("x64", isBeta)).AbsolutePath));
+            Path.GetFileName(new Uri(GitHubUpdateChecker.GetAppcastUrl("x64", isBeta)).AbsolutePath));
         var x86File = Path.Combine(
             workingDirectory,
             "appcast",
-            Path.GetFileName(new Uri(ReleaseUrlCatalog.GetAppcastUrl("x86", isBeta)).AbsolutePath));
+            Path.GetFileName(new Uri(GitHubUpdateChecker.GetAppcastUrl("x86", isBeta)).AbsolutePath));
         var arm64File = Path.Combine(
             workingDirectory,
             "appcast",
-            Path.GetFileName(new Uri(ReleaseUrlCatalog.GetAppcastUrl("arm64", isBeta)).AbsolutePath));
+            Path.GetFileName(new Uri(GitHubUpdateChecker.GetAppcastUrl("arm64", isBeta)).AbsolutePath));
 
         Assert.True(File.Exists(defaultFile), $"Missing generated appcast file: {defaultFile}");
         Assert.True(File.Exists(x64File), $"Missing generated x64 appcast file: {x64File}");
@@ -102,7 +102,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
         Assert.Equal(expectedTitle, channel.Element("title")?.Value);
         Assert.Equal($"Version {version}", item.Element("title")?.Value);
         Assert.Equal(
-            ReleaseUrlCatalog.GetReleaseTagUrl(version),
+            GitHubUpdateChecker.GetReleaseTagUrl(version),
             item.Element(sparkle + "releaseNotesLink")?.Value);
         Assert.Equal(expectedDownloadUrl, enclosure!.Attribute("url")?.Value);
         Assert.Equal(version.Split('-')[0], enclosure.Attribute(sparkle + "version")?.Value);
@@ -189,7 +189,7 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
 
     private static string BuildExpectedDownloadUrl(string version, string architecture)
     {
-        return $"{ReleaseUrlCatalog.GetReleasesPageUrl()}/download/v{version}/AIUsageTracker_Setup_v{version}_win-{architecture}.exe";
+        return $"{GitHubUpdateChecker.GetReleasesPageUrl()}/download/v{version}/AIUsageTracker_Setup_v{version}_win-{architecture}.exe";
     }
 
     private static string GetRepoRoot()

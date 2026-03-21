@@ -268,8 +268,8 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal(2, provider.ProviderQuotaDetails.Count);
-        Assert.Contains(provider.ProviderQuotaDetails, d => d.QuotaBucketKind == WindowKind.Rolling && d.Name == "Weekly Limit");
-        Assert.Contains(provider.ProviderQuotaDetails, d => d.QuotaBucketKind == WindowKind.Burst && d.Name == "5h Limit");
+        Assert.Contains(provider.ProviderQuotaDetails, d => d.QuotaBucketKind == WindowKind.Rolling && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
+        Assert.Contains(provider.ProviderQuotaDetails, d => d.QuotaBucketKind == WindowKind.Burst && string.Equals(d.Name, "5h Limit", StringComparison.Ordinal));
     }
 
     [Fact]

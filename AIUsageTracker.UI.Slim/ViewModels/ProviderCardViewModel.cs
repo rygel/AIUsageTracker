@@ -3,6 +3,7 @@
 // </copyright>
 
 using System.Collections.ObjectModel;
+using System.Text;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -60,7 +61,7 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     public string AccountDisplay => this.IsPrivacyMode
         ? "****"
-        : ProviderAccountDisplayCatalog.ResolveDisplayAccountName(this.ProviderId, this.Usage.AccountName, false);
+        : MainWindowRuntimeLogic.ResolveDisplayAccountName(this.ProviderId, this.Usage.AccountName, false);
 
     public bool HasAccountName => !string.IsNullOrWhiteSpace(this.Usage.AccountName);
 
@@ -81,7 +82,7 @@ public partial class ProviderCardViewModel : BaseViewModel
     public bool IsStale => this._presentation?.IsStale ?? false;
 
     /// <summary>
-    /// True when the provider API returned HTTP 429 (Too Many Requests).
+    /// Gets a value indicating whether true when the provider API returned HTTP 429 (Too Many Requests).
     /// The card will show a Warning-tone status rather than an Error-tone status.
     /// </summary>
     public bool IsRateLimited => this.Usage.HttpStatus == 429;
@@ -99,7 +100,7 @@ public partial class ProviderCardViewModel : BaseViewModel
         get
         {
             var suppressSingle = this._presentation?.SuppressSingleResetTime ?? false;
-            var resetTimes = ProviderResetBadgePresentationCatalog.ResolveResetTimes(this.Usage, suppressSingle);
+            var resetTimes = ResolveResetTimes(this.Usage, suppressSingle);
             if (resetTimes.Count == 0)
             {
                 return null;
@@ -112,10 +113,10 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     public DateTime? NextResetTime => this.Usage.NextResetTime;
 
-    public string? TooltipContent => ProviderTooltipPresentationCatalog.BuildContent(this.Usage, this.DisplayName);
+    public string? TooltipContent => BuildTooltipContent(this.Usage, this.DisplayName);
 
     /// <summary>
-    /// Returns a formatted req/hr badge string when ShowUsagePerHour is enabled and data is available,
+    /// Gets a formatted req/hr badge string when ShowUsagePerHour is enabled and data is available,
     /// or null (causing the badge to collapse via NullToVisibilityConverter).
     /// </summary>
     public string? UsageRateBadgeText
@@ -134,7 +135,7 @@ public partial class ProviderCardViewModel : BaseViewModel
     public bool HasDetails => this.Details.Count > 0;
 
     /// <summary>
-    /// Pace-adjusted used percentage for progress-bar colour decisions.
+    /// Gets pace-adjusted used percentage for progress-bar colour decisions.
     /// PeriodDuration and NextResetTime are set on every usage by ProviderUsageDisplayCatalog
     /// before the ViewModel is constructed, so no catalog lookup or fallback is needed here.
     /// </summary>
@@ -142,7 +143,7 @@ public partial class ProviderCardViewModel : BaseViewModel
     {
         get
         {
-            return global::AIUsageTracker.UI.Slim.ProviderPacePresentationCatalog.GetColorIndicatorPercent(
+            return GetColorIndicatorPercent(
                 this.Usage,
                 this.UsedPercent,
                 this.EnablePaceAdjustment);
@@ -150,14 +151,14 @@ public partial class ProviderCardViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// "On pace" badge when usage is meaningfully under the expected rate for the elapsed
+    /// Gets "On pace" badge when usage is meaningfully under the expected rate for the elapsed
     /// fraction of the quota window. Null when pace info is unavailable or user is at/over pace.
     /// </summary>
     public string? PaceBadgeText
     {
         get
         {
-            return global::AIUsageTracker.UI.Slim.ProviderPacePresentationCatalog.GetPaceBadgeText(
+            return GetPaceBadgeText(
                 this.Usage,
                 this.UsedPercent,
                 this.EnablePaceAdjustment);
@@ -219,18 +220,152 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     private void UpdatePresentation()
     {
-        this._presentation = ProviderCardPresentationCatalog.Create(this.Usage, this.ShowUsedPercentages);
+        this._presentation = MainWindowRuntimeLogic.Create(this.Usage, this.ShowUsedPercentages);
     }
 
     private void PopulateDetails()
     {
         this.Details.Clear();
 
-        var displayableDetails = ProviderSubDetailPresentationCatalog.GetDisplayableDetails(this.Usage);
+        var displayableDetails = MainWindowRuntimeLogic.GetDisplayableDetails(this.Usage);
         foreach (var detail in displayableDetails)
         {
             this.Details.Add(new SubProviderCardViewModel(detail, this.Usage.IsQuotaBased, this.IsPrivacyMode, this.ShowUsedPercentages));
         }
+    }
+
+    private static double GetColorIndicatorPercent(
+        ProviderUsage usage,
+        double usedPercent,
+        bool enablePaceAdjustment,
+        DateTime? nowUtc = null)
+    {
+        if (!enablePaceAdjustment || !usage.PeriodDuration.HasValue || !usage.NextResetTime.HasValue)
+        {
+            return usedPercent;
+        }
+
+        return UsageMath.CalculatePaceAdjustedColorPercent(
+            usedPercent,
+            usage.NextResetTime.Value.ToUniversalTime(),
+            usage.PeriodDuration.Value,
+            nowUtc);
+    }
+
+    private static string? GetPaceBadgeText(
+        ProviderUsage usage,
+        double usedPercent,
+        bool enablePaceAdjustment,
+        DateTime? nowUtc = null)
+    {
+        if (!enablePaceAdjustment || !usage.PeriodDuration.HasValue || !usage.NextResetTime.HasValue)
+        {
+            return null;
+        }
+
+        var projected = UsageMath.CalculateProjectedFinalPercent(
+            usedPercent,
+            usage.NextResetTime.Value.ToUniversalTime(),
+            usage.PeriodDuration.Value,
+            nowUtc);
+
+        if (projected >= 100.0)
+        {
+            return "Over pace";
+        }
+
+        return projected < 90.0 ? "On pace" : null;
+    }
+
+    private static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage, bool suppressSingleResetFallback)
+    {
+        ArgumentNullException.ThrowIfNull(usage);
+
+        var detailResetTimes = usage.Details?
+            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
+            .Where(detail => detail.QuotaBucketKind != WindowKind.None)
+            .Where(detail => detail.NextResetTime.HasValue)
+            .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
+            .Select(detail => detail.NextResetTime!.Value)
+            .Distinct()
+            .ToList()
+            ?? new List<DateTime>();
+
+        if (detailResetTimes.Count >= 2)
+        {
+            return detailResetTimes;
+        }
+
+        if (suppressSingleResetFallback)
+        {
+            return Array.Empty<DateTime>();
+        }
+
+        return usage.NextResetTime.HasValue
+            ? new[] { usage.NextResetTime.Value }
+            : Array.Empty<DateTime>();
+    }
+
+    private static string? BuildTooltipContent(ProviderUsage usage, string friendlyName)
+    {
+        var tooltipBuilder = new StringBuilder();
+        tooltipBuilder.AppendLine(friendlyName);
+        tooltipBuilder.AppendLine($"Status: {(usage.IsAvailable ? "Active" : "Inactive")}");
+        if (!string.IsNullOrEmpty(usage.Description))
+        {
+            tooltipBuilder.AppendLine($"Description: {usage.Description}");
+        }
+
+        if (usage.Details?.Any() == true)
+        {
+            tooltipBuilder.AppendLine();
+            tooltipBuilder.AppendLine("Rate Limits:");
+            foreach (var detail in usage.Details
+                         .OrderBy(GetDetailSortOrder)
+                         .ThenBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
+            {
+                var detailValue = GetDetailDisplayValue(detail);
+                if (string.IsNullOrWhiteSpace(detailValue))
+                {
+                    continue;
+                }
+
+                tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detailValue}");
+            }
+        }
+
+        if (!string.IsNullOrEmpty(usage.AuthSource))
+        {
+            tooltipBuilder.AppendLine();
+            tooltipBuilder.AppendLine($"Source: {usage.AuthSource}");
+        }
+
+        var result = tooltipBuilder.ToString().Trim();
+        return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    private static string GetDetailDisplayName(ProviderUsageDetail detail)
+    {
+        return detail.Name;
+    }
+
+    private static string GetDetailDisplayValue(ProviderUsageDetail detail)
+    {
+        return MainWindowRuntimeLogic.GetStoredDisplayText(detail);
+    }
+
+    private static int GetDetailSortOrder(ProviderUsageDetail detail)
+    {
+        return (detail.DetailType, detail.QuotaBucketKind) switch
+        {
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.Burst) => 0,
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.Rolling) => 1,
+            (ProviderUsageDetailType.QuotaWindow, WindowKind.ModelSpecific) => 2,
+            (ProviderUsageDetailType.QuotaWindow, _) => 3,
+            (ProviderUsageDetailType.Model, _) => 3,
+            (ProviderUsageDetailType.Credit, _) => 4,
+            _ => 5,
+        };
     }
 
     private static string GetRelativeTimeString(DateTime nextReset)
@@ -255,3 +390,5 @@ public partial class ProviderCardViewModel : BaseViewModel
         return $"{diff.Minutes}m";
     }
 }
+
+

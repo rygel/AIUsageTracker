@@ -21,7 +21,7 @@ public sealed class ProviderCardPresentationCatalogTests
             State = ProviderUsageState.Missing,
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.True(presentation.IsMissing);
         Assert.Contains("not found", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
@@ -40,7 +40,7 @@ public sealed class ProviderCardPresentationCatalogTests
             UsedPercent = 0, // 0% used → 100% remaining
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal("100% remaining", presentation.StatusText);
         Assert.True(presentation.ShouldHaveProgress);
@@ -61,7 +61,7 @@ public sealed class ProviderCardPresentationCatalogTests
             Description = "65% Remaining",
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.True(presentation.ShouldHaveProgress);
         Assert.Equal(35, presentation.UsedPercent);
@@ -82,7 +82,7 @@ public sealed class ProviderCardPresentationCatalogTests
             UsedPercent = 40,
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal("60 / 100 remaining", presentation.StatusText);
         Assert.True(presentation.ShouldHaveProgress);
@@ -103,7 +103,7 @@ public sealed class ProviderCardPresentationCatalogTests
             UsedPercent = 70,
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: true);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true);
 
         Assert.Equal("Connected", presentation.StatusText);
         Assert.False(presentation.ShouldHaveProgress);
@@ -121,7 +121,7 @@ public sealed class ProviderCardPresentationCatalogTests
             UsedPercent = 25,
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal("75% remaining", presentation.StatusText);
     }
@@ -157,18 +157,17 @@ public sealed class ProviderCardPresentationCatalogTests
             Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal("5h 96% remaining | Weekly 49% remaining", presentation.StatusText);
         Assert.True(presentation.SuppressSingleResetTime);
     }
 
     [Fact]
-    public void Create_ExtractsDurationLabelFromDetailName_ForKimiStyleLimitNames()
+    public void Create_UsesDeclaredWindowLabels_ForKimiStyleLimitNames()
     {
-        // Kimi detail names follow "{duration} Limit" format (e.g. "5h Limit", "Weekly Limit").
-        // GetWindowLabel should extract the duration prefix rather than falling back to
-        // the static DualBarLabel ("Daily"), which is inaccurate for sub-day windows.
+        // Labels are driven by provider-declared quota windows.
+        // Kimi declares "5h Limit" -> "5h" and "Weekly Limit" -> "Weekly".
         var burstDetail = new ProviderUsageDetail
         {
             Name = "5h Limit",
@@ -194,9 +193,8 @@ public sealed class ProviderCardPresentationCatalogTests
             Details = new List<ProviderUsageDetail> { rollingDetail, burstDetail },
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: true);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true);
 
-        // "5h Limit" → "5h" (not "Daily"), "Weekly Limit" → "Weekly"
         // Short window (5h/Burst) is top bar (Primary), long window (Weekly/Rolling) is bottom.
         Assert.Equal("5h 0% used | Weekly 25% used", presentation.StatusText);
     }
@@ -205,7 +203,6 @@ public sealed class ProviderCardPresentationCatalogTests
     // These tests verify the full pipeline from AgentGroupedUsageSnapshot through
     // GroupedUsageDisplayAdapter → ProviderCardPresentationCatalog so that bugs
     // suppressed by a broken intermediate layer cannot be masked.
-
     [Fact]
     public void Pipeline_KimiProviderQuotaDetails_ProducesDualBarOnParentCard()
     {
@@ -247,7 +244,7 @@ public sealed class ProviderCardPresentationCatalogTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
         var parent = Assert.Single(usages, u => string.Equals(u.ProviderId, "kimi-for-coding", StringComparison.Ordinal));
 
-        var presentation = ProviderCardPresentationCatalog.Create(parent, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(parent, showUsed: false);
 
         Assert.True(presentation.HasDualBuckets, "Kimi parent card must render dual progress bars");
         Assert.True(presentation.ShouldHaveProgress);
@@ -272,7 +269,7 @@ public sealed class ProviderCardPresentationCatalogTests
             Description = "$12.34 (4 sessions, 198 msgs, 7 days)",
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal("$12.34", presentation.StatusText);
     }
@@ -289,7 +286,7 @@ public sealed class ProviderCardPresentationCatalogTests
             Description = "Rate limited — retry in 60 seconds",
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
         Assert.False(presentation.IsError, "HTTP 429 should not be treated as a generic error (would show red)");
@@ -309,7 +306,7 @@ public sealed class ProviderCardPresentationCatalogTests
             Description = string.Empty,
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal(ProviderCardStatusTone.Warning, presentation.StatusTone);
         Assert.Contains("Rate limited", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
@@ -327,9 +324,10 @@ public sealed class ProviderCardPresentationCatalogTests
             Description = "Service unavailable",
         };
 
-        var presentation = ProviderCardPresentationCatalog.Create(usage, showUsed: false);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
 
         Assert.Equal(ProviderCardStatusTone.Error, presentation.StatusTone);
         Assert.True(presentation.IsError);
     }
 }
+

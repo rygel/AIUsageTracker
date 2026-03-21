@@ -1,10 +1,6 @@
 name: Security Scan
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main, develop ]
   schedule:
     - cron: "0 6 * * 1"  # Weekly on Monday at 6 AM
   workflow_dispatch:
@@ -15,7 +11,6 @@ concurrency:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   security-scan:
@@ -28,13 +23,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7  # v5
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Setup .NET with cache
+        uses: ./.github/actions/setup-dotnet-cache
 
       - name: Check for vulnerable packages
         run: |
@@ -53,14 +43,3 @@ jobs:
           path: security-report.txt
           retention-days: 30
 
-      - name: Comment on PR
-        if: github.event_name == 'pull_request' && failure()
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd  # v8
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '⚠️ **Security Alert**: Vulnerable dependencies detected. Please run `dotnet list package --vulnerable` locally and update packages.'
-            })

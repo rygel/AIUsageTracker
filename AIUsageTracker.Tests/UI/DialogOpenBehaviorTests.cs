@@ -9,9 +9,13 @@ using System.Windows;
 using System.Windows.Controls;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim;
-using Microsoft.Extensions.Logging.Abstractions;
-using Moq;
+using AIUsageTracker.UI.Slim.Services;
+using AIUsageTracker.UI.Slim.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Tests.UI;
 
@@ -26,20 +30,20 @@ public class DialogOpenBehaviorTests
         {
             EnsureAppCreated();
 
-            var mainWindow = new MainWindow(skipUiInitialization: true);
-            var dialogWindow = new Window();
+            var dialogService = new TestDialogService();
+            var mainWindow = CreateMainWindowForTesting(dialogService);
             var shown = 0;
 
             mainWindow.Show();
 
             SetPrivateField(mainWindow, "_preferences", new AppPreferences { AlwaysOnTop = true });
             mainWindow.Topmost = true;
-            mainWindow.SettingsDialogFactory = () => (dialogWindow, () => false);
-            mainWindow.ShowOwnedDialog = dialog =>
+            dialogService.ShowSettingsAsyncHandler = owner =>
             {
                 shown++;
+                Assert.Same(mainWindow, owner);
                 Assert.True(mainWindow.Topmost);
-                return true;
+                return Task.FromResult<bool?>(false);
             };
 
             await mainWindow.OpenSettingsDialogAsync().ConfigureAwait(false);
@@ -47,7 +51,6 @@ public class DialogOpenBehaviorTests
             Assert.Equal(1, shown);
             Assert.True(mainWindow.Topmost);
 
-            dialogWindow.Close();
             mainWindow.Close();
         });
     }
@@ -58,7 +61,7 @@ public class DialogOpenBehaviorTests
         return RunInStaAsync(() =>
         {
             var app = EnsureAppCreated();
-            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var mainWindow = CreateMainWindowForTesting();
             var infoDialog = new Window();
             var shown = 0;
 
@@ -86,8 +89,11 @@ public class DialogOpenBehaviorTests
         {
             EnsureAppCreated();
 
-            var mainWindow = new MainWindow(skipUiInitialization: true);
-            var dialogWindow = new Window();
+            var dialogService = new TestDialogService
+            {
+                ShowSettingsAsyncHandler = _ => Task.FromResult<bool?>(false),
+            };
+            var mainWindow = CreateMainWindowForTesting(dialogService);
 
             mainWindow.Show();
 
@@ -105,9 +111,6 @@ public class DialogOpenBehaviorTests
             });
             SetPrivateField(mainWindow, "_preferencesLoaded", true);
 
-            mainWindow.SettingsDialogFactory = () => (dialogWindow, () => false);
-            mainWindow.ShowOwnedDialog = _ => true;
-
             // Open and close settings dialog
             await mainWindow.OpenSettingsDialogAsync().ConfigureAwait(false);
 
@@ -115,7 +118,6 @@ public class DialogOpenBehaviorTests
             Assert.Equal(initialLeft, mainWindow.Left);
             Assert.Equal(initialTop, mainWindow.Top);
 
-            dialogWindow.Close();
             mainWindow.Close();
         });
     }
@@ -128,13 +130,11 @@ public class DialogOpenBehaviorTests
             EnsureAppCreated();
 
             var preferences = new AppPreferences { ShowUsedPercentages = true };
-            var mainWindow = new MainWindow(skipUiInitialization: true);
+            var mainWindow = CreateMainWindowForTesting();
             var settingsWindow = (SettingsWindow)FormatterServices.GetUninitializedObject(typeof(SettingsWindow));
-            var displayPreferences = new DisplayPreferencesService();
 
             SetPrivateField(mainWindow, "_preferences", preferences);
             SetPrivateField(settingsWindow, "_preferences", preferences);
-            SetPrivateField(settingsWindow, "_displayPreferences", displayPreferences);
             SetPrivateField(mainWindow, "ShowUsedToggle", new CheckBox());
             SetPrivateField(settingsWindow, "ShowUsedPercentagesCheck", new CheckBox());
             InvokePrivateMethod(mainWindow, "ApplyDisplayModePreference");
@@ -157,8 +157,11 @@ public class DialogOpenBehaviorTests
         {
             EnsureAppCreated();
 
-            var mainWindow = new MainWindow(skipUiInitialization: true);
-            var dialogWindow = new Window();
+            var dialogService = new TestDialogService
+            {
+                ShowSettingsAsyncHandler = _ => Task.FromResult<bool?>(true),
+            };
+            var mainWindow = CreateMainWindowForTesting(dialogService);
             var preferencesStore = Assert.IsType<UiPreferencesStore>(GetPrivateField(mainWindow, "_preferencesStore"));
             var pathOverrideMethod = typeof(UiPreferencesStore).GetMethod(
                 "SetPreferencesPathOverrideForTesting",
@@ -190,9 +193,6 @@ public class DialogOpenBehaviorTests
                 // Avoid monitor startup work in this unit test; we only need the settings-change path.
                 SetPrivateField(mainWindow, "_isLoading", true);
 
-                mainWindow.SettingsDialogFactory = () => (dialogWindow, () => true);
-                mainWindow.ShowOwnedDialog = _ => true;
-
                 await mainWindow.OpenSettingsDialogAsync().ConfigureAwait(false);
 
                 var reloaded = Assert.IsType<AppPreferences>(GetPrivateField(mainWindow, "_preferences"));
@@ -205,8 +205,10 @@ public class DialogOpenBehaviorTests
                     File.Delete(tempPreferencesPath);
                 }
 
-                dialogWindow.Close();
-                mainWindow.Close();
+                if (mainWindow.Dispatcher.CheckAccess())
+                {
+                    mainWindow.Close();
+                }
             }
         });
     }
@@ -222,6 +224,50 @@ public class DialogOpenBehaviorTests
 
         // Use reflection to initialize Host if needed, or rely on App.xaml.cs default init
         return newApp;
+    }
+
+    private static MainWindow CreateMainWindowForTesting(IDialogService? dialogService = null, IBrowserService? browserService = null)
+    {
+        EnsureAppCreated();
+        var services = App.Host.Services;
+
+        return new MainWindow(
+            skipUiInitialization: true,
+            services.GetRequiredService<MainViewModel>(),
+            services.GetRequiredService<IMonitorService>(),
+            services.GetRequiredService<MonitorLifecycleService>(),
+            services.GetRequiredService<MonitorStartupOrchestrator>(),
+            services.GetRequiredService<ILogger<MainWindow>>(),
+            services.GetRequiredService<Func<UpdateChannel, GitHubUpdateChecker>>(),
+            services.GetRequiredService<GitHubUpdateChecker>(),
+            dialogService ?? services.GetRequiredService<IDialogService>(),
+            browserService ?? services.GetRequiredService<IBrowserService>(),
+            services.GetRequiredService<UiPreferencesStore>());
+    }
+
+    private sealed class TestDialogService : IDialogService
+    {
+        public Func<Window?, Task<bool?>> ShowSettingsAsyncHandler { get; set; } = _ => Task.FromResult<bool?>(false);
+
+        public Task<bool?> ShowSettingsAsync(Window? owner = null)
+        {
+            return this.ShowSettingsAsyncHandler(owner);
+        }
+
+        public Task ShowInfoAsync(Window? owner = null)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<string?> ShowSaveFileDialogAsync(string filter, string defaultFileName)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        public Task<string?> ShowOpenFileDialogAsync(string filter)
+        {
+            return Task.FromResult<string?>(null);
+        }
     }
 
     private static void SetPrivateField(object target, string fieldName, object value)
