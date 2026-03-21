@@ -94,7 +94,7 @@ public class Program
             startupMutex = new Mutex(true, mutexName, out createdNew);
             holdsStartupMutex = createdNew;
 
-            var monitorLauncher = new MonitorLauncher();
+            var monitorLauncher = new MonitorLauncher(loggerFactory.CreateLogger<MonitorLauncher>());
 
             if (!createdNew)
             {

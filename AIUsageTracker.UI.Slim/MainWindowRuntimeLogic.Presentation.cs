@@ -709,6 +709,8 @@ internal sealed record ProviderCardPresentation(
     ProviderCardStatusTone StatusTone,
     double? DualBucketPrimaryUsed = null,
     double? DualBucketSecondaryUsed = null,
+    double? DualBucketPrimaryColorPercent = null,
+    double? DualBucketSecondaryColorPercent = null,
     bool IsStale = false)
 {
     public bool HasDualBuckets => this.DualBucketPrimaryUsed.HasValue;

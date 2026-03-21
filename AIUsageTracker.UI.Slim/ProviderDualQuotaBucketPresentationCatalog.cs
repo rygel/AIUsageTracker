@@ -76,9 +76,11 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
             PrimaryLabel: firstDetail.DeclaredWindow!.DualBarLabel,
             PrimaryUsedPercent: parsedFirst.Value,
             PrimaryResetTime: firstDetail.Detail.NextResetTime,
+            PrimaryPeriodDuration: firstDetail.DeclaredWindow.PeriodDuration,
             SecondaryLabel: secondDetail.DeclaredWindow!.DualBarLabel,
             SecondaryUsedPercent: parsedSecond.Value,
-            SecondaryResetTime: secondDetail.Detail.NextResetTime);
+            SecondaryResetTime: secondDetail.Detail.NextResetTime,
+            SecondaryPeriodDuration: secondDetail.DeclaredWindow.PeriodDuration);
         return true;
     }
 

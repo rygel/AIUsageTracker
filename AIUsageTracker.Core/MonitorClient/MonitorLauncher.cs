@@ -31,7 +31,18 @@ public class MonitorLauncher : IMonitorLauncher
     private readonly Func<int, Task<bool>>? _stopProcessOverride;
     private readonly Func<Task<bool>>? _stopNamedProcessesOverride;
 
-    public MonitorLauncher(
+    /// <summary>
+    /// DI constructor — takes only the logger. Used by the DI container.
+    /// </summary>
+    public MonitorLauncher(ILogger<MonitorLauncher> logger)
+        : this(logger, null, null, null, null, null)
+    {
+    }
+
+    /// <summary>
+    /// Test constructor — accepts optional overrides for health check, process check, etc.
+    /// </summary>
+    internal MonitorLauncher(
         ILogger<MonitorLauncher>? logger = null,
         Func<IEnumerable<string>>? monitorInfoCandidatePathsOverride = null,
         Func<int, Task<bool>>? healthCheckOverride = null,

@@ -8,6 +8,8 @@ internal sealed record ProviderDualQuotaBucketPresentation(
     string PrimaryLabel,
     double PrimaryUsedPercent,
     DateTime? PrimaryResetTime,
+    TimeSpan? PrimaryPeriodDuration,
     string SecondaryLabel,
     double SecondaryUsedPercent,
-    DateTime? SecondaryResetTime);
+    DateTime? SecondaryResetTime,
+    TimeSpan? SecondaryPeriodDuration);

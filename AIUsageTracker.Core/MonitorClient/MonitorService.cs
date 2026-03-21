@@ -48,7 +48,7 @@ public class MonitorService : IMonitorService
     {
         this._httpClient = httpClient;
         this._logger = logger;
-        this._monitorLauncher = monitorLauncher ?? new MonitorLauncher();
+        this._monitorLauncher = monitorLauncher ?? new MonitorLauncher(logger: null);
         this._jsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
