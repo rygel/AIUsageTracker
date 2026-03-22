@@ -1,6 +1,6 @@
 # <img src="AIUsageTracker.Web/wwwroot/favicon.png" width="32" height="32" valign="middle"> AI Usage Tracker
 
-![Version](https://img.shields.io/badge/version-2.3.2--beta.21-orange)
+![Version](https://img.shields.io/badge/version-2.3.2--beta.22-orange)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Platforms](https://img.shields.io/badge/platforms-Windows%20|%20Linux%20-blue)
 ![Language](https://img.shields.io/badge/language-C%23%20|%20.NET-purple)
@@ -40,6 +40,13 @@ Download the latest installer or .zip file from the [Release](https://github.com
   - **Auto-Hide**: Dashboard hides automatically when focus is lost.
   - **Individual Tracking**: Option to spawn separate tray icons for specific providers.
   - **Live Progress Bars**: Tray icons feature "Core Temp" style bars that reflect usage levels in real-time.
+- **Pace Projection & Badges**: See at a glance whether you'll exhaust your quota before it resets.
+  - **Headroom** (green) — projected usage under 70%, plenty of room left.
+  - **On pace** (green) — projected 70–100%, healthy usage rate.
+  - **Over pace** (red) — projected over 100%, on track to hit the limit before reset.
+  - Shows the projected end-of-period percentage (e.g. "Projected: 73%") so you can judge for yourself.
+  - Works independently for both 5-hour burst and 7-day rolling windows.
+  - Can be toggled on/off in Settings → Cards → "Pace-Aware Colours".
 - **Inverted Progress Bars**: Default "Health Bar" mode showing **Remaining** capacity (starting green/full) instead of "Used" capacity.
 - **Improved DeepSeek Support**: Detailed multi-currency (CNY/USD) balance tracking with official branding.
 - **Secure Management**: Manage all keys and preferences through a refined, dark-themed settings menu.
@@ -79,7 +86,7 @@ For the complete screenshot set (all settings tabs, info dialog, tray states, an
 ## Installation
 
 ### Manual
-1. Download the latest `AIUsageTracker_Setup_v2.3.2-beta.21.exe` from the [Releases](https://github.com/rygel/AIUsageTracker/releases) page.
+1. Download the latest `AIUsageTracker_Setup_v2.3.2-beta.22.exe` from the [Releases](https://github.com/rygel/AIUsageTracker/releases) page.
 2. Run the installer.
 3. The app will launch and automatically scan for common API keys.
 

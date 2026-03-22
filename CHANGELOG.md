@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.22] - 2026-03-22
+
+### Added
+- **3-tier pace badges**: Headroom (green, projected <70%), On pace (green, 70–100%), Over pace (red, >100%). Replaces the previous binary On pace / Over pace system.
+- **Projected usage text**: Each pace badge now shows the projected end-of-period percentage (e.g. "Projected: 73%") so users see the raw data.
+- Color-coded badges: green for Headroom and On pace, red for Over pace.
+- New `PaceBadgeResult` struct and `PaceTier` enum — structured pace API for UI code.
+- 10 new pace classification tests covering all tier boundaries and toggle behavior.
+
 ## [2.3.2-beta.21] - 2026-03-22
 
 ### Performance
