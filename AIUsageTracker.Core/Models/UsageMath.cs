@@ -313,9 +313,10 @@ public static class UsageMath
     }
 
     /// <summary>
-    /// Returns the pace badge text for a provider. Single source of truth — all UI code calls this.
+    /// Returns the pace badge result for a provider. Single source of truth — all UI code calls this.
+    /// Returns null when pace info is unavailable (disabled or missing period data).
     /// </summary>
-    public static string? GetPaceBadgeText(
+    public static PaceBadgeResult? GetPaceBadge(
         double usedPercent,
         bool enablePaceAdjustment,
         DateTime? nextResetTime,
@@ -334,26 +335,43 @@ public static class UsageMath
         }
 
         var projected = CalculateProjectedFinalPercent(usedPercent, nextReset, periodDuration.Value, nowUtc);
-
-        if (projected >= 100.0)
-        {
-            return "Over pace";
-        }
-
-        return projected < 90.0 ? "On pace" : null;
+        return ClassifyPace(projected);
     }
 
     /// <summary>
-    /// Returns the pace badge text for an already-computed projected percent.
+    /// Returns the pace badge result for an already-computed projected percent.
+    /// </summary>
+    public static PaceBadgeResult ClassifyPace(double projectedPercent)
+    {
+        var tier = projectedPercent switch
+        {
+            >= 100.0 => PaceTier.OverPace,
+            >= 70.0 => PaceTier.OnPace,
+            _ => PaceTier.Headroom,
+        };
+
+        return new PaceBadgeResult(tier, projectedPercent);
+    }
+
+    /// <summary>
+    /// Legacy wrapper — returns just the text string for backward compatibility.
+    /// </summary>
+    public static string? GetPaceBadgeText(
+        double usedPercent,
+        bool enablePaceAdjustment,
+        DateTime? nextResetTime,
+        TimeSpan? periodDuration,
+        DateTime? nowUtc = null)
+    {
+        return GetPaceBadge(usedPercent, enablePaceAdjustment, nextResetTime, periodDuration, nowUtc)?.Text;
+    }
+
+    /// <summary>
+    /// Legacy wrapper — returns just the text string for an already-computed projected percent.
     /// </summary>
     public static string? GetPaceBadgeText(double projectedPercent)
     {
-        if (projectedPercent >= 100.0)
-        {
-            return "Over pace";
-        }
-
-        return projectedPercent < 90.0 ? "On pace" : null;
+        return ClassifyPace(projectedPercent).Text;
     }
 
     /// <summary>

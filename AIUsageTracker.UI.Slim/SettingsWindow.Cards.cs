@@ -394,11 +394,11 @@ public partial class SettingsWindow
 
     private static string GetCardPaceBadgeText(ProviderUsage usage)
     {
-        return UsageMath.GetPaceBadgeText(
+        return UsageMath.GetPaceBadge(
             usage.UsedPercent,
             true,
             usage.NextResetTime,
-            usage.PeriodDuration) ?? string.Empty;
+            usage.PeriodDuration)?.Text ?? string.Empty;
     }
 
     private static string GetCardProjectedText(ProviderUsage usage)

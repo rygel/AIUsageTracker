@@ -129,18 +129,37 @@ internal sealed class ProviderCardRenderer
                 Dock.Right);
         }
 
-        var paceBadgeText = GetPaceBadgeText(
+        var paceBadge = GetPaceBadge(
             usage,
             presentation.UsedPercent,
             this._preferences.EnablePaceAdjustment);
-        if (!string.IsNullOrWhiteSpace(paceBadgeText))
+        if (paceBadge.HasValue)
         {
+            var badge = paceBadge.Value;
+            var badgeBrush = badge.Tier switch
+            {
+                PaceTier.OverPace => this._getResourceBrush("ProgressBarRed", Brushes.IndianRed),
+                PaceTier.OnPace => this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+                _ => this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+            };
+
+            // Projected percentage text (e.g. "Projected: 73%")
             AddDockedElement(
                 contentPanel,
                 this.CreateDockedTextBlock(
-                    paceBadgeText,
+                    badge.ProjectedText,
                     fontSize: 9,
-                    foreground: this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+                    foreground: this._getResourceBrush("TertiaryText", Brushes.Gray),
+                    margin: new Thickness(6, 0, 0, 0)),
+                Dock.Right);
+
+            // Pace badge (e.g. "Headroom", "On pace", "Over pace")
+            AddDockedElement(
+                contentPanel,
+                this.CreateDockedTextBlock(
+                    badge.Text,
+                    fontSize: 9,
+                    foreground: badgeBrush,
                     fontWeight: FontWeights.SemiBold,
                     margin: new Thickness(6, 0, 0, 0)),
                 Dock.Right);
@@ -328,13 +347,13 @@ internal sealed class ProviderCardRenderer
             nowUtc);
     }
 
-    private static string? GetPaceBadgeText(
+    private static PaceBadgeResult? GetPaceBadge(
         ProviderUsage usage,
         double usedPercent,
         bool enablePaceAdjustment,
         DateTime? nowUtc = null)
     {
-        return UsageMath.GetPaceBadgeText(
+        return UsageMath.GetPaceBadge(
             usedPercent,
             enablePaceAdjustment,
             usage.NextResetTime,

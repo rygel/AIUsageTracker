@@ -160,19 +160,29 @@ public partial class ProviderCardViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Gets "On pace" badge when usage is meaningfully under the expected rate for the elapsed
-    /// fraction of the quota window. Null when pace info is unavailable or user is at/over pace.
+    /// Gets the full pace badge result (tier + projected percent), or null when unavailable.
     /// </summary>
-    public string? PaceBadgeText
+    public PaceBadgeResult? PaceBadge
     {
         get
         {
-            return GetPaceBadgeText(
-                this.Usage,
+            return UsageMath.GetPaceBadge(
                 this.UsedPercent,
-                this.EnablePaceAdjustment);
+                this.EnablePaceAdjustment,
+                this.Usage.NextResetTime,
+                this.Usage.PeriodDuration);
         }
     }
+
+    /// <summary>
+    /// Gets the pace badge display text, or null when unavailable.
+    /// </summary>
+    public string? PaceBadgeText => this.PaceBadge?.Text;
+
+    /// <summary>
+    /// Gets the projected usage text (e.g. "Projected: 73%"), or null when unavailable.
+    /// </summary>
+    public string? ProjectedUsageText => this.PaceBadge?.ProjectedText;
 
     partial void OnUsageChanged(ProviderUsage value)
     {
@@ -202,7 +212,9 @@ public partial class ProviderCardViewModel : BaseViewModel
         OnPropertyChanged(nameof(HasDetails));
         OnPropertyChanged(nameof(UsageRateBadgeText));
         OnPropertyChanged(nameof(ColorIndicatorPercent));
+        OnPropertyChanged(nameof(PaceBadge));
         OnPropertyChanged(nameof(PaceBadgeText));
+        OnPropertyChanged(nameof(ProjectedUsageText));
     }
 
     partial void OnIsPrivacyModeChanged(bool value)
@@ -259,19 +271,6 @@ public partial class ProviderCardViewModel : BaseViewModel
             nowUtc);
     }
 
-    private static string? GetPaceBadgeText(
-        ProviderUsage usage,
-        double usedPercent,
-        bool enablePaceAdjustment,
-        DateTime? nowUtc = null)
-    {
-        return UsageMath.GetPaceBadgeText(
-            usedPercent,
-            enablePaceAdjustment,
-            usage.NextResetTime,
-            usage.PeriodDuration,
-            nowUtc);
-    }
 
     partial void OnUseRelativeResetTimeChanged(bool value)
     {

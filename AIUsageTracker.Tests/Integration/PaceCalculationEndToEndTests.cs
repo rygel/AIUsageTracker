@@ -189,7 +189,7 @@ public class PaceCalculationEndToEndTests
         Assert.True(projected >= 24 && projected <= 26, $"Projected {projected:F1}% should be ~25%");
 
         var badge = DeterminePaceBadge(projected);
-        Assert.Equal("On pace", badge);
+        Assert.Equal("Headroom", badge);
     }
 
     /// <summary>
@@ -223,6 +223,53 @@ public class PaceCalculationEndToEndTests
         var projected = UsageMath.CalculateProjectedFinalPercent(50, nextResetUtc, period, now);
 
         Assert.Equal(50.0, projected, precision: 1);
+    }
+
+    [Theory]
+    [InlineData(0, PaceTier.Headroom, "Headroom")]
+    [InlineData(30, PaceTier.Headroom, "Headroom")]
+    [InlineData(69.9, PaceTier.Headroom, "Headroom")]
+    [InlineData(70.0, PaceTier.OnPace, "On pace")]
+    [InlineData(85, PaceTier.OnPace, "On pace")]
+    [InlineData(99.9, PaceTier.OnPace, "On pace")]
+    [InlineData(100.0, PaceTier.OverPace, "Over pace")]
+    [InlineData(150, PaceTier.OverPace, "Over pace")]
+    public void ClassifyPace_ReturnsCorrectTierAndText(double projected, PaceTier expectedTier, string expectedText)
+    {
+        var result = UsageMath.ClassifyPace(projected);
+
+        Assert.Equal(expectedTier, result.Tier);
+        Assert.Equal(expectedText, result.Text);
+        Assert.Equal(projected, result.ProjectedPercent);
+        Assert.Contains($"{projected:F0}%", result.ProjectedText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GetPaceBadge_WhenDisabled_ReturnsNull()
+    {
+        var result = UsageMath.GetPaceBadge(
+            50.0,
+            enablePaceAdjustment: false,
+            nextResetTime: DateTime.UtcNow.AddDays(3),
+            periodDuration: TimeSpan.FromDays(7));
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void GetPaceBadge_WhenEnabled_ReturnsResult()
+    {
+        var now = new DateTime(2026, 3, 21, 12, 0, 0, DateTimeKind.Utc);
+        var result = UsageMath.GetPaceBadge(
+            20.0,
+            enablePaceAdjustment: true,
+            nextResetTime: now.AddDays(5),
+            periodDuration: TimeSpan.FromDays(7),
+            nowUtc: now);
+
+        Assert.NotNull(result);
+        Assert.Equal(PaceTier.OnPace, result.Value.Tier);
+        Assert.NotEmpty(result.Value.ProjectedText);
     }
 
     private static string? DeterminePaceBadge(double projected) => UsageMath.GetPaceBadgeText(projected);
