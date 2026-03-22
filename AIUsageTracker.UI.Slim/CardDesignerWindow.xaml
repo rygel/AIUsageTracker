@@ -130,6 +130,7 @@
         </Style>
     </Window.Resources>
 
+    <Border BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -208,13 +209,13 @@
                                Margin="0,0,8,0" FontSize="11"/>
                     <Button Content="Compact" Click="PresetCompact_Click" Padding="8,3" Margin="0,0,4,0"
                             Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                            BorderThickness="0" FontSize="10" Cursor="Hand"/>
+                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
                     <Button Content="Detailed" Click="PresetDetailed_Click" Padding="8,3" Margin="0,0,4,0"
                             Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                            BorderThickness="0" FontSize="10" Cursor="Hand"/>
+                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
                     <Button Content="Pace Focus" Click="PresetPace_Click" Padding="8,3"
                             Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                            BorderThickness="0" FontSize="10" Cursor="Hand"/>
+                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
                 </StackPanel>
 
                 <!-- User Presets -->
@@ -227,13 +228,13 @@
                               SelectionChanged="UserPresetCombo_SelectionChanged"/>
                     <Button Content="Save" Click="SavePresetBtn_Click" Padding="8,3" Margin="4,0,0,0"
                             Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                            BorderThickness="0" FontSize="10" Cursor="Hand"/>
+                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
                     <Button Content="Delete" Click="DeletePresetBtn_Click" Padding="8,3" Margin="4,0,0,0"
                             Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                            BorderThickness="0" FontSize="10" Cursor="Hand"/>
+                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
                 </StackPanel>
                 <!-- Card Size -->
-                <CheckBox x:Name="CompactModeCheck" Content="Compact cards (single line, no status row)"
+                <CheckBox x:Name="CompactModeCheck" Content="Compact cards (all data on one line)"
                           Margin="0,10,0,0" Foreground="{DynamicResource SecondaryText}" FontSize="11"
                           Checked="CompactMode_Changed" Unchecked="CompactMode_Changed"/>
             </StackPanel>
@@ -248,12 +249,16 @@
         <Border Grid.Row="3" Background="{DynamicResource FooterBackground}" Padding="12,8">
             <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Apply to Main Window" Click="ApplyBtn_Click"
-                        Padding="12,5" Background="{DynamicResource AccentColor}"
-                        Foreground="{DynamicResource AccentForeground}"
-                        BorderThickness="0" Cursor="Hand" FontSize="11"/>
+                        MinWidth="75" MinHeight="23"
+                        Padding="16,6"
+                        Background="{DynamicResource ButtonBackground}"
+                        Foreground="{DynamicResource PrimaryText}"
+                        BorderBrush="{DynamicResource ControlBorder}"
+                        BorderThickness="1" Cursor="Hand" FontSize="11"/>
                 <TextBlock Text="Live preview with your real provider data"
                            Foreground="{DynamicResource TertiaryText}" VerticalAlignment="Center" FontSize="10"/>
             </DockPanel>
         </Border>
     </Grid>
+    </Border>
 </Window>
