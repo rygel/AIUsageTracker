@@ -45,6 +45,11 @@ public interface IMonitorService
 
     Task<bool> CheckHealthAsync();
 
+    /// <summary>
+    /// Checks if the monitor is healthy, with a custom timeout for fast-fail scenarios.
+    /// </summary>
+    Task<bool> CheckHealthAsync(TimeSpan timeout);
+
     Task<MonitorHealthSnapshot?> GetHealthSnapshotAsync();
 
     Task<AgentContractHandshakeResult> CheckApiContractAsync();
