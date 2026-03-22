@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.20] - 2026-03-22
+
+### Fixed
+- **Startup speed**: eliminated 12-second HTTP timeout on cold start (early fetch waited for dead Monitor). Now does quick health check first — skips immediately if Monitor isn't running. Also eliminated redundant preferences double-load from disk.
+
 ## [2.3.2-beta.19] - 2026-03-22
 
 ### Fixed
