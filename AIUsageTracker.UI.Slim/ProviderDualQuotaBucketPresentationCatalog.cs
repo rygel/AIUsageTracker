@@ -57,7 +57,7 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
 
         var firstDetail = orderedBuckets[0];
         var secondDetail = orderedBuckets.Skip(1).FirstOrDefault(item =>
-            !ReferenceEquals(item.DeclaredWindow, firstDetail.DeclaredWindow));
+            item.DeclaredWindow!.Kind != firstDetail.DeclaredWindow!.Kind);
 
         if (secondDetail == null)
         {
@@ -90,7 +90,7 @@ internal static class ProviderDualQuotaBucketPresentationCatalog
     {
         for (var idx = 0; idx < declaredWindows.Count; idx++)
         {
-            if (ReferenceEquals(declaredWindows[idx], declaredWindow))
+            if (declaredWindows[idx].Kind == declaredWindow.Kind)
             {
                 return idx;
             }

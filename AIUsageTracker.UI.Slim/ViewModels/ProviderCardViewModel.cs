@@ -98,9 +98,17 @@ public partial class ProviderCardViewModel : BaseViewModel
 
     public double SecondaryUsedPercent => this._presentation?.DualBucketSecondaryUsed ?? 0;
 
+    /// <summary>
+    /// Pace-adjusted color percent for the primary (burst) bar.
+    /// Falls back to raw used percent only when pace data is unavailable (no reset time or period).
+    /// </summary>
     public double PrimaryColorPercent => this._presentation?.DualBucketPrimaryColorPercent
                                          ?? this.PrimaryUsedPercent;
 
+    /// <summary>
+    /// Pace-adjusted color percent for the secondary (weekly) bar.
+    /// Falls back to raw used percent only when pace data is unavailable (no reset time or period).
+    /// </summary>
     public double SecondaryColorPercent => this._presentation?.DualBucketSecondaryColorPercent
                                           ?? this.SecondaryUsedPercent;
 

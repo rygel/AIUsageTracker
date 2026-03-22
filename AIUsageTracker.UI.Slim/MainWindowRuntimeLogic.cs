@@ -272,16 +272,10 @@ internal static partial class MainWindowRuntimeLogic
             return Array.Empty<ProviderUsage>();
         }
 
-        var planType = parentUsage.PlanType;
-        var isQuotaBased = parentUsage.IsQuotaBased;
-        ProviderMetadataCatalog.TryGet(canonicalProviderId, out var definition);
-        if (definition != null)
-        {
-            planType = definition.PlanType;
-            isQuotaBased = definition.IsQuotaBased;
-        }
-
-        var quotaWindows = definition?.QuotaWindows ?? (IReadOnlyList<QuotaWindowDefinition>)Array.Empty<QuotaWindowDefinition>();
+        // aggDef is already resolved above — use it directly instead of a second catalog lookup.
+        var planType = aggDef.PlanType;
+        var isQuotaBased = aggDef.IsQuotaBased;
+        var quotaWindows = aggDef.QuotaWindows;
         var aggregateDetailDisplaySuffix = ProviderMetadataCatalog.GetAggregateDetailDisplaySuffix(canonicalProviderId);
 
         return parentUsage.Details
@@ -366,7 +360,7 @@ internal static partial class MainWindowRuntimeLogic
 
         if (usage.Details?.Count > 0)
         {
-            score += usage.Details.Count;
+            score += 5;
         }
 
         if (usage.NextResetTime.HasValue)

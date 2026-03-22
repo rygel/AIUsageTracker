@@ -22,11 +22,9 @@ internal static class GroupedUsageDisplayAdapter
                      .Where(provider => !string.IsNullOrWhiteSpace(provider.ProviderId))
                      .OrderBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            // Provider-level quota window details (e.g. Codex 5h + Weekly, Kimi 5h + Weekly)
-            // drive dual bar rendering on the parent card. When present they take priority over
-            // model details — the model details are still used by BuildVisibleDerivedRows below.
-            // Fall back to model details only for providers that have no explicit quota windows
-            // (e.g. usage-plan providers whose parent card shows aggregate model breakdown).
+            // Quota window details (e.g. Codex 5h + Weekly) are the authoritative source
+            // for dual-bar rendering. Model details are only used when no quota windows exist
+            // (usage-plan providers that show aggregate model breakdown instead).
             var parentDetails = provider.ProviderQuotaDetails.Count > 0
                 ? (IReadOnlyList<ProviderUsageDetail>)provider.ProviderQuotaDetails
                 : BuildModelDetails(provider);
