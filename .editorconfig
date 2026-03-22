@@ -123,16 +123,18 @@ dotnet_diagnostic.SA1214.severity = none
 dotnet_diagnostic.SA1117.severity = none
 dotnet_diagnostic.SA1118.severity = none
 dotnet_diagnostic.SA1402.severity = none
+# MA0004 (ConfigureAwait) — enabled for Core/Infrastructure/Monitor (library code).
+# Suppressed per-file in UI.Slim .xaml.cs where UI thread affinity is required.
 dotnet_diagnostic.MA0004.severity = warning
-dotnet_diagnostic.MA0006.severity = none
+dotnet_diagnostic.MA0006.severity = warning
 dotnet_diagnostic.MA0016.severity = none
 dotnet_diagnostic.MA0048.severity = none
 dotnet_diagnostic.MA0051.severity = none
-dotnet_diagnostic.MA0134.severity = none
-dotnet_diagnostic.VSTHRD001.severity = none
-dotnet_diagnostic.VSTHRD101.severity = none
+dotnet_diagnostic.MA0134.severity = warning
+dotnet_diagnostic.VSTHRD001.severity = warning
+dotnet_diagnostic.VSTHRD101.severity = warning
 dotnet_diagnostic.VSTHRD110.severity = warning
 dotnet_diagnostic.xUnit2031.severity = none
 dotnet_diagnostic.xUnit2013.severity = none
 dotnet_diagnostic.xUnit1031.severity = none
-dotnet_diagnostic.CS4034.severity = none
+dotnet_diagnostic.CS4034.severity = warning

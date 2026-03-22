@@ -262,11 +262,18 @@ public partial class MainWindow : Window
         header.Cursor = System.Windows.Input.Cursors.Hand;
         header.MouseLeftButtonDown += async (s, e) =>
         {
-            var newState = !getCollapsed();
-            setCollapsed(newState);
-            container.Visibility = newState ? Visibility.Collapsed : Visibility.Visible;
-            toggleText.Text = newState ? "\u25B6" : "\u25BC";
-            await this.SaveUiPreferencesAsync();
+            try
+            {
+                var newState = !getCollapsed();
+                setCollapsed(newState);
+                container.Visibility = newState ? Visibility.Collapsed : Visibility.Visible;
+                toggleText.Text = newState ? "\u25B6" : "\u25BC";
+                await this.SaveUiPreferencesAsync();
+            }
+            catch (Exception ex)
+            {
+                this._logger.LogWarning(ex, "Failed to save collapse state");
+            }
         };
 
         Grid.SetColumn(toggleText, 0);

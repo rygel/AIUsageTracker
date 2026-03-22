@@ -238,14 +238,14 @@ public class ProviderResponseDeserializationTests
 
         // Sonnet (7-day model-specific)
         var sonnetDetail = usage.Details.FirstOrDefault(d =>
-            d.Name == "Sonnet");
+            string.Equals(d.Name, "Sonnet", StringComparison.Ordinal));
         Assert.NotNull(sonnetDetail);
         Assert.Equal(WindowKind.ModelSpecific, sonnetDetail!.QuotaBucketKind);
         Assert.Equal(52.0, sonnetDetail.PercentageValue!.Value, precision: 1);
 
         // Opus (7-day model-specific)
         var opusDetail = usage.Details.FirstOrDefault(d =>
-            d.Name == "Opus");
+            string.Equals(d.Name, "Opus", StringComparison.Ordinal));
         Assert.NotNull(opusDetail);
         Assert.Equal(WindowKind.ModelSpecific, opusDetail!.QuotaBucketKind);
         Assert.Equal(10.0, opusDetail.PercentageValue!.Value, precision: 1);
