@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.16] - 2026-03-22
+
+### Fixed
+- **UI crash on stale provider data (beta.15 regression)**: DateTime overflow in ProviderCardRenderer.GetPaceBadgeText — same bug as beta.12/14 but in a different copy of the pace logic.
+- **Consolidated all pace logic into UsageMath**: GetPaceBadgeText, GetColorIndicatorPercent, GetElapsedDays now have one implementation. Zero duplicated period math remains in UI code.
+
 ## [2.3.2-beta.15] - 2026-03-22
 
 ### Added
