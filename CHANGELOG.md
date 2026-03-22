@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.21] - 2026-03-22
+
+### Performance
+- **Startup: parallelized monitor launch with WPF initialization**. Monitor warmup now fires immediately in `App.OnStartup` via `Task.Run`, running concurrently with the ~3s WPF `InitializeComponent`. Previously these ran sequentially (~19s total). Expected cold start: ~3.5s.
+- Added `CheckHealthAsync(TimeSpan timeout)` for fast-fail health checks (1.5s vs 12s default).
+- Orchestrator skips redundant health check when caller already knows monitor is down.
+
+### Security
+- Fixed path traversal vulnerability in `scripts/Seeder/Program.cs` — fixture paths now validated to stay within working directory.
+
 ## [2.3.2-beta.20] - 2026-03-22
 
 ### Fixed
