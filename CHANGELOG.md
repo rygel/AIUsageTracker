@@ -5,45 +5,23 @@
 ## [2.3.3] - 2026-03-22
 
 ### Added
-- **3-tier pace badges with projected usage**: Headroom (green, projected <70%), On pace (green, 70–100%), Over pace (red, >100%). Shows projected end-of-period percentage (e.g. "Projected: 73%") next to each badge.
-- **Card Designer** in Settings → Cards: configurable card slots, presets, compact mode with background progress bar.
-- **Auto-collapse inactive providers**: providers with 0% usage grouped into expandable "Other providers" section.
-- **Configurable reset time format**: absolute by default, relative optional via right-click or Settings.
-- **Daily budget in tooltip**: shows daily budget and expected vs actual usage for weekly providers.
-- **Per-window pace projection**: burst and weekly windows independently pace-projected.
+- **Pace projection badges**: 3-tier system — Headroom / On pace / Over pace — with projected end-of-period usage percentage.
+- **Card Designer** in Settings → Cards: customizable card slots, presets, compact mode.
+- **Auto-collapse inactive providers** into expandable section.
+- **Configurable reset time format**: absolute or relative, per user preference.
 
 ### Performance
-- **Startup ~19s → ~3.5s**: monitor launch now runs in parallel with WPF initialization. Fast-fail health checks (1.5s timeout), eliminated redundant HTTP timeouts and double preferences load.
+- **Startup ~19s → ~3.5s**: monitor launches in parallel with UI initialization.
 
 ### Fixed
-- **Pace calculation completely reworked**: replaced cubic suppression formula with simple linear projection (`projected = used / elapsed_fraction`). Works correctly for all window sizes.
-- **Codex reset badge showed 3 parts**: Spark's reset time leaked into the parent card. Now correctly shows only burst + weekly.
-- **DateTime overflow on stale provider data**: three separate copies of pace logic each had the same underflow bug. Consolidated all pace math into `UsageMath` — single source of truth.
-- **Empty UI on startup**: MonitorLauncher DI resolution failed; added DI-friendly constructor.
-- **ConfigureAwait(false) deadlock**: removed from UI code path; added guardrail test.
-- **Pace used burst reset time instead of weekly**: parent card's NextResetTime now correctly uses the rolling window.
-- **Unthemed dialogs**: update progress window and save preset dialog now themed on dark mode.
-- Re-enabled 7 dangerous analyzer rules that were globally suppressed. Fixed all violations.
+- **Pace calculation reworked**: simple linear projection replaces broken cubic formula. Single source of truth — no more duplicated pace math.
+- **Codex reset badge**: no longer shows Spark's reset time on the parent card.
+- Multiple startup bugs fixed (DI resolution, ConfigureAwait deadlock, HTTP timeout).
 
 ### Changed
-- **~7,000 lines removed**: dead code, unused abstractions, duplicate interfaces, Polly resilience stack.
-- **Settings redesigned**: new Cards tab, Layout tab slimmed, Data merged into Monitor, two-column layouts.
-- Split SettingsWindow.xaml.cs into partial classes per tab.
-- Replace reflection-based provider discovery with explicit static registration.
-- Convert MonitorLauncher from static to injectable singleton.
-- Card Designer moved from separate window to inline Settings Cards tab.
-- Dark SVG icons get white glow on dark themes.
-- Consolidated duplicated helpers into UsageMath, PrivacyHelper, UIHelper.
-
-### Security
-- Fixed path traversal vulnerability in Seeder script.
-- Added gitleaks baseline for known false positives; push scan now uses baseline.
-
-### CI/CD
-- Security scan now weekly-only. Removed fake build-performance-monitor workflow.
-- NuGet caching added to publish, dependency-updates, and security-scan workflows.
-- Playwright browser caching for web tests.
-- Screenshot baselines auto-commit with [skip ci].
+- **~7,000 lines removed**: dead code, Polly stack, duplicate interfaces.
+- **Settings UI redesigned**: new Cards/Layout tabs, two-column layouts.
+- Dark SVG icons visible on dark themes.
 
 ## [2.3.2-beta.7] - 2026-03-20
 
