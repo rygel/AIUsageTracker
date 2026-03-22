@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.23] - 2026-03-22
+
+### Fixed
+- **Codex reset badge showed 3 parts instead of 2**: Spark's reset time leaked into the parent card, producing "(3h | 5d 2h | 2h)". Now correctly shows only burst + weekly: "(3h | 5d 2h)".
+
+### Changed
+- Added `.gitleaksbaseline.json` for 70 known false positives (dummy test keys, Google OAuth public client creds). Push scan now uses baseline so only new secrets trigger failure.
+
 ## [2.3.2-beta.22] - 2026-03-22
 
 ### Added
