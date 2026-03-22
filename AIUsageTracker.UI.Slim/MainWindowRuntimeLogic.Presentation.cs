@@ -38,7 +38,7 @@ internal static partial class MainWindowRuntimeLogic
         bool showUsed)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var isStale = usage.Details?.Any(d => d.IsStale) == true;
+        var isStale = usage.IsStale;
         var description = usage.Description ?? string.Empty;
         var isMissing = usage.State == ProviderUsageState.Missing;
         var isConsoleCheck = usage.State == ProviderUsageState.ConsoleCheck;
