@@ -1,4 +1,4 @@
-// <copyright file="CardDesignerWindow.xaml.cs" company="AIUsageTracker">
+// <copyright file="SettingsWindow.Cards.cs" company="AIUsageTracker">
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
@@ -7,30 +7,13 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.UI.Slim.ViewModels;
 
 namespace AIUsageTracker.UI.Slim;
 
-public partial class CardDesignerWindow : Window
+public partial class SettingsWindow
 {
-    private readonly AppPreferences _preferences;
-    private readonly List<ProviderUsage> _sampleUsages;
-
-    public CardDesignerWindow(AppPreferences preferences, IReadOnlyList<ProviderUsage> usages)
-    {
-        this.InitializeComponent();
-        this._preferences = preferences;
-        this._sampleUsages = usages
-            .OrderByDescending(u => u.IsAvailable && u.UsedPercent > 0 ? 1 : 0)
-            .ThenByDescending(u => u.UsedPercent)
-            .ThenByDescending(u => u.IsAvailable ? 1 : 0)
-            .Take(5)
-            .ToList();
-
-        this.PopulateSlotOptions();
-        this.ApplyPreset(CardPreset.Detailed);
-        this.RenderPreview();
-    }
+    private readonly List<UserPreset> _userPresets = new();
+    private List<ProviderUsage> _cardPreviewUsages = new();
 
     private enum CardSlotContent
     {
@@ -80,7 +63,21 @@ public partial class CardDesignerWindow : Window
         public override string ToString() => this.Name;
     }
 
-    private void PopulateSlotOptions()
+    private void InitializeCardDesigner()
+    {
+        this._cardPreviewUsages = this._usages
+            .OrderByDescending(u => u.IsAvailable && u.UsedPercent > 0 ? 1 : 0)
+            .ThenByDescending(u => u.UsedPercent)
+            .ThenByDescending(u => u.IsAvailable ? 1 : 0)
+            .Take(5)
+            .ToList();
+
+        this.PopulateCardSlotOptions();
+        this.ApplyCardPreset(CardPreset.Detailed);
+        this.RenderCardPreview();
+    }
+
+    private void PopulateCardSlotOptions()
     {
         var options = new SlotOption[]
         {
@@ -107,7 +104,7 @@ public partial class CardDesignerWindow : Window
         }
     }
 
-    private void ApplyPreset(CardPreset preset)
+    private void ApplyCardPreset(CardPreset preset)
     {
         switch (preset)
         {
@@ -134,13 +131,18 @@ public partial class CardDesignerWindow : Window
         }
     }
 
-    private void RenderPreview()
+    private void RenderCardPreview()
     {
-        this.PreviewStack.Children.Clear();
-
-        if (this._sampleUsages.Count == 0)
+        if (this.CardPreviewStack == null)
         {
-            this.PreviewStack.Children.Add(new TextBlock
+            return;
+        }
+
+        this.CardPreviewStack.Children.Clear();
+
+        if (this._cardPreviewUsages.Count == 0)
+        {
+            this.CardPreviewStack.Children.Add(new TextBlock
             {
                 Text = "No provider data available. Start the Monitor first.",
                 Foreground = (Brush)this.FindResource("SecondaryText"),
@@ -149,10 +151,10 @@ public partial class CardDesignerWindow : Window
             return;
         }
 
-        foreach (var usage in this._sampleUsages)
+        foreach (var usage in this._cardPreviewUsages)
         {
             var card = this.BuildPreviewCard(usage);
-            this.PreviewStack.Children.Add(card);
+            this.CardPreviewStack.Children.Add(card);
         }
     }
 
@@ -189,16 +191,14 @@ public partial class CardDesignerWindow : Window
             ClipToBounds = true,
         };
 
-        // Card background: percentage fill as subtle background color
         var bgGrid = new Grid();
 
         if (useBackgroundBar && usage.IsAvailable && usage.IsQuotaBased && barWidth > 0)
         {
-            // Full card background fill
             bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(barWidth, GridUnitType.Star) });
             bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0, 100 - barWidth), GridUnitType.Star) });
 
-            var fill = new Border { Background = this.GetBarColor(usedPercent), Opacity = 0.15 };
+            var fill = new Border { Background = this.GetCardBarColor(usedPercent), Opacity = 0.15 };
             Grid.SetColumn(fill, 0);
             bgGrid.Children.Add(fill);
 
@@ -211,7 +211,6 @@ public partial class CardDesignerWindow : Window
             bgGrid.Children.Add(new Border { Background = (Brush)this.FindResource("CardBackground") });
         }
 
-        // Content row on top of the background
         var row = new DockPanel { Margin = new Thickness(6, 3, 6, 3) };
 
         void AddRight(string text, Brush fg, double fontSize = 8.5)
@@ -234,17 +233,16 @@ public partial class CardDesignerWindow : Window
         }
 
         AddRight(resetText, (Brush)this.FindResource("StatusTextWarning"), 8.5);
-        AddRight(primaryText, this.GetBadgeColor(primaryText), 8);
+        AddRight(primaryText, this.GetCardBadgeColor(primaryText), 8);
         AddRight(secondaryText, (Brush)this.FindResource("TertiaryText"), 8);
         AddRight(statusText, (Brush)this.FindResource("SecondaryText"), 8);
 
-        // Left edge color bar (when NOT using background bar)
         if (!useBackgroundBar && usage.IsAvailable && usage.IsQuotaBased)
         {
             var colorBar = new Border
             {
                 Width = 3,
-                Background = this.GetBarColor(usedPercent),
+                Background = this.GetCardBarColor(usedPercent),
                 Opacity = 0.7,
                 CornerRadius = new CornerRadius(1),
                 Margin = new Thickness(0, 0, 6, 0),
@@ -282,14 +280,13 @@ public partial class CardDesignerWindow : Window
             ClipToBounds = true,
         };
 
-        // Background: either solid or percentage fill
         var bgGrid = new Grid();
         if (useBackgroundBar && usage.IsAvailable && usage.IsQuotaBased && barWidth > 0)
         {
             bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(barWidth, GridUnitType.Star) });
             bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0, 100 - barWidth), GridUnitType.Star) });
 
-            var fill = new Border { Background = this.GetBarColor(usedPercent), Opacity = 0.15 };
+            var fill = new Border { Background = this.GetCardBarColor(usedPercent), Opacity = 0.15 };
             Grid.SetColumn(fill, 0);
             bgGrid.Children.Add(fill);
 
@@ -304,7 +301,6 @@ public partial class CardDesignerWindow : Window
 
         var stack = new StackPanel { Margin = new Thickness(10, 8, 10, 8) };
 
-        // Row 1: Name + badges
         var topRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
 
         void AddRightBadge(string text, Brush fg, double fontSize, FontWeight weight)
@@ -328,7 +324,7 @@ public partial class CardDesignerWindow : Window
         }
 
         AddRightBadge(resetText, (Brush)this.FindResource("StatusTextWarning"), 10, FontWeights.SemiBold);
-        AddRightBadge(primaryText, this.GetBadgeColor(primaryText), 9, FontWeights.Normal);
+        AddRightBadge(primaryText, this.GetCardBadgeColor(primaryText), 9, FontWeights.Normal);
         AddRightBadge(secondaryText, (Brush)this.FindResource("TertiaryText"), 9, FontWeights.Normal);
 
         var nameBlock = new TextBlock
@@ -342,7 +338,6 @@ public partial class CardDesignerWindow : Window
         topRow.Children.Add(nameBlock);
         stack.Children.Add(topRow);
 
-        // Row 2: Progress bar (only when not using background bar)
         if (!useBackgroundBar && usage.IsAvailable && usage.IsQuotaBased)
         {
             var barGrid = new Grid { Height = 4, Margin = new Thickness(0, 2, 0, 2) };
@@ -351,7 +346,7 @@ public partial class CardDesignerWindow : Window
 
             var barFill = new Border
             {
-                Background = this.GetBarColor(usedPercent),
+                Background = this.GetCardBarColor(usedPercent),
                 Opacity = 0.45,
             };
             Grid.SetColumn(barFill, 0);
@@ -359,7 +354,6 @@ public partial class CardDesignerWindow : Window
             stack.Children.Add(barGrid);
         }
 
-        // Row 3: Status line
         if (!string.IsNullOrWhiteSpace(statusText))
         {
             var statusBlock = new TextBlock
@@ -382,9 +376,9 @@ public partial class CardDesignerWindow : Window
         return slot switch
         {
             CardSlotContent.None => string.Empty,
-            CardSlotContent.PaceBadge => GetPaceBadgeText(usage),
-            CardSlotContent.ProjectedPercent => GetProjectedText(usage),
-            CardSlotContent.DailyBudget => GetDailyBudgetText(usage),
+            CardSlotContent.PaceBadge => GetCardPaceBadgeText(usage),
+            CardSlotContent.ProjectedPercent => GetCardProjectedText(usage),
+            CardSlotContent.DailyBudget => GetCardDailyBudgetText(usage),
             CardSlotContent.UsageRate => usage.UsagePerHour.HasValue ? $"{usage.UsagePerHour.Value:F1}/hr" : string.Empty,
             CardSlotContent.UsedPercent => $"{usage.UsedPercent:F0}% used",
             CardSlotContent.RemainingPercent => $"{Math.Max(0, 100 - usage.UsedPercent):F0}% remaining",
@@ -398,7 +392,7 @@ public partial class CardDesignerWindow : Window
         };
     }
 
-    private static string GetPaceBadgeText(ProviderUsage usage)
+    private static string GetCardPaceBadgeText(ProviderUsage usage)
     {
         return UsageMath.GetPaceBadgeText(
             usage.UsedPercent,
@@ -407,7 +401,7 @@ public partial class CardDesignerWindow : Window
             usage.PeriodDuration) ?? string.Empty;
     }
 
-    private static string GetProjectedText(ProviderUsage usage)
+    private static string GetCardProjectedText(ProviderUsage usage)
     {
         if (!usage.PeriodDuration.HasValue || !usage.NextResetTime.HasValue)
         {
@@ -427,7 +421,7 @@ public partial class CardDesignerWindow : Window
         return $"Projected: {projected:F0}%";
     }
 
-    private static string GetDailyBudgetText(ProviderUsage usage)
+    private static string GetCardDailyBudgetText(ProviderUsage usage)
     {
         if (!usage.PeriodDuration.HasValue || usage.PeriodDuration.Value.TotalDays < 1)
         {
@@ -438,7 +432,7 @@ public partial class CardDesignerWindow : Window
         return $"{dailyBudget:F0}%/day budget";
     }
 
-    private Brush GetBadgeColor(string text)
+    private Brush GetCardBadgeColor(string text)
     {
         if (text.Contains("Over pace", StringComparison.OrdinalIgnoreCase))
         {
@@ -453,7 +447,7 @@ public partial class CardDesignerWindow : Window
         return (Brush)this.FindResource("SecondaryText");
     }
 
-    private Brush GetBarColor(double usedPercent)
+    private Brush GetCardBarColor(double usedPercent)
     {
         if (usedPercent >= this._preferences.ColorThresholdRed)
         {
@@ -468,11 +462,7 @@ public partial class CardDesignerWindow : Window
         return Brushes.MediumSeaGreen;
     }
 
-    // --- User presets ---
-
-    private readonly List<UserPreset> _userPresets = new();
-
-    private void RefreshUserPresetCombo()
+    private void RefreshCardUserPresetCombo()
     {
         this.UserPresetCombo.ItemsSource = null;
         this.UserPresetCombo.ItemsSource = this._userPresets;
@@ -481,55 +471,6 @@ public partial class CardDesignerWindow : Window
     private CardSlotContent GetSlotValue(ComboBox combo)
     {
         return (combo.SelectedValue as CardSlotContent?) ?? CardSlotContent.None;
-    }
-
-    private void SavePresetBtn_Click(object sender, RoutedEventArgs e)
-    {
-        var name = PromptForName("Save Preset", "Preset name:");
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return;
-        }
-
-        var existing = this._userPresets.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
-        if (existing != null)
-        {
-            this._userPresets.Remove(existing);
-        }
-
-        this._userPresets.Add(new UserPreset
-        {
-            Name = name,
-            PrimaryBadge = this.GetSlotValue(this.PrimaryBadgeSlot),
-            SecondaryBadge = this.GetSlotValue(this.SecondaryBadgeSlot),
-            StatusLine = this.GetSlotValue(this.StatusLineSlot),
-            ResetInfo = this.GetSlotValue(this.ResetInfoSlot),
-        });
-
-        this.RefreshUserPresetCombo();
-        this.UserPresetCombo.SelectedItem = this._userPresets.Last();
-    }
-
-    private void DeletePresetBtn_Click(object sender, RoutedEventArgs e)
-    {
-        if (this.UserPresetCombo.SelectedItem is UserPreset preset)
-        {
-            this._userPresets.Remove(preset);
-            this.RefreshUserPresetCombo();
-        }
-    }
-
-    private void UserPresetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (this.UserPresetCombo.SelectedItem is not UserPreset preset)
-        {
-            return;
-        }
-
-        this.PrimaryBadgeSlot.SelectedValue = preset.PrimaryBadge;
-        this.SecondaryBadgeSlot.SelectedValue = preset.SecondaryBadge;
-        this.StatusLineSlot.SelectedValue = preset.StatusLine;
-        this.ResetInfoSlot.SelectedValue = preset.ResetInfo;
     }
 
     private static string? PromptForName(string title, string prompt)
@@ -557,38 +498,90 @@ public partial class CardDesignerWindow : Window
         return dialog.ShowDialog() == true ? textBox.Text : null;
     }
 
-    // --- Event handlers ---
+    private void CardSlotConfig_Changed(object sender, SelectionChangedEventArgs e) => this.RenderCardPreview();
 
-    private void SlotConfig_Changed(object sender, SelectionChangedEventArgs e) => this.RenderPreview();
+    private void CardCompactMode_Changed(object sender, RoutedEventArgs e) => this.RenderCardPreview();
 
-    private void CompactMode_Changed(object sender, RoutedEventArgs e) => this.RenderPreview();
-
-    private void PresetCompact_Click(object sender, RoutedEventArgs e)
+    private void CardPresetCompact_Click(object sender, RoutedEventArgs e)
     {
-        this.ApplyPreset(CardPreset.Compact);
-        this.RenderPreview();
+        this.ApplyCardPreset(CardPreset.Compact);
+        this.RenderCardPreview();
     }
 
-    private void PresetDetailed_Click(object sender, RoutedEventArgs e)
+    private void CardPresetDetailed_Click(object sender, RoutedEventArgs e)
     {
-        this.ApplyPreset(CardPreset.Detailed);
-        this.RenderPreview();
+        this.ApplyCardPreset(CardPreset.Detailed);
+        this.RenderCardPreview();
     }
 
-    private void PresetPace_Click(object sender, RoutedEventArgs e)
+    private void CardPresetPace_Click(object sender, RoutedEventArgs e)
     {
-        this.ApplyPreset(CardPreset.PaceFocus);
-        this.RenderPreview();
+        this.ApplyCardPreset(CardPreset.PaceFocus);
+        this.RenderCardPreview();
     }
 
-    private void ApplyBtn_Click(object sender, RoutedEventArgs e)
+    private void CardSavePresetBtn_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: save slot configuration to preferences and apply to MainWindow
-        MessageBox.Show("Card layout configuration will be saved to preferences in a future update.",
-            "Not yet implemented", MessageBoxButton.OK, MessageBoxImage.Information);
+        var name = PromptForName("Save Preset", "Preset name:");
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return;
+        }
+
+        var existing = this._userPresets.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            this._userPresets.Remove(existing);
+        }
+
+        this._userPresets.Add(new UserPreset
+        {
+            Name = name,
+            PrimaryBadge = this.GetSlotValue(this.PrimaryBadgeSlot),
+            SecondaryBadge = this.GetSlotValue(this.SecondaryBadgeSlot),
+            StatusLine = this.GetSlotValue(this.StatusLineSlot),
+            ResetInfo = this.GetSlotValue(this.ResetInfoSlot),
+        });
+
+        this.RefreshCardUserPresetCombo();
+        this.UserPresetCombo.SelectedItem = this._userPresets.Last();
     }
 
-    private void TitleBar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e) => this.DragMove();
+    private void CardDeletePresetBtn_Click(object sender, RoutedEventArgs e)
+    {
+        if (this.UserPresetCombo.SelectedItem is UserPreset preset)
+        {
+            this._userPresets.Remove(preset);
+            this.RefreshCardUserPresetCombo();
+        }
+    }
 
-    private void CloseBtn_Click(object sender, RoutedEventArgs e) => this.Close();
+    private void CardUserPresetCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (this.UserPresetCombo.SelectedItem is not UserPreset preset)
+        {
+            return;
+        }
+
+        this.PrimaryBadgeSlot.SelectedValue = preset.PrimaryBadge;
+        this.SecondaryBadgeSlot.SelectedValue = preset.SecondaryBadge;
+        this.StatusLineSlot.SelectedValue = preset.StatusLine;
+        this.ResetInfoSlot.SelectedValue = preset.ResetInfo;
+    }
+
+    /// <summary>
+    /// Selects the tab with the given header text.
+    /// </summary>
+    public void SelectTab(string tabHeader)
+    {
+        for (var i = 0; i < this.MainTabControl.Items.Count; i++)
+        {
+            if (this.MainTabControl.Items[i] is TabItem tab &&
+                string.Equals(tab.Header?.ToString(), tabHeader, StringComparison.OrdinalIgnoreCase))
+            {
+                this.MainTabControl.SelectedIndex = i;
+                return;
+            }
+        }
+    }
 }

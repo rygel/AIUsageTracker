@@ -8,6 +8,7 @@ using System.Windows.Media;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.UI.Slim;
@@ -297,25 +298,39 @@ public partial class MainWindow : Window
         var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild);
 
         var contextMenu = new ContextMenu();
-        var designerItem = new MenuItem { Header = "Customize card layout..." };
-        designerItem.Click += (_, _) => this.OpenCardDesigner();
+        var designerItem = new MenuItem { Header = "Card settings..." };
+        designerItem.Click += (_, _) => this.OpenCardSettings();
         contextMenu.Items.Add(designerItem);
         card.ContextMenu = contextMenu;
 
         container.Children.Add(card);
     }
 
-    private void OpenCardDesigner()
+    private async void OpenCardSettings()
     {
-        List<ProviderUsage> usages;
-        lock (this._dataLock)
+        try
         {
-            usages = this._usages?.ToList() ?? new List<ProviderUsage>();
+            this._isSettingsDialogOpen = true;
+
+            var owner = this.IsVisible ? this : null;
+            var settingsWindow = App.Host.Services.GetRequiredService<SettingsWindow>();
+            if (owner != null)
+            {
+                settingsWindow.Owner = owner;
+                settingsWindow.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            }
+
+            settingsWindow.Loaded += (_, _) => settingsWindow.SelectTab("Cards");
+            settingsWindow.ShowDialog();
+        }
+        finally
+        {
+            this._isSettingsDialogOpen = false;
+            this.EnsureAlwaysOnTop();
         }
 
-        var designer = new CardDesignerWindow(this._preferences, usages);
-        designer.Owner = this;
-        designer.ShowDialog();
+        await this.InitializeAsync();
+        await this.ReloadPreferencesAfterSettingsAsync();
     }
 
     private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)
