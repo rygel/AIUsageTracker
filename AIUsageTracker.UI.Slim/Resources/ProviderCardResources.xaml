@@ -131,7 +131,16 @@
                     <TextBlock DockPanel.Dock="Right" Text="{Binding ResetBadgeText}"
                                Visibility="{Binding ResetBadgeText, Converter={StaticResource NullToVisibilityConverter}}"
                                FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource StatusTextWarning}"
-                               Margin="10,0,0,0" VerticalAlignment="Center"/>
+                               Margin="10,0,0,0" VerticalAlignment="Center"
+                               Cursor="Hand">
+                        <TextBlock.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Show relative time (e.g. 2h 15m)"
+                                          IsCheckable="True"
+                                          IsChecked="{Binding UseRelativeResetTime}"/>
+                            </ContextMenu>
+                        </TextBlock.ContextMenu>
+                    </TextBlock>
 
                     <!-- Status Text (Right) -->
                     <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}"

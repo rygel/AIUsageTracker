@@ -14,28 +14,45 @@
 ### Up Next
 All architecture streamlining tasks completed! See remaining feature backlog below.
 
-### Grand Refactor (Ongoing)
-- [x] Extract startup preferences/theme bootstrap out of `App.xaml.cs` into services.
-- [x] Extract single-instance lock concerns out of `App.xaml.cs`.
-- [x] Isolate monitor launcher test overrides per async flow to reduce cross-test flakiness.
-- [x] Unify privacy event subscriptions in UI windows via `PrivacyChangedWeakEventManager`.
-- [x] Add explicit duplicate-monitor startup diagnostics and clean duplicate-start exit path.
-- [x] Remove aggregate-detail child-id/sort fallback heuristics from `ProviderUsageDisplayCatalog`.
-- [x] Remove dual-quota label/order fallback heuristics from `ProviderDualQuotaBucketPresentationCatalog`.
-- [x] Extract provider section layout grouping from `MainWindow.RenderProviders` into `ProviderSectionLayoutCatalog`.
-- [ ] Decompose `MainWindow` provider rendering path into smaller service components.
-- [ ] Continue fallback-logic removal pass in UI/catalog paths.
+### Grand Refactor (Completed 2026-03-21)
+- [x] Strip ~7,000 lines of dead code, unused abstractions, duplicate interfaces.
+- [x] Collapse ProviderMetadataCatalog from 737→420 lines (19 pass-through methods deleted).
+- [x] Remove Polly/resilience stack; providers use plain HttpClient.
+- [x] Convert MonitorLauncher from static to injectable singleton (remove AsyncLocal).
+- [x] Remove 7 single-implementation interfaces never mocked in tests.
+- [x] Split SettingsWindow.xaml.cs (2,500→4 partial files) and MainWindow.xaml.cs (1,800→6 partial files).
+- [x] Replace reflection-based provider discovery with explicit static list.
+- [x] Convert App.Themes.cs from switch statement to data-driven palette.
+- [x] Remove static state from MonitorService (telemetry counters → instance fields).
+- [x] Fix pace calculation: simple projection math, per-window pace for dual bars.
+- [x] Move CodeQL to Ubuntu (~50% cost reduction).
+- [x] Add DI resolution smoke tests, pace end-to-end tests, provider deserialization tests.
 
 ---
 
 ## Feature Backlog
 
-- [x] Slim UI logging migration (Priority: P1, Effort: M): Replace ad-hoc `Debug.WriteLine`/`Console.WriteLine` diagnostics with `ILogger` (structured levels, timestamped output, centralized configuration).
-- [x] Monitor logging format unification (Priority: P1, Effort: S/M): Migrate Monitor `[DIAG]`/custom diagnostic output to `ILogger` with timestamped, structured logs so Monitor and Slim UI diagnostics use one consistent format.
-- [x] Burn-rate forecasting (Priority: P1, Effort: M): Estimate days until quota or budget exhaustion from recent usage trends.
-- [x] Anomaly detection (experimental) (Priority: P1, Effort: M): Detect and flag unusual spikes or drops in provider usage.
-- [x] Provider reliability panel (Priority: P2, Effort: M): Show provider latency, failure rate, and last successful sync timestamp.
-- [ ] OpenCode CLI local provider (Priority: P2, Effort: M): Read detailed usage data from `opencode stats` CLI (sessions, messages, per-model breakdown, daily history) instead of just API credits endpoint
+### UI Clarity Improvements (Priority: P1)
+
+These improvements make usage data immediately understandable without mental math or guessing:
+
+- [ ] **Relative time remaining on reset badges** (Effort: S): Show "4d 22h left" or "2h 15m left" instead of absolute dates like "(Mar 26 17:44)". The `NextResetTime` data is already available — just needs relative time formatting. Users shouldn't have to calculate time differences mentally.
+
+- [ ] **Projected end-of-period usage text** (Effort: S): Show "Projected: 85% at reset" next to the pace badge. The bar color already reflects projection, but users don't know WHY it's red. Uses `CalculateProjectedFinalPercent` which already exists. Makes the pace math transparent.
+
+- [ ] **Distinct burst vs weekly bar indicators** (Effort: S): Codex dual bars show tiny "5h" and "Weekly" labels that are hard to distinguish at a glance. Add visual indicators — lightning bolt icon for burst windows, calendar icon for weekly. Or use distinct color coding per window type.
+
+- [ ] **Color-coded pace badges** (Effort: S): "Over pace" and "On pace" are currently plain text. Make "Over pace" red background with white text, "On pace" green background with white text. No badge = neutral. Users scan colors, not text. Update badge styling in `ProviderCardRenderer`.
+
+- [ ] **Daily budget display for weekly providers** (Effort: M): For a weekly quota of 300 requests, show "43/day budget" and "Today: 67 used" on the card. Simple division (`RequestsAvailable / 7`) that users shouldn't have to do themselves. Requires tracking daily usage from history data.
+
+- [ ] **Visible stale data indicators** (Effort: S): "(last refreshed 9d ago — data may be outdated)" in small gray text is too subtle. Dim/fade the entire card when data is stale. Add a visible "Stale" badge with age. Consider auto-collapsing providers stale for >24h behind an expand button.
+
+- [ ] **Auto-collapse inactive providers** (Effort: M): 27 providers shown at once — most users care about 3-4. Sort by recent activity (most-used first). Auto-collapse providers at 0% usage or with no recent activity into an "Other providers" expandable section. Reduces visual noise.
+
+### Remaining Feature Backlog
+
+- [ ] OpenCode CLI local provider (Priority: P2, Effort: M): Read detailed usage data from `opencode stats` CLI (sessions, messages, per-model breakdown, daily history) instead of just API credits endpoint.
 - [ ] Budget policies (Priority: P2, Effort: M): Add weekly/monthly provider budget caps with warning levels and optional soft-lock behavior.
 - [ ] Comparison views (Priority: P3, Effort: S/M): Add period-over-period comparisons (day/week/month) and provider leaderboard by cost and growth.
 - [ ] Data portability (Priority: P3, Effort: S): Support CSV/JSON export and import, plus scheduled encrypted SQLite backups.
