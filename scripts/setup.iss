@@ -1,7 +1,7 @@
 ; AI Usage Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.3.2-beta.14"
+  #define MyAppVersion "2.3.2-beta.15"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"

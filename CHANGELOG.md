@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.15] - 2026-03-22
+
+### Added
+- **Card Designer** (experimental): new window to experiment with card layouts — configurable slots, presets, compact mode with background progress bar. Right-click any provider card to open.
+- **Auto-collapse inactive providers**: providers with 0% usage grouped into expandable "Other providers" section.
+- **Configurable reset time format**: absolute by default, relative optional via right-click or Settings.
+- **Daily budget in tooltip**: shows daily budget and expected vs actual usage for weekly providers.
+- **Per-window pace projection**: burst and weekly bars independently pace-projected.
+
+### Changed
+- **Settings redesigned**: new Cards tab, Layout tab slimmed, Data merged into Monitor, all tabs use two-column layouts.
+- **Screenshot baselines auto-commit**: no more separate PRs for baseline updates.
+
 ## [2.3.2-beta.14] - 2026-03-21
 
 ### Fixed
