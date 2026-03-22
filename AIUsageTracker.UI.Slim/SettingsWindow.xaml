@@ -295,166 +295,162 @@
                 </TabItem>
 
                 <!-- Layout Tab -->
+                <TabItem Header="Cards">
+                    <StackPanel x:Name="LayoutStack" Margin="20,15,20,15">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="20"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Left: Display Options -->
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Display Options" FontWeight="Bold" FontSize="12"
+                                           Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                                <CheckBox x:Name="ShowUsedPercentagesCheck" Content="Show Used Percentages"
+                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                          ToolTip="Display used percentages instead of remaining percentages"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                                <CheckBox x:Name="ShowUsagePerHourCheck" Content="Show Usage Rate (req/hr)"
+                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                          ToolTip="Show a live burn-rate badge on each provider card"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                                <CheckBox x:Name="EnablePaceAdjustmentCheck" Content="Pace-Aware Colours"
+                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                          ToolTip="Adjust progress-bar colour based on rolling-window pace"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                            </StackPanel>
+
+                            <!-- Right: Thresholds -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Color Thresholds" FontWeight="Bold" FontSize="12"
+                                           Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Yellow at %" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SecondaryText}" Margin="0,0,8,0"/>
+                                    <TextBox x:Name="YellowThreshold" Grid.Column="1" Text="60"
+                                             Background="{DynamicResource ControlBackground}"
+                                             Foreground="{DynamicResource PrimaryText}"
+                                             BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
+                                             TextChanged="LayoutSetting_TextChanged"/>
+                                </Grid>
+                                <Grid Margin="0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Red at %" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SecondaryText}" Margin="0,0,8,0"/>
+                                    <TextBox x:Name="RedThreshold" Grid.Column="1" Text="80"
+                                             Background="{DynamicResource ControlBackground}"
+                                             Foreground="{DynamicResource PrimaryText}"
+                                             BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
+                                             TextChanged="LayoutSetting_TextChanged"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+
+                        <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,15,0,15"/>
+
+                        <Button x:Name="OpenCardDesignerBtn" Content="Open Card Designer..."
+                                Click="OpenCardDesignerBtn_Click"
+                                Padding="12,6" MinWidth="75" MinHeight="23"
+                                Background="{DynamicResource ButtonBackground}"
+                                Foreground="{DynamicResource PrimaryText}"
+                                BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+                                HorizontalAlignment="Left" Cursor="Hand"
+                                ToolTip="Experiment with different card layouts and data displays"/>
+                    </StackPanel>
+                </TabItem>
+
                 <TabItem Header="Layout">
-                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="LayoutStack" Margin="20,15,20,15">
+                    <StackPanel Margin="20,15,20,15">
+                        <!-- Window Behavior -->
+                        <TextBlock Text="Window Behavior" FontWeight="Bold" FontSize="12"
+                                   Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                        <CheckBox x:Name="AlwaysOnTopCheck" Content="Always On Top" IsChecked="True"
+                                  Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                  Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                        <CheckBox x:Name="AggressiveTopmostCheck" Content="Aggressive keep-on-top"
+                                  Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                  ToolTip="Reassert topmost more aggressively after losing activation (may steal focus)."
+                                  Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                        <CheckBox x:Name="ForceWin32TopmostCheck" Content="Force Win32 topmost"
+                                  Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                  ToolTip="Uses native SetWindowPos topmost reassertion without activating the window."
+                                  Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
 
-                            <!-- Two-column top section -->
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="20"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Theme" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
+                            <ComboBox x:Name="ThemeCombo" Grid.Column="1" Height="24"
+                                      SelectionChanged="ThemeCombo_SelectionChanged"
+                                      Background="{DynamicResource ControlBackground}"
+                                      Foreground="{DynamicResource PrimaryText}"
+                                      BorderBrush="{DynamicResource ControlBorder}"/>
+                        </Grid>
 
-                                <!-- Left column: Window Behavior -->
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="Window Behavior" FontWeight="Bold" FontSize="12"
-                                               Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                        <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,15,0,15"/>
 
-                                    <CheckBox x:Name="AlwaysOnTopCheck" Content="Always On Top" IsChecked="True"
-                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                    <CheckBox x:Name="AggressiveTopmostCheck" Content="Aggressive keep-on-top"
-                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                              ToolTip="Reassert topmost more aggressively after losing activation (may steal focus)."
-                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                    <CheckBox x:Name="ForceWin32TopmostCheck" Content="Force Win32 topmost"
-                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                              ToolTip="Uses native SetWindowPos topmost reassertion without activating the window."
-                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Theme" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
-                                        <ComboBox x:Name="ThemeCombo" Grid.Column="1" Height="24"
-                                                  SelectionChanged="ThemeCombo_SelectionChanged"
-                                                  Background="{DynamicResource ControlBackground}"
-                                                  Foreground="{DynamicResource PrimaryText}"
-                                                  BorderBrush="{DynamicResource ControlBorder}"/>
-                                    </Grid>
-                                </StackPanel>
-
-                                <!-- Right column: Display Options -->
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Display Options" FontWeight="Bold" FontSize="12"
-                                               Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
-
-                                    <CheckBox x:Name="ShowUsedPercentagesCheck" Content="Show Used Percentages"
-                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                              ToolTip="Display used percentages instead of remaining percentages"
-                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                    <CheckBox x:Name="ShowUsagePerHourCheck" Content="Show Usage Rate (req/hr)"
-                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                              ToolTip="Show a live burn-rate badge on each provider card"
-                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                    <CheckBox x:Name="EnablePaceAdjustmentCheck" Content="Pace-Aware Colours"
-                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                              ToolTip="Adjust progress-bar colour based on rolling-window pace"
-                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-
-                                    <!-- Color Thresholds -->
-                                    <Grid Margin="0,10,0,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="10"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Yellow %" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SecondaryText}" Margin="0,0,6,0"/>
-                                        <TextBox x:Name="YellowThreshold" Grid.Column="1" Text="60"
-                                                 Background="{DynamicResource ControlBackground}"
-                                                 Foreground="{DynamicResource PrimaryText}"
-                                                 BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
-                                                 TextChanged="LayoutSetting_TextChanged"/>
-                                        <TextBlock Grid.Column="3" Text="Red %" VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource SecondaryText}" Margin="0,0,6,0"/>
-                                        <TextBox x:Name="RedThreshold" Grid.Column="4" Text="80"
-                                                 Background="{DynamicResource ControlBackground}"
-                                                 Foreground="{DynamicResource PrimaryText}"
-                                                 BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
-                                                 TextChanged="LayoutSetting_TextChanged"/>
-                                    </Grid>
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Separator -->
-                            <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,15,0,15"/>
-
-                            <!-- Card Layout -->
-                            <Button x:Name="OpenCardDesignerBtn" Content="Open Card Designer..."
-                                    Click="OpenCardDesignerBtn_Click"
-                                    Padding="12,6" MinWidth="75" MinHeight="23"
-                                    Background="{DynamicResource ButtonBackground}"
-                                    Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
-                                    HorizontalAlignment="Left" Cursor="Hand"
-                                    ToolTip="Experiment with different card layouts and data displays"/>
-
-                            <!-- Separator -->
-                            <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,15,0,15"/>
-
-                            <!-- Font Settings — full width -->
-                            <TextBlock Text="Font" FontWeight="Bold" FontSize="12"
-                                       Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
-
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="10"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="10"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-
-                                <ComboBox x:Name="FontFamilyCombo" Grid.Column="0" Height="24"
-                                          SelectionChanged="FontFamilyCombo_SelectionChanged"
-                                          Background="{DynamicResource ControlBackground}"
-                                          Foreground="{DynamicResource PrimaryText}"
-                                          BorderBrush="{DynamicResource ControlBorder}"/>
-
-                                <TextBox x:Name="FontSizeBox" Grid.Column="2" Text="12"
-                                         TextChanged="FontSizeBox_TextChanged"
-                                         Background="{DynamicResource ControlBackground}"
-                                         Foreground="{DynamicResource PrimaryText}"
-                                         BorderBrush="{DynamicResource ControlBorder}"
-                                         Padding="6,4" VerticalContentAlignment="Center"/>
-
-                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <CheckBox x:Name="FontBoldCheck" Content="B" FontWeight="Bold"
-                                              Checked="FontBoldCheck_CheckedChanged" Unchecked="FontBoldCheck_CheckedChanged"
-                                              Margin="0,0,8,0" Foreground="{DynamicResource SecondaryText}"/>
-                                    <CheckBox x:Name="FontItalicCheck" Content="I" FontStyle="Italic"
-                                              Checked="FontItalicCheck_CheckedChanged" Unchecked="FontItalicCheck_CheckedChanged"
-                                              Foreground="{DynamicResource SecondaryText}"/>
-                                </StackPanel>
-                            </Grid>
-
-                            <Border Background="{DynamicResource CardBackground}"
-                                    BorderBrush="{DynamicResource CardBorder}"
-                                    BorderThickness="1" CornerRadius="4"
-                                    Padding="10" Margin="0,8,0,0">
-                                <DockPanel>
-                                    <Button x:Name="ResetFontBtn" DockPanel.Dock="Right" Content="Reset"
-                                            Click="ResetFontBtn_Click" Padding="8,4" MinWidth="50" MinHeight="23"
-                                            Background="{DynamicResource ButtonBackground}"
-                                            Foreground="{DynamicResource PrimaryText}"
-                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
-                                            VerticalAlignment="Center" Margin="10,0,0,0"/>
-                                    <TextBlock x:Name="FontPreviewText"
-                                               Text="The quick brown fox jumps over the lazy dog."
-                                               Foreground="{DynamicResource PrimaryText}"
-                                               VerticalAlignment="Center"/>
-                                </DockPanel>
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
+                        <!-- Font -->
+                        <TextBlock Text="Font" FontWeight="Bold" FontSize="12"
+                                   Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="FontFamilyCombo" Grid.Column="0" Height="24"
+                                      SelectionChanged="FontFamilyCombo_SelectionChanged"
+                                      Background="{DynamicResource ControlBackground}"
+                                      Foreground="{DynamicResource PrimaryText}"
+                                      BorderBrush="{DynamicResource ControlBorder}"/>
+                            <TextBox x:Name="FontSizeBox" Grid.Column="2" Text="12"
+                                     TextChanged="FontSizeBox_TextChanged"
+                                     Background="{DynamicResource ControlBackground}"
+                                     Foreground="{DynamicResource PrimaryText}"
+                                     BorderBrush="{DynamicResource ControlBorder}"
+                                     Padding="6,4" VerticalContentAlignment="Center"/>
+                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                                <CheckBox x:Name="FontBoldCheck" Content="B" FontWeight="Bold"
+                                          Checked="FontBoldCheck_CheckedChanged" Unchecked="FontBoldCheck_CheckedChanged"
+                                          Margin="0,0,8,0" Foreground="{DynamicResource SecondaryText}"/>
+                                <CheckBox x:Name="FontItalicCheck" Content="I" FontStyle="Italic"
+                                          Checked="FontItalicCheck_CheckedChanged" Unchecked="FontItalicCheck_CheckedChanged"
+                                          Foreground="{DynamicResource SecondaryText}"/>
+                            </StackPanel>
+                        </Grid>
+                        <Border Background="{DynamicResource CardBackground}"
+                                BorderBrush="{DynamicResource CardBorder}"
+                                BorderThickness="1" CornerRadius="4"
+                                Padding="10" Margin="0,8,0,0">
+                            <DockPanel>
+                                <Button x:Name="ResetFontBtn" DockPanel.Dock="Right" Content="Reset"
+                                        Click="ResetFontBtn_Click" Padding="8,4" MinWidth="50" MinHeight="23"
+                                        Background="{DynamicResource ButtonBackground}"
+                                        Foreground="{DynamicResource PrimaryText}"
+                                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+                                        VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                <TextBlock x:Name="FontPreviewText"
+                                           Text="The quick brown fox jumps over the lazy dog."
+                                           Foreground="{DynamicResource PrimaryText}"
+                                           VerticalAlignment="Center"/>
+                            </DockPanel>
+                        </Border>
+                    </StackPanel>
                 </TabItem>
 
                 <!-- Notifications Tab -->
@@ -633,32 +629,7 @@
                 </TabItem>
 
                 <!-- Data Tab -->
-                <TabItem Header="Data">
-                    <StackPanel x:Name="DataStack" Margin="20,15,20,15">
-                        <TextBlock Text="Export &amp; Backup" FontWeight="Bold" FontSize="12"
-                                   Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,12"/>
-                        <WrapPanel>
-                            <Button x:Name="ExportCsvBtn" Content="Export CSV"
-                                    Click="ExportCsvBtn_Click" Margin="0,0,8,8"
-                                    Padding="12,6" MinWidth="75" MinHeight="23"
-                                    Background="{DynamicResource ButtonBackground}"
-                                    Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
-                            <Button x:Name="ExportJsonBtn" Content="Export JSON"
-                                    Click="ExportJsonBtn_Click" Margin="0,0,8,8"
-                                    Padding="12,6" MinWidth="75" MinHeight="23"
-                                    Background="{DynamicResource ButtonBackground}"
-                                    Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
-                            <Button x:Name="BackupDbBtn" Content="Backup Database"
-                                    Click="BackupDbBtn_Click" Margin="0,0,8,8"
-                                    Padding="12,6" MinWidth="75" MinHeight="23"
-                                    Background="{DynamicResource ButtonBackground}"
-                                    Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
-                        </WrapPanel>
-                    </StackPanel>
-                </TabItem>
+                <!-- Data tab removed — export/backup buttons moved to Monitor tab -->
 
                 <!-- Monitor Tab -->
                 <TabItem Header="Monitor">
@@ -723,6 +694,27 @@
                                             Foreground="{DynamicResource PrimaryText}"
                                             BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
                                     <Button Content="Export Diagnostics" Click="ExportDiagnosticsBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23" Margin="0,0,0,4"
+                                            HorizontalAlignment="Stretch"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+
+                                    <TextBlock Text="Data" FontWeight="Bold" FontSize="12"
+                                               Foreground="{DynamicResource PrimaryText}" Margin="0,10,0,10"/>
+                                    <Button x:Name="ExportCsvBtn" Content="Export CSV" Click="ExportCsvBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23" Margin="0,0,0,4"
+                                            HorizontalAlignment="Stretch"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                                    <Button x:Name="ExportJsonBtn" Content="Export JSON" Click="ExportJsonBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23" Margin="0,0,0,4"
+                                            HorizontalAlignment="Stretch"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                                    <Button x:Name="BackupDbBtn" Content="Backup Database" Click="BackupDbBtn_Click"
                                             Padding="12,6" MinWidth="75" MinHeight="23"
                                             HorizontalAlignment="Stretch"
                                             Background="{DynamicResource ButtonBackground}"
