@@ -241,9 +241,12 @@
                             Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
                             BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
                 </StackPanel>
-                <!-- Card Size -->
+                <!-- Card Options -->
                 <CheckBox x:Name="CompactModeCheck" Content="Compact cards (all data on one line)"
                           Margin="0,10,0,0" Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                          Checked="CompactMode_Changed" Unchecked="CompactMode_Changed"/>
+                <CheckBox x:Name="BackgroundBarCheck" Content="Progress bar as card background"
+                          Margin="0,4,0,0" Foreground="{DynamicResource SecondaryText}" FontSize="11"
                           Checked="CompactMode_Changed" Unchecked="CompactMode_Changed"/>
             </StackPanel>
         </Border>

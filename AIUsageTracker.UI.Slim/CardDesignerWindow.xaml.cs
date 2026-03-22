@@ -163,15 +163,17 @@ public partial class CardDesignerWindow : Window
         var usedPercent = usage.UsedPercent;
         var barWidth = Math.Max(0, Math.Min(100, usedPercent));
 
+        var useBackgroundBar = this.BackgroundBarCheck?.IsChecked ?? false;
+
         return isCompact
-            ? this.BuildCompactCard(displayName, primaryText, secondaryText, statusText, resetText, usedPercent, barWidth, usage)
-            : this.BuildDetailedCard(displayName, primaryText, secondaryText, statusText, resetText, usedPercent, barWidth, usage);
+            ? this.BuildCompactCard(displayName, primaryText, secondaryText, statusText, resetText, usedPercent, barWidth, usage, useBackgroundBar)
+            : this.BuildDetailedCard(displayName, primaryText, secondaryText, statusText, resetText, usedPercent, barWidth, usage, useBackgroundBar);
     }
 
     private Border BuildCompactCard(
         string displayName, string primaryText, string secondaryText,
         string statusText, string resetText, double usedPercent, double barWidth,
-        ProviderUsage usage)
+        ProviderUsage usage, bool useBackgroundBar)
     {
         var card = new Border
         {
@@ -185,9 +187,8 @@ public partial class CardDesignerWindow : Window
         // Card background: percentage fill as subtle background color
         var bgGrid = new Grid();
 
-        if (usage.IsAvailable && usage.IsQuotaBased && barWidth > 0)
+        if (useBackgroundBar && usage.IsAvailable && usage.IsQuotaBased && barWidth > 0)
         {
-            // Two-column grid: filled portion + empty portion
             bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(barWidth, GridUnitType.Star) });
             bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0, 100 - barWidth), GridUnitType.Star) });
 
@@ -199,10 +200,7 @@ public partial class CardDesignerWindow : Window
             Grid.SetColumn(fill, 0);
             bgGrid.Children.Add(fill);
 
-            var empty = new Border
-            {
-                Background = (Brush)this.FindResource("CardBackground"),
-            };
+            var empty = new Border { Background = (Brush)this.FindResource("CardBackground") };
             Grid.SetColumn(empty, 1);
             bgGrid.Children.Add(empty);
         }
@@ -257,19 +255,38 @@ public partial class CardDesignerWindow : Window
     private Border BuildDetailedCard(
         string displayName, string primaryText, string secondaryText,
         string statusText, string resetText, double usedPercent, double barWidth,
-        ProviderUsage usage)
+        ProviderUsage usage, bool useBackgroundBar)
     {
         var card = new Border
         {
-            Background = (Brush)this.FindResource("CardBackground"),
             BorderBrush = (Brush)this.FindResource("CardBorder"),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(10, 8, 10, 8),
             Margin = new Thickness(0, 0, 0, 4),
+            ClipToBounds = true,
         };
 
-        var stack = new StackPanel();
+        // Background: either solid or percentage fill
+        var bgGrid = new Grid();
+        if (useBackgroundBar && usage.IsAvailable && usage.IsQuotaBased && barWidth > 0)
+        {
+            bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(barWidth, GridUnitType.Star) });
+            bgGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Max(0, 100 - barWidth), GridUnitType.Star) });
+
+            var fill = new Border { Background = this.GetBarColor(usedPercent), Opacity = 0.15 };
+            Grid.SetColumn(fill, 0);
+            bgGrid.Children.Add(fill);
+
+            var empty = new Border { Background = (Brush)this.FindResource("CardBackground") };
+            Grid.SetColumn(empty, 1);
+            bgGrid.Children.Add(empty);
+        }
+        else
+        {
+            bgGrid.Children.Add(new Border { Background = (Brush)this.FindResource("CardBackground") });
+        }
+
+        var stack = new StackPanel { Margin = new Thickness(10, 8, 10, 8) };
 
         // Row 1: Name + badges
         var topRow = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
@@ -309,8 +326,8 @@ public partial class CardDesignerWindow : Window
         topRow.Children.Add(nameBlock);
         stack.Children.Add(topRow);
 
-        // Row 2: Progress bar
-        if (usage.IsAvailable && usage.IsQuotaBased)
+        // Row 2: Progress bar (only when not using background bar)
+        if (!useBackgroundBar && usage.IsAvailable && usage.IsQuotaBased)
         {
             var barGrid = new Grid { Height = 4, Margin = new Thickness(0, 2, 0, 2) };
             barGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(barWidth, GridUnitType.Star) });
@@ -339,7 +356,8 @@ public partial class CardDesignerWindow : Window
             stack.Children.Add(statusBlock);
         }
 
-        card.Child = stack;
+        bgGrid.Children.Add(stack);
+        card.Child = bgGrid;
         return card;
     }
 
