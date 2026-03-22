@@ -345,31 +345,38 @@ public partial class MainWindow : Window
 
             if (!this._preferencesLoaded)
             {
-                this._preferences = await this._preferencesStore.LoadAsync();
-                App.Preferences = this._preferences;
+                // Use preferences already loaded by App.OnStartup — don't reload from disk
+                this._preferences = App.Preferences;
                 this._isPrivacyMode = this._preferences.IsPrivacyMode;
-                App.SetPrivacyMode(this._isPrivacyMode);
                 this._preferencesLoaded = true;
                 this.ApplyPreferences();
                 this.PositionWindowNearTray();
             }
 
-            // Fast path: try fetching data immediately. If monitor is already running,
-            // data appears in <1 second and we skip the entire orchestration/handshake.
-            this.LogDiagnostic("[DIAGNOSTIC] Fast path: attempting early data fetch...");
+            // Fast path: quick health check + fetch. If monitor responds in <1s, show data immediately.
+            // If not, skip to orchestrator — don't waste time on a 12-second HTTP timeout.
+            this.LogDiagnostic("[DIAGNOSTIC] Fast path: quick health check...");
             this.ShowStatus("Loading...", StatusType.Info);
             var dataAvailable = false;
             try
             {
                 await this._monitorService.RefreshPortAsync();
-                this.LogDiagnostic($"[DIAGNOSTIC] Port resolved: {this._monitorService.AgentUrl}");
-                await this.FetchDataAsync();
-                lock (this._dataLock)
+                var isHealthy = await this._monitorService.CheckHealthAsync();
+                if (isHealthy)
                 {
-                    dataAvailable = this._usages?.Count > 0;
-                }
+                    this.LogDiagnostic("[DIAGNOSTIC] Monitor healthy, fetching data...");
+                    await this.FetchDataAsync();
+                    lock (this._dataLock)
+                    {
+                        dataAvailable = this._usages?.Count > 0;
+                    }
 
-                this.LogDiagnostic($"[DIAGNOSTIC] Early fetch result: {(dataAvailable ? "data available" : "no data")}");
+                    this.LogDiagnostic($"[DIAGNOSTIC] Early fetch: {(dataAvailable ? "data available" : "no data")}");
+                }
+                else
+                {
+                    this.LogDiagnostic("[DIAGNOSTIC] Monitor not healthy, skipping to orchestrator");
+                }
             }
             catch (Exception ex)
             {
