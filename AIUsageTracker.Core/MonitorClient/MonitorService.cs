@@ -407,11 +407,23 @@ public class MonitorService : IMonitorService
     /// <inheritdoc/>
     public async Task<bool> CheckHealthAsync()
     {
+        return await this.CheckHealthCoreAsync(cancellationToken: default).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task<bool> CheckHealthAsync(TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+        return await this.CheckHealthCoreAsync(cts.Token).ConfigureAwait(false);
+    }
+
+    private async Task<bool> CheckHealthCoreAsync(CancellationToken cancellationToken)
+    {
         using var activity = ActivitySource.StartActivity("monitor.check_health", ActivityKind.Client);
         activity?.SetTag("monitor.agent_url", this.AgentUrl);
         await this.RefreshPortAsync().ConfigureAwait(false);
         var response = await this.SendMonitorRequestAsync(
-            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health)),
+            httpClient => httpClient.GetAsync(this.BuildMonitorUrl(MonitorApiRoutes.Health), cancellationToken),
             nameof(this.CheckHealthAsync)).ConfigureAwait(false);
         var success = response?.IsSuccessStatusCode == true;
         if (response != null)

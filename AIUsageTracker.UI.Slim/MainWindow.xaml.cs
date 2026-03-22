@@ -353,64 +353,55 @@ public partial class MainWindow : Window
                 this.PositionWindowNearTray();
             }
 
-            // Fast path: quick health check + fetch. If monitor responds in <1s, show data immediately.
-            // If not, skip to orchestrator — don't waste time on a 12-second HTTP timeout.
-            this.LogDiagnostic("[DIAGNOSTIC] Fast path: quick health check...");
+            // Monitor warmup was fired in App.OnStartup in parallel with WPF init.
+            // By now it should already be done or nearly done. Just await it.
+            this.LogDiagnostic("[DIAGNOSTIC] Awaiting monitor warmup task...");
             this.ShowStatus("Loading...", StatusType.Info);
-            var dataAvailable = false;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
-                await this._monitorService.RefreshPortAsync();
-                var isHealthy = await this._monitorService.CheckHealthAsync();
-                if (isHealthy)
-                {
-                    this.LogDiagnostic("[DIAGNOSTIC] Monitor healthy, fetching data...");
-                    await this.FetchDataAsync();
-                    lock (this._dataLock)
-                    {
-                        dataAvailable = this._usages?.Count > 0;
-                    }
+                var monitorReady = await App.MonitorWarmupTask;
+                sw.Stop();
+                this.LogDiagnostic($"[DIAGNOSTIC] Monitor warmup completed in {sw.ElapsedMilliseconds}ms, ready={monitorReady}");
 
-                    this.LogDiagnostic($"[DIAGNOSTIC] Early fetch: {(dataAvailable ? "data available" : "no data")}");
-                }
-                else
+                if (!monitorReady)
                 {
-                    this.LogDiagnostic("[DIAGNOSTIC] Monitor not healthy, skipping to orchestrator");
+                    // Warmup failed — try the orchestrator as fallback
+                    this.ShowStatus("Starting monitor...", StatusType.Info);
+                    var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(
+                        async (message, type) =>
+                        {
+                            await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type));
+                        },
+                        skipInitialHealthCheck: true);
+
+                    if (!startupResult.IsSuccess)
+                    {
+                        if (startupResult.IsLaunchFailure)
+                        {
+                            this.ShowStatus("Monitor failed to start", StatusType.Error);
+                            this.ShowErrorState(
+                                BuildMonitorErrorMessage(
+                                    "Monitor failed to start.",
+                                    "Please ensure AIUsageTracker.Monitor is installed and try again.",
+                                    this._monitorService.LastAgentErrors));
+                        }
+
+                        this._isLoading = false;
+                        return;
+                    }
                 }
+
+                // Monitor is running — refresh port and fetch data
+                await this._monitorService.RefreshPortAsync();
+                await this.FetchDataAsync();
             }
             catch (Exception ex)
             {
-                this.LogDiagnostic($"[DIAGNOSTIC] Early fetch failed: {ex.Message}");
-            }
-
-            if (!dataAvailable)
-            {
-                // Slow path: monitor isn't running or has no data. Start it and wait.
-                this.ShowStatus("Starting monitor...", StatusType.Info);
-                var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(
-                    async (message, type) =>
-                    {
-                        await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type));
-                    });
-
-                if (!startupResult.IsSuccess)
-                {
-                    if (startupResult.IsLaunchFailure)
-                    {
-                        this.ShowStatus("Monitor failed to start", StatusType.Error);
-                        this.ShowErrorState(
-                            BuildMonitorErrorMessage(
-                                "Monitor failed to start.",
-                                "Please ensure AIUsageTracker.Monitor is installed and try again.",
-                                this._monitorService.LastAgentErrors));
-                    }
-
-                    this._isLoading = false;
-                    return;
-                }
-
-                // Fetch data after monitor started
-                await this.FetchDataAsync();
+                this.LogDiagnostic($"[DIAGNOSTIC] Monitor startup failed: {ex.Message}");
+                this.ShowErrorState($"Monitor startup failed: {ex.Message}");
+                this._isLoading = false;
+                return;
             }
 
             // Start background tasks (non-blocking)
@@ -419,7 +410,7 @@ public partial class MainWindow : Window
             _ = Task.Run(async () =>
             {
                 // Contract check and toggle update in background — don't block UI
-                var handshakeResult = await this._monitorService.CheckApiContractAsync().ConfigureAwait(false);
+                var handshakeResult = await this._monitorService.CheckApiContractAsync().ConfigureAwait(false); // ui-thread-guardrail-allow: Task.Run thread pool
                 await this.Dispatcher.InvokeAsync(() => this.ApplyMonitorContractStatus(handshakeResult));
             });
 

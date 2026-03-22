@@ -26,15 +26,21 @@ public sealed class MonitorStartupOrchestrator
     }
 
     public async Task<MonitorStartupOrchestrationResult> EnsureMonitorReadyAsync(
-        Func<string, StatusType, Task> reportStatusAsync)
+        Func<string, StatusType, Task> reportStatusAsync,
+        bool skipInitialHealthCheck = false)
     {
         ArgumentNullException.ThrowIfNull(reportStatusAsync);
 
         try
         {
-            // Single health check — don't redundantly read metadata + health + health again
-            await this._monitorService.RefreshPortAsync().ConfigureAwait(false);
-            var isRunning = await this._monitorService.CheckHealthAsync().ConfigureAwait(false);
+            // If caller already checked health and it failed, skip the redundant check
+            // to avoid wasting another 6+ seconds on a TCP timeout.
+            var isRunning = false;
+            if (!skipInitialHealthCheck)
+            {
+                await this._monitorService.RefreshPortAsync().ConfigureAwait(false);
+                isRunning = await this._monitorService.CheckHealthAsync().ConfigureAwait(false);
+            }
 
             if (!isRunning)
             {

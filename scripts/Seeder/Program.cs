@@ -19,7 +19,13 @@ public class Program
     {
         if (args.Length > 0 && string.Equals(args[0], "export", StringComparison.Ordinal))
         {
-            return ExportData(args.Length > 1 ? args[1] : "test-fixtures/provider-data.json");
+            var exportPath = ValidateFixturePath(args.Length > 1 ? args[1] : "test-fixtures/provider-data.json");
+            if (exportPath == null)
+            {
+                return 1;
+            }
+
+            return ExportData(exportPath);
         }
 
         if (args.Length > 0 && string.Equals(args[0], "stats", StringComparison.Ordinal))
@@ -27,7 +33,27 @@ public class Program
             return PrintStats();
         }
 
-        return SeedDatabase(args.Length > 0 ? args[0] : "test-fixtures/provider-data.json");
+        var seedPath = ValidateFixturePath(args.Length > 0 ? args[0] : "test-fixtures/provider-data.json");
+        if (seedPath == null)
+        {
+            return 1;
+        }
+
+        return SeedDatabase(seedPath);
+    }
+
+    private static string? ValidateFixturePath(string relativePath)
+    {
+        var fullPath = Path.GetFullPath(relativePath);
+        var workingDir = Path.GetFullPath(Environment.CurrentDirectory);
+
+        if (!fullPath.StartsWith(workingDir, StringComparison.OrdinalIgnoreCase))
+        {
+            Console.Error.WriteLine($"Path traversal rejected: '{relativePath}' resolves outside the working directory.");
+            return null;
+        }
+
+        return fullPath;
     }
 
     private static int PrintStats()
