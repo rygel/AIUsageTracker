@@ -6,6 +6,8 @@
 
 ### Added
 - **Pace projection badges**: 3-tier system — Headroom / On pace / Over pace — with projected end-of-period usage percentage.
+- **Burst/weekly labels on dual bars**: providers with two quota windows show labels (e.g. "5h" / "Weekly") from metadata.
+- **Stale data badge**: red "Stale" badge + dimmed card when provider data is outdated.
 - **Card Designer** in Settings → Cards: customizable card slots, presets, compact mode.
 - **Auto-collapse inactive providers** into expandable section.
 - **Configurable reset time format**: absolute or relative, per user preference.
@@ -16,7 +18,10 @@
 ### Fixed
 - **Pace calculation reworked**: simple linear projection replaces broken cubic formula. Single source of truth — no more duplicated pace math.
 - **Codex reset badge**: no longer shows Spark's reset time on the parent card.
+- **Stale detection broken**: was scanning detail-level flags instead of reading provider-level `IsStale`.
 - Multiple startup bugs fixed (DI resolution, ConfigureAwait deadlock, HTTP timeout).
+- Replaced fragile `ReferenceEquals` on catalog objects with value-based comparison.
+- Eliminated redundant catalog lookups and unused fallback chains.
 
 ### Changed
 - **~7,000 lines removed**: dead code, Polly stack, duplicate interfaces.
