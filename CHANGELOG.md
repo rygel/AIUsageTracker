@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.19] - 2026-03-22
+
+### Fixed
+- **Startup deadlock (beta.18 regression)**: ConfigureAwait(false) in UI startup moved continuation off UI thread, causing empty UI. Fixed by removing ConfigureAwait(false) from UI code path.
+- Re-enabled 7 dangerous analyzer rules that were globally suppressed. Fixed all violations in code instead of suppressing.
+- Added ConfigureAwait guardrail test — scans all WPF code-behind for ConfigureAwait(false).
+
 ## [2.3.2-beta.18] - 2026-03-22
 
 ### Performance
