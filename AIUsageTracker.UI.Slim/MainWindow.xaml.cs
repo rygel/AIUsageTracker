@@ -354,6 +354,17 @@ public partial class MainWindow : Window
                 this.PositionWindowNearTray();
             }
 
+            // Try to show cached data immediately — don't make the user wait for monitor handshake
+            this.ShowStatus("Loading...", StatusType.Info);
+            try
+            {
+                await this.FetchDataAsync(" (cached)");
+            }
+            catch
+            {
+                // Monitor may not be ready yet — that's fine, we'll retry after startup
+            }
+
             this.ShowStatus("Checking monitor status...", StatusType.Info);
 
             var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(

@@ -32,17 +32,13 @@ public sealed class MonitorStartupOrchestrator
 
         try
         {
+            // Single health check — don't redundantly read metadata + health + health again
             await this._monitorService.RefreshPortAsync().ConfigureAwait(false);
+            var isRunning = await this._monitorService.CheckHealthAsync().ConfigureAwait(false);
 
-            var monitorStatus = await this._monitorLifecycleService.GetAgentStatusInfoAsync().ConfigureAwait(false);
-            var isRunning = monitorStatus.IsRunning || await this._monitorService.CheckHealthAsync().ConfigureAwait(false);
             if (!isRunning)
             {
-                var launchMessage = string.Equals(monitorStatus.Error, "monitor-starting", StringComparison.Ordinal)
-                    ? "Monitor is starting..."
-                    : "Monitor not running. Starting monitor...";
-                await reportStatusAsync(launchMessage, StatusType.Warning).ConfigureAwait(false);
-                await reportStatusAsync("Waiting for monitor...", StatusType.Warning).ConfigureAwait(false);
+                await reportStatusAsync("Starting monitor...", StatusType.Warning).ConfigureAwait(false);
 
                 var monitorReady = await this._monitorLifecycleService.EnsureAgentRunningAsync().ConfigureAwait(false);
                 if (!monitorReady)
