@@ -245,7 +245,27 @@ public partial class MainWindow : Window
     {
         var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
         var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild);
+
+        var contextMenu = new ContextMenu();
+        var designerItem = new MenuItem { Header = "Customize card layout..." };
+        designerItem.Click += (_, _) => this.OpenCardDesigner();
+        contextMenu.Items.Add(designerItem);
+        card.ContextMenu = contextMenu;
+
         container.Children.Add(card);
+    }
+
+    private void OpenCardDesigner()
+    {
+        List<ProviderUsage> usages;
+        lock (this._dataLock)
+        {
+            usages = this._usages?.ToList() ?? new List<ProviderUsage>();
+        }
+
+        var designer = new CardDesignerWindow(this._preferences, usages);
+        designer.Owner = this;
+        designer.ShowDialog();
     }
 
     private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)
