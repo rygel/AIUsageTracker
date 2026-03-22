@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.3.2-beta.17] - 2026-03-22
+
+### Changed
+- **Card Designer inlined into Settings**: no more separate window. Cards tab has config + live preview directly. Right-click provider card opens Settings at Cards tab.
+- **Dark icon visibility**: SVG icons get a subtle white glow on dark themes so black logos are visible.
+- **Other providers section**: same indent level as regular cards.
+- **Save Preset dialog**: properly themed (was white on dark theme).
+- **Eliminated remaining duplicated logic**: masking, time formatting consolidated into PrivacyHelper and UsageMath.
+- Added theme completeness and theme application regression tests.
+
 ## [2.3.2-beta.16] - 2026-03-22
 
 ### Fixed
