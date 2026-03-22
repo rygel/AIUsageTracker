@@ -354,69 +354,62 @@ public partial class MainWindow : Window
                 this.PositionWindowNearTray();
             }
 
-            // Try to show cached data immediately — don't make the user wait for monitor handshake
+            // Fast path: try fetching data immediately. If monitor is already running,
+            // data appears in <1 second and we skip the entire orchestration/handshake.
             this.ShowStatus("Loading...", StatusType.Info);
+            var dataAvailable = false;
             try
             {
-                await this.FetchDataAsync(" (cached)");
+                await this._monitorService.RefreshPortAsync().ConfigureAwait(false);
+                await this.FetchDataAsync();
+                dataAvailable = this._usages?.Count > 0;
             }
             catch
             {
-                // Monitor may not be ready yet — that's fine, we'll retry after startup
+                // Monitor not ready — fall through to orchestrator
             }
 
-            this.ShowStatus("Checking monitor status...", StatusType.Info);
+            if (!dataAvailable)
+            {
+                // Slow path: monitor isn't running or has no data. Start it and wait.
+                this.ShowStatus("Starting monitor...", StatusType.Info);
+                var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(
+                    async (message, type) =>
+                    {
+                        await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type));
+                    });
 
-            var startupResult = await this._monitorStartupOrchestrator.EnsureMonitorReadyAsync(
-                async (message, type) =>
+                if (!startupResult.IsSuccess)
                 {
-                    await this.Dispatcher.InvokeAsync(() => this.ShowStatus(message, type));
-                });
-            var success = startupResult.IsSuccess;
+                    if (startupResult.IsLaunchFailure)
+                    {
+                        this.ShowStatus("Monitor failed to start", StatusType.Error);
+                        this.ShowErrorState(
+                            BuildMonitorErrorMessage(
+                                "Monitor failed to start.",
+                                "Please ensure AIUsageTracker.Monitor is installed and try again.",
+                                this._monitorService.LastAgentErrors));
+                    }
 
-            if (!success && startupResult.IsLaunchFailure)
-            {
-                this.ShowStatus("Monitor failed to start", StatusType.Error);
-                this.ShowErrorState(
-                    BuildMonitorErrorMessage(
-                        "Monitor failed to start.",
-                        "Please ensure AIUsageTracker.Monitor is installed and try again.",
-                        this._monitorService.LastAgentErrors));
-            }
-
-            if (success)
-            {
-                await this.UpdateMonitorToggleButtonStateAsync();
-                var handshakeResult = await this._monitorService.CheckApiContractAsync();
-                this.ApplyMonitorContractStatus(handshakeResult);
-
-                // Rapid polling at startup until data is available
-                await this.RapidPollUntilDataAvailableAsync();
-
-                // Start polling timer - UI polls Agent every minute
-                this.StartPollingTimer();
-
-                // Initialize SignalR connection for push updates
-                _ = this.InitializeSignalRAsync();
-
-                this.ShowStatus("Connected", StatusType.Success);
-            }
-            else
-            {
-                // Ensure UI shows an error state if background initialization failed
-                // and no error message was shown (e.g., due to unhandled exception in Task.Run)
-                bool hasUsages;
-                lock (this._dataLock)
-                {
-                    hasUsages = this._usages.Any();
+                    this._isLoading = false;
+                    return;
                 }
 
-                if (!hasUsages && this.ProvidersList.Children.Count <= 1)
-                {
-                    // Still showing default "Loading..." - update to error state
-                    this.ShowErrorState("Failed to connect to Monitor. Try refreshing.");
-                }
+                // Fetch data after monitor started
+                await this.FetchDataAsync();
             }
+
+            // Start background tasks (non-blocking)
+            this.StartPollingTimer();
+            _ = this.InitializeSignalRAsync();
+            _ = Task.Run(async () =>
+            {
+                // Contract check and toggle update in background — don't block UI
+                var handshakeResult = await this._monitorService.CheckApiContractAsync().ConfigureAwait(false);
+                await this.Dispatcher.InvokeAsync(() => this.ApplyMonitorContractStatus(handshakeResult));
+            });
+
+            this.ShowStatus("Connected", StatusType.Success);
         }
         catch (Exception ex)
         {
@@ -857,11 +850,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task UpdateMonitorToggleButtonStateAsync()
-    {
-        var (isRunning, _) = await this._monitorLifecycleService.IsAgentRunningWithPortAsync();
-        this.Dispatcher.Invoke(() => this.UpdateMonitorToggleButton(isRunning));
-    }
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
