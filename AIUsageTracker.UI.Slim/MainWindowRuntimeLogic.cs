@@ -469,9 +469,11 @@ internal static partial class MainWindowRuntimeLogic
     {
         ArgumentNullException.ThrowIfNull(usage);
 
+        // Only show Burst and Rolling reset times on the parent card.
+        // ModelSpecific windows (e.g. Spark) have their own child card.
         var detailResetTimes = usage.Details?
             .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-            .Where(detail => detail.QuotaBucketKind != WindowKind.None)
+            .Where(detail => detail.QuotaBucketKind is WindowKind.Burst or WindowKind.Rolling)
             .Where(detail => detail.NextResetTime.HasValue)
             .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
             .Select(detail => detail.NextResetTime!.Value)
