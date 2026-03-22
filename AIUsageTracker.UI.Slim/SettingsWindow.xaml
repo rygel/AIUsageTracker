@@ -460,330 +460,319 @@
                 <!-- Notifications Tab -->
                 <TabItem Header="Notifications">
                     <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="20">
-                            <TextBlock Text="Windows Notifications" FontWeight="Bold" FontSize="14"
-                                       Margin="0,0,0,15" Foreground="{DynamicResource PrimaryText}"/>
+                        <StackPanel Margin="20,15,20,15">
 
-                            <CheckBox x:Name="EnableWindowsNotificationsCheck"
-                                      Content="Enable Windows notifications"
-                                      Margin="0,8"
-                                      Foreground="{DynamicResource SecondaryText}"
-                                      Checked="EnableWindowsNotificationsCheck_Changed"
-                                      Unchecked="EnableWindowsNotificationsCheck_Changed"/>
-
-                            <Grid Margin="0,8">
+                            <!-- Two-column: Settings + Event Types -->
+                            <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Notify at (%)" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
-                                <TextBox x:Name="NotificationThresholdBox" Grid.Column="1" Text="90"
-                                         Background="{DynamicResource ControlBackground}"
-                                         Foreground="{DynamicResource PrimaryText}"
-                                         BorderBrush="{DynamicResource ControlBorder}"
-                                         Padding="8,5"
-                                         TextChanged="LayoutSetting_TextChanged"/>
-                            </Grid>
-
-                            <TextBlock Text="Event Types" FontWeight="Bold" FontSize="14"
-                                       Margin="0,20,0,15" Foreground="{DynamicResource PrimaryText}"/>
-
-                            <CheckBox x:Name="NotifyUsageThresholdCheck"
-                                      Content="Usage threshold reached"
-                                      Margin="0,6"
-                                      Foreground="{DynamicResource SecondaryText}"
-                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                            <CheckBox x:Name="NotifyQuotaExceededCheck"
-                                      Content="Quota exceeded or reset detected"
-                                      Margin="0,6"
-                                      Foreground="{DynamicResource SecondaryText}"
-                                      Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                            <CheckBox x:Name="NotifyProviderErrorsCheck"
-                                      Content="Provider unavailable or authentication errors (coming soon)"
-                                      Margin="0,6"
-                                      Foreground="{DynamicResource SecondaryText}"
-                                      IsEnabled="False"
-                                      ToolTip="Planned for a future update."/>
-
-                            <TextBlock Text="Quiet Hours" FontWeight="Bold" FontSize="14"
-                                       Margin="0,20,0,15" Foreground="{DynamicResource PrimaryText}"/>
-
-                            <CheckBox x:Name="EnableQuietHoursCheck"
-                                      Content="Enable quiet hours"
-                                      Margin="0,6"
-                                      Foreground="{DynamicResource SecondaryText}"
-                                      Checked="EnableWindowsNotificationsCheck_Changed"
-                                      Unchecked="EnableWindowsNotificationsCheck_Changed"/>
-
-                            <Grid Margin="0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="20"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
 
-                                <TextBlock Text="Start" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
-                                <TextBox x:Name="QuietHoursStartBox" Grid.Column="1" Text="22:00"
-                                         Background="{DynamicResource ControlBackground}"
-                                         Foreground="{DynamicResource PrimaryText}"
-                                         BorderBrush="{DynamicResource ControlBorder}"
-                                         Padding="8,5" Margin="0,0,10,0"
-                                         TextChanged="LayoutSetting_TextChanged"/>
+                                <!-- Left: General -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Notifications" FontWeight="Bold" FontSize="12"
+                                               Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                                    <CheckBox x:Name="EnableWindowsNotificationsCheck"
+                                              Content="Enable notifications"
+                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                              Checked="EnableWindowsNotificationsCheck_Changed"
+                                              Unchecked="EnableWindowsNotificationsCheck_Changed"/>
+                                    <Grid Margin="0,8,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Threshold %" VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource SecondaryText}" Margin="0,0,8,0"/>
+                                        <TextBox x:Name="NotificationThresholdBox" Grid.Column="1" Text="90"
+                                                 Background="{DynamicResource ControlBackground}"
+                                                 Foreground="{DynamicResource PrimaryText}"
+                                                 BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
+                                                 TextChanged="LayoutSetting_TextChanged"/>
+                                    </Grid>
+                                </StackPanel>
 
-                                <TextBlock Text="End" Grid.Column="2" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
-                                <TextBox x:Name="QuietHoursEndBox" Grid.Column="3" Text="07:00"
+                                <!-- Right: Event Types -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Event Types" FontWeight="Bold" FontSize="12"
+                                               Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                                    <CheckBox x:Name="NotifyUsageThresholdCheck" Content="Usage threshold reached"
+                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                                    <CheckBox x:Name="NotifyQuotaExceededCheck" Content="Quota exceeded / reset"
+                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                              Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
+                                    <CheckBox x:Name="NotifyProviderErrorsCheck" Content="Provider errors (soon)"
+                                              Margin="0,4" Foreground="{DynamicResource SecondaryText}"
+                                              IsEnabled="False"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,15,0,15"/>
+
+                            <!-- Quiet Hours -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="15"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <CheckBox x:Name="EnableQuietHoursCheck" Content="Quiet hours"
+                                          Grid.Column="0" VerticalAlignment="Center"
+                                          Foreground="{DynamicResource SecondaryText}"
+                                          Checked="EnableWindowsNotificationsCheck_Changed"
+                                          Unchecked="EnableWindowsNotificationsCheck_Changed"/>
+                                <TextBlock Text="From" Grid.Column="2" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TertiaryText}"/>
+                                <TextBox x:Name="QuietHoursStartBox" Grid.Column="4" Text="22:00"
                                          Background="{DynamicResource ControlBackground}"
                                          Foreground="{DynamicResource PrimaryText}"
-                                         BorderBrush="{DynamicResource ControlBorder}"
-                                         Padding="8,5"
+                                         BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
+                                         TextChanged="LayoutSetting_TextChanged"/>
+                                <TextBlock Text="To" Grid.Column="6" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TertiaryText}"/>
+                                <TextBox x:Name="QuietHoursEndBox" Grid.Column="8" Text="07:00"
+                                         Background="{DynamicResource ControlBackground}"
+                                         Foreground="{DynamicResource PrimaryText}"
+                                         BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
                                          TextChanged="LayoutSetting_TextChanged"/>
                             </Grid>
 
-                            <TextBlock Text="Note: provider-level 'Notify' checkboxes in the Providers tab still apply."
-                                       FontSize="11"
-                                       Margin="0,14,0,0"
-                                       Foreground="{DynamicResource TertiaryText}"
-                                       TextWrapping="Wrap"/>
+                            <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,15,0,15"/>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                                <Button Content="Send Test Notification"
-                                        Click="SendTestNotificationBtn_Click"
-                                        Padding="10,5"
+                            <!-- Test -->
+                            <DockPanel>
+                                <TextBlock x:Name="NotificationTestStatusText" DockPanel.Dock="Right"
+                                           VerticalAlignment="Center" Foreground="{DynamicResource TertiaryText}" FontSize="11"/>
+                                <Button Content="Send Test Notification" Click="SendTestNotificationBtn_Click"
+                                        Padding="12,6" MinWidth="75" MinHeight="23"
                                         Background="{DynamicResource ButtonBackground}"
                                         Foreground="{DynamicResource PrimaryText}"
-                                        Margin="0,0,10,0"/>
-                                <TextBlock x:Name="NotificationTestStatusText"
-                                           VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TertiaryText}"
-                                           FontSize="11"/>
-                            </StackPanel>
+                                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1"
+                                        HorizontalAlignment="Left" Cursor="Hand"/>
+                            </DockPanel>
+
+                            <TextBlock Text="Provider-level notify toggles in the Providers tab also apply."
+                                       FontSize="10" Margin="0,10,0,0" Foreground="{DynamicResource TertiaryText}"/>
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
                 <!-- History Tab -->
                 <TabItem Header="History">
-                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="HistoryStack" Margin="20">
-                            <!-- History Header -->
-                            <TextBlock Text="Usage History" FontWeight="Bold" FontSize="14" 
-                                       Margin="0,0,0,15" Foreground="{DynamicResource PrimaryText}"/>
-                            
-                            <TextBlock Text="Raw historical data from the monitor (last 24 hours)" 
-                                       FontSize="11" Foreground="{DynamicResource SecondaryText}" 
-                                       Margin="0,0,0,15"/>
-                            
-                            <!-- Refresh History Button -->
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                                <Button Content="Refresh" Click="RefreshHistoryBtn_Click" 
-                                        Padding="10,5" Background="{DynamicResource ButtonBackground}"
-                                        Foreground="{DynamicResource PrimaryText}"
-                                        Margin="0,0,10,0"/>
-                                <Button Content="Clear History" Click="ClearHistoryBtn_Click" 
-                                        Padding="10,5" Background="{DynamicResource ButtonBackground}"
-                                        Foreground="{DynamicResource PrimaryText}"/>
-                            </StackPanel>
-                            
-                            <!-- History Data Grid -->
-                            <Border Background="{DynamicResource CardBackground}" 
-                                    BorderBrush="{DynamicResource CardBorder}" 
-                                    BorderThickness="1" 
-                                    CornerRadius="4">
-                                <DataGrid x:Name="HistoryDataGrid"
-                                          AutoGenerateColumns="False"
-                                          HeadersVisibility="Column"
-                                          GridLinesVisibility="Horizontal"
-                                          Background="Transparent"
-                                          RowBackground="{DynamicResource CardBackground}"
-                                          AlternatingRowBackground="{DynamicResource ControlBackground}"
-                                          BorderThickness="0"
-                                          IsReadOnly="True"
-                                          CanUserAddRows="False"
-                                          CanUserDeleteRows="False"
-                                          CanUserReorderColumns="True"
-                                          CanUserResizeColumns="True"
-                                          CanUserSortColumns="True"
-                                          VirtualizingPanel.IsVirtualizing="True"
-                                          VirtualizingPanel.VirtualizationMode="Recycling"
-                                          EnableRowVirtualization="True"
-                                          Height="400">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Provider" Binding="{Binding ProviderName}" Width="120"/>
-                                        <DataGridTextColumn Header="Usage %" Binding="{Binding UsagePercentage, StringFormat=F1}" Width="70"/>
-                                        <DataGridTextColumn Header="Cost Used" Binding="{Binding Used, StringFormat=F2}" Width="80"/>
-                                        <DataGridTextColumn Header="Cost Limit" Binding="{Binding Limit, StringFormat=F2}" Width="80"/>
-                                        <DataGridTextColumn Header="Type" Binding="{Binding PlanType}" Width="80"/>
-                                        <DataGridTextColumn Header="Status" Binding="{Binding Description}" Width="150"/>
-                                        <DataGridTextColumn Header="Fetched At" Binding="{Binding FetchedAt, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="140"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Border>
+                    <Grid Margin="20,15,20,15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel x:Name="HistoryStack" Grid.Row="0">
+                            <DockPanel Margin="0,0,0,10">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                                    <Button Content="Refresh" Click="RefreshHistoryBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23" Margin="0,0,8,0"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                                    <Button Content="Clear" Click="ClearHistoryBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="Usage History" FontWeight="Bold" FontSize="12"
+                                               Foreground="{DynamicResource PrimaryText}"/>
+                                    <TextBlock Text="Raw data from the monitor (last 24 hours)"
+                                               FontSize="10" Foreground="{DynamicResource TertiaryText}" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </DockPanel>
                         </StackPanel>
-                    </ScrollViewer>
+                            
+                        <Border Grid.Row="1" Background="{DynamicResource CardBackground}"
+                                BorderBrush="{DynamicResource CardBorder}"
+                                BorderThickness="1" CornerRadius="4">
+                            <DataGrid x:Name="HistoryDataGrid"
+                                      AutoGenerateColumns="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      Background="Transparent"
+                                      RowBackground="{DynamicResource CardBackground}"
+                                      AlternatingRowBackground="{DynamicResource ControlBackground}"
+                                      BorderThickness="0"
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      CanUserReorderColumns="True"
+                                      CanUserResizeColumns="True"
+                                      CanUserSortColumns="True"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      EnableRowVirtualization="True">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Provider" Binding="{Binding ProviderName}" Width="120"/>
+                                    <DataGridTextColumn Header="Usage %" Binding="{Binding UsagePercentage, StringFormat=F1}" Width="70"/>
+                                    <DataGridTextColumn Header="Cost Used" Binding="{Binding Used, StringFormat=F2}" Width="80"/>
+                                    <DataGridTextColumn Header="Cost Limit" Binding="{Binding Limit, StringFormat=F2}" Width="80"/>
+                                    <DataGridTextColumn Header="Type" Binding="{Binding PlanType}" Width="80"/>
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Description}" Width="150"/>
+                                    <DataGridTextColumn Header="Fetched At" Binding="{Binding FetchedAt, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="140"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </Grid>
                 </TabItem>
 
                 <!-- Data Tab -->
                 <TabItem Header="Data">
-                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="DataStack" Margin="20">
-                            <!-- Export Section -->
-                            <TextBlock Text="Export &amp; Backup" FontWeight="Bold" FontSize="14" 
-                                       Margin="0,0,0,15" Foreground="{DynamicResource PrimaryText}"/>
-                            
-                            <Border Background="{DynamicResource CardBackground}" 
-                                    BorderBrush="{DynamicResource CardBorder}" 
-                                    BorderThickness="1" 
-                                    CornerRadius="4" 
-                                    Padding="15" 
-                                    Margin="0,0,0,15">
-                                <StackPanel>
-                                    <TextBlock Text="Export your usage data or create a database backup." 
-                                               Foreground="{DynamicResource SecondaryText}" 
-                                               Margin="0,0,0,15" TextWrapping="Wrap"/>
-                                    
-                                    <WrapPanel>
-                                        <Button x:Name="ExportCsvBtn" Content="Export CSV" 
-                                                Click="ExportCsvBtn_Click" Margin="0,0,10,10"
-                                                Padding="12,6" Background="{DynamicResource ButtonBackground}"
-                                                Foreground="{DynamicResource PrimaryText}"/>
-                                        <Button x:Name="ExportJsonBtn" Content="Export JSON" 
-                                                Click="ExportJsonBtn_Click" Margin="0,0,10,10"
-                                                Padding="12,6" Background="{DynamicResource ButtonBackground}"
-                                                Foreground="{DynamicResource PrimaryText}"/>
-                                        <Button x:Name="BackupDbBtn" Content="Backup Database" 
-                                                Click="BackupDbBtn_Click" Margin="0,0,10,10"
-                                                Padding="12,6" Background="{DynamicResource ButtonBackground}"
-                                                Foreground="{DynamicResource PrimaryText}"/>
-                                    </WrapPanel>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </ScrollViewer>
+                    <StackPanel x:Name="DataStack" Margin="20,15,20,15">
+                        <TextBlock Text="Export &amp; Backup" FontWeight="Bold" FontSize="12"
+                                   Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,12"/>
+                        <WrapPanel>
+                            <Button x:Name="ExportCsvBtn" Content="Export CSV"
+                                    Click="ExportCsvBtn_Click" Margin="0,0,8,8"
+                                    Padding="12,6" MinWidth="75" MinHeight="23"
+                                    Background="{DynamicResource ButtonBackground}"
+                                    Foreground="{DynamicResource PrimaryText}"
+                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                            <Button x:Name="ExportJsonBtn" Content="Export JSON"
+                                    Click="ExportJsonBtn_Click" Margin="0,0,8,8"
+                                    Padding="12,6" MinWidth="75" MinHeight="23"
+                                    Background="{DynamicResource ButtonBackground}"
+                                    Foreground="{DynamicResource PrimaryText}"
+                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                            <Button x:Name="BackupDbBtn" Content="Backup Database"
+                                    Click="BackupDbBtn_Click" Margin="0,0,8,8"
+                                    Padding="12,6" MinWidth="75" MinHeight="23"
+                                    Background="{DynamicResource ButtonBackground}"
+                                    Foreground="{DynamicResource PrimaryText}"
+                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                        </WrapPanel>
+                    </StackPanel>
                 </TabItem>
 
                 <!-- Monitor Tab -->
                 <TabItem Header="Monitor">
-                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel x:Name="MonitorStack" Margin="20">
-                            <!-- Monitor Status -->
-                            <TextBlock Text="Monitor Status" FontWeight="Bold" FontSize="14" 
-                                       Margin="0,0,0,15" Foreground="{DynamicResource PrimaryText}"/>
-                            
-                            <Border Background="{DynamicResource CardBackground}" 
-                                    BorderBrush="{DynamicResource CardBorder}" 
-                                    BorderThickness="1" 
-                                    CornerRadius="4" 
-                                    Padding="15" 
-                                    Margin="0,0,0,15">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    
-                                    <TextBlock Text="Status:" FontWeight="SemiBold" 
-                                               Foreground="{DynamicResource SecondaryText}" 
-                                               Margin="0,0,10,8" Grid.Row="0" Grid.Column="0"/>
-                                    <TextBlock x:Name="MonitorStatusText" Text="Checking..." 
-                                               Foreground="{DynamicResource PrimaryText}" 
-                                               Grid.Row="0" Grid.Column="1"/>
-                                    
-                                    <TextBlock Text="Port:" FontWeight="SemiBold" 
-                                               Foreground="{DynamicResource SecondaryText}" 
-                                               Margin="0,0,10,8" Grid.Row="1" Grid.Column="0"/>
-                                    <TextBlock x:Name="MonitorPortText" Text="5000" 
-                                               Foreground="{DynamicResource PrimaryText}" 
-                                               Grid.Row="1" Grid.Column="1"/>
-                                    
-                                    <TextBlock Text="Auto-Start:" FontWeight="SemiBold" 
-                                               Foreground="{DynamicResource SecondaryText}" 
-                                               Margin="0,0,10,0" Grid.Row="2" Grid.Column="0"/>
-                                    <CheckBox x:Name="AutoStartMonitorCheck" Content="Start Monitor automatically" 
-                                              IsChecked="True"
-                                              Foreground="{DynamicResource SecondaryText}" 
-                                              Grid.Row="2" Grid.Column="1"/>
-                                </Grid>
-                            </Border>
+                    <Grid Margin="20,15,20,15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
 
-                            <!-- Monitor Actions -->
-                            <TextBlock Text="Actions" FontWeight="Bold" FontSize="14" 
-                                       Margin="0,20,0,15" Foreground="{DynamicResource PrimaryText}"/>
-                            
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-                                <Button Content="Restart Monitor" Click="RestartMonitorBtn_Click" 
-                                        Padding="12,6" Background="{DynamicResource ButtonBackground}"
-                                        Foreground="{DynamicResource PrimaryText}"
-                                        Margin="0,0,10,0"/>
-                                <Button Content="Check Health" Click="CheckHealthBtn_Click" 
-                                        Padding="12,6" Background="{DynamicResource ButtonBackground}"
-                                        Foreground="{DynamicResource PrimaryText}"
-                                        Margin="0,0,10,0"/>
-                                <Button Content="Export Diagnostics" Click="ExportDiagnosticsBtn_Click"
-                                        Padding="12,6" Background="{DynamicResource ButtonBackground}"
-                                        Foreground="{DynamicResource PrimaryText}"/>
-                            </StackPanel>
+                        <StackPanel x:Name="MonitorStack" Grid.Row="0">
+                            <!-- Status + Actions on one line -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="20"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
 
-                            <!-- Monitor Logs -->
-                            <TextBlock Text="Logs" FontWeight="Bold" FontSize="14" 
-                                       Margin="0,20,0,15" Foreground="{DynamicResource PrimaryText}"/>
-                            
-                            <Border Background="{DynamicResource ControlBackground}" 
-                                    BorderBrush="{DynamicResource ControlBorder}" 
-                                    BorderThickness="1" 
-                                    CornerRadius="4" 
-                                    Height="150">
-                                <TextBox x:Name="MonitorLogsText" 
-                                         IsReadOnly="True"
-                                         Background="Transparent"
-                                         Foreground="{DynamicResource SecondaryText}"
-                                         FontFamily="Consolas"
-                                         FontSize="10"
-                                         Padding="10"
-                                         TextWrapping="Wrap"
-                                         VerticalScrollBarVisibility="Auto"/>
-                            </Border>
+                                <!-- Left: Status -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Status" FontWeight="Bold" FontSize="12"
+                                               Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Status:" Foreground="{DynamicResource SecondaryText}"
+                                                   Margin="0,0,8,4"/>
+                                        <TextBlock x:Name="MonitorStatusText" Text="Checking..."
+                                                   Foreground="{DynamicResource PrimaryText}" Grid.Column="1"/>
+                                        <TextBlock Text="Port:" Grid.Row="1" Foreground="{DynamicResource SecondaryText}"
+                                                   Margin="0,0,8,0"/>
+                                        <TextBlock x:Name="MonitorPortText" Text="5000" Grid.Row="1" Grid.Column="1"
+                                                   Foreground="{DynamicResource PrimaryText}"/>
+                                    </Grid>
+                                    <CheckBox x:Name="AutoStartMonitorCheck" Content="Auto-start Monitor"
+                                              IsChecked="True" Margin="0,8,0,0"
+                                              Foreground="{DynamicResource SecondaryText}"/>
+                                </StackPanel>
+
+                                <!-- Right: Actions -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Actions" FontWeight="Bold" FontSize="12"
+                                               Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                                    <Button Content="Restart Monitor" Click="RestartMonitorBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23" Margin="0,0,0,4"
+                                            HorizontalAlignment="Stretch"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                                    <Button Content="Check Health" Click="CheckHealthBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23" Margin="0,0,0,4"
+                                            HorizontalAlignment="Stretch"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                                    <Button Content="Export Diagnostics" Click="ExportDiagnosticsBtn_Click"
+                                            Padding="12,6" MinWidth="75" MinHeight="23"
+                                            HorizontalAlignment="Stretch"
+                                            Background="{DynamicResource ButtonBackground}"
+                                            Foreground="{DynamicResource PrimaryText}"
+                                            BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Cursor="Hand"/>
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
-                    </ScrollViewer>
+
+                        <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderColor}" Margin="0,15,0,10"/>
+
+                        <TextBlock Grid.Row="2" Text="Logs" FontWeight="Bold" FontSize="12"
+                                   Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,8"/>
+
+                        <Border Grid.Row="3" Background="{DynamicResource ControlBackground}"
+                                BorderBrush="{DynamicResource ControlBorder}"
+                                BorderThickness="1" CornerRadius="4">
+                            <TextBox x:Name="MonitorLogsText"
+                                     IsReadOnly="True" Background="Transparent"
+                                     Foreground="{DynamicResource SecondaryText}"
+                                     FontFamily="Consolas" FontSize="10"
+                                     Padding="8" TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Auto"/>
+                        </Border>
+                    </Grid>
                 </TabItem>
 
                 <!-- Updates Tab -->
                 <TabItem Header="Updates">
-                    <ScrollViewer Padding="0" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="20">
-                            <TextBlock Text="Update Channel" FontWeight="Bold" FontSize="14" 
-                                       Margin="0,0,0,15" Foreground="{DynamicResource PrimaryText}"/>
-                            
-                            <Grid Margin="0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Channel" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
-                                <ComboBox x:Name="UpdateChannelCombo" Grid.Column="1"
-                                          SelectionChanged="UpdateChannelCombo_SelectionChanged"
-                                          Background="{DynamicResource ControlBackground}"
-                                          Foreground="{DynamicResource PrimaryText}"
-                                           BorderBrush="{DynamicResource ControlBorder}"
-                                           Height="24"/>
-                            </Grid>
-                            
-                            <TextBlock Text="Stable: Well-tested releases for production use" 
-                                       FontSize="11" Foreground="{DynamicResource SecondaryText}" Margin="0,5,0,0"/>
-                            <TextBlock Text="Beta: Early access to new features, may have bugs" 
-                                       FontSize="11" Foreground="{DynamicResource SecondaryText}" Margin="0,2,0,0"/>
-                        </StackPanel>
-                    </ScrollViewer>
+                    <StackPanel Margin="20,15,20,15">
+                        <TextBlock Text="Update Channel" FontWeight="Bold" FontSize="12"
+                                   Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="200"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Channel" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryText}" Margin="0,0,10,0"/>
+                            <ComboBox x:Name="UpdateChannelCombo" Grid.Column="1" Height="24"
+                                      SelectionChanged="UpdateChannelCombo_SelectionChanged"
+                                      Background="{DynamicResource ControlBackground}"
+                                      Foreground="{DynamicResource PrimaryText}"
+                                      BorderBrush="{DynamicResource ControlBorder}"/>
+                        </Grid>
+                        <TextBlock FontSize="10" Foreground="{DynamicResource TertiaryText}" Margin="0,10,0,0"
+                                   TextWrapping="Wrap"
+                                   Text="Stable = well-tested releases. Beta = early access, may have bugs."/>
+                    </StackPanel>
                 </TabItem>
             </TabControl>
 
