@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Providers;
 using Microsoft.Extensions.Logging;
 
@@ -360,7 +361,7 @@ public partial class SettingsWindow
         var accountInfo = usage?.AccountName;
         var hasAccountInfo = !string.IsNullOrWhiteSpace(accountInfo) && accountInfo is not ("Unknown" or "User");
         var displayAccount = hasAccountInfo
-            ? (isPrivacyMode ? MaskAccountIdentifier(accountInfo!) : accountInfo!)
+            ? (isPrivacyMode ? PrivacyHelper.MaskAccountIdentifier(accountInfo!) : accountInfo!)
             : "No account detected";
         var secondaryLines = new List<StatusSecondaryLine>();
         var antigravitySubmodels = usage?.Details?
@@ -401,7 +402,7 @@ public partial class SettingsWindow
             : !hasUsername
                 ? "Authenticated"
                 : isPrivacyMode
-                    ? $"Authenticated ({MaskAccountIdentifier(username!)})"
+                    ? $"Authenticated ({PrivacyHelper.MaskAccountIdentifier(username!)})"
                     : $"Authenticated ({username})";
 
         return new StatusPanelPresentation(
@@ -468,61 +469,13 @@ public partial class SettingsWindow
         if (!string.IsNullOrWhiteSpace(accountName))
         {
             return isPrivacyMode
-                ? $"Authenticated ({MaskAccountIdentifier(accountName)})"
+                ? $"Authenticated ({PrivacyHelper.MaskAccountIdentifier(accountName)})"
                 : $"Authenticated ({accountName})";
         }
 
         return hasSessionToken && isUsageAvailable != true
             ? $"Authenticated via {providerSessionLabel} - refresh to load quota"
             : $"Authenticated via {providerSessionLabel}";
-    }
-
-    private static string MaskAccountIdentifier(string input)
-    {
-        if (string.IsNullOrWhiteSpace(input))
-        {
-            return input;
-        }
-
-        var atIndex = input.IndexOf('@');
-        if (atIndex > 0 && atIndex < input.Length - 1)
-        {
-            var localPart = input[..atIndex];
-            var domainPart = input[(atIndex + 1)..];
-            var maskedDomainChars = domainPart.ToCharArray();
-            for (var i = 0; i < maskedDomainChars.Length; i++)
-            {
-                if (maskedDomainChars[i] != '.')
-                {
-                    maskedDomainChars[i] = '*';
-                }
-            }
-
-            var maskedDomain = new string(maskedDomainChars);
-            if (localPart.Length <= 2)
-            {
-                return $"{new string('*', localPart.Length)}@{maskedDomain}";
-            }
-
-            return $"{localPart[0]}{new string('*', localPart.Length - 2)}{localPart[^1]}@{maskedDomain}";
-        }
-
-        return MaskString(input);
-    }
-
-    private static string MaskString(string input)
-    {
-        if (string.IsNullOrEmpty(input))
-        {
-            return input;
-        }
-
-        if (input.Length <= 2)
-        {
-            return new string('*', input.Length);
-        }
-
-        return input[0] + new string('*', input.Length - 2) + input[^1];
     }
 
     private StackPanel BuildProviderHeader(ProviderConfig config, ProviderSettingsBehavior settingsBehavior, bool isDerived)

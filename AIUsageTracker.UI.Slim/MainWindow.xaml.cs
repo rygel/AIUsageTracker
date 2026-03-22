@@ -754,28 +754,6 @@ public partial class MainWindow : Window
         return $"{heading}\n\nMonitor reported:\n{details}\n\n{fallbackDetails}";
     }
 
-    private static string FormatRelativeTimeUntil(DateTime nextReset, DateTime now)
-    {
-        var diff = nextReset - now;
-
-        if (diff.TotalSeconds <= 0)
-        {
-            return "0m";
-        }
-
-        if (diff.TotalDays >= 1)
-        {
-            return $"{diff.Days}d {diff.Hours}h";
-        }
-
-        if (diff.TotalHours >= 1)
-        {
-            return $"{diff.Hours}h {diff.Minutes}m";
-        }
-
-        return $"{Math.Max(1, (int)Math.Ceiling(diff.TotalMinutes))}m";
-    }
-
     private static string? ParsePrereleaseLabel(string? informationalVersion)
     {
         if (string.IsNullOrWhiteSpace(informationalVersion))

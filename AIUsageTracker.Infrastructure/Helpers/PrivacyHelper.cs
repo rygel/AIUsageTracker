@@ -92,6 +92,43 @@ public static partial class PrivacyHelper
         return MaskString(path);
     }
 
+    /// <summary>
+    /// Masks an account identifier. If it looks like an email, the local and domain parts
+    /// are masked separately (preserving dots in the domain). Otherwise falls back to <see cref="MaskString"/>.
+    /// </summary>
+    public static string MaskAccountIdentifier(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return input;
+        }
+
+        var atIndex = input.IndexOf('@');
+        if (atIndex > 0 && atIndex < input.Length - 1)
+        {
+            var localPart = input[..atIndex];
+            var domainPart = input[(atIndex + 1)..];
+            var maskedDomainChars = domainPart.ToCharArray();
+            for (var i = 0; i < maskedDomainChars.Length; i++)
+            {
+                if (maskedDomainChars[i] != '.')
+                {
+                    maskedDomainChars[i] = '*';
+                }
+            }
+
+            var maskedDomain = new string(maskedDomainChars);
+            if (localPart.Length <= 2)
+            {
+                return $"{new string('*', localPart.Length)}@{maskedDomain}";
+            }
+
+            return $"{localPart[0]}{new string('*', localPart.Length - 2)}{localPart[^1]}@{maskedDomain}";
+        }
+
+        return MaskString(input);
+    }
+
     [GeneratedRegex(@"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex EmailRegex();
 }

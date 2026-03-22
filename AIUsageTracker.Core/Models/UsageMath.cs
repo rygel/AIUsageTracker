@@ -344,6 +344,19 @@ public static class UsageMath
     }
 
     /// <summary>
+    /// Returns the pace badge text for an already-computed projected percent.
+    /// </summary>
+    public static string? GetPaceBadgeText(double projectedPercent)
+    {
+        if (projectedPercent >= 100.0)
+        {
+            return "Over pace";
+        }
+
+        return projectedPercent < 90.0 ? "On pace" : null;
+    }
+
+    /// <summary>
     /// Returns the pace-adjusted color percent for a provider. Single source of truth.
     /// </summary>
     public static double GetColorIndicatorPercent(

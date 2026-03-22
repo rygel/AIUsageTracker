@@ -225,19 +225,5 @@ public class PaceCalculationEndToEndTests
         Assert.Equal(50.0, projected, precision: 1);
     }
 
-    /// <summary>
-    /// Mirrors the GetPaceBadgeText logic from ProviderCardViewModel:
-    ///   projected >= 100 → "Over pace"
-    ///   projected &lt; 90  → "On pace"
-    ///   otherwise        → null (no badge)
-    /// </summary>
-    private static string? DeterminePaceBadge(double projected)
-    {
-        if (projected >= 100.0)
-        {
-            return "Over pace";
-        }
-
-        return projected < 90.0 ? "On pace" : null;
-    }
+    private static string? DeterminePaceBadge(double projected) => UsageMath.GetPaceBadgeText(projected);
 }

@@ -13,6 +13,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.UI.Slim.Services;
 using Microsoft.Extensions.Logging;
 
@@ -122,9 +123,9 @@ public partial class InfoDialog : Window
     {
         if (this._isPrivacyMode)
         {
-            this.UserNameText.Text = this.MaskString(this._realUserName ?? "User");
-            this.ConfigDirText.Text = this.MaskPath(this._realConfigDir ?? "Path");
-            this.DataDirText.Text = this.MaskPath(this._realDataDir ?? "Path");
+            this.UserNameText.Text = PrivacyHelper.MaskString(this._realUserName ?? "User");
+            this.ConfigDirText.Text = PrivacyHelper.MaskPath(this._realConfigDir ?? "Path");
+            this.DataDirText.Text = PrivacyHelper.MaskPath(this._realDataDir ?? "Path");
             this.PrivacyBtn.Foreground = Brushes.Gold;
         }
         else
@@ -134,34 +135,6 @@ public partial class InfoDialog : Window
             this.DataDirText.Text = this._realDataDir;
             this.PrivacyBtn.Foreground = Brushes.Gray;
         }
-    }
-
-    // Helper methods for masking (since we don't reference Infrastructure directly in some Slim logic ideally)
-    // Or we could duplicate the PrivacyHelper logic here to keep Slim independent
-    private string MaskString(string input)
-    {
-        if (string.IsNullOrEmpty(input))
-        {
-            return input;
-        }
-
-        if (input.Length <= 2)
-        {
-            return "**";
-        }
-
-        return input.Substring(0, 1) + new string('*', Math.Min(input.Length - 2, 5)) + input.Substring(input.Length - 1);
-    }
-
-    private string MaskPath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            return path;
-        }
-
-        var filename = Path.GetFileName(path);
-        return Path.Combine("C:\\Users\\***\\...", filename);
     }
 
     private void OnPrivacyChanged(object? sender, PrivacyChangedEventArgs e)

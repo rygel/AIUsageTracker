@@ -288,7 +288,7 @@ public partial class MainWindow : Window
             this._createProviderIcon,
             this.CreateTopmostAwareToolTip,
             this.ConfigureCardToolTip,
-            nextReset => FormatRelativeTimeUntil(nextReset, DateTime.Now));
+            UsageMath.FormatRelativeTime);
     }
 
     private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
