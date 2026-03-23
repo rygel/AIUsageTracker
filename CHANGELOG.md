@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.1] - 2026-03-23
+
+### Fixed
+- **Stale badge missing on parent providers**: providers like Antigravity that fetch successfully but have all-stale child data now show the stale badge.
+
 ## [2.3.3] - 2026-03-22
 
 ### Added
