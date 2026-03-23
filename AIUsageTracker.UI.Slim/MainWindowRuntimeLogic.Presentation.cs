@@ -38,7 +38,12 @@ internal static partial class MainWindowRuntimeLogic
         bool showUsed)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var isStale = usage.IsStale;
+        // Provider-level IsStale covers providers with old FetchedAt.
+        // Detail-level IsStale covers parents that fetch successfully but whose
+        // child data is old (e.g. Antigravity "Application not running" — parent
+        // refreshes every cycle, but model details are days old).
+        var isStale = usage.IsStale
+            || (usage.Details?.Count > 0 && usage.Details.All(d => d.IsStale));
         var description = usage.Description ?? string.Empty;
         var isMissing = usage.State == ProviderUsageState.Missing;
         var isConsoleCheck = usage.State == ProviderUsageState.ConsoleCheck;
