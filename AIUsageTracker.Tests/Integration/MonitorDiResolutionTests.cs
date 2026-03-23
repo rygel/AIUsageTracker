@@ -64,6 +64,16 @@ public class MonitorDiResolutionTests
         services.AddSingleton<MonitorJobScheduler>();
         services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
 
+        // Refresh sub-services (previously created by factory, now DI-registered)
+        services.AddSingleton<ProviderRefreshConfigSelector>();
+        services.AddSingleton<ProviderRefreshConfigLoadingService>();
+        services.AddSingleton<ProviderUsagePersistenceService>();
+        services.AddSingleton<ProviderConnectivityCheckService>();
+        services.AddSingleton<ProviderRefreshJobScheduler>();
+        services.AddSingleton<ProviderManagerLifecycleService>();
+        services.AddSingleton<ProviderRefreshNotificationService>();
+        services.AddSingleton<StartupSequenceService>();
+
         // Refresh service
         services.AddSingleton<ProviderRefreshService>();
 

@@ -14,6 +14,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using Microsoft.Extensions.Logging;
 
@@ -32,6 +33,7 @@ public partial class SettingsWindow : Window
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
+    private readonly Func<UpdateChannel, GitHubUpdateChecker> _createUpdateChecker;
     private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
     private readonly DispatcherTimer _autoSaveTimer;
 
@@ -48,7 +50,8 @@ public partial class SettingsWindow : Window
         MonitorLifecycleService monitorLifecycleService,
         ILogger<SettingsWindow> logger,
         UiPreferencesStore preferencesStore,
-        IAppPathProvider pathProvider)
+        IAppPathProvider pathProvider,
+        Func<UpdateChannel, GitHubUpdateChecker> createUpdateChecker)
     {
         this._autoSaveTimer = new DispatcherTimer
         {
@@ -62,6 +65,7 @@ public partial class SettingsWindow : Window
         this._logger = logger;
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
+        this._createUpdateChecker = createUpdateChecker;
         PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
         this.Closed += this.SettingsWindow_Closed;
         this.Loaded += this.SettingsWindow_Loaded;
@@ -838,6 +842,41 @@ public partial class SettingsWindow : Window
         {
             this._preferences.UpdateChannel = channel;
             this.ScheduleAutoSave();
+        }
+    }
+
+#pragma warning disable VSTHRD100 // WPF event handlers require async void signatures.
+    private async void CheckForUpdatesBtn_Click(object sender, RoutedEventArgs e)
+#pragma warning restore VSTHRD100
+    {
+        this.CheckForUpdatesBtn.IsEnabled = false;
+        this.UpdateCheckStatus.Text = "Checking...";
+        this.UpdateCheckStatus.Foreground = (Brush)this.FindResource("SecondaryText");
+
+        try
+        {
+            var channel = this._preferences.UpdateChannel;
+            var checker = this._createUpdateChecker(channel);
+            var update = await checker.CheckForUpdatesAsync();
+
+            if (update != null && !string.IsNullOrWhiteSpace(update.Version))
+            {
+                this.UpdateCheckStatus.Text = $"New version available: {update.Version}";
+                this.UpdateCheckStatus.Foreground = (Brush)this.FindResource("ProgressBarGreen");
+            }
+            else
+            {
+                this.UpdateCheckStatus.Text = "You're up to date.";
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogWarning(ex, "Manual update check failed");
+            this.UpdateCheckStatus.Text = "Check failed. Try again later.";
+        }
+        finally
+        {
+            this.CheckForUpdatesBtn.IsEnabled = true;
         }
     }
 

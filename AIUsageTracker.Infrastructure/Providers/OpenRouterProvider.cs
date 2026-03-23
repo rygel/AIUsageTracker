@@ -174,10 +174,10 @@ public class OpenRouterProvider : ProviderBase
 
                             if (DateTime.TryParse(keyData.Data.LimitReset, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt))
                             {
-                                var diff = dt.ToLocalTime() - DateTime.Now;
+                                var diff = dt - DateTime.UtcNow;
                                 if (diff.TotalSeconds > 0)
                                 {
-                                    nextResetTime = dt.ToLocalTime();
+                                    nextResetTime = dt;
                                     this._logger.LogDebug("Limit reset time parsed successfully: {ResetTime}", nextResetTime);
                                 }
                             }

@@ -419,7 +419,7 @@ public static class UsageMath
 
     public static string FormatAbsoluteTime(DateTime nextReset)
     {
-        var local = nextReset.Kind == DateTimeKind.Utc ? nextReset.ToLocalTime() : nextReset;
+        var local = AsUtc(nextReset).ToLocalTime();
         var diff = local - DateTime.Now;
         if (diff.TotalSeconds <= 0)
         {
@@ -441,13 +441,14 @@ public static class UsageMath
 
     public static string FormatAbsoluteDate(DateTime nextReset)
     {
-        var local = nextReset.Kind == DateTimeKind.Utc ? nextReset.ToLocalTime() : nextReset;
+        var local = AsUtc(nextReset).ToLocalTime();
         return $"{local:MMM d, HH:mm}";
     }
 
     public static string FormatRelativeTime(DateTime nextReset)
     {
-        var diff = nextReset - DateTime.Now;
+        var utc = AsUtc(nextReset);
+        var diff = utc - DateTime.UtcNow;
         if (diff.TotalSeconds <= 0)
         {
             return "0m";
@@ -459,6 +460,21 @@ public static class UsageMath
         }
 
         return diff.TotalHours >= 1 ? $"{diff.Hours}h {diff.Minutes}m" : $"{diff.Minutes}m";
+    }
+
+    /// <summary>
+    /// Ensures a DateTime is treated as UTC. Unspecified kinds (e.g. from database
+    /// round-trip via Dapper/SQLite) are assumed UTC. Local kinds are converted.
+    /// All internal code should use UTC; convert to local only at the display boundary.
+    /// </summary>
+    public static DateTime AsUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Unspecified => DateTime.SpecifyKind(value, DateTimeKind.Utc),
+            _ => value.ToUniversalTime(),
+        };
     }
 
     public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)
