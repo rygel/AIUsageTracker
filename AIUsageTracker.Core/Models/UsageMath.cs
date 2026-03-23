@@ -447,7 +447,8 @@ public static class UsageMath
 
     public static string FormatRelativeTime(DateTime nextReset)
     {
-        var diff = nextReset - DateTime.Now;
+        var utc = nextReset.Kind == DateTimeKind.Utc ? nextReset : nextReset.ToUniversalTime();
+        var diff = utc - DateTime.UtcNow;
         if (diff.TotalSeconds <= 0)
         {
             return "0m";
@@ -460,6 +461,7 @@ public static class UsageMath
 
         return diff.TotalHours >= 1 ? $"{diff.Hours}h {diff.Minutes}m" : $"{diff.Minutes}m";
     }
+
 
     public static BurnRateForecast CalculateBurnRateForecast(IEnumerable<ProviderUsage> history)
     {

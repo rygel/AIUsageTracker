@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Data;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
@@ -65,6 +66,43 @@ public class UsageDatabase : IUsageDatabase
     public async Task InitializeAsync()
     {
         await Task.Run(() => this.RunMigrations()).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Registers Dapper type handlers once per process. All DateTime values read from
+    /// the database are tagged Kind=Utc, matching the storage convention.
+    /// </summary>
+    static UsageDatabase()
+    {
+        SqlMapper.AddTypeHandler(new UtcDateTimeHandler());
+    }
+
+    /// <summary>
+    /// Dapper type handler that ensures all DateTime values read from SQLite are
+    /// interpreted as UTC. SQLite stores DateTime as TEXT and Dapper returns Kind=Unspecified
+    /// by default; this handler corrects that to Kind=Utc.
+    /// </summary>
+    private sealed class UtcDateTimeHandler : SqlMapper.TypeHandler<DateTime>
+    {
+        public override void SetValue(IDbDataParameter parameter, DateTime value)
+        {
+            parameter.Value = value.Kind == DateTimeKind.Utc
+                ? value.ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+                : value.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        public override DateTime Parse(object value)
+        {
+            return value switch
+            {
+                DateTime dt => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
+                string s when DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out var parsed) => parsed,
+                string s => DateTime.SpecifyKind(DateTime.Parse(s, System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc),
+                _ => DateTime.SpecifyKind(Convert.ToDateTime(value, System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc),
+            };
+        }
     }
 
     private void RunMigrations()

@@ -78,7 +78,7 @@ public class AntigravityProvider : ProviderBase
             {
                 if (this._cachedUsage != null)
                 {
-                    var timeSinceRefresh = DateTime.Now - this._cacheTimestamp;
+                    var timeSinceRefresh = DateTime.UtcNow - this._cacheTimestamp;
                     var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
                     var description = $"Last refreshed: {minutesAgo}m ago";
 
@@ -90,7 +90,7 @@ public class AntigravityProvider : ProviderBase
                             .Any(d =>
                             {
                                 var dt = d.NextResetTime!.Value;
-                                return dt <= DateTime.Now;
+                                return dt <= DateTime.UtcNow;
                             });
 
                         if (anyResetPassed)
@@ -260,7 +260,7 @@ public class AntigravityProvider : ProviderBase
             if (results.Any())
             {
                 this._cachedUsage = results.FirstOrDefault();
-                this._cacheTimestamp = DateTime.Now;
+                this._cacheTimestamp = DateTime.UtcNow;
             }
 
             // Start with just the summary
@@ -416,14 +416,13 @@ public class AntigravityProvider : ProviderBase
             return (string.Empty, null);
         }
 
-        var localReset = dt.ToLocalTime();
-        var diff = localReset - DateTime.Now;
+        var diff = dt - DateTime.UtcNow;
         if (diff.TotalSeconds <= 0)
         {
             return (string.Empty, null);
         }
 
-        return ($" (Resets: ({localReset:MMM dd HH:mm}))", localReset);
+        return ($" (Resets: ({dt:MMM dd HH:mm}))", dt);
     }
 
     private static string ResolveDisplayModelName(string label)
@@ -631,7 +630,7 @@ public class AntigravityProvider : ProviderBase
 
     private List<(int Pid, string Token, int? Port)> FindProcessInfos()
     {
-        if (DateTime.Now - this._lastProcessCheck < TimeSpan.FromSeconds(30) && this._cachedProcessInfos != null)
+        if (DateTime.UtcNow - this._lastProcessCheck < TimeSpan.FromSeconds(30) && this._cachedProcessInfos != null)
         {
             return this._cachedProcessInfos;
         }
@@ -684,7 +683,7 @@ public class AntigravityProvider : ProviderBase
             .ToList();
 
         this._cachedProcessInfos = candidates;
-        this._lastProcessCheck = DateTime.Now;
+        this._lastProcessCheck = DateTime.UtcNow;
         return candidates;
     }
 
@@ -834,7 +833,7 @@ public class AntigravityProvider : ProviderBase
         if (!minRemaining.HasValue)
         {
             this._cachedUsage = null;
-            this._cacheTimestamp = DateTime.Now;
+            this._cacheTimestamp = DateTime.UtcNow;
             return new List<ProviderUsage>
             {
                 new ProviderUsage
@@ -861,7 +860,7 @@ public class AntigravityProvider : ProviderBase
         results.Insert(0, summary);
 
         this._cachedUsage = summary;
-        this._cacheTimestamp = DateTime.Now;
+        this._cacheTimestamp = DateTime.UtcNow;
 
         return results;
     }

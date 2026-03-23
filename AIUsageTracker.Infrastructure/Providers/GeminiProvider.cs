@@ -175,7 +175,7 @@ public class GeminiProvider : ProviderBase
                 var usedPercentage = 100.0 - remainingPercentage;
 
                 var soonestBucket = allBuckets
-                    .Select(bucket => ParseResetTimeLocal(bucket.ResetTime))
+                    .Select(bucket => ParseResetTimeUtc(bucket.ResetTime))
                     .Where(reset => reset.HasValue)
                     .Select(reset => reset!.Value)
                     .OrderBy(reset => reset)
@@ -183,7 +183,7 @@ public class GeminiProvider : ProviderBase
 
                 if (soonestBucket != default)
                 {
-                    var diff = soonestBucket - DateTime.Now;
+                    var diff = soonestBucket - DateTime.UtcNow;
                     if (diff.TotalSeconds > 0)
                     {
                         mainResetStr = $" (Resets: ({soonestBucket:MMM dd HH:mm}))";
@@ -606,7 +606,7 @@ public class GeminiProvider : ProviderBase
         {
             var representative = modelGroup
                 .OrderBy(entry => entry.Bucket.RemainingFraction)
-                .ThenBy(entry => ParseResetTimeLocal(entry.Bucket.ResetTime) ?? DateTime.MaxValue)
+                .ThenBy(entry => ParseResetTimeUtc(entry.Bucket.ResetTime) ?? DateTime.MaxValue)
                 .Select(entry => entry.Bucket)
                 .FirstOrDefault();
             if (representative == null)
@@ -615,7 +615,7 @@ public class GeminiProvider : ProviderBase
             }
 
             var remainingPercent = UsageMath.ClampPercent(representative.RemainingFraction * 100.0);
-            var resetTime = ParseResetTimeLocal(representative.ResetTime);
+            var resetTime = ParseResetTimeUtc(representative.ResetTime);
             var resetSuffix = resetTime.HasValue ? $" (Resets: ({resetTime.Value:MMM dd HH:mm}))" : string.Empty;
 
             details.Add(new ProviderUsageDetail
@@ -655,7 +655,7 @@ public class GeminiProvider : ProviderBase
         return string.IsNullOrWhiteSpace(modelId) ? null : modelId;
     }
 
-    private static DateTime? ParseResetTimeLocal(string? resetTime)
+    private static DateTime? ParseResetTimeUtc(string? resetTime)
     {
         if (string.IsNullOrWhiteSpace(resetTime))
         {
@@ -667,8 +667,7 @@ public class GeminiProvider : ProviderBase
             return null;
         }
 
-        var local = parsed.ToLocalTime();
-        return local > DateTime.Now ? local : null;
+        return parsed > DateTime.UtcNow ? parsed : null;
     }
 
     private static string FormatGeminiModelDisplayName(string modelId)
