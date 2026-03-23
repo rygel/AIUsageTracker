@@ -2,6 +2,22 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.2] - 2026-03-23
+
+### Fixed
+- **Graceful shutdown via CancellationToken propagation**: in-flight provider HTTP requests are now properly cancelled during shutdown instead of being abandoned. Token threaded from job scheduler through the entire refresh pipeline to individual providers.
+- **Thread-safe ProviderManager replacement**: `Volatile.Read` / `Interlocked.Exchange` prevent race conditions when ProviderManager is swapped during concurrency adjustments.
+- **Hardcoded test credentials removed**: all `ApiKey` string literals across 22 test files replaced with `Guid.NewGuid()` to eliminate security scanner warnings.
+
+### Performance
+- **Grouped usage projection cache**: `/api/usage/grouped` endpoint caches the O(n²) projection for 30 seconds, eliminating redundant computation on repeated calls.
+- **Config and preferences in-memory cache**: disk reads eliminated for repeat calls; cache invalidates automatically on save.
+- **SignalR delta detection**: "UsageUpdated" broadcast suppressed when provider data hasn't meaningfully changed, reducing unnecessary UI updates.
+
+### Changed
+- **DI factory elimination**: `ProviderRefreshServiceFactory` removed; all sub-services registered as proper DI singletons, improving testability and lifetime management.
+- **CI diagnostics**: OpenAPI contract check now captures Monitor stdout/stderr on startup failure.
+
 ## [2.3.4-beta.1] - 2026-03-23
 
 ### Fixed
