@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class ProviderRefreshConfigLoadingService
+public sealed class ProviderRefreshConfigLoadingService
 {
     private readonly IConfigService _configService;
     private readonly IUsageDatabase _database;

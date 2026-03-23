@@ -133,11 +133,25 @@ try {
     }
 
     Write-Host "Starting Agent for live endpoint inspection..." -ForegroundColor Cyan
+    $stdoutLog = Join-Path ([System.IO.Path]::GetTempPath()) "monitor-openapi-stdout.log"
+    $stderrLog = Join-Path ([System.IO.Path]::GetTempPath()) "monitor-openapi-stderr.log"
     $agentProcess = Start-Process -FilePath $AgentExecutablePath `
         -ArgumentList "--urls", "http://localhost:5000", "--debug" `
+        -RedirectStandardOutput $stdoutLog `
+        -RedirectStandardError $stderrLog `
         -PassThru
 
-    $port = Wait-ForAgentPort -ProcessId $agentProcess.Id -TimeoutSeconds $StartupTimeoutSeconds
+    try {
+        $port = Wait-ForAgentPort -ProcessId $agentProcess.Id -TimeoutSeconds $StartupTimeoutSeconds
+    }
+    catch {
+        Write-Host "--- Monitor stdout ---" -ForegroundColor Yellow
+        if (Test-Path $stdoutLog) { Get-Content $stdoutLog | Write-Host }
+        Write-Host "--- Monitor stderr ---" -ForegroundColor Yellow
+        if (Test-Path $stderrLog) { Get-Content $stderrLog | Write-Host }
+        Write-Host "--- End Monitor output ---" -ForegroundColor Yellow
+        throw
+    }
     $diagnosticsUri = "http://localhost:$port/api/diagnostics"
 
     $diagnostics = $null

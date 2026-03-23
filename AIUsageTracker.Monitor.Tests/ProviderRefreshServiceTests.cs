@@ -17,6 +17,7 @@ using AIUsageTracker.Monitor.Services;
 using AIUsageTracker.Tests.Infrastructure;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -30,7 +31,6 @@ public class ProviderRefreshServiceTests
     private readonly Mock<ILoggerFactory> _mockLoggerFactory;
     private readonly Mock<IUsageDatabase> _mockDatabase;
     private readonly Mock<INotificationService> _mockNotificationService;
-    private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
     private readonly Mock<IAppPathProvider> _mockPathProvider;
     private readonly Mock<IHubContext<UsageHub>> _mockHubContext;
     private readonly Mock<IConfigService> _mockConfigService;
@@ -48,7 +48,6 @@ public class ProviderRefreshServiceTests
             .Returns(Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
         this._mockDatabase = new Mock<IUsageDatabase>();
         this._mockNotificationService = new Mock<INotificationService>();
-        this._mockHttpClientFactory = new Mock<IHttpClientFactory>();
         this._mockPathProvider = new Mock<IAppPathProvider>();
         this._mockHubContext = new Mock<IHubContext<UsageHub>>();
         this._mockConfigService = new Mock<IConfigService>();
@@ -79,19 +78,55 @@ public class ProviderRefreshServiceTests
         var circuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         this._providerRefreshCircuitBreakerService = new ProviderRefreshCircuitBreakerService(circuitBreakerLogger.Object);
 
-        this._service = new ProviderRefreshService(
-            this._mockLogger.Object,
-            this._mockLoggerFactory.Object,
+        var configSelector = new ProviderRefreshConfigSelector(
+            Enumerable.Empty<IProviderService>(),
+            NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configLoadingService = new ProviderRefreshConfigLoadingService(
+            this._mockConfigService.Object,
             this._mockDatabase.Object,
-            this._mockNotificationService.Object,
-            this._mockHttpClientFactory.Object,
+            configSelector,
+            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
+        var usagePersistenceService = new ProviderUsagePersistenceService(
+            this._mockDatabase.Object,
+            NullLogger<ProviderUsagePersistenceService>.Instance);
+        var processingPipeline = new ProviderUsageProcessingPipeline(
+            NullLogger<ProviderUsageProcessingPipeline>.Instance);
+        var connectivityCheckService = new ProviderConnectivityCheckService(
+            this._mockConfigService.Object,
+            processingPipeline);
+        var refreshJobScheduler = new ProviderRefreshJobScheduler(
+            this._mockJobScheduler.Object,
+            NullLogger<ProviderRefreshJobScheduler>.Instance);
+        var providerManagerLifecycle = new ProviderManagerLifecycleService(
+            NullLogger<ProviderManagerLifecycleService>.Instance,
+            this._mockLoggerFactory.Object,
             this._mockConfigService.Object,
             this._mockPathProvider.Object,
-            Enumerable.Empty<IProviderService>(),
+            Enumerable.Empty<IProviderService>());
+        var refreshNotificationService = new ProviderRefreshNotificationService(
             this._usageAlertsService,
+            this._mockHubContext.Object);
+        var startupSequenceService = new StartupSequenceService(
+            refreshJobScheduler,
+            this._mockConfigService.Object,
+            this._mockPathProvider.Object,
+            NullLogger<StartupSequenceService>.Instance);
+
+        this._service = new ProviderRefreshService(
+            this._mockLogger.Object,
+            this._mockDatabase.Object,
+            this._mockNotificationService.Object,
+            this._mockConfigService.Object,
+            this._mockPathProvider.Object,
             this._providerRefreshCircuitBreakerService,
-            this._mockJobScheduler.Object,
-            hubContext: this._mockHubContext.Object);
+            configLoadingService,
+            usagePersistenceService,
+            connectivityCheckService,
+            refreshJobScheduler,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            startupSequenceService,
+            processingPipeline);
     }
 
     [Fact]
@@ -509,7 +544,6 @@ public class ProviderRefreshServiceTests
         var logger = new Mock<ILogger<ProviderRefreshService>>();
         var database = new Mock<IUsageDatabase>();
         var notificationService = new Mock<INotificationService>();
-        var httpClientFactory = new Mock<IHttpClientFactory>();
         var configService = new Mock<IConfigService>();
         var pathProvider = new Mock<IAppPathProvider>();
         var jobScheduler = new Mock<IMonitorJobScheduler>();
@@ -521,7 +555,6 @@ public class ProviderRefreshServiceTests
             loggerFactory.Object,
             database.Object,
             notificationService.Object,
-            httpClientFactory.Object,
             configService.Object,
             pathProvider.Object,
             provider.Object,
@@ -617,7 +650,6 @@ public class ProviderRefreshServiceTests
         ILoggerFactory loggerFactory,
         IUsageDatabase database,
         INotificationService notificationService,
-        IHttpClientFactory httpClientFactory,
         IConfigService configService,
         IAppPathProvider pathProvider,
         IProviderService provider,
@@ -627,26 +659,59 @@ public class ProviderRefreshServiceTests
         var usageAlertsService = new UsageAlertsService(alertsLogger.Object, database, notificationService, configService);
         var circuitBreakerLogger = new Mock<ILogger<ProviderRefreshCircuitBreakerService>>();
         var circuitBreakerService = new ProviderRefreshCircuitBreakerService(circuitBreakerLogger.Object);
-        var jobScheduler = new Mock<IMonitorJobScheduler>();
-        jobScheduler.Setup(s => s.Enqueue(
+        var mockJobScheduler = new Mock<IMonitorJobScheduler>();
+        mockJobScheduler.Setup(s => s.Enqueue(
                 It.IsAny<string>(),
                 It.IsAny<Func<CancellationToken, Task>>(),
                 It.IsAny<MonitorJobPriority>(),
                 It.IsAny<string?>()))
             .Returns(true);
 
-        return new ProviderRefreshService(
-            logger,
-            loggerFactory,
+        var providers = new[] { provider };
+        var configSelector = new ProviderRefreshConfigSelector(
+            providers,
+            NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configLoadingService = new ProviderRefreshConfigLoadingService(
+            configService,
             database,
-            notificationService,
-            httpClientFactory,
+            configSelector,
+            NullLogger<ProviderRefreshConfigLoadingService>.Instance);
+        var usagePersistenceService = new ProviderUsagePersistenceService(
+            database,
+            NullLogger<ProviderUsagePersistenceService>.Instance);
+        var connectivityCheckService = new ProviderConnectivityCheckService(
+            configService,
+            pipeline);
+        var refreshJobScheduler = new ProviderRefreshJobScheduler(
+            mockJobScheduler.Object,
+            NullLogger<ProviderRefreshJobScheduler>.Instance);
+        var providerManagerLifecycle = new ProviderManagerLifecycleService(
+            NullLogger<ProviderManagerLifecycleService>.Instance,
+            loggerFactory,
             configService,
             pathProvider,
-            new[] { provider },
-            usageAlertsService,
+            providers);
+        var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
+        var startupSequenceService = new StartupSequenceService(
+            refreshJobScheduler,
+            configService,
+            pathProvider,
+            NullLogger<StartupSequenceService>.Instance);
+
+        return new ProviderRefreshService(
+            logger,
+            database,
+            notificationService,
+            configService,
+            pathProvider,
             circuitBreakerService,
-            jobScheduler.Object,
+            configLoadingService,
+            usagePersistenceService,
+            connectivityCheckService,
+            refreshJobScheduler,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            startupSequenceService,
             pipeline);
     }
 

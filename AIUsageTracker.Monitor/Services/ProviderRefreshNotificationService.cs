@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class ProviderRefreshNotificationService
+public sealed class ProviderRefreshNotificationService
 {
     private readonly UsageAlertsService _usageAlertsService;
     private readonly IHubContext<UsageHub>? _hubContext;

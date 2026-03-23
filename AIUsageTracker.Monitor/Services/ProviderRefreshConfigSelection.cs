@@ -6,5 +6,5 @@ using AIUsageTracker.Core.Models;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed record ProviderRefreshConfigSelection(
+public sealed record ProviderRefreshConfigSelection(
     List<ProviderConfig> ActiveConfigs);

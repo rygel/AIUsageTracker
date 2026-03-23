@@ -7,6 +7,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Xunit;
 
@@ -18,28 +19,34 @@ public class StartupAntiHammerTests
     {
         public TestableProviderRefreshService(
             ILogger<ProviderRefreshService> logger,
-            ILoggerFactory loggerFactory,
             IUsageDatabase database,
             INotificationService notificationService,
-            IHttpClientFactory httpClientFactory,
             IConfigService configService,
             IAppPathProvider pathProvider,
-            System.Collections.Generic.IEnumerable<IProviderService> providers,
-            UsageAlertsService usageAlertsService,
             ProviderRefreshCircuitBreakerService providerCircuitBreakerService,
-            IMonitorJobScheduler jobScheduler)
+            ProviderRefreshConfigLoadingService configLoadingService,
+            ProviderUsagePersistenceService usagePersistenceService,
+            ProviderConnectivityCheckService connectivityCheckService,
+            ProviderRefreshJobScheduler refreshJobScheduler,
+            ProviderManagerLifecycleService providerManagerLifecycle,
+            ProviderRefreshNotificationService refreshNotificationService,
+            StartupSequenceService startupSequenceService,
+            IProviderUsageProcessingPipeline usageProcessingPipeline)
             : base(
                 logger,
-                loggerFactory,
                 database,
                 notificationService,
-                httpClientFactory,
                 configService,
                 pathProvider,
-                providers,
-                usageAlertsService,
                 providerCircuitBreakerService,
-                jobScheduler)
+                configLoadingService,
+                usagePersistenceService,
+                connectivityCheckService,
+                refreshJobScheduler,
+                providerManagerLifecycle,
+                refreshNotificationService,
+                startupSequenceService,
+                usageProcessingPipeline)
         {
         }
 
@@ -68,7 +75,6 @@ public class StartupAntiHammerTests
         var mockLoggerFactory = new Mock<ILoggerFactory>();
         var mockDb = new Mock<IUsageDatabase>();
         var mockNotificationService = new Mock<INotificationService>();
-        var mockHttpClientFactory = new Mock<IHttpClientFactory>();
         var mockConfigService = new Mock<IConfigService>();
         var mockPathProvider = new Mock<IAppPathProvider>();
         var mockUsageAlertsLogger = new Mock<ILogger<UsageAlertsService>>();
@@ -107,18 +113,31 @@ public class StartupAntiHammerTests
                 return true;
             });
 
+        var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
+        var configSelector = new ProviderRefreshConfigSelector(Enumerable.Empty<IProviderService>(), NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, configSelector, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
+        var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
+        var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);
+        var refreshJobScheduler = new ProviderRefreshJobScheduler(mockJobScheduler.Object, NullLogger<ProviderRefreshJobScheduler>.Instance);
+        var providerManagerLifecycle = new ProviderManagerLifecycleService(NullLogger<ProviderManagerLifecycleService>.Instance, mockLoggerFactory.Object, mockConfigService.Object, mockPathProvider.Object, Enumerable.Empty<IProviderService>());
+        var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
+        var startupSequenceService = new StartupSequenceService(refreshJobScheduler, mockConfigService.Object, mockPathProvider.Object, NullLogger<StartupSequenceService>.Instance);
+
         var service = new TestableProviderRefreshService(
             mockLogger.Object,
-            mockLoggerFactory.Object,
             mockDb.Object,
             mockNotificationService.Object,
-            mockHttpClientFactory.Object,
             mockConfigService.Object,
             mockPathProvider.Object,
-            Enumerable.Empty<IProviderService>(),
-            usageAlertsService,
             providerCircuitBreakerService,
-            mockJobScheduler.Object);
+            configLoadingService,
+            usagePersistenceService,
+            connectivityCheckService,
+            refreshJobScheduler,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            startupSequenceService,
+            processingPipeline);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
@@ -139,7 +158,6 @@ public class StartupAntiHammerTests
         var mockLoggerFactory = new Mock<ILoggerFactory>();
         var mockDb = new Mock<IUsageDatabase>();
         var mockNotificationService = new Mock<INotificationService>();
-        var mockHttpClientFactory = new Mock<IHttpClientFactory>();
         var mockConfigService = new Mock<IConfigService>();
         var mockPathProvider = new Mock<IAppPathProvider>();
         var mockUsageAlertsLogger = new Mock<ILogger<UsageAlertsService>>();
@@ -179,18 +197,31 @@ public class StartupAntiHammerTests
                 return true;
             });
 
+        var processingPipeline = new ProviderUsageProcessingPipeline(NullLogger<ProviderUsageProcessingPipeline>.Instance);
+        var configSelector = new ProviderRefreshConfigSelector(Enumerable.Empty<IProviderService>(), NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var configLoadingService = new ProviderRefreshConfigLoadingService(mockConfigService.Object, mockDb.Object, configSelector, NullLogger<ProviderRefreshConfigLoadingService>.Instance);
+        var usagePersistenceService = new ProviderUsagePersistenceService(mockDb.Object, NullLogger<ProviderUsagePersistenceService>.Instance);
+        var connectivityCheckService = new ProviderConnectivityCheckService(mockConfigService.Object, processingPipeline);
+        var refreshJobScheduler = new ProviderRefreshJobScheduler(mockJobScheduler.Object, NullLogger<ProviderRefreshJobScheduler>.Instance);
+        var providerManagerLifecycle = new ProviderManagerLifecycleService(NullLogger<ProviderManagerLifecycleService>.Instance, mockLoggerFactory.Object, mockConfigService.Object, mockPathProvider.Object, Enumerable.Empty<IProviderService>());
+        var refreshNotificationService = new ProviderRefreshNotificationService(usageAlertsService);
+        var startupSequenceService = new StartupSequenceService(refreshJobScheduler, mockConfigService.Object, mockPathProvider.Object, NullLogger<StartupSequenceService>.Instance);
+
         var service = new TestableProviderRefreshService(
             mockLogger.Object,
-            mockLoggerFactory.Object,
             mockDb.Object,
             mockNotificationService.Object,
-            mockHttpClientFactory.Object,
             mockConfigService.Object,
             mockPathProvider.Object,
-            Enumerable.Empty<IProviderService>(),
-            usageAlertsService,
             providerCircuitBreakerService,
-            mockJobScheduler.Object);
+            configLoadingService,
+            usagePersistenceService,
+            connectivityCheckService,
+            refreshJobScheduler,
+            providerManagerLifecycle,
+            refreshNotificationService,
+            startupSequenceService,
+            processingPipeline);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 

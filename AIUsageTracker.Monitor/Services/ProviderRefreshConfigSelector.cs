@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class ProviderRefreshConfigSelector
+public sealed class ProviderRefreshConfigSelector
 {
     private readonly HashSet<string> _autoIncludedProviderIds;
     private readonly ILogger<ProviderRefreshConfigSelector> _logger;

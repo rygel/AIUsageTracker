@@ -6,11 +6,7 @@ using System.Diagnostics;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
-using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Infrastructure.Services;
-using AIUsageTracker.Monitor.Hubs;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -45,18 +41,19 @@ public class ProviderRefreshService : BackgroundService
 
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
-        ILoggerFactory loggerFactory,
         IUsageDatabase database,
         INotificationService notificationService,
-        IHttpClientFactory httpClientFactory,
         IConfigService configService,
         IAppPathProvider pathProvider,
-        IEnumerable<IProviderService> providers,
-        UsageAlertsService usageAlertsService,
         ProviderRefreshCircuitBreakerService providerCircuitBreakerService,
-        IMonitorJobScheduler jobScheduler,
-        IProviderUsageProcessingPipeline? usageProcessingPipeline = null,
-        IHubContext<UsageHub>? hubContext = null)
+        ProviderRefreshConfigLoadingService configLoadingService,
+        ProviderUsagePersistenceService usagePersistenceService,
+        ProviderConnectivityCheckService connectivityCheckService,
+        ProviderRefreshJobScheduler refreshJobScheduler,
+        ProviderManagerLifecycleService providerManagerLifecycle,
+        ProviderRefreshNotificationService refreshNotificationService,
+        StartupSequenceService startupSequenceService,
+        IProviderUsageProcessingPipeline usageProcessingPipeline)
     {
         this._logger = logger;
         this._database = database;
@@ -64,24 +61,14 @@ public class ProviderRefreshService : BackgroundService
         this._configService = configService;
         this._pathProvider = pathProvider;
         this._providerCircuitBreakerService = providerCircuitBreakerService;
-        var dependencies = ProviderRefreshServiceFactory.CreateDependencies(
-            loggerFactory,
-            database,
-            configService,
-            pathProvider,
-            providers,
-            usageAlertsService,
-            jobScheduler,
-            usageProcessingPipeline,
-            hubContext);
-        this._configLoadingService = dependencies.ConfigLoadingService;
-        this._usagePersistenceService = dependencies.UsagePersistenceService;
-        this._connectivityCheckService = dependencies.ConnectivityCheckService;
-        this._refreshJobScheduler = dependencies.RefreshJobScheduler;
-        this._providerManagerLifecycle = dependencies.ProviderManagerLifecycle;
-        this._refreshNotificationService = dependencies.RefreshNotificationService;
-        this._startupSequenceService = dependencies.StartupSequenceService;
-        this._usageProcessingPipeline = dependencies.UsageProcessingPipeline;
+        this._configLoadingService = configLoadingService;
+        this._usagePersistenceService = usagePersistenceService;
+        this._connectivityCheckService = connectivityCheckService;
+        this._refreshJobScheduler = refreshJobScheduler;
+        this._providerManagerLifecycle = providerManagerLifecycle;
+        this._refreshNotificationService = refreshNotificationService;
+        this._startupSequenceService = startupSequenceService;
+        this._usageProcessingPipeline = usageProcessingPipeline;
     }
 
     public bool QueueManualRefresh(

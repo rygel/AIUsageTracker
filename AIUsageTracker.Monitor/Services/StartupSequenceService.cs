@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class StartupSequenceService
+public sealed class StartupSequenceService
 {
     private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
     private readonly IConfigService _configService;

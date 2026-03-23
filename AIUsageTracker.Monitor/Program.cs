@@ -229,6 +229,14 @@ public class Program
             builder.Services.AddSingleton<MonitorJobScheduler>();
             builder.Services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<MonitorJobScheduler>());
+            builder.Services.AddSingleton<ProviderRefreshConfigSelector>();
+            builder.Services.AddSingleton<ProviderRefreshConfigLoadingService>();
+            builder.Services.AddSingleton<ProviderUsagePersistenceService>();
+            builder.Services.AddSingleton<ProviderConnectivityCheckService>();
+            builder.Services.AddSingleton<ProviderRefreshJobScheduler>();
+            builder.Services.AddSingleton<ProviderManagerLifecycleService>();
+            builder.Services.AddSingleton<ProviderRefreshNotificationService>();
+            builder.Services.AddSingleton<StartupSequenceService>();
             builder.Services.AddSingleton<ProviderRefreshService>();
             builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
 

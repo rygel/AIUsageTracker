@@ -7,7 +7,7 @@ using AIUsageTracker.Infrastructure.Configuration;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class ProviderConnectivityCheckService
+public sealed class ProviderConnectivityCheckService
 {
     private readonly IConfigService _configService;
     private readonly IProviderUsageProcessingPipeline _usageProcessingPipeline;
