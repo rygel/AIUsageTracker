@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class ProviderManagerLifecycleService : IDisposable
+public sealed class ProviderManagerLifecycleService : IDisposable
 {
     private readonly ILogger<ProviderManagerLifecycleService> _logger;
     private readonly ILoggerFactory _loggerFactory;

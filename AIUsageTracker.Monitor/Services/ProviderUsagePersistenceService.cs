@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class ProviderUsagePersistenceService
+public sealed class ProviderUsagePersistenceService
 {
     private readonly IUsageDatabase _database;
     private readonly ILogger<ProviderUsagePersistenceService> _logger;

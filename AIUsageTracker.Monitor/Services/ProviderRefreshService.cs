@@ -39,7 +39,7 @@ public class ProviderRefreshService : BackgroundService
         _debugMode = debug;
     }
 
-    internal ProviderRefreshService(
+    public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
         IUsageDatabase database,
         INotificationService notificationService,
