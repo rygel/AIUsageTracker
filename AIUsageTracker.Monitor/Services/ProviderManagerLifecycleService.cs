@@ -33,7 +33,7 @@ internal sealed class ProviderManagerLifecycleService : IDisposable
         this._providers = providers.ToList();
     }
 
-    public ProviderManager? CurrentManager => this._providerManager;
+    public ProviderManager? CurrentManager => Volatile.Read(ref this._providerManager);
 
     public int CurrentMaxConcurrency { get; private set; } = ProviderManager.DefaultMaxConcurrentProviderRequests;
 
@@ -72,9 +72,7 @@ internal sealed class ProviderManagerLifecycleService : IDisposable
             configLoader,
             this._loggerFactory.CreateLogger<ProviderManager>(),
             maxConcurrentProviderRequests);
-        var previousProviderManager = this._providerManager;
-
-        this._providerManager = newProviderManager;
+        var previousProviderManager = Interlocked.Exchange(ref this._providerManager, newProviderManager);
         this.CurrentMaxConcurrency = maxConcurrentProviderRequests;
         previousProviderManager?.Dispose();
 
@@ -89,6 +87,6 @@ internal sealed class ProviderManagerLifecycleService : IDisposable
 
     public void Dispose()
     {
-        this._providerManager?.Dispose();
+        Interlocked.Exchange(ref this._providerManager, null)?.Dispose();
     }
 }
