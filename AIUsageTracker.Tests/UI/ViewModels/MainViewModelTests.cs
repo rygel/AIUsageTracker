@@ -57,7 +57,6 @@ public class MainViewModelTests
         Assert.False(viewModel.IsPrivacyMode);
         Assert.Equal("Initializing...", viewModel.StatusMessage);
         Assert.NotNull(viewModel.Usages);
-        Assert.NotNull(viewModel.Sections);
     }
 
     [Fact]
@@ -239,120 +238,6 @@ public class MainViewModelTests
 
         // Assert
         Assert.True(viewModel.IsPrivacyMode);
-    }
-
-    [Fact]
-    public void UpdateSections_CreatesQuotaAndPaygoSections()
-    {
-        // Arrange
-        var viewModel = this.CreateViewModel();
-
-        // Use valid provider IDs from ProviderMetadataCatalog
-        var usages = new List<ProviderUsage>
-        {
-            new() { ProviderId = "codex", IsQuotaBased = true, IsAvailable = true },
-            new() { ProviderId = "antigravity", IsQuotaBased = false, IsAvailable = true },
-        };
-        var prefs = new AppPreferences
-        {
-            ShowUsedPercentages = false,
-            ColorThresholdYellow = 60,
-            ColorThresholdRed = 80,
-        };
-
-        // Act
-        viewModel.UpdateSections(usages, prefs);
-
-        // Assert
-        Assert.Equal(2, viewModel.Sections.Count);
-    }
-
-    [Fact]
-    public void UpdateSections_OnlyCreatesQuotaSection_WhenNoPaygoProviders()
-    {
-        // Arrange
-        var viewModel = this.CreateViewModel();
-
-        // Use valid provider ID from ProviderMetadataCatalog
-        var usages = new List<ProviderUsage>
-        {
-            new() { ProviderId = "codex", IsQuotaBased = true, IsAvailable = true },
-        };
-        var prefs = new AppPreferences();
-
-        // Act
-        viewModel.UpdateSections(usages, prefs);
-
-        // Assert
-        Assert.Single(viewModel.Sections);
-    }
-
-    [Fact]
-    public void UpdateSections_SetsShowUsedPercentages()
-    {
-        // Arrange
-        var viewModel = this.CreateViewModel();
-        var prefs = new AppPreferences { ShowUsedPercentages = true };
-
-        // Act
-        viewModel.UpdateSections(new List<ProviderUsage>(), prefs);
-
-        // Assert
-        Assert.True(viewModel.ShowUsedPercentages);
-    }
-
-    [Fact]
-    public void OnIsPrivacyModeChanged_UpdatesSectionCards()
-    {
-        // Arrange
-        var viewModel = this.CreateViewModel();
-
-        // Use valid provider ID from ProviderMetadataCatalog
-        var usages = new List<ProviderUsage>
-        {
-            new() { ProviderId = "codex", IsQuotaBased = true, AccountName = "user@test.com", IsAvailable = true },
-        };
-        var prefs = new AppPreferences();
-        viewModel.UpdateSections(usages, prefs);
-
-        // Act
-        viewModel.SetPrivacyMode(true);
-
-        // Assert - all cards should have privacy mode set
-        foreach (var section in viewModel.Sections)
-        {
-            foreach (var card in section.Items)
-            {
-                Assert.True(card.IsPrivacyMode);
-            }
-        }
-    }
-
-    [Fact]
-    public void OnShowUsedPercentagesChanged_UpdatesSectionCards()
-    {
-        // Arrange
-        var viewModel = this.CreateViewModel();
-
-        // Use valid provider ID from ProviderMetadataCatalog
-        var usages = new List<ProviderUsage>
-        {
-            new() { ProviderId = "codex", IsQuotaBased = true, IsAvailable = true },
-        };
-        var prefs = new AppPreferences { ShowUsedPercentages = false };
-        viewModel.UpdateSections(usages, prefs);
-
-        // Act
-        viewModel.ShowUsedPercentages = true;
-
-        // Assert - all cards should have ShowUsedPercentages set
-        foreach (var section in viewModel.Sections)
-        {
-            foreach (var card in section.Items)
-            {
-                Assert.True(card.ShowUsedPercentages);
-            }
-        }
     }
 
     [Fact]

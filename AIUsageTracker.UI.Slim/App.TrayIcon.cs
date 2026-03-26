@@ -25,6 +25,7 @@ public partial class App
     {
         var yellowThreshold = prefs?.ColorThresholdYellow ?? 60;
         var redThreshold = prefs?.ColorThresholdRed ?? 80;
+        var enablePaceAdjustment = prefs?.EnablePaceAdjustment ?? true;
         var showUsed = prefs?.PercentageDisplayMode == PercentageDisplayMode.Used;
         var showDualQuotaBars = prefs?.ShowDualQuotaBars ?? true;
         var dualQuotaSingleBarMode = prefs?.DualQuotaSingleBarMode ?? DualQuotaSingleBarMode.Rolling;
@@ -33,19 +34,23 @@ public partial class App
             configs,
             showUsed,
             showDualQuotaBars,
-            dualQuotaSingleBarMode);
+            dualQuotaSingleBarMode,
+            enablePaceAdjustment,
+            redThreshold);
 
         this.SyncProviderTrayIcons(desiredIcons, yellowThreshold, redThreshold, showUsed);
     }
 
-    private Dictionary<string, (string ToolTip, double Percentage, bool IsQuota)> BuildDesiredIcons(
+    private Dictionary<string, (string ToolTip, double FillPercent, double ColorPercent, bool IsQuota)> BuildDesiredIcons(
         IReadOnlyList<ProviderUsage> usages,
         IReadOnlyList<ProviderConfig> configs,
         bool showUsed,
         bool showDualQuotaBars,
-        DualQuotaSingleBarMode dualQuotaSingleBarMode)
+        DualQuotaSingleBarMode dualQuotaSingleBarMode,
+        bool enablePaceAdjustment,
+        int redThreshold)
     {
-        var desiredIcons = new Dictionary<string, (string ToolTip, double Percentage, bool IsQuota)>(StringComparer.OrdinalIgnoreCase);
+        var desiredIcons = new Dictionary<string, (string ToolTip, double FillPercent, double ColorPercent, bool IsQuota)>(StringComparer.OrdinalIgnoreCase);
         foreach (var config in configs)
         {
             var usage = usages.FirstOrDefault(u => u.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
@@ -59,7 +64,7 @@ public partial class App
                 !usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
             {
                 var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
-                var presentation = MainWindowRuntimeLogic.Create(usage, showUsed);
+                var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, redThreshold);
                 var statusText = presentation.StatusText;
                 if (presentation.HasDualBuckets && !showDualQuotaBars)
                 {
@@ -68,8 +73,15 @@ public partial class App
                         showUsed,
                         dualQuotaSingleBarMode);
                 }
+
                 var providerLabel = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, isQuota);
+                var colorPercent = UsageMath.ComputePaceColor(
+                    usage.UsedPercent,
+                    usage.NextResetTime,
+                    usage.PeriodDuration,
+                    redThreshold,
+                    enablePaceAdjustment).ColorPercent;
+                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, colorPercent, isQuota);
             }
 
             if (config.EnabledSubTrays == null || usage.Details == null)
@@ -97,9 +109,11 @@ public partial class App
 
                 var key = $"{config.ProviderId}:{subName}";
                 var providerLabel = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+                var subFillPercent = showUsed ? detailPresentation.UsedPercent : detailPresentation.IndicatorWidth;
                 desiredIcons[key] = (
                     $"{providerLabel} - {subName}: {detailPresentation.DisplayText}",
-                    showUsed ? detailPresentation.UsedPercent : detailPresentation.IndicatorWidth,
+                    subFillPercent,
+                    detailPresentation.UsedPercent,
                     isQuotaSub);
             }
         }
@@ -108,7 +122,7 @@ public partial class App
     }
 
     private void SyncProviderTrayIcons(
-        IReadOnlyDictionary<string, (string ToolTip, double Percentage, bool IsQuota)> desiredIcons,
+        IReadOnlyDictionary<string, (string ToolTip, double FillPercent, double ColorPercent, bool IsQuota)> desiredIcons,
         int yellowThreshold,
         int redThreshold,
         bool showUsed)
@@ -129,7 +143,7 @@ public partial class App
         {
             var key = kvp.Key;
             var info = kvp.Value;
-            var iconSource = this.GenerateUsageIcon(info.Percentage, yellowThreshold, redThreshold, showUsed, info.IsQuota);
+            var iconSource = this.GenerateUsageIcon(info.FillPercent, info.ColorPercent, yellowThreshold, redThreshold, showUsed, info.IsQuota);
 
             if (!this._providerTrayIcons.ContainsKey(key))
             {
@@ -172,7 +186,8 @@ public partial class App
     }
 
     private ImageSource GenerateUsageIcon(
-        double percentage,
+        double fillPercent,
+        double colorPercent,
         int yellowThreshold,
         int redThreshold,
         bool showUsed = false,
@@ -185,25 +200,22 @@ public partial class App
             dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(20, 20, 20)), null, new Rect(0, 0, size, size));
             dc.DrawRectangle(null, new Pen(Brushes.DimGray, 1), new Rect(0.5, 0.5, size - 1, size - 1));
 
-            var fillBrush = isQuota
-                ? (percentage < (100 - redThreshold)
-                    ? Brushes.Crimson
-                    : (percentage < (100 - yellowThreshold) ? Brushes.Gold : Brushes.MediumSeaGreen))
-                : (percentage > redThreshold
-                    ? Brushes.Crimson
-                    : (percentage > yellowThreshold ? Brushes.Gold : Brushes.MediumSeaGreen));
+            // Color is always based on pace-adjusted used percent vs thresholds
+            var fillBrush = colorPercent >= redThreshold
+                ? Brushes.Crimson
+                : (colorPercent >= yellowThreshold ? Brushes.Gold : Brushes.MediumSeaGreen);
 
             var barWidth = size - 6;
             var barHeight = size - 6;
             double fillHeight;
             if (showUsed)
             {
-                var remaining = Math.Max(0, 100.0 - percentage);
+                var remaining = Math.Max(0, 100.0 - fillPercent);
                 fillHeight = (remaining / 100.0) * barHeight;
             }
             else
             {
-                fillHeight = (percentage / 100.0) * barHeight;
+                fillHeight = (fillPercent / 100.0) * barHeight;
             }
 
             dc.DrawRectangle(fillBrush, null, new Rect(3, size - 3 - fillHeight, barWidth, fillHeight));

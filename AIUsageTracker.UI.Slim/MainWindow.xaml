@@ -23,11 +23,6 @@
                       CornerRadius="0" />
     </WindowChrome.WindowChrome>
 
-    <!-- DataTemplates are now loaded from App.xaml merged dictionaries:
-         - Resources/ProviderCardResources.xaml (SubProviderCardTemplate, ProviderCardTemplate)
-         - Resources/CollapsibleSectionResources.xaml (CollapsibleSectionTemplate)
-    -->
-
     <Border BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>

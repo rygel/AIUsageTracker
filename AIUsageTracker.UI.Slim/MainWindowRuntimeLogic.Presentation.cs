@@ -35,7 +35,8 @@ internal static partial class MainWindowRuntimeLogic
 
     public static ProviderCardPresentation Create(
         ProviderUsage usage,
-        bool showUsed)
+        bool showUsed,
+        double redThreshold = 80)
     {
         var providerId = usage.ProviderId ?? string.Empty;
         // Provider-level IsStale covers providers with old FetchedAt.
@@ -124,8 +125,8 @@ internal static partial class MainWindowRuntimeLogic
             ProviderCardStatusTone.Secondary,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryUsedPercent : (double?)null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryUsedPercent : (double?)null,
-            hasDualQuotaBucketPresentation ? ComputePaceProjectedPercent(dualQuotaBucketPresentation.PrimaryUsedPercent, dualQuotaBucketPresentation.PrimaryResetTime, dualQuotaBucketPresentation.PrimaryPeriodDuration) : (double?)null,
-            hasDualQuotaBucketPresentation ? ComputePaceProjectedPercent(dualQuotaBucketPresentation.SecondaryUsedPercent, dualQuotaBucketPresentation.SecondaryResetTime, dualQuotaBucketPresentation.SecondaryPeriodDuration) : (double?)null,
+            hasDualQuotaBucketPresentation ? UsageMath.ComputePaceColor(dualQuotaBucketPresentation.PrimaryUsedPercent, dualQuotaBucketPresentation.PrimaryResetTime, dualQuotaBucketPresentation.PrimaryPeriodDuration, redThreshold).ColorPercent : (double?)null,
+            hasDualQuotaBucketPresentation ? UsageMath.ComputePaceColor(dualQuotaBucketPresentation.SecondaryUsedPercent, dualQuotaBucketPresentation.SecondaryResetTime, dualQuotaBucketPresentation.SecondaryPeriodDuration, redThreshold).ColorPercent : (double?)null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryLabel : null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryLabel : null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryKind : (WindowKind?)null,
@@ -303,19 +304,6 @@ internal static partial class MainWindowRuntimeLogic
             DualBucketPrimaryKind: dualBucketPrimaryKind,
             DualBucketSecondaryKind: dualBucketSecondaryKind,
             IsStale: isStale);
-    }
-
-    private static double? ComputePaceProjectedPercent(double usedPercent, DateTime? resetTime, TimeSpan? periodDuration)
-    {
-        if (!resetTime.HasValue || !periodDuration.HasValue)
-        {
-            return null;
-        }
-
-        return UsageMath.CalculatePaceAdjustedColorPercent(
-            usedPercent,
-            resetTime.Value.ToUniversalTime(),
-            periodDuration.Value);
     }
 
     private static string BuildDualQuotaBucketStatusText(

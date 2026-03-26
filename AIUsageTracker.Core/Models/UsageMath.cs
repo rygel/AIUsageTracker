@@ -235,123 +235,6 @@ public static class UsageMath
     }
 
     /// <summary>
-    /// Returns a pace-adjusted color percentage for a rolling quota window.
-    /// When the user is <em>under pace</em> (using less than the time-proportional expected
-    /// amount), the returned value is reduced so the progress bar stays green/yellow rather
-    /// than triggering a red alarm solely because the raw percentage crossed a threshold.
-    /// When the user is <em>at or over pace</em>, the raw <paramref name="usedPercent"/> is
-    /// returned unchanged so genuine high-usage situations still show as expected.
-    /// </summary>
-    /// <summary>
-    /// Returns the projected end-of-period usage percentage, which is used for color thresholds.
-    /// Simple math: if you've used X% with Y% of the window elapsed, you're on track to use X/Y%.
-    /// Works for any window size (5h, 24h, 7-day, etc.).
-    /// </summary>
-    public static double CalculatePaceAdjustedColorPercent(
-        double usedPercent,
-        DateTime nextResetUtc,
-        TimeSpan periodDuration,
-        DateTime? nowUtc = null)
-    {
-        var now = nowUtc ?? DateTime.UtcNow;
-        if (periodDuration.TotalSeconds <= 0)
-        {
-            return ClampPercent(usedPercent);
-        }
-
-        // Guard against DateTime underflow when nextResetUtc is too close to MinValue
-        if (nextResetUtc.Ticks < periodDuration.Ticks)
-        {
-            return ClampPercent(usedPercent);
-        }
-
-        var periodStart = nextResetUtc - periodDuration;
-        var elapsed = now - periodStart;
-        var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / periodDuration.TotalSeconds, 0.01, 1.0);
-
-        // Project current usage rate to end of period.
-        // E.g., 73% used at 85.7% elapsed → projected 85.2% at reset.
-        // E.g., 40% used at 50% elapsed → projected 80% at reset.
-        // E.g., 20% used 1h into 5h window → projected 100% at reset.
-        var projected = usedPercent / elapsedFraction;
-        return ClampPercent(projected);
-    }
-
-    /// <summary>
-    /// Returns the projected final percentage at end of a rolling quota window, given current
-    /// usage and elapsed time. Used by the alert service to suppress false-positive notifications
-    /// when the user is under pace and the raw percentage would otherwise cross a threshold.
-    /// </summary>
-    /// <param name="usedPercent">Current used percentage (0–100).</param>
-    /// <param name="nextResetUtc">Next reset time in UTC.</param>
-    /// <param name="periodDuration">Total duration of the quota window.</param>
-    /// <param name="nowUtc">Optional override for "now" (defaults to <see cref="DateTime.UtcNow"/>).</param>
-    /// <returns>Projected end-of-period percentage, clamped to [0, 100].</returns>
-    public static double CalculateProjectedFinalPercent(
-        double usedPercent,
-        DateTime nextResetUtc,
-        TimeSpan periodDuration,
-        DateTime? nowUtc = null)
-    {
-        return Math.Clamp(CalculateProjectedFinalPercentUnclamped(usedPercent, nextResetUtc, periodDuration, nowUtc), 0d, 100d);
-    }
-
-    /// <summary>
-    /// Same as <see cref="CalculateProjectedFinalPercent"/> but without clamping to 100%.
-    /// Used by pace badge to show the actual overshoot (e.g. +4% over quota).
-    /// </summary>
-    internal static double CalculateProjectedFinalPercentUnclamped(
-        double usedPercent,
-        DateTime nextResetUtc,
-        TimeSpan periodDuration,
-        DateTime? nowUtc = null)
-    {
-        var now = nowUtc ?? DateTime.UtcNow;
-        if (periodDuration.TotalSeconds <= 0)
-        {
-            return Math.Max(0, usedPercent);
-        }
-
-        // Guard against DateTime underflow when nextResetUtc is too close to MinValue
-        if (nextResetUtc.Ticks < periodDuration.Ticks)
-        {
-            return Math.Max(0, usedPercent);
-        }
-
-        var periodStart = nextResetUtc - periodDuration;
-        var elapsed = now - periodStart;
-        var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / periodDuration.TotalSeconds, 0.01, 1.0);
-
-        return Math.Max(0, usedPercent / elapsedFraction);
-    }
-
-    /// <summary>
-    /// Returns the pace badge result for a provider. Single source of truth — all UI code calls this.
-    /// Returns null when pace info is unavailable (disabled or missing period data).
-    /// </summary>
-    public static PaceBadgeResult? GetPaceBadge(
-        double usedPercent,
-        bool enablePaceAdjustment,
-        DateTime? nextResetTime,
-        TimeSpan? periodDuration,
-        DateTime? nowUtc = null)
-    {
-        if (!enablePaceAdjustment || !periodDuration.HasValue || !nextResetTime.HasValue)
-        {
-            return null;
-        }
-
-        var nextReset = nextResetTime.Value.ToUniversalTime();
-        if (nextReset.Ticks < periodDuration.Value.Ticks)
-        {
-            return null;
-        }
-
-        var projected = CalculateProjectedFinalPercentUnclamped(usedPercent, nextReset, periodDuration.Value, nowUtc);
-        return ClassifyPace(projected);
-    }
-
-    /// <summary>
     /// Returns the pace badge result for an already-computed projected percent.
     /// </summary>
     public static PaceBadgeResult ClassifyPace(double projectedPercent)
@@ -367,46 +250,72 @@ public static class UsageMath
     }
 
     /// <summary>
-    /// Legacy wrapper — returns just the text string for backward compatibility.
+    /// Single computation of pace-adjusted color, projected percent, and pace tier.
+    /// All UI and alert code should call this instead of the individual methods.
+    /// The result guarantees that badge tier and color percent always agree.
     /// </summary>
-    public static string? GetPaceBadgeText(
+    public static PaceColorResult ComputePaceColor(
         double usedPercent,
-        bool enablePaceAdjustment,
         DateTime? nextResetTime,
         TimeSpan? periodDuration,
-        DateTime? nowUtc = null)
-    {
-        return GetPaceBadge(usedPercent, enablePaceAdjustment, nextResetTime, periodDuration, nowUtc)?.Text;
-    }
-
-    /// <summary>
-    /// Legacy wrapper — returns just the text string for an already-computed projected percent.
-    /// </summary>
-    public static string? GetPaceBadgeText(double projectedPercent)
-    {
-        return ClassifyPace(projectedPercent).Text;
-    }
-
-    /// <summary>
-    /// Returns the pace-adjusted color percent for a provider. Single source of truth.
-    /// </summary>
-    public static double GetColorIndicatorPercent(
-        double usedPercent,
-        bool enablePaceAdjustment,
-        DateTime? nextResetTime,
-        TimeSpan? periodDuration,
+        double redThreshold = 80,
+        bool enablePaceAdjustment = true,
         DateTime? nowUtc = null)
     {
         if (!enablePaceAdjustment || !periodDuration.HasValue || !nextResetTime.HasValue)
         {
-            return usedPercent;
+            return new PaceColorResult(
+                ColorPercent: ClampPercent(usedPercent),
+                PaceTier: PaceTier.OnPace,
+                ProjectedPercent: ClampPercent(usedPercent),
+                BadgeText: string.Empty,
+                ProjectedText: string.Empty,
+                IsPaceAdjusted: false);
         }
 
-        return CalculatePaceAdjustedColorPercent(
-            usedPercent,
-            nextResetTime.Value.ToUniversalTime(),
-            periodDuration.Value,
-            nowUtc);
+        var nextReset = nextResetTime.Value.ToUniversalTime();
+        var period = periodDuration.Value;
+
+        if (period.TotalSeconds <= 0 || nextReset.Ticks < period.Ticks)
+        {
+            return new PaceColorResult(
+                ColorPercent: ClampPercent(usedPercent),
+                PaceTier: PaceTier.OnPace,
+                ProjectedPercent: ClampPercent(usedPercent),
+                BadgeText: string.Empty,
+                ProjectedText: string.Empty,
+                IsPaceAdjusted: false);
+        }
+
+        var now = nowUtc ?? DateTime.UtcNow;
+        var periodStart = nextReset - period;
+        var elapsed = now - periodStart;
+        var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / period.TotalSeconds, 0.01, 1.0);
+
+        // ONE projection, used for BOTH badge and color — they can never disagree.
+        var projected = usedPercent / elapsedFraction;
+
+        // Tier classification
+        var tier = projected switch
+        {
+            >= 100.0 => PaceTier.OverPace,
+            >= 70.0 => PaceTier.OnPace,
+            _ => PaceTier.Headroom,
+        };
+
+        // Scale projected to color space: 100% projected maps to redThreshold.
+        var effectiveRedThreshold = Math.Clamp(redThreshold, 1, 100);
+        var colorPercent = ClampPercent(projected * effectiveRedThreshold / 100.0);
+
+        var badge = new PaceBadgeResult(tier, projected);
+
+        return new PaceColorResult(
+            ColorPercent: colorPercent,
+            PaceTier: tier,
+            ProjectedPercent: ClampPercent(projected),
+            BadgeText: badge.Text,
+            ProjectedText: badge.ProjectedText,
+            IsPaceAdjusted: true);
     }
 
     /// <summary>

@@ -117,6 +117,19 @@ public class AppPreferences
     /// </summary>
     public bool EnablePaceAdjustment { get; set; } = true;
 
+    // Card layout slots — configurable in Settings > Cards
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardPrimaryBadge { get; set; } = CardSlotContent.PaceBadge;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardSecondaryBadge { get; set; } = CardSlotContent.UsageRate;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardStatusLine { get; set; } = CardSlotContent.StatusText;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardResetInfo { get; set; } = CardSlotContent.ResetAbsolute;
+
     public static AppPreferences Deserialize(string json)
     {
         var preferences = JsonSerializer.Deserialize<AppPreferences>(json) ?? new AppPreferences();

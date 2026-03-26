@@ -67,6 +67,7 @@ public partial class SettingsWindow : Window
         this._preferencesStore = preferencesStore;
         this._createUpdateChecker = createUpdateChecker;
         PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
+        this.Closing += this.SettingsWindow_Closing;
         this.Closed += this.SettingsWindow_Closed;
         this.Loaded += this.SettingsWindow_Loaded;
         this.UpdatePrivacyButtonState();
@@ -313,6 +314,17 @@ public partial class SettingsWindow : Window
 
         var normalized = builder.ToString().Trim('-');
         return string.IsNullOrWhiteSpace(normalized) ? $"tab{index + 1}" : normalized;
+    }
+
+    private void SettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Ensure the main window reloads preferences regardless of how the dialog closes
+        // (Close button, X button, or Alt+F4). DialogResult can only be set before the
+        // window actually closes, and only when shown via ShowDialog().
+        if (!this.DialogResult.HasValue)
+        {
+            this.DialogResult = true;
+        }
     }
 
     private void SettingsWindow_Closed(object? sender, EventArgs e)
@@ -849,7 +861,7 @@ public partial class SettingsWindow : Window
         {
             this._autoSaveTimer.Stop();
             await this.PersistAllSettingsAsync(showErrorDialog: false);
-            this.Close();
+            this.DialogResult = true;
         }
         catch (Exception ex)
         {
@@ -874,6 +886,7 @@ public partial class SettingsWindow : Window
             this._preferences.Theme = appTheme;
             App.ApplyTheme(appTheme);
             this.ScheduleAutoSave();
+            this.RenderCardPreview();
         }
     }
 
@@ -935,7 +948,9 @@ public partial class SettingsWindow : Window
 
         this.UpdateDualQuotaControlsState();
         this.ApplyNotificationControlsState();
+        this.SyncDisplayPreferencesFromControls();
         this.ScheduleAutoSave();
+        this.RenderCardPreview();
     }
 
     private void LayoutSetting_TextChanged(object sender, TextChangedEventArgs e)
@@ -945,7 +960,37 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        this.SyncDisplayPreferencesFromControls();
         this.ScheduleAutoSave();
+        this.RenderCardPreview();
+    }
+
+    /// <summary>
+    /// Syncs display-related preferences from UI controls immediately so the card
+    /// designer preview reflects the current state without waiting for auto-save.
+    /// </summary>
+    private void SyncDisplayPreferencesFromControls()
+    {
+        this._preferences.ShowUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
+        this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
+        this._preferences.ShowDualQuotaBars = this.ShowDualQuotaBarsCheck.IsChecked ?? true;
+        if (this.DualQuotaBarWindowCombo?.SelectedValue is DualQuotaSingleBarMode dualMode)
+        {
+            this._preferences.DualQuotaSingleBarMode = dualMode;
+        }
+
+        this._preferences.EnablePaceAdjustment = this.EnablePaceAdjustmentCheck.IsChecked ?? true;
+        this._preferences.UseRelativeResetTime = this.UseRelativeResetTimeCheck.IsChecked ?? false;
+
+        if (int.TryParse(this.YellowThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var yellow))
+        {
+            this._preferences.ColorThresholdYellow = yellow;
+        }
+
+        if (int.TryParse(this.RedThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var red))
+        {
+            this._preferences.ColorThresholdRed = red;
+        }
     }
 
     private void EnableWindowsNotificationsCheck_Changed(object sender, RoutedEventArgs e)

@@ -119,10 +119,10 @@ public class UsageAlertsService
             return rawUsedPercent;
         }
 
-        return UsageMath.CalculateProjectedFinalPercent(
+        return UsageMath.ComputePaceColor(
             rawUsedPercent,
-            usage.NextResetTime.Value.ToUniversalTime(),
-            periodDuration.Value);
+            usage.NextResetTime,
+            periodDuration).ProjectedPercent;
     }
 
     private static TimeSpan? ResolvePeriodDuration(string providerId)

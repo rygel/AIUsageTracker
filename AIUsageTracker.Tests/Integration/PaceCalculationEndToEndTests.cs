@@ -52,28 +52,19 @@ public class PaceCalculationEndToEndTests
             },
         };
 
-        // Act — run through the real UsageMath pace projection
-        var projected = UsageMath.CalculateProjectedFinalPercent(
+        // Act — use the unified ComputePaceColor API
+        var paceColor = UsageMath.ComputePaceColor(
             usage.UsedPercent,
-            usage.NextResetTime!.Value.ToUniversalTime(),
-            usage.PeriodDuration!.Value,
+            usage.NextResetTime,
+            usage.PeriodDuration,
             nowUtc: now);
 
-        var paceAdjustedColor = UsageMath.CalculatePaceAdjustedColorPercent(
-            usage.UsedPercent,
-            usage.NextResetTime!.Value.ToUniversalTime(),
-            usage.PeriodDuration!.Value,
-            nowUtc: now);
-
-        // Assert
-        // 71% used in 2/7 elapsed → projected ~248%, clamped to 100%
-        Assert.True(projected >= 80, $"Projected {projected:F1}% should be >= 80% (heavily over pace)");
-        Assert.Equal(100.0, projected); // clamped
-        Assert.Equal(100.0, paceAdjustedColor);
-
-        // Badge logic: projected >= 100 → "Over pace +N%"
-        var badge = DeterminePaceBadge(projected);
-        Assert.Equal("Over pace", badge);
+        // Assert — 71% used in 2/7 elapsed → heavily over pace
+        Assert.True(paceColor.IsPaceAdjusted);
+        Assert.Equal(PaceTier.OverPace, paceColor.PaceTier);
+        Assert.Equal(100.0, paceColor.ProjectedPercent); // clamped
+        Assert.True(paceColor.ColorPercent >= 80.0, "Over pace must produce red color");
+        Assert.Equal("Over pace", paceColor.BadgeText);
     }
 
     /// <summary>
@@ -102,18 +93,13 @@ public class PaceCalculationEndToEndTests
             PeriodDuration = periodDuration,
         };
 
-        var projected = UsageMath.CalculateProjectedFinalPercent(
-            usage.UsedPercent,
-            usage.NextResetTime!.Value.ToUniversalTime(),
-            usage.PeriodDuration!.Value,
-            nowUtc: now);
+        var paceColor = UsageMath.ComputePaceColor(
+            usage.UsedPercent, usage.NextResetTime, usage.PeriodDuration, nowUtc: now);
 
         // 20% used in ~28.6% elapsed → projected ~70%
-        Assert.True(projected < 80, $"Projected {projected:F1}% should be < 80%");
-        Assert.True(projected > 50, $"Projected {projected:F1}% should be > 50% (some usage)");
-
-        var badge = DeterminePaceBadge(projected);
-        Assert.Equal("On pace", badge);
+        Assert.True(paceColor.ProjectedPercent < 80, $"Projected {paceColor.ProjectedPercent:F1}% should be < 80%");
+        Assert.True(paceColor.ProjectedPercent > 50, $"Projected {paceColor.ProjectedPercent:F1}% should be > 50%");
+        Assert.Equal("On pace", paceColor.BadgeText);
     }
 
     /// <summary>
@@ -141,17 +127,12 @@ public class PaceCalculationEndToEndTests
             PeriodDuration = periodDuration,
         };
 
-        var projected = UsageMath.CalculateProjectedFinalPercent(
-            usage.UsedPercent,
-            usage.NextResetTime!.Value.ToUniversalTime(),
-            usage.PeriodDuration!.Value,
-            nowUtc: now);
+        var paceColor = UsageMath.ComputePaceColor(
+            usage.UsedPercent, usage.NextResetTime, usage.PeriodDuration, nowUtc: now);
 
         // 60% / 0.4 = 150% clamped to 100%
-        Assert.Equal(100.0, projected);
-
-        var badge = DeterminePaceBadge(projected);
-        Assert.Equal("Over pace", badge);
+        Assert.Equal(100.0, paceColor.ProjectedPercent);
+        Assert.Equal("Over pace", paceColor.BadgeText);
     }
 
     /// <summary>
@@ -179,34 +160,37 @@ public class PaceCalculationEndToEndTests
             PeriodDuration = periodDuration,
         };
 
-        var projected = UsageMath.CalculateProjectedFinalPercent(
-            usage.UsedPercent,
-            usage.NextResetTime!.Value.ToUniversalTime(),
-            usage.PeriodDuration!.Value,
-            nowUtc: now);
+        var paceColor = UsageMath.ComputePaceColor(
+            usage.UsedPercent, usage.NextResetTime, usage.PeriodDuration, nowUtc: now);
 
         // 10% / 0.4 = 25%
-        Assert.True(projected >= 24 && projected <= 26, $"Projected {projected:F1}% should be ~25%");
-
-        var badge = DeterminePaceBadge(projected);
-        Assert.Equal("Headroom", badge);
+        Assert.True(paceColor.ProjectedPercent >= 24 && paceColor.ProjectedPercent <= 26,
+            $"Projected {paceColor.ProjectedPercent:F1}% should be ~25%");
+        Assert.Equal("Headroom", paceColor.BadgeText);
     }
 
     /// <summary>
-    /// Verifies that CalculatePaceAdjustedColorPercent and CalculateProjectedFinalPercent
-    /// produce the same value (they use identical math).
+    /// Verifies that ComputePaceColor produces consistent tier and color:
+    /// color = projected * redThreshold / 100, and tier agrees.
     /// </summary>
     [Fact]
-    public void PaceAdjustedColor_MatchesProjectedFinal()
+    public void ComputePaceColor_ColorAndTierConsistent()
     {
         var now = new DateTime(2026, 3, 21, 12, 0, 0, DateTimeKind.Utc);
         var nextResetUtc = now.AddDays(3);
         var period = TimeSpan.FromDays(7);
 
-        var color = UsageMath.CalculatePaceAdjustedColorPercent(45, nextResetUtc, period, now);
-        var projected = UsageMath.CalculateProjectedFinalPercent(45, nextResetUtc, period, now);
+        var result = UsageMath.ComputePaceColor(45, nextResetUtc, period, nowUtc: now);
 
-        Assert.Equal(projected, color, precision: 6);
+        // Color = projected * (redThreshold / 100), default redThreshold = 80
+        var expectedColor = Math.Clamp(result.ProjectedPercent * 80.0 / 100.0, 0, 100);
+        Assert.Equal(expectedColor, result.ColorPercent, precision: 6);
+
+        // If on-pace, color must be below red threshold
+        if (result.PaceTier != PaceTier.OverPace)
+        {
+            Assert.True(result.ColorPercent < 80.0);
+        }
     }
 
     /// <summary>
@@ -220,9 +204,9 @@ public class PaceCalculationEndToEndTests
         var nextResetUtc = now; // fully elapsed
         var period = TimeSpan.FromDays(7);
 
-        var projected = UsageMath.CalculateProjectedFinalPercent(50, nextResetUtc, period, now);
+        var result = UsageMath.ComputePaceColor(50, nextResetUtc, period, nowUtc: now);
 
-        Assert.Equal(50.0, projected, precision: 1);
+        Assert.Equal(50.0, result.ProjectedPercent, precision: 1);
     }
 
     [Theory]
@@ -245,32 +229,30 @@ public class PaceCalculationEndToEndTests
     }
 
     [Fact]
-    public void GetPaceBadge_WhenDisabled_ReturnsNull()
+    public void ComputePaceColor_WhenDisabled_NotPaceAdjusted()
     {
-        var result = UsageMath.GetPaceBadge(
+        var result = UsageMath.ComputePaceColor(
             50.0,
-            enablePaceAdjustment: false,
             nextResetTime: DateTime.UtcNow.AddDays(3),
-            periodDuration: TimeSpan.FromDays(7));
+            periodDuration: TimeSpan.FromDays(7),
+            enablePaceAdjustment: false);
 
-        Assert.Null(result);
+        Assert.False(result.IsPaceAdjusted);
+        Assert.Equal(string.Empty, result.BadgeText);
     }
 
     [Fact]
-    public void GetPaceBadge_WhenEnabled_ReturnsResult()
+    public void ComputePaceColor_WhenEnabled_ReturnsBadgeText()
     {
         var now = new DateTime(2026, 3, 21, 12, 0, 0, DateTimeKind.Utc);
-        var result = UsageMath.GetPaceBadge(
+        var result = UsageMath.ComputePaceColor(
             20.0,
-            enablePaceAdjustment: true,
             nextResetTime: now.AddDays(5),
             periodDuration: TimeSpan.FromDays(7),
             nowUtc: now);
 
-        Assert.NotNull(result);
-        Assert.Equal(PaceTier.OnPace, result.Value.Tier);
-        Assert.NotEmpty(result.Value.ProjectedText);
+        Assert.True(result.IsPaceAdjusted);
+        Assert.Equal(PaceTier.OnPace, result.PaceTier);
+        Assert.NotEmpty(result.ProjectedText);
     }
-
-    private static string? DeterminePaceBadge(double projected) => UsageMath.GetPaceBadgeText(projected);
 }

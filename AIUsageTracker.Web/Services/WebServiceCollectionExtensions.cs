@@ -8,6 +8,7 @@ using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Helpers;
 using AIUsageTracker.Infrastructure.Services;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Web.Services;
 
@@ -51,6 +52,10 @@ internal static class WebServiceCollectionExtensions
         services.AddSingleton<MonitorLifecycleService>();
         services.AddSingleton<MonitorProcessService>();
         services.AddSingleton<IConfigLoader, JsonConfigLoader>();
+        services.AddSingleton<IPreferencesStore>(sp =>
+            new PreferencesStore(
+                sp.GetRequiredService<ILogger<PreferencesStore>>(),
+                sp.GetRequiredService<IAppPathProvider>()));
         return services;
     }
 }

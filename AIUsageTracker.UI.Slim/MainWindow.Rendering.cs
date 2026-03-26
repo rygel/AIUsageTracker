@@ -336,8 +336,8 @@ public partial class MainWindow : Window
             this.EnsureAlwaysOnTop();
         }
 
+        this.ApplyPreferencesFromSettings();
         await this.InitializeAsync();
-        await this.ReloadPreferencesAfterSettingsAsync();
     }
 
     private ToolTip CreateTopmostAwareToolTip(FrameworkElement placementTarget, object content)

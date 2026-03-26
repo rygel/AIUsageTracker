@@ -435,19 +435,18 @@
 @functions {
     string GetUsageClass(double usage) => usage switch
     {
-        >= 80 => "danger",
-        >= 50 => "warning",
+        var u when u >= Model.ColorThresholdRed => "danger",
+        var u when u >= Model.ColorThresholdYellow => "warning",
         _ => "success"
     };
 
     string GetProgressClass(double usedPercentage)
     {
-        // Color is ALWAYS based on used percentage, regardless of toggle
-        // Green: < 50% used, Yellow: 50-90% used, Red: >= 90% used
+        // Color thresholds synchronized with desktop UI preferences
         return usedPercentage switch
         {
-            >= 90 => "high",
-            >= 50 => "medium",
+            var u when u >= Model.ColorThresholdRed => "high",
+            var u when u >= Model.ColorThresholdYellow => "medium",
             _ => "low"
         };
     }

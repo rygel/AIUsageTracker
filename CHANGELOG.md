@@ -2,14 +2,35 @@
 
 ## [Unreleased]
 
-## [2.3.4-beta.4] - 2026-03-25
+## [2.3.4-beta.5] - 2026-03-26
+
+### Fixed
+- **Pace badge / bar color disagreement**: bar color no longer turns red when the pace badge says "On pace". Both now derive from a single projection — structurally impossible to disagree.
+- **Card designer preview not updating**: changing Display Options (usage rate, dual bars, pace colours, thresholds) now immediately updates the live preview.
+- **Settings changes not applied to main window**: closing the Settings dialog (via Close button, X, or Alt+F4) now always reloads preferences. Root cause: `DialogResult` was never set, so the main window skipped the reload.
+- **Tray icon colours ignore pace adjustment**: tray icons now use the same pace-adjusted colour as the main window, respecting the user's Enable Pace-Aware Colours setting.
+- **Web dashboard uses different colour thresholds**: web UI now reads the shared `preferences.json` instead of hardcoded 50/90 values.
+- **Dual/single bar toggle not taking effect**: toggling "Show dual quota bars" in Settings now correctly switches between dual and single bar rendering after dialog close.
+
+### Added
+- **Configurable card slots**: card designer slot choices (Primary Badge, Secondary Badge, Status Line, Reset Info) are now persisted in preferences and used by the real card renderer — preview matches main window exactly.
+- **Slot rendering tests**: 8 regression tests verify that boolean toggles (ShowUsagePerHour, EnablePaceAdjustment, UseRelativeResetTime) are respected by slot-based rendering.
 
 ### Changed
-- **Pace badge delta**: projected text now shows symmetric delta — `-30%` for headroom, `+5%` for over pace — instead of verbose labels.
+- **Unified pace/colour service**: `ComputePaceColor()` replaces 5 separate methods (`CalculatePaceAdjustedColorPercent`, `GetColorIndicatorPercent`, `GetPaceBadge`, `GetPaceBadgeText`, `CalculateProjectedFinalPercent`). Single computation, consistent results.
+- **Shared preferences service**: `IPreferencesStore` + `PreferencesStore` in Core/Infrastructure replaces 3 independent file readers (Desktop `UiPreferencesStore`, Monitor `JsonConfigLoader`, Web inline `File.ReadAllText`).
+- **Card designer uses real renderer**: preview now calls `ProviderCardRenderer.CreateProviderCard()` — same rendering path as the main window. ~300 lines of duplicate card-building code deleted.
+- **Dead MVVM layer removed** (~1,700 lines): `ProviderCardViewModel`, `SubProviderCardViewModel`, `CollapsibleSectionViewModel`, `ProviderCardResources.xaml`, `CollapsibleSectionResources.xaml`, and `MainViewModel.UpdateSections` were instantiated but never connected to the UI.
+- **Settings apply without file round-trip**: main window reads `App.Preferences` in-memory instead of reloading from disk after settings close.
+
+## [2.3.4-beta.4] - 2026-03-25
+
+### Added
+- **Pace badge delta text**: pace badges now show projected delta (e.g. "+12%", "-30%") alongside the tier label.
 
 ### Dependencies
-- Bump Meziantou.Analyzer 3.0.25 → 3.0.27
-- Bump github/codeql-action 4.34.0 → 4.34.1
+- Bump Meziantou.Analyzer from 3.0.25 to 3.0.27.
+- Bump github/codeql-action from 4.34.0 to 4.34.1.
 
 ## [2.3.4-beta.3] - 2026-03-24
 
