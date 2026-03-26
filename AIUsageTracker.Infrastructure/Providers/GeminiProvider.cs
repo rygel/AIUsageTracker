@@ -139,18 +139,16 @@ public class GeminiProvider : ProviderBase
             try
             {
                 this._logger.LogDebug(
-                    "Gemini quota refresh started for account {AccountEmail} using project {ProjectId}",
-                    RedactEmail(account.Email),
+                    "Gemini quota refresh started using project {ProjectId}",
                     account.ProjectId);
                 var accessToken = await this.RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await this.FetchQuotaAsync(accessToken, account.ProjectId).ConfigureAwait(false);
                 var allBuckets = buckets ?? new List<Bucket>();
                 var modelQuotaDetails = BuildModelQuotaDetails(allBuckets);
                 this._logger.LogDebug(
-                    "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model detail(s) for {AccountEmail}: {BucketSummary}",
+                    "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model detail(s): {BucketSummary}",
                     allBuckets.Count,
                     modelQuotaDetails.Count,
-                    RedactEmail(account.Email),
                     string.Join(
                         ", ",
                         allBuckets.Select(bucket =>
@@ -211,7 +209,7 @@ public class GeminiProvider : ProviderBase
             }
             catch (Exception ex)
             {
-                this._logger.LogWarning(ex, "Failed to fetch Gemini quota for {AccountEmail}", RedactEmail(account.Email));
+                this._logger.LogWarning(ex, "Failed to fetch Gemini quota for one account");
             }
         }
 
@@ -289,8 +287,7 @@ public class GeminiProvider : ProviderBase
             }
 
             this._logger.LogDebug(
-                "Gemini CLI auth resolved account {AccountEmail} with project {ProjectId}",
-                RedactEmail(email),
+                "Gemini CLI auth resolved account with project {ProjectId}",
                 projectId);
 
             return new AntigravityAccounts
@@ -546,7 +543,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<string> DoRefreshTokenAsync(string refreshToken, string clientId, string clientSecret)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
         var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "client_id", clientId },
@@ -565,7 +562,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<List<Bucket>?> FetchQuotaAsync(string accessToken, string projectId)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = JsonContent.Create(new { project = projectId });
 
