@@ -71,7 +71,7 @@ public class IndexModel : PageModel
         this.EnableExperimentalBudgetPolicies = true;
         this.EnableExperimentalComparison = true;
 
-        await this.LoadDashboardDataAsync();
+        await this.LoadDashboardDataAsync().ConfigureAwait(false);
     }
 
     private void ResolveShowUsedPreference(bool? showUsed)
