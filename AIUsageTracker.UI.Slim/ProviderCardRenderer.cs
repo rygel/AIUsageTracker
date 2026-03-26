@@ -138,16 +138,39 @@ internal sealed class ProviderCardRenderer
             this._preferences.ColorThresholdRed,
             this._preferences.EnablePaceAdjustment);
 
-        pGrid.Visibility = presentation.ShouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
-        grid.Children.Add(pGrid);
-
-        var bg = new Border
+        var useBackgroundBar = this._preferences.CardBackgroundBar;
+        if (useBackgroundBar)
         {
-            Background = this._getResourceBrush("CardBackground", Brushes.DarkGray),
-            CornerRadius = new CornerRadius(0),
-            Visibility = presentation.ShouldHaveProgress ? Visibility.Collapsed : Visibility.Visible,
-        };
-        grid.Children.Add(bg);
+            pGrid.Visibility = presentation.ShouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
+            grid.Children.Add(pGrid);
+
+            var bg = new Border
+            {
+                Background = this._getResourceBrush("CardBackground", Brushes.DarkGray),
+                CornerRadius = new CornerRadius(0),
+                Visibility = presentation.ShouldHaveProgress ? Visibility.Collapsed : Visibility.Visible,
+            };
+            grid.Children.Add(bg);
+        }
+        else
+        {
+            // Color-indicator-only mode: thin color stripe on the left edge
+            grid.Children.Add(new Border
+            {
+                Background = this._getResourceBrush("CardBackground", Brushes.DarkGray),
+            });
+
+            if (presentation.ShouldHaveProgress)
+            {
+                grid.Children.Add(new Border
+                {
+                    Width = 3,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Background = this.GetProgressBarColor(cardPaceColor.ColorPercent),
+                    Opacity = 0.8,
+                });
+            }
+        }
 
         var contentPadding = isCompact ? 4 : 6;
         var contentPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(contentPadding, 0, contentPadding, 0) };

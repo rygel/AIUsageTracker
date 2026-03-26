@@ -302,214 +302,181 @@
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Title -->
-                        <StackPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Card Designer" FontWeight="Bold" FontSize="14"
-                                       Foreground="{DynamicResource PrimaryText}"/>
-                            <TextBlock Text="Configure what data appears on each provider card"
-                                       FontSize="10" Foreground="{DynamicResource TertiaryText}" Margin="0,2,0,0"/>
-                        </StackPanel>
-
-                        <!-- Row 1: Slot configuration dropdowns in two-column grid -->
-                        <Grid Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="12"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <Grid Grid.Column="0" Grid.Row="0" Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Primary Badge" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
-                                <ComboBox x:Name="PrimaryBadgeSlot" Grid.Column="1" Height="24"
-                                          Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
-                                          BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
-                            </Grid>
-
-                            <Grid Grid.Column="2" Grid.Row="0" Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Secondary Badge" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
-                                <ComboBox x:Name="SecondaryBadgeSlot" Grid.Column="1" Height="24"
-                                          Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
-                                          BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
-                            </Grid>
-
-                            <Grid Grid.Column="0" Grid.Row="1" Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Status Line" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
-                                <ComboBox x:Name="StatusLineSlot" Grid.Column="1" Height="24"
-                                          Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
-                                          BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
-                            </Grid>
-
-                            <Grid Grid.Column="2" Grid.Row="1" Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="100"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Reset Info" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
-                                <ComboBox x:Name="ResetInfoSlot" Grid.Column="1" Height="24"
-                                          Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
-                                          BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
-                            </Grid>
-                        </Grid>
-
-                        <!-- Row 1: Built-in presets -->
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
-                            <TextBlock Text="Presets:" Foreground="{DynamicResource TertiaryText}" VerticalAlignment="Center"
-                                       Margin="0,0,8,0" FontSize="11"/>
-                            <Button Content="Compact" Click="CardPresetCompact_Click" Padding="8,3" Margin="0,0,4,0"
-                                    Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
-                            <Button Content="Detailed" Click="CardPresetDetailed_Click" Padding="8,3" Margin="0,0,4,0"
-                                    Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
-                            <Button Content="Pace Focus" Click="CardPresetPace_Click" Padding="8,3"
-                                    Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
-                        </StackPanel>
-
-                        <!-- Row 2: User presets -->
-                        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,6,0,0">
-                            <TextBlock Text="My presets:" Foreground="{DynamicResource TertiaryText}" VerticalAlignment="Center"
-                                       Margin="0,0,8,0" FontSize="11"/>
-                            <ComboBox x:Name="UserPresetCombo" Width="150" Height="24"
-                                      Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
-                                      BorderBrush="{DynamicResource ControlBorder}"
-                                      SelectionChanged="CardUserPresetCombo_SelectionChanged"/>
-                            <Button Content="Save" Click="CardSavePresetBtn_Click" Padding="8,3" Margin="4,0,0,0"
-                                    Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
-                            <Button Content="Delete" Click="CardDeletePresetBtn_Click" Padding="8,3" Margin="4,0,0,0"
-                                    Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
-                                    BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="23" FontSize="10" Cursor="Hand"/>
-                        </StackPanel>
-
-                        <!-- Row 3: Checkboxes -->
-                        <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
-                            <CheckBox x:Name="CompactModeCheck" Content="Compact cards"
-                                      Foreground="{DynamicResource SecondaryText}" FontSize="11"
-                                      Checked="CardCompactMode_Changed" Unchecked="CardCompactMode_Changed"
-                                      Margin="0,0,16,0"/>
-                            <CheckBox x:Name="BackgroundBarCheck" Content="Background bar"
-                                      Foreground="{DynamicResource SecondaryText}" FontSize="11"
-                                      Checked="CardCompactMode_Changed" Unchecked="CardCompactMode_Changed"/>
-                        </StackPanel>
-
-                        <!-- Row 4: Separator -->
-                        <Border Grid.Row="5" Height="1" Background="{DynamicResource BorderColor}" Margin="0,10,0,10"/>
-
-                        <!-- Row 5: Display Options and Thresholds -->
-                        <Grid Grid.Row="6">
+                        <!-- Section 1: Card Style -->
+                        <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="20"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- Left: Display Options -->
+                            <!-- Left: Style options -->
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Display Options" FontWeight="Bold" FontSize="12"
-                                           Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
-                                <CheckBox x:Name="ShowUsedPercentagesCheck" Content="Show Used Percentages"
-                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                          ToolTip="Display used percentages instead of remaining percentages"
-                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                <CheckBox x:Name="ShowUsagePerHourCheck" Content="Show Usage Rate (req/hr)"
-                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                          ToolTip="Show a live burn-rate badge on each provider card"
-                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                <CheckBox x:Name="ShowDualQuotaBarsCheck" Content="Show dual quota bars"
-                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                          ToolTip="Show separate burst/rolling bars when a provider reports multiple quota windows"
-                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                <Grid Margin="0,6,0,0">
+                                <TextBlock Text="Card Style" FontWeight="Bold" FontSize="12"
+                                           Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,6"/>
+                                <CheckBox x:Name="BackgroundBarCheck" Content="Progress bar fill"
+                                          Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                                          ToolTip="Fill card background with progress bar. When off, shows a thin color indicator on the left edge."
+                                          Checked="CardCompactMode_Changed" Unchecked="CardCompactMode_Changed" Margin="0,3"/>
+                                <CheckBox x:Name="CompactModeCheck" Content="Compact cards"
+                                          Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                                          ToolTip="Smaller card height, tighter spacing, reduced font sizes"
+                                          Checked="CardCompactMode_Changed" Unchecked="CardCompactMode_Changed" Margin="0,3"/>
+                                <CheckBox x:Name="ShowDualQuotaBarsCheck" Content="Dual quota bars"
+                                          Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                                          ToolTip="Show separate burst/rolling bars for dual-quota providers"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed" Margin="0,3"/>
+                                <CheckBox x:Name="EnablePaceAdjustmentCheck" Content="Pace-aware colours"
+                                          Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                                          ToolTip="Adjust bar colour based on projected end-of-period usage"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed" Margin="0,3"/>
+                            </StackPanel>
+
+                            <!-- Right: Thresholds + display toggles -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Behaviour" FontWeight="Bold" FontSize="12"
+                                           Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,6"/>
+                                <CheckBox x:Name="ShowUsedPercentagesCheck" Content="Show used %"
+                                          Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                                          ToolTip="Display used percentages instead of remaining"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed" Margin="0,3"/>
+                                <CheckBox x:Name="ShowUsagePerHourCheck" Content="Usage rate (req/hr)"
+                                          Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                                          ToolTip="Show burn-rate badge on each card"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed" Margin="0,3"/>
+                                <CheckBox x:Name="UseRelativeResetTimeCheck" Content="Relative reset times"
+                                          Foreground="{DynamicResource SecondaryText}" FontSize="11"
+                                          ToolTip="Show countdown (2h 15m) instead of absolute times"
+                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed" Margin="0,3"/>
+                                <Grid Margin="0,5,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="40"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="40"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Yellow %" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SecondaryText}" FontSize="11" Margin="0,0,4,0"/>
+                                    <TextBox x:Name="YellowThreshold" Grid.Column="1" Text="60"
+                                             Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                             BorderBrush="{DynamicResource ControlBorder}" Padding="4,2" FontSize="11"
+                                             TextChanged="LayoutSetting_TextChanged"/>
+                                    <TextBlock Grid.Column="2" Text="Red %" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource SecondaryText}" FontSize="11" Margin="8,0,4,0"/>
+                                    <TextBox x:Name="RedThreshold" Grid.Column="3" Text="80"
+                                             Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                             BorderBrush="{DynamicResource ControlBorder}" Padding="4,2" FontSize="11"
+                                             TextChanged="LayoutSetting_TextChanged"/>
+                                </Grid>
+                                <Grid Margin="0,5,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Single-bar window" VerticalAlignment="Center"
                                                Foreground="{DynamicResource SecondaryText}" Margin="0,0,8,0" FontSize="11"/>
-                                    <ComboBox x:Name="DualQuotaBarWindowCombo" Grid.Column="1" Height="24"
-                                              Background="{DynamicResource ControlBackground}"
-                                              Foreground="{DynamicResource PrimaryText}"
-                                              BorderBrush="{DynamicResource ControlBorder}"
+                                    <ComboBox x:Name="DualQuotaBarWindowCombo" Grid.Column="1" Height="22"
+                                              Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                              BorderBrush="{DynamicResource ControlBorder}" FontSize="11"
                                               SelectionChanged="LayoutSetting_Changed"
-                                              ToolTip="Applies when dual quota bars are turned off"/>
-                                </Grid>
-                                <CheckBox x:Name="EnablePaceAdjustmentCheck" Content="Pace-Aware Colours"
-                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                          ToolTip="Adjust progress-bar colour based on rolling-window pace"
-                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                                <CheckBox x:Name="UseRelativeResetTimeCheck" Content="Relative reset times"
-                                          Margin="0,4" Foreground="{DynamicResource SecondaryText}"
-                                          ToolTip="Show countdown (2h 15m) instead of absolute times (Saturday 17:44)"
-                                          Checked="LayoutSetting_Changed" Unchecked="LayoutSetting_Changed"/>
-                            </StackPanel>
-
-                            <!-- Right: Thresholds -->
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Color Thresholds" FontWeight="Bold" FontSize="12"
-                                           Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,10"/>
-                                <Grid Margin="0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Yellow at %" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource SecondaryText}" Margin="0,0,8,0"/>
-                                    <TextBox x:Name="YellowThreshold" Grid.Column="1" Text="60"
-                                             Background="{DynamicResource ControlBackground}"
-                                             Foreground="{DynamicResource PrimaryText}"
-                                             BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
-                                             TextChanged="LayoutSetting_TextChanged"/>
-                                </Grid>
-                                <Grid Margin="0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Red at %" VerticalAlignment="Center"
-                                               Foreground="{DynamicResource SecondaryText}" Margin="0,0,8,0"/>
-                                    <TextBox x:Name="RedThreshold" Grid.Column="1" Text="80"
-                                             Background="{DynamicResource ControlBackground}"
-                                             Foreground="{DynamicResource PrimaryText}"
-                                             BorderBrush="{DynamicResource ControlBorder}" Padding="6,4"
-                                             TextChanged="LayoutSetting_TextChanged"/>
+                                              ToolTip="Which quota window to show when dual bars are off"/>
                                 </Grid>
                             </StackPanel>
                         </Grid>
 
-                        <!-- Row 6: Separator -->
-                        <Border Grid.Row="7" Height="1" Background="{DynamicResource BorderColor}" Margin="0,10,0,6"/>
+                        <!-- Section 2: Card Content (slots + presets) -->
+                        <Border Grid.Row="1" Height="1" Background="{DynamicResource BorderColor}" Margin="0,10,0,8"/>
+                        <StackPanel Grid.Row="2">
+                            <TextBlock Text="Card Content" FontWeight="Bold" FontSize="12"
+                                       Foreground="{DynamicResource PrimaryText}" Margin="0,0,0,6"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
 
-                        <!-- Row 7: Preview label -->
-                        <TextBlock Grid.Row="8" Text="Live preview with your real provider data"
-                                   Foreground="{DynamicResource TertiaryText}" FontSize="10" Margin="0,0,0,4"/>
+                                <Grid Grid.Column="0" Grid.Row="0" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Primary Badge" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
+                                    <ComboBox x:Name="PrimaryBadgeSlot" Grid.Column="1" Height="24"
+                                              Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                              BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
+                                </Grid>
 
-                        <!-- Row 8: Scrollable preview area (fills remaining space) -->
-                        <ScrollViewer Grid.Row="9" VerticalScrollBarVisibility="Auto">
+                                <Grid Grid.Column="2" Grid.Row="0" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Secondary Badge" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
+                                    <ComboBox x:Name="SecondaryBadgeSlot" Grid.Column="1" Height="24"
+                                              Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                              BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
+                                </Grid>
+
+                                <Grid Grid.Column="0" Grid.Row="1" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Status Line" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
+                                    <ComboBox x:Name="StatusLineSlot" Grid.Column="1" Height="24"
+                                              Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                              BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
+                                </Grid>
+
+                                <Grid Grid.Column="2" Grid.Row="1" Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Reset Info" Foreground="{DynamicResource SecondaryText}" VerticalAlignment="Center" FontSize="11"/>
+                                    <ComboBox x:Name="ResetInfoSlot" Grid.Column="1" Height="24"
+                                              Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                              BorderBrush="{DynamicResource ControlBorder}" SelectionChanged="CardSlotConfig_Changed"/>
+                                </Grid>
+                            </Grid>
+
+                            <!-- Presets -->
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="Presets:" Foreground="{DynamicResource TertiaryText}" VerticalAlignment="Center"
+                                           Margin="0,0,8,0" FontSize="11"/>
+                                <Button Content="Compact" Click="CardPresetCompact_Click" Padding="8,3" Margin="0,0,4,0"
+                                        Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
+                                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="22" FontSize="10" Cursor="Hand"/>
+                                <Button Content="Detailed" Click="CardPresetDetailed_Click" Padding="8,3" Margin="0,0,4,0"
+                                        Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
+                                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="22" FontSize="10" Cursor="Hand"/>
+                                <Button Content="Pace Focus" Click="CardPresetPace_Click" Padding="8,3" Margin="0,0,12,0"
+                                        Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
+                                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="50" MinHeight="22" FontSize="10" Cursor="Hand"/>
+                                <ComboBox x:Name="UserPresetCombo" Width="120" Height="22"
+                                          Background="{DynamicResource ControlBackground}" Foreground="{DynamicResource PrimaryText}"
+                                          BorderBrush="{DynamicResource ControlBorder}" FontSize="10"
+                                          SelectionChanged="CardUserPresetCombo_SelectionChanged"/>
+                                <Button Content="Save" Click="CardSavePresetBtn_Click" Padding="6,2" Margin="4,0,0,0"
+                                        Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
+                                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="40" MinHeight="22" FontSize="10" Cursor="Hand"/>
+                                <Button Content="Del" Click="CardDeletePresetBtn_Click" Padding="6,2" Margin="4,0,0,0"
+                                        Background="{DynamicResource ButtonBackground}" Foreground="{DynamicResource PrimaryText}"
+                                        BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" MinWidth="30" MinHeight="22" FontSize="10" Cursor="Hand"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Section 3: Live Preview -->
+                        <Border Grid.Row="3" Height="1" Background="{DynamicResource BorderColor}" Margin="0,8,0,6"/>
+                        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
                             <StackPanel x:Name="CardPreviewStack"/>
                         </ScrollViewer>
                     </Grid>
