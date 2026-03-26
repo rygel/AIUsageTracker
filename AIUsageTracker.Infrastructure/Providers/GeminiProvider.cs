@@ -546,7 +546,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<string> DoRefreshTokenAsync(string refreshToken, string clientId, string clientSecret)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
         var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "client_id", clientId },
@@ -565,7 +565,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<List<Bucket>?> FetchQuotaAsync(string accessToken, string projectId)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota");
+        var request = new HttpRequestMessage(HttpMethod.Post, "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = JsonContent.Create(new { project = projectId });
 
