@@ -625,12 +625,12 @@ internal static partial class MainWindowRuntimeLogic
         }
 
         presentation = (
-            PrimaryLabel: GetWindowLabel(first.Detail, first.DeclaredWindow!),
+            PrimaryLabel: first.DeclaredWindow!.DualBarLabel,
             PrimaryUsedPercent: parsedFirst.Value,
             PrimaryResetTime: first.Detail.NextResetTime,
-            PrimaryPeriodDuration: first.DeclaredWindow!.PeriodDuration,
+            PrimaryPeriodDuration: first.DeclaredWindow.PeriodDuration,
             PrimaryKind: first.Detail.QuotaBucketKind,
-            SecondaryLabel: GetWindowLabel(second.Detail, second.DeclaredWindow!),
+            SecondaryLabel: second.DeclaredWindow!.DualBarLabel,
             SecondaryUsedPercent: parsedSecond.Value,
             SecondaryResetTime: second.Detail.NextResetTime,
             SecondaryPeriodDuration: second.DeclaredWindow!.PeriodDuration,
@@ -700,17 +700,6 @@ internal static partial class MainWindowRuntimeLogic
         return $"{value}% {semanticLabel} ({complementValue}% {complementLabel})";
     }
 
-    private static string GetWindowLabel(ProviderUsageDetail detail, QuotaWindowDefinition declaredWindow)
-    {
-        var nameLabel = ExtractDurationLabelFromDetailName(detail.Name);
-        if (!string.IsNullOrWhiteSpace(nameLabel))
-        {
-            return nameLabel;
-        }
-
-        return declaredWindow.DualBarLabel;
-    }
-
     private static QuotaWindowDefinition? FindMatchingPresentationWindow(
         ProviderUsageDetail detail,
         IReadOnlyList<QuotaWindowDefinition> declaredWindows)
@@ -726,26 +715,6 @@ internal static partial class MainWindowRuntimeLogic
 
         var sameKindWindows = declaredWindows.Where(window => window.Kind == detail.QuotaBucketKind).ToList();
         return sameKindWindows.Count == 1 ? sameKindWindows[0] : null;
-    }
-
-    private static readonly string[] DetailNameSuffixes = new[] { " Limit", " Quota", " Window" };
-
-    private static string? ExtractDurationLabelFromDetailName(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return null;
-        }
-
-        foreach (var suffix in DetailNameSuffixes)
-        {
-            if (name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            {
-                return name[..^suffix.Length].Trim();
-            }
-        }
-
-        return null;
     }
 
     private static string NormalizeIdentity(string? value)
