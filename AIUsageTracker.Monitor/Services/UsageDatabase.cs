@@ -6,6 +6,7 @@ using System.Data;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -243,7 +244,7 @@ public class UsageDatabase : IUsageDatabase
             foreach (var u in validUsages)
             {
                 var detailsJson = u.Details != null && u.Details.Any()
-                    ? JsonSerializer.Serialize(u.Details)
+                    ? JsonSerializer.Serialize(u.Details, MonitorJsonSerializer.DefaultOptions)
                     : null;
                 var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
                 var nextResetTime = u.NextResetTime?.ToString("O");
@@ -734,7 +735,7 @@ public class UsageDatabase : IUsageDatabase
         {
             try
             {
-                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
+                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!, MonitorJsonSerializer.DefaultOptions);
             }
             catch (JsonException ex)
             {
@@ -817,7 +818,7 @@ public class UsageDatabase : IUsageDatabase
             List<ProviderUsageDetail>? parsedDetails;
             try
             {
-                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(row.DetailsJson);
+                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(row.DetailsJson, MonitorJsonSerializer.DefaultOptions);
             }
             catch (JsonException ex)
             {
