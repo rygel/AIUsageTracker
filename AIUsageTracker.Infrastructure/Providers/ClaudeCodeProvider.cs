@@ -43,7 +43,6 @@ public class ClaudeCodeProvider : ProviderBase
         defaultConfigType: "quota-based")
     {
         AutoIncludeWhenUnconfigured = true,
-        FamilyMode = ProviderFamilyMode.SyntheticAggregateChildren,
         DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         IconAssetName = "anthropic",
         BadgeColorHex = "#FFA500",
@@ -58,10 +57,10 @@ public class ClaudeCodeProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.ModelSpecific, "Sonnet",  ChildProviderId: "claude-code.sonnet",          SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.ModelSpecific, "Opus",    ChildProviderId: "claude-code.opus",            SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.Rolling,       "7-day",   ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,         "5h",     SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.ModelSpecific, "Sonnet", SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Opus",   SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling,       "7-day",  SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -257,17 +256,15 @@ public class ClaudeCodeProvider : ProviderBase
         // Determine the "main" percentage to show - use the higher of the two quotas
         var mainPercent = Math.Max(primaryPercent, secondaryPercent);
 
-        // All quota windows become Model-type sub-cards (SyntheticAggregateChildren).
-        // QuotaBucketKind controls display ordering: Burst → Sonnet/Opus → Rolling.
         var details = new List<ProviderUsageDetail>();
 
-        // Current session (5-hour burst quota)
+        // Current session (5-hour burst quota) — QuotaWindow type drives the dual bar display.
         if (response.FiveHour != null)
         {
             var fiveHourDetail = new ProviderUsageDetail
             {
                 Name = "Current Session",
-                DetailType = ProviderUsageDetailType.Model,
+                DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Burst,
                 NextResetTime = response.FiveHour.ResetsAt,
             };
@@ -311,13 +308,13 @@ public class ClaudeCodeProvider : ProviderBase
             details.Add(opusDetail);
         }
 
-        // All-models 7-day rolling quota
+        // All-models 7-day rolling quota — QuotaWindow type drives the dual bar display.
         if (response.SevenDay != null)
         {
             var sevenDayDetail = new ProviderUsageDetail
             {
                 Name = "All Models",
-                DetailType = ProviderUsageDetailType.Model,
+                DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Rolling,
                 NextResetTime = response.SevenDay.ResetsAt,
             };

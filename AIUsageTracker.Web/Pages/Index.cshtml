@@ -36,7 +36,7 @@
 
         @{
             var visibleUsage = (Model.LatestUsage ?? new List<AIUsageTracker.Core.Models.ProviderUsage>())
-                .Where(u => !(ProviderMetadataCatalog.Find(u.ProviderId) is { } pDef && string.Equals(u.ProviderId, pDef.ProviderId, StringComparison.OrdinalIgnoreCase) && pDef.RenderDetailsAsSyntheticChildrenInMainWindow) && (Model.ShowInactiveProviders || u.IsAvailable))
+                .Where(u => Model.ShowInactiveProviders || u.IsAvailable)
                 .ToList();
         }
 

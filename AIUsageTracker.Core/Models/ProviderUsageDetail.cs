@@ -18,7 +18,6 @@ public class ProviderUsageDetail
     public double? PercentageValue { get; set; }
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-    [JsonConverter(typeof(JsonStringEnumConverter<PercentageValueSemantic>))]
     public PercentageValueSemantic PercentageSemantic { get; set; } = PercentageValueSemantic.None;
 
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

@@ -47,14 +47,12 @@ public sealed class ProviderCardPresentationCatalogTests
     }
 
     [Fact]
-    public void Create_ShowsProgress_ForSyntheticAggregateChildCard()
+    public void Create_ShowsProgress_ForClaudeCodeCard()
     {
-        // claude-code.current-session is a synthetic child whose canonical ID resolves to
-        // "claude-code" (an aggregate parent). It must NOT be treated as an aggregate parent
-        // itself — otherwise shouldHaveProgress would always be false and no bar would render.
+        // claude-code is a standalone quota-based provider — it must show a progress bar.
         var usage = new ProviderUsage
         {
-            ProviderId = "claude-code.current-session",
+            ProviderId = "claude-code",
             IsAvailable = true,
             IsQuotaBased = true,
             UsedPercent = 35, // 35% used → 65% remaining

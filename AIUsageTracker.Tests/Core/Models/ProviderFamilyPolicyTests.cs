@@ -11,8 +11,6 @@ public sealed class ProviderFamilyPolicyTests
     [Theory]
     [InlineData(ProviderFamilyMode.Standalone, false)]
     [InlineData(ProviderFamilyMode.VisibleDerivedProviders, true)]
-    [InlineData(ProviderFamilyMode.CollapsedDerivedProviders, true)]
-    [InlineData(ProviderFamilyMode.SyntheticAggregateChildren, true)]
     [InlineData(ProviderFamilyMode.DynamicChildProviderRows, true)]
     public void SupportsChildProviderIds_UsesFamilyMode(ProviderFamilyMode familyMode, bool expected)
     {

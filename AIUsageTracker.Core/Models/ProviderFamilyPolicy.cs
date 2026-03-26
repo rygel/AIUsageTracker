@@ -11,16 +11,6 @@ public static class ProviderFamilyPolicy
         return familyMode != ProviderFamilyMode.Standalone;
     }
 
-    public static bool ShouldCollapseDerivedChildrenInMainWindow(ProviderFamilyMode familyMode)
-    {
-        return familyMode == ProviderFamilyMode.CollapsedDerivedProviders;
-    }
-
-    public static bool ShouldRenderSyntheticChildrenInMainWindow(ProviderFamilyMode familyMode)
-    {
-        return familyMode == ProviderFamilyMode.SyntheticAggregateChildren;
-    }
-
     public static bool UsesChildProviderRowsForGroupedModels(ProviderFamilyMode familyMode)
     {
         return familyMode == ProviderFamilyMode.DynamicChildProviderRows;
@@ -31,8 +21,7 @@ public static class ProviderFamilyPolicy
         ProviderFamilyMode familyMode)
     {
         return visibleDerivedProviderIds.Count > 0 ||
-               familyMode == ProviderFamilyMode.DynamicChildProviderRows ||
-               familyMode == ProviderFamilyMode.SyntheticAggregateChildren;
+               familyMode == ProviderFamilyMode.DynamicChildProviderRows;
     }
 
     public static bool BelongsToProviderFamily(

@@ -50,7 +50,6 @@ public class AntigravityProvider : ProviderBase
         FamilyMode = ProviderFamilyMode.DynamicChildProviderRows,
         SettingsMode = ProviderSettingsMode.AutoDetectedStatus,
         RefreshOnStartupWithCachedData = true,
-        AggregateDetailDisplaySuffix = "[Antigravity]",
         SupportsAccountIdentity = true,
         IconAssetName = "google",
         BadgeColorHex = "#1E90FF",

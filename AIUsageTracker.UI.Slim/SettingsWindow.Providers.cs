@@ -90,18 +90,7 @@ public partial class SettingsWindow
 
     internal static bool ShouldRenderAsSettingsSubItem(
         string providerId,
-        bool isDerived)
-    {
-        if (!isDerived)
-        {
-            return false;
-        }
-
-        var canonicalProviderId = ProviderMetadataCatalog.GetCanonicalProviderId(providerId);
-        var isCanonicalChild = !string.Equals(canonicalProviderId, providerId, StringComparison.OrdinalIgnoreCase);
-        return isCanonicalChild &&
-               (ProviderMetadataCatalog.Find(canonicalProviderId)?.CollapseDerivedChildrenInMainWindow ?? false);
-    }
+        bool isDerived) => false;
 
     internal static IReadOnlyList<ProviderUsageDetail> GetEligibleSubTrayDetails(ProviderUsage? usage)
     {
@@ -814,10 +803,7 @@ public partial class SettingsWindow
 
         // Run the same pipeline as the main window (no hidden filter) to get every card
         // that could potentially appear, then group by canonical provider.
-        var renderPrep = MainWindowRuntimeLogic.PrepareForMainWindow(this._usages);
-        var allCards = MainWindowRuntimeLogic
-            .ExpandSyntheticAggregateChildren(renderPrep, hiddenItemIds: [])
-            .ToList();
+        var allCards = MainWindowRuntimeLogic.BuildMainWindowUsageList(this._usages).ToList();
 
         var groups = allCards
             .GroupBy(

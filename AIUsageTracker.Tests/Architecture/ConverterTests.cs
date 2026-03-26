@@ -84,20 +84,21 @@ public class ConverterTests
     {
         var converter = new RelativeTimeConverter();
 
+        // Use UtcNow to avoid DST offset shifts making durations shrink or grow.
         // Test future time - about 5 minutes (use a generous range to avoid timing issues)
-        var fiveMinutes = DateTime.Now.AddMinutes(5).AddSeconds(30);
+        var fiveMinutes = DateTime.UtcNow.AddMinutes(5).AddSeconds(30);
         var result = converter.Convert(fiveMinutes, typeof(string), null!, CultureInfo.InvariantCulture);
         Assert.True(
             string.Equals(result?.ToString(), "5m", StringComparison.Ordinal) || string.Equals(result?.ToString(), "6m", StringComparison.Ordinal),
             $"Expected 5m or 6m, got {result}");
 
         // Test future time - 2 hours
-        var twoHours = DateTime.Now.AddHours(2).AddMinutes(1);
+        var twoHours = DateTime.UtcNow.AddHours(2).AddMinutes(1);
         result = converter.Convert(twoHours, typeof(string), null!, CultureInfo.InvariantCulture);
         Assert.StartsWith("2h", result?.ToString() ?? string.Empty, StringComparison.Ordinal);
 
         // Test future time - 3 days
-        var threeDays = DateTime.Now.AddDays(3).AddHours(1);
+        var threeDays = DateTime.UtcNow.AddDays(3).AddHours(1);
         result = converter.Convert(threeDays, typeof(string), null!, CultureInfo.InvariantCulture);
         Assert.StartsWith("3d", result?.ToString() ?? string.Empty, StringComparison.Ordinal);
     }

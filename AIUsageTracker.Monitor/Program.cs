@@ -4,8 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
@@ -186,13 +184,9 @@ public class Program
 
             builder.Services.AddSignalR();
 
-            // Configure JSON serialization with snake_case naming
+            // Configure JSON serialization — delegates to the Core canonical options
             builder.Services.ConfigureHttpJsonOptions(options =>
-            {
-                options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-                options.SerializerOptions.PropertyNameCaseInsensitive = true;
-                options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
-            });
+                MonitorJsonSerializer.Configure(options.SerializerOptions));
 
             if (isDebugMode)
             {
