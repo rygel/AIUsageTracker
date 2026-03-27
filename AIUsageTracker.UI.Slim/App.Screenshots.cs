@@ -255,6 +255,12 @@ public partial class App
         var window = this.InfoDialogFactory();
         try
         {
+            // Show() must be called before rendering so WPF initialises the visual tree
+            // and resolves DynamicResource bindings. Without it, window.Content exists but
+            // the layout pass produces zero height (SizeToContent="Height" with no Show()
+            // means the HWND is never created and resources remain unresolved).
+            window.Show();
+
             if (window is InfoDialog infoDialog)
             {
                 infoDialog.PrepareForHeadlessScreenshot();
