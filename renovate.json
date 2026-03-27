@@ -1,0 +1,20 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "baseBranches": ["develop"],
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "all non-major dependencies"
+    },
+    {
+      "matchPackageNames": [
+        "dotnet-sdk",
+        "Microsoft.AspNetCore.SignalR.Client",
+        "MSTest"
+      ],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    }
+  ]
+}
