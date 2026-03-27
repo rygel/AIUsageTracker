@@ -146,3 +146,4 @@ jobs:
           path: |
             ${{ runner.temp }}/screenshot-baseline/*.png
             ${{ runner.temp }}/screenshot-candidate/*.png
+            ${{ runner.temp }}/screenshot-candidate/*.txt

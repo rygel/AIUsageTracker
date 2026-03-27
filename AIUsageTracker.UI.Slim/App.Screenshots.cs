@@ -179,6 +179,20 @@ public partial class App
         {
             logger.LogError(ex, "Headless screenshot capture failed");
             Environment.ExitCode = 1;
+
+            // Write to a file so CI can surface the error even for GUI-subsystem processes
+            // (which have no visible stdout). Uploaded as artifact on workflow failure.
+            try
+            {
+                var screenshotsDir = this.ResolveOutputDirectory(args);
+                File.WriteAllText(
+                    Path.Combine(screenshotsDir, "screenshot_debug_error.txt"),
+                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {ex}");
+            }
+            catch
+            {
+                // Best effort — do not mask the original error.
+            }
         }
         finally
         {
