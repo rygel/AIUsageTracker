@@ -76,7 +76,7 @@ internal static class MonitorInfoPersistence
             var updatedJson = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(jsonFile, updatedJson);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {
             logger?.LogWarning(ex, "Failed to report error to monitor info");
         }

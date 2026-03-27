@@ -71,7 +71,7 @@ public class MonitorLauncher : IMonitorLauncher
     public static string GetCanonicalMonitorInfoFilePath()
     {
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(localAppData, CanonicalProductFolder, "monitor.json");
+        return Path.Join(localAppData, CanonicalProductFolder, "monitor.json");
     }
 
     public async Task<(bool IsRunning, int Port)> IsAgentRunningWithPortAsync()
@@ -602,7 +602,7 @@ public class MonitorLauncher : IMonitorLauncher
         }
 
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(localAppData, CanonicalProductFolder, "monitor.json");
+        return Path.Join(localAppData, CanonicalProductFolder, "monitor.json");
     }
 
     internal static string BuildLaunchMutexName()

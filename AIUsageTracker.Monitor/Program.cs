@@ -69,7 +69,7 @@ public class Program
                 fileInfo.Delete();
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             logger.LogError(ex, "Log rotation error");
         }

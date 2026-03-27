@@ -50,8 +50,8 @@ internal static class ProviderAuthFileSchemaReader
         var parts = rootProperty.Split('.');
         var lastPart = parts[^1];
 
-        var navigated = parts.Aggregate(
-            (JsonElement?)root,
+        var navigated = parts.Aggregate<string, JsonElement?>(
+            root,
             (current, part) =>
             {
                 if (!current.HasValue || !current.Value.TryGetProperty(part, out var next))

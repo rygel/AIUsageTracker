@@ -61,8 +61,8 @@ public static class JsonElementExtensions
 
     private static bool TryNavigate(JsonElement root, string[] path, out JsonElement result)
     {
-        var navigated = path.Aggregate(
-            (JsonElement?)root,
+        var navigated = path.Aggregate<string, JsonElement?>(
+            root,
             (current, segment) => current.HasValue && current.Value.TryGetProperty(segment, out var next) ? next : null);
 
         result = navigated ?? default;
