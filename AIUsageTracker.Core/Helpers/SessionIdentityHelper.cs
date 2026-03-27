@@ -68,13 +68,13 @@ public static class SessionIdentityHelper
 
     public static string? TryGetPreferredIdentity(JsonElement root, IEnumerable<string>? profileRootProperties)
     {
-        foreach (var claim in DirectEmailClaims)
+        var directEmail = DirectEmailClaims
+            .Select(claim => root.ReadString(claim))
+            .FirstOrDefault(IsEmailLike);
+
+        if (directEmail != null)
         {
-            var value = root.ReadString(claim);
-            if (IsEmailLike(value))
-            {
-                return value;
-            }
+            return directEmail;
         }
 
         foreach (var profileRootProperty in profileRootProperties ?? Array.Empty<string>())
@@ -85,26 +85,21 @@ public static class SessionIdentityHelper
                 continue;
             }
 
-            foreach (var claim in ProfileIdentityClaims)
+            var profileIdentity = ProfileIdentityClaims
+                .Select(claim => profile.ReadString(claim))
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+            if (profileIdentity != null)
             {
-                var value = profile.ReadString(claim);
-                if (!string.IsNullOrWhiteSpace(value))
-                {
-                    return value;
-                }
+                return profileIdentity;
             }
         }
 
-        foreach (var claim in SecondaryIdentityClaims)
-        {
-            var value = root.ReadString(claim);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-        }
+        var secondaryIdentity = SecondaryIdentityClaims
+            .Select(claim => root.ReadString(claim))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-        return FindIdentityInJson(root);
+        return secondaryIdentity ?? FindIdentityInJson(root);
     }
 
     public static string? FindIdentityInJson(JsonElement element)
@@ -140,16 +135,9 @@ public static class SessionIdentityHelper
                 break;
 
             case JsonValueKind.Array:
-                foreach (var item in element.EnumerateArray())
-                {
-                    var nested = FindIdentityInJson(item);
-                    if (!string.IsNullOrWhiteSpace(nested))
-                    {
-                        return nested;
-                    }
-                }
-
-                break;
+                return element.EnumerateArray()
+                    .Select(FindIdentityInJson)
+                    .FirstOrDefault(nested => !string.IsNullOrWhiteSpace(nested));
         }
 
         return null;

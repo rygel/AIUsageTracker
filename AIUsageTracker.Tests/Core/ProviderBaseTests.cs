@@ -23,7 +23,7 @@ public class ProviderBaseTests
             isQuotaBased: true,
             defaultConfigType: "quota-based");
 
-        public override Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+        public override Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();
 
         // Expose protected methods for testing

@@ -16,12 +16,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class MistralProviderTests : HttpProviderTestBase<MistralProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly MistralProvider _provider;
 
     public MistralProviderTests()
     {
         this._provider = new MistralProvider(this.HttpClient, this.Logger.Object, new Mock<IProviderDiscoveryService>().Object);
-        this.Config.ApiKey = "test-mistral-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]

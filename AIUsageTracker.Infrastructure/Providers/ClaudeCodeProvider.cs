@@ -43,7 +43,6 @@ public class ClaudeCodeProvider : ProviderBase
         defaultConfigType: "quota-based")
     {
         AutoIncludeWhenUnconfigured = true,
-        FamilyMode = ProviderFamilyMode.SyntheticAggregateChildren,
         DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         IconAssetName = "anthropic",
         BadgeColorHex = "#FFA500",
@@ -58,10 +57,10 @@ public class ClaudeCodeProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.ModelSpecific, "Sonnet",  ChildProviderId: "claude-code.sonnet",          SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.ModelSpecific, "Opus",    ChildProviderId: "claude-code.opus",            SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.Rolling,       "7-day",   ChildProviderId: "claude-code.all-models",      SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,         "5h",     SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.ModelSpecific, "Sonnet", SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Opus",   SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling,       "7-day",  SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 
@@ -72,7 +71,7 @@ public class ClaudeCodeProvider : ProviderBase
     public override string ProviderId => StaticDefinition.ProviderId;
 
     /// <inheritdoc/>
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         // Check if API key is configured
         if (string.IsNullOrEmpty(config.ApiKey))
@@ -257,17 +256,15 @@ public class ClaudeCodeProvider : ProviderBase
         // Determine the "main" percentage to show - use the higher of the two quotas
         var mainPercent = Math.Max(primaryPercent, secondaryPercent);
 
-        // All quota windows become Model-type sub-cards (SyntheticAggregateChildren).
-        // QuotaBucketKind controls display ordering: Burst → Sonnet/Opus → Rolling.
         var details = new List<ProviderUsageDetail>();
 
-        // Current session (5-hour burst quota)
+        // Current session (5-hour burst quota) — QuotaWindow type drives the dual bar display.
         if (response.FiveHour != null)
         {
             var fiveHourDetail = new ProviderUsageDetail
             {
                 Name = "Current Session",
-                DetailType = ProviderUsageDetailType.Model,
+                DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Burst,
                 NextResetTime = response.FiveHour.ResetsAt,
             };
@@ -311,13 +308,13 @@ public class ClaudeCodeProvider : ProviderBase
             details.Add(opusDetail);
         }
 
-        // All-models 7-day rolling quota
+        // All-models 7-day rolling quota — QuotaWindow type drives the dual bar display.
         if (response.SevenDay != null)
         {
             var sevenDayDetail = new ProviderUsageDetail
             {
                 Name = "All Models",
-                DetailType = ProviderUsageDetailType.Model,
+                DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Rolling,
                 NextResetTime = response.SevenDay.ResetsAt,
             };
@@ -347,7 +344,7 @@ public class ClaudeCodeProvider : ProviderBase
             IsAvailable = true,
             Description = description,
             Details = details,
-            NextResetTime = response.FiveHour?.ResetsAt,
+            NextResetTime = response.SevenDay?.ResetsAt ?? response.FiveHour?.ResetsAt,
             RawJson = rawJson,
             HttpStatus = httpStatus,
         };
@@ -359,7 +356,7 @@ public class ClaudeCodeProvider : ProviderBase
         {
             // Make a test request to get rate limit headers
             // Note: Anthropic API doesn't have a usage endpoint, so we use rate limits from headers
-            var testRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+            using var testRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
             testRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             testRequest.Headers.Add("anthropic-version", "2023-06-01");
             testRequest.Content = new StringContent("{\"model\":\"claude-sonnet-4-20250514\",\"max_tokens\":1,\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}", System.Text.Encoding.UTF8, "application/json");
@@ -446,36 +443,28 @@ public class ClaudeCodeProvider : ProviderBase
     {
         var info = new RateLimitInfo();
 
-        if (headers.TryGetValues("anthropic-ratelimit-requests-limit", out var requestLimitValues))
+        if (headers.TryGetValues("anthropic-ratelimit-requests-limit", out var requestLimitValues) &&
+            int.TryParse(requestLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var limit))
         {
-            if (int.TryParse(requestLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var limit))
-            {
-                info.RequestsLimit = limit;
-            }
+            info.RequestsLimit = limit;
         }
 
-        if (headers.TryGetValues("anthropic-ratelimit-requests-remaining", out var requestRemainingValues))
+        if (headers.TryGetValues("anthropic-ratelimit-requests-remaining", out var requestRemainingValues) &&
+            int.TryParse(requestRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var remaining))
         {
-            if (int.TryParse(requestRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var remaining))
-            {
-                info.RequestsRemaining = remaining;
-            }
+            info.RequestsRemaining = remaining;
         }
 
-        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-limit", out var inputLimitValues))
+        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-limit", out var inputLimitValues) &&
+            int.TryParse(inputLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputLimit))
         {
-            if (int.TryParse(inputLimitValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputLimit))
-            {
-                info.InputTokensLimit = inputLimit;
-            }
+            info.InputTokensLimit = inputLimit;
         }
 
-        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-remaining", out var inputRemainingValues))
+        if (headers.TryGetValues("anthropic-ratelimit-input-tokens-remaining", out var inputRemainingValues) &&
+            int.TryParse(inputRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputRemaining))
         {
-            if (int.TryParse(inputRemainingValues.FirstOrDefault(), CultureInfo.InvariantCulture, out var inputRemaining))
-            {
-                info.InputTokensRemaining = inputRemaining;
-            }
+            info.InputTokensRemaining = inputRemaining;
         }
 
         return info;
@@ -600,7 +589,7 @@ public class ClaudeCodeProvider : ProviderBase
         }
 
         var remainingMatch = Regex.Match(output, @"Remaining[:\s]+\$?(?<remaining>[0-9.]+)", RegexOptions.IgnoreCase | RegexOptions.ExplicitCapture, TimeSpan.FromSeconds(1));
-        if (remainingMatch.Success && budgetLimit == 0)
+        if (remainingMatch.Success && budgetLimit is 0)
         {
             double remaining;
             if (double.TryParse(remainingMatch.Groups[1].Value, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out remaining))

@@ -4,8 +4,6 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
@@ -30,70 +28,65 @@ public class Program
     {
         bool isDebugMode = args.Contains("--debug", StringComparer.Ordinal);
         IAppPathProvider pathProvider = new DefaultAppPathProvider();
-        ILoggerFactory? loggerFactory = null;
-        ILogger? logger = null;
-        Mutex? startupMutex = null;
         var holdsStartupMutex = false;
+
+        var resolvedLogPath = MonitorLogPathResolver.Resolve(pathProvider, DateTime.Now);
+        if (resolvedLogPath.UsedFallback)
+        {
+            await Console.Error.WriteLineAsync(
+                $"Preferred monitor log directory '{resolvedLogPath.PreferredDirectory}' unavailable. Using fallback '{resolvedLogPath.LogDirectory}'.").ConfigureAwait(false);
+        }
+
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder
+                .SetMinimumLevel(isDebugMode ? LogLevel.Debug : LogLevel.Information)
+                .AddProvider(new FileLoggerProvider(resolvedLogPath.LogFile));
+            if (isDebugMode)
+            {
+                builder.AddConsole();
+            }
+        });
+
+        var logger = loggerFactory.CreateLogger("Monitor");
+
+        if (resolvedLogPath.UsedFallback)
+        {
+            logger.LogWarning(
+                "Preferred monitor log directory {PreferredLogDirectory} unavailable. Using fallback {FallbackLogDirectory}.",
+                resolvedLogPath.PreferredDirectory,
+                resolvedLogPath.LogDirectory);
+        }
+
+        // Rotate logs: keep only last 7 days
+        try
+        {
+            var cutoffDate = DateTime.Now.AddDays(-7);
+            foreach (var fileInfo in Directory.GetFiles(resolvedLogPath.LogDirectory, "monitor_*.log")
+                         .Select(log => new FileInfo(log))
+                         .Where(fi => fi.LastWriteTime < cutoffDate))
+            {
+                fileInfo.Delete();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            logger.LogError(ex, "Log rotation error");
+        }
+
+        var monitorVersion = System.Reflection.CustomAttributeExtensions
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(Program).Assembly)
+            ?.InformationalVersion ?? "unknown";
+        logger.LogInformation("=== Monitor starting === (v{Version})", monitorVersion);
+
+        // Machine-wide mutex to prevent concurrent launches
+        string mutexName = @"Global\AIUsageTracker_Monitor_" + Environment.UserName;
+        bool createdNew;
+        using var startupMutex = new Mutex(true, mutexName, out createdNew);
+        holdsStartupMutex = createdNew;
 
         try
         {
-            var resolvedLogPath = MonitorLogPathResolver.Resolve(pathProvider, DateTime.Now);
-            if (resolvedLogPath.UsedFallback)
-            {
-                await Console.Error.WriteLineAsync(
-                    $"Preferred monitor log directory '{resolvedLogPath.PreferredDirectory}' unavailable. Using fallback '{resolvedLogPath.LogDirectory}'.").ConfigureAwait(false);
-            }
-
-            loggerFactory = LoggerFactory.Create(builder =>
-            {
-                builder
-                    .SetMinimumLevel(isDebugMode ? LogLevel.Debug : LogLevel.Information)
-                    .AddProvider(new FileLoggerProvider(resolvedLogPath.LogFile));
-                if (isDebugMode)
-                {
-                    builder.AddConsole();
-                }
-            });
-
-            logger = loggerFactory.CreateLogger("Monitor");
-
-            if (resolvedLogPath.UsedFallback)
-            {
-                logger.LogWarning(
-                    "Preferred monitor log directory {PreferredLogDirectory} unavailable. Using fallback {FallbackLogDirectory}.",
-                    resolvedLogPath.PreferredDirectory,
-                    resolvedLogPath.LogDirectory);
-            }
-
-            // Rotate logs: keep only last 7 days
-            try
-            {
-                var cutoffDate = DateTime.Now.AddDays(-7);
-                foreach (var log in Directory.GetFiles(resolvedLogPath.LogDirectory, "monitor_*.log"))
-                {
-                    var fileInfo = new FileInfo(log);
-                    if (fileInfo.LastWriteTime < cutoffDate)
-                    {
-                        fileInfo.Delete();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Log rotation error");
-            }
-
-            var monitorVersion = System.Reflection.CustomAttributeExtensions
-                .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(Program).Assembly)
-                ?.InformationalVersion ?? "unknown";
-            logger.LogInformation("=== Monitor starting === (v{Version})", monitorVersion);
-
-            // Machine-wide mutex to prevent concurrent launches
-            string mutexName = @"Global\AIUsageTracker_Monitor_" + Environment.UserName;
-            bool createdNew;
-            startupMutex = new Mutex(true, mutexName, out createdNew);
-            holdsStartupMutex = createdNew;
-
             var monitorLauncher = new MonitorLauncher(loggerFactory.CreateLogger<MonitorLauncher>());
 
             if (!createdNew)
@@ -191,13 +184,9 @@ public class Program
 
             builder.Services.AddSignalR();
 
-            // Configure JSON serialization with snake_case naming
+            // Configure JSON serialization — delegates to the Core canonical options
             builder.Services.ConfigureHttpJsonOptions(options =>
-            {
-                options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
-                options.SerializerOptions.PropertyNameCaseInsensitive = true;
-                options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower));
-            });
+                MonitorJsonSerializer.Configure(options.SerializerOptions));
 
             if (isDebugMode)
             {
@@ -209,6 +198,7 @@ public class Program
             builder.Services.AddSingleton(typeof(ILogger<>), typeof(Logger<>));
             builder.Services.AddSingleton<UsageDatabase>();
             builder.Services.AddSingleton<IUsageDatabase>(sp => sp.GetRequiredService<UsageDatabase>());
+            builder.Services.AddSingleton<CachedGroupedUsageProjectionService>();
             if (OperatingSystem.IsWindows())
             {
                 builder.Services.AddSingleton<INotificationService, WindowsNotificationService>();
@@ -228,6 +218,14 @@ public class Program
             builder.Services.AddSingleton<MonitorJobScheduler>();
             builder.Services.AddSingleton<IMonitorJobScheduler>(sp => sp.GetRequiredService<MonitorJobScheduler>());
             builder.Services.AddHostedService(sp => sp.GetRequiredService<MonitorJobScheduler>());
+            builder.Services.AddSingleton<ProviderRefreshConfigSelector>();
+            builder.Services.AddSingleton<ProviderRefreshConfigLoadingService>();
+            builder.Services.AddSingleton<ProviderUsagePersistenceService>();
+            builder.Services.AddSingleton<ProviderConnectivityCheckService>();
+            builder.Services.AddSingleton<ProviderRefreshJobScheduler>();
+            builder.Services.AddSingleton<ProviderManagerLifecycleService>();
+            builder.Services.AddSingleton<ProviderRefreshNotificationService>();
+            builder.Services.AddSingleton<StartupSequenceService>();
             builder.Services.AddSingleton<ProviderRefreshService>();
             builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderRefreshService>());
 
@@ -303,21 +301,13 @@ public class Program
         }
         catch (Exception ex)
         {
-            if (logger is not null)
-            {
-                logger.LogError(ex, "Monitor startup failed");
-                MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: $"failed: {ex.Message}");
-            }
-            else
-            {
-                await Console.Error.WriteLineAsync($"Monitor startup failed before logger initialization: {ex}").ConfigureAwait(false);
-            }
-
+            logger.LogError(ex, "Monitor startup failed");
+            MonitorInfoPersistence.SaveMonitorInfo(0, isDebugMode, logger, pathProvider, startupStatus: $"failed: {ex.Message}");
             throw;
         }
         finally
         {
-            if (holdsStartupMutex && startupMutex != null)
+            if (holdsStartupMutex)
             {
                 try
                 {
@@ -325,12 +315,9 @@ public class Program
                 }
                 catch (ApplicationException)
                 {
-                    logger?.LogDebug("Startup mutex ownership was lost before shutdown.");
+                    logger.LogDebug("Startup mutex ownership was lost before shutdown.");
                 }
             }
-
-            startupMutex?.Dispose();
-            loggerFactory?.Dispose();
         }
     }
 

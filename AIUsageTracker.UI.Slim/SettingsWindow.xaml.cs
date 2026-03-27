@@ -14,6 +14,7 @@ using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
+using AIUsageTracker.Infrastructure.Services;
 using AIUsageTracker.UI.Slim.Services;
 using Microsoft.Extensions.Logging;
 
@@ -32,6 +33,7 @@ public partial class SettingsWindow : Window
     private readonly ILogger<SettingsWindow> _logger;
     private readonly IAppPathProvider _pathProvider;
     private readonly UiPreferencesStore _preferencesStore;
+    private readonly Func<UpdateChannel, GitHubUpdateChecker> _createUpdateChecker;
     private readonly SemaphoreSlim _autoSaveSemaphore = new(1, 1);
     private readonly DispatcherTimer _autoSaveTimer;
 
@@ -48,7 +50,8 @@ public partial class SettingsWindow : Window
         MonitorLifecycleService monitorLifecycleService,
         ILogger<SettingsWindow> logger,
         UiPreferencesStore preferencesStore,
-        IAppPathProvider pathProvider)
+        IAppPathProvider pathProvider,
+        Func<UpdateChannel, GitHubUpdateChecker> createUpdateChecker)
     {
         this._autoSaveTimer = new DispatcherTimer
         {
@@ -62,7 +65,9 @@ public partial class SettingsWindow : Window
         this._logger = logger;
         this._pathProvider = pathProvider;
         this._preferencesStore = preferencesStore;
+        this._createUpdateChecker = createUpdateChecker;
         PrivacyChangedWeakEventManager.AddHandler(this.OnPrivacyChanged);
+        this.Closing += this.SettingsWindow_Closing;
         this.Closed += this.SettingsWindow_Closed;
         this.Loaded += this.SettingsWindow_Loaded;
         this.UpdatePrivacyButtonState();
@@ -245,6 +250,8 @@ public partial class SettingsWindow : Window
             ShowUsedPercentages = false,
             ColorThresholdYellow = 60,
             ColorThresholdRed = 80,
+            ShowDualQuotaBars = true,
+            DualQuotaSingleBarMode = DualQuotaSingleBarMode.Rolling,
             FontFamily = "Segoe UI",
             FontSize = 12,
             FontBold = false,
@@ -307,6 +314,25 @@ public partial class SettingsWindow : Window
 
         var normalized = builder.ToString().Trim('-');
         return string.IsNullOrWhiteSpace(normalized) ? $"tab{index + 1}" : normalized;
+    }
+
+    private void SettingsWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Ensure the main window reloads preferences regardless of how the dialog closes
+        // (Close button, X button, or Alt+F4). DialogResult can only be set before the
+        // window actually closes, and only when shown via ShowDialog().
+        if (!this.DialogResult.HasValue)
+        {
+            try
+            {
+                this.DialogResult = true;
+            }
+            catch (InvalidOperationException)
+            {
+                // Window was closed via Close() rather than ShowDialog() — e.g., in
+                // headless screenshot mode. DialogResult cannot be set; ignore.
+            }
+        }
     }
 
     private void SettingsWindow_Closed(object? sender, EventArgs e)
@@ -418,6 +444,10 @@ public partial class SettingsWindow : Window
         this.AlwaysOnTopCheck.IsChecked = this._preferences.AlwaysOnTop;
         this.AggressiveTopmostCheck.IsChecked = this._preferences.AggressiveAlwaysOnTop;
         this.ForceWin32TopmostCheck.IsChecked = this._preferences.ForceWin32Topmost;
+        var (monitorAutoStart, uiAutoStart) = WindowsStartupService.Read();
+        this.StartMonitorWithWindowsCheck.IsChecked = monitorAutoStart;
+        this.StartUiWithWindowsCheck.IsChecked = uiAutoStart;
+        this.PopulateDualQuotaBarWindowCombo();
         this.ApplyDisplayModePreference();
         this.ThemeCombo.DisplayMemberPath = nameof(ThemeOption.Label);
         this.ThemeCombo.SelectedValuePath = nameof(ThemeOption.Value);
@@ -466,6 +496,16 @@ public partial class SettingsWindow : Window
             this.ShowUsagePerHourCheck.IsChecked = this._preferences.ShowUsagePerHour;
         }
 
+        if (this.ShowDualQuotaBarsCheck != null)
+        {
+            this.ShowDualQuotaBarsCheck.IsChecked = this._preferences.ShowDualQuotaBars;
+        }
+
+        if (this.DualQuotaBarWindowCombo != null)
+        {
+            this.DualQuotaBarWindowCombo.SelectedValue = this._preferences.DualQuotaSingleBarMode;
+        }
+
         if (this.EnablePaceAdjustmentCheck != null)
         {
             this.EnablePaceAdjustmentCheck.IsChecked = this._preferences.EnablePaceAdjustment;
@@ -475,6 +515,34 @@ public partial class SettingsWindow : Window
         {
             this.UseRelativeResetTimeCheck.IsChecked = this._preferences.UseRelativeResetTime;
         }
+
+        this.UpdateDualQuotaControlsState();
+    }
+
+    private void PopulateDualQuotaBarWindowCombo()
+    {
+        if (this.DualQuotaBarWindowCombo == null)
+        {
+            return;
+        }
+
+        this.DualQuotaBarWindowCombo.ItemsSource = new[]
+        {
+            new { Label = "Weekly (rolling window)", Value = DualQuotaSingleBarMode.Rolling },
+            new { Label = "Hourly/burst window", Value = DualQuotaSingleBarMode.Burst },
+        };
+        this.DualQuotaBarWindowCombo.DisplayMemberPath = "Label";
+        this.DualQuotaBarWindowCombo.SelectedValuePath = "Value";
+    }
+
+    private void UpdateDualQuotaControlsState()
+    {
+        if (this.DualQuotaBarWindowCombo == null || this.ShowDualQuotaBarsCheck == null)
+        {
+            return;
+        }
+
+        this.DualQuotaBarWindowCombo.IsEnabled = !(this.ShowDualQuotaBarsCheck.IsChecked ?? true);
     }
 
     private IReadOnlyList<ThemeOption> GetThemeOptions()
@@ -701,9 +769,19 @@ public partial class SettingsWindow : Window
             this._preferences.AlwaysOnTop = this.AlwaysOnTopCheck.IsChecked ?? true;
             this._preferences.AggressiveAlwaysOnTop = this.AggressiveTopmostCheck.IsChecked ?? false;
             this._preferences.ForceWin32Topmost = this.ForceWin32TopmostCheck.IsChecked ?? false;
+            var startMonitor = this.StartMonitorWithWindowsCheck.IsChecked ?? false;
+            var startUi = this.StartUiWithWindowsCheck.IsChecked ?? false;
+            this._preferences.StartMonitorWithWindows = startMonitor;
+            this._preferences.StartUiWithWindows = startUi;
+            WindowsStartupService.Apply(startMonitor, startUi);
             var showUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
             this._preferences.ShowUsedPercentages = showUsedPercentages;
             this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
+            this._preferences.ShowDualQuotaBars = this.ShowDualQuotaBarsCheck.IsChecked ?? true;
+            if (this.DualQuotaBarWindowCombo?.SelectedValue is DualQuotaSingleBarMode dualMode)
+            {
+                this._preferences.DualQuotaSingleBarMode = dualMode;
+            }
             this._preferences.EnablePaceAdjustment = this.EnablePaceAdjustmentCheck.IsChecked ?? true;
             this._preferences.UseRelativeResetTime = this.UseRelativeResetTimeCheck.IsChecked ?? false;
             if (this.ThemeCombo.SelectedValue is AppTheme appTheme)
@@ -799,7 +877,7 @@ public partial class SettingsWindow : Window
         {
             this._autoSaveTimer.Stop();
             await this.PersistAllSettingsAsync(showErrorDialog: false);
-            this.Close();
+            this.DialogResult = true;
         }
         catch (Exception ex)
         {
@@ -824,6 +902,7 @@ public partial class SettingsWindow : Window
             this._preferences.Theme = appTheme;
             App.ApplyTheme(appTheme);
             this.ScheduleAutoSave();
+            this.RenderCardPreview();
         }
     }
 
@@ -841,6 +920,41 @@ public partial class SettingsWindow : Window
         }
     }
 
+#pragma warning disable VSTHRD100 // WPF event handlers require async void signatures.
+    private async void CheckForUpdatesBtn_Click(object sender, RoutedEventArgs e)
+#pragma warning restore VSTHRD100
+    {
+        this.CheckForUpdatesBtn.IsEnabled = false;
+        this.UpdateCheckStatus.Text = "Checking...";
+        this.UpdateCheckStatus.Foreground = (Brush)this.FindResource("SecondaryText");
+
+        try
+        {
+            var channel = this._preferences.UpdateChannel;
+            var checker = this._createUpdateChecker(channel);
+            var update = await checker.CheckForUpdatesAsync();
+
+            if (update != null && !string.IsNullOrWhiteSpace(update.Version))
+            {
+                this.UpdateCheckStatus.Text = $"New version available: {update.Version}";
+                this.UpdateCheckStatus.Foreground = (Brush)this.FindResource("ProgressBarGreen");
+            }
+            else
+            {
+                this.UpdateCheckStatus.Text = "You're up to date.";
+            }
+        }
+        catch (Exception ex)
+        {
+            this._logger.LogWarning(ex, "Manual update check failed");
+            this.UpdateCheckStatus.Text = "Check failed. Try again later.";
+        }
+        finally
+        {
+            this.CheckForUpdatesBtn.IsEnabled = true;
+        }
+    }
+
     private void LayoutSetting_Changed(object sender, RoutedEventArgs e)
     {
         if (!this.IsInitialized)
@@ -848,8 +962,12 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        this.UpdateDualQuotaControlsState();
         this.ApplyNotificationControlsState();
+        this.SyncDisplayPreferencesFromControls();
         this.ScheduleAutoSave();
+        this.RenderCardPreview();
+        this.NotifyMainWindowChanged();
     }
 
     private void LayoutSetting_TextChanged(object sender, TextChangedEventArgs e)
@@ -859,7 +977,38 @@ public partial class SettingsWindow : Window
             return;
         }
 
+        this.SyncDisplayPreferencesFromControls();
         this.ScheduleAutoSave();
+        this.RenderCardPreview();
+        this.NotifyMainWindowChanged();
+    }
+
+    /// <summary>
+    /// Syncs display-related preferences from UI controls immediately so the card
+    /// designer preview reflects the current state without waiting for auto-save.
+    /// </summary>
+    private void SyncDisplayPreferencesFromControls()
+    {
+        this._preferences.ShowUsedPercentages = this.ShowUsedPercentagesCheck.IsChecked ?? false;
+        this._preferences.ShowUsagePerHour = this.ShowUsagePerHourCheck.IsChecked ?? false;
+        this._preferences.ShowDualQuotaBars = this.ShowDualQuotaBarsCheck.IsChecked ?? true;
+        if (this.DualQuotaBarWindowCombo?.SelectedValue is DualQuotaSingleBarMode dualMode)
+        {
+            this._preferences.DualQuotaSingleBarMode = dualMode;
+        }
+
+        this._preferences.EnablePaceAdjustment = this.EnablePaceAdjustmentCheck.IsChecked ?? true;
+        this._preferences.UseRelativeResetTime = this.UseRelativeResetTimeCheck.IsChecked ?? false;
+
+        if (int.TryParse(this.YellowThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var yellow))
+        {
+            this._preferences.ColorThresholdYellow = yellow;
+        }
+
+        if (int.TryParse(this.RedThreshold.Text, System.Globalization.CultureInfo.InvariantCulture, out var red))
+        {
+            this._preferences.ColorThresholdRed = red;
+        }
     }
 
     private void EnableWindowsNotificationsCheck_Changed(object sender, RoutedEventArgs e)

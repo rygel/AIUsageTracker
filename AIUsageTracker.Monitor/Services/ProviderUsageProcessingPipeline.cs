@@ -315,10 +315,10 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
         if (!this.StringEquals(providerId, usage.ProviderId) ||
             !this.StringEquals(providerName, usage.ProviderName) ||
-            requestsUsed != usage.RequestsUsed ||
-            requestsAvailable != usage.RequestsAvailable ||
-            requestsPercentage != usage.UsedPercent ||
-            responseLatencyMs != usage.ResponseLatencyMs ||
+            Math.Abs(requestsUsed - usage.RequestsUsed) > 0.001 ||
+            Math.Abs(requestsAvailable - usage.RequestsAvailable) > 0.001 ||
+            Math.Abs(requestsPercentage - usage.UsedPercent) > 0.001 ||
+            Math.Abs(responseLatencyMs - usage.ResponseLatencyMs) > 0.001 ||
             fetchedAt != usage.FetchedAt ||
             !this.StringEquals(description, usage.Description) ||
             httpStatus != usage.HttpStatus ||
@@ -416,8 +416,8 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
     private bool IsPlaceholderUnavailableUsage(ProviderUsage usage)
     {
-        if (usage.RequestsAvailable != 0 ||
-            usage.RequestsUsed != 0 ||
+        if (usage.RequestsAvailable is not 0 ||
+            usage.RequestsUsed is not 0 ||
             usage.IsAvailable)
         {
             return false;
@@ -514,12 +514,9 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
                 continue;
             }
 
-            foreach (var usage in group)
+            foreach (var usage in group.Where(u => string.IsNullOrWhiteSpace(u.AccountName)))
             {
-                if (string.IsNullOrWhiteSpace(usage.AccountName))
-                {
-                    usage.AccountName = resolvedAccountName;
-                }
+                usage.AccountName = resolvedAccountName;
             }
         }
     }

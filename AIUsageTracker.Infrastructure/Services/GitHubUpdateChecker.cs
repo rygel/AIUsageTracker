@@ -91,27 +91,24 @@ public class GitHubUpdateChecker
                 // Parse version (handle 'v' prefix)
                 var latestVersionStr = latest.Version?.TrimStart('v') ?? "0.0.0";
 
-                if (Version.TryParse(latestVersionStr, out var latestVersion))
+                if (Version.TryParse(latestVersionStr, out var latestVersion) && latestVersion > currentVersion)
                 {
-                    if (latestVersion > currentVersion)
+                    this._logger.LogInformation(
+                        "New version available: {LatestVersion} (Current: {CurrentVersion})",
+                        latestVersion,
+                        currentVersion);
+
+                    // Fetch release notes from GitHub API
+                    var releaseNotes = await this.FetchReleaseNotesFromGitHubAsync(latestVersionStr).ConfigureAwait(false);
+
+                    return new AIUsageTracker.Core.Interfaces.UpdateInfo
                     {
-                        this._logger.LogInformation(
-                            "New version available: {LatestVersion} (Current: {CurrentVersion})",
-                            latestVersion,
-                            currentVersion);
-
-                        // Fetch release notes from GitHub API
-                        var releaseNotes = await this.FetchReleaseNotesFromGitHubAsync(latestVersionStr).ConfigureAwait(false);
-
-                        return new AIUsageTracker.Core.Interfaces.UpdateInfo
-                        {
-                            Version = latest.Version ?? latestVersion.ToString(),
-                            ReleaseUrl = latest.ReleaseNotesLink ?? GetReleaseTagUrl(latestVersion.ToString()),
-                            DownloadUrl = latest.DownloadLink ?? string.Empty,
-                            ReleaseNotes = releaseNotes,
-                            PublishedAt = latest.PublicationDate,
-                        };
-                    }
+                        Version = latest.Version ?? latestVersion.ToString(),
+                        ReleaseUrl = latest.ReleaseNotesLink ?? GetReleaseTagUrl(latestVersion.ToString()),
+                        DownloadUrl = latest.DownloadLink ?? string.Empty,
+                        ReleaseNotes = releaseNotes,
+                        PublishedAt = latest.PublicationDate,
+                    };
                 }
             }
 

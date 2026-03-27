@@ -18,46 +18,35 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        var serviceProvider = CreateServiceProvider();
+        using var serviceProvider = CreateServiceProvider();
 
-        try
+        // Ensure Agent is running
+        var lifecycleService = serviceProvider.GetRequiredService<MonitorLifecycleService>();
+        if (!await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false))
         {
-            // Ensure Agent is running
-            var lifecycleService = serviceProvider.GetRequiredService<MonitorLifecycleService>();
-            if (!await lifecycleService.IsAgentRunningAsync().ConfigureAwait(false))
+            Console.WriteLine("Agent is not running. Attempting to start...");
+            if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
             {
-                Console.WriteLine("Agent is not running. Attempting to start...");
-                if (await lifecycleService.StartAgentAsync().ConfigureAwait(false))
+                Console.Write("Waiting for Agent to initialize...");
+                if (await lifecycleService.WaitForAgentAsync().ConfigureAwait(false))
                 {
-                    Console.Write("Waiting for Agent to initialize...");
-                    if (await lifecycleService.WaitForAgentAsync().ConfigureAwait(false))
-                    {
-                        Console.WriteLine(" Done.");
-                    }
-                    else
-                    {
-                        Console.WriteLine(" Failed.");
-                        Console.WriteLine("Could not start the Agent service. Please start it manually.");
-                        return;
-                    }
+                    Console.WriteLine(" Done.");
                 }
                 else
                 {
-                    Console.WriteLine("Failed to launch Agent process.");
+                    Console.WriteLine(" Failed.");
+                    Console.WriteLine("Could not start the Agent service. Please start it manually.");
                     return;
                 }
             }
-
-            await RunAsync(args, serviceProvider).ConfigureAwait(false);
-        }
-        finally
-        {
-            // We don't kill the process anymore since we might have started the shared Agent
-            if (serviceProvider is IDisposable disposable)
+            else
             {
-                disposable.Dispose();
+                Console.WriteLine("Failed to launch Agent process.");
+                return;
             }
         }
+
+        await RunAsync(args, serviceProvider).ConfigureAwait(false);
     }
 
     private static ServiceProvider CreateServiceProvider()

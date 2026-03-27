@@ -50,7 +50,7 @@ public class KimiProvider : ProviderBase
 
     public override string ProviderId => StaticDefinition.ProviderId;
 
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {
@@ -114,8 +114,8 @@ public class KimiProvider : ProviderBase
                 if (!string.IsNullOrEmpty(data.Usage.ResetTime) &&
                     DateTime.TryParse(data.Usage.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var weeklyDt))
                 {
-                    weeklyResetDt = weeklyDt.ToLocalTime();
-                    var diff = weeklyResetDt.Value - DateTime.Now;
+                    weeklyResetDt = weeklyDt.ToUniversalTime();
+                    var diff = weeklyResetDt.Value - DateTime.UtcNow;
                     if (diff.TotalSeconds > 0 && diff < minDiff)
                     {
                         minDiff = diff;
@@ -161,8 +161,8 @@ public class KimiProvider : ProviderBase
                     DateTime? itemResetDt = null;
                     if (DateTime.TryParse(det.ResetTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
                     {
-                        itemResetDt = dt.ToLocalTime();
-                        var diff = itemResetDt.Value - DateTime.Now;
+                        itemResetDt = dt.ToUniversalTime();
+                        var diff = itemResetDt.Value - DateTime.UtcNow;
                         if (diff.TotalSeconds > 0 && diff < minDiff)
                         {
                             minDiff = diff;

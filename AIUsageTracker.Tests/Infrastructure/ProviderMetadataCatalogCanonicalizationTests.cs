@@ -9,6 +9,11 @@ namespace AIUsageTracker.Tests.Infrastructure;
 
 public class ProviderMetadataCatalogCanonicalizationTests
 {
+    private static readonly string TestApiKey1 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey2 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey3 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey4 = Guid.NewGuid().ToString();
+
     [Fact]
     public void NormalizeCanonicalConfigurations_MigratesOpenAiSessionTokenToCodex()
     {
@@ -17,7 +22,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
             new()
             {
                 ProviderId = "openai",
-                ApiKey = "session-token",
+                ApiKey = TestApiKey1,
                 AuthSource = "OpenCode",
                 Description = "session",
             },
@@ -27,7 +32,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
 
         var codex = Assert.Single(configs);
         Assert.Equal("codex", codex.ProviderId);
-        Assert.Equal("session-token", codex.ApiKey);
+        Assert.Equal(TestApiKey1, codex.ApiKey);
         Assert.Equal(PlanType.Coding, codex.PlanType);
         Assert.Equal("quota-based", codex.Type);
         Assert.Equal("OpenCode", codex.AuthSource);
@@ -42,7 +47,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
             new()
             {
                 ProviderId = "codex.spark",
-                ApiKey = "spark-token",
+                ApiKey = TestApiKey2,
                 AuthSource = "Spark",
                 Description = "spark",
                 Type = "quota-based",
@@ -57,7 +62,7 @@ public class ProviderMetadataCatalogCanonicalizationTests
 
         var spark = Assert.Single(configs);
         Assert.Equal("codex.spark", spark.ProviderId);
-        Assert.Equal("spark-token", spark.ApiKey);
+        Assert.Equal(TestApiKey2, spark.ApiKey);
         Assert.Equal("Spark", spark.AuthSource);
         Assert.Equal("spark", spark.Description);
         Assert.Equal("https://example.invalid", spark.BaseUrl);
@@ -72,14 +77,14 @@ public class ProviderMetadataCatalogCanonicalizationTests
     {
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "legacy-session-token" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey3 },
+            new() { ProviderId = "openai", ApiKey = TestApiKey4 },
         };
 
         ProviderMetadataCatalog.NormalizeCanonicalConfigurations(configs);
 
         var codex = Assert.Single(configs);
         Assert.Equal("codex", codex.ProviderId);
-        Assert.Equal("codex-session", codex.ApiKey);
+        Assert.Equal(TestApiKey3, codex.ApiKey);
     }
 }

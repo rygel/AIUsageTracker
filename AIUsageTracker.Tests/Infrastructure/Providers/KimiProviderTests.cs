@@ -15,12 +15,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly KimiProvider _provider;
 
     public KimiProviderTests()
     {
         this._provider = new KimiProvider(this.HttpClient, this.Logger.Object);
-        this.Config.ApiKey = "test-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     /// <summary>

@@ -9,6 +9,7 @@ namespace AIUsageTracker.Monitor.Tests;
 
 public class AuthDiagnosticsSnapshotBuilderTests
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
     [Fact]
     public void Build_WhenAuthSourceUsesFilePath_ExtractsFallbackAndAgeBucket()
     {
@@ -19,7 +20,7 @@ public class AuthDiagnosticsSnapshotBuilderTests
             var config = new ProviderConfig
             {
                 ProviderId = "gemini-cli",
-                ApiKey = "token",
+                ApiKey = TestApiKey,
                 AuthSource = $"Config: {tempFile}",
                 Description = "Gemini user account",
             };
@@ -45,7 +46,7 @@ public class AuthDiagnosticsSnapshotBuilderTests
         var config = new ProviderConfig
         {
             ProviderId = "deepseek",
-            ApiKey = "token",
+            ApiKey = TestApiKey,
             AuthSource = "Env: DEEPSEEK_API_KEY",
         };
 
@@ -63,7 +64,7 @@ public class AuthDiagnosticsSnapshotBuilderTests
         var config = new ProviderConfig
         {
             ProviderId = "codex",
-            ApiKey = "token",
+            ApiKey = TestApiKey,
             AuthSource = $"Config: {missingPath}",
         };
 
@@ -79,7 +80,7 @@ public class AuthDiagnosticsSnapshotBuilderTests
         var config = new ProviderConfig
         {
             ProviderId = "openai",
-            ApiKey = "token",
+            ApiKey = TestApiKey,
             AuthSource = "Env: OPENAI_API_KEY=sk-super-secret-value",
         };
 
@@ -96,7 +97,7 @@ public class AuthDiagnosticsSnapshotBuilderTests
         var config = new ProviderConfig
         {
             ProviderId = "github-copilot",
-            ApiKey = "token",
+            ApiKey = TestApiKey,
             AuthSource = "Config: auth.json",
         };
 
@@ -111,7 +112,7 @@ public class AuthDiagnosticsSnapshotBuilderTests
         var config = new ProviderConfig
         {
             ProviderId = "deepseek",
-            ApiKey = "token",
+            ApiKey = TestApiKey,
             AuthSource = "Config: auth.json",
         };
 

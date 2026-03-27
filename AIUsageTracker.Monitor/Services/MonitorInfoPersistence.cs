@@ -33,69 +33,52 @@ internal static class MonitorInfoPersistence
         }
 
         var json = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
-        var written = false;
+        var infoPath = pathProvider.GetMonitorInfoFilePath();
 
-        foreach (var infoPath in GetMonitorInfoCandidatePaths(pathProvider))
+        try
         {
-            try
+            var directory = Path.GetDirectoryName(infoPath);
+            if (!string.IsNullOrWhiteSpace(directory))
             {
-                var directory = Path.GetDirectoryName(infoPath);
-                if (!string.IsNullOrWhiteSpace(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
+                Directory.CreateDirectory(directory);
+            }
 
-                File.WriteAllText(infoPath, json);
-                written = true;
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Failed to write monitor info to {MonitorInfoPath}", infoPath);
-            }
+            File.WriteAllText(infoPath, json);
         }
-
-        if (!written)
+        catch (Exception ex)
         {
-            logger.LogError("Failed to write monitor info to any candidate path");
+            logger.LogError(ex, "Failed to write monitor info to {MonitorInfoPath}", infoPath);
         }
     }
 
     public static void ReportError(string message, IAppPathProvider pathProvider, ILogger? logger = null)
     {
-        var jsonFile = GetExistingMonitorInfoPath(pathProvider);
-        if (string.IsNullOrWhiteSpace(jsonFile) || !File.Exists(jsonFile))
+        var jsonFile = pathProvider.GetMonitorInfoFilePath();
+        if (!File.Exists(jsonFile))
         {
             return;
         }
 
-        var json = File.ReadAllText(jsonFile);
-        var info = JsonSerializer.Deserialize<MonitorInfo>(
-            json,
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-        if (info == null)
+        try
         {
-            return;
+            var json = File.ReadAllText(jsonFile);
+            var info = JsonSerializer.Deserialize<MonitorInfo>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (info == null)
+            {
+                return;
+            }
+
+            var errors = info.Errors?.ToList() ?? new List<string>();
+            errors.Add(message);
+            info.Errors = errors;
+            var updatedJson = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(jsonFile, updatedJson);
         }
-
-        var errors = info.Errors?.ToList() ?? new List<string>();
-        errors.Add(message);
-        info.Errors = errors;
-        var updatedJson = JsonSerializer.Serialize(info, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(jsonFile, updatedJson);
-    }
-
-    private static string? GetExistingMonitorInfoPath(IAppPathProvider pathProvider)
-    {
-        return GetMonitorInfoCandidatePaths(pathProvider)
-            .Where(File.Exists)
-            .OrderByDescending(path => File.GetLastWriteTimeUtc(path))
-            .FirstOrDefault();
-    }
-
-    private static IEnumerable<string> GetMonitorInfoCandidatePaths(IAppPathProvider pathProvider)
-    {
-        var appDataRoot = pathProvider.GetAppDataRoot();
-        var userProfileRoot = pathProvider.GetUserProfileRoot();
-        return MonitorLauncher.GetMonitorInfoWriteCandidatePaths(appDataRoot, userProfileRoot);
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            logger?.LogWarning(ex, "Failed to report error to monitor info");
+        }
     }
 }

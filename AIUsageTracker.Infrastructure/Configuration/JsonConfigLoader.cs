@@ -317,17 +317,10 @@ public class JsonConfigLoader : IConfigLoader
 
     private List<string> ReadStringList(JsonElement arrayElement)
     {
-        var values = new List<string>();
-        foreach (var item in arrayElement.EnumerateArray())
-        {
-            var value = item.GetString();
-            if (value != null)
-            {
-                values.Add(value);
-            }
-        }
-
-        return values;
+        return arrayElement.EnumerateArray()
+            .Select(item => item.GetString())
+            .OfType<string>()
+            .ToList();
     }
 
     private void AppendConfigSource(ProviderConfig config, string path)

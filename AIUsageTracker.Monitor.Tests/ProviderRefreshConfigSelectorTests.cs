@@ -12,6 +12,9 @@ namespace AIUsageTracker.Monitor.Tests;
 
 public class ProviderRefreshConfigSelectorTests
 {
+    private static readonly string TestApiKey1 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey2 = Guid.NewGuid().ToString();
+
     [Fact]
     public void EnsureAutoIncludedConfigs_AddsDefaultConfigForAutoIncludedProvider()
     {
@@ -59,7 +62,7 @@ public class ProviderRefreshConfigSelectorTests
         var configs = new List<ProviderConfig>
         {
             new() { ProviderId = "openai" },
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey1 },
         };
 
         selector.EnsureAutoIncludedConfigs(configs);
@@ -95,8 +98,8 @@ public class ProviderRefreshConfigSelectorTests
         var selector = CreateSelector();
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
-            new() { ProviderId = "openai", ApiKey = "legacy-session-token" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey1 },
+            new() { ProviderId = "openai", ApiKey = TestApiKey2 },
         };
 
         var selection = selector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
@@ -111,7 +114,7 @@ public class ProviderRefreshConfigSelectorTests
         var selector = CreateSelector();
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey1 },
         };
 
         var selection = selector.SelectActiveConfigs(configs, forceAll: false, includeProviderIds: null);
@@ -125,7 +128,7 @@ public class ProviderRefreshConfigSelectorTests
         var selector = CreateSelector();
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey1 },
         };
 
         var selection = selector.SelectActiveConfigs(
@@ -162,7 +165,7 @@ public class ProviderRefreshConfigSelectorTests
                 AutoIncludeWhenUnconfigured = autoIncludeWhenUnconfigured,
                 FamilyMode = familyMode,
             });
-        mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
+        mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<ProviderUsage>());
         return mock.Object;
     }

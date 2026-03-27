@@ -612,19 +612,23 @@ public partial class MainWindow : Window
 
         if (settingsResult == true)
         {
-            // Reload preferences and refresh data
+            // Read updated preferences from the shared in-memory object.
+            this._preferences = App.Preferences;
+            this._isPrivacyMode = this._preferences.IsPrivacyMode;
+            App.SetPrivacyMode(this._isPrivacyMode);
+            this._preferencesLoaded = true;
+
+            this.ApplyPreferencesFromSettings();
             await this.InitializeAsync();
-            await this.ReloadPreferencesAfterSettingsAsync();
         }
     }
 
-    private async Task ReloadPreferencesAfterSettingsAsync()
+    private void ApplyPreferencesFromSettings()
     {
-        this._preferences = await this._preferencesStore.LoadAsync();
-        App.Preferences = this._preferences;
-        this._isPrivacyMode = this._preferences.IsPrivacyMode;
-        App.SetPrivacyMode(this._isPrivacyMode);
-        this._preferencesLoaded = true;
+        if (this._isLoading)
+        {
+            return;
+        }
 
         bool hasUsages;
         lock (this._dataLock)

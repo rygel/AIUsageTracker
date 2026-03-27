@@ -43,7 +43,7 @@ internal sealed class WpfProviderIconService
 
         if (this._cache.TryGetValue(canonicalId, out var cached))
         {
-            return MakeImage(cached);
+            return MakeIconElement(cached);
         }
 
         var filename = ProviderMetadataCatalog.GetIconAssetName(providerId);
@@ -69,7 +69,7 @@ internal sealed class WpfProviderIconService
                     var imageSource = new DrawingImage(drawing);
                     imageSource.Freeze();
                     this._cache[canonicalId] = imageSource;
-                    return MakeImage(imageSource);
+                    return MakeIconElement(imageSource);
                 }
             }
             catch (Exception ex)
@@ -117,7 +117,7 @@ internal sealed class WpfProviderIconService
         return grid;
     }
 
-    private Image MakeImage(ImageSource source)
+    private FrameworkElement MakeIconElement(ImageSource source)
     {
         var image = new Image
         {
@@ -125,23 +125,44 @@ internal sealed class WpfProviderIconService
             Width = 16,
             Height = 16,
             VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Stretch = Stretch.Uniform,
         };
 
-        // On dark themes, dark SVG icons are invisible. Add a subtle white glow
-        // so black/dark icons remain visible against dark card backgrounds.
+        // On dark themes, dark SVG icons are invisible. Add a subtle light tile
+        // behind the icon so dark marks remain visible on dark cards.
         var bg = this._resolveResourceBrush("Background", Brushes.White);
         if (bg is SolidColorBrush solid && IsDarkColor(solid.Color))
         {
-            image.Effect = new System.Windows.Media.Effects.DropShadowEffect
+            var backdropBrush = CreateIconBackdropBrush(this._resolveResourceBrush("PrimaryText", Brushes.White));
+            var viewbox = new Viewbox
             {
-                Color = Colors.White,
-                ShadowDepth = 0,
-                BlurRadius = 3,
-                Opacity = 0.6,
+                Stretch = Stretch.Uniform,
+                StretchDirection = StretchDirection.DownOnly,
+                Child = image,
+            };
+            return new Border
+            {
+                Width = 16,
+                Height = 16,
+                Background = backdropBrush,
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(1),
+                Child = viewbox,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
             };
         }
 
         return image;
+    }
+
+    private static SolidColorBrush CreateIconBackdropBrush(Brush baseBrush)
+    {
+        var color = baseBrush is SolidColorBrush solid ? solid.Color : Colors.White;
+        var backdrop = new SolidColorBrush(Color.FromArgb(64, color.R, color.G, color.B));
+        backdrop.Freeze();
+        return backdrop;
     }
 
     private static bool IsDarkColor(Color c)

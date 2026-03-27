@@ -13,6 +13,10 @@ namespace AIUsageTracker.Tests.Infrastructure;
 
 public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
 {
+    private static readonly string TestApiKey1 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey2 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey3 = Guid.NewGuid().ToString();
+
     [Fact]
     public async Task SaveConfigAsync_PersistsCodexSparkAsDedicatedProviderAsync()
     {
@@ -38,14 +42,14 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
             new()
             {
                 ProviderId = "codex",
-                ApiKey = "codex-key",
+                ApiKey = TestApiKey1,
                 Type = "quota-based",
                 PlanType = PlanType.Coding,
             },
             new()
             {
                 ProviderId = "codex.spark",
-                ApiKey = "spark-key",
+                ApiKey = TestApiKey2,
                 Type = "quota-based",
                 PlanType = PlanType.Coding,
             },
@@ -258,7 +262,7 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
             new()
             {
                 ProviderId = "codex",
-                ApiKey = "new-codex-key",
+                ApiKey = TestApiKey3,
                 Type = "quota-based",
                 PlanType = PlanType.Coding,
             },

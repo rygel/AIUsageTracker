@@ -55,7 +55,7 @@ public class MinimaxProvider : ProviderBase
     public override string ProviderId => StaticDefinition.ProviderId;
 
     /// <inheritdoc/>
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         var providerLabel = ProviderMetadataCatalog.GetConfiguredDisplayName(config.ProviderId);
 
@@ -90,15 +90,10 @@ public class MinimaxProvider : ProviderBase
         else
         {
             // Determine endpoint based on ID suffix
-            if (string.Equals(config.ProviderId, InternationalProviderId, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(config.ProviderId, InternationalLegacyProviderId, StringComparison.OrdinalIgnoreCase))
-            {
-                url = "https://api.minimax.io/v1/user/usage";
-            }
-            else
-            {
-                url = "https://api.minimax.chat/v1/user/usage";
-            }
+            url = string.Equals(config.ProviderId, InternationalProviderId, StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(config.ProviderId, InternationalLegacyProviderId, StringComparison.OrdinalIgnoreCase)
+                ? "https://api.minimax.io/v1/user/usage"
+                : "https://api.minimax.chat/v1/user/usage";
         }
 
         var request = CreateBearerRequest(HttpMethod.Get, url, config.ApiKey);

@@ -17,6 +17,11 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
 {
+    private static readonly string TestApiKeyStandard = "sk-" + Guid.NewGuid().ToString();
+    private static readonly string TestApiKeyProject = "sk-proj-" + Guid.NewGuid().ToString();
+    private static readonly string TestApiKeySession = Guid.NewGuid().ToString();
+    private static readonly string TestApiKeyExpired = Guid.NewGuid().ToString();
+
     private readonly OpenAIProvider _provider;
     private readonly Mock<IProviderDiscoveryService> _discoveryService = new();
 
@@ -29,7 +34,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     public async Task GetUsageAsync_StandardApiKey_ReturnsConnectedStatusAsync()
     {
         // Arrange
-        this.Config.ApiKey = "sk-test-key";
+        this.Config.ApiKey = TestApiKeyStandard;
         this.SetupHttpResponse("https://api.openai.com/v1/models", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.OK,
@@ -51,7 +56,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     public async Task GetUsageAsync_ProjectApiKey_ReturnsNotSupportedMessageAsync()
     {
         // Arrange
-        this.Config.ApiKey = "sk-proj-test-key";
+        this.Config.ApiKey = TestApiKeyProject;
 
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
@@ -66,7 +71,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     public async Task GetUsageAsync_NativeSession_ParsesQuotaCorrectlyAsync()
     {
         // Arrange
-        this.Config.ApiKey = "session-token"; // Not starting with sk-
+        this.Config.ApiKey = TestApiKeySession; // Not starting with sk-
         var responseData = new
         {
             plan_type = "plus",
@@ -183,7 +188,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
     public async Task GetUsageAsync_InvalidSession_ReturnsUnavailableAsync()
     {
         // Arrange
-        this.Config.ApiKey = "expired-session";
+        this.Config.ApiKey = TestApiKeyExpired;
         this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
         {
             StatusCode = HttpStatusCode.Unauthorized,
@@ -220,7 +225,7 @@ public class OpenAIProviderTests : HttpProviderTestBase<OpenAIProvider>
         // only return reset_after_seconds. The previous guard `if (used.HasValue)` would skip
         // the Burst detail entirely, preventing dual-bar rendering on the parent card.
         // With the fix, the Burst detail is emitted with 100% remaining (0% used).
-        this.Config.ApiKey = "session-token";
+        this.Config.ApiKey = TestApiKeySession;
 
         this.SetupHttpResponse("https://chatgpt.com/backend-api/wham/usage", new HttpResponseMessage
         {

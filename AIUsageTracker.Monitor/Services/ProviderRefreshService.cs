@@ -6,11 +6,7 @@ using System.Diagnostics;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.Services;
-using AIUsageTracker.Infrastructure.Configuration;
 using AIUsageTracker.Infrastructure.Providers;
-using AIUsageTracker.Infrastructure.Services;
-using AIUsageTracker.Monitor.Hubs;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -45,18 +41,19 @@ public class ProviderRefreshService : BackgroundService
 
     public ProviderRefreshService(
         ILogger<ProviderRefreshService> logger,
-        ILoggerFactory loggerFactory,
         IUsageDatabase database,
         INotificationService notificationService,
-        IHttpClientFactory httpClientFactory,
         IConfigService configService,
         IAppPathProvider pathProvider,
-        IEnumerable<IProviderService> providers,
-        UsageAlertsService usageAlertsService,
         ProviderRefreshCircuitBreakerService providerCircuitBreakerService,
-        IMonitorJobScheduler jobScheduler,
-        IProviderUsageProcessingPipeline? usageProcessingPipeline = null,
-        IHubContext<UsageHub>? hubContext = null)
+        ProviderRefreshConfigLoadingService configLoadingService,
+        ProviderUsagePersistenceService usagePersistenceService,
+        ProviderConnectivityCheckService connectivityCheckService,
+        ProviderRefreshJobScheduler refreshJobScheduler,
+        ProviderManagerLifecycleService providerManagerLifecycle,
+        ProviderRefreshNotificationService refreshNotificationService,
+        StartupSequenceService startupSequenceService,
+        IProviderUsageProcessingPipeline usageProcessingPipeline)
     {
         this._logger = logger;
         this._database = database;
@@ -64,24 +61,14 @@ public class ProviderRefreshService : BackgroundService
         this._configService = configService;
         this._pathProvider = pathProvider;
         this._providerCircuitBreakerService = providerCircuitBreakerService;
-        var dependencies = ProviderRefreshServiceFactory.CreateDependencies(
-            loggerFactory,
-            database,
-            configService,
-            pathProvider,
-            providers,
-            usageAlertsService,
-            jobScheduler,
-            usageProcessingPipeline,
-            hubContext);
-        this._configLoadingService = dependencies.ConfigLoadingService;
-        this._usagePersistenceService = dependencies.UsagePersistenceService;
-        this._connectivityCheckService = dependencies.ConnectivityCheckService;
-        this._refreshJobScheduler = dependencies.RefreshJobScheduler;
-        this._providerManagerLifecycle = dependencies.ProviderManagerLifecycle;
-        this._refreshNotificationService = dependencies.RefreshNotificationService;
-        this._startupSequenceService = dependencies.StartupSequenceService;
-        this._usageProcessingPipeline = dependencies.UsageProcessingPipeline;
+        this._configLoadingService = configLoadingService;
+        this._usagePersistenceService = usagePersistenceService;
+        this._connectivityCheckService = connectivityCheckService;
+        this._refreshJobScheduler = refreshJobScheduler;
+        this._providerManagerLifecycle = providerManagerLifecycle;
+        this._refreshNotificationService = refreshNotificationService;
+        this._startupSequenceService = startupSequenceService;
+        this._usageProcessingPipeline = usageProcessingPipeline;
     }
 
     public bool QueueManualRefresh(
@@ -91,7 +78,7 @@ public class ProviderRefreshService : BackgroundService
     {
         var coalesceKey = BuildManualRefreshCoalesceKey(forceAll, includeProviderIds, bypassCircuitBreaker);
         return this._refreshJobScheduler.QueueManualRefresh(
-            _ => this.TriggerRefreshAsync(forceAll, includeProviderIds, bypassCircuitBreaker),
+            ct => this.TriggerRefreshAsync(forceAll, includeProviderIds, bypassCircuitBreaker, ct),
             coalesceKey);
     }
 
@@ -138,13 +125,13 @@ public class ProviderRefreshService : BackgroundService
 
         this._refreshJobScheduler.RegisterRecurringRefresh(
             this._refreshInterval,
-            _ => this.TriggerRefreshAsync());
+            ct => this.TriggerRefreshAsync(cancellationToken: ct));
 
         var isEmpty = await this._database.IsHistoryEmptyAsync().ConfigureAwait(false);
         if (isEmpty)
         {
             this._startupSequenceService.QueueInitialDataSeeding(
-                () => this.TriggerRefreshAsync(forceAll: true));
+                ct => this.TriggerRefreshAsync(forceAll: true, cancellationToken: ct));
         }
         else
         {
@@ -155,7 +142,7 @@ public class ProviderRefreshService : BackgroundService
             // Only do targeted refresh for system providers that need immediate correctness
             // All other providers will be refreshed on the normal scheduled interval
             this._startupSequenceService.QueueStartupTargetedRefresh(
-                providerIds => this.TriggerRefreshAsync(forceAll: true, includeProviderIds: providerIds));
+                (providerIds, ct) => this.TriggerRefreshAsync(forceAll: true, includeProviderIds: providerIds, cancellationToken: ct));
         }
 
         try
@@ -173,7 +160,8 @@ public class ProviderRefreshService : BackgroundService
     public virtual async Task TriggerRefreshAsync(
         bool forceAll = false,
         IReadOnlyCollection<string>? includeProviderIds = null,
-        bool bypassCircuitBreaker = false)
+        bool bypassCircuitBreaker = false,
+        CancellationToken cancellationToken = default)
     {
         using var refreshActivity = ActivitySource.StartActivity("monitor.provider_refresh", ActivityKind.Internal);
         refreshActivity?.SetTag("refresh.force_all", forceAll);
@@ -193,7 +181,7 @@ public class ProviderRefreshService : BackgroundService
             return;
         }
 
-        await this._refreshSemaphore.WaitAsync().ConfigureAwait(false);
+        await this._refreshSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
@@ -234,9 +222,10 @@ public class ProviderRefreshService : BackgroundService
                 this._logger.LogInformation("Circuit breaker skipping {Count} provider(s) this cycle", circuitSkippedCount);
             }
 
+            IReadOnlyList<ProviderUsage>? refreshedUsages = null;
             if (refreshableConfigs.Count > 0 || circuitSkippedConfigs.Count > 0)
             {
-                await this.RefreshAndStoreProviderDataAsync(configs, refreshableConfigs, circuitSkippedConfigs).ConfigureAwait(false);
+                refreshedUsages = await this.RefreshAndStoreProviderDataAsync(configs, refreshableConfigs, circuitSkippedConfigs, cancellationToken).ConfigureAwait(false);
             }
             else
             {
@@ -251,7 +240,7 @@ public class ProviderRefreshService : BackgroundService
             refreshSucceeded = true;
             refreshActivity?.SetStatus(ActivityStatusCode.Ok);
 
-            await this._refreshNotificationService.NotifyUsageUpdatedAsync().ConfigureAwait(false);
+            await this._refreshNotificationService.NotifyUsageUpdatedAsync(refreshedUsages).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -270,10 +259,11 @@ public class ProviderRefreshService : BackgroundService
         }
     }
 
-    private async Task RefreshAndStoreProviderDataAsync(
+    private async Task<IReadOnlyList<ProviderUsage>> RefreshAndStoreProviderDataAsync(
         IList<ProviderConfig> allConfigs,
         IList<ProviderConfig> refreshableConfigs,
-        IList<ProviderConfig> circuitSkippedConfigs)
+        IList<ProviderConfig> circuitSkippedConfigs,
+        CancellationToken cancellationToken = default)
     {
         if (this.ProviderManager == null)
         {
@@ -295,7 +285,8 @@ public class ProviderRefreshService : BackgroundService
             usages = await this.ProviderManager.GetAllUsageAsync(
                 forceRefresh: true,
                 progressCallback: _ => { },
-                includeProviderIds: providerIdsToQuery).ConfigureAwait(false);
+                includeProviderIds: providerIdsToQuery,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             this._logger.LogDebug("Received {Count} total usage results", usages.Count());
         }
@@ -360,6 +351,7 @@ public class ProviderRefreshService : BackgroundService
 
         this._logger.LogInformation("Done: {Count} records", filteredUsages.Count);
         this._logger.LogDebug("Refresh complete. Stored {Count} provider histories", filteredUsages.Count);
+        return filteredUsages;
     }
 
     public RefreshTelemetrySnapshot GetRefreshTelemetrySnapshot()
@@ -367,7 +359,7 @@ public class ProviderRefreshService : BackgroundService
         return this._refreshTelemetryManager.GetSnapshot(this._providerCircuitBreakerService.GetProviderDiagnostics());
     }
 
-    public async Task<(bool Success, string Message, int Status)> CheckProviderAsync(string providerId)
+    public async Task<(bool Success, string Message, int Status)> CheckProviderAsync(string providerId, CancellationToken cancellationToken = default)
     {
         if (this.ProviderManager == null)
         {
@@ -376,7 +368,7 @@ public class ProviderRefreshService : BackgroundService
 
         try
         {
-            await this._refreshSemaphore.WaitAsync().ConfigureAwait(false);
+            await this._refreshSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 await this.EnsureProviderManagerConcurrencyAsync().ConfigureAwait(false);
@@ -385,7 +377,7 @@ public class ProviderRefreshService : BackgroundService
                     return (false, "ProviderManager not initialized", 503);
                 }
 
-                var usages = await this.ProviderManager.GetUsageAsync(providerId).ConfigureAwait(false);
+                var usages = await this.ProviderManager.GetUsageAsync(providerId, cancellationToken).ConfigureAwait(false);
                 return await this._connectivityCheckService.EvaluateAsync(providerId, usages).ConfigureAwait(false);
             }
             finally

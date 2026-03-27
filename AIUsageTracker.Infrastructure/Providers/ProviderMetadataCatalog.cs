@@ -121,18 +121,6 @@ public static class ProviderMetadataCatalog
         return true;
     }
 
-    public static string GetAggregateDetailDisplaySuffix(string providerId)
-    {
-        var canonicalProviderId = GetCanonicalProviderId(providerId);
-        var definition = Find(canonicalProviderId);
-        if (definition != null && !string.IsNullOrWhiteSpace(definition.AggregateDetailDisplaySuffix))
-        {
-            return definition.AggregateDetailDisplaySuffix!;
-        }
-
-        return $"[{GetConfiguredDisplayName(canonicalProviderId)}]";
-    }
-
     public static ProviderDefinition? FindByEnvironmentVariable(string environmentVariableName)
     {
         if (string.IsNullOrWhiteSpace(environmentVariableName))
@@ -495,22 +483,20 @@ public static class ProviderMetadataCatalog
         var invalidVisibleDerivedProviderModes = definitions
             .Where(definition =>
                 definition.VisibleDerivedProviderIds.Count > 0 &&
-                definition.FamilyMode != ProviderFamilyMode.VisibleDerivedProviders &&
-                definition.FamilyMode != ProviderFamilyMode.CollapsedDerivedProviders)
+                definition.FamilyMode != ProviderFamilyMode.VisibleDerivedProviders)
             .Select(definition => definition.ProviderId)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (invalidVisibleDerivedProviderModes.Count > 0)
         {
             throw new InvalidOperationException(
-                "Providers with visible derived provider ids must use a visible-derived family mode: " +
+                "Providers with visible derived provider ids must use VisibleDerivedProviders family mode: " +
                 string.Join(", ", invalidVisibleDerivedProviderModes));
         }
 
         var missingVisibleDerivedProviderIds = definitions
             .Where(definition =>
-                (definition.FamilyMode == ProviderFamilyMode.VisibleDerivedProviders ||
-                 definition.FamilyMode == ProviderFamilyMode.CollapsedDerivedProviders) &&
+                definition.FamilyMode == ProviderFamilyMode.VisibleDerivedProviders &&
                 definition.VisibleDerivedProviderIds.Count == 0)
             .Select(definition => definition.ProviderId)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
@@ -518,37 +504,21 @@ public static class ProviderMetadataCatalog
         if (missingVisibleDerivedProviderIds.Count > 0)
         {
             throw new InvalidOperationException(
-                "Visible-derived family modes require visible derived provider ids: " +
+                "VisibleDerivedProviders family mode requires visible derived provider ids: " +
                 string.Join(", ", missingVisibleDerivedProviderIds));
-        }
-
-        var invalidAggregateDefinitions = definitions
-            .Where(definition =>
-                definition.RenderDetailsAsSyntheticChildrenInMainWindow &&
-                !definition.SupportsChildProviderIds)
-            .Select(definition => definition.ProviderId)
-            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (invalidAggregateDefinitions.Count > 0)
-        {
-            throw new InvalidOperationException(
-                "Providers rendering synthetic aggregate children must support child provider ids: " +
-                string.Join(", ", invalidAggregateDefinitions));
         }
 
         var invalidGroupedModelChildRowDefinitions = definitions
             .Where(definition =>
                 definition.UseChildProviderRowsForGroupedModels &&
-                (!definition.SupportsChildProviderIds ||
-                 definition.RenderDetailsAsSyntheticChildrenInMainWindow))
+                !definition.SupportsChildProviderIds)
             .Select(definition => definition.ProviderId)
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (invalidGroupedModelChildRowDefinitions.Count > 0)
         {
             throw new InvalidOperationException(
-                "Providers using child provider rows for grouped models must support child provider ids and avoid synthetic child rendering: " +
+                "Providers using child provider rows for grouped models must support child provider ids: " +
                 string.Join(", ", invalidGroupedModelChildRowDefinitions));
         }
     }

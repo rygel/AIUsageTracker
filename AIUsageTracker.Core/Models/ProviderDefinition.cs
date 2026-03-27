@@ -87,9 +87,6 @@ public sealed class ProviderDefinition
 
     public bool RefreshOnStartupWithCachedData { get; init; }
 
-    public bool CollapseDerivedChildrenInMainWindow =>
-        ProviderFamilyPolicy.ShouldCollapseDerivedChildrenInMainWindow(this.FamilyMode);
-
     public bool ShowInMainWindow { get; init; } = true;
 
     public bool ShowInSettings { get; init; } = true;
@@ -103,11 +100,6 @@ public sealed class ProviderDefinition
     public string? BadgeInitial { get; init; }
 
     public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
-
-    public bool RenderDetailsAsSyntheticChildrenInMainWindow =>
-        ProviderFamilyPolicy.ShouldRenderSyntheticChildrenInMainWindow(this.FamilyMode);
-
-    public string? AggregateDetailDisplaySuffix { get; init; }
 
     public bool SupportsAccountIdentity { get; init; }
 
@@ -134,25 +126,19 @@ public sealed class ProviderDefinition
 
     /// <summary>
     /// Gets the main-window visibility items.
-    /// For SyntheticAggregateChildren: one item per QuotaWindow child.
     /// For VisibleDerivedProviders: one item per declared derived child ID (labels from DisplayNameOverrides).
     /// For standalone providers with ShowInMainWindow=true: single self-referential entry.
     /// DynamicChildProviderRows children are runtime-only and must be appended from live usage data.
     /// </summary>
     public IReadOnlyList<(string ItemId, string Label)> MainWindowVisibilityItems =>
         this.MainWindowVisibilityItemsOverride
-        ?? (this.FamilyMode == ProviderFamilyMode.SyntheticAggregateChildren
-            ? this.QuotaWindows
-                .Where(w => w.ChildProviderId != null)
-                .Select(w => (w.ChildProviderId!, w.SettingsLabel ?? w.DualBarLabel))
+        ?? (this.FamilyMode == ProviderFamilyMode.VisibleDerivedProviders && this.VisibleDerivedProviderIds.Count > 0
+            ? this.VisibleDerivedProviderIds
+                .Select(id => (id, this.ResolveDisplayName(id) ?? id))
                 .ToArray()
-            : this.FamilyMode == ProviderFamilyMode.VisibleDerivedProviders && this.VisibleDerivedProviderIds.Count > 0
-                ? this.VisibleDerivedProviderIds
-                    .Select(id => (id, this.ResolveDisplayName(id) ?? id))
-                    .ToArray()
-                : this.ShowInMainWindow
-                    ? new[] { (this.ProviderId, this.DisplayName) }
-                    : Array.Empty<(string, string)>());
+            : this.ShowInMainWindow
+                ? new[] { (this.ProviderId, this.DisplayName) }
+                : Array.Empty<(string, string)>());
 
     /// <summary>
     /// Gets or inits an explicit override for MainWindowVisibilityItems.

@@ -13,12 +13,9 @@ internal static class JsonProviderConfigExportBuilder
 {
     public static void RemoveNonPersistedProviders(Dictionary<string, object> payload)
     {
-        foreach (var providerId in payload.Keys.ToList())
+        foreach (var providerId in payload.Keys.Where(id => !ProviderMetadataCatalog.ShouldPersistProviderId(id)).ToList())
         {
-            if (!ProviderMetadataCatalog.ShouldPersistProviderId(providerId))
-            {
-                payload.Remove(providerId);
-            }
+            payload.Remove(providerId);
         }
     }
 

@@ -42,6 +42,8 @@ internal static class MainWindowDeterministicFixture
                 ShowUsedPercentages = false,
                 ColorThresholdYellow = 60,
                 ColorThresholdRed = 80,
+                ShowDualQuotaBars = true,
+                DualQuotaSingleBarMode = DualQuotaSingleBarMode.Rolling,
                 FontFamily = "Segoe UI",
                 FontSize = 12,
                 FontBold = false,

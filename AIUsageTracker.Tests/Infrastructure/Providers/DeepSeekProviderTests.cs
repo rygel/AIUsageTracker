@@ -14,12 +14,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class DeepSeekProviderTests : HttpProviderTestBase<DeepSeekProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly DeepSeekProvider _provider;
 
     public DeepSeekProviderTests()
     {
         this._provider = new DeepSeekProvider(this.HttpClient, this.Logger.Object);
-        this.Config.ApiKey = "test-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]

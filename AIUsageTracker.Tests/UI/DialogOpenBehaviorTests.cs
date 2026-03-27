@@ -190,6 +190,10 @@ public class DialogOpenBehaviorTests
                 });
                 SetPrivateField(mainWindow, "_preferencesLoaded", true);
 
+                // Simulate the settings dialog updating App.Preferences
+                // (in production, SettingsWindow sets App.Preferences = this._preferences)
+                App.Preferences = persisted;
+
                 // Avoid monitor startup work in this unit test; we only need the settings-change path.
                 SetPrivateField(mainWindow, "_isLoading", true);
 

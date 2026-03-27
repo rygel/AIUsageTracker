@@ -32,7 +32,8 @@ public abstract class ProviderBase : IProviderService
 
     public abstract Task<IEnumerable<ProviderUsage>> GetUsageAsync(
         ProviderConfig config,
-        Action<ProviderUsage>? progressCallback = null);
+        Action<ProviderUsage>? progressCallback = null,
+        CancellationToken cancellationToken = default);
 
     protected static string FormatResetDescription(double? resetAfterSeconds)
     {

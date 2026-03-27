@@ -2,9 +2,11 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Data;
 using System.Text.Json;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.Infrastructure.Providers;
 using Dapper;
 using Microsoft.Data.Sqlite;
@@ -65,6 +67,43 @@ public class UsageDatabase : IUsageDatabase
     public async Task InitializeAsync()
     {
         await Task.Run(() => this.RunMigrations()).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Registers Dapper type handlers once per process. All DateTime values read from
+    /// the database are tagged Kind=Utc, matching the storage convention.
+    /// </summary>
+    static UsageDatabase()
+    {
+        SqlMapper.AddTypeHandler(new UtcDateTimeHandler());
+    }
+
+    /// <summary>
+    /// Dapper type handler that ensures all DateTime values read from SQLite are
+    /// interpreted as UTC. SQLite stores DateTime as TEXT and Dapper returns Kind=Unspecified
+    /// by default; this handler corrects that to Kind=Utc.
+    /// </summary>
+    private sealed class UtcDateTimeHandler : SqlMapper.TypeHandler<DateTime>
+    {
+        public override void SetValue(IDbDataParameter parameter, DateTime value)
+        {
+            parameter.Value = value.Kind == DateTimeKind.Utc
+                ? value.ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+                : value.ToUniversalTime().ToString("O", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        public override DateTime Parse(object value)
+        {
+            return value switch
+            {
+                DateTime dt => DateTime.SpecifyKind(dt, DateTimeKind.Utc),
+                string s when DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
+                    System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
+                    out var parsed) => parsed,
+                string s => DateTime.SpecifyKind(DateTime.Parse(s, System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc),
+                _ => DateTime.SpecifyKind(Convert.ToDateTime(value, System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc),
+            };
+        }
     }
 
     private void RunMigrations()
@@ -131,7 +170,7 @@ public class UsageDatabase : IUsageDatabase
                 ProviderId = config.ProviderId,
                 ProviderName = friendlyName ?? config.ProviderId,
                 AuthSource = config.AuthSource ?? "manual",
-                AccountName = (string?)null,
+                AccountName = default(string),
                 ConfigJson = JsonSerializer.Serialize(safeConfig),
             }).ConfigureAwait(false);
         }
@@ -205,7 +244,7 @@ public class UsageDatabase : IUsageDatabase
             foreach (var u in validUsages)
             {
                 var detailsJson = u.Details != null && u.Details.Any()
-                    ? JsonSerializer.Serialize(u.Details)
+                    ? JsonSerializer.Serialize(u.Details, MonitorJsonSerializer.DefaultOptions)
                     : null;
                 var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
                 var nextResetTime = u.NextResetTime?.ToString("O");
@@ -293,8 +332,8 @@ public class UsageDatabase : IUsageDatabase
         string? newNextResetTime,
         string newStatusMessage)
     {
-        return usage.RequestsUsed == last.RequestsUsed
-            && usage.RequestsAvailable == last.RequestsAvailable
+        return Math.Abs(usage.RequestsUsed - last.RequestsUsed) < 0.001
+            && Math.Abs(usage.RequestsAvailable - last.RequestsAvailable) < 0.001
             && (usage.IsAvailable ? 1L : 0L) == last.IsAvailable
             && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
@@ -696,7 +735,7 @@ public class UsageDatabase : IUsageDatabase
         {
             try
             {
-                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!);
+                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!, MonitorJsonSerializer.DefaultOptions);
             }
             catch (JsonException ex)
             {
@@ -779,7 +818,7 @@ public class UsageDatabase : IUsageDatabase
             List<ProviderUsageDetail>? parsedDetails;
             try
             {
-                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(row.DetailsJson);
+                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(row.DetailsJson, MonitorJsonSerializer.DefaultOptions);
             }
             catch (JsonException ex)
             {

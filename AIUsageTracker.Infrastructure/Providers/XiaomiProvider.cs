@@ -40,7 +40,7 @@ public class XiaomiProvider : ProviderBase
 
     public override string ProviderId => StaticDefinition.ProviderId;
 
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(config.ApiKey))
         {

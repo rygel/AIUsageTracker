@@ -13,12 +13,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly SyntheticProvider _provider;
 
     public SyntheticProviderTests()
     {
         this._provider = new SyntheticProvider(this.HttpClient, this.Logger.Object);
-        this.Config.ApiKey = "test-synthetic-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]

@@ -8,8 +8,6 @@
             <!-- Merged Resources - Order matters: Converters first, then templates that use them -->
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Resources/ConverterResources.xaml"/>
-                <ResourceDictionary Source="Resources/ProviderCardResources.xaml"/>
-                <ResourceDictionary Source="Resources/CollapsibleSectionResources.xaml"/>
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Colors -->

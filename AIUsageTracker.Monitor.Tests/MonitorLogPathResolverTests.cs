@@ -79,5 +79,7 @@ public class MonitorLogPathResolverTests : IDisposable
         public string GetProviderConfigFilePath() => Path.Combine(this._logDirectory, "providers.json");
 
         public string GetUserProfileRoot() => this._logDirectory;
+
+        public string GetMonitorInfoFilePath() => Path.Combine(this.GetAppDataRoot(), "monitor.json");
     }
 }

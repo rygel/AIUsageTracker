@@ -15,12 +15,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class ZaiProviderTests : HttpProviderTestBase<ZaiProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly ZaiProvider _provider;
 
     public ZaiProviderTests()
     {
         this._provider = new ZaiProvider(this.HttpClient, this.Logger.Object);
-        this.Config.ApiKey = "test-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]

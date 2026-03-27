@@ -76,7 +76,7 @@ public static class ResetTimeParser
 
         try
         {
-            return DateTime.Now.Add(TimeSpan.FromSeconds(secondsFromNow.Value));
+            return DateTime.UtcNow.Add(TimeSpan.FromSeconds(secondsFromNow.Value));
         }
         catch
         {
@@ -161,18 +161,15 @@ public static class ResetTimeParser
         try
         {
             // Try as Unix timestamp (number)
-            if (element.ValueKind == JsonValueKind.Number)
+            if (element.ValueKind == JsonValueKind.Number && element.TryGetInt64(out var longValue))
             {
-                if (element.TryGetInt64(out var longValue))
+                // Assume seconds if value is reasonably small, otherwise assume milliseconds
+                if (longValue < Year2100UnixSeconds)
                 {
-                    // Assume seconds if value is reasonably small, otherwise assume milliseconds
-                    if (longValue < Year2100UnixSeconds)
-                    {
-                        return FromUnixSeconds(longValue);
-                    }
-
-                    return FromUnixMilliseconds(longValue);
+                    return FromUnixSeconds(longValue);
                 }
+
+                return FromUnixMilliseconds(longValue);
             }
 
             // Try as string
@@ -236,7 +233,7 @@ public static class ResetTimeParser
     /// Checks if a reset time is in the future (has not occurred yet).
     /// </summary>
     /// <param name="resetTime">The reset time to check.</param>
-    /// <param name="now">Optional reference time (defaults to DateTime.Now).</param>
+    /// <param name="now">Optional reference time (defaults to DateTime.UtcNow).</param>
     /// <returns>True if the reset time is in the future, false otherwise.</returns>
     public static bool IsFuture(DateTime? resetTime, DateTime? now = null)
     {
@@ -245,7 +242,7 @@ public static class ResetTimeParser
             return true; // No reset time means always active/no expiration
         }
 
-        var referenceTime = now ?? DateTime.Now;
+        var referenceTime = now ?? DateTime.UtcNow;
         return resetTime.Value > referenceTime;
     }
 
@@ -253,7 +250,7 @@ public static class ResetTimeParser
     /// Calculates the time remaining until a reset.
     /// </summary>
     /// <param name="resetTime">The reset time.</param>
-    /// <param name="now">Optional reference time (defaults to DateTime.Now).</param>
+    /// <param name="now">Optional reference time (defaults to DateTime.UtcNow).</param>
     /// <returns>TimeSpan representing time remaining, or TimeSpan.Zero if reset time is null or in the past.</returns>
     public static TimeSpan GetTimeRemaining(DateTime? resetTime, DateTime? now = null)
     {
@@ -262,7 +259,7 @@ public static class ResetTimeParser
             return TimeSpan.Zero;
         }
 
-        var referenceTime = now ?? DateTime.Now;
+        var referenceTime = now ?? DateTime.UtcNow;
 
         if (resetTime.Value <= referenceTime)
         {

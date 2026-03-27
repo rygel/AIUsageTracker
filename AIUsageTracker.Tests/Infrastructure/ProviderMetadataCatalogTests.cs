@@ -204,29 +204,6 @@ public class ProviderMetadataCatalogTests
     }
 
     [Theory]
-    [InlineData("antigravity", false)]
-    [InlineData("antigravity.some-model", false)]
-    [InlineData("codex", false)]
-    public void IsAggregateParentProviderId_DetectsOnlyAggregateParent(string providerId, bool expected)
-    {
-        var def = ProviderMetadataCatalog.Find(providerId);
-        var actual = def != null
-            && string.Equals(providerId, def.ProviderId, StringComparison.OrdinalIgnoreCase)
-            && def.RenderDetailsAsSyntheticChildrenInMainWindow;
-        Assert.Equal(expected, actual);
-    }
-
-    [Theory]
-    [InlineData("antigravity", false)]
-    [InlineData("antigravity.some-model", false)]
-    [InlineData("codex", false)]
-    [InlineData("codex.spark", false)]
-    public void ShouldCollapseDerivedChildrenInMainWindow_UsesProviderDefinitions(string providerId, bool expected)
-    {
-        Assert.Equal(expected, ProviderMetadataCatalog.Find(providerId)?.CollapseDerivedChildrenInMainWindow ?? false);
-    }
-
-    [Theory]
     [InlineData("codex", true)]
     [InlineData("codex.spark", true)]
     [InlineData("antigravity.some-model", true)]
@@ -537,12 +514,10 @@ public class ProviderMetadataCatalogTests
         var githubCopilot = Assert.IsType<ProviderDefinition>(ProviderMetadataCatalog.Find("github-copilot"));
         Assert.Equal(ProviderSettingsMode.ExternalAuthStatus, githubCopilot.SettingsMode);
         Assert.Equal(ProviderFamilyMode.Standalone, githubCopilot.FamilyMode);
-        Assert.False(githubCopilot.RenderDetailsAsSyntheticChildrenInMainWindow);
 
         var antigravity = Assert.IsType<ProviderDefinition>(ProviderMetadataCatalog.Find("antigravity"));
         Assert.Equal(ProviderSettingsMode.AutoDetectedStatus, antigravity.SettingsMode);
         Assert.Equal(ProviderFamilyMode.DynamicChildProviderRows, antigravity.FamilyMode);
-        Assert.False(antigravity.RenderDetailsAsSyntheticChildrenInMainWindow);
         Assert.True(antigravity.UseChildProviderRowsForGroupedModels);
         Assert.Equal("[Antigravity]", antigravity.DerivedModelDisplaySuffix);
 
@@ -550,14 +525,12 @@ public class ProviderMetadataCatalogTests
         Assert.Equal(ProviderSettingsMode.StandardApiKey, gemini.SettingsMode);
         Assert.Equal(ProviderFamilyMode.VisibleDerivedProviders, gemini.FamilyMode);
         Assert.True(gemini.SupportsChildProviderIds);
-        Assert.False(gemini.RenderDetailsAsSyntheticChildrenInMainWindow);
         Assert.False(gemini.UseChildProviderRowsForGroupedModels);
 
         foreach (var providerId in new[] { "kimi-for-coding", "synthetic", "zai-coding-plan" })
         {
             var definition = Assert.IsType<ProviderDefinition>(ProviderMetadataCatalog.Find(providerId));
             Assert.Equal(ProviderSettingsMode.StandardApiKey, definition.SettingsMode);
-            Assert.False(definition.RenderDetailsAsSyntheticChildrenInMainWindow);
         }
     }
 

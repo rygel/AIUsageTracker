@@ -12,12 +12,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class OpenRouterProviderTests : HttpProviderTestBase<OpenRouterProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly OpenRouterProvider _provider;
 
     public OpenRouterProviderTests()
     {
         this._provider = new OpenRouterProvider(this.HttpClient, this.Logger.Object);
-        this.Config.ApiKey = "test-openrouter-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]

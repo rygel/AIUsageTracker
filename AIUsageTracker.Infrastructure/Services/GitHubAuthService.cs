@@ -41,7 +41,7 @@ public class GitHubAuthService : IGitHubAuthService
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, AUTHURL);
+            using var request = new HttpRequestMessage(HttpMethod.Post, AUTHURL);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             var content = new FormUrlEncodedContent(new[]
@@ -76,7 +76,7 @@ public class GitHubAuthService : IGitHubAuthService
         // For this method, we make a SINGLE check. The caller (UI) should loop.
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, TOKENURL);
+            using var request = new HttpRequestMessage(HttpMethod.Post, TOKENURL);
             request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
 
             var content = new FormUrlEncodedContent(new[]
@@ -190,7 +190,7 @@ public class GitHubAuthService : IGitHubAuthService
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", this._currentToken);
             request.Headers.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("AIUsageTracker", "1.0"));
 

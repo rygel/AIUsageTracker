@@ -39,10 +39,9 @@ internal static class MonitorUsageEndpoints
 
     private static void MapGetGroupedUsage(WebApplication app)
     {
-        app.MapGet(MonitorApiRoutes.UsageGrouped, async (UsageDatabase db, ILogger<Program> logger) =>
+        app.MapGet(MonitorApiRoutes.UsageGrouped, async (CachedGroupedUsageProjectionService projectionService, ILogger<Program> logger) =>
         {
-            var usage = await db.GetLatestHistoryAsync().ConfigureAwait(false);
-            var snapshot = GroupedUsageProjectionService.Build(usage);
+            var snapshot = await projectionService.GetGroupedUsageAsync().ConfigureAwait(false);
 
             logger.LogDebug(
                 "GET {Route} returning {Count} grouped providers",

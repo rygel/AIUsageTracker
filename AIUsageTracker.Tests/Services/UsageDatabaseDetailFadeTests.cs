@@ -415,5 +415,7 @@ public sealed class UsageDatabaseDetailFadeTests : IDisposable
         public string GetProviderConfigFilePath() => Path.Combine(this.GetAppDataRoot(), "providers.json");
 
         public string GetUserProfileRoot() => this.GetAppDataRoot();
+
+        public string GetMonitorInfoFilePath() => Path.Combine(this.GetAppDataRoot(), "monitor.json");
     }
 }

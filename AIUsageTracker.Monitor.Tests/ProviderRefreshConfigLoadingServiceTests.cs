@@ -12,6 +12,11 @@ namespace AIUsageTracker.Monitor.Tests;
 
 public class ProviderRefreshConfigLoadingServiceTests
 {
+    private static readonly string TestApiKey1 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey2 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey3 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey4 = Guid.NewGuid().ToString();
+
     private readonly Mock<IConfigService> _configService = new();
     private readonly Mock<IUsageDatabase> _database = new();
 
@@ -21,7 +26,7 @@ public class ProviderRefreshConfigLoadingServiceTests
         this._configService.Setup(service => service.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
         {
             new() { ProviderId = "openai" },
-            new() { ProviderId = "codex", ApiKey = "session-token" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey1 },
         });
 
         var service = this.CreateService(CreateProvider("antigravity", autoIncludeWhenUnconfigured: true));
@@ -56,7 +61,7 @@ public class ProviderRefreshConfigLoadingServiceTests
     {
         this._configService.Setup(service => service.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
         {
-            new() { ProviderId = "codex", ApiKey = "codex-session" },
+            new() { ProviderId = "codex", ApiKey = TestApiKey2 },
         });
 
         var service = this.CreateService();
@@ -74,8 +79,8 @@ public class ProviderRefreshConfigLoadingServiceTests
     {
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "openai", ApiKey = "key-1" },
-            new() { ProviderId = "codex", ApiKey = "key-2" },
+            new() { ProviderId = "openai", ApiKey = TestApiKey3 },
+            new() { ProviderId = "codex", ApiKey = TestApiKey4 },
         };
         var service = this.CreateService();
 
@@ -101,7 +106,7 @@ public class ProviderRefreshConfigLoadingServiceTests
             {
                 AutoIncludeWhenUnconfigured = autoIncludeWhenUnconfigured,
             });
-        mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
+        mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<ProviderUsage>());
         return mock.Object;
     }

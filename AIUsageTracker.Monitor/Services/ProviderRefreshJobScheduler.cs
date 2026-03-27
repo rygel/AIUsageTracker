@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class ProviderRefreshJobScheduler
+public sealed class ProviderRefreshJobScheduler
 {
     private const string ManualRefreshJobName = "manual-provider-refresh";
     private const string ScheduledRefreshJobName = "scheduled-provider-refresh";

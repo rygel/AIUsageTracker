@@ -13,12 +13,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class XiaomiProviderTests : HttpProviderTestBase<XiaomiProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly XiaomiProvider _provider;
 
     public XiaomiProviderTests()
     {
         this._provider = new XiaomiProvider(this.HttpClient, this.Logger.Object);
-        this.Config.ApiKey = "test-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]

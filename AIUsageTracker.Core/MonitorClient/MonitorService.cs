@@ -7,7 +7,6 @@ using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -48,12 +47,7 @@ public class MonitorService : IMonitorService
         this._httpClient = httpClient;
         this._logger = logger;
         this._monitorLauncher = monitorLauncher ?? new MonitorLauncher(logger: null);
-        this._jsonOptions = new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            Converters = { new JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower) },
-        };
+        this._jsonOptions = MonitorJsonSerializer.DefaultOptions;
 
         // Note: Port discovery is now done explicitly via RefreshPortAsync()
         // to avoid race conditions where the Monitor port changes
@@ -714,16 +708,9 @@ public class MonitorService : IMonitorService
 
     private static string? TryGetJsonString(JsonElement root, IEnumerable<string> propertyNames)
     {
-        foreach (var propertyName in propertyNames)
-        {
-            var value = TryGetJsonString(root, propertyName);
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-        }
-
-        return null;
+        return propertyNames
+            .Select(propertyName => TryGetJsonString(root, propertyName))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
     private string BuildMonitorUrl(string relativePath)

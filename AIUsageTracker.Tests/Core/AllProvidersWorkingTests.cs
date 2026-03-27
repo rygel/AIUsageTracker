@@ -17,6 +17,9 @@ namespace AIUsageTracker.Tests.Core;
 
 public class AllProvidersWorkingTests
 {
+    private static readonly string TestApiKey1 = Guid.NewGuid().ToString();
+    private static readonly string TestApiKey2 = Guid.NewGuid().ToString();
+
     private readonly Mock<IConfigLoader> _mockConfigLoader;
     private readonly Mock<ILogger<ProviderManager>> _mockLogger;
 
@@ -32,8 +35,8 @@ public class AllProvidersWorkingTests
         // Arrange
         var configs = new List<ProviderConfig>
         {
-            new ProviderConfig { ProviderId = "minimax", ApiKey = "dummy-china" },
-            new ProviderConfig { ProviderId = "minimax-io", ApiKey = "dummy-intl" },
+            new ProviderConfig { ProviderId = "minimax", ApiKey = TestApiKey1 },
+            new ProviderConfig { ProviderId = "minimax-io", ApiKey = TestApiKey2 },
         };
         this._mockConfigLoader.Setup(c => c.LoadConfigAsync()).ReturnsAsync(configs);
 
@@ -49,8 +52,8 @@ public class AllProvidersWorkingTests
         {
             AdditionalHandledProviderIds = new[] { "minimax-io", "minimax-global" },
         });
-        mockMinimax.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
-            .ReturnsAsync((ProviderConfig c, Action<ProviderUsage>? callback) => new[]
+        mockMinimax.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ProviderConfig c, Action<ProviderUsage>? callback, CancellationToken _) => new[]
             {
                 new ProviderUsage
                 {

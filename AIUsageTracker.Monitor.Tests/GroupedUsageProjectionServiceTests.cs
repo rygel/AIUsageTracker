@@ -61,7 +61,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal("gemini-cli", provider.ProviderId);
         Assert.Equal("Google Gemini", provider.ProviderName);
-        Assert.Equal(1, provider.ModelCount);
+        Assert.Equal(1, provider.Models.Count);
         var model = Assert.Single(provider.Models);
         Assert.Equal("gemini-2.5-flash-lite", model.ModelId);
         Assert.Equal("Gemini 2.5 Flash Lite", model.ModelName);
@@ -110,7 +110,7 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal("codex", provider.ProviderId);
-        Assert.Equal(0, provider.ModelCount);
+        Assert.Equal(0, provider.Models.Count);
         Assert.Empty(provider.Models);
     }
 
@@ -147,7 +147,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal("github-copilot", provider.ProviderId);
         Assert.Empty(provider.Models);
-        Assert.Equal(0, provider.ModelCount);
+        Assert.Equal(0, provider.Models.Count);
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public sealed class GroupedUsageProjectionServiceTests
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
-        Assert.Equal(2, provider.ModelCount);
+        Assert.Equal(2, provider.Models.Count);
 
         var flashLite = Assert.Single(provider.Models, model => string.Equals(model.ModelId, "gemini-2.5-flash-lite", StringComparison.Ordinal));
         var flashPreview = Assert.Single(provider.Models, model => string.Equals(model.ModelId, "gemini-3-flash-preview", StringComparison.Ordinal));
@@ -229,10 +229,10 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_KimiUsage_PopulatesProviderQuotaDetails_FromQuotaWindowDetails()
+    public void Build_KimiUsage_PopulatesProviderDetails_FromUsageDetails()
     {
         // Kimi has no Model-type details; only QuotaWindow. The projection must populate
-        // ProviderQuotaDetails so the UI can render dual bars on the parent card.
+        // ProviderDetails so the UI can render dual bars on the parent card.
         var weeklyDetail = new ProviderUsageDetail
         {
             Name = "Weekly Limit",
@@ -267,9 +267,9 @@ public sealed class GroupedUsageProjectionServiceTests
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
-        Assert.Equal(2, provider.ProviderQuotaDetails.Count);
-        Assert.Contains(provider.ProviderQuotaDetails, d => d.QuotaBucketKind == WindowKind.Rolling && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
-        Assert.Contains(provider.ProviderQuotaDetails, d => d.QuotaBucketKind == WindowKind.Burst && string.Equals(d.Name, "5h Limit", StringComparison.Ordinal));
+        Assert.Equal(2, provider.ProviderDetails.Count);
+        Assert.Contains(provider.ProviderDetails, d => d.QuotaBucketKind == WindowKind.Rolling && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
+        Assert.Contains(provider.ProviderDetails, d => d.QuotaBucketKind == WindowKind.Burst && string.Equals(d.Name, "5h Limit", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -277,7 +277,7 @@ public sealed class GroupedUsageProjectionServiceTests
     {
         // Regression: CodexProvider emits model-scoped QW details (Burst=Spark5h, Rolling=Weekly)
         // so BuildModelsFromDetails can scope them to the Spark model's QuotaBuckets.
-        // Those model-scoped details must NOT appear in ProviderQuotaDetails (parent card only shows
+        // Those model-scoped details must NOT appear in ProviderDetails (parent card only shows
         // provider-level windows). The Spark model's QuotaBuckets must carry correct QuotaBucketKind
         // values so the child card can render dual bars.
         const string sparkModelId = "GPT-5.3-Codex-Spark";
@@ -311,7 +311,7 @@ public sealed class GroupedUsageProjectionServiceTests
         };
         sparkRollingDetail.SetPercentageValue(2.0, PercentageValueSemantic.Remaining);
 
-        // Provider-level windows (no ModelName) — these go into ProviderQuotaDetails
+        // Provider-level windows (no ModelName) — these go into ProviderDetails
         var providerBurst = new ProviderUsageDetail
         {
             Name = "5-hour quota",
@@ -359,16 +359,22 @@ public sealed class GroupedUsageProjectionServiceTests
         Assert.Single(spark.QuotaBuckets, b => b.QuotaBucketKind == WindowKind.Burst);
         Assert.Single(spark.QuotaBuckets, b => b.QuotaBucketKind == WindowKind.Rolling);
 
-        // Provider-level windows only — model-scoped details must be excluded
-        Assert.Equal(2, provider.ProviderQuotaDetails.Count);
-        Assert.All(provider.ProviderQuotaDetails, d => Assert.True(string.IsNullOrWhiteSpace(d.ModelName)));
+        // Only provider-level QW entries (no ModelName) appear in ProviderDetails.
+        // Model-scoped QW and Model-typed entries are excluded — the parent card dual bar
+        // must show only provider-level windows, not per-model windows.
+        Assert.Equal(2, provider.ProviderDetails.Count);
+        Assert.All(provider.ProviderDetails, d =>
+        {
+            Assert.Equal(ProviderUsageDetailType.QuotaWindow, d.DetailType);
+            Assert.True(string.IsNullOrWhiteSpace(d.ModelName));
+        });
     }
 
     [Fact]
-    public void Build_KimiUsage_ExcludesNoneKindDetails_FromProviderQuotaDetails()
+    public void Build_KimiUsage_FiltersToQuotaWindowDetails_InProviderDetails()
     {
-        // Details with QuotaBucketKind == None (e.g. Credit-type or unknown windows) must
-        // not appear in ProviderQuotaDetails since they cannot drive dual bar rendering.
+        // ProviderDetails contains only non-stale provider-level QuotaWindow entries.
+        // Credit-type details are excluded — the UI no longer needs to filter by DetailType.
         var creditDetail = new ProviderUsageDetail
         {
             Name = "Credits",
@@ -400,7 +406,6 @@ public sealed class GroupedUsageProjectionServiceTests
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
-        Assert.Single(provider.ProviderQuotaDetails);
-        Assert.All(provider.ProviderQuotaDetails, d => Assert.NotEqual(WindowKind.None, d.QuotaBucketKind));
+        Assert.Single(provider.ProviderDetails); // only QuotaWindow passes through; Credit is excluded
     }
 }

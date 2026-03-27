@@ -84,7 +84,7 @@ public class OpenAIProvider : ProviderBase
     public override string ProviderId => StaticDefinition.ProviderId;
 
     /// <inheritdoc/>
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         if (!string.IsNullOrWhiteSpace(config.ApiKey) && IsApiKey(config.ApiKey))
         {
@@ -267,7 +267,7 @@ public class OpenAIProvider : ProviderBase
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.openai.com/v1/models");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             var response = await this._httpClient.SendAsync(request).ConfigureAwait(false);
 

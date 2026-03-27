@@ -36,7 +36,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         var normalizedIds = NormalizeProviderIds(providerIds);
         if (!normalizedIds.Any())
         {
-            return new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, BurnRateForecast>;
+            return new Dictionary<string, BurnRateForecast>(StringComparer.OrdinalIgnoreCase);
         }
 
         var cacheKey = $"analytics:burn-rate:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
@@ -61,7 +61,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
 
         this._cache.Set(cacheKey, forecasts, TimeSpan.FromMinutes(10));
         this._logger.LogInformation("Analytics: GetBurnRateForecastsAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
-        return forecasts as IReadOnlyDictionary<string, BurnRateForecast>;
+        return forecasts;
     }
 
     public async Task<IReadOnlyDictionary<string, ProviderReliabilitySnapshot>> GetProviderReliabilityAsync(
@@ -72,7 +72,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         var normalizedIds = NormalizeProviderIds(providerIds);
         if (!normalizedIds.Any())
         {
-            return new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, ProviderReliabilitySnapshot>;
+            return new Dictionary<string, ProviderReliabilitySnapshot>(StringComparer.OrdinalIgnoreCase);
         }
 
         var cacheKey = $"analytics:reliability:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
@@ -99,7 +99,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
 
         this._cache.Set(cacheKey, snapshots, TimeSpan.FromMinutes(10));
         this._logger.LogInformation("Analytics: GetProviderReliabilityAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
-        return snapshots as IReadOnlyDictionary<string, ProviderReliabilitySnapshot>;
+        return snapshots;
     }
 
     public async Task<IReadOnlyDictionary<string, UsageAnomalySnapshot>> GetUsageAnomaliesAsync(
@@ -110,7 +110,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
         var normalizedIds = NormalizeProviderIds(providerIds);
         if (!normalizedIds.Any())
         {
-            return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase) as IReadOnlyDictionary<string, UsageAnomalySnapshot>;
+            return new Dictionary<string, UsageAnomalySnapshot>(StringComparer.OrdinalIgnoreCase);
         }
 
         var cacheKey = $"analytics:anomalies:{lookbackHours}:{maxSamplesPerProvider}:{string.Join(",", normalizedIds)}";
@@ -135,7 +135,7 @@ public class UsageAnalyticsService : IUsageAnalyticsService
 
         this._cache.Set(cacheKey, anomalies, TimeSpan.FromMinutes(10));
         this._logger.LogInformation("Analytics: GetUsageAnomaliesAsync elapsedMs={ElapsedMs}", sw.ElapsedMilliseconds);
-        return anomalies as IReadOnlyDictionary<string, UsageAnomalySnapshot>;
+        return anomalies;
     }
 
     public Task<IReadOnlyList<BudgetStatus>> GetBudgetStatusesAsync(IEnumerable<string> providerIds)

@@ -22,12 +22,10 @@ internal static class GroupedUsageDisplayAdapter
                      .Where(provider => !string.IsNullOrWhiteSpace(provider.ProviderId))
                      .OrderBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            // Quota window details (e.g. Codex 5h + Weekly) are the authoritative source
-            // for dual-bar rendering. Model details are only used when no quota windows exist
-            // (usage-plan providers that show aggregate model breakdown instead).
-            var parentDetails = provider.ProviderQuotaDetails.Count > 0
-                ? (IReadOnlyList<ProviderUsageDetail>)provider.ProviderQuotaDetails
-                : BuildModelDetails(provider);
+            // ProviderDetails is the single source of truth: ProviderUsage.Details passed through
+            // directly from the Monitor. QuotaWindow entries drive dual bars;
+            // Model entries drive detail rows.
+            var parentDetails = provider.ProviderDetails;
             var parentUsage = new ProviderUsage
             {
                 ProviderId = provider.ProviderId,
@@ -51,44 +49,6 @@ internal static class GroupedUsageDisplayAdapter
         }
 
         return usages;
-    }
-
-    private static IReadOnlyList<ProviderUsageDetail> BuildModelDetails(AgentGroupedProviderUsage provider)
-    {
-        if (provider.Models.Count == 0)
-        {
-            return Array.Empty<ProviderUsageDetail>();
-        }
-
-        return provider.Models
-            .Where(model => !string.IsNullOrWhiteSpace(model.ModelName))
-            .OrderBy(model => model.ModelName, StringComparer.OrdinalIgnoreCase)
-            .Select(model =>
-            {
-                var modelState = ResolveModelState(model, provider.IsQuotaBased);
-                var declaredWindow = ResolveDeclaredWindow(provider.ProviderId, model.ModelName);
-                var detail = new ProviderUsageDetail
-                {
-                    Name = model.ModelName,
-                    ModelName = model.ModelId,
-                    Description = modelState.Description,
-                    NextResetTime = modelState.NextResetTime,
-                    DetailType = ProviderUsageDetailType.Model,
-                    QuotaBucketKind = declaredWindow?.Kind ?? WindowKind.None,
-                };
-
-                if (provider.IsQuotaBased)
-                {
-                    detail.SetPercentageValue(modelState.RemainingPercentage, PercentageValueSemantic.Remaining, decimalPlaces: 1);
-                }
-                else
-                {
-                    detail.SetPercentageValue(modelState.UsedPercentage, PercentageValueSemantic.Used, decimalPlaces: 1);
-                }
-
-                return detail;
-            })
-            .ToList();
     }
 
     private static IReadOnlyList<ProviderUsage> BuildVisibleDerivedRows(
@@ -191,18 +151,6 @@ internal static class GroupedUsageDisplayAdapter
         bool parentIsQuotaBased)
     {
         return AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, parentIsQuotaBased);
-    }
-
-    private static QuotaWindowDefinition? ResolveDeclaredWindow(string providerId, string modelName)
-    {
-        if (string.IsNullOrWhiteSpace(modelName) || !ProviderMetadataCatalog.TryGet(providerId, out var definition))
-        {
-            return null;
-        }
-
-        return definition.QuotaWindows.FirstOrDefault(window =>
-            !string.IsNullOrWhiteSpace(window.DetailName) &&
-            string.Equals(window.DetailName, modelName, StringComparison.OrdinalIgnoreCase));
     }
 
     private static TimeSpan? ResolvePeriodDuration(string providerId)

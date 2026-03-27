@@ -152,14 +152,12 @@ internal static class AuthDiagnosticsSnapshotBuilder
 
     private static bool HasUserIdentity(string providerId, string? description)
     {
-        if (!string.IsNullOrWhiteSpace(description))
+        if (!string.IsNullOrWhiteSpace(description) &&
+            (description.Contains('@', StringComparison.Ordinal) ||
+             description.Contains("user", StringComparison.OrdinalIgnoreCase) ||
+             description.Contains("account", StringComparison.OrdinalIgnoreCase)))
         {
-            if (description.Contains('@', StringComparison.Ordinal) ||
-                description.Contains("user", StringComparison.OrdinalIgnoreCase) ||
-                description.Contains("account", StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            return true;
         }
 
         return ProviderMetadataCatalog.Find(providerId)?.SupportsAccountIdentity ?? false;

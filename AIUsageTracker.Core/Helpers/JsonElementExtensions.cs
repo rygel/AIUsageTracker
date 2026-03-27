@@ -11,13 +11,9 @@ public static class JsonElementExtensions
 {
     public static string? ReadString(this JsonElement root, params string[] path)
     {
-        var current = root;
-        foreach (var segment in path)
+        if (!TryNavigate(root, path, out var current))
         {
-            if (!current.TryGetProperty(segment, out current))
-            {
-                return null;
-            }
+            return null;
         }
 
         return current.ValueKind == JsonValueKind.String ? current.GetString() : null;
@@ -25,13 +21,9 @@ public static class JsonElementExtensions
 
     public static double? ReadDouble(this JsonElement root, params string[] path)
     {
-        var current = root;
-        foreach (var segment in path)
+        if (!TryNavigate(root, path, out var current))
         {
-            if (!current.TryGetProperty(segment, out current))
-            {
-                return null;
-            }
+            return null;
         }
 
         if (current.ValueKind == JsonValueKind.Number && current.TryGetDouble(out var number))
@@ -54,13 +46,9 @@ public static class JsonElementExtensions
 
     public static bool? ReadBool(this JsonElement root, params string[] path)
     {
-        var current = root;
-        foreach (var segment in path)
+        if (!TryNavigate(root, path, out var current))
         {
-            if (!current.TryGetProperty(segment, out current))
-            {
-                return null;
-            }
+            return null;
         }
 
         return current.ValueKind switch
@@ -69,5 +57,15 @@ public static class JsonElementExtensions
             JsonValueKind.False => false,
             _ => null,
         };
+    }
+
+    private static bool TryNavigate(JsonElement root, string[] path, out JsonElement result)
+    {
+        var navigated = path.Aggregate<string, JsonElement?>(
+            root,
+            (current, segment) => current.HasValue && current.Value.TryGetProperty(segment, out var next) ? next : null);
+
+        result = navigated ?? default;
+        return navigated.HasValue;
     }
 }

@@ -509,26 +509,15 @@ public class GeminiProviderTests : HttpProviderTestBase<GeminiProvider>
             item => string.Equals(item.ProviderId, "gemini-cli", StringComparison.Ordinal));
         Assert.True(usage.IsAvailable);
 
+        // Content correctness is validated by the setup matchers above (which run during SendAsync,
+        // before the request is disposed). Here we only verify call counts.
         this.MessageHandler.Protected()
             .Verify(
                 "SendAsync",
-                Times.Once(),
+                Times.Exactly(2),
                 ItExpr.Is<HttpRequestMessage>(request =>
                     request.RequestUri != null &&
-                    request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
-                    RequestContentContainsAsync(request, $"client_id={cliClientId}").GetAwaiter().GetResult() &&
-                    RequestContentContainsAsync(request, $"client_secret={cliClientSecret}").GetAwaiter().GetResult()),
-                ItExpr.IsAny<CancellationToken>());
-
-        this.MessageHandler.Protected()
-            .Verify(
-                "SendAsync",
-                Times.Once(),
-                ItExpr.Is<HttpRequestMessage>(request =>
-                    request.RequestUri != null &&
-                    request.RequestUri.ToString() == "https://oauth2.googleapis.com/token" &&
-                    RequestContentContainsAsync(request, $"client_id={pluginClientId}").GetAwaiter().GetResult() &&
-                    RequestContentContainsAsync(request, $"client_secret={pluginClientSecret}").GetAwaiter().GetResult()),
+                    request.RequestUri.ToString() == "https://oauth2.googleapis.com/token"),
                 ItExpr.IsAny<CancellationToken>());
 
         Directory.Delete(tempDir, recursive: true);

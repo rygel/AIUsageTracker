@@ -14,12 +14,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly ClaudeCodeProvider _provider;
 
     public ClaudeCodeProviderTests()
     {
         this._provider = new ClaudeCodeProvider(this.Logger.Object, this.HttpClient);
-        this.Config.ApiKey = "test-oauth-token";
+        this.Config.ApiKey = TestApiKey;
     }
 
     /// <summary>
@@ -268,11 +270,11 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
     }
 
     /// <summary>
-    /// Tests that reset time uses the earlier of the two quota resets.
+    /// Tests that reset time uses the 7-day rolling reset (matching PeriodDuration = 7d for correct pace calculation).
     /// </summary>
     /// <returns><placeholder>A <see cref="Task"/> representing the asynchronous unit test.</placeholder></returns>
     [Fact]
-    public async Task GetUsageFromOAuthAsync_ResetTime_UsesEarlierResetAsync()
+    public async Task GetUsageFromOAuthAsync_ResetTime_UsesSevenDayResetAsync()
     {
         // Arrange
         var fiveHourReset = DateTime.UtcNow.AddHours(2);
@@ -303,8 +305,8 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.NotNull(result);
         Assert.NotNull(result.NextResetTime);
 
-        // Should use 5-hour reset since it's earlier
-        Assert.True(result.NextResetTime < sevenDayReset);
+        // Should use 7-day reset to match PeriodDuration = 7d (ensures pace calculation is correct)
+        Assert.True(result.NextResetTime >= sevenDayReset.AddMinutes(-1) && result.NextResetTime <= sevenDayReset.AddMinutes(1));
     }
 
     /// <summary>

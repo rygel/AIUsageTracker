@@ -148,8 +148,8 @@ public class ProviderManagerTests
             AutoIncludeWhenUnconfigured = true,
         });
         provider.SetupGet(p => p.ProviderId).Returns("github-copilot");
-        provider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>()))
-            .Callback<ProviderConfig, Action<ProviderUsage>?>((config, _) => capturedConfig = config)
+        provider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
+            .Callback<ProviderConfig, Action<ProviderUsage>?, CancellationToken>((config, _, _) => capturedConfig = config)
             .ReturnsAsync(new[]
             {
                 new ProviderUsage

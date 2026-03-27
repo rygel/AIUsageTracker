@@ -1,7 +1,7 @@
 ; AI Usage Tracker - Inno Setup Script
 
 #ifndef MyAppVersion
-  #define MyAppVersion "2.3.3"
+  #define MyAppVersion "2.3.4-beta.7"
 #endif
 #ifndef SourcePath
   #define SourcePath "..\dist\publish-win-x64"
@@ -228,6 +228,7 @@ Name: "apps\cli"; Description: "AI Usage Tracker CLI"; Types: full compact custo
 [Tasks]
 Name: "desktopicontracker"; Description: "Create AI Usage Tracker UI desktop icon"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; Components: apps\tracker
 Name: "startupmonitor"; Description: "Run AI Usage Tracker Monitor at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked; Components: apps\monitor
+Name: "startuptracker"; Description: "Run AI Usage Tracker UI at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked; Components: apps\tracker
 
 [Files]
 Source: "..\AIUsageTracker.UI.Slim\Assets\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
@@ -246,7 +247,10 @@ Name: "{group}\Applications\AI Usage Tracker Web UI"; Filename: "{app}\AIUsageTr
 Name: "{group}\Applications\AI Usage Tracker CLI"; Filename: "{app}\AIUsageTracker.CLI.exe"; Components: apps\cli
 Name: "{group}\{cm:UninstallProgram,AI Usage Tracker}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\AI Usage Tracker"; Filename: "{app}\AIUsageTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
-Name: "{userstartup}\AI Usage Tracker Monitor"; Filename: "{app}\AIUsageTracker.Monitor.exe"; Tasks: startupmonitor; Components: apps\monitor
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "AI Usage Tracker Monitor"; ValueData: """{app}\AIUsageTracker.Monitor.exe"""; Tasks: startupmonitor; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "AI Usage Tracker"; ValueData: """{app}\AIUsageTracker.exe"""; Tasks: startuptracker; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\AIUsageTracker.exe"; Description: "{cm:LaunchProgram,AI Usage Tracker UI}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication

@@ -15,6 +15,8 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly GitHubCopilotProvider _provider;
     private readonly Mock<IGitHubAuthService> _authService;
     private readonly Mock<IProviderDiscoveryService> _discoveryService;
@@ -24,14 +26,14 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         this._authService = new Mock<IGitHubAuthService>();
         this._discoveryService = new Mock<IProviderDiscoveryService>();
         this._provider = new GitHubCopilotProvider(this.HttpClient, this.Logger.Object, this._authService.Object, this._discoveryService.Object);
-        this.Config.ApiKey = "test-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]
     public async Task GetUsageAsync_ValidResponse_ParsesQuotaCorrectlyAsync()
     {
         // Arrange
-        this._authService.Setup(s => s.GetCurrentToken()).Returns("test-key");
+        this._authService.Setup(s => s.GetCurrentToken()).Returns(TestApiKey);
 
         var profileData = new { login = "user123" };
         var quotaData = new
@@ -80,7 +82,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
     public async Task GetUsageAsync_BothQuotaWindows_PrefersWeeklyPremiumWindowForTopLevelAsync()
     {
         // Arrange
-        this._authService.Setup(s => s.GetCurrentToken()).Returns("test-key");
+        this._authService.Setup(s => s.GetCurrentToken()).Returns(TestApiKey);
 
         var profileData = new { login = "user123" };
         var quotaData = new
@@ -138,7 +140,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
     public async Task GetUsageAsync_UsageQuotaOnly_UsesUsageWindowForTopLevelAsync()
     {
         // Arrange
-        this._authService.Setup(s => s.GetCurrentToken()).Returns("test-key");
+        this._authService.Setup(s => s.GetCurrentToken()).Returns(TestApiKey);
 
         var profileData = new { login = "user123" };
         var quotaData = new
@@ -205,7 +207,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
         // Assert
         var usage = result.Single();
         Assert.Equal("octocat", usage.AccountName);
-        this._authService.Verify(s => s.InitializeToken("test-key"), Times.Once);
+        this._authService.Verify(s => s.InitializeToken(TestApiKey), Times.Once);
     }
 
     [Fact]
@@ -260,7 +262,7 @@ public class GitHubCopilotProviderTests : HttpProviderTestBase<GitHubCopilotProv
     public async Task GetUsageAsync_CurrentApiShape_UsesPercentRemainingAndPlanMappingAsync()
     {
         // Arrange
-        this._authService.Setup(s => s.GetCurrentToken()).Returns("test-key");
+        this._authService.Setup(s => s.GetCurrentToken()).Returns(TestApiKey);
 
         const string profileFixture = "{\"login\":\"snapshot-user\"}";
         var copilotUserFixture = LoadFixture("github_copilot_internal_user.snapshot.json");

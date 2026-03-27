@@ -17,5 +17,5 @@ public interface IProviderService
         return this.Definition.HandlesProviderId(providerId);
     }
 
-    Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null);
+    Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default);
 }

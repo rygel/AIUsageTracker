@@ -98,12 +98,9 @@ public class ChartsModel : PageModel
                     continue;
                 }
 
-                foreach (var model in cfg.Models)
+                foreach (var model in cfg.Models.Where(m => !string.IsNullOrEmpty(m.Color) && !string.IsNullOrEmpty(m.Name)))
                 {
-                    if (!string.IsNullOrEmpty(model.Color) && !string.IsNullOrEmpty(model.Name))
-                    {
-                        colors[model.Name] = model.Color;
-                    }
+                    colors[model.Name] = model.Color;
                 }
             }
 

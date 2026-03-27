@@ -111,7 +111,7 @@ public class GeminiProvider : ProviderBase
     public override string ProviderId => StaticDefinition.ProviderId;
 
     /// <inheritdoc/>
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         // 1. Load Accounts
         var accounts = this.LoadAccounts();
@@ -139,18 +139,16 @@ public class GeminiProvider : ProviderBase
             try
             {
                 this._logger.LogDebug(
-                    "Gemini quota refresh started for account {AccountEmail} using project {ProjectId}",
-                    account.Email,
+                    "Gemini quota refresh started using project {ProjectId}",
                     account.ProjectId);
                 var accessToken = await this.RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await this.FetchQuotaAsync(accessToken, account.ProjectId).ConfigureAwait(false);
                 var allBuckets = buckets ?? new List<Bucket>();
                 var modelQuotaDetails = BuildModelQuotaDetails(allBuckets);
                 this._logger.LogDebug(
-                    "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model detail(s) for {AccountEmail}: {BucketSummary}",
+                    "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model detail(s): {BucketSummary}",
                     allBuckets.Count,
                     modelQuotaDetails.Count,
-                    account.Email,
                     string.Join(
                         ", ",
                         allBuckets.Select(bucket =>
@@ -175,7 +173,7 @@ public class GeminiProvider : ProviderBase
                 var usedPercentage = 100.0 - remainingPercentage;
 
                 var soonestBucket = allBuckets
-                    .Select(bucket => ParseResetTimeLocal(bucket.ResetTime))
+                    .Select(bucket => ParseResetTimeUtc(bucket.ResetTime))
                     .Where(reset => reset.HasValue)
                     .Select(reset => reset!.Value)
                     .OrderBy(reset => reset)
@@ -183,7 +181,7 @@ public class GeminiProvider : ProviderBase
 
                 if (soonestBucket != default)
                 {
-                    var diff = soonestBucket - DateTime.Now;
+                    var diff = soonestBucket - DateTime.UtcNow;
                     if (diff.TotalSeconds > 0)
                     {
                         mainResetStr = $" (Resets: ({soonestBucket:MMM dd HH:mm}))";
@@ -211,7 +209,7 @@ public class GeminiProvider : ProviderBase
             }
             catch (Exception ex)
             {
-                this._logger.LogWarning(ex, "Failed to fetch Gemini quota for {AccountEmail}", account.Email);
+                this._logger.LogWarning(ex, "Failed to fetch Gemini quota for one account");
             }
         }
 
@@ -289,8 +287,7 @@ public class GeminiProvider : ProviderBase
             }
 
             this._logger.LogDebug(
-                "Gemini CLI auth resolved account {AccountEmail} with project {ProjectId}",
-                email,
+                "Gemini CLI auth resolved account with project {ProjectId}",
                 projectId);
 
             return new AntigravityAccounts
@@ -546,7 +543,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<string> DoRefreshTokenAsync(string refreshToken, string clientId, string clientSecret)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://oauth2.googleapis.com/token");
         var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             { "client_id", clientId },
@@ -565,7 +562,7 @@ public class GeminiProvider : ProviderBase
 
     private async Task<List<Bucket>?> FetchQuotaAsync(string accessToken, string projectId)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota");
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
         request.Content = JsonContent.Create(new { project = projectId });
 
@@ -606,7 +603,7 @@ public class GeminiProvider : ProviderBase
         {
             var representative = modelGroup
                 .OrderBy(entry => entry.Bucket.RemainingFraction)
-                .ThenBy(entry => ParseResetTimeLocal(entry.Bucket.ResetTime) ?? DateTime.MaxValue)
+                .ThenBy(entry => ParseResetTimeUtc(entry.Bucket.ResetTime) ?? DateTime.MaxValue)
                 .Select(entry => entry.Bucket)
                 .FirstOrDefault();
             if (representative == null)
@@ -615,7 +612,7 @@ public class GeminiProvider : ProviderBase
             }
 
             var remainingPercent = UsageMath.ClampPercent(representative.RemainingFraction * 100.0);
-            var resetTime = ParseResetTimeLocal(representative.ResetTime);
+            var resetTime = ParseResetTimeUtc(representative.ResetTime);
             var resetSuffix = resetTime.HasValue ? $" (Resets: ({resetTime.Value:MMM dd HH:mm}))" : string.Empty;
 
             details.Add(new ProviderUsageDetail
@@ -655,7 +652,7 @@ public class GeminiProvider : ProviderBase
         return string.IsNullOrWhiteSpace(modelId) ? null : modelId;
     }
 
-    private static DateTime? ParseResetTimeLocal(string? resetTime)
+    private static DateTime? ParseResetTimeUtc(string? resetTime)
     {
         if (string.IsNullOrWhiteSpace(resetTime))
         {
@@ -667,8 +664,7 @@ public class GeminiProvider : ProviderBase
             return null;
         }
 
-        var local = parsed.ToLocalTime();
-        return local > DateTime.Now ? local : null;
+        return parsed > DateTime.UtcNow ? parsed : null;
     }
 
     private static string FormatGeminiModelDisplayName(string modelId)
@@ -716,6 +712,22 @@ public class GeminiProvider : ProviderBase
             "exp" => "Exp",
             _ => char.ToUpperInvariant(token[0]) + token[1..].ToLowerInvariant(),
         };
+    }
+
+    private static string RedactEmail(string? email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            return "(unknown)";
+        }
+
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 0)
+        {
+            return "***";
+        }
+
+        return email[0] + "***" + email[atIndex..];
     }
 
     private static string TruncateForLog(string? value, int maxLength = 600)

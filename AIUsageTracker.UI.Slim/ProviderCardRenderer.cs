@@ -47,24 +47,26 @@ internal sealed class ProviderCardRenderer
     {
         var providerId = usage.ProviderId ?? string.Empty;
         var friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.ColorThresholdRed);
 
+        var isCompact = this._preferences.CardCompactMode;
         var grid = new Grid
         {
-            Margin = new Thickness(isChild ? 20 : 0, 0, 0, 2),
-            Height = 24,
+            Margin = new Thickness(isChild ? 20 : 0, 0, 0, isCompact ? 1 : 2),
+            Height = isCompact ? 20 : 24,
             Background = Brushes.Transparent,
             Tag = providerId,
         };
 
         var pGrid = new Grid();
-        if (presentation.HasDualBuckets)
+        var useDualBars = presentation.HasDualBuckets && this._preferences.ShowDualQuotaBars;
+        if (useDualBars)
         {
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            var primaryRow = this.CreateProgressLayer(presentation.DualBucketPrimaryUsed!.Value, showUsed, opacity: 0.55);
-            var secondaryRow = this.CreateProgressLayer(presentation.DualBucketSecondaryUsed!.Value, showUsed, opacity: 0.35);
+            var primaryRow = this.CreateProgressLayer(presentation.DualBucketPrimaryUsed!.Value, presentation.DualBucketPrimaryColorPercent ?? presentation.DualBucketPrimaryUsed!.Value, showUsed, opacity: 0.55);
+            var secondaryRow = this.CreateProgressLayer(presentation.DualBucketSecondaryUsed!.Value, presentation.DualBucketSecondaryColorPercent ?? presentation.DualBucketSecondaryUsed!.Value, showUsed, opacity: 0.35);
             Grid.SetRow(primaryRow, 0);
             Grid.SetRow(secondaryRow, 1);
             pGrid.Children.Add(primaryRow);
@@ -105,119 +107,93 @@ internal sealed class ProviderCardRenderer
         }
         else
         {
-            var indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
-            var colorIndicatorPercent = GetColorIndicatorPercent(
-                usage,
-                presentation.UsedPercent,
-                this._preferences.EnablePaceAdjustment);
+            double indicatorWidth;
+            double colorIndicatorPercent;
+
+            if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
+            {
+                var (selectedUsed, selectedColor) = this.GetSingleBarDualQuotaPercents(presentation);
+                indicatorWidth = showUsed ? selectedUsed : Math.Max(0, 100 - selectedUsed);
+                colorIndicatorPercent = selectedColor;
+            }
+            else
+            {
+                var paceColor = UsageMath.ComputePaceColor(
+                    presentation.UsedPercent,
+                    usage.NextResetTime,
+                    usage.PeriodDuration,
+                    this._preferences.ColorThresholdRed,
+                    this._preferences.EnablePaceAdjustment);
+                indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
+                colorIndicatorPercent = paceColor.ColorPercent;
+            }
             pGrid = this.CreateSingleProgressLayer(colorIndicatorPercent, indicatorWidth, opacity: 0.45);
         }
 
-        pGrid.Visibility = presentation.ShouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
-        grid.Children.Add(pGrid);
+        // Compute pace result once — used by both bar color and slot rendering.
+        var cardPaceColor = UsageMath.ComputePaceColor(
+            presentation.UsedPercent,
+            usage.NextResetTime,
+            usage.PeriodDuration,
+            this._preferences.ColorThresholdRed,
+            this._preferences.EnablePaceAdjustment);
 
-        var bg = new Border
+        var useBackgroundBar = this._preferences.CardBackgroundBar;
+        if (useBackgroundBar)
         {
-            Background = this._getResourceBrush("CardBackground", Brushes.DarkGray),
-            CornerRadius = new CornerRadius(0),
-            Visibility = presentation.ShouldHaveProgress ? Visibility.Collapsed : Visibility.Visible,
-        };
-        grid.Children.Add(bg);
+            pGrid.Visibility = presentation.ShouldHaveProgress ? Visibility.Visible : Visibility.Collapsed;
+            grid.Children.Add(pGrid);
 
-        var contentPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
+            var bg = new Border
+            {
+                Background = this._getResourceBrush("CardBackground", Brushes.DarkGray),
+                CornerRadius = new CornerRadius(0),
+                Visibility = presentation.ShouldHaveProgress ? Visibility.Collapsed : Visibility.Visible,
+            };
+            grid.Children.Add(bg);
+        }
+        else
+        {
+            // Color-indicator-only mode: thin color stripe on the left edge
+            grid.Children.Add(new Border
+            {
+                Background = this._getResourceBrush("CardBackground", Brushes.DarkGray),
+            });
+
+            if (presentation.ShouldHaveProgress)
+            {
+                grid.Children.Add(new Border
+                {
+                    Width = 3,
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Background = this.GetProgressBarColor(cardPaceColor.ColorPercent),
+                    Opacity = 0.8,
+                });
+            }
+        }
+
+        var contentPadding = isCompact ? 4 : 6;
+        var contentPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(contentPadding, 0, contentPadding, 0) };
         if (isChild)
         {
             AddDockedElement(contentPanel, this.CreateBulletMarker(), Dock.Left);
         }
         else
         {
+            var iconSize = isCompact ? 12 : 14;
             var providerIcon = this._createProviderIcon(providerId);
-            providerIcon.Margin = new Thickness(0, 0, 6, 0);
-            providerIcon.Width = 14;
-            providerIcon.Height = 14;
+            providerIcon.Margin = new Thickness(0, 0, isCompact ? 4 : 6, 0);
+            providerIcon.Width = iconSize;
+            providerIcon.Height = iconSize;
             providerIcon.VerticalAlignment = VerticalAlignment.Center;
             AddDockedElement(contentPanel, providerIcon, Dock.Left);
         }
 
-        var statusText = presentation.StatusText;
-        Brush statusBrush = presentation.StatusTone switch
-        {
-            ProviderCardStatusTone.Missing => Brushes.IndianRed,
-            ProviderCardStatusTone.Warning => Brushes.Orange,
-            ProviderCardStatusTone.Error => Brushes.Red,
-            _ => this._getResourceBrush("SecondaryText", Brushes.Gray),
-        };
-
-        var resetBadgeText = this.BuildResetBadgeText(usage, presentation);
-        if (!string.IsNullOrWhiteSpace(resetBadgeText))
-        {
-            AddDockedElement(
-                contentPanel,
-                this.CreateDockedTextBlock(
-                    resetBadgeText,
-                    fontSize: 10,
-                    foreground: this._getResourceBrush("StatusTextWarning", Brushes.Goldenrod),
-                    fontWeight: FontWeights.SemiBold,
-                    margin: new Thickness(10, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        var paceBadge = GetPaceBadge(
-            usage,
-            presentation.UsedPercent,
-            this._preferences.EnablePaceAdjustment);
-        if (paceBadge.HasValue)
-        {
-            var badge = paceBadge.Value;
-            var badgeBrush = badge.Tier switch
-            {
-                PaceTier.OverPace => this._getResourceBrush("ProgressBarRed", Brushes.IndianRed),
-                PaceTier.OnPace => this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
-                _ => this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
-            };
-
-            // Projected percentage text (e.g. "Projected: 73%")
-            AddDockedElement(
-                contentPanel,
-                this.CreateDockedTextBlock(
-                    badge.ProjectedText,
-                    fontSize: 9,
-                    foreground: this._getResourceBrush("TertiaryText", Brushes.Gray),
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-
-            // Pace badge (e.g. "Headroom", "On pace", "Over pace")
-            AddDockedElement(
-                contentPanel,
-                this.CreateDockedTextBlock(
-                    badge.Text,
-                    fontSize: 9,
-                    foreground: badgeBrush,
-                    fontWeight: FontWeights.SemiBold,
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
-        {
-            AddDockedElement(
-                contentPanel,
-                this.CreateDockedTextBlock(
-                    $"{usage.UsagePerHour.Value:F1}/hr",
-                    fontSize: 9,
-                    foreground: this._getResourceBrush("TertiaryText", Brushes.Gray),
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        AddDockedElement(
-            contentPanel,
-            this.CreateDockedTextBlock(
-                statusText,
-                fontSize: 10,
-                foreground: statusBrush,
-                margin: new Thickness(10, 0, 0, 0)),
-            Dock.Right);
+        // Right-side slots rendered from right to left (rightmost = first added)
+        this.RenderSlot(contentPanel, this._preferences.CardResetInfo, usage, presentation, showUsed, cardPaceColor);
+        this.RenderSlot(contentPanel, this._preferences.CardPrimaryBadge, usage, presentation, showUsed, cardPaceColor);
+        this.RenderSlot(contentPanel, this._preferences.CardSecondaryBadge, usage, presentation, showUsed, cardPaceColor);
+        this.RenderSlot(contentPanel, this._preferences.CardStatusLine, usage, presentation, showUsed, cardPaceColor);
 
         var accountName = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId,
@@ -321,11 +297,11 @@ internal sealed class ProviderCardRenderer
         return grid;
     }
 
-    private Grid CreateProgressLayer(double usedPercent, bool showUsed, double opacity)
+    private Grid CreateProgressLayer(double usedPercent, double colorPercent, bool showUsed, double opacity)
     {
         var remainingPercent = Math.Max(0, 100 - usedPercent);
         var indicatorWidth = showUsed ? usedPercent : remainingPercent;
-        return this.CreateSingleProgressLayer(usedPercent, indicatorWidth, opacity);
+        return this.CreateSingleProgressLayer(colorPercent, indicatorWidth, opacity);
     }
 
     private Grid CreateSingleProgressLayer(double usedPercent, double indicatorWidth, double opacity)
@@ -366,9 +342,23 @@ internal sealed class ProviderCardRenderer
 
     private string? BuildResetBadgeText(ProviderUsage usage, ProviderCardPresentation presentation)
     {
-        var resetTimes = MainWindowRuntimeLogic.ResolveResetTimes(
-            usage,
-            presentation.SuppressSingleResetTime);
+        IReadOnlyList<DateTime> resetTimes;
+        if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
+        {
+            var preferredKind = MainWindowRuntimeLogic.GetPreferredDualBucketKind(
+                presentation,
+                this._preferences.DualQuotaSingleBarMode);
+            resetTimes = preferredKind.HasValue
+                ? MainWindowRuntimeLogic.ResolveResetTimesForWindow(usage, preferredKind.Value)
+                : Array.Empty<DateTime>();
+        }
+        else
+        {
+            resetTimes = MainWindowRuntimeLogic.ResolveResetTimes(
+                usage,
+                presentation.SuppressSingleResetTime);
+        }
+
         if (resetTimes.Count == 0)
         {
             return null;
@@ -380,32 +370,164 @@ internal sealed class ProviderCardRenderer
         return $"({string.Join(" | ", resetParts)})";
     }
 
-    private static double GetColorIndicatorPercent(
+    private void RenderSlot(
+        DockPanel panel,
+        CardSlotContent slot,
         ProviderUsage usage,
-        double usedPercent,
-        bool enablePaceAdjustment,
-        DateTime? nowUtc = null)
+        ProviderCardPresentation presentation,
+        bool showUsed,
+        PaceColorResult paceColor)
     {
-        return UsageMath.GetColorIndicatorPercent(
-            usedPercent,
-            enablePaceAdjustment,
-            usage.NextResetTime,
-            usage.PeriodDuration,
-            nowUtc);
+        if (slot == CardSlotContent.None)
+        {
+            return;
+        }
+
+        switch (slot)
+        {
+            case CardSlotContent.PaceBadge:
+                if (paceColor.IsPaceAdjusted)
+                {
+                    var badgeBrush = paceColor.PaceTier switch
+                    {
+                        PaceTier.OverPace => this._getResourceBrush("ProgressBarRed", Brushes.IndianRed),
+                        _ => this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen),
+                    };
+                    this.AddSlotText(panel, paceColor.ProjectedText, this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                    this.AddSlotText(panel, paceColor.BadgeText, badgeBrush, 9, FontWeights.SemiBold);
+                }
+
+                break;
+
+            case CardSlotContent.ProjectedPercent:
+                if (paceColor.IsPaceAdjusted)
+                {
+                    this.AddSlotText(panel, $"Projected: {paceColor.ProjectedPercent:F0}%", this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                }
+
+                break;
+
+            case CardSlotContent.DailyBudget:
+                if (usage.PeriodDuration.HasValue && usage.PeriodDuration.Value.TotalDays >= 1)
+                {
+                    var dailyBudget = 100.0 / usage.PeriodDuration.Value.TotalDays;
+                    this.AddSlotText(panel, $"{dailyBudget:F0}%/day budget", this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                }
+
+                break;
+
+            case CardSlotContent.UsageRate:
+                if (this._preferences.ShowUsagePerHour && usage.UsagePerHour.HasValue)
+                {
+                    this.AddSlotText(panel, $"{usage.UsagePerHour.Value:F1}/hr", this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                }
+
+                break;
+
+            case CardSlotContent.UsedPercent:
+                this.AddSlotText(panel, $"{usage.UsedPercent:F0}% used", this._getResourceBrush("SecondaryText", Brushes.Gray), 10);
+                break;
+
+            case CardSlotContent.RemainingPercent:
+                this.AddSlotText(panel, $"{Math.Max(0, 100 - usage.UsedPercent):F0}% remaining", this._getResourceBrush("SecondaryText", Brushes.Gray), 10);
+                break;
+
+            case CardSlotContent.ResetAbsolute:
+            case CardSlotContent.ResetAbsoluteDate:
+            case CardSlotContent.ResetRelative:
+                // Determine the effective format: the slot type sets the default,
+                // but UseRelativeResetTime overrides ResetAbsolute to relative.
+                var effectiveSlot = slot;
+                if (this._preferences.UseRelativeResetTime && slot == CardSlotContent.ResetAbsolute)
+                {
+                    effectiveSlot = CardSlotContent.ResetRelative;
+                }
+
+                var resetText = this.BuildResetBadgeText(usage, presentation);
+                if (!string.IsNullOrWhiteSpace(resetText))
+                {
+                    if (effectiveSlot == CardSlotContent.ResetRelative && usage.NextResetTime.HasValue)
+                    {
+                        resetText = $"({UsageMath.FormatRelativeTime(usage.NextResetTime.Value)})";
+                    }
+                    else if (effectiveSlot == CardSlotContent.ResetAbsoluteDate && usage.NextResetTime.HasValue)
+                    {
+                        resetText = $"({UsageMath.FormatAbsoluteDate(usage.NextResetTime.Value)})";
+                    }
+
+                    this.AddSlotText(panel, resetText, this._getResourceBrush("StatusTextWarning", Brushes.Goldenrod), 10, FontWeights.SemiBold);
+                }
+
+                break;
+
+            case CardSlotContent.StatusText:
+                var statusText = presentation.StatusText;
+                if (presentation.HasDualBuckets && !this._preferences.ShowDualQuotaBars)
+                {
+                    statusText = MainWindowRuntimeLogic.BuildSingleDualQuotaStatusText(
+                        presentation, showUsed, this._preferences.DualQuotaSingleBarMode);
+                }
+
+                Brush statusBrush = presentation.StatusTone switch
+                {
+                    ProviderCardStatusTone.Missing => Brushes.IndianRed,
+                    ProviderCardStatusTone.Warning => Brushes.Orange,
+                    ProviderCardStatusTone.Error => Brushes.Red,
+                    _ => this._getResourceBrush("SecondaryText", Brushes.Gray),
+                };
+                this.AddSlotText(panel, statusText, statusBrush, 10);
+                break;
+
+            case CardSlotContent.AccountName:
+                if (!string.IsNullOrWhiteSpace(usage.AccountName))
+                {
+                    var name = this._isPrivacyMode ? "****" : usage.AccountName;
+                    this.AddSlotText(panel, name, this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                }
+
+                break;
+
+            case CardSlotContent.AuthSource:
+                if (!string.IsNullOrWhiteSpace(usage.AuthSource))
+                {
+                    this.AddSlotText(panel, usage.AuthSource, this._getResourceBrush("TertiaryText", Brushes.Gray), 9);
+                }
+
+                break;
+        }
     }
 
-    private static PaceBadgeResult? GetPaceBadge(
-        ProviderUsage usage,
-        double usedPercent,
-        bool enablePaceAdjustment,
-        DateTime? nowUtc = null)
+    private void AddSlotText(DockPanel panel, string text, Brush foreground, double fontSize, FontWeight? fontWeight = null)
     {
-        return UsageMath.GetPaceBadge(
-            usedPercent,
-            enablePaceAdjustment,
-            usage.NextResetTime,
-            usage.PeriodDuration,
-            nowUtc);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return;
+        }
+
+        var compact = this._preferences.CardCompactMode;
+        AddDockedElement(
+            panel,
+            this.CreateDockedTextBlock(
+                text,
+                fontSize: compact ? fontSize - 1 : fontSize,
+                foreground: foreground,
+                fontWeight: fontWeight ?? FontWeights.Normal,
+                margin: new Thickness(compact ? 4 : 6, 0, 0, 0)),
+            Dock.Right);
+    }
+
+    private (double UsedPercent, double ColorPercent) GetSingleBarDualQuotaPercents(ProviderCardPresentation presentation)
+    {
+        var usePrimary = MainWindowRuntimeLogic.ShouldUsePrimaryDualBucket(
+            presentation,
+            this._preferences.DualQuotaSingleBarMode);
+        var used = usePrimary
+            ? presentation.DualBucketPrimaryUsed!.Value
+            : presentation.DualBucketSecondaryUsed!.Value;
+        var color = usePrimary
+            ? presentation.DualBucketPrimaryColorPercent ?? used
+            : presentation.DualBucketSecondaryColorPercent ?? used;
+        return (used, color);
     }
 
     private Border CreateBulletMarker()
@@ -482,5 +604,3 @@ internal sealed class ProviderCardRenderer
         DockPanel.SetDock(element, dock);
     }
 }
-
-

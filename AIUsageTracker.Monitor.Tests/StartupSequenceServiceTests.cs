@@ -34,7 +34,7 @@ public class StartupSequenceServiceTests
         var service = this.CreateService();
         var refreshCalls = 0;
 
-        service.QueueInitialDataSeeding(() =>
+        service.QueueInitialDataSeeding(_ =>
         {
             refreshCalls++;
             return Task.CompletedTask;
@@ -67,7 +67,7 @@ public class StartupSequenceServiceTests
         var service = this.CreateService();
         var refreshCalls = 0;
 
-        service.QueueInitialDataSeeding(() =>
+        service.QueueInitialDataSeeding(_ =>
         {
             refreshCalls++;
             return Task.CompletedTask;
@@ -96,7 +96,7 @@ public class StartupSequenceServiceTests
         var service = this.CreateService();
         IReadOnlyCollection<string>? providerIds = null;
 
-        service.QueueStartupTargetedRefresh(ids =>
+        service.QueueStartupTargetedRefresh((ids, _) =>
         {
             providerIds = ids;
             return Task.CompletedTask;
@@ -123,7 +123,7 @@ public class StartupSequenceServiceTests
             .Returns(true);
 
         var service = this.CreateService();
-        service.QueueStartupTargetedRefresh(_ => throw new InvalidOperationException("refresh failed"));
+        service.QueueStartupTargetedRefresh((_, _) => throw new InvalidOperationException("refresh failed"));
 
         Assert.NotNull(queuedJob);
         await queuedJob!(CancellationToken.None);

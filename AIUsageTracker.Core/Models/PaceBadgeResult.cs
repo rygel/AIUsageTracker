@@ -36,7 +36,12 @@ public readonly record struct PaceBadgeResult(PaceTier Tier, double ProjectedPer
     };
 
     /// <summary>
-    /// Gets formatted projected usage text, e.g. "Projected: 73%".
+    /// Gets formatted projected usage text with delta, e.g. "Projected: 73% (+5%)".
     /// </summary>
-    public string ProjectedText => $"Projected: {this.ProjectedPercent:F0}%";
+    public string ProjectedText => this.Tier switch
+    {
+        PaceTier.OverPace => $"+{this.ProjectedPercent - 100:F0}%",
+        PaceTier.Headroom => $"-{100 - this.ProjectedPercent:F0}%",
+        _ => $"{this.ProjectedPercent:F0}%",
+    };
 }

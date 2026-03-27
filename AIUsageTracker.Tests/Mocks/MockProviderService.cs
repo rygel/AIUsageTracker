@@ -99,7 +99,7 @@ public class MockProviderService : IProviderService
             description: "1 / 5 requests");
     }
 
-    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         if (this.UsageHandler != null)
         {

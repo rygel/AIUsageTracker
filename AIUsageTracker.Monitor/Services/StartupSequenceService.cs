@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace AIUsageTracker.Monitor.Services;
 
-internal sealed class StartupSequenceService
+public sealed class StartupSequenceService
 {
     private readonly ProviderRefreshJobScheduler _refreshJobScheduler;
     private readonly IConfigService _configService;
@@ -27,25 +27,29 @@ internal sealed class StartupSequenceService
         this._logger = logger;
     }
 
-    public void QueueInitialDataSeeding(Func<Task> refreshAllAsync)
+    public void QueueInitialDataSeeding(Func<CancellationToken, Task> refreshAllAsync)
     {
-        this._refreshJobScheduler.QueueInitialDataSeeding(_ => this.RunStartupSeedingAsync(refreshAllAsync));
+        this._refreshJobScheduler.QueueInitialDataSeeding(ct => this.RunStartupSeedingAsync(refreshAllAsync, ct));
     }
 
-    public void QueueStartupTargetedRefresh(Func<IReadOnlyCollection<string>, Task> targetedRefreshAsync)
+    public void QueueStartupTargetedRefresh(Func<IReadOnlyCollection<string>, CancellationToken, Task> targetedRefreshAsync)
     {
         this._refreshJobScheduler.QueueStartupTargetedRefresh(
-            _ => this.RunStartupTargetedRefreshAsync(targetedRefreshAsync));
+            ct => this.RunStartupTargetedRefreshAsync(targetedRefreshAsync, ct));
     }
 
-    private async Task RunStartupSeedingAsync(Func<Task> refreshAllAsync)
+    private async Task RunStartupSeedingAsync(Func<CancellationToken, Task> refreshAllAsync, CancellationToken cancellationToken)
     {
         try
         {
             this._logger.LogInformation("First-time startup: scanning for keys and seeding database.");
             await this._configService.ScanForKeysAsync().ConfigureAwait(false);
-            await refreshAllAsync().ConfigureAwait(false);
+            await refreshAllAsync(cancellationToken).ConfigureAwait(false);
             this._logger.LogInformation("First-time data seeding complete.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            this._logger.LogInformation("Startup seeding cancelled due to shutdown.");
         }
         catch (Exception ex)
         {
@@ -54,13 +58,17 @@ internal sealed class StartupSequenceService
         }
     }
 
-    private async Task RunStartupTargetedRefreshAsync(Func<IReadOnlyCollection<string>, Task> targetedRefreshAsync)
+    private async Task RunStartupTargetedRefreshAsync(Func<IReadOnlyCollection<string>, CancellationToken, Task> targetedRefreshAsync, CancellationToken cancellationToken)
     {
         try
         {
             this._logger.LogDebug("Startup: running targeted refresh for system providers...");
-            await targetedRefreshAsync(ProviderMetadataCatalog.GetStartupRefreshProviderIds()).ConfigureAwait(false);
+            await targetedRefreshAsync(ProviderMetadataCatalog.GetStartupRefreshProviderIds(), cancellationToken).ConfigureAwait(false);
             this._logger.LogDebug("Startup: targeted refresh complete.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            this._logger.LogInformation("Startup targeted refresh cancelled due to shutdown.");
         }
         catch (Exception ex)
         {

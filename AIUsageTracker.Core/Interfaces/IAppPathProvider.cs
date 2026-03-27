@@ -18,6 +18,8 @@ public interface IAppPathProvider
 
     string GetProviderConfigFilePath();
 
+    string GetMonitorInfoFilePath();
+
     // Discovery root for external tools (e.g., .claude, .codex)
     string GetUserProfileRoot();
 }

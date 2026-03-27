@@ -2,6 +2,96 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.7] - 2026-03-27
+
+### Fixed
+- **Quota bar color changes when toggling dual bars on/off**: bar rows now use the same pace-adjusted color as single-bar mode. Previously the dual bar rows used the raw used percentage for color while single-bar mode used the pace-projected value, causing a visible color shift when toggling.
+- **Stale cache entries driving rendering**: `ProviderDetails` now only contains fresh, provider-level `QuotaWindow` entries. Stale DB entries with a wrong `detail_type` (from older Monitor binaries) and model-scoped quota windows are excluded — rendering is now driven entirely by what the provider class emits, not by cached data.
+
+### Added
+- **Windows startup settings in Settings → Layout**: two checkboxes — "Start Monitor with Windows" and "Start UI with Windows" — write directly to `HKCU\...\Run`, so they take effect immediately without reinstalling.
+- **Installer startup options now use the registry**: the optional "Run at Windows Startup" installer tasks now write to the same registry Run key as the settings dialog, ensuring both mechanisms are in sync and the settings checkboxes correctly reflect what the installer set up.
+
+## [2.3.4-beta.6] - 2026-03-27
+
+### Fixed
+- **Pace calculation wrong for Claude Code**: `NextResetTime` now uses the 7-day rolling reset (matching `PeriodDuration = 7d`). Previously it used the 5-hour burst reset, anchoring a 7-day period calculation to the wrong window — causing ~97% of the period to appear elapsed and distorting the pace projection.
+- **Sonnet and weekly usage not visible on Claude Code card**: `ProviderUsage.Details` now flows directly as `ProviderDetails` without being split/filtered. Sonnet, Opus, and All Models details all appear on the parent card as expected.
+- **Claude Code rendered as single parent card with dual quota bars**: the 5-hour burst and 7-day rolling windows are shown as dual bars on one card. Per-model child rows (which showed incorrect usage values) have been removed.
+- **Dual bar label scraping**: bar labels now use `DualBarLabel` directly from the catalog definition instead of scraping them from the status text string.
+- **CodeQL code scanning alerts**: resolved 92 CodeQL alerts across the codebase.
+
+### Changed
+- **ProviderDetails as single source of truth**: replaced the `ProviderQuotaDetails`/`Models` split with direct `ProviderUsage.Details` passthrough. The UI reads `QuotaWindow` details to drive dual bars and `Model` details to drive detail rows — no separate extraction step.
+- **Unified JSON serialization**: `MonitorJsonSerializer` is the single entry point for all Monitor API serialization/deserialization.
+- **Dead display modes removed**: `CollapsedDerivedProviders` and `SyntheticAggregateChildren` family modes deleted (~200 lines).
+
+## [2.3.4-beta.5] - 2026-03-26
+
+### Fixed
+- **Pace badge / bar color disagreement**: bar color no longer turns red when the pace badge says "On pace". Both now derive from a single projection — structurally impossible to disagree.
+- **Card designer preview not updating**: changing Display Options (usage rate, dual bars, pace colours, thresholds) now immediately updates the live preview.
+- **Settings changes not applied to main window**: closing the Settings dialog (via Close button, X, or Alt+F4) now always reloads preferences. Root cause: `DialogResult` was never set, so the main window skipped the reload.
+- **Tray icon colours ignore pace adjustment**: tray icons now use the same pace-adjusted colour as the main window, respecting the user's Enable Pace-Aware Colours setting.
+- **Web dashboard uses different colour thresholds**: web UI now reads the shared `preferences.json` instead of hardcoded 50/90 values.
+- **Dual/single bar toggle not taking effect**: toggling "Show dual quota bars" in Settings now correctly switches between dual and single bar rendering after dialog close.
+
+### Added
+- **Configurable card slots**: card designer slot choices (Primary Badge, Secondary Badge, Status Line, Reset Info) are now persisted in preferences and used by the real card renderer — preview matches main window exactly.
+- **Slot rendering tests**: 8 regression tests verify that boolean toggles (ShowUsagePerHour, EnablePaceAdjustment, UseRelativeResetTime) are respected by slot-based rendering.
+
+### Changed
+- **Unified pace/colour service**: `ComputePaceColor()` replaces 5 separate methods (`CalculatePaceAdjustedColorPercent`, `GetColorIndicatorPercent`, `GetPaceBadge`, `GetPaceBadgeText`, `CalculateProjectedFinalPercent`). Single computation, consistent results.
+- **Shared preferences service**: `IPreferencesStore` + `PreferencesStore` in Core/Infrastructure replaces 3 independent file readers (Desktop `UiPreferencesStore`, Monitor `JsonConfigLoader`, Web inline `File.ReadAllText`).
+- **Card designer uses real renderer**: preview now calls `ProviderCardRenderer.CreateProviderCard()` — same rendering path as the main window. ~300 lines of duplicate card-building code deleted.
+- **Dead MVVM layer removed** (~1,700 lines): `ProviderCardViewModel`, `SubProviderCardViewModel`, `CollapsibleSectionViewModel`, `ProviderCardResources.xaml`, `CollapsibleSectionResources.xaml`, and `MainViewModel.UpdateSections` were instantiated but never connected to the UI.
+- **Settings apply without file round-trip**: main window reads `App.Preferences` in-memory instead of reloading from disk after settings close.
+
+## [2.3.4-beta.4] - 2026-03-25
+
+### Added
+- **Pace badge delta text**: pace badges now show projected delta (e.g. "+12%", "-30%") alongside the tier label.
+
+### Dependencies
+- Bump Meziantou.Analyzer from 3.0.25 to 3.0.27.
+- Bump github/codeql-action from 4.34.0 to 4.34.1.
+
+## [2.3.4-beta.3] - 2026-03-24
+
+### Added
+- **Check for Updates button**: Settings > Updates tab now has a manual "Check for Updates" button with inline status feedback.
+- **Dual quota bar toggle**: users can now disable dual bars and select whether the single bar reflects the rolling (weekly) or burst (hourly) window.
+
+### Fixed
+- **Reset timer showing 0m**: countdown timer was off by the local UTC offset due to SQLite/Dapper returning `DateTime` with `Kind=Unspecified`. Added Dapper `UtcDateTimeHandler` to tag all database reads as UTC.
+- **UTC enforcement**: all internal timestamps now use UTC. `DateTime.Now` replaced with `DateTime.UtcNow` in providers (Gemini, Antigravity, Kimi, OpenRouter) and `ResetTimeParser`. Local time conversion only at display boundary.
+- **Single-bar status and reset badges**: when dual bars are disabled, the status text and reset badge now reflect the selected quota window.
+- **Tray tooltip consistency**: tray icon status text now matches the selected single-window mode when dual bars are off.
+
+### Changed
+- **Provider icon backdrop**: dark-theme provider icons now render on a rounded square backdrop instead of a white outline, with a slightly brighter fill for legibility.
+
+## [2.3.4-beta.2] - 2026-03-23
+
+### Fixed
+- **Graceful shutdown via CancellationToken propagation**: in-flight provider HTTP requests are now properly cancelled during shutdown instead of being abandoned. Token threaded from job scheduler through the entire refresh pipeline to individual providers.
+- **Thread-safe ProviderManager replacement**: `Volatile.Read` / `Interlocked.Exchange` prevent race conditions when ProviderManager is swapped during concurrency adjustments.
+- **Hardcoded test credentials removed**: all `ApiKey` string literals across 22 test files replaced with `Guid.NewGuid()` to eliminate security scanner warnings.
+
+### Performance
+- **Grouped usage projection cache**: `/api/usage/grouped` endpoint caches the O(n²) projection for 30 seconds, eliminating redundant computation on repeated calls.
+- **Config and preferences in-memory cache**: disk reads eliminated for repeat calls; cache invalidates automatically on save.
+- **SignalR delta detection**: "UsageUpdated" broadcast suppressed when provider data hasn't meaningfully changed, reducing unnecessary UI updates.
+
+### Changed
+- **DI factory elimination**: `ProviderRefreshServiceFactory` removed; all sub-services registered as proper DI singletons, improving testability and lifetime management.
+- **CI diagnostics**: OpenAPI contract check now captures Monitor stdout/stderr on startup failure.
+
+## [2.3.4-beta.1] - 2026-03-23
+
+### Fixed
+- **Stale badge missing on parent providers**: providers like Antigravity that fetch successfully but have all-stale child data now show the stale badge.
+
 ## [2.3.3] - 2026-03-22
 
 ### Added

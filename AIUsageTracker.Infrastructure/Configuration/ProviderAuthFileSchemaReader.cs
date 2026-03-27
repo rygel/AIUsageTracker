@@ -47,19 +47,24 @@ internal static class ProviderAuthFileSchemaReader
         string rootProperty,
         out JsonElement sessionRoot)
     {
-        sessionRoot = root;
         var parts = rootProperty.Split('.');
         var lastPart = parts[^1];
 
-        foreach (var part in parts)
-        {
-            if (!sessionRoot.TryGetProperty(part, out sessionRoot) ||
-                (sessionRoot.ValueKind != JsonValueKind.Object && !string.Equals(part, lastPart, StringComparison.Ordinal)))
+        var navigated = parts.Aggregate<string, JsonElement?>(
+            root,
+            (current, part) =>
             {
-                return false;
-            }
-        }
+                if (!current.HasValue || !current.Value.TryGetProperty(part, out var next))
+                {
+                    return null;
+                }
 
-        return true;
+                return next.ValueKind != JsonValueKind.Object && !string.Equals(part, lastPart, StringComparison.Ordinal)
+                    ? null
+                    : next;
+            });
+
+        sessionRoot = navigated ?? default;
+        return navigated.HasValue;
     }
 }

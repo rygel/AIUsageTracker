@@ -84,7 +84,8 @@ public class OpenCodeZenProvider : ProviderBase
     /// <inheritdoc/>
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(
         ProviderConfig config,
-        Action<ProviderUsage>? progressCallback = null)
+        Action<ProviderUsage>? progressCallback = null,
+        CancellationToken cancellationToken = default)
     {
         var pathExists = string.Equals(this._cliPath, DefaultCliCommand, StringComparison.OrdinalIgnoreCase)
             ? await this.IsInPathAsync(DefaultCliCommand).ConfigureAwait(false)

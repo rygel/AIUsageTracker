@@ -84,6 +84,7 @@ jobs:
 
       - name: Auto-commit updated baselines directly to branch
         if: github.event_name != 'pull_request'
+        continue-on-error: true
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -95,8 +96,16 @@ jobs:
           }
           $count = (git diff --cached --name-only | Measure-Object -Line).Lines
           git commit -m "chore: update $count screenshot baseline(s) from CI (windows-2025) [skip ci]"
-          git push
+          git push || Write-Host "##[warning]Could not push baselines (branch protection). Download the artifact to update manually."
         shell: pwsh
+
+      - name: Upload updated baselines as artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7
+        with:
+          name: slim-ui-screenshot-baselines
+          path: docs/screenshot_*_privacy.png
+          if-no-files-found: ignore
 
       # ── Pull-request path: compare candidate screenshots against committed baselines ──
 

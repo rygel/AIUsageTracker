@@ -78,7 +78,9 @@ public class AppPreferences
 
     public string QuietHoursEnd { get; set; } = "07:00";
 
-    public bool StartWithWindows { get; set; } = false;
+    public bool StartMonitorWithWindows { get; set; } = false;
+
+    public bool StartUiWithWindows { get; set; } = false;
 
     public AppTheme Theme { get; set; } = AppTheme.Dark;
 
@@ -105,12 +107,34 @@ public class AppPreferences
 
     public bool ShowUsagePerHour { get; set; } = false;
 
+    public bool ShowDualQuotaBars { get; set; } = true;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<DualQuotaSingleBarMode>))]
+    public DualQuotaSingleBarMode DualQuotaSingleBarMode { get; set; } = DualQuotaSingleBarMode.Rolling;
+
     /// <summary>
     /// Gets or sets a value indicating whether when true, progress-bar colour and notification threshold are adjusted for rolling-window
     /// pace: a provider at 70% usage with 1 day left of a 7-day window is treated as on-budget,
     /// not alarming. Disabling this reverts to the raw percentage for all colour and alert logic.
     /// </summary>
     public bool EnablePaceAdjustment { get; set; } = true;
+
+    // Card layout slots — configurable in Settings > Cards
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardPrimaryBadge { get; set; } = CardSlotContent.PaceBadge;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardSecondaryBadge { get; set; } = CardSlotContent.UsageRate;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardStatusLine { get; set; } = CardSlotContent.StatusText;
+
+    [JsonConverter(typeof(JsonStringEnumConverter<CardSlotContent>))]
+    public CardSlotContent CardResetInfo { get; set; } = CardSlotContent.ResetAbsolute;
+
+    public bool CardCompactMode { get; set; } = false;
+
+    public bool CardBackgroundBar { get; set; } = true;
 
     public static AppPreferences Deserialize(string json)
     {
@@ -134,13 +158,15 @@ public class AppPreferences
 
     private static bool TryGetProperty(JsonElement element, string propertyName, out JsonElement property)
     {
-        foreach (var candidate in element.EnumerateObject())
+        var match = element.EnumerateObject()
+            .Where(candidate => string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            .Cast<JsonProperty?>()
+            .FirstOrDefault();
+
+        if (match.HasValue)
         {
-            if (string.Equals(candidate.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                property = candidate.Value;
-                return true;
-            }
+            property = match.Value.Value;
+            return true;
         }
 
         property = default;

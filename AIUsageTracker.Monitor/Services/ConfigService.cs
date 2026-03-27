@@ -18,6 +18,10 @@ public class ConfigService : IConfigService
     private readonly TokenDiscoveryService _tokenDiscovery;
     private readonly IAppPathProvider _pathProvider;
     private readonly ILogger<TokenDiscoveryService> _tokenDiscoveryLogger;
+    private readonly SemaphoreSlim _configCacheLock = new(1, 1);
+    private readonly SemaphoreSlim _prefsCacheLock = new(1, 1);
+    private IReadOnlyList<ProviderConfig>? _cachedConfigs;
+    private AppPreferences? _cachedPreferences;
     private int _startupAuthDiagnosticsLogged;
 
     public ConfigService(ILogger<ConfigService> logger, IAppPathProvider pathProvider)
@@ -39,17 +43,35 @@ public class ConfigService : IConfigService
 
     public async Task<IReadOnlyList<ProviderConfig>> GetConfigsAsync()
     {
+        var cached = Volatile.Read(ref this._cachedConfigs);
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        await this._configCacheLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            var configs = await this._configLoader.LoadConfigAsync().ConfigureAwait(false);
+            cached = Volatile.Read(ref this._cachedConfigs);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
             this.LogAuthDiagnosticsSnapshotOnceOnStartup(configs);
-            return configs.ToList();
+            Volatile.Write(ref this._cachedConfigs, configs);
+            return configs;
         }
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to load configs: {Message}", ex.Message);
             MonitorInfoPersistence.ReportError($"Config load failed: {ex.Message}", this._pathProvider, this._logger);
             return new List<ProviderConfig>();
+        }
+        finally
+        {
+            this._configCacheLock.Release();
         }
     }
 
@@ -74,6 +96,7 @@ public class ConfigService : IConfigService
             }
 
             await this._configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
+            Volatile.Write(ref this._cachedConfigs, null);
             this._logger.LogInformation("Saved: {ProviderId}", config.ProviderId);
         }
         catch (Exception ex)
@@ -90,6 +113,7 @@ public class ConfigService : IConfigService
             var configs = (await this._configLoader.LoadConfigAsync().ConfigureAwait(false)).ToList();
             configs.RemoveAll(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
             await this._configLoader.SaveConfigAsync(configs).ConfigureAwait(false);
+            Volatile.Write(ref this._cachedConfigs, null);
             this._logger.LogInformation("Removed: {ProviderId}", providerId);
         }
         catch (Exception ex)
@@ -101,14 +125,33 @@ public class ConfigService : IConfigService
 
     public async Task<AppPreferences> GetPreferencesAsync()
     {
+        var cached = Volatile.Read(ref this._cachedPreferences);
+        if (cached != null)
+        {
+            return cached;
+        }
+
+        await this._prefsCacheLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            return await this._configLoader.LoadPreferencesAsync().ConfigureAwait(false);
+            cached = Volatile.Read(ref this._cachedPreferences);
+            if (cached != null)
+            {
+                return cached;
+            }
+
+            var prefs = await this._configLoader.LoadPreferencesAsync().ConfigureAwait(false);
+            Volatile.Write(ref this._cachedPreferences, prefs);
+            return prefs;
         }
         catch (Exception ex)
         {
             this._logger.LogError(ex, "Failed to load preferences: {Message}", ex.Message);
             return new AppPreferences();
+        }
+        finally
+        {
+            this._prefsCacheLock.Release();
         }
     }
 
@@ -117,6 +160,7 @@ public class ConfigService : IConfigService
         try
         {
             await this._configLoader.SavePreferencesAsync(preferences).ConfigureAwait(false);
+            Volatile.Write(ref this._cachedPreferences, null);
             this._logger.LogInformation("Prefs saved");
         }
         catch (Exception ex)
@@ -200,6 +244,7 @@ public class ConfigService : IConfigService
             }
 
             await this._configLoader.SaveConfigAsync(existing).ConfigureAwait(false);
+            Volatile.Write(ref this._cachedConfigs, null);
             return discovered.ToList();
         }
         catch (Exception ex)

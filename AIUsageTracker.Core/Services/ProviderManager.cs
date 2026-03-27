@@ -86,7 +86,8 @@ public class ProviderManager : IDisposable
         bool forceRefresh = true,
         Action<ProviderUsage>? progressCallback = null,
         IReadOnlyCollection<string>? includeProviderIds = null,
-        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
+        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null,
+        CancellationToken cancellationToken = default)
     {
         await this._refreshSemaphore.WaitAsync().ConfigureAwait(false);
         var semaphoreReleased = false;
@@ -108,7 +109,7 @@ public class ProviderManager : IDisposable
                 return this._lastUsages;
             }
 
-            this._refreshTask = this.FetchAllUsageInternalAsync(progressCallback, includeProviderIds, overrideConfigs);
+            this._refreshTask = this.FetchAllUsageInternalAsync(progressCallback, includeProviderIds, overrideConfigs, cancellationToken);
             var currentTask = this._refreshTask;
             this._refreshSemaphore.Release();
             semaphoreReleased = true;
@@ -123,7 +124,7 @@ public class ProviderManager : IDisposable
         }
     }
 
-    public async Task<IReadOnlyList<ProviderUsage>> GetUsageAsync(string providerId)
+    public async Task<IReadOnlyList<ProviderUsage>> GetUsageAsync(string providerId, CancellationToken cancellationToken = default)
     {
         var configs = await this.GetConfigsAsync(forceRefresh: false).ConfigureAwait(false);
         var config = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
@@ -141,7 +142,7 @@ public class ProviderManager : IDisposable
             config = definition.CreateDefaultConfig(providerId);
         }
 
-        return await this.FetchSingleProviderUsageAsync(config, null).ConfigureAwait(false);
+        return await this.FetchSingleProviderUsageAsync(config, null, cancellationToken).ConfigureAwait(false);
     }
 
     public void Dispose()
@@ -293,7 +294,8 @@ public class ProviderManager : IDisposable
     private async Task<IReadOnlyList<ProviderUsage>> FetchAllUsageInternalAsync(
         Action<ProviderUsage>? progressCallback = null,
         IReadOnlyCollection<string>? includeProviderIds = null,
-        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null)
+        IReadOnlyCollection<ProviderConfig>? overrideConfigs = null,
+        CancellationToken cancellationToken = default)
     {
         this._logger.LogDebug("Starting FetchAllUsageInternal...");
         var configs = overrideConfigs != null
@@ -323,7 +325,7 @@ public class ProviderManager : IDisposable
                 .ToList();
         }
 
-        var tasks = configs.Select(config => this.FetchSingleProviderUsageAsync(config, progressCallback));
+        var tasks = configs.Select(config => this.FetchSingleProviderUsageAsync(config, progressCallback, cancellationToken));
         var nestedResults = await Task.WhenAll(tasks).ConfigureAwait(false);
         var results = nestedResults.SelectMany(x => x).ToList();
         this._lastUsages = results;
@@ -332,7 +334,8 @@ public class ProviderManager : IDisposable
 
     private async Task<IReadOnlyList<ProviderUsage>> FetchSingleProviderUsageAsync(
         ProviderConfig config,
-        Action<ProviderUsage>? progressCallback)
+        Action<ProviderUsage>? progressCallback,
+        CancellationToken cancellationToken = default)
     {
         var provider = this._providers.FirstOrDefault(p => p.Definition.HandlesProviderId(config.ProviderId));
         var defaults = this.ResolveDefaults(config.ProviderId, provider);
@@ -343,7 +346,7 @@ public class ProviderManager : IDisposable
             return CreateSingleUsageList(unknownProviderUsage, progressCallback);
         }
 
-        await this._httpSemaphore.WaitAsync().ConfigureAwait(false);
+        await this._httpSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
         var stopwatch = Stopwatch.StartNew();
         try
         {
@@ -352,7 +355,8 @@ public class ProviderManager : IDisposable
                     provider,
                     defaults,
                     stopwatch,
-                    progressCallback)
+                    progressCallback,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (ArgumentException ex)
@@ -385,43 +389,46 @@ public class ProviderManager : IDisposable
         IProviderService provider,
         (bool IsQuotaBased, PlanType PlanType, string DisplayName) defaults,
         Stopwatch stopwatch,
-        Action<ProviderUsage>? progressCallback)
+        Action<ProviderUsage>? progressCallback,
+        CancellationToken cancellationToken = default)
     {
         this._logger.LogDebug("Fetching usage for provider: {ProviderId}", config.ProviderId);
-        var usageTask = provider.GetUsageAsync(config, progressCallback);
-        var timeoutTask = Task.Delay(ProviderRequestTimeout);
-        var completedTask = await Task.WhenAny(usageTask, timeoutTask).ConfigureAwait(false);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(ProviderRequestTimeout);
+        var linkedToken = timeoutCts.Token;
 
-        if (completedTask != usageTask)
+        try
         {
+            var usages = (await provider.GetUsageAsync(config, progressCallback, linkedToken).ConfigureAwait(false)).ToList();
+            stopwatch.Stop();
+            foreach (var usage in usages)
+            {
+                usage.ProviderName = ResolveDisplayName(provider.Definition, usage.ProviderId, usage.ProviderName);
+                usage.AuthSource = config.AuthSource;
+                usage.ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds;
+                progressCallback?.Invoke(usage);
+            }
+
+            this._logger.LogDebug("Success for {ProviderId}: {Count} items", config.ProviderId, usages.Count);
+            return usages;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // External cancellation (shutdown) — rethrow so callers know to stop.
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            // Timeout cancellation — return timeout usage.
             stopwatch.Stop();
             this._logger.LogWarning(
                 "Provider {ProviderId} timed out after {TimeoutSeconds}s",
                 config.ProviderId,
                 ProviderRequestTimeout.TotalSeconds);
 
-            _ = usageTask.ContinueWith(
-                static task => _ = task.Exception,
-                CancellationToken.None,
-                TaskContinuationOptions.OnlyOnFaulted,
-                TaskScheduler.Default);
-
             var timeoutUsage = CreateTimeoutUsage(config, defaults, stopwatch);
             return CreateSingleUsageList(timeoutUsage, progressCallback);
         }
-
-        var usages = (await usageTask.ConfigureAwait(false)).ToList();
-        stopwatch.Stop();
-        foreach (var usage in usages)
-        {
-            usage.ProviderName = ResolveDisplayName(provider.Definition, usage.ProviderId, usage.ProviderName);
-            usage.AuthSource = config.AuthSource;
-            usage.ResponseLatencyMs = stopwatch.Elapsed.TotalMilliseconds;
-            progressCallback?.Invoke(usage);
-        }
-
-        this._logger.LogDebug("Success for {ProviderId}: {Count} items", config.ProviderId, usages.Count);
-        return usages;
     }
 
     private (bool IsQuotaBased, PlanType PlanType, string DisplayName) ResolveDefaults(

@@ -44,7 +44,7 @@ public class OpenRouterProvider : ProviderBase
     public override string ProviderId => StaticDefinition.ProviderId;
 
     /// <inheritdoc/>
-    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null)
+    public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
     {
         this._logger.LogDebug("Starting OpenRouter usage fetch for provider {ProviderId}", config.ProviderId);
 
@@ -174,10 +174,10 @@ public class OpenRouterProvider : ProviderBase
 
                             if (DateTime.TryParse(keyData.Data.LimitReset, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt))
                             {
-                                var diff = dt.ToLocalTime() - DateTime.Now;
+                                var diff = dt - DateTime.UtcNow;
                                 if (diff.TotalSeconds > 0)
                                 {
-                                    nextResetTime = dt.ToLocalTime();
+                                    nextResetTime = dt;
                                     this._logger.LogDebug("Limit reset time parsed successfully: {ResetTime}", nextResetTime);
                                 }
                             }

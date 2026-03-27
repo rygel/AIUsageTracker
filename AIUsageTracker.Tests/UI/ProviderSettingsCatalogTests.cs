@@ -9,6 +9,7 @@ namespace AIUsageTracker.Tests.UI;
 
 public sealed class ProviderSettingsCatalogTests
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
     [Fact]
     public void GetInputMode_ReturnsDerivedReadOnly_ForDerivedProviders()
     {
@@ -22,7 +23,7 @@ public sealed class ProviderSettingsCatalogTests
     [Fact]
     public void GetInputMode_ReturnsSessionAuth_ForSessionToken()
     {
-        var config = new ProviderConfig { ProviderId = "openai", ApiKey = "sess-token" };
+        var config = new ProviderConfig { ProviderId = "openai", ApiKey = TestApiKey };
 
         var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: false);
 
@@ -52,7 +53,7 @@ public sealed class ProviderSettingsCatalogTests
     [Fact]
     public void Resolve_ReturnsCodexSessionBehavior_ForCodex()
     {
-        var config = new ProviderConfig { ProviderId = "codex", ApiKey = "sess-token" };
+        var config = new ProviderConfig { ProviderId = "codex", ApiKey = TestApiKey };
 
         var behavior = SettingsWindow.ResolveProviderSettingsBehavior(config, usage: null, isDerived: false);
 

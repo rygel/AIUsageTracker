@@ -11,12 +11,14 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class OpenCodeZenProviderTests : HttpProviderTestBase<OpenCodeZenProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly OpenCodeZenProvider _provider;
 
     public OpenCodeZenProviderTests()
     {
         this._provider = new OpenCodeZenProvider(this.Logger.Object);
-        this.Config.ApiKey = "test-key";
+        this.Config.ApiKey = TestApiKey;
     }
 
     [Fact]

@@ -46,6 +46,12 @@ public class DefaultAppPathProvider : IAppPathProvider
         return GetCanonicalProviderConfigPath(localAppData);
     }
 
+    public string GetMonitorInfoFilePath()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Join(GetCanonicalAppDataRoot(localAppData), "monitor.json");
+    }
+
     public string GetUserProfileRoot()
     {
         return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -53,31 +59,31 @@ public class DefaultAppPathProvider : IAppPathProvider
 
     private static string GetCanonicalAppDataRoot(string localAppDataRoot)
     {
-        return Path.Combine(localAppDataRoot, AppDirectoryName);
+        return Path.Join(localAppDataRoot, AppDirectoryName);
     }
 
     private static string GetCanonicalDatabasePath(string localAppDataRoot)
     {
-        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "usage.db");
+        return Path.Join(GetCanonicalAppDataRoot(localAppDataRoot), "usage.db");
     }
 
     private static string GetCanonicalLogDirectory(string localAppDataRoot)
     {
-        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "logs");
+        return Path.Join(GetCanonicalAppDataRoot(localAppDataRoot), "logs");
     }
 
     private static string GetCanonicalPreferencesPath(string localAppDataRoot)
     {
-        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "preferences.json");
+        return Path.Join(GetCanonicalAppDataRoot(localAppDataRoot), "preferences.json");
     }
 
     private static string GetCanonicalProviderConfigPath(string localAppDataRoot)
     {
-        return Path.Combine(GetCanonicalAppDataRoot(localAppDataRoot), "providers.json");
+        return Path.Join(GetCanonicalAppDataRoot(localAppDataRoot), "providers.json");
     }
 
     private static string GetCanonicalAuthFilePath(string userProfileRoot)
     {
-        return Path.Combine(userProfileRoot, ".opencode", "auth.json");
+        return Path.Join(userProfileRoot, ".opencode", "auth.json");
     }
 }

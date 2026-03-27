@@ -13,6 +13,8 @@ namespace AIUsageTracker.Tests.Services;
 
 public sealed class DatabaseMigrationServiceTests : IDisposable
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private readonly string _dbPath;
 
     public DatabaseMigrationServiceTests()
@@ -60,7 +62,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
                 ProviderId = "antigravity",
                 Type = "quota-based",
                 AuthSource = "antigravity",
-                ApiKey = "dynamic",
+                ApiKey = TestApiKey,
             },
             friendlyName: "Google Antigravity");
 
@@ -168,5 +170,7 @@ public sealed class DatabaseMigrationServiceTests : IDisposable
         public string GetProviderConfigFilePath() => Path.Combine(this.GetAppDataRoot(), "providers.json");
 
         public string GetUserProfileRoot() => this.GetAppDataRoot();
+
+        public string GetMonitorInfoFilePath() => Path.Combine(this.GetAppDataRoot(), "monitor.json");
     }
 }

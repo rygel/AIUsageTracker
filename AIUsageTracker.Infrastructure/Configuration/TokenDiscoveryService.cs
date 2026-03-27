@@ -219,19 +219,17 @@ public class TokenDiscoveryService
             {
                 var json = await File.ReadAllTextAsync(kiloSecretsPath).ConfigureAwait(false);
                 using var doc = JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("kilo code.kilo-code", out var kiloEntry))
+                if (doc.RootElement.TryGetProperty("kilo code.kilo-code", out var kiloEntry) &&
+                    kiloEntry.TryGetProperty("roo_cline_config_api_config", out var rooProp))
                 {
-                    if (kiloEntry.TryGetProperty("roo_cline_config_api_config", out var rooProp))
+                    var rooJson = rooProp.GetString();
+                    if (!string.IsNullOrEmpty(rooJson))
                     {
-                        var rooJson = rooProp.GetString();
-                        if (!string.IsNullOrEmpty(rooJson))
-                        {
-                            this.TryProcessRooConfigJson(
-                                configs,
-                                rooJson,
-                                "Discovered in Kilo Code Roo config",
-                                $"{AuthSource.KiloPrefix} Roo Config");
-                        }
+                        this.TryProcessRooConfigJson(
+                            configs,
+                            rooJson,
+                            "Discovered in Kilo Code Roo config",
+                            $"{AuthSource.KiloPrefix} Roo Config");
                     }
                 }
             }

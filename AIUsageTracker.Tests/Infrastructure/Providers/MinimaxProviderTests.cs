@@ -13,6 +13,8 @@ namespace AIUsageTracker.Tests.Infrastructure.Providers;
 
 public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
 {
+    private static readonly string TestApiKey = Guid.NewGuid().ToString();
+
     private const string ChinaEndpoint = "https://api.minimax.chat/v1/user/usage";
     private const string InternationalEndpoint = "https://api.minimax.io/v1/user/usage";
 
@@ -21,7 +23,7 @@ public class MinimaxProviderTests : HttpProviderTestBase<MinimaxProvider>
     public MinimaxProviderTests()
     {
         this._provider = new MinimaxProvider(this.HttpClient, this.Logger.Object);
-        this.Config.ApiKey = "test-api-key";
+        this.Config.ApiKey = TestApiKey;
         this.Config.ProviderId = MinimaxProvider.ChinaProviderId;
     }
 

@@ -5,3 +5,4 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("AIUsageTracker.Monitor.Tests")]
+[assembly: InternalsVisibleTo("AIUsageTracker.Tests")]

@@ -43,7 +43,8 @@ public sealed class SyntheticProvider : ProviderBase
 
     public override async Task<IEnumerable<ProviderUsage>> GetUsageAsync(
         ProviderConfig config,
-        Action<ProviderUsage>? progressCallback = null)
+        Action<ProviderUsage>? progressCallback = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(config.ApiKey))
         {
@@ -81,10 +82,10 @@ public sealed class SyntheticProvider : ProviderBase
             var remainingPercent = Math.Clamp(((total - used) / total) * 100.0, 0, 100);
             var resetLabel = BuildResetLabel(resetRaw, out var nextResetTime);
 
-            var usedLabel = used == Math.Truncate(used)
+            var usedLabel = Math.Abs(used - Math.Truncate(used)) < 0.001
                 ? ((int)used).ToString(CultureInfo.InvariantCulture)
                 : used.ToString("F2", CultureInfo.InvariantCulture);
-            var totalLabel = total == Math.Truncate(total)
+            var totalLabel = Math.Abs(total - Math.Truncate(total)) < 0.001
                 ? ((int)total).ToString(CultureInfo.InvariantCulture)
                 : total.ToString("F2", CultureInfo.InvariantCulture);
 

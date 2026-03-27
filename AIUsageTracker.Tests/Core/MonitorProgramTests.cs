@@ -46,36 +46,18 @@ public sealed class MonitorProgramTests : IDisposable
     }
 
     [Fact]
-    public void WriteCandidatePaths_OnlyIncludeCanonicalPath()
+    public void CanonicalMonitorInfoPath_IsUnderLocalAppData()
     {
-        var candidatePaths = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
-            this._pathProvider.GetAppDataRoot(),
-            this._pathProvider.GetUserProfileRoot());
+        var path = MonitorLauncher.GetCanonicalMonitorInfoFilePath();
 
-        var expectedPath = Path.Combine(this._pathProvider.GetAppDataRoot(), "AIUsageTracker", "monitor.json");
-
-        var path = Assert.Single(candidatePaths);
-        Assert.Equal(expectedPath, path);
-    }
-
-    [Fact]
-    public void WriteCandidatePaths_DoesNotAppendProductFolderTwice_WhenRootAlreadyCanonical()
-    {
-        var canonicalRoot = Path.Combine(this._tempDirectory, "AIUsageTracker");
-        var candidatePaths = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
-            canonicalRoot,
-            this._pathProvider.GetUserProfileRoot());
-
-        var path = Assert.Single(candidatePaths);
-        Assert.Equal(Path.Combine(canonicalRoot, "monitor.json"), path);
+        Assert.EndsWith("AIUsageTracker" + Path.DirectorySeparatorChar + "monitor.json", path);
+        Assert.DoesNotContain("AIUsageTracker" + Path.DirectorySeparatorChar + "AIUsageTracker", path);
     }
 
     [Fact]
     public void ReportError_AppendsMessageToExistingMonitorInfo()
     {
-        var path = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
-            this._pathProvider.GetAppDataRoot(),
-            this._pathProvider.GetUserProfileRoot())[0];
+        var path = this._pathProvider.GetMonitorInfoFilePath();
 
         this.WriteMonitorInfoFile(path, "Startup status: running");
         File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddMinutes(1));
@@ -93,12 +75,9 @@ public sealed class MonitorProgramTests : IDisposable
     }
 
     [Fact]
-    public void ReportError_UpdatesNewestExistingMonitorInfoFile()
+    public void ReportError_UpdatesExistingMonitorInfoFile()
     {
-        var candidatePaths = MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
-            this._pathProvider.GetAppDataRoot(),
-            this._pathProvider.GetUserProfileRoot());
-        var path = candidatePaths[0];
+        var path = this._pathProvider.GetMonitorInfoFilePath();
 
         this.WriteMonitorInfoFile(path, "existing");
 
@@ -129,9 +108,7 @@ public sealed class MonitorProgramTests : IDisposable
 
     private IEnumerable<string> GetExpectedMonitorInfoPaths()
     {
-        return MonitorLauncher.GetMonitorInfoWriteCandidatePaths(
-            this._pathProvider.GetAppDataRoot(),
-            this._pathProvider.GetUserProfileRoot());
+        return new[] { this._pathProvider.GetMonitorInfoFilePath() };
     }
 
     private void InvokeMonitorProgramMethod(string methodName, params object?[] arguments)
@@ -190,6 +167,8 @@ public sealed class MonitorProgramTests : IDisposable
         public string GetProviderConfigFilePath() => Path.Combine(this.GetAppDataRoot(), "providers.json");
 
         public string GetUserProfileRoot() => Path.Combine(this._root, "user-profile");
+
+        public string GetMonitorInfoFilePath() => Path.Combine(this.GetAppDataRoot(), "monitor.json");
     }
 }
 
