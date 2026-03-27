@@ -72,7 +72,7 @@ public sealed class DualQuotaSerializationRoundTripTests
             IsAvailable = true,
             IsQuotaBased = true,
             UsedPercent = 51,
-            ProviderQuotaDetails = new[] { burstDetail, rollingDetail },
+            ProviderDetails = new[] { burstDetail, rollingDetail },
         };
 
         var snapshot = new AgentGroupedUsageSnapshot
@@ -85,14 +85,14 @@ public sealed class DualQuotaSerializationRoundTripTests
 
         Assert.Single(roundTripped.Providers);
         var p = roundTripped.Providers[0];
-        Assert.Equal(2, p.ProviderQuotaDetails.Count);
+        Assert.Equal(2, p.ProviderDetails.Count);
 
-        var burst = p.ProviderQuotaDetails.First(d => d.QuotaBucketKind == WindowKind.Burst);
+        var burst = p.ProviderDetails.First(d => d.QuotaBucketKind == WindowKind.Burst);
         Assert.Equal(ProviderUsageDetailType.QuotaWindow, burst.DetailType);
         Assert.Equal(4.0, burst.PercentageValue);
         Assert.Equal(PercentageValueSemantic.Used, burst.PercentageSemantic);
 
-        var rolling = p.ProviderQuotaDetails.First(d => d.QuotaBucketKind == WindowKind.Rolling);
+        var rolling = p.ProviderDetails.First(d => d.QuotaBucketKind == WindowKind.Rolling);
         Assert.Equal(ProviderUsageDetailType.QuotaWindow, rolling.DetailType);
         Assert.Equal(51.0, rolling.PercentageValue);
         Assert.Equal(PercentageValueSemantic.Used, rolling.PercentageSemantic);
@@ -130,7 +130,7 @@ public sealed class DualQuotaSerializationRoundTripTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     UsedPercent = 4,
-                    ProviderQuotaDetails = new[] { burstDetail, rollingDetail },
+                    ProviderDetails = new[] { burstDetail, rollingDetail },
                 },
             },
         };
@@ -156,5 +156,63 @@ public sealed class DualQuotaSerializationRoundTripTests
         Assert.Equal("Weekly", presentation.DualBucketSecondaryLabel);
         Assert.True(presentation.SuppressSingleResetTime);
         Assert.Contains("|", presentation.StatusText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FullPipeline_ClaudeCode_AfterJsonRoundTrip_ProducesDualBucketPresentation()
+    {
+        // Simulate ParseOAuthUsageResponse output → GroupedUsageProjectionService → HTTP JSON → UI
+        // Detail names must match ClaudeCodeProvider.StaticDefinition.QuotaWindows DetailName values.
+        var sessionDetail = new ProviderUsageDetail
+        {
+            Name = "Current Session",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+            PercentageValue = 4.0,
+            PercentageSemantic = PercentageValueSemantic.Used,
+        };
+
+        var allModelsDetail = new ProviderUsageDetail
+        {
+            Name = "All Models",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+            PercentageValue = 51.0,
+            PercentageSemantic = PercentageValueSemantic.Used,
+        };
+
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "claude-code",
+                    IsAvailable = true,
+                    IsQuotaBased = true,
+                    UsedPercent = 51,
+                    ProviderDetails = new[] { sessionDetail, allModelsDetail },
+                },
+            },
+        };
+
+        var json = JsonSerializer.Serialize(snapshot, MonitorOptions);
+        var deserialized = JsonSerializer.Deserialize<AgentGroupedUsageSnapshot>(json, ClientOptions)!;
+
+        var usages = GroupedUsageDisplayAdapter.Expand(deserialized);
+        Assert.Single(usages);
+
+        var usage = usages[0];
+        Assert.NotNull(usage.Details);
+        Assert.Equal(2, usage.Details!.Count);
+
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
+
+        Assert.True(presentation.HasDualBuckets,
+            "claude-code must produce dual bars: Current Session (5h) + All Models (7-day)");
+        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
+        Assert.Equal("7-day", presentation.DualBucketSecondaryLabel);
+        Assert.Equal(4.0, presentation.DualBucketPrimaryUsed!.Value, precision: 1);
+        Assert.Equal(51.0, presentation.DualBucketSecondaryUsed!.Value, precision: 1);
     }
 }

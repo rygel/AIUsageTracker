@@ -67,7 +67,6 @@ public class GroupedUsageDisplayAdapterTests
         Assert.Equal(4, usages.Count);
         var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "gemini-cli", StringComparison.Ordinal));
         Assert.Equal("Google Gemini", parent.ProviderName);
-        Assert.Equal(3, parent.Details?.Count);
 
         var minute = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "gemini-cli.gemini-2.5-flash-lite", StringComparison.Ordinal));
         var hourly = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "gemini-cli.gemini-2.5-pro", StringComparison.Ordinal));
@@ -119,9 +118,25 @@ public class GroupedUsageDisplayAdapterTests
     }
 
     [Fact]
-    public void Expand_ClaudeSnapshot_MapsDeclaredWindowKinds_ForParentModelDetails()
+    public void Expand_ClaudeSnapshot_PassesThroughProviderDetails_ToParentCard()
     {
-        var now = DateTime.UtcNow;
+        // ProviderDetails is the single source of truth: set by the provider and passed through directly.
+        var sessionDetail = new ProviderUsageDetail
+        {
+            Name = "Current Session",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+        };
+        sessionDetail.SetPercentageValue(14, PercentageValueSemantic.Used);
+
+        var allModelsDetail = new ProviderUsageDetail
+        {
+            Name = "All Models",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+        };
+        allModelsDetail.SetPercentageValue(73, PercentageValueSemantic.Used);
+
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -129,30 +144,10 @@ public class GroupedUsageDisplayAdapterTests
                 new AgentGroupedProviderUsage
                 {
                     ProviderId = "claude-code",
-                    ProviderName = "Claude Code",
                     IsAvailable = true,
                     IsQuotaBased = true,
-                    PlanType = PlanType.Usage,
                     UsedPercent = 73,
-                    Models = new[]
-                    {
-                        new AgentGroupedModelUsage
-                        {
-                            ModelId = "sonnet",
-                            ModelName = "Sonnet",
-                            RemainingPercentage = 27,
-                            UsedPercentage = 73,
-                            NextResetTime = now.AddDays(1),
-                        },
-                        new AgentGroupedModelUsage
-                        {
-                            ModelId = "all-models",
-                            ModelName = "All Models",
-                            RemainingPercentage = 15,
-                            UsedPercentage = 85,
-                            NextResetTime = now.AddDays(1),
-                        },
-                    },
+                    ProviderDetails = new ProviderUsageDetail[] { sessionDetail, allModelsDetail },
                 },
             },
         };
@@ -162,11 +157,12 @@ public class GroupedUsageDisplayAdapterTests
         var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "claude-code", StringComparison.Ordinal));
         Assert.Equal(TimeSpan.FromDays(7), parent.PeriodDuration);
         Assert.NotNull(parent.Details);
+        Assert.Equal(2, parent.Details!.Count);
 
-        var sonnet = Assert.Single(parent.Details!, detail => string.Equals(detail.Name, "Sonnet", StringComparison.Ordinal));
-        var allModels = Assert.Single(parent.Details!, detail => string.Equals(detail.Name, "All Models", StringComparison.Ordinal));
+        var session = Assert.Single(parent.Details!, d => string.Equals(d.Name, "Current Session", StringComparison.Ordinal));
+        var allModels = Assert.Single(parent.Details!, d => string.Equals(d.Name, "All Models", StringComparison.Ordinal));
 
-        Assert.Equal(WindowKind.ModelSpecific, sonnet.QuotaBucketKind);
+        Assert.Equal(WindowKind.Burst, session.QuotaBucketKind);
         Assert.Equal(WindowKind.Rolling, allModels.QuotaBucketKind);
     }
 
@@ -236,7 +232,6 @@ public class GroupedUsageDisplayAdapterTests
 
         Assert.Single(usages);
         Assert.Equal("github-copilot", usages[0].ProviderId);
-        Assert.Equal("Weekly Quota", Assert.Single(usages[0].Details!).Name);
     }
 
     [Fact]
@@ -519,11 +514,10 @@ public class GroupedUsageDisplayAdapterTests
     }
 
     [Fact]
-    public void Expand_KimiSnapshot_AttachesProviderQuotaDetailsToParent_WhenNoModelDetails()
+    public void Expand_KimiSnapshot_AttachesProviderDetailsToParent()
     {
         // Kimi has no Model-type details; all its details are QuotaWindow (Weekly + 5h).
-        // ProviderQuotaDetails must be surfaced as the parent's Details so that
-        // MainWindowRuntimeLogic.TryGetDualQuotaBucketPresentation can render two bars.
+        // ProviderDetails must flow through directly so TryGetDualQuotaBucketPresentation can render two bars.
         var weeklyDetail = new ProviderUsageDetail
         {
             Name = "Weekly Limit",
@@ -550,8 +544,7 @@ public class GroupedUsageDisplayAdapterTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     UsedPercent = 25,
-                    Models = Array.Empty<AgentGroupedModelUsage>(),
-                    ProviderQuotaDetails = new[] { weeklyDetail, burstDetail },
+                    ProviderDetails = new[] { weeklyDetail, burstDetail },
                 },
             },
         };
@@ -617,7 +610,6 @@ public class GroupedUsageDisplayAdapterTests
                             },
                         },
                     },
-                    ProviderQuotaDetails = Array.Empty<ProviderUsageDetail>(),
                 },
             },
         };
@@ -635,12 +627,10 @@ public class GroupedUsageDisplayAdapterTests
     }
 
     [Fact]
-    public void Expand_CodexSnapshot_PrefersProviderQuotaDetails_ForParentCard_WhenModelsAlsoPresent()
+    public void Expand_CodexSnapshot_UsesProviderDetails_ForParentCard_WhileModelsStillBuildChildCards()
     {
-        // Regression: when a provider has both Models (for child card building) and ProviderQuotaDetails
-        // (5h + Weekly windows), the parent card must use the QuotaWindow details — not the Model details.
-        // If model details win, TryGetPresentation finds no QuotaWindow entries and the parent never
-        // renders dual progress bars.
+        // ProviderDetails (the quota windows) flow to the parent card.
+        // Models are only used for child card generation — Spark gets its own codex.spark card.
         var burstDetail = new ProviderUsageDetail
         {
             Name = "5-hour quota",
@@ -676,7 +666,7 @@ public class GroupedUsageDisplayAdapterTests
                             RemainingPercentage = 80,
                         },
                     },
-                    ProviderQuotaDetails = new[] { burstDetail, rollingDetail },
+                    ProviderDetails = new[] { burstDetail, rollingDetail },
                 },
             },
         };
@@ -685,13 +675,10 @@ public class GroupedUsageDisplayAdapterTests
 
         var parent = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
         Assert.NotNull(parent.Details);
-
-        // Parent must have the QuotaWindow details (for dual bar), not the Model detail.
-        Assert.All(parent.Details!, d => Assert.Equal(ProviderUsageDetailType.QuotaWindow, d.DetailType));
         Assert.Single(parent.Details!, d => d.QuotaBucketKind == WindowKind.Burst);
         Assert.Single(parent.Details!, d => d.QuotaBucketKind == WindowKind.Rolling);
 
-        // Child card must still be built from the model.
+        // Child card must still be built from Models.
         Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal));
     }
 }

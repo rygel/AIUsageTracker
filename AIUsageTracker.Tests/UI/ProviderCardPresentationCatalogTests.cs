@@ -202,10 +202,10 @@ public sealed class ProviderCardPresentationCatalogTests
     // GroupedUsageDisplayAdapter → ProviderCardPresentationCatalog so that bugs
     // suppressed by a broken intermediate layer cannot be masked.
     [Fact]
-    public void Pipeline_KimiProviderQuotaDetails_ProducesDualBarOnParentCard()
+    public void Pipeline_KimiProviderDetails_ProducesDualBarOnParentCard()
     {
         // Regression: Kimi has no Model-type details, only QuotaWindow.
-        // Before the fix, ProviderQuotaDetails was never carried through the pipeline,
+        // Before the fix, ProviderDetails was never carried through the pipeline,
         // parentUsage.Details was null, and TryGetPresentation returned false — no dual bar.
         var weeklyDetail = new ProviderUsageDetail
         {
@@ -234,7 +234,7 @@ public sealed class ProviderCardPresentationCatalogTests
                     IsQuotaBased = true,
                     UsedPercent = 25,
                     Models = Array.Empty<AgentGroupedModelUsage>(),
-                    ProviderQuotaDetails = new[] { weeklyDetail, burstDetail },
+                    ProviderDetails = new[] { weeklyDetail, burstDetail },
                 },
             },
         };
@@ -250,6 +250,98 @@ public sealed class ProviderCardPresentationCatalogTests
         Assert.Equal(25, presentation.DualBucketSecondaryUsed!.Value, precision: 0); // Weekly (Rolling) bottom bar
         Assert.Contains("Weekly", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("5h", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Pipeline_ClaudeCode_ProducesDualBarOnParentCard()
+    {
+        // Verifies the full snapshot → Expand → Create() path for claude-code.
+        // ParseOAuthUsageResponse uses "Current Session" (Burst) and "All Models" (Rolling).
+        var sessionDetail = new ProviderUsageDetail
+        {
+            Name = "Current Session",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Burst,
+        };
+        sessionDetail.SetPercentageValue(4.0, PercentageValueSemantic.Used, decimalPlaces: 0);
+
+        var allModelsDetail = new ProviderUsageDetail
+        {
+            Name = "All Models",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+        };
+        allModelsDetail.SetPercentageValue(51.0, PercentageValueSemantic.Used, decimalPlaces: 0);
+
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "claude-code",
+                    IsAvailable = true,
+                    IsQuotaBased = true,
+                    UsedPercent = 51,
+                    Models = Array.Empty<AgentGroupedModelUsage>(),
+                    ProviderDetails = new[] { sessionDetail, allModelsDetail },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+        var parent = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal));
+
+        var presentation = MainWindowRuntimeLogic.Create(parent, showUsed: false);
+
+        Assert.True(presentation.HasDualBuckets, "claude-code must render dual bars: 5h (Burst) + 7-day (Rolling)");
+        Assert.True(presentation.ShouldHaveProgress);
+        Assert.Equal(4.0, presentation.DualBucketPrimaryUsed!.Value, precision: 1);   // Current Session (Burst)
+        Assert.Equal(51.0, presentation.DualBucketSecondaryUsed!.Value, precision: 1); // All Models (Rolling)
+        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
+        Assert.Equal("7-day", presentation.DualBucketSecondaryLabel);
+    }
+
+    [Fact]
+    public void Pipeline_ClaudeCode_WithSonnetModel_ShowsDualBarsAndSonnetDetailRow()
+    {
+        // Verifies that ProviderDetails (the single source of truth) carries QuotaWindow entries
+        // for dual bars AND a Model entry for Sonnet, all flowing directly to the parent card.
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "claude-code",
+                    IsAvailable = true,
+                    IsQuotaBased = true,
+                    UsedPercent = 84,
+                    ProviderDetails = new ProviderUsageDetail[]
+                    {
+                        new() { Name = "Current Session", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Burst, PercentageValue = 14, PercentageSemantic = PercentageValueSemantic.Used },
+                        new() { Name = "All Models",      DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Rolling, PercentageValue = 84, PercentageSemantic = PercentageValueSemantic.Used },
+                        new() { Name = "Sonnet",          DetailType = ProviderUsageDetailType.Model,       QuotaBucketKind = WindowKind.ModelSpecific, PercentageValue = 8, PercentageSemantic = PercentageValueSemantic.Used },
+                    },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+        var parent = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal));
+
+        // Dual bars come from the two QuotaWindow entries
+        var presentation = MainWindowRuntimeLogic.Create(parent, showUsed: false);
+        Assert.True(presentation.HasDualBuckets, "Dual bars must render from ProviderDetails QuotaWindow entries");
+        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
+        Assert.Equal("7-day", presentation.DualBucketSecondaryLabel);
+
+        // Sonnet appears as a Model-type detail row
+        Assert.NotNull(parent.Details);
+        var sonnetDetail = parent.Details!.FirstOrDefault(d =>
+            string.Equals(d.Name, "Sonnet", StringComparison.OrdinalIgnoreCase) &&
+            d.DetailType == ProviderUsageDetailType.Model);
+        Assert.NotNull(sonnetDetail);
     }
 
     [Theory]

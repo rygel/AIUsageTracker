@@ -231,34 +231,38 @@ public class ProviderResponseDeserializationTests
         Assert.NotNull(usage.Details);
         Assert.True(usage.Details.Count >= 4, $"Expected at least 4 details, got {usage.Details.Count}");
 
-        // Current Session (5-hour burst)
+        // Current Session (5-hour burst) — must be QuotaWindow so it drives the dual burst bar
         var sessionDetail = usage.Details.FirstOrDefault(d =>
             d.QuotaBucketKind == WindowKind.Burst);
         Assert.NotNull(sessionDetail);
         Assert.Equal("Current Session", sessionDetail!.Name);
+        Assert.Equal(ProviderUsageDetailType.QuotaWindow, sessionDetail.DetailType);
         Assert.NotNull(sessionDetail.PercentageValue);
         Assert.Equal(35.0, sessionDetail.PercentageValue!.Value, precision: 1);
         Assert.Equal(PercentageValueSemantic.Used, sessionDetail.PercentageSemantic);
 
-        // Sonnet (7-day model-specific)
+        // Sonnet (7-day model-specific) — Model type, not QuotaWindow
         var sonnetDetail = usage.Details.FirstOrDefault(d =>
             string.Equals(d.Name, "Sonnet", StringComparison.Ordinal));
         Assert.NotNull(sonnetDetail);
-        Assert.Equal(WindowKind.ModelSpecific, sonnetDetail!.QuotaBucketKind);
+        Assert.Equal(ProviderUsageDetailType.Model, sonnetDetail!.DetailType);
+        Assert.Equal(WindowKind.ModelSpecific, sonnetDetail.QuotaBucketKind);
         Assert.Equal(52.0, sonnetDetail.PercentageValue!.Value, precision: 1);
 
-        // Opus (7-day model-specific)
+        // Opus (7-day model-specific) — Model type, not QuotaWindow
         var opusDetail = usage.Details.FirstOrDefault(d =>
             string.Equals(d.Name, "Opus", StringComparison.Ordinal));
         Assert.NotNull(opusDetail);
-        Assert.Equal(WindowKind.ModelSpecific, opusDetail!.QuotaBucketKind);
+        Assert.Equal(ProviderUsageDetailType.Model, opusDetail!.DetailType);
+        Assert.Equal(WindowKind.ModelSpecific, opusDetail.QuotaBucketKind);
         Assert.Equal(10.0, opusDetail.PercentageValue!.Value, precision: 1);
 
-        // All Models (7-day rolling)
+        // All Models (7-day rolling) — must be QuotaWindow so it drives the dual rolling bar
         var allModelsDetail = usage.Details.FirstOrDefault(d =>
             d.QuotaBucketKind == WindowKind.Rolling);
         Assert.NotNull(allModelsDetail);
         Assert.Equal("All Models", allModelsDetail!.Name);
+        Assert.Equal(ProviderUsageDetailType.QuotaWindow, allModelsDetail.DetailType);
         Assert.Equal(48.0, allModelsDetail.PercentageValue!.Value, precision: 1);
 
         // Description should mention extra usage

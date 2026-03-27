@@ -51,7 +51,9 @@ public static class GroupedUsageProjectionService
                 .FirstOrDefault();
 
         var displayName = ResolveProviderDisplayName(primary, canonicalProviderId);
-        var providerQuotaDetails = ExtractProviderQuotaDetails(primary);
+        var providerDetails = primary.Details is { Count: > 0 }
+            ? (IReadOnlyList<ProviderUsageDetail>)primary.Details
+            : Array.Empty<ProviderUsageDetail>();
         return new AgentGroupedProviderUsage
         {
             ProviderId = canonicalProviderId,
@@ -66,24 +68,9 @@ public static class GroupedUsageProjectionService
             Description = primary.Description,
             FetchedAt = group.Max(usage => usage.FetchedAt),
             NextResetTime = nextResetTime,
-            ModelCount = models.Count,
             Models = models,
-            ProviderQuotaDetails = providerQuotaDetails,
+            ProviderDetails = providerDetails,
         };
-    }
-
-    private static IReadOnlyList<ProviderUsageDetail> ExtractProviderQuotaDetails(ProviderUsage primary)
-    {
-        if (primary.Details == null || primary.Details.Count == 0)
-        {
-            return Array.Empty<ProviderUsageDetail>();
-        }
-
-        return primary.Details
-            .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow
-                        && d.QuotaBucketKind != WindowKind.None
-                        && string.IsNullOrWhiteSpace(d.ModelName))
-            .ToList();
     }
 
     private static string ResolveProviderDisplayName(ProviderUsage primary, string canonicalProviderId)

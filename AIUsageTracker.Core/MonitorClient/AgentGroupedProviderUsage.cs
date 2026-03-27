@@ -37,9 +37,12 @@ public sealed class AgentGroupedProviderUsage
 
     public DateTime? NextResetTime { get; set; }
 
-    public int ModelCount { get; set; }
-
     public IReadOnlyList<AgentGroupedModelUsage> Models { get; set; } = Array.Empty<AgentGroupedModelUsage>();
 
-    public IReadOnlyList<ProviderUsageDetail> ProviderQuotaDetails { get; set; } = Array.Empty<ProviderUsageDetail>();
+    /// <summary>
+    /// Gets or sets the provider-level details from ProviderUsage.Details.
+    /// Passed through directly to the UI as the parent card's details —
+    /// QuotaWindow entries drive dual bars, Model entries drive detail rows.
+    /// </summary>
+    public IReadOnlyList<ProviderUsageDetail> ProviderDetails { get; set; } = Array.Empty<ProviderUsageDetail>();
 }

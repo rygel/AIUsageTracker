@@ -820,7 +820,6 @@ public class MonitorServiceTests
         Assert.Equal(MonitorService.ExpectedApiContractVersion, result!.ContractVersion);
         var provider = Assert.Single(result.Providers);
         Assert.Equal("gemini-cli", provider.ProviderId);
-        Assert.Equal(1, provider.ModelCount);
         var model = Assert.Single(provider.Models);
         Assert.Equal("gemini-2.5-flash-lite", model.ModelId);
         Assert.Equal(96.2, model.EffectiveRemainingPercentage);

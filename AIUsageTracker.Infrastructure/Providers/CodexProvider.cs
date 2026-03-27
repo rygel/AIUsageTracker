@@ -719,10 +719,10 @@ public class CodexProvider : ProviderBase
                 PercentageSemantic = PercentageValueSemantic.Remaining,
             });
 
-            // Model-scoped QW details (ModelName set) are excluded from provider-level
-            // ProviderQuotaDetails but are picked up by BuildModelsFromDetails and scoped to
-            // the Spark model. This gives the codex.spark child card its own dual bar showing
-            // Spark's 5h window and the binding weekly constraint independently.
+            // Model-scoped QW details (ModelName set) are excluded from provider-level ProviderDetails
+            // but are picked up by BuildModelsFromDetails and scoped to the Spark model.
+            // This gives the codex.spark child card its own dual bar showing Spark's 5h window
+            // and the binding weekly constraint independently.
             var sparkOwnRemaining = Math.Clamp(100.0 - sparkOwnUsed, 0.0, 100.0);
             details.Add(new ProviderUsageDetail
             {

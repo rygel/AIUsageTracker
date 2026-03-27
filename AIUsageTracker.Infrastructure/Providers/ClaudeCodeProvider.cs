@@ -344,7 +344,7 @@ public class ClaudeCodeProvider : ProviderBase
             IsAvailable = true,
             Description = description,
             Details = details,
-            NextResetTime = response.FiveHour?.ResetsAt,
+            NextResetTime = response.SevenDay?.ResetsAt ?? response.FiveHour?.ResetsAt,
             RawJson = rawJson,
             HttpStatus = httpStatus,
         };
