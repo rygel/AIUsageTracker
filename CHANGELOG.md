@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.6] - 2026-03-27
+
+### Fixed
+- **Pace calculation wrong for Claude Code**: `NextResetTime` now uses the 7-day rolling reset (matching `PeriodDuration = 7d`). Previously it used the 5-hour burst reset, anchoring a 7-day period calculation to the wrong window — causing ~97% of the period to appear elapsed and distorting the pace projection.
+- **Sonnet and weekly usage not visible on Claude Code card**: `ProviderUsage.Details` now flows directly as `ProviderDetails` without being split/filtered. Sonnet, Opus, and All Models details all appear on the parent card as expected.
+- **Claude Code rendered as single parent card with dual quota bars**: the 5-hour burst and 7-day rolling windows are shown as dual bars on one card. Per-model child rows (which showed incorrect usage values) have been removed.
+- **Dual bar label scraping**: bar labels now use `DualBarLabel` directly from the catalog definition instead of scraping them from the status text string.
+- **CodeQL code scanning alerts**: resolved 92 CodeQL alerts across the codebase.
+
+### Changed
+- **ProviderDetails as single source of truth**: replaced the `ProviderQuotaDetails`/`Models` split with direct `ProviderUsage.Details` passthrough. The UI reads `QuotaWindow` details to drive dual bars and `Model` details to drive detail rows — no separate extraction step.
+- **Unified JSON serialization**: `MonitorJsonSerializer` is the single entry point for all Monitor API serialization/deserialization.
+- **Dead display modes removed**: `CollapsedDerivedProviders` and `SyntheticAggregateChildren` family modes deleted (~200 lines).
+
 ## [2.3.4-beta.5] - 2026-03-26
 
 ### Fixed
