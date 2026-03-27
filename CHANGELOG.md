@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.7] - 2026-03-27
+
+### Fixed
+- **Quota bar color changes when toggling dual bars on/off**: bar rows now use the same pace-adjusted color as single-bar mode. Previously the dual bar rows used the raw used percentage for color while single-bar mode used the pace-projected value, causing a visible color shift when toggling.
+- **Stale cache entries driving rendering**: `ProviderDetails` now only contains fresh, provider-level `QuotaWindow` entries. Stale DB entries with a wrong `detail_type` (from older Monitor binaries) and model-scoped quota windows are excluded — rendering is now driven entirely by what the provider class emits, not by cached data.
+
+### Added
+- **Windows startup settings in Settings → Layout**: two checkboxes — "Start Monitor with Windows" and "Start UI with Windows" — write directly to `HKCU\...\Run`, so they take effect immediately without reinstalling.
+- **Installer startup options now use the registry**: the optional "Run at Windows Startup" installer tasks now write to the same registry Run key as the settings dialog, ensuring both mechanisms are in sync and the settings checkboxes correctly reflect what the installer set up.
+
 ## [2.3.4-beta.6] - 2026-03-27
 
 ### Fixed
