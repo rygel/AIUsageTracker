@@ -173,7 +173,7 @@ public partial class App
 
             await this.CaptureMainWindowScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_dashboard_privacy.png"));
             await this.CaptureSettingsScreenshotsAsync(screenshotsDir);
-            this.CaptureInfoScreenshot(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
+            await this.CaptureInfoScreenshotAsync(Path.Combine(screenshotsDir, "screenshot_info_privacy.png"));
         }
         catch (Exception ex)
         {
@@ -249,7 +249,8 @@ public partial class App
 #pragma warning restore VSTHRD001
     }
 
-    private void CaptureInfoScreenshot(string outputPath)
+#pragma warning disable VSTHRD001 // Headless screenshot capture intentionally waits for dispatcher idle before rendering.
+    private async Task CaptureInfoScreenshotAsync(string outputPath)
     {
         var window = this.InfoDialogFactory();
         try
@@ -260,6 +261,8 @@ public partial class App
             }
 
             window.UpdateLayout();
+            await window.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
+            window.UpdateLayout();
             RenderWindowContent(window, outputPath);
         }
         finally
@@ -267,4 +270,5 @@ public partial class App
             window.Close();
         }
     }
+#pragma warning restore VSTHRD001
 }
