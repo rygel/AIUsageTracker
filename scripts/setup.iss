@@ -228,6 +228,7 @@ Name: "apps\cli"; Description: "AI Usage Tracker CLI"; Types: full compact custo
 [Tasks]
 Name: "desktopicontracker"; Description: "Create AI Usage Tracker UI desktop icon"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked; Components: apps\tracker
 Name: "startupmonitor"; Description: "Run AI Usage Tracker Monitor at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked; Components: apps\monitor
+Name: "startuptracker"; Description: "Run AI Usage Tracker UI at Windows Startup"; GroupDescription: "Additional options:"; Flags: unchecked; Components: apps\tracker
 
 [Files]
 Source: "..\AIUsageTracker.UI.Slim\Assets\app_icon.ico"; DestDir: "{app}"; Flags: ignoreversion
@@ -247,6 +248,7 @@ Name: "{group}\Applications\AI Usage Tracker CLI"; Filename: "{app}\AIUsageTrack
 Name: "{group}\{cm:UninstallProgram,AI Usage Tracker}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\AI Usage Tracker"; Filename: "{app}\AIUsageTracker.exe"; Tasks: desktopicontracker; Components: apps\tracker
 Name: "{userstartup}\AI Usage Tracker Monitor"; Filename: "{app}\AIUsageTracker.Monitor.exe"; Tasks: startupmonitor; Components: apps\monitor
+Name: "{userstartup}\AI Usage Tracker"; Filename: "{app}\AIUsageTracker.exe"; Tasks: startuptracker; Components: apps\tracker
 
 [Run]
 Filename: "{app}\AIUsageTracker.exe"; Description: "{cm:LaunchProgram,AI Usage Tracker UI}"; Flags: nowait postinstall skipifsilent; Components: apps\tracker; Check: ShouldRunApplication
