@@ -251,13 +251,7 @@ public class ClaudeCodeProvider : ProviderBase
     {
         var results = new List<ProviderUsage>();
 
-        // Determine the "main" percentage to show - use the higher of the two quotas
-        var mainPercent = Math.Max(primaryPercent, secondaryPercent);
-
-        var details = new List<ProviderUsageDetail>();
-
-        // Current session (5-hour burst quota) — QuotaWindow type drives the dual bar display.
-        // ShowAsSubCard makes it appear as an explicit named row in the detail section too.
+        // Current session (5-hour burst quota)
         if (response.FiveHour != null)
         {
             results.Add(new ProviderUsage
@@ -267,9 +261,7 @@ public class ClaudeCodeProvider : ProviderBase
                 CardId = "current-session",
                 GroupId = this.ProviderId,
                 Name = "Current Session",
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Burst,
-                ShowAsSubCard = true,
+                WindowKind = WindowKind.Burst,
                 NextResetTime = response.FiveHour.ResetsAt,
                 PeriodDuration = TimeSpan.FromHours(5),
                 IsQuotaBased = true,
@@ -323,8 +315,7 @@ public class ClaudeCodeProvider : ProviderBase
             });
         }
 
-        // All-models 7-day rolling quota — QuotaWindow type drives the dual bar display.
-        // ShowAsSubCard makes it appear as an explicit named row in the detail section too.
+        // All-models 7-day rolling quota
         if (response.SevenDay != null)
         {
             var desc = $"5h: {response.FiveHour?.Utilization ?? 0:F0}% | 7d: {response.SevenDay.Utilization:F0}% used";
@@ -340,9 +331,7 @@ public class ClaudeCodeProvider : ProviderBase
                 CardId = "all-models",
                 GroupId = this.ProviderId,
                 Name = "All Models",
-                DetailType = ProviderUsageDetailType.QuotaWindow,
-                QuotaBucketKind = WindowKind.Rolling,
-                ShowAsSubCard = true,
+                WindowKind = WindowKind.Rolling,
                 NextResetTime = response.SevenDay.ResetsAt,
                 PeriodDuration = TimeSpan.FromDays(7),
                 IsQuotaBased = true,
