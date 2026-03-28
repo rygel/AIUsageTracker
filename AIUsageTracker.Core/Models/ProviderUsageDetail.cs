@@ -35,8 +35,23 @@ public class ProviderUsageDetail
     [JsonPropertyName("window_kind")]
     public WindowKind QuotaBucketKind { get; set; } = WindowKind.None;
 
+    /// <summary>
+    /// When true, this detail is rendered as a sub-card row even if its
+    /// <see cref="DetailType"/> is <see cref="ProviderUsageDetailType.QuotaWindow"/>.
+    /// QuotaWindow details are normally only used to drive dual-bar rendering on the
+    /// parent card, not shown as explicit rows. Set this on quota windows that should
+    /// appear as named rows in the detail section (e.g. "All Models", "Current Session").
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ShowAsSubCard { get; set; }
+
     public bool IsDisplayableSubProviderDetail()
     {
+        if (this.ShowAsSubCard)
+        {
+            return !string.IsNullOrWhiteSpace(this.Name);
+        }
+
         return this.DetailType == ProviderUsageDetailType.Model || this.DetailType == ProviderUsageDetailType.Other || this.DetailType == ProviderUsageDetailType.RateLimit;
     }
 

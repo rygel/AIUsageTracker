@@ -259,6 +259,7 @@ public class ClaudeCodeProvider : ProviderBase
         var details = new List<ProviderUsageDetail>();
 
         // Current session (5-hour burst quota) — QuotaWindow type drives the dual bar display.
+        // ShowAsSubCard makes it appear as an explicit named row in the detail section too.
         if (response.FiveHour != null)
         {
             var fiveHourDetail = new ProviderUsageDetail
@@ -266,6 +267,7 @@ public class ClaudeCodeProvider : ProviderBase
                 Name = "Current Session",
                 DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Burst,
+                ShowAsSubCard = true,
                 NextResetTime = response.FiveHour.ResetsAt,
             };
             fiveHourDetail.SetPercentageValue(
@@ -309,6 +311,7 @@ public class ClaudeCodeProvider : ProviderBase
         }
 
         // All-models 7-day rolling quota — QuotaWindow type drives the dual bar display.
+        // ShowAsSubCard makes it appear as an explicit named row in the detail section too.
         if (response.SevenDay != null)
         {
             var sevenDayDetail = new ProviderUsageDetail
@@ -316,6 +319,7 @@ public class ClaudeCodeProvider : ProviderBase
                 Name = "All Models",
                 DetailType = ProviderUsageDetailType.QuotaWindow,
                 QuotaBucketKind = WindowKind.Rolling,
+                ShowAsSubCard = true,
                 NextResetTime = response.SevenDay.ResetsAt,
             };
             sevenDayDetail.SetPercentageValue(
