@@ -65,7 +65,8 @@ public sealed class SyntheticProvider : ProviderBase
             if (!response.IsSuccessStatusCode)
             {
                 this._logger.LogDebug("Synthetic quota request failed with status code {StatusCode}", response.StatusCode);
-                return new[] { this.CreateUnavailableUsage($"API Error: {response.StatusCode}", (int)response.StatusCode, config.AuthSource) };
+                var errorDescription = TryExtractErrorMessage(content) ?? $"API Error: {response.StatusCode}";
+                return new[] { this.CreateUnavailableUsage(errorDescription, (int)response.StatusCode, config.AuthSource) };
             }
 
             if (content.Trim().Equals("Not Found", StringComparison.OrdinalIgnoreCase))
@@ -76,7 +77,10 @@ public sealed class SyntheticProvider : ProviderBase
             using var document = JsonDocument.Parse(content);
             if (!TryResolveUsage(document.RootElement, out var total, out var used, out var resetRaw))
             {
-                return new[] { this.CreateUnavailableUsage("Response missing quota fields (total/used/reset)", (int)response.StatusCode, config.AuthSource) };
+                var noQuotaDescription = IsEmptyObject(document.RootElement)
+                    ? "No active subscription"
+                    : "Response missing quota fields (total/used/reset)";
+                return new[] { this.CreateUnavailableUsage(noQuotaDescription, (int)response.StatusCode, config.AuthSource) };
             }
 
             var remainingPercent = Math.Clamp(((total - used) / total) * 100.0, 0, 100);
@@ -114,6 +118,48 @@ public sealed class SyntheticProvider : ProviderBase
             this._logger.LogError(ex, "Synthetic provider check failed");
             return new[] { this.CreateUnavailableUsageFromException(ex, authSource: config.AuthSource) };
         }
+    }
+
+    private static bool IsEmptyObject(JsonElement element)
+    {
+        return element.ValueKind == JsonValueKind.Object && !element.EnumerateObject().Any();
+    }
+
+    private static string? TryExtractErrorMessage(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(content);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            foreach (var candidate in new[] { "message", "error", "detail", "description", "reason", "msg" })
+            {
+                if (TryGetPropertyIgnoreCase(root, candidate, out var property) &&
+                    property.ValueKind == JsonValueKind.String)
+                {
+                    var value = property.GetString();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Non-JSON body — fall through
+        }
+
+        return null;
     }
 
     private static string NormalizeEndpoint(string baseUrl)
