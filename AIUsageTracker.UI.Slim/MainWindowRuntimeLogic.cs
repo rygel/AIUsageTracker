@@ -227,19 +227,6 @@ internal static partial class MainWindowRuntimeLogic
         if (matchedWindow?.PeriodDuration is { } duration)
         {
             usage.PeriodDuration = duration;
-
-            // Ensure NextResetTime matches the rolling window, not the burst window.
-            // Providers often set the parent's NextResetTime from the burst (5h) window,
-            // which makes pace projection nonsensical against a 7-day PeriodDuration.
-            if (usage.Details != null && matchedWindow.Kind == WindowKind.Rolling)
-            {
-                var rollingDetail = usage.Details.FirstOrDefault(d =>
-                    d.QuotaBucketKind == WindowKind.Rolling && d.NextResetTime.HasValue);
-                if (rollingDetail != null)
-                {
-                    usage.NextResetTime = rollingDetail.NextResetTime;
-                }
-            }
         }
     }
 
@@ -280,29 +267,12 @@ internal static partial class MainWindowRuntimeLogic
     }
 
     /// <summary>
-    /// Resolves reset times from detail-level quota windows, falling back to the parent's
-    /// NextResetTime when fewer than two distinct detail reset times are available.
+    /// Resolves reset times for the provider card, falling back to the parent's
+    /// NextResetTime when no specific window reset is available.
     /// </summary>
     internal static IReadOnlyList<DateTime> ResolveResetTimes(ProviderUsage usage, bool suppressSingleResetFallback)
     {
         ArgumentNullException.ThrowIfNull(usage);
-
-        // Only show Burst and Rolling reset times on the parent card.
-        // ModelSpecific windows (e.g. Spark) have their own child card.
-        var detailResetTimes = usage.Details?
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-            .Where(detail => detail.QuotaBucketKind is WindowKind.Burst or WindowKind.Rolling)
-            .Where(detail => detail.NextResetTime.HasValue)
-            .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
-            .Select(detail => detail.NextResetTime!.Value)
-            .Distinct()
-            .ToList()
-            ?? new List<DateTime>();
-
-        if (detailResetTimes.Count >= 2)
-        {
-            return detailResetTimes;
-        }
 
         if (suppressSingleResetFallback)
         {
@@ -323,20 +293,14 @@ internal static partial class MainWindowRuntimeLogic
             return Array.Empty<DateTime>();
         }
 
-        return usage.Details?
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-            .Where(detail => detail.QuotaBucketKind == windowKind)
-            .Where(detail => detail.NextResetTime.HasValue)
-            .Where(detail => UsageMath.GetEffectiveUsedPercent(detail).HasValue)
-            .Select(detail => detail.NextResetTime!.Value)
-            .Distinct()
-            .ToList()
-            ?? new List<DateTime>();
+        return usage.NextResetTime.HasValue
+            ? new[] { usage.NextResetTime.Value }
+            : Array.Empty<DateTime>();
     }
 
     /// <summary>
     /// Builds a multi-line tooltip string for a provider card, including daily budget
-    /// information for multi-day quota periods and per-detail rate limit breakdowns.
+    /// information for multi-day quota periods.
     /// </summary>
     internal static string? BuildTooltipContent(ProviderUsage usage, string friendlyName)
     {
@@ -358,24 +322,6 @@ internal static partial class MainWindowRuntimeLogic
             tooltipBuilder.AppendLine($"Expected by now: {expectedAtThisPoint:F0}% | Actual: {usage.UsedPercent:F0}%");
         }
 
-        if (usage.Details?.Any() == true)
-        {
-            tooltipBuilder.AppendLine();
-            tooltipBuilder.AppendLine("Rate Limits:");
-            foreach (var detail in usage.Details
-                         .OrderBy(GetTooltipDetailSortOrder)
-                         .ThenBy(GetDetailDisplayName, StringComparer.OrdinalIgnoreCase))
-            {
-                var detailValue = GetDetailDisplayValue(detail);
-                if (string.IsNullOrWhiteSpace(detailValue))
-                {
-                    continue;
-                }
-
-                tooltipBuilder.AppendLine($"  {GetDetailDisplayName(detail)}: {detailValue}");
-            }
-        }
-
         if (!string.IsNullOrEmpty(usage.AuthSource))
         {
             tooltipBuilder.AppendLine();
@@ -384,39 +330,5 @@ internal static partial class MainWindowRuntimeLogic
 
         var result = tooltipBuilder.ToString().Trim();
         return string.IsNullOrWhiteSpace(result) ? null : result;
-    }
-
-    /// <summary>
-    /// Gets the display name for a detail row (used in tooltip rendering).
-    /// </summary>
-    internal static string GetDetailDisplayName(ProviderUsageDetail detail)
-    {
-        return detail.Name;
-    }
-
-    /// <summary>
-    /// Gets the formatted display value for a detail row (used in tooltip rendering).
-    /// </summary>
-    internal static string GetDetailDisplayValue(ProviderUsageDetail detail)
-    {
-        return GetStoredDisplayText(detail);
-    }
-
-    /// <summary>
-    /// Sort order for tooltip detail rows, grouping quota windows by bucket kind
-    /// before model and credit details.
-    /// </summary>
-    private static int GetTooltipDetailSortOrder(ProviderUsageDetail detail)
-    {
-        return (detail.DetailType, detail.QuotaBucketKind) switch
-        {
-            (ProviderUsageDetailType.QuotaWindow, WindowKind.Burst) => 0,
-            (ProviderUsageDetailType.QuotaWindow, WindowKind.Rolling) => 1,
-            (ProviderUsageDetailType.QuotaWindow, WindowKind.ModelSpecific) => 2,
-            (ProviderUsageDetailType.QuotaWindow, _) => 3,
-            (ProviderUsageDetailType.Model, _) => 3,
-            (ProviderUsageDetailType.Credit, _) => 4,
-            _ => 5,
-        };
     }
 }

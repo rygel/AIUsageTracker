@@ -10,48 +10,40 @@ namespace AIUsageTracker.Monitor.Tests;
 public sealed class GroupedUsageProjectionServiceTests
 {
     [Fact]
-    public void Build_ProjectsSingleProviderWithModelArray_FromModelDetails()
+    public void Build_ProjectsGeminiModelCards_AsFlatCardModels()
     {
-        var modelDetail = new ProviderUsageDetail
-        {
-            Name = "Gemini 2.5 Flash Lite",
-            ModelName = "gemini-2.5-flash-lite",
-            DetailType = ProviderUsageDetailType.Model,
-            QuotaBucketKind = WindowKind.None,
-        };
-        modelDetail.SetPercentageValue(96.7, PercentageValueSemantic.Remaining);
-
-        var quotaDetail = new ProviderUsageDetail
-        {
-            Name = "Quota Bucket (Primary)",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        quotaDetail.SetPercentageValue(65.7, PercentageValueSemantic.Remaining);
-
+        // Gemini now emits one flat card per model (no parent card, no Details).
+        // Each flat card has ModelName set and CardId = "model-<modelId>".
         var usages = new[]
         {
             new ProviderUsage
             {
                 ProviderId = "gemini-cli",
-                ProviderName = "Google Gemini",
+                ProviderName = "Gemini CLI",
                 IsAvailable = true,
                 IsQuotaBased = true,
-                RequestsUsed = 35,
+                CardId = "model-gemini-2.5-flash-lite",
+                GroupId = "gemini-cli",
+                Name = "Gemini 2.5 Flash Lite",
+                ModelName = "gemini-2.5-flash-lite",
+                UsedPercent = 3.3,
+                RequestsUsed = 3.3,
                 RequestsAvailable = 100,
-                UsedPercent = 35,
                 FetchedAt = DateTime.UtcNow,
-                Details = new List<ProviderUsageDetail> { modelDetail, quotaDetail },
             },
             new ProviderUsage
             {
-                ProviderId = "gemini-cli.primary",
-                ProviderName = "Gemini CLI (Primary)",
+                ProviderId = "gemini-cli",
+                ProviderName = "Gemini CLI",
                 IsAvailable = true,
                 IsQuotaBased = true,
-                RequestsUsed = 93,
+                CardId = "model-gemini-3-flash-preview",
+                GroupId = "gemini-cli",
+                Name = "Gemini 3 Flash Preview",
+                ModelName = "gemini-3-flash-preview",
+                UsedPercent = 40,
+                RequestsUsed = 40,
                 RequestsAvailable = 100,
-                UsedPercent = 93,
                 FetchedAt = DateTime.UtcNow,
             },
         };
@@ -60,24 +52,17 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal("gemini-cli", provider.ProviderId);
-        Assert.Equal("Google Gemini", provider.ProviderName);
-        Assert.Equal(1, provider.Models.Count);
-        var model = Assert.Single(provider.Models);
-        Assert.Equal("gemini-2.5-flash-lite", model.ModelId);
-        Assert.Equal("Gemini 2.5 Flash Lite", model.ModelName);
-        var quotaBucket = Assert.Single(model.QuotaBuckets);
-        Assert.Equal("effective", quotaBucket.BucketId);
-        Assert.Equal("Effective Quota", quotaBucket.BucketName);
-        Assert.NotNull(quotaBucket.RemainingPercentage);
-        Assert.Equal(96.7, quotaBucket.RemainingPercentage!.Value, 1);
-        Assert.Equal(96.7, model.EffectiveRemainingPercentage!.Value, 1);
-        Assert.Equal(3.3, model.EffectiveUsedPercentage!.Value, 1);
-        Assert.Equal("96.7% Remaining", model.EffectiveDescription);
+        Assert.Equal(2, provider.Models.Count);
+        Assert.Contains(provider.Models, m => string.Equals(m.ModelId, "model-gemini-2.5-flash-lite", StringComparison.Ordinal));
+        Assert.Contains(provider.Models, m => string.Equals(m.ModelId, "model-gemini-3-flash-preview", StringComparison.Ordinal));
     }
 
     [Fact]
     public void Build_DoesNotUseDerivedRowsAsModelFallback_WhenModelDetailsAreMissing()
     {
+        // Codex (UseChildProviderRowsForGroupedModels = false) with no CardIds:
+        // neither BuildModelsFromFlatCards nor BuildModelsFromExplicitChildRows fires.
+        // Models list is empty.
         var now = DateTime.UtcNow;
         var usages = new[]
         {
@@ -91,7 +76,6 @@ public sealed class GroupedUsageProjectionServiceTests
                 RequestsAvailable = 100,
                 UsedPercent = 50,
                 FetchedAt = now,
-                Details = null,
             },
             new ProviderUsage
             {
@@ -117,14 +101,7 @@ public sealed class GroupedUsageProjectionServiceTests
     [Fact]
     public void Build_KeepsProviderWithEmptyModelArray_WhenNoModelDataExists()
     {
-        var weeklyDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly Quota",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        weeklyDetail.SetPercentageValue(14.0, PercentageValueSemantic.Used);
-
+        // A usage with no CardId and no window cards → empty models, included in snapshot.
         var usages = new[]
         {
             new ProviderUsage
@@ -138,7 +115,6 @@ public sealed class GroupedUsageProjectionServiceTests
                 UsedPercent = 0,
                 Description = "Not authenticated",
                 FetchedAt = DateTime.UtcNow,
-                Details = new List<ProviderUsageDetail> { weeklyDetail },
             },
         };
 
@@ -151,116 +127,39 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_MapsModelScopedQuotaBuckets_ToMatchingModels()
+    public void Build_KimiUsage_PopulatesProviderDetails_FromWindowFlatCards()
     {
-        var flashLiteModel = new ProviderUsageDetail
-        {
-            Name = "Gemini 2.5 Flash Lite",
-            ModelName = "gemini-2.5-flash-lite",
-            DetailType = ProviderUsageDetailType.Model,
-            QuotaBucketKind = WindowKind.None,
-        };
-        flashLiteModel.SetPercentageValue(90.0, PercentageValueSemantic.Remaining);
-
-        var flashPreviewModel = new ProviderUsageDetail
-        {
-            Name = "Gemini 3 Flash Preview",
-            ModelName = "gemini-3-flash-preview",
-            DetailType = ProviderUsageDetailType.Model,
-            QuotaBucketKind = WindowKind.None,
-        };
-        flashPreviewModel.SetPercentageValue(60.0, PercentageValueSemantic.Remaining);
-
-        var flashLiteQuota = new ProviderUsageDetail
-        {
-            Name = "Requests / Minute",
-            ModelName = "gemini-2.5-flash-lite",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        flashLiteQuota.SetPercentageValue(95.0, PercentageValueSemantic.Remaining);
-
-        var flashPreviewQuota = new ProviderUsageDetail
-        {
-            Name = "Requests / Minute",
-            ModelName = "gemini-3-flash-preview",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        flashPreviewQuota.SetPercentageValue(70.0, PercentageValueSemantic.Remaining);
-
-        var usages = new[]
-        {
-            new ProviderUsage
-            {
-                ProviderId = "gemini-cli",
-                ProviderName = "Google Gemini",
-                IsAvailable = true,
-                IsQuotaBased = true,
-                RequestsUsed = 20,
-                RequestsAvailable = 100,
-                UsedPercent = 20,
-                FetchedAt = DateTime.UtcNow,
-                Details = new List<ProviderUsageDetail>
-                {
-                    flashLiteModel,
-                    flashPreviewModel,
-                    flashLiteQuota,
-                    flashPreviewQuota,
-                },
-            },
-        };
-
-        var snapshot = GroupedUsageProjectionService.Build(usages);
-
-        var provider = Assert.Single(snapshot.Providers);
-        Assert.Equal(2, provider.Models.Count);
-
-        var flashLite = Assert.Single(provider.Models, model => string.Equals(model.ModelId, "gemini-2.5-flash-lite", StringComparison.Ordinal));
-        var flashPreview = Assert.Single(provider.Models, model => string.Equals(model.ModelId, "gemini-3-flash-preview", StringComparison.Ordinal));
-
-        var flashLiteBucket = Assert.Single(flashLite.QuotaBuckets);
-        var flashPreviewBucket = Assert.Single(flashPreview.QuotaBuckets);
-
-        Assert.Equal("Requests / Minute", flashLiteBucket.BucketName);
-        Assert.Equal("Requests / Minute", flashPreviewBucket.BucketName);
-        Assert.Equal(95.0, flashLiteBucket.RemainingPercentage!.Value, 1);
-        Assert.Equal(70.0, flashPreviewBucket.RemainingPercentage!.Value, 1);
-    }
-
-    [Fact]
-    public void Build_KimiUsage_PopulatesProviderDetails_FromUsageDetails()
-    {
-        // Kimi has no Model-type details; only QuotaWindow. The projection must populate
-        // ProviderDetails so the UI can render dual bars on the parent card.
-        var weeklyDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly Limit",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        weeklyDetail.SetPercentageValue(25.0, PercentageValueSemantic.Used, decimalPlaces: 1);
-
-        var burstDetail = new ProviderUsageDetail
-        {
-            Name = "5h Limit",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        burstDetail.SetPercentageValue(0.0, PercentageValueSemantic.Used, decimalPlaces: 1);
-
+        // Kimi now emits flat cards with WindowKind set.
+        // The projection collects cards with WindowKind != None as ProviderDetails.
         var usages = new[]
         {
             new ProviderUsage
             {
                 ProviderId = "kimi-for-coding",
+                CardId = "weekly",
+                GroupId = "kimi-for-coding",
+                Name = "Weekly Limit",
+                WindowKind = WindowKind.Rolling,
                 IsAvailable = true,
                 IsQuotaBased = true,
                 UsedPercent = 25,
                 RequestsUsed = 25,
                 RequestsAvailable = 100,
                 FetchedAt = DateTime.UtcNow,
-                Details = new List<ProviderUsageDetail> { weeklyDetail, burstDetail },
+            },
+            new ProviderUsage
+            {
+                ProviderId = "kimi-for-coding",
+                CardId = "5h-limit",
+                GroupId = "kimi-for-coding",
+                Name = "5h Limit",
+                WindowKind = WindowKind.Burst,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                UsedPercent = 0,
+                RequestsUsed = 0,
+                RequestsAvailable = 100,
+                FetchedAt = DateTime.UtcNow,
             },
         };
 
@@ -268,144 +167,101 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal(2, provider.ProviderDetails.Count);
-        Assert.Contains(provider.ProviderDetails, d => d.QuotaBucketKind == WindowKind.Rolling && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
-        Assert.Contains(provider.ProviderDetails, d => d.QuotaBucketKind == WindowKind.Burst && string.Equals(d.Name, "5h Limit", StringComparison.Ordinal));
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling && string.Equals(d.Name, "Weekly Limit", StringComparison.Ordinal));
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst && string.Equals(d.Name, "5h Limit", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Build_CodexUsageWithModelScopedSparkDetails_CreatesSparkModelWithDualBarBuckets()
+    public void Build_CodexUsageWithFlatCards_ProjectsSparkModelFromCardId()
     {
-        // Regression: CodexProvider emits model-scoped QW details (Burst=Spark5h, Rolling=Weekly)
-        // so BuildModelsFromDetails can scope them to the Spark model's QuotaBuckets.
-        // Those model-scoped details must NOT appear in ProviderDetails (parent card only shows
-        // provider-level windows). The Spark model's QuotaBuckets must carry correct QuotaBucketKind
-        // values so the child card can render dual bars.
-        const string sparkModelId = "GPT-5.3-Codex-Spark";
-
-        var modelDetail = new ProviderUsageDetail
-        {
-            Name = sparkModelId,
-            ModelName = sparkModelId,
-            DetailType = ProviderUsageDetailType.Model,
-            QuotaBucketKind = WindowKind.None,
-        };
-        modelDetail.SetPercentageValue(2.0, PercentageValueSemantic.Remaining); // 98% effective used
-
-        // Model-scoped Burst: Spark's own 5h window just reset (100% remaining)
-        var sparkBurstDetail = new ProviderUsageDetail
-        {
-            Name = "Spark 5h quota",
-            ModelName = sparkModelId,
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        sparkBurstDetail.SetPercentageValue(100.0, PercentageValueSemantic.Remaining);
-
-        // Model-scoped Rolling: shared weekly window is 98% used
-        var sparkRollingDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            ModelName = sparkModelId,
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        sparkRollingDetail.SetPercentageValue(2.0, PercentageValueSemantic.Remaining);
-
-        // Provider-level windows (no ModelName) — these go into ProviderDetails
-        var providerBurst = new ProviderUsageDetail
-        {
-            Name = "5-hour quota",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        providerBurst.SetPercentageValue(100.0, PercentageValueSemantic.Remaining);
-
-        var providerRolling = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        providerRolling.SetPercentageValue(2.0, PercentageValueSemantic.Remaining);
-
+        // Codex emits flat cards: burst (WindowKind.Burst), weekly (WindowKind.Rolling), spark (codex.spark).
+        // The spark card has CardId="spark" and is the only card with CardId != null for the codex group.
+        // Since cardIds exist, BuildModelsFromFlatCards is used.
         var usages = new[]
         {
             new ProviderUsage
             {
                 ProviderId = "codex",
+                CardId = "burst",
+                GroupId = "codex",
+                Name = "5-hour quota",
+                WindowKind = WindowKind.Burst,
+                IsAvailable = true,
+                IsQuotaBased = true,
+                UsedPercent = 0,
+                FetchedAt = DateTime.UtcNow,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "codex",
+                CardId = "weekly",
+                GroupId = "codex",
+                Name = "Weekly quota",
+                WindowKind = WindowKind.Rolling,
                 IsAvailable = true,
                 IsQuotaBased = true,
                 UsedPercent = 98,
                 FetchedAt = DateTime.UtcNow,
-                Details = new List<ProviderUsageDetail>
-                {
-                    modelDetail,
-                    sparkBurstDetail,
-                    sparkRollingDetail,
-                    providerBurst,
-                    providerRolling,
-                },
+            },
+            new ProviderUsage
+            {
+                ProviderId = "codex.spark",
+                CardId = "spark",
+                GroupId = "codex",
+                Name = "Spark",
+                IsAvailable = true,
+                IsQuotaBased = true,
+                UsedPercent = 19,
+                FetchedAt = DateTime.UtcNow,
             },
         };
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
-        var spark = Assert.Single(provider.Models);
-        Assert.Equal(sparkModelId, spark.ModelId);
 
-        // Child card buckets must carry Burst and Rolling kinds for dual bar rendering
-        Assert.Equal(2, spark.QuotaBuckets.Count);
-        Assert.Single(spark.QuotaBuckets, b => b.QuotaBucketKind == WindowKind.Burst);
-        Assert.Single(spark.QuotaBuckets, b => b.QuotaBucketKind == WindowKind.Rolling);
-
-        // Only provider-level QW entries (no ModelName) appear in ProviderDetails.
-        // Model-scoped QW and Model-typed entries are excluded — the parent card dual bar
-        // must show only provider-level windows, not per-model windows.
+        // Provider-level window cards (WindowKind != None) go into ProviderDetails
         Assert.Equal(2, provider.ProviderDetails.Count);
-        Assert.All(provider.ProviderDetails, d =>
-        {
-            Assert.Equal(ProviderUsageDetailType.QuotaWindow, d.DetailType);
-            Assert.True(string.IsNullOrWhiteSpace(d.ModelName));
-        });
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
+        Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
     }
 
     [Fact]
-    public void Build_KimiUsage_FiltersToQuotaWindowDetails_InProviderDetails()
+    public void Build_KimiUsage_FiltersToWindowCards_InProviderDetails()
     {
-        // ProviderDetails contains only non-stale provider-level QuotaWindow entries.
-        // Credit-type details are excluded — the UI no longer needs to filter by DetailType.
-        var creditDetail = new ProviderUsageDetail
-        {
-            Name = "Credits",
-            DetailType = ProviderUsageDetailType.Credit,
-            QuotaBucketKind = WindowKind.None,
-        };
-
-        var quotaDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly Limit",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        quotaDetail.SetPercentageValue(10.0, PercentageValueSemantic.Used);
-
+        // Cards with WindowKind.None (e.g., credit-type cards, labels) are excluded from ProviderDetails.
+        // Only WindowKind != None passes through.
         var usages = new[]
         {
             new ProviderUsage
             {
                 ProviderId = "kimi-for-coding",
+                CardId = "credits",
+                GroupId = "kimi-for-coding",
+                Name = "Credits",
+                WindowKind = WindowKind.None, // not a quota window
+                IsAvailable = true,
+                IsQuotaBased = false,
+                UsedPercent = 10,
+                FetchedAt = DateTime.UtcNow,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "kimi-for-coding",
+                CardId = "weekly",
+                GroupId = "kimi-for-coding",
+                Name = "Weekly Limit",
+                WindowKind = WindowKind.Rolling,
                 IsAvailable = true,
                 IsQuotaBased = true,
                 UsedPercent = 10,
                 FetchedAt = DateTime.UtcNow,
-                Details = new List<ProviderUsageDetail> { creditDetail, quotaDetail },
             },
         };
 
         var snapshot = GroupedUsageProjectionService.Build(usages);
 
         var provider = Assert.Single(snapshot.Providers);
-        Assert.Single(provider.ProviderDetails); // only QuotaWindow passes through; Credit is excluded
+        Assert.Single(provider.ProviderDetails); // only WindowKind.Rolling passes; WindowKind.None is excluded
     }
 }

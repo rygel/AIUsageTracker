@@ -12,7 +12,7 @@ namespace AIUsageTracker.Core.Models;
 /// <param name="DualBarLabel">Short display label shown in the dual progress bar (e.g. "5h", "Weekly", "Sonnet").</param>
 /// <param name="ChildProviderId">For SyntheticAggregateChildren providers: the explicit child provider ID (e.g. "claude-code.current-session").</param>
 /// <param name="SettingsLabel">Human-readable label for the settings show/hide list. Falls back to <see cref="DualBarLabel"/> when null.</param>
-/// <param name="DetailName">Expected <c>ProviderUsageDetail.Name</c> value used to match this declaration to a runtime detail row. When null, matching uses <see cref="Kind"/> only (sufficient when each Kind appears at most once).</param>
+/// <param name="DetailName">Reserved for legacy compatibility. No longer used for runtime matching.</param>
 /// <param name="PeriodDuration">Duration of this quota window (e.g. <c>TimeSpan.FromHours(5)</c> for a burst window, <c>TimeSpan.FromDays(7)</c> for a weekly window). Used by the UI and alert service to compute time-adjusted pace so that progress-bar colours and threshold notifications are not false-positive when the user is under pace.</param>
 public sealed record QuotaWindowDefinition(
     WindowKind Kind,

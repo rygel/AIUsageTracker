@@ -127,24 +127,7 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_FormatsDualQuotaBucketStatus_AndSuppressesSingleResetTime()
     {
-        var burstDetail = new ProviderUsageDetail
-        {
-            Name = "5-hour quota",
-            Description = "96% remaining (4% used)",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        burstDetail.SetPercentageValue(4.0, PercentageValueSemantic.Used); // 4% used
-
-        var rollingDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            Description = "49% remaining (51% used)",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        rollingDetail.SetPercentageValue(51.0, PercentageValueSemantic.Used); // 51% used
-
+        // Dual-bar data comes from WindowCards (flat ProviderUsage companion cards).
         var usage = new ProviderUsage
         {
             ProviderId = "codex",
@@ -152,7 +135,11 @@ public sealed class ProviderCardPresentationCatalogTests
             IsQuotaBased = true,
             UsedPercent = 4, // 4% used → 96% remaining
             NextResetTime = new DateTime(2026, 3, 7, 1, 0, 0),
-            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
+            WindowCards = new[]
+            {
+                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = 4.0  },
+                new ProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
+            },
         };
 
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: false);
@@ -164,37 +151,24 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Create_UsesDeclaredWindowLabels_ForKimiStyleLimitNames()
     {
-        // Labels are driven by provider-declared quota windows.
-        // Kimi declares "5h Limit" -> "5h" and "Weekly Limit" -> "Weekly".
-        var burstDetail = new ProviderUsageDetail
-        {
-            Name = "5h Limit",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        burstDetail.SetPercentageValue(0.0, PercentageValueSemantic.Used);
-
-        var rollingDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly Limit",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        rollingDetail.SetPercentageValue(25.0, PercentageValueSemantic.Used);
-
+        // Labels are driven by the window card's Name property.
         var usage = new ProviderUsage
         {
             ProviderId = "kimi-for-coding",
             IsAvailable = true,
             IsQuotaBased = true,
             UsedPercent = 25,
-            Details = new List<ProviderUsageDetail> { rollingDetail, burstDetail },
+            WindowCards = new[]
+            {
+                new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0  },
+                new ProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
+            },
         };
 
         var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true);
 
         // Short window (5h/Burst) is top bar (Primary), long window (Weekly/Rolling) is bottom.
-        Assert.Equal("5h 0% used | Weekly 25% used", presentation.StatusText);
+        Assert.Equal("5h Limit 0% used | Weekly Limit 25% used", presentation.StatusText);
     }
 
     // --- Pipeline regression tests ---
@@ -204,25 +178,9 @@ public sealed class ProviderCardPresentationCatalogTests
     [Fact]
     public void Pipeline_KimiProviderDetails_ProducesDualBarOnParentCard()
     {
-        // Regression: Kimi has no Model-type details, only QuotaWindow.
-        // Before the fix, ProviderDetails was never carried through the pipeline,
-        // parentUsage.Details was null, and TryGetPresentation returned false — no dual bar.
-        var weeklyDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly Limit",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        weeklyDetail.SetPercentageValue(25.0, PercentageValueSemantic.Used, decimalPlaces: 1);
-
-        var burstDetail = new ProviderUsageDetail
-        {
-            Name = "5h Limit",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        burstDetail.SetPercentageValue(0.0, PercentageValueSemantic.Used, decimalPlaces: 1);
-
+        // Regression: Kimi has QuotaWindow flat cards in ProviderDetails.
+        // GroupedUsageDisplayAdapter must propagate them to WindowCards on the parent,
+        // so that TryGetDualQuotaBucketPresentation can find and render the dual bars.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -234,7 +192,11 @@ public sealed class ProviderCardPresentationCatalogTests
                     IsQuotaBased = true,
                     UsedPercent = 25,
                     Models = Array.Empty<AgentGroupedModelUsage>(),
-                    ProviderDetails = new[] { weeklyDetail, burstDetail },
+                    ProviderDetails = new[]
+                    {
+                        new ProviderUsage { ProviderId = "kimi-for-coding", Name = "Weekly Limit", WindowKind = WindowKind.Rolling, UsedPercent = 25.0 },
+                        new ProviderUsage { ProviderId = "kimi-for-coding", Name = "5h Limit",     WindowKind = WindowKind.Burst,   UsedPercent = 0.0  },
+                    },
                 },
             },
         };
@@ -246,8 +208,8 @@ public sealed class ProviderCardPresentationCatalogTests
 
         Assert.True(presentation.HasDualBuckets, "Kimi parent card must render dual progress bars");
         Assert.True(presentation.ShouldHaveProgress);
-        Assert.Equal(0, presentation.DualBucketPrimaryUsed!.Value, precision: 0);   // 5h (Burst) top bar
-        Assert.Equal(25, presentation.DualBucketSecondaryUsed!.Value, precision: 0); // Weekly (Rolling) bottom bar
+        Assert.Equal(0, presentation.DualBucketPrimaryUsed!.Value, precision: 0);    // 5h Limit (Burst) top bar
+        Assert.Equal(25, presentation.DualBucketSecondaryUsed!.Value, precision: 0); // Weekly Limit (Rolling) bottom bar
         Assert.Contains("Weekly", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("5h", presentation.StatusText, StringComparison.OrdinalIgnoreCase);
     }
@@ -256,23 +218,7 @@ public sealed class ProviderCardPresentationCatalogTests
     public void Pipeline_ClaudeCode_ProducesDualBarOnParentCard()
     {
         // Verifies the full snapshot → Expand → Create() path for claude-code.
-        // ParseOAuthUsageResponse uses "Current Session" (Burst) and "All Models" (Rolling).
-        var sessionDetail = new ProviderUsageDetail
-        {
-            Name = "Current Session",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        sessionDetail.SetPercentageValue(4.0, PercentageValueSemantic.Used, decimalPlaces: 0);
-
-        var allModelsDetail = new ProviderUsageDetail
-        {
-            Name = "All Models",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        allModelsDetail.SetPercentageValue(51.0, PercentageValueSemantic.Used, decimalPlaces: 0);
-
+        // The provider emits "Current Session" (Burst) and "All Models" (Rolling) window cards.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -284,7 +230,11 @@ public sealed class ProviderCardPresentationCatalogTests
                     IsQuotaBased = true,
                     UsedPercent = 51,
                     Models = Array.Empty<AgentGroupedModelUsage>(),
-                    ProviderDetails = new[] { sessionDetail, allModelsDetail },
+                    ProviderDetails = new[]
+                    {
+                        new ProviderUsage { ProviderId = "claude-code", Name = "Current Session", WindowKind = WindowKind.Burst,   UsedPercent = 4.0  },
+                        new ProviderUsage { ProviderId = "claude-code", Name = "All Models",      WindowKind = WindowKind.Rolling, UsedPercent = 51.0 },
+                    },
                 },
             },
         };
@@ -294,19 +244,19 @@ public sealed class ProviderCardPresentationCatalogTests
 
         var presentation = MainWindowRuntimeLogic.Create(parent, showUsed: false);
 
-        Assert.True(presentation.HasDualBuckets, "claude-code must render dual bars: 5h (Burst) + 7-day (Rolling)");
+        Assert.True(presentation.HasDualBuckets, "claude-code must render dual bars: Current Session (Burst) + All Models (Rolling)");
         Assert.True(presentation.ShouldHaveProgress);
         Assert.Equal(4.0, presentation.DualBucketPrimaryUsed!.Value, precision: 1);   // Current Session (Burst)
         Assert.Equal(51.0, presentation.DualBucketSecondaryUsed!.Value, precision: 1); // All Models (Rolling)
-        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("7-day", presentation.DualBucketSecondaryLabel);
+        Assert.Equal("Current Session", presentation.DualBucketPrimaryLabel);
+        Assert.Equal("All Models", presentation.DualBucketSecondaryLabel);
     }
 
     [Fact]
-    public void Pipeline_ClaudeCode_WithSonnetModel_ShowsDualBarsAndSonnetDetailRow()
+    public void Pipeline_ClaudeCode_WithSonnetModel_ShowsDualBars()
     {
-        // Verifies that ProviderDetails (the single source of truth) carries QuotaWindow entries
-        // for dual bars AND a Model entry for Sonnet, all flowing directly to the parent card.
+        // Verifies that ProviderDetails carries QuotaWindow entries for dual bars.
+        // Non-window cards (WindowKind.None or ModelSpecific) are not propagated to WindowCards.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -317,11 +267,11 @@ public sealed class ProviderCardPresentationCatalogTests
                     IsAvailable = true,
                     IsQuotaBased = true,
                     UsedPercent = 84,
-                    ProviderDetails = new ProviderUsageDetail[]
+                    Models = Array.Empty<AgentGroupedModelUsage>(),
+                    ProviderDetails = new[]
                     {
-                        new() { Name = "Current Session", DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Burst, PercentageValue = 14, PercentageSemantic = PercentageValueSemantic.Used },
-                        new() { Name = "All Models",      DetailType = ProviderUsageDetailType.QuotaWindow, QuotaBucketKind = WindowKind.Rolling, PercentageValue = 84, PercentageSemantic = PercentageValueSemantic.Used },
-                        new() { Name = "Sonnet",          DetailType = ProviderUsageDetailType.Model,       QuotaBucketKind = WindowKind.ModelSpecific, PercentageValue = 8, PercentageSemantic = PercentageValueSemantic.Used },
+                        new ProviderUsage { ProviderId = "claude-code", Name = "Current Session", WindowKind = WindowKind.Burst,   UsedPercent = 14.0 },
+                        new ProviderUsage { ProviderId = "claude-code", Name = "All Models",      WindowKind = WindowKind.Rolling, UsedPercent = 84.0 },
                     },
                 },
             },
@@ -330,18 +280,11 @@ public sealed class ProviderCardPresentationCatalogTests
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
         var parent = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal));
 
-        // Dual bars come from the two QuotaWindow entries
+        // Dual bars come from the two QuotaWindow window cards
         var presentation = MainWindowRuntimeLogic.Create(parent, showUsed: false);
         Assert.True(presentation.HasDualBuckets, "Dual bars must render from ProviderDetails QuotaWindow entries");
-        Assert.Equal("5h", presentation.DualBucketPrimaryLabel);
-        Assert.Equal("7-day", presentation.DualBucketSecondaryLabel);
-
-        // Sonnet appears as a Model-type detail row
-        Assert.NotNull(parent.Details);
-        var sonnetDetail = parent.Details!.FirstOrDefault(d =>
-            string.Equals(d.Name, "Sonnet", StringComparison.OrdinalIgnoreCase) &&
-            d.DetailType == ProviderUsageDetailType.Model);
-        Assert.NotNull(sonnetDetail);
+        Assert.Equal("Current Session", presentation.DualBucketPrimaryLabel);
+        Assert.Equal("All Models", presentation.DualBucketSecondaryLabel);
     }
 
     [Theory]

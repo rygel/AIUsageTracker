@@ -81,11 +81,19 @@ public class ProviderUsage
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? GroupId { get; set; }
 
-    public IReadOnlyList<ProviderUsageDetail>? Details { get; set; }
+    /// <summary>
+    /// Gets or sets the kind of quota window this card represents (burst vs rolling).
+    /// Only meaningful for quota-window cards. None means not a quota window.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public WindowKind WindowKind { get; set; } = WindowKind.None;
 
-    // Temporary property for database serialization - not serialized to JSON
-    [JsonIgnore]
-    public string? DetailsJson { get; set; }
+    /// <summary>
+    /// Gets or sets the model name this card is scoped to (e.g. "gemini-2.5-pro").
+    /// Used when a single provider emits per-model quota cards.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ModelName { get; set; }
 
     public string AccountName { get; set; } = string.Empty;
 
@@ -116,6 +124,15 @@ public class ProviderUsage
     /// visually distinguish stale entries so users know they are looking at cached data.
     /// </summary>
     public bool IsStale { get; set; }
+
+    /// <summary>
+    /// Gets or sets companion quota-window flat cards for dual-bar rendering.
+    /// Populated by the display adapter when the provider emits separate Burst/Rolling
+    /// window cards alongside the root card. Not stored in the database — set in-memory
+    /// during the snapshot-to-display-list conversion and never serialised.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<ProviderUsage>? WindowCards { get; set; }
 
     /// <summary>
     /// Gets or sets derived burn rate: requests consumed per hour, computed from the delta between the

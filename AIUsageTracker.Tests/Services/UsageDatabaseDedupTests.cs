@@ -109,17 +109,14 @@ public sealed class UsageDatabaseDedupTests : IDisposable
     }
 
     [Fact]
-    public async Task StoreHistoryAsync_ChangedDetailsJson_InsertsNewRowAsync()
+    public async Task StoreHistoryAsync_ChangedUsedPercent_InsertsNewRowAsync()
     {
+        // Previously tested Details JSON changes; now tests flat card UsedPercent changes
         var db = await this.CreateDatabaseAsync();
         var t1 = DateTime.UtcNow.AddMinutes(-5);
 
-        await db.StoreHistoryAsync([MakeUsage("codex", fetchedAt: t1, details: [
-            new ProviderUsageDetail { Name = "primary", PercentageValue = 50 },
-        ])]);
-        await db.StoreHistoryAsync([MakeUsage("codex", fetchedAt: t1.AddMinutes(5), details: [
-            new ProviderUsageDetail { Name = "primary", PercentageValue = 75 },
-        ])]);
+        await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 50, fetchedAt: t1)]);
+        await db.StoreHistoryAsync([MakeUsage("codex", requestsUsed: 75, fetchedAt: t1.AddMinutes(5))]);
 
         Assert.Equal(2, this.CountRows("codex"));
     }
@@ -286,8 +283,7 @@ public sealed class UsageDatabaseDedupTests : IDisposable
         bool isAvailable = true,
         string statusMessage = "ok",
         int httpStatus = 200,
-        DateTime fetchedAt = default,
-        List<ProviderUsageDetail>? details = null)
+        DateTime fetchedAt = default)
     {
         return new ProviderUsage
         {
@@ -300,7 +296,6 @@ public sealed class UsageDatabaseDedupTests : IDisposable
             Description = statusMessage,
             HttpStatus = httpStatus,
             FetchedAt = fetchedAt == default ? DateTime.UtcNow : fetchedAt,
-            Details = details,
         };
     }
 

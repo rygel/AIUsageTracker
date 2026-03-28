@@ -144,11 +144,11 @@ public class GeminiProvider : ProviderBase
                 var accessToken = await this.RefreshTokenAsync(account.RefreshToken).ConfigureAwait(false);
                 var buckets = await this.FetchQuotaAsync(accessToken, account.ProjectId).ConfigureAwait(false);
                 var allBuckets = buckets ?? new List<Bucket>();
-                var modelQuotaDetails = BuildModelQuotaDetails(allBuckets);
+                var modelQuotaCards = BuildModelQuotaCards(this.ProviderId, this.Definition.DisplayName, allBuckets, account.Email);
                 this._logger.LogDebug(
-                    "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model detail(s): {BucketSummary}",
+                    "Gemini quota received {BucketCount} bucket(s) and resolved {ModelCount} model card(s): {BucketSummary}",
                     allBuckets.Count,
-                    modelQuotaDetails.Count,
+                    modelQuotaCards.Count,
                     string.Join(
                         ", ",
                         allBuckets.Select(bucket =>
@@ -159,53 +159,7 @@ public class GeminiProvider : ProviderBase
                             return $"{modelId}:{remaining:F1}%@{reset}";
                         })));
 
-                var minFrac = allBuckets.Count > 0
-                    ? allBuckets.Min(bucket => bucket.RemainingFraction)
-                    : 1.0;
-                string mainResetStr = string.Empty;
-                DateTime? soonestResetDt = null;
-                var sortedModelQuotaDetails = modelQuotaDetails
-                    .OrderBy(d => d.NextResetTime ?? DateTime.MaxValue)
-                    .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                var remainingPercentage = UsageMath.ClampPercent(minFrac * 100.0);
-                var usedPercentage = 100.0 - remainingPercentage;
-
-                var soonestBucket = allBuckets
-                    .Select(bucket => ParseResetTimeUtc(bucket.ResetTime))
-                    .Where(reset => reset.HasValue)
-                    .Select(reset => reset!.Value)
-                    .OrderBy(reset => reset)
-                    .FirstOrDefault();
-
-                if (soonestBucket != default)
-                {
-                    var diff = soonestBucket - DateTime.UtcNow;
-                    if (diff.TotalSeconds > 0)
-                    {
-                        mainResetStr = $" (Resets: ({soonestBucket:MMM dd HH:mm}))";
-                        soonestResetDt = soonestBucket;
-                    }
-                }
-
-                var summaryUsage = new ProviderUsage
-                {
-                    ProviderId = this.ProviderId,
-                    ProviderName = this.Definition.DisplayName,
-                    UsedPercent = usedPercentage,
-                    RequestsUsed = usedPercentage,
-                    RequestsAvailable = 100,
-                    IsQuotaBased = this.Definition.IsQuotaBased,
-                    PlanType = this.Definition.PlanType,
-                    AccountName = account.Email, // Separate usage per account
-                    Description = $"{remainingPercentage:F1}% Remaining{mainResetStr}",
-                    NextResetTime = soonestResetDt,
-                    Details = sortedModelQuotaDetails.Count > 0 ? sortedModelQuotaDetails : null,
-                    RawJson = JsonSerializer.Serialize(new { buckets = allBuckets }),
-                    HttpStatus = 200,
-                };
-                results.Add(summaryUsage);
+                results.AddRange(modelQuotaCards);
             }
             catch (Exception ex)
             {
@@ -583,7 +537,11 @@ public class GeminiProvider : ProviderBase
         return data?.Buckets;
     }
 
-    private static IReadOnlyList<ProviderUsageDetail> BuildModelQuotaDetails(IEnumerable<Bucket> buckets)
+    private static IReadOnlyList<ProviderUsage> BuildModelQuotaCards(
+        string providerId,
+        string providerName,
+        IEnumerable<Bucket> buckets,
+        string accountEmail)
     {
         var modelBuckets = buckets
             .Select(bucket => new
@@ -595,10 +553,10 @@ public class GeminiProvider : ProviderBase
             .ToList();
         if (modelBuckets.Count == 0)
         {
-            return Array.Empty<ProviderUsageDetail>();
+            return Array.Empty<ProviderUsage>();
         }
 
-        var details = new List<ProviderUsageDetail>();
+        var cards = new List<ProviderUsage>();
         foreach (var modelGroup in modelBuckets.GroupBy(entry => entry.ModelId!, StringComparer.OrdinalIgnoreCase))
         {
             var representative = modelGroup
@@ -612,25 +570,31 @@ public class GeminiProvider : ProviderBase
             }
 
             var remainingPercent = UsageMath.ClampPercent(representative.RemainingFraction * 100.0);
+            var usedPercent = 100.0 - remainingPercent;
             var resetTime = ParseResetTimeUtc(representative.ResetTime);
             var resetSuffix = resetTime.HasValue ? $" (Resets: ({resetTime.Value:MMM dd HH:mm}))" : string.Empty;
 
-            details.Add(new ProviderUsageDetail
+            cards.Add(new ProviderUsage
             {
+                ProviderId = providerId,
+                ProviderName = providerName,
+                AccountName = accountEmail,
                 Name = FormatGeminiModelDisplayName(modelGroup.Key),
+                CardId = $"model-{modelGroup.Key.ToLowerInvariant().Replace("/", "-", StringComparison.Ordinal)}",
+                GroupId = providerId,
                 ModelName = modelGroup.Key,
                 Description = $"{remainingPercent:F1}% remaining{resetSuffix}",
                 NextResetTime = resetTime,
-                DetailType = ProviderUsageDetailType.Model,
-                QuotaBucketKind = WindowKind.None,
-                PercentageValue = remainingPercent,
-                PercentageSemantic = PercentageValueSemantic.Remaining,
-                PercentageDecimalPlaces = 1,
+                UsedPercent = usedPercent,
+                IsQuotaBased = true,
+                IsAvailable = true,
+                PlanType = PlanType.Coding,
+                HttpStatus = 200,
             });
         }
 
-        return details
-            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
+        return cards
+            .OrderBy(card => card.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 

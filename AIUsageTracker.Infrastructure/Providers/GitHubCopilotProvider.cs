@@ -408,8 +408,6 @@ public class GitHubCopilotProvider : ProviderBase
                 }
             }
 
-            state.Details = new List<ProviderUsageDetail>();
-
             if (root.TryGetProperty("quota_snapshots", out var snapshots))
             {
                 var selectedWindowName = string.Empty;
@@ -427,17 +425,10 @@ public class GitHubCopilotProvider : ProviderBase
                     selectedWindowEntitlement = entitlement;
                     selectedWindowRemaining = normalizedRemaining;
                     selectedWindowRemainingPercent = remainingPercent;
-
-                    state.Details.Add(new ProviderUsageDetail
-                    {
-                        Name = "Weekly Quota",
-                        Description = $"{normalizedRemaining:F0} / {entitlement:F0} remaining",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = WindowKind.Rolling,
-                        NextResetTime = state.ResetTime,
-                        PercentageValue = usedPercent,
-                        PercentageSemantic = PercentageValueSemantic.Used,
-                    });
+                    state.WeeklyUsedPercent = usedPercent;
+                    state.WeeklyDescription = $"{normalizedRemaining:F0} / {entitlement:F0} remaining";
+                    state.WeeklyEntitlement = entitlement;
+                    state.WeeklyUsed = entitlement - normalizedRemaining;
                 }
 
                 // 2. Usage/session window is supplementary when present.
@@ -454,15 +445,10 @@ public class GitHubCopilotProvider : ProviderBase
                         selectedWindowRemainingPercent = uRemainingPercent;
                     }
 
-                    state.Details.Add(new ProviderUsageDetail
-                    {
-                        Name = "5-hour Window",
-                        Description = $"{normalizedRemaining:F0} / {uEnt:F0} remaining",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = WindowKind.Burst,
-                        PercentageValue = uUsedPercent,
-                        PercentageSemantic = PercentageValueSemantic.Used,
-                    });
+                    state.BurstUsedPercent = uUsedPercent;
+                    state.BurstDescription = $"{normalizedRemaining:F0} / {uEnt:F0} remaining";
+                    state.BurstEntitlement = uEnt;
+                    state.BurstUsed = uEnt - normalizedRemaining;
                 }
 
                 if (!string.IsNullOrEmpty(selectedWindowName))
@@ -484,11 +470,14 @@ public class GitHubCopilotProvider : ProviderBase
 
     private IEnumerable<ProviderUsage> BuildUsageResults(CopilotUsageState state)
     {
+        var accountName = HasMeaningfulUsername(state.Username) ? state.Username : string.Empty;
+        var authSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName;
+
         var baseUsage = new ProviderUsage
         {
             ProviderId = this.ProviderId,
             ProviderName = "GitHub Copilot",
-            AccountName = HasMeaningfulUsername(state.Username) ? state.Username : string.Empty,
+            AccountName = accountName,
             IsAvailable = state.IsAvailable,
             State = state.State,
             Description = BuildFinalDescription(state),
@@ -497,25 +486,24 @@ public class GitHubCopilotProvider : ProviderBase
             RequestsUsed = state.CostUsed,
             PlanType = this.Definition.PlanType,
             IsQuotaBased = this.Definition.IsQuotaBased,
-            AuthSource = string.IsNullOrEmpty(state.PlanName) ? AuthSource.Unknown : state.PlanName,
+            AuthSource = authSource,
             NextResetTime = state.ResetTime,
             RawJson = state.RawJson,
             HttpStatus = state.HttpStatus,
         };
 
-        if (state.Details == null || state.Details.Count == 0)
+        var hasWeekly = state.WeeklyDescription != null;
+        var hasBurst = state.BurstDescription != null;
+
+        if (!hasWeekly && !hasBurst)
         {
             return new[] { baseUsage };
         }
 
         var results = new List<ProviderUsage>();
 
-        var weeklyDetail = state.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling);
-        var burstDetail = state.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-
-        if (weeklyDetail != null)
+        if (hasWeekly)
         {
-            var weeklyUsed = UsageMath.GetEffectiveUsedPercent(weeklyDetail) ?? (100.0 - state.Percentage);
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
@@ -523,26 +511,26 @@ public class GitHubCopilotProvider : ProviderBase
                 CardId = "weekly",
                 GroupId = this.ProviderId,
                 Name = "Weekly Quota",
-                AccountName = baseUsage.AccountName,
+                AccountName = accountName,
                 IsAvailable = state.IsAvailable,
                 State = state.State,
-                Description = weeklyDetail.Description,
-                UsedPercent = weeklyUsed,
-                RequestsAvailable = state.CostLimit,
-                RequestsUsed = state.CostUsed,
+                Description = state.WeeklyDescription!,
+                UsedPercent = state.WeeklyUsedPercent,
+                RequestsAvailable = state.WeeklyEntitlement,
+                RequestsUsed = state.WeeklyUsed,
                 PlanType = this.Definition.PlanType,
                 IsQuotaBased = this.Definition.IsQuotaBased,
-                AuthSource = baseUsage.AuthSource,
+                AuthSource = authSource,
                 NextResetTime = state.ResetTime,
                 PeriodDuration = TimeSpan.FromDays(7),
+                WindowKind = WindowKind.Rolling,
                 RawJson = state.RawJson,
                 HttpStatus = state.HttpStatus,
             });
         }
 
-        if (burstDetail != null)
+        if (hasBurst)
         {
-            var burstUsed = UsageMath.GetEffectiveUsedPercent(burstDetail) ?? 0.0;
             results.Add(new ProviderUsage
             {
                 ProviderId = this.ProviderId,
@@ -550,17 +538,18 @@ public class GitHubCopilotProvider : ProviderBase
                 CardId = "burst",
                 GroupId = this.ProviderId,
                 Name = "5-Hour Window",
-                AccountName = baseUsage.AccountName,
+                AccountName = accountName,
                 IsAvailable = state.IsAvailable,
                 State = state.State,
-                Description = burstDetail.Description,
-                UsedPercent = burstUsed,
-                RequestsAvailable = 0,
-                RequestsUsed = 0,
+                Description = state.BurstDescription!,
+                UsedPercent = state.BurstUsedPercent,
+                RequestsAvailable = state.BurstEntitlement,
+                RequestsUsed = state.BurstUsed,
                 PlanType = this.Definition.PlanType,
                 IsQuotaBased = this.Definition.IsQuotaBased,
-                AuthSource = baseUsage.AuthSource,
+                AuthSource = authSource,
                 PeriodDuration = TimeSpan.FromHours(5),
+                WindowKind = WindowKind.Burst,
                 RawJson = state.RawJson,
                 HttpStatus = state.HttpStatus,
             });
@@ -598,7 +587,22 @@ public class GitHubCopilotProvider : ProviderBase
 
         public string PrimaryQuotaWindowName { get; set; } = "Quota";
 
-        public List<ProviderUsageDetail>? Details { get; set; }
+        // Flat card state (replaces Details list)
+        public string? WeeklyDescription { get; set; }
+
+        public double WeeklyUsedPercent { get; set; }
+
+        public double WeeklyEntitlement { get; set; }
+
+        public double WeeklyUsed { get; set; }
+
+        public string? BurstDescription { get; set; }
+
+        public double BurstUsedPercent { get; set; }
+
+        public double BurstEntitlement { get; set; }
+
+        public double BurstUsed { get; set; }
 
         public string? RawJson { get; set; }
 

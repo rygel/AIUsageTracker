@@ -626,30 +626,12 @@
 
     bool TryGetDualWindowPercentages(AIUsageTracker.Core.Models.ProviderUsage usage, out double primaryUsed, out double secondaryUsed, out string primaryName, out string secondaryName)
     {
+        // Dual-window data now comes from flat ProviderUsage cards (WindowKind != None).
+        // The web page operates on root ProviderUsage objects which no longer carry sub-details.
         primaryUsed = 0;
         secondaryUsed = 0;
         primaryName = "";
         secondaryName = "";
-
-        if (usage.Details == null || !usage.Details.Any()) return false;
-
-        var primaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Burst);
-        var secondaryDetail = usage.Details.FirstOrDefault(d => d.DetailType == AIUsageTracker.Core.Models.ProviderUsageDetailType.QuotaWindow && d.QuotaBucketKind == AIUsageTracker.Core.Models.WindowKind.Rolling);
-
-        if (primaryDetail == null || secondaryDetail == null) return false;
-
-        var p = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(primaryDetail);
-        var s = AIUsageTracker.Core.Models.UsageMath.GetEffectiveUsedPercent(secondaryDetail);
-
-        if (p.HasValue && s.HasValue)
-        {
-            primaryUsed = p.Value;
-            secondaryUsed = s.Value;
-            primaryName = primaryDetail.Name;
-            secondaryName = secondaryDetail.Name;
-            return true;
-        }
-
         return false;
     }
 }

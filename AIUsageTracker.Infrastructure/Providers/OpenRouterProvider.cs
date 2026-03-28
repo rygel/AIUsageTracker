@@ -127,8 +127,10 @@ public class OpenRouterProvider : ProviderBase
         }
 
         // Try to fetch additional key info (optional - for limits, labels, etc.)
-        var details = new List<ProviderUsageDetail>();
         string label = "OpenRouter";
+        double? spendingLimit = null;
+        DateTime? spendingLimitResetTime = null;
+        bool? isFreeTier = null;
 
         try
         {
@@ -166,7 +168,7 @@ public class OpenRouterProvider : ProviderBase
 
                     if (keyData.Data.Limit > 0)
                     {
-                        DateTime? nextResetTime = null;
+                        spendingLimit = keyData.Data.Limit;
 
                         if (!string.IsNullOrEmpty(keyData.Data.LimitReset))
                         {
@@ -177,8 +179,8 @@ public class OpenRouterProvider : ProviderBase
                                 var diff = dt - DateTime.UtcNow;
                                 if (diff.TotalSeconds > 0)
                                 {
-                                    nextResetTime = dt;
-                                    this._logger.LogDebug("Limit reset time parsed successfully: {ResetTime}", nextResetTime);
+                                    spendingLimitResetTime = dt;
+                                    this._logger.LogDebug("Limit reset time parsed successfully: {ResetTime}", spendingLimitResetTime);
                                 }
                             }
                             else
@@ -186,28 +188,13 @@ public class OpenRouterProvider : ProviderBase
                                 this._logger.LogWarning("Failed to parse limit reset time: {LimitReset}", keyData.Data.LimitReset);
                             }
                         }
-
-                        details.Add(new ProviderUsageDetail
-                        {
-                            Name = "Spending Limit",
-                            Description = keyData.Data.Limit.ToString("F2", CultureInfo.InvariantCulture),
-                            NextResetTime = nextResetTime,
-                            DetailType = ProviderUsageDetailType.Other,
-                            QuotaBucketKind = WindowKind.None,
-                        });
                     }
                     else
                     {
                         this._logger.LogDebug("No spending limit set for this key");
                     }
 
-                    details.Add(new ProviderUsageDetail
-                    {
-                        Name = "Free Tier",
-                        Description = keyData.Data.IsFreeTier ? "Yes" : "No",
-                        DetailType = ProviderUsageDetailType.Other,
-                        QuotaBucketKind = WindowKind.None,
-                    });
+                    isFreeTier = keyData.Data.IsFreeTier;
                 }
                 else
                 {
@@ -240,22 +227,22 @@ public class OpenRouterProvider : ProviderBase
             remaining,
             remainingPercentage);
 
-        // Find spending limit detail for reset time (use typed fields, not string matching)
         string mainReset = string.Empty;
-        DateTime? spendingLimitResetTime = null;
-        var spendingLimitDetail = details.FirstOrDefault(d => d.DetailType == ProviderUsageDetailType.Other && d.NextResetTime.HasValue);
-        if (spendingLimitDetail?.NextResetTime.HasValue == true)
+        if (spendingLimitResetTime.HasValue)
         {
-            mainReset = $" (Resets: ({spendingLimitDetail.NextResetTime.Value.ToLocalTime():MMM dd HH:mm}))";
-            spendingLimitResetTime = spendingLimitDetail.NextResetTime;
+            mainReset = $" (Resets: ({spendingLimitResetTime.Value.ToLocalTime():MMM dd HH:mm}))";
         }
 
-        return new[]
-        {
-            new ProviderUsage
+        var results = new List<ProviderUsage>();
+
+        // Main credits card
+        results.Add(new ProviderUsage
         {
             ProviderId = config.ProviderId,
             ProviderName = label,
+            CardId = "credits",
+            GroupId = config.ProviderId,
+            Name = "Credits",
             UsedPercent = 100.0 - remainingPercentage,
             RequestsUsed = used,
             RequestsAvailable = total,
@@ -264,11 +251,50 @@ public class OpenRouterProvider : ProviderBase
             IsAvailable = true,
             Description = $"{remaining.ToString("F2", CultureInfo.InvariantCulture)} Credits Remaining{mainReset}",
             NextResetTime = spendingLimitResetTime,
-            Details = details,
             RawJson = creditsResponseBody,
             HttpStatus = httpStatus,
-        },
-        };
+        });
+
+        // Spending limit flat card (when available)
+        if (spendingLimit.HasValue)
+        {
+            results.Add(new ProviderUsage
+            {
+                ProviderId = config.ProviderId,
+                ProviderName = label,
+                CardId = "spending-limit",
+                GroupId = config.ProviderId,
+                Name = "Spending Limit",
+                IsAvailable = true,
+                PlanType = this.Definition.PlanType,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                Description = spendingLimit.Value.ToString("F2", CultureInfo.InvariantCulture),
+                NextResetTime = spendingLimitResetTime,
+                RawJson = creditsResponseBody,
+                HttpStatus = httpStatus,
+            });
+        }
+
+        // Free tier flat card (when available)
+        if (isFreeTier.HasValue)
+        {
+            results.Add(new ProviderUsage
+            {
+                ProviderId = config.ProviderId,
+                ProviderName = label,
+                CardId = "free-tier",
+                GroupId = config.ProviderId,
+                Name = "Free Tier",
+                IsAvailable = true,
+                PlanType = this.Definition.PlanType,
+                IsQuotaBased = this.Definition.IsQuotaBased,
+                Description = isFreeTier.Value ? "Yes" : "No",
+                RawJson = creditsResponseBody,
+                HttpStatus = httpStatus,
+            });
+        }
+
+        return results;
     }
 
     private class OpenRouterCreditsResponse

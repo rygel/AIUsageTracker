@@ -46,73 +46,27 @@ public class DualProgressBarLogicTests
     }
 
     [Fact]
-    public void TryGetPresentation_ReturnsLabelsAndResets_ForDualQuotaBuckets()
+    public void TryGetPresentation_ReturnsFalse_ForProviderWithoutDeclaredQuotaWindows()
     {
-        var weeklyReset = new DateTime(2026, 3, 12, 23, 0, 0);
-        var hourlyReset = new DateTime(2026, 3, 7, 1, 0, 0);
-        var burstDetail = new ProviderUsageDetail
-        {
-            Name = "5-hour quota",
-            Description = "96% remaining (4% used)",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-            NextResetTime = hourlyReset,
-        };
-        burstDetail.SetPercentageValue(4.0, PercentageValueSemantic.Used);
-
-        var rollingDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            Description = "49% remaining (51% used)",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-            NextResetTime = weeklyReset,
-        };
-        rollingDetail.SetPercentageValue(51.0, PercentageValueSemantic.Used);
-
+        // Dual-window data comes from flat ProviderUsage cards, not from Details.
+        // A plain provider usage without declared quota windows returns false.
         var usage = new ProviderUsage
         {
-            ProviderId = "codex",
+            ProviderId = "openai",
             IsQuotaBased = true,
-            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
         };
 
-        var result = MainWindowRuntimeLogic.TryGetDualQuotaBucketPresentation(usage, out var presentation);
+        var result = MainWindowRuntimeLogic.TryGetDualQuotaBucketPresentation(usage, out _);
 
-        Assert.True(result);
-        Assert.Equal("5h", presentation.PrimaryLabel);
-        Assert.Equal(4.0, presentation.PrimaryUsedPercent);
-        Assert.Equal(hourlyReset, presentation.PrimaryResetTime);
-        Assert.Equal("Weekly", presentation.SecondaryLabel);
-        Assert.Equal(51.0, presentation.SecondaryUsedPercent);
-        Assert.Equal(weeklyReset, presentation.SecondaryResetTime);
+        Assert.False(result);
     }
 
     [Fact]
-    public void TryGetPresentation_ReturnsFalse_WhenQuotaBucketKindIsMissing()
+    public void TryGetPresentation_ReturnsFalse_WhenProviderHasNoDeclaredQuotaWindows()
     {
         var usage = new ProviderUsage
         {
             IsQuotaBased = true,
-            Details = new List<ProviderUsageDetail>
-            {
-                new()
-                {
-                    Name = "Requests / Hour",
-                    Description = "80% remaining (20% used)",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.None,
-                    NextResetTime = new DateTime(2026, 3, 12, 10, 0, 0),
-                },
-                new()
-                {
-                    Name = "Requests / Day",
-                    Description = "35% remaining (65% used)",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.None,
-                    NextResetTime = new DateTime(2026, 3, 12, 20, 0, 0),
-                },
-            },
         };
 
         var result = MainWindowRuntimeLogic.TryGetDualQuotaBucketPresentation(usage, out _);
@@ -120,4 +74,3 @@ public class DualProgressBarLogicTests
         Assert.False(result);
     }
 }
-

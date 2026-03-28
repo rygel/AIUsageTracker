@@ -43,8 +43,7 @@ internal static partial class MainWindowRuntimeLogic
         // Detail-level IsStale covers parents that fetch successfully but whose
         // child data is old (e.g. Antigravity "Application not running" — parent
         // refreshes every cycle, but model details are days old).
-        var isStale = usage.IsStale
-            || (usage.Details?.Count > 0 && usage.Details.All(d => d.IsStale));
+        var isStale = usage.IsStale;
         var description = usage.Description ?? string.Empty;
         var isMissing = usage.State == ProviderUsageState.Missing;
         var isConsoleCheck = usage.State == ProviderUsageState.ConsoleCheck;
@@ -558,74 +557,48 @@ internal static partial class MainWindowRuntimeLogic
     {
         presentation = default;
 
-        if (usage.Details?.Any() != true)
+        // Dual-bar data comes from companion WindowCards: flat ProviderUsage cards
+        // with WindowKind = Burst or Rolling, populated by GroupedUsageDisplayAdapter
+        // from ProviderDetails. We need exactly one Burst card and one Rolling card.
+        var windowCards = usage.WindowCards;
+        if (windowCards == null || windowCards.Count == 0)
         {
             return false;
         }
 
-        var quotaBuckets = usage.Details
-            .Where(detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow)
-            .Where(detail => detail.QuotaBucketKind != WindowKind.None)
-            .ToList();
+        var burstCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Burst);
+        var rollingCard = windowCards.FirstOrDefault(c => c.WindowKind == WindowKind.Rolling);
 
-        if (quotaBuckets.Count < 2)
+        if (burstCard == null || rollingCard == null)
         {
             return false;
         }
 
+        // Resolve labels: prefer the card's Name; fall back to the declared window label.
         if (!ProviderMetadataCatalog.TryGet(usage.ProviderId ?? string.Empty, out var definition))
         {
             return false;
         }
 
-        var declaredWindows = definition.QuotaWindows.Where(w => w.Kind != WindowKind.None).ToList();
-        if (declaredWindows.Count == 0)
-        {
-            return false;
-        }
+        var burstWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Burst);
+        var rollingWindow = definition.QuotaWindows.FirstOrDefault(w => w.Kind == WindowKind.Rolling);
 
-        var orderedBuckets = quotaBuckets
-            .Select(detail => new
-            {
-                Detail = detail,
-                DeclaredWindow = FindMatchingPresentationWindow(detail, declaredWindows),
-            })
-            .Where(x => x.DeclaredWindow != null)
-            .OrderBy(x => GetDeclaredWindowOrder(x.DeclaredWindow!, declaredWindows))
-            .ToList();
+        var burstLabel = burstCard.Name ?? burstWindow?.DetailName ?? "Burst";
+        var rollingLabel = rollingCard.Name ?? rollingWindow?.DetailName ?? "Rolling";
 
-        if (orderedBuckets.Count < 2)
-        {
-            return false;
-        }
-
-        var first = orderedBuckets[0];
-        var second = orderedBuckets.Skip(1).FirstOrDefault(x => x.Detail.QuotaBucketKind != first.Detail.QuotaBucketKind);
-
-        if (second == null)
-        {
-            return false;
-        }
-
-        var parsedFirst = UsageMath.GetEffectiveUsedPercent(first.Detail);
-        var parsedSecond = UsageMath.GetEffectiveUsedPercent(second.Detail);
-
-        if (!parsedFirst.HasValue || !parsedSecond.HasValue)
-        {
-            return false;
-        }
-
+        // The shorter window (Burst) is primary (top bar), Rolling is secondary (bottom bar).
         presentation = (
-            PrimaryLabel: first.DeclaredWindow!.DualBarLabel,
-            PrimaryUsedPercent: parsedFirst.Value,
-            PrimaryResetTime: first.Detail.NextResetTime,
-            PrimaryPeriodDuration: first.DeclaredWindow.PeriodDuration,
-            PrimaryKind: first.Detail.QuotaBucketKind,
-            SecondaryLabel: second.DeclaredWindow!.DualBarLabel,
-            SecondaryUsedPercent: parsedSecond.Value,
-            SecondaryResetTime: second.Detail.NextResetTime,
-            SecondaryPeriodDuration: second.DeclaredWindow!.PeriodDuration,
-            SecondaryKind: second.Detail.QuotaBucketKind);
+            PrimaryLabel: burstLabel,
+            PrimaryUsedPercent: burstCard.UsedPercent,
+            PrimaryResetTime: burstCard.NextResetTime,
+            PrimaryPeriodDuration: burstWindow?.PeriodDuration,
+            PrimaryKind: WindowKind.Burst,
+            SecondaryLabel: rollingLabel,
+            SecondaryUsedPercent: rollingCard.UsedPercent,
+            SecondaryResetTime: rollingCard.NextResetTime,
+            SecondaryPeriodDuration: rollingWindow?.PeriodDuration,
+            SecondaryKind: WindowKind.Rolling);
+
         return true;
     }
 
@@ -692,23 +665,6 @@ internal static partial class MainWindowRuntimeLogic
         var complementValue = UsageMath.ClampPercent(100.0 - percentage).ToString(format, CultureInfo.InvariantCulture);
         var complementLabel = semantic == PercentageValueSemantic.Used ? "remaining" : "used";
         return $"{value}% {semanticLabel} ({complementValue}% {complementLabel})";
-    }
-
-    private static QuotaWindowDefinition? FindMatchingPresentationWindow(
-        ProviderUsageDetail detail,
-        IReadOnlyList<QuotaWindowDefinition> declaredWindows)
-    {
-        var detailNameMatch = declaredWindows.FirstOrDefault(window =>
-            window.Kind == detail.QuotaBucketKind &&
-            window.DetailName != null &&
-            string.Equals(window.DetailName, detail.Name, StringComparison.OrdinalIgnoreCase));
-        if (detailNameMatch != null)
-        {
-            return detailNameMatch;
-        }
-
-        var sameKindWindows = declaredWindows.Where(window => window.Kind == detail.QuotaBucketKind).ToList();
-        return sameKindWindows.Count == 1 ? sameKindWindows[0] : null;
     }
 
     private static string NormalizeIdentity(string? value)

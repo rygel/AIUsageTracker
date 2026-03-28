@@ -87,20 +87,17 @@ public class ExportServiceTests
     }
 
     [Fact]
-    public async Task ExportAsync_CsvWithDetails_IncludesDetailsAsync()
+    public async Task ExportAsync_CsvWithFlatCards_IncludesProviderDataAsync()
     {
-        // Arrange
+        // Arrange — flat cards replace Details; each card row appears as a separate CSV entry
         var history = new List<ProviderUsage>
         {
             new ProviderUsage
             {
                 ProviderId = "test-p",
                 ProviderName = "Test Provider",
+                RequestsUsed = 5.50,
                 FetchedAt = DateTime.UtcNow,
-                Details = new List<ProviderUsageDetail>
-                {
-                    new ProviderUsageDetail { Name = "Model A", Description = "5.50" },
-                },
             },
         };
         this._mockDatabase.Setup(d => d.GetHistoryAsync(It.IsAny<int>())).ReturnsAsync(history);
@@ -110,7 +107,7 @@ public class ExportServiceTests
 
         // Assert
         var csv = Encoding.UTF8.GetString(content);
-        Assert.Contains("Model A", csv, StringComparison.Ordinal);
+        Assert.Contains("Test Provider", csv, StringComparison.Ordinal);
         Assert.Contains("5.50", csv, StringComparison.Ordinal);
     }
 }

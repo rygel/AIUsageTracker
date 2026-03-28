@@ -109,6 +109,8 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_DoesNotExpandGeminiDetailsInUiLayer()
     {
+        // Gemini CLI has window cards but PrepareForMainWindow does not expand them —
+        // child rows come from flat ProviderUsage cards in the snapshot, not from window cards.
         var usages = new List<ProviderUsage>
         {
             new()
@@ -118,32 +120,10 @@ public sealed class ProviderUsageDisplayCatalogTests
                 IsAvailable = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                Details = new List<ProviderUsageDetail>
+                WindowCards = new[]
                 {
-                    new()
-                    {
-                        Name = "Requests / Minute",
-                        Description = "67.9%",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = WindowKind.Burst,
-                        NextResetTime = new DateTime(2026, 3, 12, 14, 38, 28),
-                    },
-                    new()
-                    {
-                        Name = "Requests / Day",
-                        Description = "97.5%",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = WindowKind.Rolling,
-                        NextResetTime = new DateTime(2026, 3, 12, 14, 35, 2),
-                    },
-                    new()
-                    {
-                        Name = "Requests / Hour",
-                        Description = "88.0%",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = WindowKind.ModelSpecific,
-                        NextResetTime = new DateTime(2026, 3, 12, 15, 10, 0),
-                    },
+                    new ProviderUsage { ProviderId = "gemini-cli", Name = "Requests / Minute", WindowKind = WindowKind.Burst,   UsedPercent = 67.9 },
+                    new ProviderUsage { ProviderId = "gemini-cli", Name = "Requests / Day",    WindowKind = WindowKind.Rolling, UsedPercent = 97.5 },
                 },
             },
         };
@@ -158,6 +138,8 @@ public sealed class ProviderUsageDisplayCatalogTests
     [Fact]
     public void PrepareForMainWindow_KeepsExplicitGeminiChildBarsOnTopLevel()
     {
+        // Explicit flat child cards (gemini-cli.minute, gemini-cli.hourly) are kept as top-level items.
+        // PrepareForMainWindow does not suppress them — they are independent flat cards in the snapshot.
         var usages = new List<ProviderUsage>
         {
             new()
@@ -167,31 +149,6 @@ public sealed class ProviderUsageDisplayCatalogTests
                 IsAvailable = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Coding,
-                Details = new List<ProviderUsageDetail>
-                {
-                    new()
-                    {
-                        Name = "Requests / Minute",
-                        Description = "67.9%",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = WindowKind.Burst,
-                    },
-                    new()
-                    {
-                        Name = "Requests / Hour",
-                        Description = "88.0%",
-                        DetailType = ProviderUsageDetailType.QuotaWindow,
-                        QuotaBucketKind = WindowKind.Rolling,
-                    },
-                    new()
-                    {
-                        Name = "Gemini 3.1 Pro Preview",
-                        ModelName = "gemini-3.1-pro-preview",
-                        Description = "0.0%",
-                        DetailType = ProviderUsageDetailType.Model,
-                        QuotaBucketKind = WindowKind.None,
-                    },
-                },
             },
             new()
             {
@@ -220,9 +177,11 @@ public sealed class ProviderUsageDisplayCatalogTests
     }
 
     [Fact]
-    public void PrepareForMainWindow_PrefersGeminiUsageWithDetails_WhenDuplicateProviderEntriesExist()
+    public void PrepareForMainWindow_PrefersNewerEntry_WhenDuplicateProviderEntriesExist()
     {
-        var stale = new ProviderUsage
+        // When two entries share the same ProviderId, the one with a later FetchedAt
+        // and a NextResetTime (higher selection score) is preferred.
+        var older = new ProviderUsage
         {
             ProviderId = "gemini-cli",
             ProviderName = "Gemini CLI",
@@ -230,10 +189,10 @@ public sealed class ProviderUsageDisplayCatalogTests
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             FetchedAt = new DateTime(2026, 3, 12, 10, 0, 0),
-            Details = null,
+            NextResetTime = null,
         };
 
-        var fresh = new ProviderUsage
+        var newer = new ProviderUsage
         {
             ProviderId = "gemini-cli",
             ProviderName = "Gemini CLI",
@@ -241,38 +200,15 @@ public sealed class ProviderUsageDisplayCatalogTests
             IsQuotaBased = true,
             PlanType = PlanType.Coding,
             FetchedAt = new DateTime(2026, 3, 12, 10, 5, 0),
-            Details = new List<ProviderUsageDetail>
-            {
-                new()
-                {
-                    Name = "Requests / Minute",
-                    Description = "67.9%",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Burst,
-                },
-                new()
-                {
-                    Name = "Requests / Hour",
-                    Description = "88.0%",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Rolling,
-                },
-                new()
-                {
-                    Name = "Requests / Day",
-                    Description = "97.5%",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.ModelSpecific,
-                },
-            },
+            NextResetTime = new DateTime(2026, 3, 13, 0, 0, 0),
         };
 
-        var preparation = MainWindowRuntimeLogic.PrepareForMainWindow(new[] { stale, fresh });
+        var preparation = MainWindowRuntimeLogic.PrepareForMainWindow(new[] { older, newer });
 
         var gemini = Assert.Single(preparation);
         Assert.Equal("gemini-cli", gemini.ProviderId);
-        Assert.NotNull(gemini.Details);
-        Assert.Equal(3, gemini.Details!.Count);
+        // The preferred entry has NextResetTime set
+        Assert.NotNull(gemini.NextResetTime);
     }
 }
 

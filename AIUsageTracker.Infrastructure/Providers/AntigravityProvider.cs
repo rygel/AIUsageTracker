@@ -81,16 +81,10 @@ public class AntigravityProvider : ProviderBase
                     var minutesAgo = (int)timeSinceRefresh.TotalMinutes;
                     var description = $"Last refreshed: {minutesAgo}m ago";
 
-                    // Check if any cached reset times have passed and update if so
-                    if (this._cachedUsage.Details != null && this._cachedUsage.Details.Any(d => d.NextResetTime.HasValue))
+                    // Check if the cached reset time has passed and update if so
+                    if (this._cachedUsage.NextResetTime.HasValue)
                     {
-                        var anyResetPassed = this._cachedUsage.Details
-                            .Where(d => d.NextResetTime.HasValue)
-                            .Any(d =>
-                            {
-                                var dt = d.NextResetTime!.Value;
-                                return dt <= DateTime.UtcNow;
-                            });
+                        var anyResetPassed = this._cachedUsage.NextResetTime.Value <= DateTime.UtcNow;
 
                         if (anyResetPassed)
                         {
@@ -107,7 +101,7 @@ public class AntigravityProvider : ProviderBase
                                 UsedPercent = 0,
                                 RequestsUsed = 0,
                                 RequestsAvailable = this._cachedUsage.RequestsAvailable,
-                                Details = null,
+
                                 AccountName = this._cachedUsage.AccountName,
                                 Description = description,
                                 IsQuotaBased = this.Definition.IsQuotaBased,
@@ -132,7 +126,6 @@ public class AntigravityProvider : ProviderBase
                         UsedPercent = 0,
                         RequestsUsed = 0,
                         RequestsAvailable = this._cachedUsage.RequestsAvailable,
-                        Details = null,
                         AccountName = this._cachedUsage.AccountName,
                         Description = description,
                         IsQuotaBased = this.Definition.IsQuotaBased,
@@ -426,11 +419,12 @@ public class AntigravityProvider : ProviderBase
         return label;
     }
 
-    private static List<ProviderUsageDetail> SortDetails(List<ProviderUsageDetail> details)
+    private sealed record ModelEntry(string Name, string ModelName, string GroupName, string Description, DateTime? NextResetTime, double? RemainingPct);
+
+    private static List<ModelEntry> SortEntries(List<ModelEntry> entries)
     {
-        return details
-            .OrderBy(d => d.DetailType == ProviderUsageDetailType.Credit ? 0 : 1)
-            .ThenBy(d => d.Name, StringComparer.Ordinal)
+        return entries
+            .OrderBy(e => e.Name, StringComparer.Ordinal)
             .ToList();
     }
 
@@ -768,7 +762,7 @@ public class AntigravityProvider : ProviderBase
         var (labelToGroup, masterModelLabels) = BuildGroupingMetadata(modelSorts, modelConfigs);
         var configMap = BuildConfigMap(modelConfigs);
 
-        var details = new List<ProviderUsageDetail>();
+        var entries = new List<ModelEntry>();
         double? minRemaining = null;
         foreach (var label in masterModelLabels)
         {
@@ -776,24 +770,8 @@ public class AntigravityProvider : ProviderBase
             var remainingPct = this.ResolveRemainingPercentage(label, modelConfig);
             var (resetDescription, nextResetTime) = ResolveResetInfo(modelConfig);
             var modelName = ResolveDisplayModelName(label);
-            var detail = new ProviderUsageDetail
-            {
-                Name = label,
-                ModelName = modelName,
-                GroupName = labelToGroup.TryGetValue(label, out var groupName)
-                    ? groupName
-                    : "Ungrouped Models",
-                Description = resetDescription,
-                NextResetTime = nextResetTime,
-                DetailType = ProviderUsageDetailType.Model,
-                QuotaBucketKind = WindowKind.None,
-            };
-            if (remainingPct.HasValue)
-            {
-                detail.SetPercentageValue(remainingPct.Value, PercentageValueSemantic.Remaining);
-            }
-
-            details.Add(detail);
+            var groupName = labelToGroup.TryGetValue(label, out var grp) ? grp : "Ungrouped Models";
+            entries.Add(new ModelEntry(label, modelName, groupName, resetDescription, nextResetTime, remainingPct));
 
             if (remainingPct.HasValue)
             {
@@ -825,11 +803,11 @@ public class AntigravityProvider : ProviderBase
             };
         }
 
-        var sortedDetails = SortDetails(details);
-        var summary = this.BuildSummaryUsage(data.UserStatus, sortedDetails, minRemaining.Value, responseString, httpStatus);
+        var sortedEntries = SortEntries(entries);
+        var summary = this.BuildSummaryUsage(data.UserStatus, sortedEntries, minRemaining.Value, responseString, httpStatus);
         ApplySummaryRawNumbers(summary, configMap);
 
-        var results = this.BuildChildUsages(sortedDetails, configMap, config, data.UserStatus.Email ?? string.Empty);
+        var results = this.BuildChildUsages(sortedEntries, configMap, config, data.UserStatus.Email ?? string.Empty);
         results.Insert(0, summary);
 
         this._cachedUsage = summary;
@@ -870,7 +848,7 @@ public class AntigravityProvider : ProviderBase
         return null;
     }
 
-    private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ProviderUsageDetail> sortedDetails, double remainingPctTotal, string? rawJson = null, int httpStatus = 200)
+    private ProviderUsage BuildSummaryUsage(UserStatus userStatus, List<ModelEntry> sortedEntries, double remainingPctTotal, string? rawJson = null, int httpStatus = 200)
     {
         return new ProviderUsage
         {
@@ -882,33 +860,31 @@ public class AntigravityProvider : ProviderBase
             IsQuotaBased = this.Definition.IsQuotaBased,
             PlanType = this.Definition.PlanType,
             Description = $"{remainingPctTotal.ToString("F1", CultureInfo.InvariantCulture)}% Remaining",
-            Details = sortedDetails,
             AccountName = userStatus.Email ?? string.Empty,
-            NextResetTime = sortedDetails.Where(d => d.NextResetTime.HasValue).OrderBy(d => d.NextResetTime).FirstOrDefault()?.NextResetTime,
+            NextResetTime = sortedEntries.Where(e => e.NextResetTime.HasValue).OrderBy(e => e.NextResetTime).FirstOrDefault()?.NextResetTime,
             RawJson = rawJson,
             HttpStatus = httpStatus,
         };
     }
 
     private List<ProviderUsage> BuildChildUsages(
-        List<ProviderUsageDetail> sortedDetails,
+        List<ModelEntry> sortedEntries,
         Dictionary<string, ClientModelConfig> configMap,
         ProviderConfig config,
         string accountName)
     {
         var results = new List<ProviderUsage>();
 
-        foreach (var detail in sortedDetails)
+        foreach (var entry in sortedEntries)
         {
-            var usedPercent = UsageMath.GetEffectiveUsedPercent(detail);
-            var detailRemaining = usedPercent.HasValue
-                ? Math.Clamp(100 - usedPercent.Value, 0, 100)
+            var detailRemaining = entry.RemainingPct.HasValue
+                ? Math.Clamp(entry.RemainingPct.Value, 0, 100)
                 : 0;
-            var (childId, childName) = this.ResolveChildIdentity(detail, config);
+            var (childId, childName) = this.ResolveChildIdentity(entry.Name, config);
 
             long? detailTotal = null;
             long? detailUsed = null;
-            if (configMap.TryGetValue(detail.Name, out var cfg) && cfg.QuotaInfo != null)
+            if (configMap.TryGetValue(entry.Name, out var cfg) && cfg.QuotaInfo != null)
             {
                 detailTotal = cfg.QuotaInfo.TotalRequests;
                 detailUsed = cfg.QuotaInfo.UsedRequests;
@@ -930,15 +906,13 @@ public class AntigravityProvider : ProviderBase
                 FetchedAt = DateTime.UtcNow,
                 AuthSource = this.ProviderId,
                 DisplayAsFraction = detailTotal.HasValue && detailTotal > 0,
-                NextResetTime = detail.NextResetTime,
+                NextResetTime = entry.NextResetTime,
             };
 
             if (detailTotal.HasValue && detailTotal > 0)
             {
                 childUsage.RequestsAvailable = detailTotal.Value;
                 childUsage.RequestsUsed = detailUsed ?? 0;
-
-                // Actual token counts available; display as fraction
             }
 
             results.Add(childUsage);
@@ -947,10 +921,10 @@ public class AntigravityProvider : ProviderBase
         return results;
     }
 
-    private (string ChildId, string ChildName) ResolveChildIdentity(ProviderUsageDetail detail, ProviderConfig config)
+    private (string ChildId, string ChildName) ResolveChildIdentity(string modelName, ProviderConfig config)
     {
-        var childId = $"{this.ProviderId}.{detail.Name.ToLowerInvariant().Replace(" ", "-")}";
-        var childName = "Antigravity " + detail.Name;
+        var childId = $"{this.ProviderId}.{modelName.ToLowerInvariant().Replace(" ", "-")}";
+        var childName = "Antigravity " + modelName;
 
         if (config.Models == null || !config.Models.Any())
         {
@@ -958,9 +932,9 @@ public class AntigravityProvider : ProviderBase
         }
 
         var match = config.Models.FirstOrDefault(m =>
-            m.Id.Equals(detail.Name, StringComparison.OrdinalIgnoreCase) ||
-            m.Name.Equals(detail.Name, StringComparison.OrdinalIgnoreCase) ||
-            m.Matches.Any(x => x.Equals(detail.Name, StringComparison.OrdinalIgnoreCase)));
+            m.Id.Equals(modelName, StringComparison.OrdinalIgnoreCase) ||
+            m.Name.Equals(modelName, StringComparison.OrdinalIgnoreCase) ||
+            m.Matches.Any(x => x.Equals(modelName, StringComparison.OrdinalIgnoreCase)));
 
         if (match == null)
         {

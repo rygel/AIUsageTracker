@@ -22,10 +22,10 @@ internal static class GroupedUsageDisplayAdapter
                      .Where(provider => !string.IsNullOrWhiteSpace(provider.ProviderId))
                      .OrderBy(provider => provider.ProviderId, StringComparer.OrdinalIgnoreCase))
         {
-            // ProviderDetails is the single source of truth: ProviderUsage.Details passed through
-            // directly from the Monitor. QuotaWindow entries drive dual bars;
-            // Model entries drive detail rows.
-            var parentDetails = provider.ProviderDetails;
+            var windowCards = provider.ProviderDetails
+                .Where(d => d.WindowKind != WindowKind.None)
+                .ToList();
+
             var parentUsage = new ProviderUsage
             {
                 ProviderId = provider.ProviderId,
@@ -40,8 +40,8 @@ internal static class GroupedUsageDisplayAdapter
                 Description = provider.Description,
                 FetchedAt = provider.FetchedAt,
                 NextResetTime = provider.NextResetTime,
-                Details = parentDetails.Count > 0 ? parentDetails.ToList() : null,
                 PeriodDuration = ResolvePeriodDuration(provider.ProviderId),
+                WindowCards = windowCards.Count > 0 ? windowCards : null,
             };
 
             usages.Add(parentUsage);
@@ -80,7 +80,11 @@ internal static class GroupedUsageDisplayAdapter
         {
             var model = assignment.Model;
             var modelState = ResolveModelState(model, provider.IsQuotaBased);
-            var quotaBucketDetails = BuildQuotaBucketDetails(model, provider.IsQuotaBased);
+
+            var childWindowCards = BuildWindowCardsFromQuotaBuckets(
+                assignment.ProviderId,
+                model.QuotaBuckets,
+                provider.IsQuotaBased);
 
             childRows.Add(new ProviderUsage
             {
@@ -98,52 +102,12 @@ internal static class GroupedUsageDisplayAdapter
                 Description = modelState.Description,
                 FetchedAt = parentUsage.FetchedAt,
                 NextResetTime = modelState.NextResetTime,
-                Details = quotaBucketDetails.Count > 0 ? quotaBucketDetails : null,
                 PeriodDuration = ResolvePeriodDuration(assignment.ProviderId),
+                WindowCards = childWindowCards.Count > 0 ? childWindowCards : null,
             });
         }
 
         return childRows;
-    }
-
-    private static IReadOnlyList<ProviderUsageDetail> BuildQuotaBucketDetails(
-        AgentGroupedModelUsage model,
-        bool parentIsQuotaBased)
-    {
-        if (model.QuotaBuckets.Count == 0)
-        {
-            return Array.Empty<ProviderUsageDetail>();
-        }
-
-        return model.QuotaBuckets
-            .Where(bucket => !string.IsNullOrWhiteSpace(bucket.BucketName))
-            .OrderBy(bucket => bucket.NextResetTime ?? DateTime.MaxValue)
-            .ThenBy(bucket => bucket.BucketName, StringComparer.OrdinalIgnoreCase)
-            .Select(bucket =>
-            {
-                var usedPercent = AgentGroupedUsageValueResolver.ResolveBucketUsedPercentage(bucket, parentIsQuotaBased);
-                var remainingPercent = AgentGroupedUsageValueResolver.ResolveBucketRemainingPercentage(bucket, parentIsQuotaBased);
-                var detail = new ProviderUsageDetail
-                {
-                    Name = bucket.BucketName,
-                    Description = bucket.Description ?? string.Empty,
-                    NextResetTime = bucket.NextResetTime,
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = bucket.QuotaBucketKind,
-                };
-
-                if (parentIsQuotaBased)
-                {
-                    detail.SetPercentageValue(remainingPercent, PercentageValueSemantic.Remaining, decimalPlaces: 1);
-                }
-                else
-                {
-                    detail.SetPercentageValue(usedPercent, PercentageValueSemantic.Used, decimalPlaces: 1);
-                }
-
-                return detail;
-            })
-            .ToList();
     }
 
     private static (double UsedPercentage, double RemainingPercentage, string Description, DateTime? NextResetTime) ResolveModelState(
@@ -151,6 +115,36 @@ internal static class GroupedUsageDisplayAdapter
         bool parentIsQuotaBased)
     {
         return AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, parentIsQuotaBased);
+    }
+
+    private static List<ProviderUsage> BuildWindowCardsFromQuotaBuckets(
+        string providerId,
+        IReadOnlyList<AgentGroupedQuotaBucketUsage> quotaBuckets,
+        bool parentIsQuotaBased)
+    {
+        var windowBuckets = quotaBuckets
+            .Where(b => b.QuotaBucketKind == WindowKind.Burst || b.QuotaBucketKind == WindowKind.Rolling)
+            .ToList();
+
+        if (windowBuckets.Count == 0)
+        {
+            return new List<ProviderUsage>(0);
+        }
+
+        var cards = new List<ProviderUsage>(windowBuckets.Count);
+        foreach (var bucket in windowBuckets)
+        {
+            cards.Add(new ProviderUsage
+            {
+                ProviderId = providerId,
+                Name = bucket.BucketName,
+                WindowKind = bucket.QuotaBucketKind,
+                UsedPercent = AgentGroupedUsageValueResolver.ResolveBucketUsedPercentage(bucket, parentIsQuotaBased),
+                NextResetTime = bucket.NextResetTime,
+            });
+        }
+
+        return cards;
     }
 
     private static TimeSpan? ResolvePeriodDuration(string providerId)

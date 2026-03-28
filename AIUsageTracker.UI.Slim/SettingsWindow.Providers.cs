@@ -77,12 +77,7 @@ public partial class SettingsWindow
         Grid.SetRow(keyPanel, 1);
         grid.Children.Add(keyPanel);
 
-        var subTrayDetails = GetEligibleSubTrayDetails(usage);
-
-        if (!isSubItem && subTrayDetails is { Count: > 0 })
-        {
-            this.AddSubTraySection(grid, config, subTrayDetails);
-        }
+        // Sub-tray sections are not rendered — flat cards replaced ProviderUsageDetail.
 
         card.Child = grid;
         this.ProvidersStack.Children.Add(card);
@@ -92,24 +87,11 @@ public partial class SettingsWindow
         string providerId,
         bool isDerived) => false;
 
-    internal static IReadOnlyList<ProviderUsageDetail> GetEligibleSubTrayDetails(ProviderUsage? usage)
+    internal static IReadOnlyList<string> GetEligibleSubTrayDetails(ProviderUsage? usage)
     {
-        if (usage?.Details == null)
-        {
-            return Array.Empty<ProviderUsageDetail>();
-        }
-
-        if (ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty)?.HasDisplayableDerivedProviders ?? false)
-        {
-            return Array.Empty<ProviderUsageDetail>();
-        }
-
-        return usage.Details
-            .Where(detail => MainWindowRuntimeLogic.IsEligibleDetail(detail, includeRateLimit: false))
-            .GroupBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .OrderBy(detail => detail.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        // Sub-tray details are no longer derived from ProviderUsageDetail.
+        // Flat ProviderUsage cards replaced the detail model; sub-tray icons are not supported.
+        return Array.Empty<string>();
     }
 
     internal static IReadOnlyList<ProviderSettingsDisplayItem> CreateProviderDisplayItems(
@@ -353,20 +335,6 @@ public partial class SettingsWindow
             ? (isPrivacyMode ? PrivacyHelper.MaskAccountIdentifier(accountInfo!) : accountInfo!)
             : "No account detected";
         var secondaryLines = new List<StatusSecondaryLine>();
-        var antigravitySubmodels = usage?.Details?
-            .Where(d => d.DetailType == ProviderUsageDetailType.Model && !string.IsNullOrWhiteSpace(d.Name))
-            .Select(d => d.Name)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (antigravitySubmodels is { Count: > 0 })
-        {
-            secondaryLines.Add(new StatusSecondaryLine(
-                Text: $"Models: {string.Join(", ", antigravitySubmodels)}",
-                Wrap: true,
-                ExtraTopMargin: true));
-        }
 
         return new StatusPanelPresentation(
             UseHorizontalLayout: false,
@@ -564,41 +532,6 @@ public partial class SettingsWindow
             FontWeight = FontWeights.SemiBold,
         };
         return status;
-    }
-
-    private void AddSubTraySection(Grid grid, ProviderConfig config, IReadOnlyList<ProviderUsageDetail> subTrayDetails)
-    {
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var separator = new Border
-        {
-            Height = 1,
-            Margin = new Thickness(0, 8, 0, 8),
-        };
-        separator.SetResourceReference(Border.BackgroundProperty, "Separator");
-        Grid.SetRow(separator, 2);
-        grid.Children.Add(separator);
-
-        var subTrayPanel = new StackPanel { Margin = new Thickness(8, 0, 0, 0) };
-
-        var subTrayTitle = new TextBlock
-        {
-            Text = "Sub-tray icons",
-            FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 4),
-        };
-        subTrayTitle.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryText");
-        subTrayPanel.Children.Add(subTrayTitle);
-
-        foreach (var detail in subTrayDetails)
-        {
-            subTrayPanel.Children.Add(this.CreateSubTrayCheckBox(config, detail.Name));
-        }
-
-        Grid.SetRow(subTrayPanel, 3);
-        grid.Children.Add(subTrayPanel);
     }
 
     private CheckBox CreateSubTrayCheckBox(ProviderConfig config, string detailName)

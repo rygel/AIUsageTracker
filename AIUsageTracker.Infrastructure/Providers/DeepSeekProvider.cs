@@ -98,49 +98,51 @@ public class DeepSeekProvider : ProviderBase
                 };
             }
 
-            var details = new List<ProviderUsageDetail>();
-            string mainDescription = "No balance found";
-
-            if (result.BalanceInfos != null && result.BalanceInfos.Any())
+            if (result.BalanceInfos == null || !result.BalanceInfos.Any())
             {
-                foreach (var info in result.BalanceInfos)
+                return new[]
                 {
-                    string currencySymbol = string.Equals(info.Currency, "CNY", StringComparison.OrdinalIgnoreCase) ? "¥" : "$";
-                    string detailName = $"Balance ({info.Currency})";
-                    details.Add(new ProviderUsageDetail
+                    new ProviderUsage
                     {
-                        Name = detailName,
-                        Description = $"{currencySymbol}{info.TotalBalance.ToString("F2", CultureInfo.InvariantCulture)} (Topped-up: {currencySymbol}{info.ToppedUpBalance.ToString("F2", CultureInfo.InvariantCulture)}, Granted: {currencySymbol}{info.GrantedBalance.ToString("F2", CultureInfo.InvariantCulture)})",
-                        DetailType = ProviderUsageDetailType.Credit,
-                        QuotaBucketKind = WindowKind.None,
-                    });
-
-                    // If it's the first or a primary currency, use for main description
-                    if (string.Equals(mainDescription, "No balance found", StringComparison.Ordinal))
-                    {
-                        mainDescription = $"Balance: {currencySymbol}{info.TotalBalance.ToString("F2", CultureInfo.InvariantCulture)}";
-                    }
-                }
+                        ProviderId = this.ProviderId,
+                        ProviderName = this.Definition.DisplayName,
+                        IsAvailable = true,
+                        UsedPercent = 0,
+                        RequestsUsed = 0,
+                        RequestsAvailable = 0,
+                        IsQuotaBased = this.Definition.IsQuotaBased,
+                        PlanType = this.Definition.PlanType,
+                        Description = "No balance found",
+                        RawJson = content,
+                        HttpStatus = (int)response.StatusCode,
+                    },
+                };
             }
 
-            return new[]
+            var flatCards = new List<ProviderUsage>();
+            foreach (var info in result.BalanceInfos)
             {
-                new ProviderUsage
-            {
-                ProviderId = this.ProviderId,
-                ProviderName = this.Definition.DisplayName,
-                IsAvailable = true,
-                UsedPercent = 0,
-                RequestsUsed = 0,
-                RequestsAvailable = 0,
-                IsQuotaBased = this.Definition.IsQuotaBased,
-                PlanType = this.Definition.PlanType,
-                Description = mainDescription,
-                Details = details,
-                RawJson = content,
-                HttpStatus = (int)response.StatusCode,
-            },
-            };
+                var currencyCode = info.Currency ?? "USD";
+                var currencySymbol = string.Equals(currencyCode, "CNY", StringComparison.OrdinalIgnoreCase) ? "¥" : "$";
+                flatCards.Add(new ProviderUsage
+                {
+                    ProviderId = this.ProviderId,
+                    ProviderName = this.Definition.DisplayName,
+                    Name = $"Balance ({currencyCode})",
+                    CardId = $"balance-{currencyCode.ToLowerInvariant()}",
+                    GroupId = this.ProviderId,
+                    Description = string.Format(CultureInfo.InvariantCulture, "{0}{1:F2} ({2:F2} topped-up + {3:F2} granted)", currencySymbol, info.TotalBalance, info.ToppedUpBalance, info.GrantedBalance),
+                    IsAvailable = true,
+                    PlanType = this.Definition.PlanType,
+                    IsCurrencyUsage = true,
+                    IsQuotaBased = this.Definition.IsQuotaBased,
+                    UsedPercent = 0,
+                    RawJson = content,
+                    HttpStatus = (int)response.StatusCode,
+                });
+            }
+
+            return flatCards;
         }
         catch (Exception ex)
         {

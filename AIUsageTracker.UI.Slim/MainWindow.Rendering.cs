@@ -418,44 +418,6 @@ public partial class MainWindow : Window
         ToolTipService.SetShowDuration(target, 15000);
     }
 
-    private void AddSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, StackPanel container, ProviderCardRenderer cardRenderer)
-    {
-        var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
-        var subCard = cardRenderer.CreateSubProviderCard(usage, detail, showUsed);
-        container.Children.Add(subCard);
-    }
-
-    private void AddCollapsibleSubProviders(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer)
-    {
-        var sectionOpt = MainWindowRuntimeLogic.Build(usage, this._preferences);
-        if (sectionOpt is null)
-        {
-            return;
-        }
-        var section = sectionOpt.Value;
-
-        var (subHeader, subContainer) = this.CreateCollapsibleHeader(
-            section.Title,
-            Brushes.DeepSkyBlue,
-            isGroupHeader: false,
-            groupKey: null,
-            () => MainWindowRuntimeLogic.GetIsCollapsed(this._preferences, section.ProviderId),
-            v => MainWindowRuntimeLogic.SetIsCollapsed(this._preferences, section.ProviderId, v));
-
-        container.Children.Add(subHeader);
-        container.Children.Add(subContainer);
-
-        if (section.IsCollapsed)
-        {
-            return;
-        }
-
-        foreach (var detail in section.Details)
-        {
-            this.AddSubProviderCard(usage, detail, subContainer, cardRenderer);
-        }
-    }
-
     private void ShowStatus(string message, StatusType type)
     {
         var effectiveMessage = message;

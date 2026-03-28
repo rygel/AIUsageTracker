@@ -38,18 +38,6 @@ public class PaceCalculationEndToEndTests
             IsAvailable = true,
             NextResetTime = nextResetUtc.ToLocalTime(),
             PeriodDuration = periodDuration,
-            Details = new List<ProviderUsageDetail>
-            {
-                new()
-                {
-                    Name = "Weekly quota",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Rolling,
-                    NextResetTime = nextResetUtc.ToLocalTime(),
-                    PercentageValue = 29, // 29% remaining
-                    PercentageSemantic = PercentageValueSemantic.Remaining,
-                },
-            },
         };
 
         // Act — use the unified ComputePaceColor API

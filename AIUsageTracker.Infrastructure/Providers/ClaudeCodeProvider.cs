@@ -414,24 +414,7 @@ public class ClaudeCodeProvider : ProviderBase
                 }
 
                 // Build description with rate limit info
-                var description = $"Tier: {rateLimitHeaders.GetTierName()} | Used: {used}/{rateLimitHeaders.RequestsLimit} RPM ({usagePercentage:F0}%)";
-
-                // Build detailed tooltip info
-                var tooltipDetails = new List<ProviderUsageDetail>();
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Rate Limit Tier", Description = rateLimitHeaders.GetTierName(), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Limit", Description = rateLimitHeaders.RequestsLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Requests/min Remaining", Description = rateLimitHeaders.RequestsRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Limit", Description = rateLimitHeaders.InputTokensLimit.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail { Name = "Input Tokens/min Remaining", Description = rateLimitHeaders.InputTokensRemaining.ToString("N0", System.Globalization.CultureInfo.InvariantCulture), DetailType = ProviderUsageDetailType.RateLimit, QuotaBucketKind = WindowKind.None });
-                tooltipDetails.Add(new ProviderUsageDetail
-                {
-                    Name = "Current RPM Usage",
-                    DetailType = ProviderUsageDetailType.RateLimit,
-                    QuotaBucketKind = WindowKind.None,
-                    PercentageValue = usagePercentage,
-                    PercentageSemantic = PercentageValueSemantic.Used,
-                    PercentageDecimalPlaces = 1,
-                });
+                var description = $"Tier: {rateLimitHeaders.GetTierName()} | RPM: {rateLimitHeaders.RequestsRemaining}/{rateLimitHeaders.RequestsLimit} | Tokens/min: {rateLimitHeaders.InputTokensRemaining}/{rateLimitHeaders.InputTokensLimit}";
 
                 return new ProviderUsage
                 {
@@ -444,7 +427,6 @@ public class ClaudeCodeProvider : ProviderBase
                     PlanType = this.Definition.PlanType,
                     IsAvailable = true,
                     Description = description,
-                    Details = tooltipDetails,
                     AccountName = warningMessage ?? string.Empty, // Using AccountName to carry warning state
                     RawJson = responseBody,
                     HttpStatus = (int)testResponse.StatusCode,

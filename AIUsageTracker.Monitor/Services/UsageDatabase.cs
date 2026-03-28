@@ -76,6 +76,7 @@ public class UsageDatabase : IUsageDatabase
     static UsageDatabase()
     {
         SqlMapper.AddTypeHandler(new UtcDateTimeHandler());
+        SqlMapper.AddTypeHandler(new WindowKindHandler());
     }
 
     /// <summary>
@@ -103,6 +104,24 @@ public class UsageDatabase : IUsageDatabase
                 string s => DateTime.SpecifyKind(DateTime.Parse(s, System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc),
                 _ => DateTime.SpecifyKind(Convert.ToDateTime(value, System.Globalization.CultureInfo.InvariantCulture), DateTimeKind.Utc),
             };
+        }
+    }
+
+    /// <summary>
+    /// Dapper type handler that maps the INTEGER <c>window_kind</c> column to the
+    /// <see cref="WindowKind"/> enum. SQLite stores the value as a long; this handler
+    /// converts it to the correct enum value on read and stores it as an int on write.
+    /// </summary>
+    private sealed class WindowKindHandler : SqlMapper.TypeHandler<WindowKind>
+    {
+        public override void SetValue(IDbDataParameter parameter, WindowKind value)
+        {
+            parameter.Value = (int)value;
+        }
+
+        public override WindowKind Parse(object value)
+        {
+            return (WindowKind)Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 
@@ -243,9 +262,6 @@ public class UsageDatabase : IUsageDatabase
 
             foreach (var u in validUsages)
             {
-                var detailsJson = u.Details != null && u.Details.Any()
-                    ? JsonSerializer.Serialize(u.Details, MonitorJsonSerializer.DefaultOptions)
-                    : null;
                 var fetchedAt = ToUnixEpoch(u.FetchedAt == default ? DateTime.UtcNow : u.FetchedAt);
                 var nextResetTime = u.NextResetTime?.ToString("O");
                 var statusMessage = u.Description ?? string.Empty;
@@ -260,7 +276,7 @@ public class UsageDatabase : IUsageDatabase
                 // Composite dedup key: provider_id + card_id (null card_id = legacy single-card provider)
                 var dedupKey = $"{u.ProviderId!}::{u.CardId ?? string.Empty}";
                 if (lastRows.TryGetValue(dedupKey, out var last)
-                    && IsHistoryUnchanged(u, last, detailsJson, nextResetTime, statusMessage))
+                    && IsHistoryUnchanged(u, last, nextResetTime, statusMessage))
                 {
                     toTouch.Add(new HistoryTouchParams(last.Id, fetchedAt));
                 }
@@ -275,14 +291,16 @@ public class UsageDatabase : IUsageDatabase
                         statusMessage,
                         nextResetTime,
                         fetchedAt,
-                        detailsJson,
                         u.ResponseLatencyMs,
                         u.HttpStatus,
                         validityInt,
                         validityNote,
                         u.ParentProviderId,
                         u.CardId,
-                        u.GroupId));
+                        u.GroupId,
+                        (int)u.WindowKind,
+                        u.ModelName,
+                        u.Name));
                 }
             }
 
@@ -293,16 +311,18 @@ public class UsageDatabase : IUsageDatabase
                         provider_id,
                         requests_used, requests_available, requests_percentage,
                         is_available, status_message, next_reset_time, fetched_at,
-                        details_json, response_latency_ms, http_status,
+                        response_latency_ms, http_status,
                         upstream_response_validity, upstream_response_note,
-                        parent_provider_id, card_id, group_id
+                        parent_provider_id, card_id, group_id,
+                        window_kind, model_name, name
                     ) VALUES (
                         @ProviderId,
                         @RequestsUsed, @RequestsAvailable, @RequestsPercentage,
                         @IsAvailable, @StatusMessage, @NextResetTime, @FetchedAt,
-                        @DetailsJson, @ResponseLatencyMs, @HttpStatus,
+                        @ResponseLatencyMs, @HttpStatus,
                         @UpstreamResponseValidity, @UpstreamResponseNote,
-                        @ParentProviderId, @CardId, @GroupId
+                        @ParentProviderId, @CardId, @GroupId,
+                        @WindowKind, @ModelName, @Name
                     )";
 
                 await connection.ExecuteAsync(insertSql, toInsert).ConfigureAwait(false);
@@ -332,7 +352,6 @@ public class UsageDatabase : IUsageDatabase
     private static bool IsHistoryUnchanged(
         ProviderUsage usage,
         LastHistoryRow last,
-        string? newDetailsJson,
         string? newNextResetTime,
         string newStatusMessage)
     {
@@ -341,8 +360,7 @@ public class UsageDatabase : IUsageDatabase
             && (usage.IsAvailable ? 1L : 0L) == last.IsAvailable
             && (long)usage.HttpStatus == last.HttpStatus
             && string.Equals(newStatusMessage, last.StatusMessage ?? string.Empty, StringComparison.Ordinal)
-            && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal)
-            && string.Equals(newDetailsJson, last.DetailsJson, StringComparison.Ordinal);
+            && string.Equals(newNextResetTime, last.NextResetTime, StringComparison.Ordinal);
     }
 
     private static async Task<Dictionary<string, LastHistoryRow>> LoadLastHistoryRowsAsync(
@@ -363,7 +381,6 @@ public class UsageDatabase : IUsageDatabase
                    h.is_available AS IsAvailable,
                    h.status_message AS StatusMessage,
                    h.next_reset_time AS NextResetTime,
-                   h.details_json AS DetailsJson,
                    h.http_status AS HttpStatus
             FROM provider_history h
             WHERE h.id IN (
@@ -388,7 +405,6 @@ public class UsageDatabase : IUsageDatabase
         long IsAvailable,
         string? StatusMessage,
         string? NextResetTime,
-        string? DetailsJson,
         long HttpStatus);
 
     private sealed record HistoryInsertParams(
@@ -400,14 +416,16 @@ public class UsageDatabase : IUsageDatabase
         string StatusMessage,
         string? NextResetTime,
         long FetchedAt,
-        string? DetailsJson,
         double ResponseLatencyMs,
         int HttpStatus,
         int UpstreamResponseValidity,
         string UpstreamResponseNote,
         string? ParentProviderId,
         string? CardId,
-        string? GroupId);
+        string? GroupId,
+        int WindowKind,
+        string? ModelName,
+        string? Name);
 
     private sealed record HistoryTouchParams(long Id, long FetchedAt);
 
@@ -586,7 +604,7 @@ public class UsageDatabase : IUsageDatabase
                        h.requests_used AS RequestsUsed, h.requests_available AS RequestsAvailable,
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
-                       h.next_reset_time AS NextResetTime, h.details_json AS DetailsJson,
+                       h.next_reset_time AS NextResetTime,
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
                        COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
@@ -595,7 +613,10 @@ public class UsageDatabase : IUsageDatabase
                        COALESCE(p.auth_source, '') AS AuthSource,
                        h.parent_provider_id AS ParentProviderId,
                        h.card_id AS CardId,
-                       h.group_id AS GroupId
+                       h.group_id AS GroupId,
+                       COALESCE(h.window_kind, 0) AS WindowKind,
+                       h.model_name AS ModelName,
+                       h.name AS Name
                 FROM provider_history h
                 LEFT JOIN providers p ON h.provider_id = p.provider_id
                 WHERE h.id IN (
@@ -605,9 +626,6 @@ public class UsageDatabase : IUsageDatabase
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
 
-            this.PopulateDetails(results);
-
-            await this.MergeRecentlySeenDetailsAsync(connection, results, DateTime.UtcNow - DetailFadeWindow).ConfigureAwait(false);
             await StampUsageRatesAsync(connection, results).ConfigureAwait(false);
 
             var now = DateTime.UtcNow;
@@ -697,64 +715,11 @@ public class UsageDatabase : IUsageDatabase
         }
     }
 
-    private static DateTime? InferNextResetFromDetails(IReadOnlyList<ProviderUsageDetail> details)
-    {
-        return UsageMath.InferResetTimeFromDetails(details);
-    }
-
-    private static string BuildDetailMergeKey(ProviderUsageDetail detail)
-    {
-        return $"{detail.DetailType}|{detail.QuotaBucketKind}|{detail.Name.Trim()}|{detail.ModelName.Trim()}|{detail.GroupName.Trim()}";
-    }
-
-    private static ProviderUsageDetail CloneDetail(ProviderUsageDetail source)
-    {
-        return new ProviderUsageDetail
-        {
-            Name = source.Name,
-            ModelName = source.ModelName,
-            GroupName = source.GroupName,
-            Description = source.Description,
-            NextResetTime = source.NextResetTime,
-            DetailType = source.DetailType,
-            QuotaBucketKind = source.QuotaBucketKind,
-            PercentageValue = source.PercentageValue,
-            PercentageSemantic = source.PercentageSemantic,
-            PercentageDecimalPlaces = source.PercentageDecimalPlaces,
-            IsStale = source.IsStale,
-        };
-    }
-
-    private static string AppendStaleSuffix(string description, DateTime lastSeenUtc)
-    {
-        var baseDescription = description ?? string.Empty;
-        var staleSuffix = $"(stale; last seen {lastSeenUtc:yyyy-MM-dd})";
-        return string.IsNullOrWhiteSpace(baseDescription)
-            ? staleSuffix
-            : $"{baseDescription} {staleSuffix}";
-    }
-
     private static void ApplyUpstreamResponseValidity(ProviderUsage usage)
     {
         var evaluation = usage.EvaluateUpstreamResponseValidity();
         usage.UpstreamResponseValidity = evaluation.Validity;
         usage.UpstreamResponseNote = evaluation.Note;
-    }
-
-    private void PopulateDetails(IEnumerable<ProviderUsage> usages)
-    {
-        foreach (var usage in usages.Where(u => !string.IsNullOrWhiteSpace(u.DetailsJson)))
-        {
-            try
-            {
-                usage.Details = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(usage.DetailsJson!, MonitorJsonSerializer.DefaultOptions);
-            }
-            catch (JsonException ex)
-            {
-                this._logger.LogError(ex, "Failed to parse details_json for provider {ProviderId}", usage.ProviderId);
-                usage.Details = new List<ProviderUsageDetail>();
-            }
-        }
     }
 
     private static void MarkStaleIfOutdated(ProviderUsage usage, DateTime now)
@@ -789,138 +754,6 @@ public class UsageDatabase : IUsageDatabase
             : $"{usage.Description} {suffix}";
     }
 
-    private async Task MergeRecentlySeenDetailsAsync(
-        SqliteConnection connection,
-        IReadOnlyCollection<ProviderUsage> latestUsages,
-        DateTime cutoffUtc)
-    {
-        if (latestUsages.Count == 0)
-        {
-            return;
-        }
-
-        const string sql = @"
-                SELECT provider_id AS ProviderId,
-                       details_json AS DetailsJson,
-                       fetched_at AS FetchedAt
-                FROM provider_history
-                WHERE fetched_at >= @CutoffUtc
-                  AND details_json IS NOT NULL
-                  AND details_json != ''
-                ORDER BY provider_id, fetched_at DESC";
-
-        var rows = await connection.QueryAsync<RecentProviderDetailsRow>(sql, new
-        {
-            CutoffUtc = new DateTimeOffset(cutoffUtc.Kind == DateTimeKind.Utc ? cutoffUtc : cutoffUtc.ToUniversalTime(), TimeSpan.Zero).ToUnixTimeSeconds(),
-        }).ConfigureAwait(false);
-
-        var latestByProvider = latestUsages.ToDictionary(
-            usage => usage.ProviderId,
-            StringComparer.OrdinalIgnoreCase);
-
-        var recentByProvider = new Dictionary<string, Dictionary<string, RecentDetailSnapshot>>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var row in rows)
-        {
-            if (string.IsNullOrWhiteSpace(row.ProviderId) || string.IsNullOrWhiteSpace(row.DetailsJson))
-            {
-                continue;
-            }
-
-            List<ProviderUsageDetail>? parsedDetails;
-            try
-            {
-                parsedDetails = JsonSerializer.Deserialize<List<ProviderUsageDetail>>(row.DetailsJson, MonitorJsonSerializer.DefaultOptions);
-            }
-            catch (JsonException ex)
-            {
-                this._logger.LogError(ex, "Failed to parse historical details_json for provider {ProviderId}", row.ProviderId);
-                continue;
-            }
-
-            if (parsedDetails == null || parsedDetails.Count == 0)
-            {
-                continue;
-            }
-
-            var fetchedAtUtc = DateTimeOffset.FromUnixTimeSeconds(row.FetchedAt).UtcDateTime;
-            if (fetchedAtUtc < cutoffUtc)
-            {
-                continue;
-            }
-
-            if (!recentByProvider.TryGetValue(row.ProviderId, out var detailMap))
-            {
-                detailMap = new Dictionary<string, RecentDetailSnapshot>(StringComparer.OrdinalIgnoreCase);
-                recentByProvider[row.ProviderId] = detailMap;
-            }
-
-            foreach (var detail in parsedDetails)
-            {
-                if (detail == null || string.IsNullOrWhiteSpace(detail.Name))
-                {
-                    continue;
-                }
-
-                var key = BuildDetailMergeKey(detail);
-                if (!detailMap.ContainsKey(key))
-                {
-                    detailMap[key] = new RecentDetailSnapshot(detail, fetchedAtUtc);
-                }
-            }
-        }
-
-        foreach (var usage in latestByProvider.Values)
-        {
-            if (!recentByProvider.TryGetValue(usage.ProviderId, out var recentDetails) || recentDetails.Count == 0)
-            {
-                continue;
-            }
-
-            var currentDetails = usage.Details?.ToList() ?? new List<ProviderUsageDetail>();
-            var currentKeys = currentDetails
-                .Where(detail => detail != null)
-                .Select(BuildDetailMergeKey)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            var allowedDetailTypes = currentDetails
-                .Where(detail => detail != null)
-                .Select(detail => detail.DetailType)
-                .Distinct()
-                .ToHashSet();
-
-            foreach (var snapshot in recentDetails.Values.OrderByDescending(x => x.FetchedAtUtc))
-            {
-                if (allowedDetailTypes.Count > 0 &&
-                    !allowedDetailTypes.Contains(snapshot.Detail.DetailType))
-                {
-                    continue;
-                }
-
-                var key = BuildDetailMergeKey(snapshot.Detail);
-                if (currentKeys.Contains(key))
-                {
-                    continue;
-                }
-
-                var staleDetail = CloneDetail(snapshot.Detail);
-                staleDetail.IsStale = true;
-                staleDetail.Description = AppendStaleSuffix(staleDetail.Description, snapshot.FetchedAtUtc);
-                currentDetails.Add(staleDetail);
-                currentKeys.Add(key);
-            }
-
-            usage.Details = currentDetails;
-            if (!usage.NextResetTime.HasValue)
-            {
-                usage.NextResetTime = InferNextResetFromDetails(currentDetails);
-            }
-        }
-    }
-
-    private sealed record RecentProviderDetailsRow(string ProviderId, string DetailsJson, long FetchedAt);
-
-    private sealed record RecentDetailSnapshot(ProviderUsageDetail Detail, DateTime FetchedAtUtc);
-
     public async Task<IReadOnlyList<ProviderUsage>> GetHistoryAsync(int limit = 100)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
@@ -937,7 +770,6 @@ public class UsageDatabase : IUsageDatabase
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
-                       h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
                        COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
@@ -948,8 +780,6 @@ public class UsageDatabase : IUsageDatabase
                 LIMIT {limit}";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql).ConfigureAwait(false)).ToList();
-
-            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -980,7 +810,6 @@ public class UsageDatabase : IUsageDatabase
                        h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                        h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                        h.next_reset_time AS NextResetTime,
-                       h.details_json AS DetailsJson,
                        h.response_latency_ms AS ResponseLatencyMs,
                        h.http_status AS HttpStatus,
                        COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
@@ -992,8 +821,6 @@ public class UsageDatabase : IUsageDatabase
                 LIMIT {limit}";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { ProviderId = providerId }).ConfigureAwait(false)).ToList();
-
-            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {
@@ -1025,7 +852,6 @@ public class UsageDatabase : IUsageDatabase
                            h.requests_percentage AS UsedPercent, h.is_available AS IsAvailable,
                            h.status_message AS Description, strftime('%Y-%m-%dT%H:%M:%SZ', h.fetched_at, 'unixepoch') AS FetchedAt,
                            h.next_reset_time AS NextResetTime,
-                           h.details_json AS DetailsJson,
                            h.response_latency_ms AS ResponseLatencyMs,
                            h.http_status AS HttpStatus,
                            COALESCE(h.upstream_response_validity, 0) AS UpstreamResponseValidity,
@@ -1036,14 +862,12 @@ public class UsageDatabase : IUsageDatabase
                 )
                 SELECT ProviderId, ProviderName, RequestsUsed, RequestsAvailable,
                        UsedPercent, IsAvailable, Description, FetchedAt, NextResetTime,
-                       DetailsJson, ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote
+                       ResponseLatencyMs, HttpStatus, UpstreamResponseValidity, UpstreamResponseNote
                 FROM RankedHistory
                 WHERE pos <= @Count
                 ORDER BY ProviderId, FetchedAt DESC";
 
             var results = (await connection.QueryAsync<ProviderUsage>(sql, new { Count = countPerProvider }).ConfigureAwait(false)).ToList();
-
-            this.PopulateDetails(results);
 
             foreach (var usage in results)
             {

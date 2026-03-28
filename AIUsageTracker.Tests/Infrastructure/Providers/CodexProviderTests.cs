@@ -106,16 +106,17 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         {
             // Act
             var allUsages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var usage = allUsages.Single(u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal));
 
-            // Assert
-            Assert.True(usage.IsAvailable);
-            Assert.Equal("OpenAI (Codex)", usage.ProviderName);
-            Assert.Equal("user@example.com", usage.AccountName);
-            Assert.Equal(25.0, usage.UsedPercent); // 25% used (75% remaining)
-            Assert.NotNull(usage.Details);
-            Assert.Contains(usage.Details, d => d.QuotaBucketKind == WindowKind.Burst);
-            Assert.Contains(usage.Details, d => d.QuotaBucketKind == WindowKind.Rolling);
+            // Assert: flat cards — burst card and weekly card emitted separately
+            var burstUsage = Assert.Single(allUsages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal));
+            var weeklyUsage = Assert.Single(allUsages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
+
+            Assert.True(burstUsage.IsAvailable);
+            Assert.Equal("OpenAI (Codex)", burstUsage.ProviderName);
+            Assert.Equal("user@example.com", burstUsage.AccountName);
+            Assert.Equal(25.0, burstUsage.UsedPercent); // 25% used (75% remaining)
+            Assert.Equal(WindowKind.Burst, burstUsage.WindowKind);
+            Assert.Equal(WindowKind.Rolling, weeklyUsage.WindowKind);
         }
         finally
         {
@@ -220,13 +221,10 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.DoesNotContain(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
-            Assert.Contains(
-                parent.Details!,
-                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                          detail.Name.Contains("Spark", StringComparison.OrdinalIgnoreCase));
+            // In the flat-card model, a codex.spark card is emitted when spark window data exists.
+            var sparkCard = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
+            // Spark card: bound by primary (40% used) since no secondary window
+            Assert.Equal(40, sparkCard.UsedPercent, precision: 0);
         }
         finally
         {
@@ -283,33 +281,12 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
 
-            // Provider-level Spark detail (ModelSpecific kind, no ModelName) drives the parent card.
-            // There may also be model-scoped Spark details (with ModelName set) for the child card.
-            var sparkQwDetails = parent.Details!
-                .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                            d.Name.Contains("Spark", StringComparison.OrdinalIgnoreCase) &&
-                            string.IsNullOrWhiteSpace(d.ModelName))
-                .ToList();
-            var sparkDetail = Assert.Single(sparkQwDetails);
-
-            // Spark QuotaWindow detail must show 98% used (the secondary/weekly constraint),
-            // not 0% (the Spark 5h window that just reset).
-            var sparkQwUsed = UsageMath.GetEffectiveUsedPercent(sparkDetail);
-            Assert.NotNull(sparkQwUsed);
-            Assert.Equal(98, sparkQwUsed!.Value, precision: 0);
-
-            // The Model detail drives the codex.spark child card.
-            // It must also reflect the effective Spark constraint (98% weekly) so the child
-            // card does not show the misleading "0% used" from the just-reset 5h window.
-            var modelDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.Model);
-            var modelUsed = UsageMath.GetEffectiveUsedPercent(modelDetail);
-            Assert.NotNull(modelUsed);
-            Assert.Equal(98, modelUsed!.Value, precision: 0);
+            // In the flat-card model, the codex.spark card's UsedPercent reflects the binding constraint.
+            // Spark 5h window just reset (0% used), but main secondary/weekly = 98% used.
+            // effectiveSparkPercent = max(0, 98) = 98.
+            var sparkCard = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
+            Assert.Equal(98, sparkCard.UsedPercent, precision: 0);
         }
         finally
         {
@@ -363,21 +340,11 @@ public class CodexProviderTests : HttpProviderTestBase<CodexProvider>
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.DoesNotContain(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
-            Assert.Contains(
-                parent.Details!,
-                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                          detail.Name.Contains("Spark", StringComparison.OrdinalIgnoreCase));
-            Assert.Contains(
-                parent.Details!,
-                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-string.Equals(detail.Name, "5-hour quota", StringComparison.Ordinal));
-            Assert.Contains(
-                parent.Details!,
-                detail => detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
+            // Flat cards: burst (20%), weekly (10%), and spark (75% — max of spark primary 40% and secondary 75%).
+            Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
+            Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "weekly", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
+            var sparkCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal));
+            Assert.Equal(75, sparkCard.UsedPercent, precision: 0); // binding: max(40, 75)
         }
         finally
         {
@@ -437,34 +404,16 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
 
-            // Model detail must use the binding Spark constraint (75%) not just the 5h primary (40%).
-            var modelDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.Model);
-            var modelUsed = UsageMath.GetEffectiveUsedPercent(modelDetail);
-            Assert.NotNull(modelUsed);
-            Assert.Equal(75, modelUsed!.Value, precision: 0);
+            // The codex.spark card must reflect the binding constraint (secondary_window 75%),
+            // not just the 5h primary (40%).
+            var sparkCard = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
+            Assert.Equal(75, sparkCard.UsedPercent, precision: 0);
 
-            // Provider-level Spark ModelSpecific detail must also reflect 75%.
-            var sparkDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.ModelSpecific &&
-                     string.IsNullOrWhiteSpace(d.ModelName));
-            var sparkUsed = UsageMath.GetEffectiveUsedPercent(sparkDetail);
-            Assert.NotNull(sparkUsed);
-            Assert.Equal(75, sparkUsed!.Value, precision: 0);
-
-            // Model-scoped Rolling detail must be present even though rate_limit.secondary_window
-            // is absent — the weekly data comes from the Spark block's secondary_window.
-            Assert.Contains(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.Rolling &&
-                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
+            // The weekly card is absent because there is no main secondary_window in this test response.
+            // Only the burst card exists for the parent codex.
+            Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "burst", StringComparison.Ordinal));
+            Assert.DoesNotContain(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && string.Equals(u.CardId, "weekly", StringComparison.Ordinal));
         }
         finally
         {
@@ -529,35 +478,21 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
 
-            // Model detail must be present (HasWindowData must be true even with no primary used_percent)
-            var modelDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.Model);
+            // HasWindowData must be true even with no primary used_percent — spark block runs.
+            // effectiveSparkPercent = max(sparkPrimary=0, sparkSecondary=19) = 19.
+            var sparkCard = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex.spark", StringComparison.Ordinal));
 
             // The binding constraint is the weekly (19%) since the burst just reset (0%).
-            var modelUsed = UsageMath.GetEffectiveUsedPercent(modelDetail);
-            Assert.NotNull(modelUsed);
-            Assert.Equal(19, modelUsed!.Value, precision: 0);
+            Assert.Equal(19, sparkCard.UsedPercent, precision: 0);
 
-            // Model-scoped Burst detail must be present (burst window 100% remaining after reset)
-            var sparkBurstDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.Burst &&
-                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
-            var burstRemaining = sparkBurstDetail.PercentageValue;
-            Assert.NotNull(burstRemaining);
-            Assert.Equal(100, burstRemaining!.Value, precision: 0);
+            // Parent burst card: main primary was 20% used
+            var burstCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && u.WindowKind == WindowKind.Burst);
+            Assert.Equal(20, burstCard.UsedPercent, precision: 0);
 
-            // Model-scoped Rolling detail must also be present for dual bar rendering
-            Assert.Contains(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.Rolling &&
-                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
+            // Parent weekly card: main secondary was 19% used
+            var weeklyCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex", StringComparison.Ordinal) && u.WindowKind == WindowKind.Rolling);
+            Assert.Equal(19, weeklyCard.UsedPercent, precision: 0);
         }
         finally
         {
@@ -616,23 +551,9 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
 
-            // The Model detail's ModelName must contain "spark" so the DerivedModelSelector
-            // for codex.spark can match it.
-            var modelDetail = Assert.Single(parent.Details!, d => d.DetailType == ProviderUsageDetailType.Model);
-            Assert.Contains("spark", modelDetail.ModelName, StringComparison.OrdinalIgnoreCase);
-
-            // All model-scoped QW details must share the same ModelName as the Model detail
-            // so BuildModelsFromDetails scopes them to the same model.
-            var modelScopedQwDetails = parent.Details!
-                .Where(d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                            !string.IsNullOrWhiteSpace(d.ModelName))
-                .ToList();
-            Assert.NotEmpty(modelScopedQwDetails);
-            Assert.All(modelScopedQwDetails, d =>
-                Assert.Equal(modelDetail.ModelName, d.ModelName, StringComparer.Ordinal));
+            // The codex.spark flat card must exist so the DerivedModelSelector for codex.spark can match it.
+            Assert.Contains(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal));
         }
         finally
         {
@@ -693,35 +614,17 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
 
-            // Model detail must contain "spark" for DerivedModelSelector to match
-            var modelDetail = Assert.Single(parent.Details!, d => d.DetailType == ProviderUsageDetailType.Model);
-            Assert.Contains("spark", modelDetail.ModelName, StringComparison.OrdinalIgnoreCase);
+            // Burst card: 0% used (just reset)
+            var burstCard = Assert.Single(usages, u => u.ProviderId == "codex" && u.CardId == "burst");
+            Assert.Equal(0, burstCard.UsedPercent, precision: 0);
 
-            // effectiveUsedPercent = max(0, 0, 0, 100) = 100 (driven by spark weekly)
-            Assert.Equal(100, parent.UsedPercent, precision: 0);
+            // No main secondary_window → no weekly card
+            Assert.DoesNotContain(usages, u => u.ProviderId == "codex" && u.CardId == "weekly");
 
-            // Model-scoped Burst detail: burst just reset → 0% used = 100% remaining
-            var burstDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.Burst &&
-                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
-            Assert.NotNull(burstDetail.PercentageValue);
-            Assert.Equal(100, burstDetail.PercentageValue!.Value, precision: 0); // 100% remaining
-            Assert.Equal(PercentageValueSemantic.Remaining, burstDetail.PercentageSemantic);
-
-            // Model-scoped Rolling detail: weekly fully consumed → 100% used = 0% remaining
-            var rollingDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.Rolling &&
-                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
-            Assert.NotNull(rollingDetail.PercentageValue);
-            Assert.Equal(0, rollingDetail.PercentageValue!.Value, precision: 0); // 0% remaining
-            Assert.Equal(PercentageValueSemantic.Remaining, rollingDetail.PercentageSemantic);
+            // Spark card: effectiveUsedPercent = max(primary=0, secondary=100) = 100
+            var sparkCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal));
+            Assert.Equal(100, sparkCard.UsedPercent, precision: 0);
         }
         finally
         {
@@ -776,43 +679,15 @@ string.Equals(detail.Name, "Weekly quota", StringComparison.Ordinal));
         try
         {
             var usages = (await provider.GetUsageAsync(new ProviderConfig { ProviderId = "codex" })).ToList();
-            var parent = Assert.Single(usages, usage => string.Equals(usage.ProviderId, "codex", StringComparison.Ordinal));
-            Assert.NotNull(parent.Details);
 
-            // Parent card: driven by max across all windows → main secondary wins at 98%
-            Assert.Equal(98, parent.UsedPercent, precision: 0);
+            // Weekly card: driven by main secondary → 98% used
+            var weeklyCard = Assert.Single(usages, u => u.ProviderId == "codex" && u.CardId == "weekly");
+            Assert.Equal(98, weeklyCard.UsedPercent, precision: 0);
 
-            // Model detail must use Spark's own weekly (19% used = 81% remaining)
-            var modelDetail = Assert.Single(parent.Details!, d => d.DetailType == ProviderUsageDetailType.Model);
-            var modelUsed = UsageMath.GetEffectiveUsedPercent(modelDetail);
-            Assert.NotNull(modelUsed);
-            Assert.Equal(19, modelUsed!.Value, precision: 0); // Spark's own 19%, NOT main 98%
-
-            // Provider-level Spark ModelSpecific detail must also reflect Spark's own weekly (19%)
-            var sparkDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.ModelSpecific &&
-                     string.IsNullOrWhiteSpace(d.ModelName));
-            var sparkUsed = UsageMath.GetEffectiveUsedPercent(sparkDetail);
-            Assert.NotNull(sparkUsed);
-            Assert.Equal(19, sparkUsed!.Value, precision: 0); // Spark: 19% used
-
-            // Model-scoped Burst: 0% used = 100% remaining (burst just reset)
-            var burstDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.Burst &&
-                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
-            Assert.Equal(100, burstDetail.PercentageValue!.Value, precision: 0);
-
-            // Model-scoped Rolling: Spark's own weekly → 81% remaining (19% used)
-            var rollingDetail = Assert.Single(
-                parent.Details!,
-                d => d.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                     d.QuotaBucketKind == WindowKind.Rolling &&
-                     string.Equals(d.ModelName, modelDetail.ModelName, StringComparison.Ordinal));
-            Assert.Equal(81, rollingDetail.PercentageValue!.Value, precision: 0); // NOT 2% from main
+            // Spark card: effectiveUsedPercent = max(spark primary=0, spark secondary=19) = 19
+            // Spark uses its OWN secondary (19%), NOT the main secondary (98%)
+            var sparkCard = Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal));
+            Assert.Equal(19, sparkCard.UsedPercent, precision: 0);
         }
         finally
         {

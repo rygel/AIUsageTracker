@@ -84,38 +84,6 @@ public partial class App
                 desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, colorPercent, isQuota);
             }
 
-            if (config.EnabledSubTrays == null || usage.Details == null)
-            {
-                continue;
-            }
-
-            foreach (var subName in config.EnabledSubTrays)
-            {
-                var detail = usage.Details.FirstOrDefault(d => d.Name.Equals(subName, StringComparison.OrdinalIgnoreCase));
-                if (detail == null || !MainWindowRuntimeLogic.IsEligibleTrayDetail(detail))
-                {
-                    continue;
-                }
-
-                var isQuotaSub = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
-                var detailPresentation = MainWindowRuntimeLogic.BuildDetailPresentation(
-                    detail,
-                    showUsed,
-                    _ => string.Empty);
-                if (!detailPresentation.HasProgress)
-                {
-                    continue;
-                }
-
-                var key = $"{config.ProviderId}:{subName}";
-                var providerLabel = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-                var subFillPercent = showUsed ? detailPresentation.UsedPercent : detailPresentation.IndicatorWidth;
-                desiredIcons[key] = (
-                    $"{providerLabel} - {subName}: {detailPresentation.DisplayText}",
-                    subFillPercent,
-                    detailPresentation.UsedPercent,
-                    isQuotaSub);
-            }
         }
 
         return desiredIcons;

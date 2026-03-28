@@ -239,64 +239,6 @@ internal sealed class ProviderCardRenderer
         return grid;
     }
 
-    public FrameworkElement CreateSubProviderCard(ProviderUsage usage, ProviderUsageDetail detail, bool showUsed)
-    {
-        var grid = new Grid
-        {
-            Margin = new Thickness(20, 0, 0, 2),
-            Height = 20,
-            Background = Brushes.Transparent,
-        };
-
-        var presentation = MainWindowRuntimeLogic.BuildDetailPresentation(
-            detail,
-            showUsed,
-            this._getRelativeTimeString);
-
-        var pGrid = this.CreateSingleProgressLayer(presentation.UsedPercent, presentation.IndicatorWidth, opacity: 0.3);
-        if (presentation.HasProgress)
-        {
-            grid.Children.Add(pGrid);
-        }
-
-        var bulletPanel = new DockPanel { LastChildFill = false, Margin = new Thickness(6, 0, 6, 0) };
-        AddDockedElement(bulletPanel, this.CreateBulletMarker(), Dock.Left);
-
-        if (!string.IsNullOrEmpty(presentation.ResetText))
-        {
-            AddDockedElement(
-                bulletPanel,
-                this.CreateDockedTextBlock(
-                    presentation.ResetText,
-                    fontSize: 9,
-                    foreground: this._getResourceBrush("StatusTextWarning", Brushes.Goldenrod),
-                    fontWeight: FontWeights.SemiBold,
-                    margin: new Thickness(6, 0, 0, 0)),
-                Dock.Right);
-        }
-
-        AddDockedElement(
-            bulletPanel,
-            this.CreateDockedTextBlock(
-                presentation.DisplayText,
-                fontSize: 10,
-                foreground: this._getResourceBrush("TertiaryText", Brushes.Gray),
-                margin: new Thickness(10, 0, 0, 0)),
-            Dock.Right);
-
-        AddDockedElement(
-            bulletPanel,
-            this.CreateDockedTextBlock(
-                detail.Name,
-                fontSize: 10,
-                foreground: this._getResourceBrush("SecondaryText", Brushes.LightGray),
-                textTrimming: TextTrimming.CharacterEllipsis),
-            Dock.Left);
-
-        grid.Children.Add(bulletPanel);
-        return grid;
-    }
-
     private Grid CreateProgressLayer(double usedPercent, double colorPercent, bool showUsed, double opacity)
     {
         var remainingPercent = Math.Max(0, 100 - usedPercent);

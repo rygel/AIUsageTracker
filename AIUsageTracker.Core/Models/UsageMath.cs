@@ -175,35 +175,15 @@ public static class UsageMath
     }
 
     /// <summary>
-    /// Gets the effective used percentage for a provider detail.
-    /// Returns null if no percentage value is set on the detail.
-    /// </summary>
-    /// <returns></returns>
-    public static double? GetEffectiveUsedPercent(ProviderUsageDetail detail)
-    {
-        if (!detail.TryGetPercentageValue(out var typedPercent, out var typedSemantic, out _))
-        {
-            return null;
-        }
-
-        return typedSemantic switch
-        {
-            PercentageValueSemantic.Used => typedPercent,
-            PercentageValueSemantic.Remaining => ClampPercent(100.0 - typedPercent),
-            _ => typedPercent,
-        };
-    }
-
-    /// <summary>
-    /// Infers the next reset time from a list of provider usage details.
-    /// Prefers the nearest future <see cref="ProviderUsageDetail.NextResetTime"/> value;
+    /// Infers the next reset time from a list of flat provider usage cards.
+    /// Prefers the nearest future <see cref="ProviderUsage.NextResetTime"/> value;
     /// falls back to the most recent known reset time if no future reset is found.
     /// </summary>
-    /// <param name="details">The list of provider usage details to inspect.</param>
+    /// <param name="cards">The list of provider usage cards to inspect.</param>
     /// <returns>The inferred reset time, or null if no reset time is available.</returns>
-    public static DateTime? InferResetTimeFromDetails(IReadOnlyList<ProviderUsageDetail>? details)
+    public static DateTime? InferResetTimeFromCards(IReadOnlyList<ProviderUsage>? cards)
     {
-        if (details == null || details.Count == 0)
+        if (cards == null || cards.Count == 0)
         {
             return null;
         }
@@ -212,14 +192,14 @@ public static class UsageMath
         DateTime? bestFuture = null;
         DateTime? lastKnown = null;
 
-        foreach (var detail in details)
+        foreach (var card in cards)
         {
-            if (!detail.NextResetTime.HasValue)
+            if (!card.NextResetTime.HasValue)
             {
                 continue;
             }
 
-            var resetUtc = detail.NextResetTime.Value.ToUniversalTime();
+            var resetUtc = card.NextResetTime.Value.ToUniversalTime();
             if (!lastKnown.HasValue || resetUtc > lastKnown.Value)
             {
                 lastKnown = resetUtc;

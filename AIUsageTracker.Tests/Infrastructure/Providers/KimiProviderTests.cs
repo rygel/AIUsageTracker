@@ -163,28 +163,18 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = result.Single();
-        Assert.Equal("kimi-for-coding", usage.ProviderId); // provider-id-guardrail-allow: test assertion
-        Assert.True(usage.IsQuotaBased);
-        Assert.Equal(PlanType.Coding, usage.PlanType);
+        // Assert — provider now emits flat cards: one per quota window
+        var usages = result.ToList();
+        // Should have 2 flat cards: 5h limit + 7d limit (Weekly-from-usage is skipped when a 7d entry exists in data.Limits)
+        Assert.Equal(2, usages.Count);
+        Assert.All(usages, u => Assert.Equal("kimi-for-coding", u.ProviderId)); // provider-id-guardrail-allow: test assertion
+        Assert.All(usages, u => Assert.True(u.IsQuotaBased));
+        Assert.All(usages, u => Assert.Equal(PlanType.Coding, u.PlanType));
 
-        // 26% used (2600 / 10000)
-        Assert.Equal(26, usage.UsedPercent);
-        Assert.Equal(2600, usage.RequestsUsed);
-        Assert.Equal(10000, usage.RequestsAvailable);
-
-        // Should have 2 details: 5h limit + 7d limit (Weekly-from-usage is skipped when a 7d entry exists in data.Limits)
-        Assert.NotNull(usage.Details);
-        Assert.Equal(2, usage.Details!.Count);
-
-        // Verify 5-hour limit is Primary
-        var primaryDetail = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(primaryDetail);
-        Assert.Equal("5h Limit", primaryDetail!.Name);
-        Assert.True(primaryDetail.TryGetPercentageValue(out var primaryUsed, out var semantic, out _));
-        Assert.Equal(PercentageValueSemantic.Used, semantic);
-        Assert.Equal(26, primaryUsed); // (1000 - 740) / 1000 * 100 = 26% used
+        // Verify 5-hour burst card
+        var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal("5h Limit", burstCard.Name);
+        Assert.Equal(26, burstCard.UsedPercent, precision: 0); // (1000 - 740) / 1000 * 100 = 26% used
     }
 
     /// <summary>
@@ -224,20 +214,19 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = result.Single();
+        // Assert — provider emits flat cards (weekly from usage + burst from limits)
+        var usages = result.ToList();
 
-        // 15% used (1500 / 10000) - this is the weekly quota
-        Assert.Equal(15, usage.UsedPercent);
+        // Weekly card from usage block (no 7d entry in limits)
+        var weeklyCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Rolling);
+        Assert.Equal(15, weeklyCard.UsedPercent, precision: 0); // 1500 / 10000 = 15%
 
-        // Verify 5-hour limit shows 92% used
-        var primaryDetail = usage.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(primaryDetail);
-        Assert.True(primaryDetail!.TryGetPercentageValue(out var fiveHourUsed, out _, out _));
-        Assert.Equal(92, fiveHourUsed); // (1000 - 80) / 1000 * 100 = 92% used
+        // Burst card: 92% used (1000 - 80) / 1000 * 100
+        var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal(92, burstCard.UsedPercent, precision: 0);
 
-        // Next reset should be the sooner one (5-hour)
-        Assert.NotNull(usage.NextResetTime);
+        // Next reset should be set on the burst card (sooner reset)
+        Assert.NotNull(burstCard.NextResetTime);
     }
 
     /// <summary>
@@ -281,23 +270,16 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = result.Single();
+        // Assert — provider emits flat cards (rolling + burst)
+        var usages = result.ToList();
 
-        // 92% used (9200 / 10000) - hitting weekly limit
-        Assert.Equal(92, usage.UsedPercent);
-        Assert.Equal(9200, usage.RequestsUsed);
-
-        // Verify weekly detail shows 92% used
-        var secondaryDetails = usage.Details?.Where(d => d.QuotaBucketKind == WindowKind.Rolling).ToList();
-        Assert.NotNull(secondaryDetails);
-        Assert.True(secondaryDetails!.Count >= 1);
-
-        // One of the secondary details should show 92% used
-        var weeklyDetail = secondaryDetails.FirstOrDefault(d => string.Equals(d.Name, "7d Limit", StringComparison.Ordinal));
-        Assert.NotNull(weeklyDetail);
-        Assert.True(weeklyDetail!.TryGetPercentageValue(out var weeklyUsed, out _, out _));
-        Assert.Equal(92, weeklyUsed);
+        // Rolling card from limits (7d entry exists in limits, so usage block is skipped)
+        var rollingCards = usages.Where(u => u.WindowKind == WindowKind.Rolling).ToList();
+        Assert.True(rollingCards.Count >= 1);
+        var weeklyCard = rollingCards.FirstOrDefault(u => string.Equals(u.Name, "7d Limit", StringComparison.Ordinal));
+        Assert.NotNull(weeklyCard);
+        Assert.Equal(92, weeklyCard!.UsedPercent, precision: 0); // (10000 - 800) / 10000 * 100 = 92%
+        Assert.Equal(9200, weeklyCard.RequestsUsed);
     }
 
     /// <summary>
@@ -372,22 +354,18 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
 
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        var usage = result.Single();
+        // Provider now emits flat cards: burst (300min) + rolling (weekly from usage)
+        var usages = result.ToList();
+        var burstCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
+        var rollingCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Rolling);
 
-        // 26% used (26 / 100)
-        Assert.Equal(26, usage.UsedPercent);
-        Assert.Equal(26, usage.RequestsUsed);
-        Assert.Equal(100, usage.RequestsAvailable);
-        Assert.NotNull(usage.Details);
-
-        // Should have: Secondary (weekly from usage block) + Primary (300min window from limits)
-        var primary = usage.Details!.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        var secondary = usage.Details!.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Rolling);
-        Assert.NotNull(primary);   // 300-minute window → Primary
-        Assert.NotNull(secondary); // usage block → Secondary
-        Assert.Equal("5h Limit", primary!.Name);
-        Assert.Contains("remaining", primary.Description, StringComparison.Ordinal);
-        Assert.Contains("remaining", secondary.Description, StringComparison.Ordinal);
+        // 26% used on the burst card (26 / 100)
+        Assert.Equal(26, burstCard.UsedPercent, precision: 0);
+        Assert.Equal(26, burstCard.RequestsUsed, precision: 0);
+        Assert.Equal(100, burstCard.RequestsAvailable, precision: 0);
+        Assert.Equal("5h Limit", burstCard.Name);
+        Assert.Contains("remaining", burstCard.Description, StringComparison.Ordinal);
+        Assert.Contains("remaining", rollingCard.Description, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -427,20 +405,19 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         // Act
         var result = await this._provider.GetUsageAsync(this.Config);
 
-        // Assert
-        var usage = result.Single();
-        Assert.NotNull(usage.Details);
-        Assert.Equal(2, usage.Details.Count); // Hourly (Burst) + Weekly from limits (Rolling); weekly-from-usage is skipped when a 7d entry exists in data.Limits
+        // Assert — provider emits flat cards: Hourly (Burst) + Weekly from limits (Rolling)
+        // Weekly-from-usage is skipped when a 7d entry exists in data.Limits
+        var usages = result.ToList();
+        Assert.Equal(2, usages.Count);
 
-        var hourlyDetail = usage.Details.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        var weeklyDetails = usage.Details.Where(d => d.QuotaBucketKind == WindowKind.Rolling).ToList();
+        var hourlyCard = Assert.Single(usages, u => u.WindowKind == WindowKind.Burst);
+        var weeklyCards = usages.Where(u => u.WindowKind == WindowKind.Rolling).ToList();
 
-        Assert.NotNull(hourlyDetail);
-        Assert.Equal(1, weeklyDetails.Count); // Only the 7d limit from limits array
-        Assert.Equal("Hourly Limit", hourlyDetail.Name);
+        Assert.Equal(1, weeklyCards.Count); // Only the 7d limit from limits array
+        Assert.Equal("Hourly Limit", hourlyCard.Name);
 
         // Verify description contains remaining count format
-        Assert.Contains("remaining", hourlyDetail.Description, StringComparison.Ordinal);
+        Assert.Contains("remaining", hourlyCard.Description, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -472,11 +449,10 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
 
-        var primaryDetail = usage.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(primaryDetail);
-        Assert.Equal("3h Limit", primaryDetail!.Name);
+        // Provider emits flat cards: burst (3h window) + rolling (weekly from usage)
+        var burstCard = Assert.Single(result, u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal("3h Limit", burstCard.Name);
     }
 
     /// <summary>
@@ -508,11 +484,10 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         });
 
         var result = await this._provider.GetUsageAsync(this.Config);
-        var usage = result.Single();
 
-        var primaryDetail = usage.Details?.FirstOrDefault(d => d.QuotaBucketKind == WindowKind.Burst);
-        Assert.NotNull(primaryDetail);
-        Assert.Equal("1d Limit", primaryDetail!.Name); // Duration is formatted as "1d" not "Daily"
+        // Provider emits flat cards: burst (1d window) + rolling (weekly from usage)
+        var burstCard = Assert.Single(result, u => u.WindowKind == WindowKind.Burst);
+        Assert.Equal("1d Limit", burstCard.Name); // Duration is formatted as "1d" not "Daily"
     }
 
     [Fact]

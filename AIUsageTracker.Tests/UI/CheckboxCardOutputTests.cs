@@ -29,24 +29,6 @@ public sealed class CheckboxCardOutputTests
         double rollingUsedPercent = 60.0,
         string accountEmail = "user@example.com")
     {
-        var burstDetail = new ProviderUsageDetail
-        {
-            Name = "5-hour quota",
-            Description = "burst window",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
-        };
-        burstDetail.SetPercentageValue(burstUsedPercent, PercentageValueSemantic.Used);
-
-        var rollingDetail = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            Description = "rolling window",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        rollingDetail.SetPercentageValue(rollingUsedPercent, PercentageValueSemantic.Used);
-
         return new ProviderUsage
         {
             ProviderId = "codex",
@@ -56,7 +38,11 @@ public sealed class CheckboxCardOutputTests
             IsQuotaBased = true,
             UsedPercent = rollingUsedPercent,
             NextResetTime = DateTime.UtcNow.AddDays(5),
-            Details = new List<ProviderUsageDetail> { burstDetail, rollingDetail },
+            WindowCards = new[]
+            {
+                new ProviderUsage { ProviderId = "codex", Name = "5h",     WindowKind = WindowKind.Burst,   UsedPercent = burstUsedPercent,   NextResetTime = DateTime.UtcNow.AddHours(2) },
+                new ProviderUsage { ProviderId = "codex", Name = "Weekly", WindowKind = WindowKind.Rolling, UsedPercent = rollingUsedPercent, NextResetTime = DateTime.UtcNow.AddDays(5) },
+            },
         };
     }
 

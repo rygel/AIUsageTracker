@@ -156,7 +156,7 @@ public class OpenCodeZenProvider : ProviderBase
         int sessions,
         int messages,
         int days,
-        List<ProviderUsageDetail> details)
+        string metricsDescription)
     {
         return new ProviderUsage
         {
@@ -169,77 +169,36 @@ public class OpenCodeZenProvider : ProviderBase
             IsQuotaBased = false,
             PlanType = PlanType.Usage,
             IsAvailable = true,
-            Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs, {days} days)",
-            Details = details,
+            Description = $"${totalCost:F2} ({sessions} sessions, {messages} msgs, {days} days){metricsDescription}",
             AuthSource = config.AuthSource,
             RawJson = rawOutput,
             HttpStatus = 200,
         };
     }
 
-    private static List<ProviderUsageDetail> BuildDetails(string cleaned)
-    {
-        var details = new List<ProviderUsageDetail>();
-        AddOverviewDetails(details, cleaned);
-        AddTokenDetails(details, cleaned);
-        AddModelDetails(details, cleaned);
-        AddToolDetails(details, cleaned);
-        return details;
-    }
-
-    private static void AddOverviewDetails(List<ProviderUsageDetail> details, string cleaned)
-    {
-        var sessions = ParseValue<int>(cleaned, @"Sessions\s+([0-9,]+)");
-        var messages = ParseValue<int>(cleaned, @"Messages\s+([0-9,]+)");
-        var avgCostPerDay = ParseValue<double>(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
-
-        details.Add(CreateOtherDetail("Sessions", $"{sessions:N0} sessions"));
-        details.Add(CreateOtherDetail("Messages", $"{messages:N0} messages"));
-        details.Add(CreateOtherDetail("Avg Cost/Day", $"${avgCostPerDay:F2}"));
-    }
-
-    private static void AddTokenDetails(List<ProviderUsageDetail> details, string cleaned)
+    private static string BuildMetricsDescription(string cleaned)
     {
         var inputTokens = ParseValue<double>(cleaned, @"Input\s+([0-9.,KM]+)");
         var outputTokens = ParseValue<double>(cleaned, @"Output\s+([0-9.,KM]+)");
-        var cacheRead = ParseValue<double>(cleaned, @"Cache Read\s+([0-9.,KM]+)");
-        var cacheWrite = ParseValue<double>(cleaned, @"Cache Write\s+([0-9.,KM]+)");
+        var avgCostPerDay = ParseValue<double>(cleaned, @"Avg Cost/Day\s+\$([0-9.]+)");
 
-        details.Add(CreateOtherDetail("Input Tokens", FormatTokens(inputTokens)));
-        details.Add(CreateOtherDetail("Output Tokens", FormatTokens(outputTokens)));
-        details.Add(CreateOtherDetail("Cache Read", FormatTokens(cacheRead)));
-        details.Add(CreateOtherDetail("Cache Write", FormatTokens(cacheWrite)));
-    }
-
-    private static void AddModelDetails(List<ProviderUsageDetail> details, string cleaned)
-    {
-        foreach (var model in ParseModelUsage(cleaned).Take(5))
+        var parts = new List<string>();
+        if (inputTokens > 0)
         {
-            details.Add(CreateOtherDetail(
-                model.Name,
-                $"{model.Messages:N0} msgs | {FormatTokens(model.Tokens)} | ${model.Cost:F2}"));
+            parts.Add($"In:{FormatTokens(inputTokens)}");
         }
-    }
 
-    private static void AddToolDetails(List<ProviderUsageDetail> details, string cleaned)
-    {
-        foreach (var tool in ParseToolUsage(cleaned).Take(5))
+        if (outputTokens > 0)
         {
-            details.Add(CreateOtherDetail(
-                $"Tool: {tool.Name}",
-                $"{tool.Count:N0} uses ({tool.Percentage:F1}%)"));
+            parts.Add($"Out:{FormatTokens(outputTokens)}");
         }
-    }
 
-    private static ProviderUsageDetail CreateOtherDetail(string name, string description)
-    {
-        return new ProviderUsageDetail
+        if (avgCostPerDay > 0)
         {
-            Name = name,
-            Description = description,
-            DetailType = ProviderUsageDetailType.Other,
-            QuotaBucketKind = WindowKind.None,
-        };
+            parts.Add($"Avg/day:${avgCostPerDay:F2}");
+        }
+
+        return parts.Count > 0 ? " | " + string.Join(" | ", parts) : string.Empty;
     }
 
     private static string CleanAnsiOutput(string output)
@@ -435,9 +394,9 @@ public class OpenCodeZenProvider : ProviderBase
         var sessions = ParseValue<int>(cleaned, @"Sessions\s+([0-9,]+)");
         var messages = ParseValue<int>(cleaned, @"Messages\s+([0-9,]+)");
         var days = ParseValue<int>(cleaned, @"Days\s+(\d+)");
-        var details = BuildDetails(cleaned);
+        var metricsDescription = BuildMetricsDescription(cleaned);
 
-        return CreateUsage(this.ProviderId, config, output, totalCost, sessions, messages, days, details);
+        return CreateUsage(this.ProviderId, config, output, totalCost, sessions, messages, days, metricsDescription);
     }
 
     private async Task<bool> IsInPathAsync(string command)

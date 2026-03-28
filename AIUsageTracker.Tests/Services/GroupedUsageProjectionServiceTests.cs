@@ -12,13 +12,6 @@ public sealed class GroupedUsageProjectionServiceTests
     [Fact]
     public void Build_AntigravityWithExplicitChildRows_UsesProviderChildRowsAsModelSource()
     {
-        var staleDetail = new ProviderUsageDetail
-        {
-            Name = "Stale Detail",
-            DetailType = ProviderUsageDetailType.Model,
-        };
-        staleDetail.SetPercentageValue(90.0, PercentageValueSemantic.Remaining);
-
         var usages = new[]
         {
             new ProviderUsage
@@ -30,7 +23,6 @@ public sealed class GroupedUsageProjectionServiceTests
                 PlanType = PlanType.Coding,
                 UsedPercent = 40,
                 Description = "40% Remaining",
-                Details = new List<ProviderUsageDetail> { staleDetail },
             },
             new ProviderUsage
             {

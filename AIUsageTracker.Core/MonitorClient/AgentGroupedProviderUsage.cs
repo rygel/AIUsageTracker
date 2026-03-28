@@ -40,9 +40,9 @@ public sealed class AgentGroupedProviderUsage
     public IReadOnlyList<AgentGroupedModelUsage> Models { get; set; } = Array.Empty<AgentGroupedModelUsage>();
 
     /// <summary>
-    /// Gets or sets the provider-level details from ProviderUsage.Details.
-    /// Passed through directly to the UI as the parent card's details —
-    /// QuotaWindow entries drive dual bars, Model entries drive detail rows.
+    /// Gets or sets the flat provider usage cards for this group.
+    /// Cards with WindowKind != None drive quota window bars.
+    /// Cards with ModelName != null drive per-model rows.
     /// </summary>
-    public IReadOnlyList<ProviderUsageDetail> ProviderDetails { get; set; } = Array.Empty<ProviderUsageDetail>();
+    public IReadOnlyList<ProviderUsage> ProviderDetails { get; set; } = Array.Empty<ProviderUsage>();
 }

@@ -21,8 +21,10 @@ public class ProviderUsageProcessingPipelineTests
     }
 
     [Fact]
-    public void Process_WhenDetailContractInvalid_ConvertsUsageToUnavailableError()
+    public void Process_WhenUsageIsAvailable_PassesThroughUnchanged()
     {
+        // With flat cards, the detail contract stage is a no-op.
+        // This test verifies a valid usage passes through the pipeline correctly.
         var usage = new ProviderUsage
         {
             ProviderId = "openai",
@@ -31,15 +33,8 @@ public class ProviderUsageProcessingPipelineTests
             RequestsAvailable = 100,
             UsedPercent = 10,
             IsAvailable = true,
-            Details = new[]
-            {
-                new ProviderUsageDetail
-                {
-                    Name = string.Empty,
-                    DetailType = ProviderUsageDetailType.Unknown,
-                    QuotaBucketKind = WindowKind.None,
-                },
-            },
+            WindowKind = WindowKind.Burst,
+            HttpStatus = 200,
         };
 
         var result = this._pipeline.Process(
@@ -48,10 +43,9 @@ public class ProviderUsageProcessingPipelineTests
             isPrivacyMode: false);
 
         var processed = Assert.Single(result.Usages);
-        Assert.False(processed.IsAvailable);
-        Assert.True(processed.Description.Contains("Invalid detail contract:", StringComparison.Ordinal));
-        Assert.Equal(UpstreamResponseValidity.Invalid, processed.UpstreamResponseValidity);
-        Assert.Equal(1, result.DetailContractAdjustedCount);
+        Assert.True(processed.IsAvailable);
+        Assert.Equal(WindowKind.Burst, processed.WindowKind);
+        Assert.Equal(0, result.DetailContractAdjustedCount);
     }
 
     [Fact]
@@ -385,26 +379,18 @@ public class ProviderUsageProcessingPipelineTests
     }
 
     [Fact]
-    public void Process_WhenNextResetMissing_DoesNotInferNextResetFromDetails()
+    public void Process_WhenNextResetMissing_DoesNotInferNextResetFromSiblingCards()
     {
-        var futureReset = DateTime.UtcNow.AddHours(2);
+        // With flat cards, NextResetTime on each card is independent.
+        // A card with null NextResetTime should remain null after processing.
         var usage = new ProviderUsage
         {
             ProviderId = "github-copilot",
             ProviderName = "GitHub Copilot",
             IsAvailable = false,
+            Description = "Quota exceeded",
             NextResetTime = null,
-            Details =
-            [
-                new ProviderUsageDetail
-                {
-                    Name = "Weekly Quota",
-                    Description = "14% used",
-                    DetailType = ProviderUsageDetailType.QuotaWindow,
-                    QuotaBucketKind = WindowKind.Rolling,
-                    NextResetTime = futureReset,
-                },
-            ],
+            WindowKind = WindowKind.Burst,
         };
 
         var result = this._pipeline.Process(
@@ -414,9 +400,6 @@ public class ProviderUsageProcessingPipelineTests
 
         var processed = Assert.Single(result.Usages);
         Assert.Null(processed.NextResetTime);
-        var processedDetail = Assert.Single(processed.Details!);
-        Assert.NotNull(processedDetail.NextResetTime);
-        Assert.Equal(futureReset, processedDetail.NextResetTime!.Value, TimeSpan.FromSeconds(1));
     }
 
     [Fact]
@@ -452,7 +435,7 @@ public class ProviderUsageProcessingPipelineTests
         Assert.Equal(1, snapshot.InvalidIdentityCount);
         Assert.Equal(1, snapshot.InactiveProviderFilteredCount);
         Assert.Equal(1, snapshot.PlaceholderFilteredCount);
-        Assert.Equal(1, snapshot.DetailContractAdjustedCount);
+        Assert.Equal(0, snapshot.DetailContractAdjustedCount); // Detail contract stage is now a no-op
         Assert.True(snapshot.NormalizedCount >= 1);
         Assert.Equal(1, snapshot.PrivacyRedactedCount);
         Assert.NotNull(snapshot.LastProcessedAtUtc);
@@ -506,15 +489,7 @@ public class ProviderUsageProcessingPipelineTests
                 ProviderId = "openai",
                 ProviderName = "OpenAI",
                 IsAvailable = true,
-                Details =
-                [
-                    new ProviderUsageDetail
-                    {
-                        Name = string.Empty,
-                        DetailType = ProviderUsageDetailType.Unknown,
-                        QuotaBucketKind = WindowKind.None,
-                    },
-                ],
+                WindowKind = WindowKind.Burst,
             },
         ];
     }
@@ -536,31 +511,23 @@ public class ProviderUsageProcessingPipelineTests
         ];
     }
 
-    // ── NormalizeDetails field preservation ────────────────────────────────────
-    // These guard against regressions like the beta.39 bug where NormalizeDetails
-    // dropped PercentageValue/PercentageSemantic, causing TryGetPresentation to
-    // return false for providers that used typed percentage fields (e.g. Codex).
+    // ── Flat card field preservation ─────────────────────────────────────────────
+    // These guard against regressions where the pipeline drops flat card properties
+    // like WindowKind, CardId, Name, or NextResetTime during normalization.
     [Fact]
-    public void Process_NormalizeDetails_PreservesTypedPercentageValue()
+    public void Process_NormalizeFlatCard_PreservesWindowKind()
     {
-        // Arrange: detail with typed percentage only (no legacy Used string),
-        // which is exactly how CodexProvider and ClaudeCodeProvider emit details.
-        var detail = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        detail.SetPercentageValue(35.0, PercentageValueSemantic.Remaining);
-
         var usage = new ProviderUsage
         {
             ProviderId = "codex",
             ProviderName = "Codex",
-            IsAvailable = true,
+            CardId = "weekly",
+            GroupId = "codex",
+            Name = "Weekly quota",
+            WindowKind = WindowKind.Rolling,
             UsedPercent = 65,
             IsQuotaBased = true,
-            Details = new[] { detail },
+            IsAvailable = true,
         };
 
         var result = this._pipeline.Process(
@@ -569,32 +536,25 @@ public class ProviderUsageProcessingPipelineTests
             isPrivacyMode: false);
 
         var processed = Assert.Single(result.Usages);
-        var processedDetail = Assert.Single(processed.Details!);
-        Assert.True(processedDetail.TryGetPercentageValue(out var pct, out var semantic, out _));
-        Assert.Equal(35.0, pct, precision: 5);
-        Assert.Equal(PercentageValueSemantic.Remaining, semantic);
+        Assert.Equal(WindowKind.Rolling, processed.WindowKind);
+        Assert.Equal("weekly", processed.CardId);
+        Assert.Equal("Weekly quota", processed.Name);
     }
 
     [Fact]
-    public void Process_NormalizeDetails_PreservesNextResetTimeOnDetails()
+    public void Process_NormalizeFlatCard_PreservesNextResetTime()
     {
         var localTime = new DateTime(2026, 4, 1, 10, 0, 0, DateTimeKind.Local);
-        var detail = new ProviderUsageDetail
+        var usage = new ProviderUsage
         {
+            ProviderId = "codex",
+            CardId = "burst",
             Name = "5-hour quota",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
+            WindowKind = WindowKind.Burst,
             NextResetTime = localTime,
-        };
-        detail.SetPercentageValue(80.0, PercentageValueSemantic.Remaining);
-
-        var usage = new ProviderUsage
-        {
-            ProviderId = "codex",
             IsAvailable = true,
             IsQuotaBased = true,
-            UsedPercent = 80,
-            Details = new[] { detail },
+            UsedPercent = 20,
         };
 
         var result = this._pipeline.Process(
@@ -602,62 +562,22 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "codex" },
             isPrivacyMode: false);
 
-        var processedDetail = Assert.Single(Assert.Single(result.Usages).Details!);
-        Assert.NotNull(processedDetail.NextResetTime);
-        Assert.Equal(
-            localTime.ToUniversalTime(),
-            processedDetail.NextResetTime!.Value,
-            precision: TimeSpan.FromSeconds(1));
+        var processed = Assert.Single(result.Usages);
+        Assert.NotNull(processed.NextResetTime);
     }
 
     [Fact]
-    public void Process_NormalizeDetails_PreservesQuotaBucketKind()
+    public void Process_NormalizeFlatCard_PreservesIsStale()
     {
-        var detail = new ProviderUsageDetail
-        {
-            Name = "Weekly quota",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Rolling,
-        };
-        detail.SetPercentageValue(60.0, PercentageValueSemantic.Remaining);
-
         var usage = new ProviderUsage
         {
             ProviderId = "codex",
-            IsAvailable = true,
-            IsQuotaBased = true,
-            UsedPercent = 60,
-            Details = new[] { detail },
-        };
-
-        var result = this._pipeline.Process(
-            new[] { usage },
-            new[] { "codex" },
-            isPrivacyMode: false);
-
-        var processedDetail = Assert.Single(Assert.Single(result.Usages).Details!);
-        Assert.Equal(WindowKind.Rolling, processedDetail.QuotaBucketKind);
-    }
-
-    [Fact]
-    public void Process_NormalizeDetails_PreservesIsStale()
-    {
-        var detail = new ProviderUsageDetail
-        {
-            Name = "5-hour quota",
-            DetailType = ProviderUsageDetailType.QuotaWindow,
-            QuotaBucketKind = WindowKind.Burst,
+            CardId = "burst",
+            WindowKind = WindowKind.Burst,
             IsStale = true,
-        };
-        detail.SetPercentageValue(50.0, PercentageValueSemantic.Remaining);
-
-        var usage = new ProviderUsage
-        {
-            ProviderId = "codex",
             IsAvailable = true,
             IsQuotaBased = true,
             UsedPercent = 50,
-            Details = new[] { detail },
         };
 
         var result = this._pipeline.Process(
@@ -665,7 +585,7 @@ public class ProviderUsageProcessingPipelineTests
             new[] { "codex" },
             isPrivacyMode: false);
 
-        var processedDetail = Assert.Single(Assert.Single(result.Usages).Details!);
-        Assert.True(processedDetail.IsStale);
+        var processed = Assert.Single(result.Usages);
+        Assert.True(processed.IsStale);
     }
 }

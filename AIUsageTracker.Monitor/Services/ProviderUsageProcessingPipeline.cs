@@ -181,13 +181,8 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         ProviderUsage usage,
         ref int detailContractAdjustedCount)
     {
-        if (!this.TryCreateDetailContractErrorUsage(usage, out var contractErrorUsage))
-        {
-            return usage;
-        }
-
-        detailContractAdjustedCount++;
-        return contractErrorUsage;
+        // With flat cards, there are no sub-details to validate — this stage is a no-op.
+        return usage;
     }
 
     private bool ShouldRejectPlaceholderStage(
@@ -255,7 +250,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
 
         var httpStatus = usage.HttpStatus is >= 0 and <= 599 ? usage.HttpStatus : 0;
 
-        var details = this.NormalizeDetails(usage.Details);
         var usageNextResetTimeUtc = usage.NextResetTime?.ToUniversalTime();
 
         // Contract: providers must populate NextResetTime on the root ProviderUsage when known.
@@ -298,7 +292,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             IsCurrencyUsage = usage.IsCurrencyUsage || (definition?.IsCurrencyUsage ?? false),
             Description = description,
             AuthSource = usage.AuthSource,
-            Details = details,
             AccountName = accountName ?? string.Empty,
             ConfigKey = configKey ?? string.Empty,
             NextResetTime = normalizedNextResetTimeUtc,
@@ -308,6 +301,12 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             HttpStatus = httpStatus,
             UpstreamResponseValidity = upstreamResponseValidity,
             UpstreamResponseNote = upstreamResponseNote ?? string.Empty,
+            CardId = usage.CardId,
+            GroupId = usage.GroupId,
+            WindowKind = usage.WindowKind,
+            ModelName = usage.ModelName,
+            Name = usage.Name,
+            IsStale = usage.IsStale,
         };
         var upstreamEvaluation = normalizedUsageCandidate.EvaluateUpstreamResponseValidity();
         upstreamResponseValidity = upstreamEvaluation.Validity;
@@ -323,7 +322,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             !this.StringEquals(description, usage.Description) ||
             httpStatus != usage.HttpStatus ||
             normalizedNextResetTimeUtc != usageNextResetTimeUtc ||
-            !ReferenceEquals(details, usage.Details) ||
             upstreamResponseValidity != usage.UpstreamResponseValidity ||
             !this.StringEquals(upstreamResponseNote, usage.UpstreamResponseNote))
         {
@@ -379,35 +377,6 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
         return UsageMath.CalculateUsedPercent(requestsUsed, requestsAvailable);
     }
 
-    private IReadOnlyList<ProviderUsageDetail>? NormalizeDetails(IReadOnlyList<ProviderUsageDetail>? details)
-    {
-        if (details == null || details.Count == 0)
-        {
-            return null;
-        }
-
-        var normalizedDetails = new List<ProviderUsageDetail>(details.Count);
-        foreach (var detail in details)
-        {
-            normalizedDetails.Add(new ProviderUsageDetail
-            {
-                Name = (detail.Name ?? string.Empty).Trim(),
-                ModelName = (detail.ModelName ?? string.Empty).Trim(),
-                GroupName = (detail.GroupName ?? string.Empty).Trim(),
-                Description = (detail.Description ?? string.Empty).Trim(),
-                NextResetTime = detail.NextResetTime?.ToUniversalTime(),
-                DetailType = detail.DetailType,
-                QuotaBucketKind = detail.QuotaBucketKind,
-                PercentageValue = detail.PercentageValue,
-                PercentageSemantic = detail.PercentageSemantic,
-                PercentageDecimalPlaces = detail.PercentageDecimalPlaces,
-                IsStale = detail.IsStale,
-            });
-        }
-
-        return normalizedDetails;
-    }
-
     private bool IsUsageForAnyActiveProvider(HashSet<string> activeProviderIds, string usageProviderId)
     {
         return activeProviderIds.Any(providerId =>
@@ -423,80 +392,10 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             return false;
         }
 
-        // Entries with details (quota windows, model data, etc.) are real — not placeholders.
-        if (usage.Details?.Count > 0)
-        {
-            return false;
-        }
-
         // Keep unavailable entries that carry a description — they are actionable
         // (e.g. "Codex auth token not found", "API Key missing").  Only discard
         // truly empty entries that have nothing to show the user.
         return string.IsNullOrWhiteSpace(usage.Description);
-    }
-
-    private bool TryCreateDetailContractErrorUsage(
-        ProviderUsage usage,
-        out ProviderUsage invalidUsage)
-    {
-        invalidUsage = usage;
-        if (usage.Details == null)
-        {
-            return false;
-        }
-
-        var validationErrors = new List<string>();
-        foreach (var detail in usage.Details)
-        {
-            if (string.IsNullOrWhiteSpace(detail.Name))
-            {
-                validationErrors.Add("Detail Name is empty");
-            }
-
-            if (detail.DetailType == ProviderUsageDetailType.Unknown)
-            {
-                validationErrors.Add("DetailType is Unknown (must be QuotaWindow, Credit, Model, or Other)");
-            }
-
-            if (detail.DetailType == ProviderUsageDetailType.QuotaWindow &&
-                detail.QuotaBucketKind == WindowKind.None)
-            {
-                validationErrors.Add("QuotaWindow details must have WindowKind set (Burst, Rolling, or ModelSpecific)");
-            }
-        }
-
-        if (validationErrors.Count == 0)
-        {
-            return false;
-        }
-
-        invalidUsage = new ProviderUsage
-        {
-            ProviderId = usage.ProviderId,
-            ProviderName = usage.ProviderName,
-            RequestsUsed = 0,
-            RequestsAvailable = 0,
-            UsedPercent = 0,
-            PlanType = usage.PlanType,
-            IsQuotaBased = usage.IsQuotaBased,
-            DisplayAsFraction = usage.DisplayAsFraction,
-            IsAvailable = false,
-            State = ProviderUsageState.Error,
-            Description = $"Invalid detail contract: {string.Join("; ", validationErrors)}",
-            AuthSource = usage.AuthSource,
-            Details = null,
-            AccountName = usage.AccountName,
-            ConfigKey = usage.ConfigKey,
-            NextResetTime = null,
-            FetchedAt = usage.FetchedAt,
-            ResponseLatencyMs = usage.ResponseLatencyMs,
-            RawJson = usage.RawJson,
-            HttpStatus = usage.HttpStatus,
-            UpstreamResponseValidity = UpstreamResponseValidity.Invalid,
-            UpstreamResponseNote = "Invalid detail contract",
-        };
-
-        return true;
     }
 
     private void NormalizeFamilyAccountIdentity(List<ProviderUsage> usages)

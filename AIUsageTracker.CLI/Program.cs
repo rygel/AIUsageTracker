@@ -276,31 +276,11 @@ public class Program
 
         foreach (var item in history)
         {
-            // Flatten details for simplified view
-            var displayableHistoryDetails = item.Details?
-                .Where(d => d.DetailType == ProviderUsageDetailType.Model || d.DetailType == ProviderUsageDetailType.Other)
-                .ToList();
-
-            if (displayableHistoryDetails is { Count: > 0 })
-            {
-                foreach (var detail in displayableHistoryDetails)
-                {
-                    var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
-                    var detailDisplay = detail.PercentageValue.HasValue
-                        ? $"{detail.PercentageValue.Value:F1}% {detail.PercentageSemantic.ToString().ToLowerInvariant()}"
-                        : detail.Description;
-                    Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {detail.Name,-25} | {detailDisplay,-15}");
-                }
-            }
-            else
-            {
-                // Fallback for providers without details
-                var used = item.IsCurrencyUsage
-                    ? $"${item.RequestsUsed:F2}"
-                    : item.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
-                Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
-            }
+            var used = item.IsCurrencyUsage
+                ? $"${item.RequestsUsed:F2}"
+                : item.RequestsUsed.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(item.ProviderId, item.ProviderName);
+            Console.WriteLine($"{item.FetchedAt.ToShortDateString(),-12} | {providerDisplayName,-20} | {"(Total)",-25} | {used,-15}");
         }
     }
 
@@ -527,10 +507,6 @@ public class Program
                 var providerDisplayName = ProviderMetadataCatalog.ResolveDisplayLabel(u.ProviderId, u.ProviderName);
 
                 var description = u.Description;
-                if (u.Details != null && u.Details.Any() && string.IsNullOrEmpty(description))
-                {
-                    description = string.Empty; // Keep generic description empty if details exist
-                }
 
                 // Append account to description (first line)
                 if (string.IsNullOrEmpty(description))
@@ -552,17 +528,6 @@ public class Program
                     Console.WriteLine($"{string.Empty,-36} | {string.Empty,-14} | {string.Empty,-10} | {lines[i]}");
                 }
 
-                var displayableDetails = u.Details?
-                    .Where(d => d.DetailType == ProviderUsageDetailType.Model || d.DetailType == ProviderUsageDetailType.Other)
-                    .ToList();
-                if (displayableDetails != null)
-                {
-                    foreach (var d in displayableDetails)
-                    {
-                        var name = "  " + d.Name;
-                        Console.WriteLine($"{name,-36} | {string.Empty,-14} | {string.Empty,-10} | {d.Description}");
-                    }
-                }
             }
         }
     }

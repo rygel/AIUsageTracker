@@ -54,24 +54,10 @@ public class ExportService
                 var time = item.FetchedAt.ToString("yyyy-MM-dd HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture);
                 var provider = EscapeCsv(item.ProviderName);
 
-                if (item.Details != null && item.Details.Any())
-                {
-                    foreach (var detail in item.Details)
-                    {
-                        var model = EscapeCsv(detail.Name);
-                        var used = detail.PercentageValue.HasValue
-                            ? $"{detail.PercentageValue.Value:F1}%"
-                            : EscapeCsv(detail.Description);
-                        csv.AppendLine($"{time},{provider},{model},{used},,{item.PlanType}");
-                    }
-                }
-                else
-                {
-                    var used = item.IsCurrencyUsage
-                        ? $"${item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
-                        : item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
-                    csv.AppendLine($"{time},{provider},(Total),{used},,{item.PlanType}");
-                }
+                var used = item.IsCurrencyUsage
+                    ? $"${item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture)}"
+                    : item.RequestsUsed.ToString("F2", CultureInfo.InvariantCulture);
+                csv.AppendLine($"{time},{provider},(Total),{used},,{item.PlanType}");
             }
 
             return (Encoding.UTF8.GetBytes(csv.ToString()), "text/csv", $"usage_export_{DateTime.Now:yyyyMMdd}.csv");
