@@ -227,6 +227,48 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
+    public void Build_DeepSeekCurrencyCards_AreNotProjectedAsModels()
+    {
+        // DeepSeek emits flat currency/balance cards (IsCurrencyUsage = true, CardId = "balance-usd" etc.).
+        // These must NOT be projected as model rows — they are balance display cards, not quota windows.
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "deepseek",
+                CardId = "balance-usd",
+                GroupId = "deepseek",
+                Name = "Balance (USD)",
+                IsCurrencyUsage = true,
+                IsQuotaBased = false,
+                IsAvailable = true,
+                UsedPercent = 0,
+                Description = "$12.34 (10.00 topped-up + 2.34 granted)",
+                FetchedAt = DateTime.UtcNow,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "deepseek",
+                CardId = "balance-cny",
+                GroupId = "deepseek",
+                Name = "Balance (CNY)",
+                IsCurrencyUsage = true,
+                IsQuotaBased = false,
+                IsAvailable = true,
+                UsedPercent = 0,
+                Description = "¥88.00 (80.00 topped-up + 8.00 granted)",
+                FetchedAt = DateTime.UtcNow,
+            },
+        };
+
+        var snapshot = GroupedUsageProjectionService.Build(usages);
+
+        var provider = Assert.Single(snapshot.Providers);
+        Assert.Equal("deepseek", provider.ProviderId);
+        Assert.Empty(provider.Models);
+    }
+
+    [Fact]
     public void Build_KimiUsage_FiltersToWindowCards_InProviderDetails()
     {
         // Cards with WindowKind.None (e.g., credit-type cards, labels) are excluded from ProviderDetails.
