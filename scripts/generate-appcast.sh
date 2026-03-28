@@ -73,8 +73,15 @@ generate_appcast() {
             ;;
     esac
     
-    # Extract clean version (without prerelease suffix) for sparkle:version
+    # Build sparkle:version — must be strictly increasing across releases so
+    # Sparkle/NetSparkle can detect updates.  For beta releases we encode the
+    # pre-release number as a 4th component (e.g. 2.3.4-beta.8 → 2.3.4.8) so
+    # that beta.8 > beta.7 even though both share the same clean core version.
     local clean_version="${VERSION%%-*}"
+    local sparkle_version="${clean_version}"
+    if [[ "${VERSION}" =~ -beta\.([0-9]+)$ ]]; then
+        sparkle_version="${clean_version}.${BASH_REMATCH[1]}"
+    fi
     
     # Build download URL
     local download_url="${REPOSITORY_BASE_URL}/releases/download/v${VERSION}/AIUsageTracker_Setup_v${VERSION}_win-${arch}.exe"
@@ -93,7 +100,7 @@ generate_appcast() {
             <sparkle:releaseNotesLink>${REPOSITORY_BASE_URL}/releases/tag/v${VERSION}</sparkle:releaseNotesLink>
             <pubDate>${PUB_DATE}</pubDate>
             <enclosure url="${download_url}"
-                       sparkle:version="${clean_version}"
+                       sparkle:version="${sparkle_version}"
                        sparkle:shortVersionString="${VERSION}"
                        sparkle:os="windows"
                        length="0"
