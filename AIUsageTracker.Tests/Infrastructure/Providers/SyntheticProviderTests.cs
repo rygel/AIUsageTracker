@@ -100,4 +100,23 @@ public class SyntheticProviderTests : HttpProviderTestBase<SyntheticProvider>
         Assert.False(usage.IsAvailable);
         Assert.Contains("Not Found", usage.Description, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task GetUsageAsync_EmptyJsonObject_ReturnsNoActiveSubscriptionAsync()
+    {
+        // Arrange — API returns {} when subscription is expired/inactive
+        this.SetupHttpResponse("https://api.synthetic.new/v2/quotas", new HttpResponseMessage
+        {
+            StatusCode = HttpStatusCode.OK,
+            Content = new StringContent("{}"),
+        });
+
+        // Act
+        var result = await this._provider.GetUsageAsync(this.Config);
+
+        // Assert
+        var usage = result.Single();
+        Assert.False(usage.IsAvailable);
+        Assert.Equal("No active subscription", usage.Description);
+    }
 }

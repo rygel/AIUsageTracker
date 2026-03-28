@@ -131,12 +131,17 @@ internal sealed class ProviderCardRenderer
         }
 
         // Compute pace result once — used by both bar color and slot rendering.
-        var cardPaceColor = UsageMath.ComputePaceColor(
-            presentation.UsedPercent,
-            usage.NextResetTime,
-            usage.PeriodDuration,
-            this._preferences.ColorThresholdRed,
-            this._preferences.EnablePaceAdjustment);
+        // For dual-window providers (burst + rolling), drive the badge from the rolling window:
+        // the burst window routinely over-paces within its 5-hour window even when the weekly
+        // quota is healthy, so using it for the badge produces misleading "Over pace" warnings.
+        var cardPaceColor = presentation.HasDualBuckets && presentation.DualBucketRollingPaceColor.HasValue
+            ? presentation.DualBucketRollingPaceColor.Value
+            : UsageMath.ComputePaceColor(
+                presentation.UsedPercent,
+                usage.NextResetTime,
+                usage.PeriodDuration,
+                this._preferences.ColorThresholdRed,
+                this._preferences.EnablePaceAdjustment);
 
         var useBackgroundBar = this._preferences.CardBackgroundBar;
         if (useBackgroundBar)

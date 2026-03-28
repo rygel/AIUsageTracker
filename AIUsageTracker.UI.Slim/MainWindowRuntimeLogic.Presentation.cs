@@ -104,6 +104,16 @@ internal static partial class MainWindowRuntimeLogic
             hasDualQuotaBucketPresentation,
             dualQuotaBucketPresentation);
 
+        PaceColorResult? rollingPaceColor = null;
+        if (hasDualQuotaBucketPresentation)
+        {
+            rollingPaceColor = UsageMath.ComputePaceColor(
+                dualQuotaBucketPresentation.SecondaryUsedPercent,
+                dualQuotaBucketPresentation.SecondaryResetTime,
+                dualQuotaBucketPresentation.SecondaryPeriodDuration,
+                redThreshold);
+        }
+
         return CreatePresentation(
             isMissing,
             isUnknown,
@@ -117,12 +127,13 @@ internal static partial class MainWindowRuntimeLogic
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryUsedPercent : (double?)null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryUsedPercent : (double?)null,
             hasDualQuotaBucketPresentation ? UsageMath.ComputePaceColor(dualQuotaBucketPresentation.PrimaryUsedPercent, dualQuotaBucketPresentation.PrimaryResetTime, dualQuotaBucketPresentation.PrimaryPeriodDuration, redThreshold).ColorPercent : (double?)null,
-            hasDualQuotaBucketPresentation ? UsageMath.ComputePaceColor(dualQuotaBucketPresentation.SecondaryUsedPercent, dualQuotaBucketPresentation.SecondaryResetTime, dualQuotaBucketPresentation.SecondaryPeriodDuration, redThreshold).ColorPercent : (double?)null,
+            hasDualQuotaBucketPresentation ? rollingPaceColor!.Value.ColorPercent : (double?)null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryLabel : null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryLabel : null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.PrimaryKind : (WindowKind?)null,
             hasDualQuotaBucketPresentation ? dualQuotaBucketPresentation.SecondaryKind : (WindowKind?)null,
-            isStale);
+            isStale,
+            dualBucketRollingPaceColor: rollingPaceColor);
     }
 
     private static bool TryCreateSpecialPresentation(
@@ -268,7 +279,8 @@ internal static partial class MainWindowRuntimeLogic
         string? dualBucketSecondaryLabel = null,
         WindowKind? dualBucketPrimaryKind = null,
         WindowKind? dualBucketSecondaryKind = null,
-        bool isStale = false)
+        bool isStale = false,
+        PaceColorResult? dualBucketRollingPaceColor = null)
     {
         return new ProviderCardPresentation(
             IsMissing: isMissing,
@@ -288,7 +300,8 @@ internal static partial class MainWindowRuntimeLogic
             DualBucketSecondaryLabel: dualBucketSecondaryLabel,
             DualBucketPrimaryKind: dualBucketPrimaryKind,
             DualBucketSecondaryKind: dualBucketSecondaryKind,
-            IsStale: isStale);
+            IsStale: isStale,
+            DualBucketRollingPaceColor: dualBucketRollingPaceColor);
     }
 
     private static string BuildDualQuotaBucketStatusText(
@@ -542,7 +555,8 @@ internal sealed record ProviderCardPresentation(
     string? DualBucketSecondaryLabel = null,
     WindowKind? DualBucketPrimaryKind = null,
     WindowKind? DualBucketSecondaryKind = null,
-    bool IsStale = false)
+    bool IsStale = false,
+    PaceColorResult? DualBucketRollingPaceColor = null)
 {
     public bool HasDualBuckets => this.DualBucketPrimaryUsed.HasValue;
 }
