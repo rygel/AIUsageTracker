@@ -23,6 +23,33 @@ public class ProviderUsageDetailTests
     }
 
     [Fact]
+    public void IsDisplayableSubProviderDetail_QuotaWindowWithShowAsSubCard_ReturnsTrue()
+    {
+        var detail = new ProviderUsageDetail
+        {
+            Name = "All Models",
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            QuotaBucketKind = WindowKind.Rolling,
+            ShowAsSubCard = true,
+        };
+
+        Assert.True(detail.IsDisplayableSubProviderDetail());
+    }
+
+    [Fact]
+    public void IsDisplayableSubProviderDetail_ShowAsSubCardWithEmptyName_ReturnsFalse()
+    {
+        var detail = new ProviderUsageDetail
+        {
+            Name = string.Empty,
+            DetailType = ProviderUsageDetailType.QuotaWindow,
+            ShowAsSubCard = true,
+        };
+
+        Assert.False(detail.IsDisplayableSubProviderDetail());
+    }
+
+    [Fact]
     public void IsDisplayableSubProviderDetail_DetailTypeModel_ReturnsTrue()
     {
         var detail = new ProviderUsageDetail

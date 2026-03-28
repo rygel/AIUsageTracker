@@ -474,6 +474,11 @@ internal static partial class MainWindowRuntimeLogic
             return false;
         }
 
+        if (detail.ShowAsSubCard)
+        {
+            return true;
+        }
+
         return detail.DetailType == ProviderUsageDetailType.Model ||
                detail.DetailType == ProviderUsageDetailType.Other ||
                (includeRateLimit && detail.DetailType == ProviderUsageDetailType.RateLimit);
@@ -643,12 +648,19 @@ internal static partial class MainWindowRuntimeLogic
 
     internal static int GetDetailSortOrder(ProviderUsageDetail detail)
     {
+        // ShowAsSubCard QuotaWindow details have explicit ordering:
+        // Rolling (e.g. "All Models") sorts before Model rows, Burst ("Current Session") sorts after.
+        if (detail.ShowAsSubCard && detail.DetailType == ProviderUsageDetailType.QuotaWindow)
+        {
+            return detail.QuotaBucketKind == WindowKind.Burst ? 2 : 0;
+        }
+
         return detail.DetailType switch
         {
-            ProviderUsageDetailType.Model => 0,
-            ProviderUsageDetailType.RateLimit => 1,
-            ProviderUsageDetailType.Other => 2,
-            _ => 3,
+            ProviderUsageDetailType.Model => 1,
+            ProviderUsageDetailType.RateLimit => 3,
+            ProviderUsageDetailType.Other => 4,
+            _ => 5,
         };
     }
 
