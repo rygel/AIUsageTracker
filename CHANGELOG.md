@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.11] - 2026-03-30
+
+### Fixed
+- **Claude Code cards now show "Claude Code (Current Session)" etc.**: flat cards were displaying bare names ("Current Session", "Sonnet", "All Models") with no provider context. `FlatCardShowProviderPrefix` on `ProviderDefinition` enables prefixing for providers whose card names are generic.
+- **Claude Code "Current Session" and "All Models" cards not appearing**: stale DB rows stored `WindowKind.Burst` / `WindowKind.Rolling` from older Monitor binaries. `GetLatestHistoryAsync` now re-derives `WindowKind` from the canonical `QuotaWindowDefinition` using `ChildProviderId` matching, so stale values are corrected on load without a DB migration.
+- **OpenAI Codex "Spark" appeared as a standalone flat card**: `Spark` had no `WindowKind` in older DB rows (NULL → `None`), so it incorrectly passed the flat-model filter. The same `WindowKind` re-derivation now correctly marks it `ModelSpecific`, routing it to the combined "OpenAI (Codex)" card.
+- **Flat-card projection gated on `FamilyMode`**: `GroupedUsageProjectionService.BuildModels` now uses a pure data-driven rule (`WindowKind == None`) instead of consulting `FamilyMode`, removing the `isFlatWindowCards`/`hasModelCards` guards.
+
 ## [2.3.4-beta.10] - 2026-03-29
 
 ### Fixed
