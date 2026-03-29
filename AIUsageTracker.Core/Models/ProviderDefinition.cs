@@ -101,8 +101,6 @@ public sealed class ProviderDefinition
 
     public string? BadgeInitial { get; init; }
 
-    public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
-
     public bool SupportsAccountIdentity { get; init; }
 
     public IReadOnlyCollection<string> AuthIdentityCandidatePathTemplates { get; init; } = Array.Empty<string>();

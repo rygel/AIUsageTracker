@@ -69,7 +69,7 @@ public static class ProviderMetadataCatalog
         }
 
         var isDerived = !string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase);
-        if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel) && !definition.PreferDisplayNameOverridesForDerivedProviderIds)
+        if (isDerived && !string.IsNullOrWhiteSpace(runtimeLabel))
         {
             return runtimeLabel;
         }
