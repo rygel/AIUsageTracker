@@ -96,19 +96,13 @@ public static class GroupedUsageProjectionService
     {
         var usages = group.ToList();
 
-        // Flat-card providers: if any non-currency usages have a CardId, project them as models.
+        // Cards with WindowKind == None are model cards — each gets its own flat card in the UI.
+        // Cards with any other WindowKind are quota-window cards (burst/rolling/model-specific)
+        // and flow to ProviderDetails so the UI renders them as combined quota bars on a single card.
         // Currency/balance cards (e.g. DeepSeek balance-usd) have CardId but must not be projected
         // as quota model rows — they are balance display cards, not model-level quota windows.
-        //
-        // For FlatWindowCards providers (AntiGravity, Gemini, ClaudeCode, Codex), only use the
-        // flat-card path when the group contains at least one WindowKind.None card (a genuine
-        // model card). If all cards have a WindowKind set (Codex burst/weekly/spark), they are
-        // quota-window cards that belong in ProviderDetails, not separate flat cards.
-        var isFlatWindowCards = ProviderMetadataCatalog.Find(canonicalProviderId)?.FamilyMode == ProviderFamilyMode.FlatWindowCards;
-        var cardIdCards = usages.Where(u => !string.IsNullOrWhiteSpace(u.CardId) && !u.IsCurrencyUsage).ToList();
-        var hasModelCards = cardIdCards.Any(u => u.WindowKind == WindowKind.None);
-        var flatModelCards = cardIdCards.Where(u =>
-            isFlatWindowCards ? hasModelCards : u.WindowKind == WindowKind.None).ToList();
+        var flatModelCards = usages.Where(u =>
+            !string.IsNullOrWhiteSpace(u.CardId) && !u.IsCurrencyUsage && u.WindowKind == WindowKind.None).ToList();
         if (flatModelCards.Count > 0)
         {
             return BuildModelsFromFlatCards(flatModelCards, canonicalProviderId);

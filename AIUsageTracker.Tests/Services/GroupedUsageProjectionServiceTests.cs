@@ -130,11 +130,9 @@ public sealed class GroupedUsageProjectionServiceTests
     }
 
     [Fact]
-    public void Build_ClaudeCodeWithWindowKindCards_ProjectsAllAsModels_BecauseFlatWindowCards()
+    public void Build_ClaudeCodeCards_ProjectsAllAsModels_WhenAllWindowKindNone()
     {
-        // Claude Code is FamilyMode = FlatWindowCards. Its cards mix WindowKind values
-        // (Burst for current-session, None for sonnet, Rolling for all-models).
-        // All must be projected as Models so each gets its own flat card in the UI.
+        // Claude Code cards all have WindowKind.None — each gets its own flat card in the UI.
         var usages = new[]
         {
             new ProviderUsage
@@ -142,7 +140,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 ProviderId = "claude-code",
                 CardId = "current-session",
                 Name = "Current Session",
-                WindowKind = WindowKind.Burst,
+                WindowKind = WindowKind.None,
                 IsAvailable = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Usage,
@@ -164,7 +162,7 @@ public sealed class GroupedUsageProjectionServiceTests
                 ProviderId = "claude-code",
                 CardId = "all-models",
                 Name = "All Models",
-                WindowKind = WindowKind.Rolling,
+                WindowKind = WindowKind.None,
                 IsAvailable = true,
                 IsQuotaBased = true,
                 PlanType = PlanType.Usage,

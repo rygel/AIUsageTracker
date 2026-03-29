@@ -10,10 +10,10 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public sealed class ProviderDerivedModelAssignmentResolverTests
 {
     [Fact]
-    public void Resolve_CodexModels_ReturnsEmpty_WhenFlatWindowCards()
+    public void Resolve_CodexModels_ReturnsEmpty_WhenQuotaWindowCards()
     {
-        // Codex uses FlatWindowCards — the resolver has nothing to do; flat cards are built
-        // directly from ModelId in the display adapter without any selector-based routing.
+        // Codex cards all have WindowKind set (Burst/Rolling/ModelSpecific) — the resolver has
+        // nothing to do; they flow to ProviderDetails, not flat model rows.
         var assignments = ProviderDerivedModelAssignmentResolver.Resolve(
             "codex",
             new[]
@@ -34,9 +34,9 @@ public sealed class ProviderDerivedModelAssignmentResolverTests
     }
 
     [Fact]
-    public void Resolve_GeminiModels_ReturnsEmpty_WhenFlatWindowCards()
+    public void Resolve_GeminiModels_ReturnsEmpty_WhenWindowKindNoneCards()
     {
-        // Gemini uses FlatWindowCards — the resolver has nothing to do.
+        // Gemini cards have WindowKind.None — they flow directly as flat model rows; the resolver has nothing to do.
         var assignments = ProviderDerivedModelAssignmentResolver.Resolve(
             "gemini-cli",
             new[]
@@ -57,9 +57,9 @@ public sealed class ProviderDerivedModelAssignmentResolverTests
     }
 
     [Fact]
-    public void Resolve_AntigravityModels_ReturnsEmpty_WhenFlatWindowCards()
+    public void Resolve_AntigravityModels_ReturnsEmpty_WhenWindowKindNoneCards()
     {
-        // Antigravity uses FlatWindowCards — no derived model selectors, no dynamic rows.
+        // Antigravity cards have WindowKind.None — no derived model selectors, no dynamic rows.
         // Cards are emitted directly by the provider with CardId; Resolve has nothing to do.
         var assignments = ProviderDerivedModelAssignmentResolver.Resolve(
             "antigravity",
