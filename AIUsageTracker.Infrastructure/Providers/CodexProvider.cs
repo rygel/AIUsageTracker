@@ -20,25 +20,14 @@ public class CodexProvider : ProviderBase
         "codex",
         "OpenAI (Codex)",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["codex.spark"] = "OpenAI (GPT-5.3 Codex Spark)",
         },
-        FamilyMode = ProviderFamilyMode.VisibleDerivedProviders,
+        FamilyMode = ProviderFamilyMode.FlatWindowCards,
         DiscoveryEnvironmentVariables = new[] { "CODEX_API_KEY" },
-        VisibleDerivedProviderIds = new[] { "codex.spark" },
-        SettingsAdditionalProviderIds = new[] { "codex.spark" },
-        PreferDisplayNameOverridesForDerivedProviderIds = true,
-        DerivedModelSelectors = new[]
-        {
-            new ProviderDerivedModelSelector(
-                derivedProviderId: "codex.spark",
-                modelIdContains: new[] { "spark" },
-                modelNameContains: new[] { "spark" }),
-        },
         SettingsMode = ProviderSettingsMode.SessionAuthStatus,
         SessionStatusLabel = "OpenAI (Codex)",
         SessionIdentitySource = ProviderSessionIdentitySource.Codex,
@@ -59,11 +48,12 @@ public class CodexProvider : ProviderBase
         {
             ProviderEndpoints.OpenAI.ProfileClaimKey,
         },
+        SettingsAdditionalProviderIds = new[] { "codex.spark" },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.Rolling,       "Weekly", PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.ModelSpecific, "Spark",  ChildProviderId: "codex.spark", PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,         "5h",     ChildProviderId: "codex.burst",   PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.Rolling,       "Weekly", ChildProviderId: "codex.weekly",  PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Spark",  ChildProviderId: "codex.spark",   PeriodDuration: TimeSpan.FromDays(7)),
         },
     };
 

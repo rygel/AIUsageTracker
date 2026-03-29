@@ -571,7 +571,6 @@ public class KimiProviderTests : HttpProviderTestBase<KimiProvider>
         Assert.Equal("kimi-for-coding", definition.ProviderId); // provider-id-guardrail-allow: test assertion
         Assert.Equal("Kimi for Coding", definition.DisplayName);
         Assert.True(definition.IsQuotaBased);
-        Assert.Equal("quota-based", definition.DefaultConfigType);
         Assert.Equal(PlanType.Coding, definition.PlanType);
         Assert.Contains("KIMI_API_KEY", definition.DiscoveryEnvironmentVariables);
         Assert.Contains("MOONSHOT_API_KEY", definition.DiscoveryEnvironmentVariables);

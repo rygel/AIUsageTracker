@@ -26,8 +26,7 @@ public class XiaomiProvider : ProviderBase
         "xiaomi",
         "Xiaomi",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         DiscoveryEnvironmentVariables = new[] { "XIAOMI_API_KEY", "MIMO_API_KEY" },
         IconAssetName = "xiaomi",

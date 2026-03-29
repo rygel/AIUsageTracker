@@ -19,14 +19,6 @@ public class ProviderConfig
     [JsonPropertyName("api_key")]
     public string ApiKey { get; set; } = string.Empty;
 
-    [RegularExpression(@"^(quota\-based|pay\-as\-you\-go)$", ErrorMessage = "Type must be 'quota-based' or 'pay-as-you-go'")]
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "pay-as-you-go"; // "quota-based" or "pay-as-you-go"
-
-    [JsonPropertyName("plan_type")]
-    [JsonConverter(typeof(JsonStringEnumConverter<PlanType>))]
-    public PlanType PlanType { get; set; } = PlanType.Usage;
-
     [Range(0, double.MaxValue, ErrorMessage = "Limit must be non-negative")]
     [JsonPropertyName("limit")]
     public double? Limit { get; set; } // For cost tracking
@@ -53,4 +45,7 @@ public class ProviderConfig
 
     [JsonPropertyName("models")]
     public IReadOnlyList<AIModelConfig> Models { get; set; } = [];
+
+    [JsonPropertyName("show_cached_models_when_offline")]
+    public bool ShowCachedModelsWhenOffline { get; set; }
 }

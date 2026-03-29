@@ -39,10 +39,8 @@ public class ClaudeCodeProvider : ProviderBase
         "claude-code",
         "Claude Code",
         PlanType.Usage,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
-        AutoIncludeWhenUnconfigured = true,
         DiscoveryEnvironmentVariables = new[] { "ANTHROPIC_API_KEY", "CLAUDE_API_KEY" },
         IconAssetName = "anthropic",
         BadgeColorHex = "#FFA500",
@@ -57,24 +55,12 @@ public class ClaudeCodeProvider : ProviderBase
         },
         QuotaWindows = new QuotaWindowDefinition[]
         {
-            new(WindowKind.Burst,         "5h",     SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
-            new(WindowKind.ModelSpecific, "Sonnet", SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.ModelSpecific, "Opus",   SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
-            new(WindowKind.Rolling,       "7-day",  SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Burst,         "5h",     ChildProviderId: "claude-code.current-session", SettingsLabel: "Current Session (5-hour quota)", DetailName: "Current Session", PeriodDuration: TimeSpan.FromHours(5)),
+            new(WindowKind.ModelSpecific, "Sonnet", ChildProviderId: "claude-code.sonnet",         SettingsLabel: "Sonnet (7-day model quota)",    DetailName: "Sonnet",          PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.ModelSpecific, "Opus",   ChildProviderId: "claude-code.opus",           SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
+            new(WindowKind.Rolling,       "7-day",  ChildProviderId: "claude-code.all-models",     SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
-        FamilyMode = ProviderFamilyMode.VisibleDerivedProviders,
-        VisibleDerivedProviderIds = new[] { "claude-code.sonnet", "claude-code.all-models" },
-        DerivedModelSelectors = new[]
-        {
-            new ProviderDerivedModelSelector(derivedProviderId: "claude-code.sonnet",     modelIdEquals: new[] { "sonnet" }),
-            new ProviderDerivedModelSelector(derivedProviderId: "claude-code.all-models", modelIdEquals: new[] { "all-models" }),
-        },
-        ExcludedDerivedModelIds = new[] { "current-session", "opus" },
-        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["claude-code.sonnet"]     = "Sonnet",
-            ["claude-code.all-models"] = "All Models",
-        },
+        FamilyMode = ProviderFamilyMode.FlatWindowCards,
     };
 
     /// <inheritdoc/>

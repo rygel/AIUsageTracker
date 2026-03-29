@@ -28,8 +28,7 @@ public class KimiProvider : ProviderBase
         "kimi-for-coding",
         "Kimi for Coding",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         AdditionalHandledProviderIds = new[] { "kimi" },
         DiscoveryEnvironmentVariables = new[] { "KIMI_API_KEY", "MOONSHOT_API_KEY" },

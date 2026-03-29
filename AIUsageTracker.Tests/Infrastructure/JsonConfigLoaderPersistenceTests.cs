@@ -43,15 +43,11 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
             {
                 ProviderId = "codex",
                 ApiKey = TestApiKey1,
-                Type = "quota-based",
-                PlanType = PlanType.Coding,
             },
             new()
             {
                 ProviderId = "codex.spark",
                 ApiKey = TestApiKey2,
-                Type = "quota-based",
-                PlanType = PlanType.Coding,
             },
         };
 
@@ -263,8 +259,6 @@ public sealed class JsonConfigLoaderPersistenceTests : IntegrationTestBase
             {
                 ProviderId = "codex",
                 ApiKey = TestApiKey3,
-                Type = "quota-based",
-                PlanType = PlanType.Coding,
             },
         };
 

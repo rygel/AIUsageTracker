@@ -180,7 +180,6 @@ public class UsageDatabase : IUsageDatabase
             var safeConfig = new
             {
                 config.ProviderId,
-                config.Type,
                 config.AuthSource,
             };
 

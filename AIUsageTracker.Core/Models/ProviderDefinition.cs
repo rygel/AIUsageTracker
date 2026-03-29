@@ -12,8 +12,7 @@ public sealed class ProviderDefinition
         string providerId,
         string displayName,
         PlanType planType,
-        bool isQuotaBased,
-        string defaultConfigType)
+        bool isQuotaBased)
     {
         if (string.IsNullOrWhiteSpace(providerId))
         {
@@ -29,7 +28,6 @@ public sealed class ProviderDefinition
         this.DisplayName = displayName.Trim();
         this.PlanType = planType;
         this.IsQuotaBased = isQuotaBased;
-        this.DefaultConfigType = defaultConfigType;
     }
 
     public string ProviderId { get; }
@@ -39,10 +37,6 @@ public sealed class ProviderDefinition
     public PlanType PlanType { get; }
 
     public bool IsQuotaBased { get; }
-
-    public string DefaultConfigType { get; }
-
-    public bool AutoIncludeWhenUnconfigured { get; init; }
 
     public ProviderFamilyMode FamilyMode { get; init; } = ProviderFamilyMode.Standalone;
 
@@ -102,8 +96,6 @@ public sealed class ProviderDefinition
     public string? BadgeColorHex { get; init; }
 
     public string? BadgeInitial { get; init; }
-
-    public bool PreferDisplayNameOverridesForDerivedProviderIds { get; init; }
 
     public bool SupportsAccountIdentity { get; init; }
 
@@ -212,8 +204,6 @@ public sealed class ProviderDefinition
         {
             ProviderId = string.IsNullOrWhiteSpace(providerId) ? this.ProviderId : providerId,
             ApiKey = apiKey ?? string.Empty,
-            Type = this.DefaultConfigType,
-            PlanType = this.PlanType,
             AuthSource = authSource ?? AuthSource.Unknown,
             Description = description,
         };

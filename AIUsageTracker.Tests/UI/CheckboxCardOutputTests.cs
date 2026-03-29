@@ -364,30 +364,28 @@ public sealed class CheckboxCardOutputTests
     }
 
     // ---------------------------------------------------------------------------
-    // Dual quota color thresholds — redThreshold affects DualBar.Primary.ColorPercent
+    // Dual quota bar tier — high/low usage produces correct PaceTier
     // ---------------------------------------------------------------------------
 
     [Fact]
-    public void RedThreshold_AffectsDualBucketColorPercent()
+    public void HighUsage_DualBucketBurst_IsOverPace()
     {
-        // 90% used → should be above threshold=80 → color should reach/exceed 80
+        // 90% used in burst window (5h, ~3h elapsed) → projected ~150% → OverPace
         var usage = BuildCodexDualQuotaUsage(burstUsedPercent: 90.0, rollingUsedPercent: 90.0);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, redThreshold: 80);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, enablePaceAdjustment: true);
 
         Assert.NotNull(presentation.DualBar);
-        Assert.True(presentation.DualBar!.Primary.ColorPercent >= 80.0,
-            $"90% used at threshold=80 must produce color >= 80, got {presentation.DualBar.Primary.ColorPercent:F1}");
+        Assert.Equal(PaceTier.OverPace, presentation.DualBar!.Primary.PaceColor.PaceTier);
     }
 
     [Fact]
-    public void LowUsage_DualBucketColorPercent_BelowRedThreshold()
+    public void LowUsage_DualBucketBurst_IsNotOverPace()
     {
-        // 10% used → well below threshold → color should be below threshold
+        // 10% used in burst window → projected ~17% → Headroom
         var usage = BuildCodexDualQuotaUsage(burstUsedPercent: 10.0, rollingUsedPercent: 10.0);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, redThreshold: 80);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed: true, enablePaceAdjustment: true);
 
         Assert.NotNull(presentation.DualBar);
-        Assert.True(presentation.DualBar!.Primary.ColorPercent < 80.0,
-            $"10% used at threshold=80 must produce color < 80, got {presentation.DualBar.Primary.ColorPercent:F1}");
+        Assert.NotEqual(PaceTier.OverPace, presentation.DualBar!.Primary.PaceColor.PaceTier);
     }
 }

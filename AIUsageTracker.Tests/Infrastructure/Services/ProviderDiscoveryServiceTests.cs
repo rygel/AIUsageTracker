@@ -44,8 +44,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
             "test-provider",
             "Test Provider",
             PlanType.Usage,
-            false,
-            "api_key")
+            false)
         {
             DiscoveryEnvironmentVariables = new[] { envVarName },
         };
@@ -87,8 +86,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
             "github-copilot",
             "GitHub Copilot",
             PlanType.Coding,
-            true,
-            "session")
+            true)
         {
             AuthIdentityCandidatePathTemplates = new[] { authFilePath },
             SessionAuthFileSchemas = new[]
@@ -115,8 +113,7 @@ public class ProviderDiscoveryServiceTests : IDisposable
             "unknown-provider",
             "Unknown",
             PlanType.Usage,
-            false,
-            "api_key")
+            false)
         {
             DiscoveryEnvironmentVariables = new[] { "NON_EXISTENT_VAR" },
             AuthIdentityCandidatePathTemplates = new[] { Path.Combine(this._tempTestDir, "non-existent.json") },

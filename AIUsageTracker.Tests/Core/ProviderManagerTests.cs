@@ -60,7 +60,7 @@ public class ProviderManagerTests
         var providers = new List<IProviderService>();
         var configs = new List<ProviderConfig>
         {
-            new() { ProviderId = "unknown-api", Type = "api" },
+            new() { ProviderId = "unknown-api" },
         };
 
         this._mockConfigLoader.Setup(configLoader => configLoader.LoadConfigAsync()).ReturnsAsync(configs);
@@ -130,50 +130,4 @@ public class ProviderManagerTests
         Assert.Equal(ProviderManager.MaxMaxConcurrentProviderRequests, managerHigh.MaxConcurrentProviderRequests);
     }
 
-    [Fact]
-    public async Task GetUsageAsync_WhenAutoIncludedProviderMissingConfig_UsesGeneratedDefaultConfigAsync()
-    {
-        var configLoader = new Mock<IConfigLoader>();
-        configLoader.Setup(loader => loader.LoadConfigAsync()).ReturnsAsync([]);
-
-        ProviderConfig? capturedConfig = null;
-        var provider = new Mock<IProviderService>();
-        provider.SetupGet(p => p.Definition).Returns(new ProviderDefinition(
-            "github-copilot",
-            "GitHub Copilot",
-            PlanType.Coding,
-            isQuotaBased: true,
-            defaultConfigType: "quota-based")
-        {
-            AutoIncludeWhenUnconfigured = true,
-        });
-        provider.SetupGet(p => p.ProviderId).Returns("github-copilot");
-        provider.Setup(p => p.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
-            .Callback<ProviderConfig, Action<ProviderUsage>?, CancellationToken>((config, _, _) => capturedConfig = config)
-            .ReturnsAsync(new[]
-            {
-                new ProviderUsage
-                {
-                    ProviderId = "github-copilot",
-                    ProviderName = "GitHub Copilot",
-                    IsAvailable = true,
-                    PlanType = PlanType.Coding,
-                },
-            });
-
-        var manager = new ProviderManager(
-            new[] { provider.Object },
-            configLoader.Object,
-            this._mockLogger.Object);
-
-        var result = await manager.GetUsageAsync("github-copilot");
-
-        var usage = Assert.Single(result);
-        Assert.True(usage.IsAvailable);
-        Assert.NotNull(capturedConfig);
-        Assert.Equal("github-copilot", capturedConfig!.ProviderId);
-        Assert.Equal("quota-based", capturedConfig.Type);
-        Assert.Equal(PlanType.Coding, capturedConfig.PlanType);
-        Assert.Equal(string.Empty, capturedConfig.ApiKey);
-    }
 }

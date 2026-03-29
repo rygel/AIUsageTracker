@@ -20,10 +20,8 @@ public class GeminiProvider : ProviderBase
         "gemini-cli",
         "Google Gemini",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
-        AutoIncludeWhenUnconfigured = true,
         AdditionalHandledProviderIds = new[] { "gemini" },
         DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -31,24 +29,10 @@ public class GeminiProvider : ProviderBase
             ["gemini-cli.hourly"] = "Gemini CLI (Hourly)",
             ["gemini-cli.daily"] = "Gemini CLI (Daily)",
         },
-        FamilyMode = ProviderFamilyMode.VisibleDerivedProviders,
-        VisibleDerivedProviderIds = new[] { "gemini-cli.minute", "gemini-cli.hourly", "gemini-cli.daily" },
-        SettingsAdditionalProviderIds = new[] { "gemini-cli.minute", "gemini-cli.hourly", "gemini-cli.daily" },
+        FamilyMode = ProviderFamilyMode.FlatWindowCards,
         DiscoveryEnvironmentVariables = new[] { "GEMINI_API_KEY", "GOOGLE_API_KEY" },
         RooConfigPropertyNames = new[] { "geminiApiKey" },
         SupportsAccountIdentity = true,
-        DerivedModelSelectors = new[]
-        {
-            new ProviderDerivedModelSelector(
-                derivedProviderId: "gemini-cli.minute",
-                modelIdContains: new[] { "minute" }),
-            new ProviderDerivedModelSelector(
-                derivedProviderId: "gemini-cli.hourly",
-                modelIdContains: new[] { "hour", "hourly" }),
-            new ProviderDerivedModelSelector(
-                derivedProviderId: "gemini-cli.daily",
-                modelIdContains: new[] { "day", "daily" }),
-        },
         IconAssetName = "google",
         BadgeColorHex = "#1E90FF",
         BadgeInitial = "G",

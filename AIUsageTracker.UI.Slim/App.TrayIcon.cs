@@ -35,25 +35,27 @@ public partial class App
             showUsed,
             showDualQuotaBars,
             dualQuotaSingleBarMode,
-            enablePaceAdjustment,
-            redThreshold);
+            enablePaceAdjustment);
 
         this.SyncProviderTrayIcons(desiredIcons, yellowThreshold, redThreshold, showUsed);
     }
 
-    private Dictionary<string, (string ToolTip, double FillPercent, double ColorPercent, bool IsQuota)> BuildDesiredIcons(
+    private Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> BuildDesiredIcons(
         IReadOnlyList<ProviderUsage> usages,
         IReadOnlyList<ProviderConfig> configs,
         bool showUsed,
         bool showDualQuotaBars,
         DualQuotaSingleBarMode dualQuotaSingleBarMode,
-        bool enablePaceAdjustment,
-        int redThreshold)
+        bool enablePaceAdjustment)
     {
-        var desiredIcons = new Dictionary<string, (string ToolTip, double FillPercent, double ColorPercent, bool IsQuota)>(StringComparer.OrdinalIgnoreCase);
+        var desiredIcons = new Dictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)>(StringComparer.OrdinalIgnoreCase);
         foreach (var config in configs)
         {
-            var usage = usages.FirstOrDefault(u => u.ProviderId.Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase));
+            var usage = usages
+                .Where(u => ProviderMetadataCatalog.GetCanonicalProviderId(u.ProviderId ?? string.Empty)
+                    .Equals(config.ProviderId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(u => u.UsedPercent)
+                .FirstOrDefault();
             if (usage == null)
             {
                 continue;
@@ -64,7 +66,7 @@ public partial class App
                 !usage.Description.Contains("unknown", StringComparison.OrdinalIgnoreCase))
             {
                 var isQuota = usage.IsQuotaBased || usage.PlanType == PlanType.Coding;
-                var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, redThreshold);
+                var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, enablePaceAdjustment);
                 var statusText = presentation.StatusText;
                 if (presentation.HasDualBuckets && !showDualQuotaBars)
                 {
@@ -75,13 +77,12 @@ public partial class App
                 }
 
                 var providerLabel = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-                var colorPercent = UsageMath.ComputePaceColor(
+                var paceColor = UsageMath.ComputePaceColor(
                     usage.UsedPercent,
                     usage.NextResetTime,
                     usage.PeriodDuration,
-                    redThreshold,
-                    enablePaceAdjustment).ColorPercent;
-                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, colorPercent, isQuota);
+                    enablePaceAdjustment);
+                desiredIcons[config.ProviderId] = ($"{providerLabel}: {statusText}", usage.RemainingPercent, paceColor, isQuota);
             }
 
         }
@@ -90,7 +91,7 @@ public partial class App
     }
 
     private void SyncProviderTrayIcons(
-        IReadOnlyDictionary<string, (string ToolTip, double FillPercent, double ColorPercent, bool IsQuota)> desiredIcons,
+        IReadOnlyDictionary<string, (string ToolTip, double FillPercent, PaceColorResult PaceColor, bool IsQuota)> desiredIcons,
         int yellowThreshold,
         int redThreshold,
         bool showUsed)
@@ -111,7 +112,7 @@ public partial class App
         {
             var key = kvp.Key;
             var info = kvp.Value;
-            var iconSource = this.GenerateUsageIcon(info.FillPercent, info.ColorPercent, yellowThreshold, redThreshold, showUsed, info.IsQuota);
+            var iconSource = this.GenerateUsageIcon(info.FillPercent, info.PaceColor, yellowThreshold, redThreshold, showUsed, info.IsQuota);
 
             if (!this._providerTrayIcons.ContainsKey(key))
             {
@@ -155,7 +156,7 @@ public partial class App
 
     private ImageSource GenerateUsageIcon(
         double fillPercent,
-        double colorPercent,
+        PaceColorResult paceColor,
         int yellowThreshold,
         int redThreshold,
         bool showUsed = false,
@@ -168,10 +169,19 @@ public partial class App
             dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(20, 20, 20)), null, new Rect(0, 0, size, size));
             dc.DrawRectangle(null, new Pen(Brushes.DimGray, 1), new Rect(0.5, 0.5, size - 1, size - 1));
 
-            // Color is always based on pace-adjusted used percent vs thresholds
-            var fillBrush = colorPercent >= redThreshold
-                ? Brushes.Crimson
-                : (colorPercent >= yellowThreshold ? Brushes.Gold : Brushes.MediumSeaGreen);
+            Brush fillBrush;
+            if (paceColor.IsPaceAdjusted)
+            {
+                // Tier is the single source of truth for pace-adjusted icons.
+                fillBrush = paceColor.PaceTier == PaceTier.OverPace ? Brushes.Crimson : Brushes.MediumSeaGreen;
+            }
+            else
+            {
+                var colorPercent = paceColor.ColorPercent;
+                fillBrush = colorPercent >= redThreshold
+                    ? Brushes.Crimson
+                    : (colorPercent >= yellowThreshold ? Brushes.Gold : Brushes.MediumSeaGreen);
+            }
 
             var barWidth = size - 6;
             var barHeight = size - 6;

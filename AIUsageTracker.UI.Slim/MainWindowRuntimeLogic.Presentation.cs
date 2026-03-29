@@ -14,9 +14,11 @@ internal static partial class MainWindowRuntimeLogic
     public static string ResolveDisplayAccountName(
         string providerId,
         string? usageAccountName,
-        bool isPrivacyMode)
+        bool isPrivacyMode,
+        ProviderDefinition? definition = null)
     {
-        if (!(ProviderMetadataCatalog.Find(providerId)?.SupportsAccountIdentity ?? false))
+        var resolvedDefinition = definition ?? ProviderMetadataCatalog.Find(providerId);
+        if (!(resolvedDefinition?.SupportsAccountIdentity ?? false))
         {
             return string.Empty;
         }
@@ -36,7 +38,6 @@ internal static partial class MainWindowRuntimeLogic
     public static ProviderCardPresentation Create(
         ProviderUsage usage,
         bool showUsed,
-        double redThreshold = 80,
         bool enablePaceAdjustment = false)
     {
         var isStale = usage.IsStale;
@@ -60,7 +61,6 @@ internal static partial class MainWindowRuntimeLogic
             usedPercent,
             usage.NextResetTime,
             usage.PeriodDuration,
-            redThreshold,
             enablePaceAdjustment);
 
         // HTTP 429 (rate limited) is a known temporary state — show as Warning (orange), not Error (red),
@@ -101,7 +101,7 @@ internal static partial class MainWindowRuntimeLogic
             return specialPresentation;
         }
 
-        var dualBar = TryBuildDualBarData(usage, redThreshold, enablePaceAdjustment);
+        var dualBar = TryBuildDualBarData(usage, enablePaceAdjustment);
 
         var (statusText, suppressSingleResetTime) = ResolveStatusText(
             usage,
@@ -202,8 +202,7 @@ internal static partial class MainWindowRuntimeLogic
         bool isStatusOnlyProvider,
         DualBarData? dualBar)
     {
-        var def = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
-        if (def?.IsTooltipOnly ?? false)
+        if (usage.IsTooltipOnly)
         {
             return (GetTooltipOnlyCompactStatus(usage, description), false);
         }
@@ -283,7 +282,7 @@ internal static partial class MainWindowRuntimeLogic
         return FormatDualQuotaBucketSegment(bar.Label, bar.UsedPercent, showUsed);
     }
 
-    internal static DualBarData? TryBuildDualBarData(ProviderUsage usage, double redThreshold, bool enablePaceAdjustment)
+    internal static DualBarData? TryBuildDualBarData(ProviderUsage usage, bool enablePaceAdjustment)
     {
         var windowCards = usage.WindowCards;
         if (windowCards == null || windowCards.Count == 0)
@@ -313,23 +312,21 @@ internal static partial class MainWindowRuntimeLogic
         // Burst window is Primary (top bar), Rolling window is Secondary (bottom bar).
         var primaryPace = UsageMath.ComputePaceColor(
             burstCard.UsedPercent, burstCard.NextResetTime, burstWindow?.PeriodDuration,
-            redThreshold, enablePaceAdjustment);
+            enablePaceAdjustment);
         var secondaryPace = UsageMath.ComputePaceColor(
             rollingCard.UsedPercent, rollingCard.NextResetTime, rollingWindow?.PeriodDuration,
-            redThreshold, enablePaceAdjustment);
+            enablePaceAdjustment);
 
         return new DualBarData(
             Primary: new BarData(
                 Label: burstLabel,
                 UsedPercent: burstCard.UsedPercent,
-                ColorPercent: primaryPace.ColorPercent,
                 ResetTime: burstCard.NextResetTime,
                 PeriodDuration: burstWindow?.PeriodDuration,
                 PaceColor: primaryPace),
             Secondary: new BarData(
                 Label: rollingLabel,
                 UsedPercent: rollingCard.UsedPercent,
-                ColorPercent: secondaryPace.ColorPercent,
                 ResetTime: rollingCard.NextResetTime,
                 PeriodDuration: rollingWindow?.PeriodDuration,
                 PaceColor: secondaryPace));
@@ -430,7 +427,6 @@ internal static partial class MainWindowRuntimeLogic
 internal sealed record BarData(
     string Label,
     double UsedPercent,
-    double ColorPercent,
     DateTime? ResetTime,
     TimeSpan? PeriodDuration,
     PaceColorResult PaceColor);

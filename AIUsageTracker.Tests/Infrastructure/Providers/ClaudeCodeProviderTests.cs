@@ -470,8 +470,6 @@ public class ClaudeCodeProviderTests : HttpProviderTestBase<ClaudeCodeProvider>
         Assert.Equal("claude-code", definition.ProviderId); // provider-id-guardrail-allow: test assertion
         Assert.Equal("Claude Code", definition.DisplayName);
         Assert.True(definition.IsQuotaBased);
-        Assert.Equal("quota-based", definition.DefaultConfigType);
-        Assert.True(definition.AutoIncludeWhenUnconfigured);
         Assert.Contains("ANTHROPIC_API_KEY", definition.DiscoveryEnvironmentVariables);
         Assert.Contains("CLAUDE_API_KEY", definition.DiscoveryEnvironmentVariables);
     }

@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [2.3.4-beta.10] - 2026-03-29
+
+### Fixed
+- **Settings window showed provider as "Inactive" when running**: flat provider cards were being created with a namespaced `ProviderId` (e.g. `antigravity.gemini-pro`) instead of the provider's own `ProviderId`. The settings lookup now correctly finds the card because `ProviderId` is the provider identifier and `CardId` is the model identifier.
+- **"Other providers (N)" sub-headers removed**: the active/inactive sub-grouping inside each section was removed. Only the two top-level sections ("Plans & Quotas" and "Pay As You Go") remain.
+
+### Added
+- **"Show model information when not running" checkbox**: AntiGravity (and other auto-detected flat-card providers) now have a "Models offline" checkbox in Settings. When enabled, the last-fetched per-model cards are shown with a stale indicator even when the process is not running.
+
 ## [2.3.4-beta.9] - 2026-03-28
 
 ### Changed

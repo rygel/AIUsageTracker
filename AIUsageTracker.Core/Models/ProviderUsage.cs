@@ -48,6 +48,9 @@ public class ProviderUsage
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsStatusOnly { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool IsTooltipOnly { get; set; }
+
     public string AuthSource { get; set; } = string.Empty;
 
     /// <summary>

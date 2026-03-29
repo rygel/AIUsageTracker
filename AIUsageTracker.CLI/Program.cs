@@ -543,7 +543,7 @@ public class Program
         {
             foreach (var c in configs)
             {
-                Console.WriteLine($"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.ResolveDisplayLabel(c.ProviderId)}, Type: {c.Type}");
+                Console.WriteLine($"ID: {c.ProviderId}, Name: {ProviderMetadataCatalog.ResolveDisplayLabel(c.ProviderId)}");
             }
         }
     }

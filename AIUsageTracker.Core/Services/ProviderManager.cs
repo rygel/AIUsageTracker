@@ -131,15 +131,7 @@ public class ProviderManager : IDisposable
 
         if (config == null)
         {
-            var definition = this._providers
-                .Select(p => p.Definition)
-                .FirstOrDefault(d => d.HandlesProviderId(providerId) && d.AutoIncludeWhenUnconfigured);
-            if (definition == null)
-            {
-                throw new ArgumentException($"Provider '{providerId}' not found in configuration.", nameof(providerId));
-            }
-
-            config = definition.CreateDefaultConfig(providerId);
+            throw new ArgumentException($"Provider '{providerId}' not found in configuration.", nameof(providerId));
         }
 
         return await this.FetchSingleProviderUsageAsync(config, null, cancellationToken).ConfigureAwait(false);
@@ -186,7 +178,6 @@ public class ProviderManager : IDisposable
         {
             ProviderId = source.ProviderId,
             ApiKey = source.ApiKey,
-            Type = source.Type,
             BaseUrl = source.BaseUrl,
             ShowInTray = source.ShowInTray,
             EnableNotifications = source.EnableNotifications,
@@ -194,7 +185,6 @@ public class ProviderManager : IDisposable
             Models = source.Models,
             Description = source.Description,
             AuthSource = source.AuthSource,
-            PlanType = source.PlanType,
         };
     }
 
@@ -301,21 +291,6 @@ public class ProviderManager : IDisposable
         var configs = overrideConfigs != null
             ? overrideConfigs.Select(CloneConfig).ToList()
             : (await this.GetConfigsAsync(forceRefresh: true).ConfigureAwait(false)).ToList();
-
-        if (overrideConfigs == null)
-        {
-            foreach (var definition in this._providers
-                         .Select(p => p.Definition)
-                         .Where(d => d.AutoIncludeWhenUnconfigured))
-            {
-                if (configs.Any(c => c.ProviderId.Equals(definition.ProviderId, StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
-
-                configs.Add(definition.CreateDefaultConfig());
-            }
-        }
 
         if (includeProviderIds != null && includeProviderIds.Count > 0)
         {

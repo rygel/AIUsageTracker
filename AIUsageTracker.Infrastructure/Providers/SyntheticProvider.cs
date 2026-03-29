@@ -27,8 +27,7 @@ public sealed class SyntheticProvider : ProviderBase
         "synthetic",
         "Synthetic.new",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         DiscoveryEnvironmentVariables = new[] { "SYNTHETIC_API_KEY" },
         RooConfigPropertyNames = new[] { "syntheticApiKey" },

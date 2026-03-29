@@ -43,11 +43,13 @@ internal sealed class ProviderCardRenderer
         this._getRelativeTimeString = getRelativeTimeString;
     }
 
-    public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false)
+    public FrameworkElement CreateProviderCard(ProviderUsage usage, bool showUsed, bool isChild = false, ProviderDefinition? definition = null)
     {
         var providerId = usage.ProviderId ?? string.Empty;
-        var friendlyName = ProviderMetadataCatalog.ResolveDisplayLabel(usage);
-        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.ColorThresholdRed, this._preferences.EnablePaceAdjustment);
+        var friendlyName = definition != null
+            ? (definition.ResolveDisplayName(providerId) ?? usage.ProviderName)
+            : ProviderMetadataCatalog.ResolveDisplayLabel(usage);
+        var presentation = MainWindowRuntimeLogic.Create(usage, showUsed, this._preferences.EnablePaceAdjustment);
 
         var isCompact = this._preferences.CardCompactMode;
         var grid = new Grid
@@ -65,8 +67,8 @@ internal sealed class ProviderCardRenderer
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             pGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            var primaryRow = this.CreateProgressLayer(presentation.DualBar!.Primary.UsedPercent, presentation.DualBar.Primary.ColorPercent, showUsed, opacity: 0.55);
-            var secondaryRow = this.CreateProgressLayer(presentation.DualBar.Secondary.UsedPercent, presentation.DualBar.Secondary.ColorPercent, showUsed, opacity: 0.35);
+            var primaryRow = this.CreateProgressLayer(presentation.DualBar!.Primary.UsedPercent, presentation.DualBar.Primary.PaceColor, showUsed, opacity: 0.55);
+            var secondaryRow = this.CreateProgressLayer(presentation.DualBar.Secondary.UsedPercent, presentation.DualBar.Secondary.PaceColor, showUsed, opacity: 0.35);
             Grid.SetRow(primaryRow, 0);
             Grid.SetRow(secondaryRow, 1);
             pGrid.Children.Add(primaryRow);
@@ -108,7 +110,7 @@ internal sealed class ProviderCardRenderer
         else
         {
             double indicatorWidth;
-            double colorIndicatorPercent;
+            PaceColorResult colorIndicator;
 
             if (presentation.DualBar != null && !this._preferences.ShowDualQuotaBars)
             {
@@ -116,15 +118,15 @@ internal sealed class ProviderCardRenderer
                     ? presentation.DualBar.Primary
                     : presentation.DualBar.Secondary;
                 indicatorWidth = showUsed ? bar.UsedPercent : Math.Max(0, 100 - bar.UsedPercent);
-                colorIndicatorPercent = bar.ColorPercent;
+                colorIndicator = bar.PaceColor;
             }
             else
             {
                 indicatorWidth = showUsed ? presentation.UsedPercent : presentation.RemainingPercent;
-                colorIndicatorPercent = presentation.PaceColor.ColorPercent;
+                colorIndicator = presentation.PaceColor;
             }
 
-            pGrid = this.CreateSingleProgressLayer(colorIndicatorPercent, indicatorWidth, opacity: 0.45);
+            pGrid = this.CreateSingleProgressLayer(colorIndicator, indicatorWidth, opacity: 0.45);
         }
 
         // For dual-window providers (burst + rolling), drive the badge from the rolling window:
@@ -160,7 +162,7 @@ internal sealed class ProviderCardRenderer
                 {
                     Width = 3,
                     HorizontalAlignment = HorizontalAlignment.Left,
-                    Background = this.GetProgressBarColor(cardPaceColor.ColorPercent),
+                    Background = this.GetProgressBarColor(cardPaceColor),
                     Opacity = 0.8,
                 });
             }
@@ -192,7 +194,8 @@ internal sealed class ProviderCardRenderer
         var accountName = MainWindowRuntimeLogic.ResolveDisplayAccountName(
             providerId,
             usage.AccountName,
-            this._isPrivacyMode);
+            this._isPrivacyMode,
+            definition);
         AddDockedElement(
             contentPanel,
             this.CreateProviderNameTextBlock(
@@ -233,14 +236,14 @@ internal sealed class ProviderCardRenderer
         return grid;
     }
 
-    private Grid CreateProgressLayer(double usedPercent, double colorPercent, bool showUsed, double opacity)
+    private Grid CreateProgressLayer(double usedPercent, PaceColorResult paceColor, bool showUsed, double opacity)
     {
         var remainingPercent = Math.Max(0, 100 - usedPercent);
         var indicatorWidth = showUsed ? usedPercent : remainingPercent;
-        return this.CreateSingleProgressLayer(colorPercent, indicatorWidth, opacity);
+        return this.CreateSingleProgressLayer(paceColor, indicatorWidth, opacity);
     }
 
-    private Grid CreateSingleProgressLayer(double usedPercent, double indicatorWidth, double opacity)
+    private Grid CreateSingleProgressLayer(PaceColorResult paceColor, double indicatorWidth, double opacity)
     {
         var clampedWidth = Math.Clamp(indicatorWidth, 0, 100);
 
@@ -250,12 +253,25 @@ internal sealed class ProviderCardRenderer
 
         layer.Children.Add(new Border
         {
-            Background = this.GetProgressBarColor(usedPercent),
+            Background = this.GetProgressBarColor(paceColor),
             Opacity = opacity,
             CornerRadius = new CornerRadius(0),
         });
 
         return layer;
+    }
+
+    private Brush GetProgressBarColor(PaceColorResult paceColor)
+    {
+        if (paceColor.IsPaceAdjusted)
+        {
+            // Tier is the single source of truth: Headroom/OnPace → green, OverPace → red.
+            return paceColor.PaceTier == PaceTier.OverPace
+                ? this._getResourceBrush("ProgressBarRed", Brushes.Crimson)
+                : this._getResourceBrush("ProgressBarGreen", Brushes.MediumSeaGreen);
+        }
+
+        return this.GetProgressBarColor(paceColor.ColorPercent);
     }
 
     private Brush GetProgressBarColor(double usedPercentage)

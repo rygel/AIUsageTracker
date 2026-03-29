@@ -268,11 +268,6 @@ public class JsonConfigLoader : IConfigLoader
             }
         }
 
-        if (element.TryGetProperty("type", out var typeProp))
-        {
-            config.Type = typeProp.GetString() ?? config.Type;
-        }
-
         if (element.TryGetProperty("base_url", out var urlProp))
         {
             config.BaseUrl = urlProp.GetString() ?? config.BaseUrl;
@@ -367,8 +362,6 @@ public class JsonConfigLoader : IConfigLoader
             }
         }
 
-        existing.PlanType = discoveredConfig.PlanType;
-        existing.Type = discoveredConfig.Type;
     }
 
     private void EnsureParentDirectoryExists(string path)

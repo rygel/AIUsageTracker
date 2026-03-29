@@ -10,23 +10,16 @@ namespace AIUsageTracker.Tests.Services;
 public sealed class GroupedUsageProjectionServiceTests
 {
     [Fact]
-    public void Build_AntigravityWithExplicitChildRows_UsesProviderChildRowsAsModelSource()
+    public void Build_AntigravityWithFlatCardUsage_ProjectsCardIdAsModel()
     {
+        // Antigravity emits flat cards with CardId set; BuildModelsFromFlatCards picks them up.
         var usages = new[]
         {
             new ProviderUsage
             {
                 ProviderId = "antigravity",
-                ProviderName = "Antigravity",
-                IsAvailable = true,
-                IsQuotaBased = true,
-                PlanType = PlanType.Coding,
-                UsedPercent = 40,
-                Description = "40% Remaining",
-            },
-            new ProviderUsage
-            {
-                ProviderId = "antigravity.gemini-3-flash",
+                CardId = "gemini-3-flash",
+                Name = "Gemini 3 Flash",
                 ProviderName = "Gemini 3 Flash",
                 IsAvailable = true,
                 IsQuotaBased = true,

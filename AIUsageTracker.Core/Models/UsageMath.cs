@@ -238,7 +238,6 @@ public static class UsageMath
         double usedPercent,
         DateTime? nextResetTime,
         TimeSpan? periodDuration,
-        double redThreshold = 80,
         bool enablePaceAdjustment = true,
         DateTime? nowUtc = null)
     {
@@ -272,10 +271,8 @@ public static class UsageMath
         var elapsed = now - periodStart;
         var elapsedFraction = Math.Clamp(elapsed.TotalSeconds / period.TotalSeconds, 0.01, 1.0);
 
-        // ONE projection, used for BOTH badge and color — they can never disagree.
         var projected = usedPercent / elapsedFraction;
 
-        // Tier classification
         var tier = projected switch
         {
             >= 100.0 => PaceTier.OverPace,
@@ -283,14 +280,10 @@ public static class UsageMath
             _ => PaceTier.Headroom,
         };
 
-        // Scale projected to color space: 100% projected maps to redThreshold.
-        var effectiveRedThreshold = Math.Clamp(redThreshold, 1, 100);
-        var colorPercent = ClampPercent(projected * effectiveRedThreshold / 100.0);
-
         var badge = new PaceBadgeResult(tier, projected);
 
         return new PaceColorResult(
-            ColorPercent: colorPercent,
+            ColorPercent: ClampPercent(usedPercent),
             PaceTier: tier,
             ProjectedPercent: ClampPercent(projected),
             BadgeText: badge.Text,

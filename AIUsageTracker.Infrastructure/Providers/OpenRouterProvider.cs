@@ -26,8 +26,7 @@ public class OpenRouterProvider : ProviderBase
         "openrouter",
         "OpenRouter",
         PlanType.Usage,
-        isQuotaBased: true,
-        defaultConfigType: "pay-as-you-go")
+        isQuotaBased: true)
     {
         DiscoveryEnvironmentVariables = new[] { "OPENROUTER_API_KEY" },
         RooConfigPropertyNames = new[] { "openrouterApiKey" },

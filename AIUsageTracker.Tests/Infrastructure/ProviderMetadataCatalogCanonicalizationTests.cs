@@ -33,8 +33,6 @@ public class ProviderMetadataCatalogCanonicalizationTests
         var codex = Assert.Single(configs);
         Assert.Equal("codex", codex.ProviderId);
         Assert.Equal(TestApiKey1, codex.ApiKey);
-        Assert.Equal(PlanType.Coding, codex.PlanType);
-        Assert.Equal("quota-based", codex.Type);
         Assert.Equal("OpenCode", codex.AuthSource);
         Assert.Equal("Migrated from OpenAI session config", codex.Description);
     }
@@ -50,8 +48,6 @@ public class ProviderMetadataCatalogCanonicalizationTests
                 ApiKey = TestApiKey2,
                 AuthSource = "Spark",
                 Description = "spark",
-                Type = "quota-based",
-                PlanType = PlanType.Coding,
                 BaseUrl = "https://example.invalid",
                 ShowInTray = true,
                 EnableNotifications = true,
@@ -68,8 +64,6 @@ public class ProviderMetadataCatalogCanonicalizationTests
         Assert.Equal("https://example.invalid", spark.BaseUrl);
         Assert.True(spark.ShowInTray);
         Assert.True(spark.EnableNotifications);
-        Assert.Equal(PlanType.Coding, spark.PlanType);
-        Assert.Equal("quota-based", spark.Type);
     }
 
     [Fact]

@@ -37,8 +37,7 @@ public class OpenAIProvider : ProviderBase
         "openai",
         "OpenAI (API)",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         DiscoveryEnvironmentVariables = new[] { "OPENAI_API_KEY" },
         RooConfigPropertyNames = new[] { "openAiApiKey" },

@@ -28,10 +28,8 @@ public class GitHubCopilotProvider : ProviderBase
         "github-copilot",
         "GitHub Copilot",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
-        AutoIncludeWhenUnconfigured = true,
         SettingsMode = ProviderSettingsMode.ExternalAuthStatus,
         SupportsAccountIdentity = true,
         IconAssetName = "github",

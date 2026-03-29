@@ -51,7 +51,6 @@ public class PaceCalculationEndToEndTests
         Assert.True(paceColor.IsPaceAdjusted);
         Assert.Equal(PaceTier.OverPace, paceColor.PaceTier);
         Assert.Equal(100.0, paceColor.ProjectedPercent); // clamped
-        Assert.True(paceColor.ColorPercent >= 80.0, "Over pace must produce red color");
         Assert.Equal("Over pace", paceColor.BadgeText);
     }
 
@@ -158,11 +157,11 @@ public class PaceCalculationEndToEndTests
     }
 
     /// <summary>
-    /// Verifies that ComputePaceColor produces consistent tier and color:
-    /// color = projected * redThreshold / 100, and tier agrees.
+    /// Verifies that ComputePaceColor ColorPercent equals raw usedPercent (no scaling),
+    /// and that tier and badge agree.
     /// </summary>
     [Fact]
-    public void ComputePaceColor_ColorAndTierConsistent()
+    public void ComputePaceColor_ColorPercent_IsRawUsedPercent()
     {
         var now = new DateTime(2026, 3, 21, 12, 0, 0, DateTimeKind.Utc);
         var nextResetUtc = now.AddDays(3);
@@ -170,15 +169,9 @@ public class PaceCalculationEndToEndTests
 
         var result = UsageMath.ComputePaceColor(45, nextResetUtc, period, nowUtc: now);
 
-        // Color = projected * (redThreshold / 100), default redThreshold = 80
-        var expectedColor = Math.Clamp(result.ProjectedPercent * 80.0 / 100.0, 0, 100);
-        Assert.Equal(expectedColor, result.ColorPercent, precision: 6);
-
-        // If on-pace, color must be below red threshold
-        if (result.PaceTier != PaceTier.OverPace)
-        {
-            Assert.True(result.ColorPercent < 80.0);
-        }
+        Assert.Equal(45.0, result.ColorPercent, precision: 6);
+        Assert.True(result.IsPaceAdjusted);
+        Assert.NotEmpty(result.BadgeText);
     }
 
     /// <summary>

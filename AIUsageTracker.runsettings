@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <!-- Cap test parallelism to 4 cores; user works in parallel on the same machine -->
+    <MaxCpuCount>4</MaxCpuCount>
+  </RunConfiguration>
+</RunSettings>

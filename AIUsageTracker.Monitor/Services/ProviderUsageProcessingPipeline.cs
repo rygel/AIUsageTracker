@@ -289,6 +289,7 @@ public class ProviderUsageProcessingPipeline : IProviderUsageProcessingPipeline
             IsAvailable = usage.IsAvailable,
             State = usage.State,
             IsStatusOnly = usage.IsStatusOnly || (definition?.IsStatusOnly ?? false),
+            IsTooltipOnly = usage.IsTooltipOnly || (definition?.IsTooltipOnly ?? false),
             IsCurrencyUsage = usage.IsCurrencyUsage || (definition?.IsCurrencyUsage ?? false),
             Description = description,
             AuthSource = usage.AuthSource,

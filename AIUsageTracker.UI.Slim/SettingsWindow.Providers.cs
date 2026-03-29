@@ -32,11 +32,10 @@ public partial class SettingsWindow
         this.ProvidersStack.Children.Clear();
 
         var displayItems = CreateProviderDisplayItems(this._configs, this._usages);
-        var usageByProviderId = this._usages.ToDictionary(usage => usage.ProviderId, StringComparer.OrdinalIgnoreCase);
-
         foreach (var item in displayItems)
         {
-            usageByProviderId.TryGetValue(item.Config.ProviderId, out var usage);
+            var usage = this._usages.FirstOrDefault(u =>
+                string.Equals(u.ProviderId, item.Config.ProviderId, StringComparison.OrdinalIgnoreCase));
             this.AddProviderCard(item.Config, usage, item.IsDerived);
         }
 
@@ -187,8 +186,6 @@ public partial class SettingsWindow
         return new ProviderConfig
         {
             ProviderId = usage.ProviderId,
-            Type = usage.IsQuotaBased ? "quota-based" : "pay-as-you-go",
-            PlanType = usage.PlanType,
         };
     }
 
@@ -483,6 +480,24 @@ public partial class SettingsWindow
                 this.MarkSettingsChanged();
             }));
 
+        var definition = ProviderMetadataCatalog.Find(config.ProviderId);
+        if (!isDerived &&
+            settingsBehavior.InputMode == ProviderInputMode.AutoDetectedStatus &&
+            definition?.FamilyMode == ProviderFamilyMode.FlatWindowCards)
+        {
+            headerPanel.Children.Add(this.CreateProviderHeaderCheckBox(
+                content: "Models offline",
+                isChecked: config.ShowCachedModelsWhenOffline,
+                margin: new Thickness(8, 0, 0, 0),
+                isEnabled: true,
+                onCheckedChanged: isChecked =>
+                {
+                    var trackedConfig = this.GetOrCreateTrackedConfig(config);
+                    trackedConfig.ShowCachedModelsWhenOffline = isChecked;
+                    this.MarkSettingsChanged();
+                }));
+        }
+
         if (settingsBehavior.IsInactive)
         {
             headerPanel.Children.Add(this.CreateInactiveBadge());
@@ -708,8 +723,6 @@ public partial class SettingsWindow
         {
             ProviderId = config.ProviderId,
             ApiKey = config.ApiKey,
-            Type = config.Type,
-            PlanType = config.PlanType,
             Limit = config.Limit,
             BaseUrl = config.BaseUrl,
             ShowInTray = config.ShowInTray,

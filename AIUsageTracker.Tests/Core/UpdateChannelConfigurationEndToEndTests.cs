@@ -105,7 +105,14 @@ public sealed class UpdateChannelConfigurationEndToEndTests : IDisposable
             GitHubUpdateChecker.GetReleaseTagUrl(version),
             item.Element(sparkle + "releaseNotesLink")?.Value);
         Assert.Equal(expectedDownloadUrl, enclosure!.Attribute("url")?.Value);
-        Assert.Equal(version.Split('-')[0], enclosure.Attribute(sparkle + "version")?.Value);
+        // For beta releases (e.g. "2.2.28-beta.21") the script encodes the pre-release number
+        // as a 4th component ("2.2.28.21") so NetSparkle can compare builds numerically.
+        const string betaPrefix = "-beta.";
+        var betaIdx = version.IndexOf(betaPrefix, StringComparison.Ordinal);
+        var expectedSparkleVersion = betaIdx >= 0
+            ? $"{version[..betaIdx]}.{version[(betaIdx + betaPrefix.Length)..]}"
+            : version;
+        Assert.Equal(expectedSparkleVersion, enclosure.Attribute(sparkle + "version")?.Value);
         Assert.Equal(expectedShortVersion, enclosure.Attribute(sparkle + "shortVersionString")?.Value);
     }
 

@@ -58,7 +58,6 @@ public class ProviderUsagePersistenceServiceTests
             database => database.StoreProviderAsync(
                 It.Is<ProviderConfig>(config =>
                     config.ProviderId == "antigravity.gemini-pro" &&
-                    config.Type == "quota-based" &&
                     config.AuthSource == "session" &&
                     config.ApiKey == "dynamic"),
                 "Gemini Pro"),
@@ -88,7 +87,6 @@ public class ProviderUsagePersistenceServiceTests
             database => database.StoreProviderAsync(
                 It.Is<ProviderConfig>(config =>
                     config.ProviderId == "gemini-cli.hourly" &&
-                    config.Type == "quota-based" &&
                     config.AuthSource == "session" &&
                     config.ApiKey == "dynamic"),
                 "Gemini CLI (Hourly)"),

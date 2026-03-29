@@ -27,8 +27,7 @@ public class DeepSeekProvider : ProviderBase
         "deepseek",
         "DeepSeek",
         PlanType.Usage,
-        isQuotaBased: false,
-        defaultConfigType: "pay-as-you-go")
+        isQuotaBased: false)
     {
         ShowInSettings = false,
         DiscoveryEnvironmentVariables = new[] { "DEEPSEEK_API_KEY" },

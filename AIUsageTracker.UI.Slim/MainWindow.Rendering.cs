@@ -74,28 +74,7 @@ public partial class MainWindow : Window
                     continue;
                 }
 
-                var (activeUsages, inactiveUsages) = SplitActiveInactive(section.Usages);
-
-                this.AddProviderCardsWithGrouping(activeUsages, container, cardRenderer);
-
-                if (inactiveUsages.Count > 0)
-                {
-                    var (inactiveHeader, inactiveContainer) = this.CreateCollapsibleHeader(
-                        $"Other providers ({inactiveUsages.Count})",
-                        Brushes.Gray,
-                        isGroupHeader: true,
-                        groupKey: $"inactive_{section.SectionKey}",
-                        () => !this._preferences.ShowInactiveProviders,
-                        collapsed =>
-                        {
-                            this._preferences.ShowInactiveProviders = !collapsed;
-                        });
-
-                    container.Children.Add(inactiveHeader);
-                    container.Children.Add(inactiveContainer);
-
-                    this.AddProviderCardsWithGrouping(inactiveUsages, inactiveContainer, cardRenderer);
-                }
+                this.AddProviderCardsWithGrouping(section.Usages, container, cardRenderer);
             }
 
             this.ApplyProviderListFontPreferences();
@@ -107,32 +86,6 @@ public partial class MainWindow : Window
             this.ProvidersList.Children.Add(this.CreateInfoTextBlock("Failed to render provider cards. Check logs for details."));
             this.ApplyProviderListFontPreferences();
         }
-    }
-
-    private static (IReadOnlyList<ProviderUsage> Active, IReadOnlyList<ProviderUsage> Inactive) SplitActiveInactive(
-        IReadOnlyList<ProviderUsage> usages)
-    {
-        var active = new List<ProviderUsage>();
-        var inactive = new List<ProviderUsage>();
-
-        foreach (var usage in usages)
-        {
-            // A provider is "inactive" if it has 0% usage, is available, and not errored
-            var isInactive = usage.IsAvailable
-                             && usage.UsedPercent <= 0
-                             && usage.HttpStatus is 0 or 200;
-
-            if (isInactive)
-            {
-                inactive.Add(usage);
-            }
-            else
-            {
-                active.Add(usage);
-            }
-        }
-
-        return (active, inactive);
     }
 
     private void ApplyProviderListFontPreferences()
@@ -348,7 +301,8 @@ public partial class MainWindow : Window
     private void AddProviderCard(ProviderUsage usage, StackPanel container, ProviderCardRenderer cardRenderer, bool isChild = false)
     {
         var showUsed = this.ShowUsedToggle?.IsChecked ?? false;
-        var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild);
+        var definition = ProviderMetadataCatalog.Find(usage.ProviderId ?? string.Empty);
+        var card = cardRenderer.CreateProviderCard(usage, showUsed, isChild, definition);
 
         var contextMenu = new ContextMenu();
         var designerItem = new MenuItem { Header = "Card settings..." };

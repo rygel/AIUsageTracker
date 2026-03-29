@@ -20,8 +20,7 @@ public class ProviderBaseTests
             providerId: "test-provider",
             displayName: "Test Provider",
             planType: PlanType.Coding,
-            isQuotaBased: true,
-            defaultConfigType: "quota-based");
+            isQuotaBased: true);
 
         public override Task<IEnumerable<ProviderUsage>> GetUsageAsync(ProviderConfig config, Action<ProviderUsage>? progressCallback = null, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

@@ -47,8 +47,7 @@ public sealed class ProviderFamilyPolicyTests
             "codex",
             "OpenAI",
             PlanType.Coding,
-            isQuotaBased: true,
-            defaultConfigType: "quota-based")
+            isQuotaBased: true)
         {
             FamilyMode = ProviderFamilyMode.VisibleDerivedProviders,
             VisibleDerivedProviderIds = new[] { "codex.spark" },

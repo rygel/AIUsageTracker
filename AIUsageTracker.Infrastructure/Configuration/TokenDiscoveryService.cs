@@ -184,8 +184,6 @@ public class TokenDiscoveryService
         var existing = configs.FirstOrDefault(c => c.ProviderId.Equals(providerId, StringComparison.OrdinalIgnoreCase));
         if (existing != null)
         {
-            existing.PlanType = defaultConfig.PlanType;
-            existing.Type = defaultConfig.Type;
             if (!string.IsNullOrEmpty(key))
             {
                 existing.ApiKey = key;
@@ -391,8 +389,6 @@ public class TokenDiscoveryService
             existing.ApiKey = key;
             existing.AuthSource = source;
             existing.Description = description;
-            existing.Type = defaultConfig.Type;
-            existing.PlanType = defaultConfig.PlanType;
         }
     }
 }

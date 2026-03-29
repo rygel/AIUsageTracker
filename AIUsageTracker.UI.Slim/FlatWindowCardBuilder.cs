@@ -1,0 +1,69 @@
+// <copyright file="FlatWindowCardBuilder.cs" company="AIUsageTracker">
+// Copyright (c) AIUsageTracker. All rights reserved.
+// </copyright>
+
+using AIUsageTracker.Core.Models;
+using AIUsageTracker.Core.MonitorClient;
+using AIUsageTracker.Infrastructure.Providers;
+
+namespace AIUsageTracker.UI.Slim;
+
+internal static class FlatWindowCardBuilder
+{
+    internal static IReadOnlyList<ProviderUsage> BuildFlatWindowCards(AgentGroupedProviderUsage provider)
+    {
+        var cards = new List<ProviderUsage>(provider.Models.Count);
+        foreach (var model in provider.Models)
+        {
+            var modelState = AgentGroupedUsageValueResolver.ResolveModelEffectiveState(model, provider.IsQuotaBased);
+
+            cards.Add(new ProviderUsage
+            {
+                ProviderId = provider.ProviderId,
+                CardId = model.ModelId,
+                ProviderName = model.ModelName,
+                AccountName = provider.AccountName,
+                IsAvailable = provider.IsAvailable,
+                PlanType = provider.PlanType,
+                IsQuotaBased = provider.IsQuotaBased,
+                RequestsUsed = modelState.UsedPercentage,
+                UsedPercent = modelState.UsedPercentage,
+                Description = modelState.Description,
+                FetchedAt = provider.FetchedAt,
+                NextResetTime = modelState.NextResetTime,
+                PeriodDuration = ResolvePeriodDuration(provider.ProviderId),
+            });
+        }
+
+        return cards;
+    }
+
+    internal static TimeSpan? ResolvePeriodDuration(string providerId)
+    {
+        if (!ProviderMetadataCatalog.TryGet(providerId, out var definition))
+        {
+            return null;
+        }
+
+        if (string.Equals(providerId, definition.ProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            return definition.QuotaWindows
+                .FirstOrDefault(window => window.Kind == WindowKind.Rolling && window.PeriodDuration.HasValue)
+                ?.PeriodDuration;
+        }
+
+        // Derived child provider (e.g. "claude-code.sonnet"): try explicit ChildProviderId match first,
+        // then fall back to the parent's Rolling window duration so pace/headroom is computed correctly.
+        var fromChildProviderId = definition.QuotaWindows
+            .FirstOrDefault(window =>
+                window.PeriodDuration.HasValue &&
+                !string.IsNullOrWhiteSpace(window.ChildProviderId) &&
+                string.Equals(window.ChildProviderId, providerId, StringComparison.OrdinalIgnoreCase))
+            ?.PeriodDuration;
+
+        return fromChildProviderId
+            ?? definition.QuotaWindows
+                .FirstOrDefault(window => window.Kind == WindowKind.Rolling && window.PeriodDuration.HasValue)
+                ?.PeriodDuration;
+    }
+}

@@ -31,8 +31,7 @@ public class MinimaxProvider : ProviderBase
         ChinaProviderId,
         "Minimax (China)",
         PlanType.Coding,
-        isQuotaBased: true,
-        defaultConfigType: "quota-based")
+        isQuotaBased: true)
     {
         AdditionalHandledProviderIds = new[] { InternationalProviderId, InternationalLegacyProviderId },
         DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

@@ -2,7 +2,6 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
-using AIUsageTracker.Core.Interfaces;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Monitor.Services;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -21,7 +20,7 @@ public class ProviderRefreshConfigLoadingServiceTests
     private readonly Mock<IUsageDatabase> _database = new();
 
     [Fact]
-    public async Task LoadConfigsForRefreshAsync_AddsAutoIncludedProvidersAndFiltersToActiveConfigsAsync()
+    public async Task LoadConfigsForRefreshAsync_IncludesOnlyKeyedConfigsAsync()
     {
         this._configService.Setup(service => service.GetConfigsAsync()).ReturnsAsync(new List<ProviderConfig>
         {
@@ -29,15 +28,15 @@ public class ProviderRefreshConfigLoadingServiceTests
             new() { ProviderId = "codex", ApiKey = TestApiKey1 },
         });
 
-        var service = this.CreateService(CreateProvider("antigravity", autoIncludeWhenUnconfigured: true));
+        var service = this.CreateService();
 
         var (configs, activeConfigs) = await service.LoadConfigsForRefreshAsync(forceAll: false, includeProviderIds: null);
 
         Assert.Equal(
-            new[] { "antigravity", "codex", "openai" },
+            new[] { "codex", "openai" },
             configs.Select(config => config.ProviderId).OrderBy(id => id, StringComparer.Ordinal).ToArray());
         Assert.Equal(
-            new[] { "antigravity", "codex" },
+            new[] { "codex" },
             activeConfigs.Select(config => config.ProviderId).OrderBy(id => id, StringComparer.Ordinal).ToArray());
     }
 
@@ -90,32 +89,9 @@ public class ProviderRefreshConfigLoadingServiceTests
         this._database.Verify(database => database.StoreProviderAsync(configs[1], null), Times.Once);
     }
 
-    private static IProviderService CreateProvider(
-        string providerId,
-        bool autoIncludeWhenUnconfigured = false)
+    private ProviderRefreshConfigLoadingService CreateService()
     {
-        var mock = new Mock<IProviderService>();
-        mock.SetupGet(provider => provider.ProviderId).Returns(providerId);
-        mock.SetupGet(provider => provider.Definition).Returns(
-            new ProviderDefinition(
-                providerId,
-                providerId,
-                PlanType.Coding,
-                isQuotaBased: true,
-                defaultConfigType: "quota-based")
-            {
-                AutoIncludeWhenUnconfigured = autoIncludeWhenUnconfigured,
-            });
-        mock.Setup(provider => provider.GetUsageAsync(It.IsAny<ProviderConfig>(), It.IsAny<Action<ProviderUsage>?>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<ProviderUsage>());
-        return mock.Object;
-    }
-
-    private ProviderRefreshConfigLoadingService CreateService(params IProviderService[] providers)
-    {
-        var selector = new ProviderRefreshConfigSelector(
-            providers,
-            NullLogger<ProviderRefreshConfigSelector>.Instance);
+        var selector = new ProviderRefreshConfigSelector();
 
         return new ProviderRefreshConfigLoadingService(
             this._configService.Object,

@@ -44,7 +44,6 @@ public sealed class ProviderRefreshConfigLoadingService
                 hasKey ? $"Has API key ({config.ApiKey?.Length ?? 0} chars)" : "NO API KEY");
         }
 
-        this._configSelector.EnsureAutoIncludedConfigs(configs);
         var selection = this._configSelector.SelectActiveConfigs(configs, forceAll, includeProviderIds);
         var activeConfigs = selection.ActiveConfigs;
 
