@@ -10,9 +10,10 @@ namespace AIUsageTracker.Tests.Infrastructure;
 public sealed class ProviderDerivedModelAssignmentResolverTests
 {
     [Fact]
-    public void Resolve_CodexModels_ReturnsEmpty()
+    public void Resolve_CodexModels_ReturnsEmpty_WhenFlatWindowCards()
     {
-        // Codex has no derived model selectors — the resolver has nothing to do.
+        // Codex uses FlatWindowCards — the resolver has nothing to do; flat cards are built
+        // directly from ModelId in the display adapter without any selector-based routing.
         var assignments = ProviderDerivedModelAssignmentResolver.Resolve(
             "codex",
             new[]

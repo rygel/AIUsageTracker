@@ -184,9 +184,9 @@ public sealed class GroupedUsageProjectionServiceTests
     [Fact]
     public void Build_CodexWithWindowKindCards_ProjectsAsProviderDetailsNotModels()
     {
-        // Codex is NOT FlatWindowCards. Its burst/weekly/spark cards all have WindowKind set
-        // and must flow through as ProviderDetails so the UI renders them as a single
-        // "OpenAI (Codex)" card — not as separate flat cards.
+        // Codex is FlatWindowCards but all its cards have WindowKind set (none are WindowKind.None).
+        // When there are no WindowKind.None "model" cards, the group is treated as quota-window
+        // cards → ProviderDetails, so the UI renders a single "OpenAI (Codex)" card.
         var usages = new[]
         {
             new ProviderUsage
@@ -231,7 +231,7 @@ public sealed class GroupedUsageProjectionServiceTests
 
         var provider = Assert.Single(snapshot.Providers);
         Assert.Equal("codex", provider.ProviderId);
-        Assert.Empty(provider.Models); // no separate flat cards
+        Assert.Empty(provider.Models); // no WindowKind.None cards → no separate flat cards
         Assert.Equal(3, provider.ProviderDetails.Count); // all appear as quota-window details
         Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Burst);
         Assert.Contains(provider.ProviderDetails, d => d.WindowKind == WindowKind.Rolling);
