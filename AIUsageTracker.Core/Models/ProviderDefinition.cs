@@ -71,6 +71,12 @@ public sealed class ProviderDefinition
 
     public IReadOnlyCollection<ProviderDerivedModelSelector> DerivedModelSelectors { get; init; } = Array.Empty<ProviderDerivedModelSelector>();
 
+    /// <summary>
+    /// Model IDs that are consumed by the parent card (e.g. progress bars) and must not
+    /// appear as dynamic child rows even when other VisibleDerivedProviderIds are declared.
+    /// </summary>
+    public IReadOnlyCollection<string> ExcludedDerivedModelIds { get; init; } = Array.Empty<string>();
+
     public IReadOnlyCollection<string> ExplicitApiKeyPrefixes { get; init; } = Array.Empty<string>();
 
     public string? SessionAuthCanonicalProviderId { get; init; }

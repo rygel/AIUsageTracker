@@ -50,4 +50,39 @@ public sealed class GroupedUsageProjectionServiceTests
         Assert.Equal(0, model.UsedPercentage);
         Assert.Equal("100% Remaining", model.Description);
     }
+
+    [Fact]
+    public void Build_WhenMostRecentEntryIsError_PrimaryUsageReflectsErrorState()
+    {
+        // Older successful entry + newer error entry — primary must be the newest so the
+        // error reason is surfaced rather than showing stale successful data.
+        var old = DateTime.UtcNow.AddHours(-19);
+        var now = DateTime.UtcNow;
+
+        var usages = new[]
+        {
+            new ProviderUsage
+            {
+                ProviderId = "codex",
+                IsAvailable = true,
+                UsedPercent = 42,
+                Description = "58% remaining",
+                FetchedAt = old,
+            },
+            new ProviderUsage
+            {
+                ProviderId = "codex",
+                IsAvailable = false,
+                UsedPercent = 0,
+                Description = "HTTP 401: Unauthorized",
+                FetchedAt = now,
+            },
+        };
+
+        var snapshot = GroupedUsageProjectionService.Build(usages);
+
+        var provider = Assert.Single(snapshot.Providers);
+        // Description must come from the most recent entry, not the stale successful one.
+        Assert.Equal("HTTP 401: Unauthorized", provider.Description);
+    }
 }

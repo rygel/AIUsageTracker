@@ -62,6 +62,19 @@ public class ClaudeCodeProvider : ProviderBase
             new(WindowKind.ModelSpecific, "Opus",   SettingsLabel: "Opus (7-day model quota)",      DetailName: "Opus",            PeriodDuration: TimeSpan.FromDays(7)),
             new(WindowKind.Rolling,       "7-day",  SettingsLabel: "All Models (7-day combined)",   DetailName: "All Models",      PeriodDuration: TimeSpan.FromDays(7)),
         },
+        FamilyMode = ProviderFamilyMode.VisibleDerivedProviders,
+        VisibleDerivedProviderIds = new[] { "claude-code.sonnet", "claude-code.all-models" },
+        DerivedModelSelectors = new[]
+        {
+            new ProviderDerivedModelSelector(derivedProviderId: "claude-code.sonnet",     modelIdEquals: new[] { "sonnet" }),
+            new ProviderDerivedModelSelector(derivedProviderId: "claude-code.all-models", modelIdEquals: new[] { "all-models" }),
+        },
+        ExcludedDerivedModelIds = new[] { "current-session", "opus" },
+        DisplayNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["claude-code.sonnet"]     = "Sonnet",
+            ["claude-code.all-models"] = "All Models",
+        },
     };
 
     /// <inheritdoc/>

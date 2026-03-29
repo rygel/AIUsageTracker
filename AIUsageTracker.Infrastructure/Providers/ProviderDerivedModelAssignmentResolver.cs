@@ -80,7 +80,8 @@ public static class ProviderDerivedModelAssignmentResolver
             canonicalProviderId,
             orderedModels,
             assignments.Select(assignment => assignment.ProviderId),
-            assignments.Select(assignment => GetModelAssignmentKey(assignment.Model)));
+            assignments.Select(assignment => GetModelAssignmentKey(assignment.Model))
+                       .Concat(definition.ExcludedDerivedModelIds));
 
         if (remainingAssignments.Count == 0)
         {

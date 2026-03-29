@@ -2,6 +2,7 @@
 // Copyright (c) AIUsageTracker. All rights reserved.
 // </copyright>
 
+using System.Linq;
 using AIUsageTracker.Core.Models;
 using AIUsageTracker.Core.MonitorClient;
 using AIUsageTracker.UI.Slim;
@@ -642,6 +643,47 @@ public class GroupedUsageDisplayAdapterTests
 
         // Child card must still be built from Models.
         Assert.Single(usages, u => string.Equals(u.ProviderId, "codex.spark", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Expand_ClaudeCodeSnapshot_ProducesTwoChildRows_SonnetAndAllModels()
+    {
+        var snapshot = new AgentGroupedUsageSnapshot
+        {
+            Providers = new[]
+            {
+                new AgentGroupedProviderUsage
+                {
+                    ProviderId = "claude-code",
+                    ProviderName = "Claude Code",
+                    IsAvailable = true,
+                    IsQuotaBased = true,
+                    PlanType = PlanType.Usage,
+                    UsedPercent = 5,
+                    Models = new[]
+                    {
+                        new AgentGroupedModelUsage { ModelId = "current-session", ModelName = "Current Session", UsedPercentage = 3 },
+                        new AgentGroupedModelUsage { ModelId = "sonnet",          ModelName = "Sonnet",          UsedPercentage = 2 },
+                        new AgentGroupedModelUsage { ModelId = "all-models",      ModelName = "All Models",      UsedPercentage = 5 },
+                    },
+                },
+            },
+        };
+
+        var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
+
+        // Parent + sonnet child + all-models child; current-session is NOT a visible derived row
+        Assert.Equal(3, usages.Count);
+        Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal));
+        Assert.Empty(usages.Where(u => string.Equals(u.ProviderId, "claude-code.current-session", StringComparison.Ordinal)));
+
+        var sonnet = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code.sonnet", StringComparison.Ordinal));
+        var all    = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code.all-models", StringComparison.Ordinal));
+
+        Assert.Equal("Sonnet", sonnet.ProviderName);
+        Assert.Equal("All Models", all.ProviderName);
+        Assert.Equal(2, sonnet.UsedPercent, 1);
+        Assert.Equal(5, all.UsedPercent, 1);
     }
 }
 

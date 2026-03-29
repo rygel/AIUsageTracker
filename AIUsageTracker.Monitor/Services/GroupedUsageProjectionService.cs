@@ -81,8 +81,10 @@ public static class GroupedUsageProjectionService
 
     private static ProviderUsage SelectPrimaryUsage(IEnumerable<ProviderUsage> group, string canonicalProviderId)
     {
-        return group.FirstOrDefault(usage =>
-                string.Equals(usage.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase))
+        return group
+                .Where(usage => string.Equals(usage.ProviderId, canonicalProviderId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(usage => usage.FetchedAt)
+                .FirstOrDefault()
             ?? group
                 .OrderByDescending(usage => usage.FetchedAt)
                 .First();
