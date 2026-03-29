@@ -83,7 +83,7 @@ public class GroupedUsageDisplayAdapterTests
     [Fact]
     public void Expand_CodexSnapshot_CreatesSparkFlatCard_WhenModelIdIsSpark()
     {
-        // Codex uses FlatWindowCards; flat card ProviderId = parent ProviderId, CardId = modelId.
+        // When the snapshot already has Models populated, each model becomes a flat card.
         // ModelId = "spark" produces a card with ProviderId = "codex", CardId = "spark"
         // with PeriodDuration from the matched QuotaWindow.
         var snapshot = new AgentGroupedUsageSnapshot
@@ -384,7 +384,7 @@ public class GroupedUsageDisplayAdapterTests
     [Fact]
     public void Expand_CodexSnapshot_CreatesFlatCardPerModel_KeyedByModelId()
     {
-        // Flat card ProviderId = parent ProviderId, CardId = modelId.
+        // When Models are present, each becomes a flat card: ProviderId = parent, CardId = modelId.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]

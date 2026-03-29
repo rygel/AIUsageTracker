@@ -26,7 +26,7 @@ public class CodexProvider : ProviderBase
         {
             ["codex.spark"] = "OpenAI (GPT-5.3 Codex Spark)",
         },
-        FamilyMode = ProviderFamilyMode.FlatWindowCards,
+        FamilyMode = ProviderFamilyMode.VisibleDerivedProviders,
         DiscoveryEnvironmentVariables = new[] { "CODEX_API_KEY" },
         SettingsMode = ProviderSettingsMode.SessionAuthStatus,
         SessionStatusLabel = "OpenAI (Codex)",
@@ -562,6 +562,7 @@ public class CodexProvider : ProviderBase
                 CardId = "spark",
                 GroupId = this.ProviderId,
                 Name = "Spark",
+                WindowKind = WindowKind.ModelSpecific,
                 UsedPercent = sparkEffectiveUsed,
                 RequestsUsed = sparkEffectiveUsed,
                 RequestsAvailable = 100.0,
