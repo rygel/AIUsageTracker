@@ -117,8 +117,18 @@ public partial class MainWindow : Window
 
         foreach (var usage in usages)
         {
+            var providerId = usage.ProviderId ?? string.Empty;
+
+            // Derived child rows (e.g. "claude-code.sonnet") must never be marked inactive:
+            // they belong to a parent that is already active and should always be visible.
+            var isDerivedChild = !string.Equals(
+                providerId,
+                ProviderMetadataCatalog.GetCanonicalProviderId(providerId),
+                StringComparison.OrdinalIgnoreCase);
+
             // A provider is "inactive" if it has 0% usage, is available, and not errored
-            var isInactive = usage.IsAvailable
+            var isInactive = !isDerivedChild
+                             && usage.IsAvailable
                              && usage.UsedPercent <= 0
                              && usage.HttpStatus is 0 or 200;
 

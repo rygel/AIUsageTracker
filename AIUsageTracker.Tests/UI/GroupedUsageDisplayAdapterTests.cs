@@ -646,8 +646,10 @@ public class GroupedUsageDisplayAdapterTests
     }
 
     [Fact]
-    public void Expand_ClaudeCodeSnapshot_ProducesTwoChildRows_SonnetAndAllModels()
+    public void Expand_ClaudeCodeSnapshot_ProducesFlatWindowCards_NoParent()
     {
+        // Claude Code uses FlatWindowCards mode: every quota window becomes its own
+        // independent top-level card. No parent aggregate card, no child rows.
         var snapshot = new AgentGroupedUsageSnapshot
         {
             Providers = new[]
@@ -672,18 +674,26 @@ public class GroupedUsageDisplayAdapterTests
 
         var usages = GroupedUsageDisplayAdapter.Expand(snapshot);
 
-        // Parent + sonnet child + all-models child; current-session is NOT a visible derived row
+        // Three flat cards — no parent "claude-code" card
         Assert.Equal(3, usages.Count);
-        Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal));
-        Assert.Empty(usages.Where(u => string.Equals(u.ProviderId, "claude-code.current-session", StringComparison.Ordinal)));
+        Assert.Empty(usages.Where(u => string.Equals(u.ProviderId, "claude-code", StringComparison.Ordinal)));
 
-        var sonnet = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code.sonnet", StringComparison.Ordinal));
-        var all    = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code.all-models", StringComparison.Ordinal));
+        var currentSession = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code.current-session", StringComparison.Ordinal));
+        var sonnet         = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code.sonnet",         StringComparison.Ordinal));
+        var allModels      = Assert.Single(usages, u => string.Equals(u.ProviderId, "claude-code.all-models",     StringComparison.Ordinal));
 
-        Assert.Equal("Sonnet", sonnet.ProviderName);
-        Assert.Equal("All Models", all.ProviderName);
+        Assert.Equal("Current Session", currentSession.ProviderName);
+        Assert.Equal("Sonnet",          sonnet.ProviderName);
+        Assert.Equal("All Models",      allModels.ProviderName);
+
+        Assert.Equal(3, currentSession.UsedPercent, 1);
         Assert.Equal(2, sonnet.UsedPercent, 1);
-        Assert.Equal(5, all.UsedPercent, 1);
+        Assert.Equal(5, allModels.UsedPercent, 1);
+
+        // PeriodDuration resolved from QuotaWindowDefinition via ChildProviderId
+        Assert.Equal(TimeSpan.FromHours(5), currentSession.PeriodDuration);  // Burst: 5h
+        Assert.Equal(TimeSpan.FromDays(7),  sonnet.PeriodDuration);          // ModelSpecific: 7d
+        Assert.Equal(TimeSpan.FromDays(7),  allModels.PeriodDuration);       // Rolling: 7d
     }
 }
 
